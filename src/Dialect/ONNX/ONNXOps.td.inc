@@ -5,7 +5,7 @@
 //********************************************************
 
 def ONNXAbsOp:ONNX_Op<"Abs",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Abs operation";
   let description = [{
   Absolute takes one input data (Tensor<T>) and produces one output data
@@ -38,7 +38,7 @@ def ONNXAbsOp:ONNX_Op<"Abs",
 }
 
 def ONNXAcosOp:ONNX_Op<"Acos",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Acos operation";
   let description = [{
   Calculates the arccosine (inverse of cosine) of the given input tensor, element-wise.
@@ -59,7 +59,7 @@ def ONNXAcosOp:ONNX_Op<"Acos",
 }
 
 def ONNXAcoshOp:ONNX_Op<"Acosh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Acosh operation";
   let description = [{
   Calculates the hyperbolic arccosine of the given input tensor element-wise.
@@ -80,7 +80,7 @@ def ONNXAcoshOp:ONNX_Op<"Acosh",
 }
 
 def ONNXAddOp:ONNX_Op<"Add",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Add operation";
   let description = [{
@@ -124,11 +124,10 @@ def ONNXAddOp:ONNX_Op<"Add",
         return {20};
       }
     }];
-    let hasVerifier = 1;
 }
 
 def ONNXAndOp:ONNX_Op<"And",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX And operation";
   let description = [{
   Returns the tensor resulted from performing the `and` logical operation
@@ -170,11 +169,10 @@ def ONNXAndOp:ONNX_Op<"And",
         return {0};
       }
     }];
-    let hasVerifier = 1;
 }
 
 def ONNXArgMaxOp:ONNX_Op<"ArgMax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ArgMax operation";
   let description = [{
   Computes the indices of the max elements of the input tensor's element along the
@@ -205,7 +203,7 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
 }
 
 def ONNXArgMinOp:ONNX_Op<"ArgMin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ArgMin operation";
   let description = [{
   Computes the indices of the min elements of the input tensor's element along the
@@ -236,7 +234,7 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
 }
 
 def ONNXAsinOp:ONNX_Op<"Asin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Asin operation";
   let description = [{
   Calculates the arcsine (inverse of sine) of the given input tensor, element-wise.
@@ -257,7 +255,7 @@ def ONNXAsinOp:ONNX_Op<"Asin",
 }
 
 def ONNXAsinhOp:ONNX_Op<"Asinh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Asinh operation";
   let description = [{
   Calculates the hyperbolic arcsine of the given input tensor element-wise.
@@ -278,7 +276,7 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
 }
 
 def ONNXAtanOp:ONNX_Op<"Atan",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Atan operation";
   let description = [{
   Calculates the arctangent (inverse of tangent) of the given input tensor, element-wise.
@@ -299,7 +297,7 @@ def ONNXAtanOp:ONNX_Op<"Atan",
 }
 
 def ONNXAtanhOp:ONNX_Op<"Atanh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Atanh operation";
   let description = [{
   Calculates the hyperbolic arctangent of the given input tensor element-wise.
@@ -320,7 +318,7 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
 }
 
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX AveragePool operation";
   let description = [{
   AveragePool consumes an input tensor X and applies average pooling across
@@ -376,7 +374,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
 }
 
 def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BatchNormalization operation";
   let description = [{
   Carries out batch normalization as described in the paper
@@ -446,7 +444,7 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
 }
 
 def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Bernoulli operation";
   let description = [{
   Draws binary random numbers (0 or 1) from a Bernoulli distribution. The input tensor should be a tensor
@@ -474,7 +472,7 @@ def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
 }
 
 def ONNXBitShiftOp:ONNX_Op<"BitShift",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BitShift operation";
   let description = [{
   Bitwise shift operator performs element-wise operation. For each input element, if the
@@ -505,34 +503,10 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
       return {20};
     }
   }];
-  let hasVerifier = 1;
-}
-
-def ONNXBlackmanWindowOp:ONNX_Op<"BlackmanWindow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX BlackmanWindow operation";
-  let description = [{
-  Generates a Blackman window as described in the paper https://ieeexplore.ieee.org/document/1455106.
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$size,
-    DefaultValuedAttr<SI64Attr, "1">:$output_datatype,
-    DefaultValuedAttr<SI64Attr, "1">:$periodic);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {-1};
-    }
-  }];
 }
 
 def ONNXCastOp:ONNX_Op<"Cast",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Cast operation";
   let description = [{
@@ -584,7 +558,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
 }
 
 def ONNXCastLikeOp:ONNX_Op<"CastLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX CastLike operation";
   let description = [{
   The operator casts the elements of a given input tensor (the first input) to
@@ -608,7 +582,7 @@ def ONNXCastLikeOp:ONNX_Op<"CastLike",
 }
 
 def ONNXCeilOp:ONNX_Op<"Ceil",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Ceil operation";
   let description = [{
   Ceil takes one input data (Tensor<T>) and produces one output data
@@ -631,7 +605,7 @@ def ONNXCeilOp:ONNX_Op<"Ceil",
 }
 
 def ONNXCeluOp:ONNX_Op<"Celu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Celu operation";
   let description = [{
   Continuously Differentiable Exponential Linear Units:
@@ -659,7 +633,7 @@ def ONNXCeluOp:ONNX_Op<"Celu",
 }
 
 def ONNXClipOp:ONNX_Op<"Clip",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -684,7 +658,7 @@ def ONNXClipOp:ONNX_Op<"Clip",
 }
 
 def ONNXClipV12Op:ONNX_Op<"ClipV12",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -709,7 +683,7 @@ def ONNXClipV12Op:ONNX_Op<"ClipV12",
 }
 
 def ONNXClipV11Op:ONNX_Op<"ClipV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -734,7 +708,7 @@ def ONNXClipV11Op:ONNX_Op<"ClipV11",
 }
 
 def ONNXClipV6Op:ONNX_Op<"ClipV6",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -759,7 +733,7 @@ def ONNXClipV6Op:ONNX_Op<"ClipV6",
 }
 
 def ONNXCompressOp:ONNX_Op<"Compress",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Compress operation";
   let description = [{
   Selects slices from an input tensor along a given axis where condition evaluates to True for each axis index.
@@ -786,7 +760,7 @@ def ONNXCompressOp:ONNX_Op<"Compress",
 }
 
 def ONNXConcatOp:ONNX_Op<"Concat",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Concat operation";
   let description = [{
   Concatenate a list of tensors into a single tensor. All input tensors must have the same shape, except for the dimension size of the axis to concatenate on.
@@ -809,7 +783,7 @@ def ONNXConcatOp:ONNX_Op<"Concat",
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ConcatFromSequence operation";
   let description = [{
   Concatenate a sequence of tensors into a single tensor.
@@ -836,7 +810,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Constant operation";
   let description = [{
@@ -888,7 +862,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX ConstantOfShape operation";
   let description = [{
   Generate a tensor with given value and shape.
@@ -922,7 +896,7 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
 }
 
 def ONNXConvOp:ONNX_Op<"Conv",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Conv operation";
   let description = [{
   The convolution operator consumes an input tensor and a filter, and
@@ -953,7 +927,7 @@ def ONNXConvOp:ONNX_Op<"Conv",
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ConvInteger operation";
   let description = [{
   The integer convolution operator consumes an input tensor, its zero-point, a filter, and its zero-point,
@@ -984,7 +958,7 @@ def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
 }
 
 def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ConvTranspose operation";
   let description = [{
   The convolution transpose operator consumes an input tensor and a filter,
@@ -1028,7 +1002,7 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
 }
 
 def ONNXCosOp:ONNX_Op<"Cos",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Cos operation";
   let description = [{
   Calculates the cosine of the given input tensor, element-wise.
@@ -1049,7 +1023,7 @@ def ONNXCosOp:ONNX_Op<"Cos",
 }
 
 def ONNXCoshOp:ONNX_Op<"Cosh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Cosh operation";
   let description = [{
   Calculates the hyperbolic cosine of the given input tensor element-wise.
@@ -1070,7 +1044,7 @@ def ONNXCoshOp:ONNX_Op<"Cosh",
 }
 
 def ONNXCumSumOp:ONNX_Op<"CumSum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX CumSum operation";
   let description = [{
   Performs cumulative sum of the input elements along the given axis.
@@ -1112,33 +1086,8 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
   }];
 }
 
-def ONNXDFTOp:ONNX_Op<"DFT",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX DFT operation";
-  let description = [{
-  Computes the discrete Fourier transform of input.
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input,
-    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, NoneType]>:$dft_length,
-    DefaultValuedAttr<SI64Attr, "1">:$axis,
-    DefaultValuedAttr<SI64Attr, "0">:$inverse,
-    DefaultValuedAttr<SI64Attr, "0">:$onesided);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 2;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
-}
-
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX DepthToSpace operation";
   let description = [{
@@ -1189,7 +1138,7 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
 }
 
 def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX DequantizeLinear operation";
   let description = [{
   The linear dequantization operator. It consumes a quantized tensor, a scale, and a zero point to compute the full precision tensor.
@@ -1218,7 +1167,7 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
 }
 
 def ONNXDetOp:ONNX_Op<"Det",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Det operation";
   let description = [{
   Det calculates determinant of a square matrix or batches of square matrices.
@@ -1243,7 +1192,7 @@ def ONNXDetOp:ONNX_Op<"Det",
 }
 
 def ONNXDivOp:ONNX_Op<"Div",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Div operation";
   let description = [{
   Performs element-wise binary division (with Numpy-style broadcasting support).
@@ -1286,11 +1235,10 @@ def ONNXDivOp:ONNX_Op<"Div",
         return {20};
       }
     }];
-    let hasVerifier = 1;
 }
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Dropout operation";
   let description = [{
@@ -1327,7 +1275,7 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
 }
 
 def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX DynamicQuantizeLinear operation";
   let description = [{
   A Function to fuse calculation for Scale, Zero Point and FP32->8Bit convertion of FP32 Input data.
@@ -1371,7 +1319,7 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
 }
 
 def ONNXEinsumOp:ONNX_Op<"Einsum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Einsum operation";
   let description = [{
   An einsum of the form ```term1, term2 -> output-term``` produces an output tensor using the following equation
@@ -1416,7 +1364,7 @@ def ONNXEinsumOp:ONNX_Op<"Einsum",
 }
 
 def ONNXEluOp:ONNX_Op<"Elu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Elu operation";
   let description = [{
   Elu takes one input data (Tensor<T>) and produces one output data
@@ -1441,7 +1389,7 @@ def ONNXEluOp:ONNX_Op<"Elu",
 }
 
 def ONNXEqualOp:ONNX_Op<"Equal",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Equal operation";
   let description = [{
   Returns the tensor resulted from performing the `equal` logical operation
@@ -1485,11 +1433,10 @@ def ONNXEqualOp:ONNX_Op<"Equal",
         return {0};
       }
     }];
-    let hasVerifier = 1;
 }
 
 def ONNXErfOp:ONNX_Op<"Erf",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Erf operation";
   let description = [{
   Computes the error function of the given input tensor element-wise.
@@ -1510,7 +1457,7 @@ def ONNXErfOp:ONNX_Op<"Erf",
 }
 
 def ONNXExpOp:ONNX_Op<"Exp",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Exp operation";
   let description = [{
   Calculates the exponential of the given input tensor, element-wise.
@@ -1541,7 +1488,7 @@ def ONNXExpOp:ONNX_Op<"Exp",
 }
 
 def ONNXExpandOp:ONNX_Op<"Expand",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Expand operation";
   let description = [{
   Broadcast the input tensor following the given shape and the broadcast rule.
@@ -1571,7 +1518,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX EyeLike operation";
   let description = [{
   Generate a 2D tensor (matrix) with ones on the diagonal and zeros everywhere else. Only 2D
@@ -1600,7 +1547,7 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
 }
 
 def ONNXFlattenOp:ONNX_Op<"Flatten",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Flatten operation";
   let description = [{
   Flattens the input tensor into a 2D matrix. If input tensor has shape
@@ -1625,7 +1572,7 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
 }
 
 def ONNXFloorOp:ONNX_Op<"Floor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Floor operation";
   let description = [{
   Floor takes one input data (Tensor<T>) and produces one output data
@@ -1648,7 +1595,7 @@ def ONNXFloorOp:ONNX_Op<"Floor",
 }
 
 def ONNXGRUOp:ONNX_Op<"GRU",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX GRU operation";
   let description = [{
@@ -1756,7 +1703,7 @@ def ONNXGRUOp:ONNX_Op<"GRU",
 }
 
 def ONNXGatherOp:ONNX_Op<"Gather",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Gather operation";
   let description = [{
   Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather
@@ -1834,7 +1781,7 @@ def ONNXGatherOp:ONNX_Op<"Gather",
 }
 
 def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GatherElements operation";
   let description = [{
   GatherElements takes two inputs `data` and `indices` of the same rank r >= 1
@@ -1908,7 +1855,7 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
 }
 
 def ONNXGatherNDOp:ONNX_Op<"GatherND",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GatherND operation";
   let description = [{
   Given `data` tensor of rank `r` >= 1, `indices` tensor of rank `q` >= 1, and `batch_dims` integer `b`, this operator gathers
@@ -2022,7 +1969,7 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
 }
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Gemm operation";
   let description = [{
   General Matrix multiplication:
@@ -2061,7 +2008,7 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
 }
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX GlobalAveragePool operation";
   let description = [{
@@ -2085,7 +2032,7 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
 }
 
 def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GlobalLpPool operation";
   let description = [{
   GlobalLpPool consumes an input tensor X and applies lp pool pooling across
@@ -2109,7 +2056,7 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
 }
 
 def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX GlobalMaxPool operation";
   let description = [{
@@ -2133,7 +2080,7 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
 }
 
 def ONNXGreaterOp:ONNX_Op<"Greater",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Greater operation";
   let description = [{
   Returns the tensor resulted from performing the `greater` logical operation
@@ -2177,11 +2124,10 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
         return {0};
       }
     }];
-    let hasVerifier = 1;
 }
 
 def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GreaterOrEqual operation";
   let description = [{
   Returns the tensor resulted from performing the `greater_equal` logical operation
@@ -2203,11 +2149,10 @@ def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
       return {0};
     }
   }];
-  let hasVerifier = 1;
 }
 
 def ONNXGridSampleOp:ONNX_Op<"GridSample",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GridSample operation";
   let description = [{
   Given an `input` and a flow-field `grid`, computes the `output` using `input` values and pixel locations from `grid`.
@@ -2238,54 +2183,8 @@ def ONNXGridSampleOp:ONNX_Op<"GridSample",
   }];
 }
 
-def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX HammingWindow operation";
-  let description = [{
-  Generates a Hamming window as described in the paper https://ieeexplore.ieee.org/document/1455106.
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$size,
-    DefaultValuedAttr<SI64Attr, "1">:$output_datatype,
-    DefaultValuedAttr<SI64Attr, "1">:$periodic);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {-1};
-    }
-  }];
-}
-
-def ONNXHannWindowOp:ONNX_Op<"HannWindow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX HannWindow operation";
-  let description = [{
-  Generates a Hann window as described in the paper https://ieeexplore.ieee.org/document/1455106.
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$size,
-    DefaultValuedAttr<SI64Attr, "1">:$output_datatype,
-    DefaultValuedAttr<SI64Attr, "1">:$periodic);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {-1};
-    }
-  }];
-}
-
 def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX HardSigmoid operation";
   let description = [{
   HardSigmoid takes one input data (Tensor<T>) and produces one output data
@@ -2310,7 +2209,7 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
 }
 
 def ONNXHardSwishOp:ONNX_Op<"HardSwish",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX HardSwish operation";
   let description = [{
   HardSwish takes one input data (Tensor<T>) and produces one output data (Tensor<T>) where
@@ -2333,7 +2232,7 @@ def ONNXHardSwishOp:ONNX_Op<"HardSwish",
 }
 
 def ONNXHardmaxOp:ONNX_Op<"Hardmax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Hardmax operation";
   let description = [{
   The operator computes the hardmax values for the given input:
@@ -2362,7 +2261,7 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
 }
 
 def ONNXIdentityOp:ONNX_Op<"Identity",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Identity operation";
   let description = [{
@@ -2394,7 +2293,7 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
 }
 
 def ONNXIfOp:ONNX_Op<"If",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX If operation";
   let description = [{
   If conditional
@@ -2423,7 +2322,7 @@ def ONNXIfOp:ONNX_Op<"If",
 }
 
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX InstanceNormalization operation";
   let description = [{
   Carries out instance normalization as described in the paper
@@ -2453,7 +2352,7 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
 }
 
 def ONNXIsInfOp:ONNX_Op<"IsInf",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX IsInf operation";
   let description = [{
   Map infinity to true and other values to false.
@@ -2476,7 +2375,7 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
 }
 
 def ONNXIsNaNOp:ONNX_Op<"IsNaN",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX IsNaN operation";
   let description = [{
   Returns which elements of the input are NaN.
@@ -2497,7 +2396,7 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
 }
 
 def ONNXLRNOp:ONNX_Op<"LRN",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LRN operation";
   let description = [{
   Local Response Normalization proposed in the [AlexNet paper](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf).
@@ -2531,7 +2430,7 @@ def ONNXLRNOp:ONNX_Op<"LRN",
 }
 
 def ONNXLSTMOp:ONNX_Op<"LSTM",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX LSTM operation";
   let description = [{
@@ -2649,74 +2548,8 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
   }];
 }
 
-def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX LayerNormalization operation";
-  let description = [{
-  This is layer normalization defined in ONNX as function.
-        The overall computation can be split into two stages.
-        The first stage is standardization, which makes the
-        normalized elements have zero mean and unit variances.
-        The computation required by standardization can be
-        described by the following equations.
-        ```
-        Mean = ReduceMean<axes=normalized_axes>(X)
-        D = Sub(X, Mean)
-        DD = Mul(Diff, Diff)
-        Var = ReduceMean<axes=normalized_axes>(DD)
-        VarEps = Add(Var, epsilon)
-        StdDev = Sqrt(VarEps)
-        InvStdDev = Reciprocal(StdDev)
-        Normalized = Mul(D, InvStdDev)
-        ```
-        where `normalized_axes` is `[axis, ..., rank of X - 1]`.
-        The variables `Var` and `StdDev` stand for variance and
-        standard deviation, respectively. The second output is
-        `Mean` and the last one is `InvStdDev`.
-        Depending on `stash_type` attribute, the actual computation
-        must happen in different floating-point precision.
-        For example, if `stash_type` is 1, this operator casts
-        all input variables to 32-bit float, perform the computation, and
-        finally cast `Normalized` back to the original type of `X`.
-        The second stage then scales and shifts the outcome of the
-        first stage using
-        ```
-        NormalizedScaled = Mul(Normalized, Scale)
-        Y = Add(NormalizedScaled, B)
-        ```
-        The second stage doesn't depends on `stash_type`.
-        All equations are in [this syntax](https://github.com/onnx/onnx/blob/main/docs/Syntax.md).
-        The same variable (i.e., input, output, and attribute) uses
-        the same name in the equations above and this operator's definition.
-        Let `d[i]` indicate the i-th dimension of `X`.
-        If `X`'s shape is `[d[0], ..., d[axis-1], d[axis], ..., d[rank-1]]`,
-        the shape of `Mean` and `InvStdDev` is `[d[0], ..., d[axis-1], 1, ..., 1]`.
-        `Y` and `X` have the same shape.
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Scale,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$B,
-    DefaultValuedAttr<SI64Attr, "-1">:$axis,
-    DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
-    DefaultValuedAttr<SI64Attr, "1">:$stash_type);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y,
-    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, NoneType]>:$Mean,
-    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, NoneType]>:$InvStdDev);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 3;
-    }
-    static int getNumberOfResults() {
-      return 3;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20,-1,-1};
-    }
-  }];
-}
-
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LeakyRelu operation";
   let description = [{
   LeakyRelu takes input data (Tensor<T>) and an argument alpha, and produces one
@@ -2743,7 +2576,7 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
 }
 
 def ONNXLessOp:ONNX_Op<"Less",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Less operation";
   let description = [{
@@ -2788,11 +2621,10 @@ def ONNXLessOp:ONNX_Op<"Less",
         return {0};
       }
     }];
-    let hasVerifier = 1;
 }
 
 def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LessOrEqual operation";
   let description = [{
   Returns the tensor resulted from performing the `less_equal` logical operation
@@ -2814,11 +2646,10 @@ def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
       return {0};
     }
   }];
-  let hasVerifier = 1;
 }
 
 def ONNXLogOp:ONNX_Op<"Log",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Log operation";
   let description = [{
   Calculates the natural log of the given input tensor, element-wise.
@@ -2839,7 +2670,7 @@ def ONNXLogOp:ONNX_Op<"Log",
 }
 
 def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LogSoftmax operation";
   let description = [{
   The operator computes the log of softmax values for the given input:
@@ -2868,7 +2699,7 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Loop operation";
   let description = [{
@@ -3034,7 +2865,7 @@ def ONNXLoopOp:ONNX_Op<"Loop",
 }
 
 def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LpNormalization operation";
   let description = [{
   Given a matrix, apply Lp-normalization along the provided axis.
@@ -3057,7 +2888,7 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
 }
 
 def ONNXLpPoolOp:ONNX_Op<"LpPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LpPool operation";
   let description = [{
   LpPool consumes an input tensor X and applies Lp pooling across
@@ -3087,7 +2918,7 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
 }
 
 def ONNXMatMulOp:ONNX_Op<"MatMul",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MatMul operation";
   let description = [{
   Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html
@@ -3109,7 +2940,7 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
 }
 
 def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MatMulInteger operation";
   let description = [{
   Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html.
@@ -3134,7 +2965,7 @@ def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
 }
 
 def ONNXMaxOp:ONNX_Op<"Max",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Max operation";
   let description = [{
   Element-wise max of each of the input tensors (with Numpy-style broadcasting support).
@@ -3154,11 +2985,10 @@ def ONNXMaxOp:ONNX_Op<"Max",
       return {20};
     }
   }];
-  let hasVerifier = 1;
 }
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MaxPool operation";
   let description = [{
   MaxPool consumes an input tensor X and applies max pooling across
@@ -3215,7 +3045,7 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
 }
 
 def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MaxRoiPool operation";
   let description = [{
   ROI max pool consumes an input tensor X and region of interests (RoIs) to
@@ -3241,7 +3071,7 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
 }
 
 def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MaxUnpool operation";
   let description = [{
   MaxUnpool essentially computes the partial inverse of the MaxPool op.
@@ -3284,7 +3114,7 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
 }
 
 def ONNXMeanOp:ONNX_Op<"Mean",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Mean operation";
   let description = [{
   Element-wise mean of each of the input tensors (with Numpy-style broadcasting support).
@@ -3304,11 +3134,10 @@ def ONNXMeanOp:ONNX_Op<"Mean",
       return {20};
     }
   }];
-  let hasVerifier = 1;
 }
 
 def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MeanVarianceNormalization operation";
   let description = [{
   A MeanVarianceNormalization Function: Perform mean variance normalization
@@ -3330,41 +3159,8 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
   }];
 }
 
-def ONNXMelWeightMatrixOp:ONNX_Op<"MelWeightMatrix",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX MelWeightMatrix operation";
-  let description = [{
-  Generate a MelWeightMatrix that can be used to re-weight a Tensor containing a linearly sampled frequency spectra (from DFT or STFT) into num_mel_bins frequency information based on the [lower_edge_hertz, upper_edge_hertz] range on the mel scale.
-  This function defines the mel scale in terms of a frequency in hertz according to the following formula:
-
-      mel(f) = 2595 * log10(1 + f/700)
-
-  In the returned matrix, all the triangles (filterbanks) have a peak value of 1.0.
-
-  The returned MelWeightMatrix can be used to right-multiply a spectrogram S of shape [frames, num_spectrogram_bins] of linear scale spectrum values (e.g. STFT magnitudes) to generate a \"mel spectrogram\" M of shape [frames, num_mel_bins].
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$num_mel_bins,
-    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$dft_length,
-    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$sample_rate,
-    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$lower_edge_hertz,
-    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$upper_edge_hertz,
-    DefaultValuedAttr<SI64Attr, "1">:$output_datatype);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 5;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {-1};
-    }
-  }];
-}
-
 def ONNXMinOp:ONNX_Op<"Min",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Min operation";
   let description = [{
   Element-wise min of each of the input tensors (with Numpy-style broadcasting support).
@@ -3384,11 +3180,10 @@ def ONNXMinOp:ONNX_Op<"Min",
       return {20};
     }
   }];
-  let hasVerifier = 1;
 }
 
 def ONNXModOp:ONNX_Op<"Mod",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Mod operation";
   let description = [{
   Performs element-wise binary modulus (with Numpy-style broadcasting support).
@@ -3424,7 +3219,7 @@ def ONNXModOp:ONNX_Op<"Mod",
 }
 
 def ONNXMulOp:ONNX_Op<"Mul",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Mul operation";
   let description = [{
@@ -3468,11 +3263,10 @@ def ONNXMulOp:ONNX_Op<"Mul",
         return {20};
       }
     }];
-    let hasVerifier = 1;
 }
 
 def ONNXMultinomialOp:ONNX_Op<"Multinomial",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Multinomial operation";
   let description = [{
   Generate a tensor of samples from a multinomial distribution according to the probabilities
@@ -3497,7 +3291,7 @@ def ONNXMultinomialOp:ONNX_Op<"Multinomial",
 }
 
 def ONNXNegOp:ONNX_Op<"Neg",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Neg operation";
   let description = [{
   Neg takes one input data (Tensor<T>) and produces one output data
@@ -3530,7 +3324,7 @@ def ONNXNegOp:ONNX_Op<"Neg",
 }
 
 def ONNXNegativeLogLikelihoodLossOp:ONNX_Op<"NegativeLogLikelihoodLoss",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX NegativeLogLikelihoodLoss operation";
   let description = [{
   A NegativeLogLikelihoodLoss operator computes (weighted) negative log likelihood loss.
@@ -3640,7 +3434,7 @@ def ONNXNegativeLogLikelihoodLossOp:ONNX_Op<"NegativeLogLikelihoodLoss",
 }
 
 def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX NonMaxSuppression operation";
   let description = [{
   Filter out boxes that have high intersection-over-union (IOU) overlap with previously selected boxes.
@@ -3673,7 +3467,7 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
 }
 
 def ONNXNonZeroOp:ONNX_Op<"NonZero",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX NonZero operation";
   let description = [{
   Returns the indices of the elements that are non-zero
@@ -3698,7 +3492,7 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
 }
 
 def ONNXNotOp:ONNX_Op<"Not",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Not operation";
   let description = [{
   Returns the negation of the input tensor element-wise.
@@ -3719,7 +3513,7 @@ def ONNXNotOp:ONNX_Op<"Not",
 }
 
 def ONNXOneHotOp:ONNX_Op<"OneHot",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX OneHot operation";
   let description = [{
   Produces a one-hot tensor based on inputs.
@@ -3762,7 +3556,7 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
 }
 
 def ONNXOptionalOp:ONNX_Op<"Optional",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Optional operation";
   let description = [{
   Constructs an optional-type value containing either an empty optional of a certain type specified by the attribute,
@@ -3786,7 +3580,7 @@ def ONNXOptionalOp:ONNX_Op<"Optional",
 }
 
 def ONNXOptionalGetElementOp:ONNX_Op<"OptionalGetElement",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX OptionalGetElement operation";
   let description = [{
   Outputs the element in the optional-type input. It is an error if the input value does not have an element
@@ -3809,7 +3603,7 @@ def ONNXOptionalGetElementOp:ONNX_Op<"OptionalGetElement",
 }
 
 def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX OptionalHasElement operation";
   let description = [{
   Returns true if the optional-type input contains an element. If it is an empty optional-type, this op returns false.
@@ -3831,7 +3625,7 @@ def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",
 }
 
 def ONNXOrOp:ONNX_Op<"Or",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Or operation";
   let description = [{
   Returns the tensor resulted from performing the `or` logical operation
@@ -3873,11 +3667,10 @@ def ONNXOrOp:ONNX_Op<"Or",
         return {0};
       }
     }];
-    let hasVerifier = 1;
 }
 
 def ONNXPReluOp:ONNX_Op<"PRelu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX PRelu operation";
   let description = [{
   PRelu takes input data (Tensor<T>) and slope tensor as input, and produces one
@@ -3906,7 +3699,7 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
 }
 
 def ONNXPadOp:ONNX_Op<"Pad",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Pad operation";
   let description = [{
   Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
@@ -4015,7 +3808,7 @@ def ONNXPadOp:ONNX_Op<"Pad",
 }
 
 def ONNXPadV11Op:ONNX_Op<"PadV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Pad operation";
   let description = [{
   Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
@@ -4113,7 +3906,7 @@ def ONNXPadV11Op:ONNX_Op<"PadV11",
 }
 
 def ONNXPadV2Op:ONNX_Op<"PadV2",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Pad operation";
   let description = [{
   Given `data` tensor, pads, mode, and value.
@@ -4152,7 +3945,7 @@ def ONNXPadV2Op:ONNX_Op<"PadV2",
 }
 
 def ONNXPowOp:ONNX_Op<"Pow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Pow operation";
   let description = [{
   Pow takes input data (Tensor<T>) and exponent Tensor, and
@@ -4198,7 +3991,7 @@ def ONNXPowOp:ONNX_Op<"Pow",
 }
 
 def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX QLinearConv operation";
   let description = [{
   The convolution operator consumes a quantized input tensor, its scale and zero point,
@@ -4239,7 +4032,7 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
 }
 
 def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX QLinearMatMul operation";
   let description = [{
   Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html.
@@ -4277,7 +4070,7 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
 }
 
 def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX QuantizeLinear operation";
   let description = [{
   The linear quantization operator. It consumes a high precision tensor, a scale, and a zero point to compute the low precision / quantized tensor.
@@ -4305,7 +4098,7 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
 }
 
 def ONNXRNNOp:ONNX_Op<"RNN",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX RNN operation";
   let description = [{
@@ -4400,7 +4193,7 @@ def ONNXRNNOp:ONNX_Op<"RNN",
 }
 
 def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX RandomNormal operation";
   let description = [{
   Generate a tensor with random values drawn from a normal distribution. The shape
@@ -4431,7 +4224,7 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
 }
 
 def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX RandomNormalLike operation";
   let description = [{
   Generate a tensor with random values drawn from a normal distribution.
@@ -4463,7 +4256,7 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX RandomUniform operation";
   let description = [{
   Generate a tensor with random values drawn from a uniform distribution. The shape
@@ -4493,7 +4286,7 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
 }
 
 def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX RandomUniformLike operation";
   let description = [{
   Generate a tensor with random values drawn from a uniform distribution.
@@ -4524,7 +4317,7 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
 }
 
 def ONNXRangeOp:ONNX_Op<"Range",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Range operation";
   let description = [{
   Generate a tensor containing a sequence of numbers that begin at `start` and extends by increments of `delta`
@@ -4571,7 +4364,7 @@ def ONNXRangeOp:ONNX_Op<"Range",
 }
 
 def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Reciprocal operation";
   let description = [{
   Reciprocal takes one input data (Tensor<T>) and produces one output data
@@ -4594,7 +4387,7 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
 }
 
 def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceL1 operation";
   let description = [{
   Computes the L1 norm of the input tensor's element along the provided axes. The resulting
@@ -4622,7 +4415,7 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
 }
 
 def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceL2 operation";
   let description = [{
   Computes the L2 norm of the input tensor's element along the provided axes. The resulting
@@ -4650,7 +4443,7 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
 }
 
 def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceLogSum operation";
   let description = [{
   Computes the log sum of the input tensor's element along the provided axes. The resulting
@@ -4688,7 +4481,7 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
 }
 
 def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceLogSumExp operation";
   let description = [{
   Computes the log sum exponent of the input tensor's element along the provided axes. The resulting
@@ -4716,7 +4509,7 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
 }
 
 def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceMax operation";
   let description = [{
   Computes the max of the input tensor's element along the provided axes. The resulting
@@ -4754,7 +4547,7 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceMean operation";
   let description = [{
   Computes the mean of the input tensor's element along the provided axes. The resulting
@@ -4782,7 +4575,7 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
 }
 
 def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceMin operation";
   let description = [{
   Computes the min of the input tensor's element along the provided axes. The resulting
@@ -4810,7 +4603,7 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
 }
 
 def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceProd operation";
   let description = [{
   Computes the product of the input tensor's element along the provided axes. The resulting
@@ -4838,7 +4631,7 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
 }
 
 def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceSum operation";
   let description = [{
   Computes the sum of the input tensor's element along the provided axes. The resulting
@@ -4877,7 +4670,7 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
 }
 
 def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceSum operation";
   let description = [{
   Computes the sum of the input tensor's element along the provided axes. The resulting
@@ -4915,7 +4708,7 @@ def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
 }
 
 def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceSumSquare operation";
   let description = [{
   Computes the sum square of the input tensor's element along the provided axes. The resulting
@@ -4953,7 +4746,7 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
 }
 
 def ONNXReluOp:ONNX_Op<"Relu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Relu operation";
   let description = [{
   Relu takes one input data (Tensor<T>) and produces one output data
@@ -4976,7 +4769,7 @@ def ONNXReluOp:ONNX_Op<"Relu",
 }
 
 def ONNXReshapeOp:ONNX_Op<"Reshape",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Reshape operation";
   let description = [{
@@ -5008,7 +4801,7 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
 }
 
 def ONNXResizeOp:ONNX_Op<"Resize",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
@@ -5040,7 +4833,7 @@ def ONNXResizeOp:ONNX_Op<"Resize",
 }
 
 def ONNXResizeV11Op:ONNX_Op<"ResizeV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
@@ -5072,7 +4865,7 @@ def ONNXResizeV11Op:ONNX_Op<"ResizeV11",
 }
 
 def ONNXResizeV10Op:ONNX_Op<"ResizeV10",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor.
@@ -5097,7 +4890,7 @@ def ONNXResizeV10Op:ONNX_Op<"ResizeV10",
 }
 
 def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReverseSequence operation";
   let description = [{
   Reverse batch of sequences having different lengths specified by `sequence_lens`.
@@ -5154,7 +4947,7 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
 }
 
 def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX RoiAlign operation";
   let description = [{
   Region of Interest (RoI) align operation described in the
@@ -5194,7 +4987,7 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Round operation";
   let description = [{
   Round takes one input Tensor and rounds the values, element-wise, meaning
@@ -5226,33 +5019,8 @@ def ONNXRoundOp:ONNX_Op<"Round",
   }];
 }
 
-def ONNXSTFTOp:ONNX_Op<"STFT",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX STFT operation";
-  let description = [{
-  Computes the Short-time Fourier Transform of the signal.
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$signal,
-    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$frame_step,
-    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$window,
-    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, NoneType]>:$frame_length,
-    DefaultValuedAttr<SI64Attr, "1">:$onesided);
-  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 4;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
-}
-
 def ONNXScanOp:ONNX_Op<"Scan",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX Scan operation";
   let description = [{
   Scan can be used to iterate over one or more scan_input tensors,
@@ -5408,7 +5176,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
 }
 
 def ONNXScatterOp:ONNX_Op<"Scatter",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Scatter operation";
   let description = [{
   This operator is deprecated. Please use ScatterElements, which provides the same functionality.
@@ -5484,7 +5252,7 @@ def ONNXScatterOp:ONNX_Op<"Scatter",
 }
 
 def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ScatterElements operation";
   let description = [{
   ScatterElements takes three inputs `data`, `updates`, and `indices` of the same
@@ -5573,7 +5341,7 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
 }
 
 def ONNXScatterNDOp:ONNX_Op<"ScatterND",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ScatterND operation";
   let description = [{
   ScatterND takes three inputs `data` tensor of rank r >= 1, `indices` tensor of rank q >= 1,
@@ -5671,7 +5439,7 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
 }
 
 def ONNXSeluOp:ONNX_Op<"Selu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Selu operation";
   let description = [{
   Selu takes one input data (Tensor<T>) and produces one output data
@@ -5697,7 +5465,7 @@ def ONNXSeluOp:ONNX_Op<"Selu",
 }
 
 def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceAt operation";
   let description = [{
   Outputs a tensor copy from the tensor at 'position' in 'input_sequence'.
@@ -5721,7 +5489,7 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
 }
 
 def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceConstruct operation";
   let description = [{
   Construct a tensor sequence containing 'inputs' tensors.
@@ -5743,7 +5511,7 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
 }
 
 def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceEmpty operation";
   let description = [{
   Construct an empty tensor sequence, with given data type.
@@ -5765,7 +5533,7 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
 }
 
 def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceErase operation";
   let description = [{
   Outputs a tensor sequence that removes the tensor at 'position' from 'input_sequence'.
@@ -5790,7 +5558,7 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
 }
 
 def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceInsert operation";
   let description = [{
   Outputs a tensor sequence that inserts 'tensor' into 'input_sequence' at 'position'.
@@ -5818,7 +5586,7 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
 }
 
 def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceLength operation";
   let description = [{
   Produces a scalar(tensor of empty shape) containing the number of tensors in 'input_sequence'.
@@ -5838,48 +5606,8 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
   }];
 }
 
-def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
-  let summary = "ONNX SequenceMap operation";
-  let description = [{
-  Applies a sub-graph to each sample in the input sequence(s).
-
-  Inputs can be either tensors or sequences, with the exception of the first input which must
-  be a sequence. The length of the first input sequence will determine the number of samples in the
-  outputs. Any other sequence inputs should have the same number of samples. The number of inputs
-  and outputs, should match the one of the subgraph.
-
-  For each i-th element in the output, a sample will be extracted from the input sequence(s) at
-  the i-th position and the sub-graph will be applied to it.
-  The outputs will contain the outputs of the sub-graph for each sample, in the same order as in
-  the input.
-
-  This operator assumes that processing each sample is independent and could executed in parallel
-  or in any order. Users cannot expect any specific ordering in which each subgraph is computed.
-  }];
-  let arguments = (ins AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>:$input_sequence,
-    Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>>:$additional_inputs);
-  let results = (outs Variadic<AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>>:$out_sequence);
-  let regions = (region SizedRegion<1>:$body);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return -1;
-    }
-    static int getNumberOfResults() {
-      return -1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  int64_t getSubgraphRegionIdx(const std::string& name) {
-    if (name == "body") return 0;
-    llvm_unreachable("region with the specified name does not exist");
-  }
-  }];
-}
-
 def ONNXShapeOp:ONNX_Op<"Shape",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Shape operation";
   let description = [{
@@ -5932,7 +5660,7 @@ def ONNXShapeOp:ONNX_Op<"Shape",
 }
 
 def ONNXShrinkOp:ONNX_Op<"Shrink",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Shrink operation";
   let description = [{
   Shrink takes one input data (Tensor<numeric>) and produces one Tensor output,
@@ -5958,7 +5686,7 @@ def ONNXShrinkOp:ONNX_Op<"Shrink",
 }
 
 def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sigmoid operation";
   let description = [{
   Sigmoid takes one input data (Tensor<T>) and produces one output data
@@ -5981,7 +5709,7 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
 }
 
 def ONNXSignOp:ONNX_Op<"Sign",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sign operation";
   let description = [{
   Calculate the sign of the given input tensor element-wise.
@@ -6003,7 +5731,7 @@ def ONNXSignOp:ONNX_Op<"Sign",
 }
 
 def ONNXSinOp:ONNX_Op<"Sin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sin operation";
   let description = [{
   Calculates the sine of the given input tensor, element-wise.
@@ -6024,7 +5752,7 @@ def ONNXSinOp:ONNX_Op<"Sin",
 }
 
 def ONNXSinhOp:ONNX_Op<"Sinh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sinh operation";
   let description = [{
   Calculates the hyperbolic sine of the given input tensor element-wise.
@@ -6045,7 +5773,7 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
 }
 
 def ONNXSizeOp:ONNX_Op<"Size",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Size operation";
   let description = [{
@@ -6067,7 +5795,7 @@ def ONNXSizeOp:ONNX_Op<"Size",
 }
 
 def ONNXSliceOp:ONNX_Op<"Slice",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Slice operation";
   let description = [{
   Produces a slice of the input tensor along multiple axes. Similar to numpy:
@@ -6146,7 +5874,7 @@ def ONNXSliceOp:ONNX_Op<"Slice",
 }
 
 def ONNXSoftmaxOp:ONNX_Op<"Softmax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Softmax operation";
   let description = [{
   The operator computes the normalized exponential values for the given input:
@@ -6183,43 +5911,8 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
     }];
 }
 
-def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX Softmax operation";
-  let description = [{
-  The operator computes the softmax (normalized exponential) values for each layer in the batch
-   of the given input.
-
-  The input does not need to explicitly be a 2D vector; rather, it will be
-  coerced into one. For an arbitrary n-dimensional tensor
-  input \in [a_0, a_1, ..., a_{k-1}, a_k, ..., a_{n-1\}\] and k is
-  the axis provided, then input will be coerced into a 2-dimensional tensor with
-  dimensions [a_0 * ... * a_{k-1}, a_k * ... * a_{n-1\}\]. For the default
-  case where axis=1, this means the input tensor will be coerced into a 2D tensor
-  of dimensions [a_0, a_1 * ... * a_{n-1\}\], where a_0 is often the batch size.
-  In this situation, we must have a_0 = N and a_1 * ... * a_{n-1} = D.
-  Each of these dimensions must be matched correctly, or else the operator
-  will throw errors. The output tensor has the same shape
-  and contains the softmax values of the corresponding input.
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
-    DefaultValuedAttr<SI64Attr, "1">:$axis);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
-}
-
 def ONNXSoftmaxCrossEntropyLossOp:ONNX_Op<"SoftmaxCrossEntropyLoss",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SoftmaxCrossEntropyLoss operation";
   let description = [{
   Loss function that measures the softmax cross entropy
@@ -6275,7 +5968,7 @@ def ONNXSoftmaxCrossEntropyLossOp:ONNX_Op<"SoftmaxCrossEntropyLoss",
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Softplus operation";
   let description = [{
   Softplus takes one input data (Tensor<T>) and produces one output data
@@ -6298,7 +5991,7 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
 }
 
 def ONNXSoftsignOp:ONNX_Op<"Softsign",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Softsign operation";
   let description = [{
   Calculates the softsign (x/(1+|x|)) of the given input tensor element-wise.
@@ -6319,7 +6012,7 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
 }
 
 def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX SpaceToDepth operation";
   let description = [{
@@ -6345,7 +6038,7 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
 }
 
 def ONNXSplitOp:ONNX_Op<"Split",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Split operation";
   let description = [{
   Split a tensor into a list of tensors, along the specified
@@ -6381,7 +6074,7 @@ def ONNXSplitOp:ONNX_Op<"Split",
 }
 
 def ONNXSplitV11Op:ONNX_Op<"SplitV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Split operation";
   let description = [{
   Split a tensor into a list of tensors, along the specified
@@ -6406,7 +6099,7 @@ def ONNXSplitV11Op:ONNX_Op<"SplitV11",
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SplitToSequence operation";
   let description = [{
   Split a tensor into a sequence of tensors, along the specified
@@ -6440,7 +6133,7 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
 }
 
 def ONNXSqrtOp:ONNX_Op<"Sqrt",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sqrt operation";
   let description = [{
   Square root takes one input data (Tensor<T>) and produces one output data
@@ -6473,7 +6166,7 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
 }
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Squeeze operation";
   let description = [{
@@ -6499,7 +6192,7 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
 }
 
 def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Squeeze operation";
   let description = [{
@@ -6535,7 +6228,7 @@ def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
 }
 
 def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX StringNormalizer operation";
   let description = [{
   StringNormalization performs string operations for basic cleaning.
@@ -6568,7 +6261,7 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
 }
 
 def ONNXSubOp:ONNX_Op<"Sub",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sub operation";
   let description = [{
   Performs element-wise binary subtraction (with Numpy-style broadcasting support).
@@ -6611,11 +6304,10 @@ def ONNXSubOp:ONNX_Op<"Sub",
         return {20};
       }
     }];
-    let hasVerifier = 1;
 }
 
 def ONNXSumOp:ONNX_Op<"Sum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sum operation";
   let description = [{
   Element-wise sum of each of the input tensors (with Numpy-style broadcasting support).
@@ -6635,11 +6327,10 @@ def ONNXSumOp:ONNX_Op<"Sum",
       return {20};
     }
   }];
-  let hasVerifier = 1;
 }
 
 def ONNXTanOp:ONNX_Op<"Tan",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Tan operation";
   let description = [{
   Calculates the tangent of the given input tensor, element-wise.
@@ -6660,7 +6351,7 @@ def ONNXTanOp:ONNX_Op<"Tan",
 }
 
 def ONNXTanhOp:ONNX_Op<"Tanh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Tanh operation";
   let description = [{
   Calculates the hyperbolic tangent of the given input tensor element-wise.
@@ -6681,7 +6372,7 @@ def ONNXTanhOp:ONNX_Op<"Tanh",
 }
 
 def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX TfIdfVectorizer operation";
   let description = [{
   This transform extracts n-grams from the input sequence and save them as a vector. Input can
@@ -6737,7 +6428,7 @@ def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
 }
 
 def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ThresholdedRelu operation";
   let description = [{
   ThresholdedRelu takes one input data (Tensor<T>) and produces one output data
@@ -6761,7 +6452,7 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
 }
 
 def ONNXTileOp:ONNX_Op<"Tile",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Tile operation";
   let description = [{
   Constructs a tensor by tiling a given tensor.
@@ -6785,7 +6476,7 @@ def ONNXTileOp:ONNX_Op<"Tile",
 }
 
 def ONNXTopKOp:ONNX_Op<"TopK",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX TopK operation";
   let description = [{
   Retrieve the top-K largest or smallest elements along a specified axis. Given an input tensor of
@@ -6825,7 +6516,7 @@ def ONNXTopKOp:ONNX_Op<"TopK",
 }
 
 def ONNXTransposeOp:ONNX_Op<"Transpose",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Transpose operation";
   let description = [{
@@ -6850,7 +6541,7 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
 }
 
 def ONNXTriluOp:ONNX_Op<"Trilu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Trilu operation";
   let description = [{
   Given a 2-D matrix or batches of 2-D matrices, returns the upper or lower triangular part of the tensor(s).
@@ -6884,7 +6575,7 @@ def ONNXTriluOp:ONNX_Op<"Trilu",
 }
 
 def ONNXUniqueOp:ONNX_Op<"Unique",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Unique operation";
   let description = [{
   Find the unique elements of a tensor. When an optional attribute 'axis' is provided, unique subtensors sliced along the 'axis' are returned.
@@ -6985,7 +6676,7 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Unsqueeze operation";
   let description = [{
@@ -7019,7 +6710,7 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
 }
 
 def ONNXUnsqueezeV11Op:ONNX_Op<"UnsqueezeV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Unsqueeze operation";
   let description = [{
@@ -7063,7 +6754,7 @@ def ONNXUnsqueezeV11Op:ONNX_Op<"UnsqueezeV11",
 }
 
 def ONNXUpsampleOp:ONNX_Op<"Upsample",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Upsample operation";
   let description = [{
   Upsample the input tensor.
@@ -7088,8 +6779,33 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
   let hasVerifier = 1;
 }
 
+def ONNXUpsampleV9Op:ONNX_Op<"UpsampleV9",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX Upsample operation";
+  let description = [{
+  Upsample the input tensor.
+  Each dimension value of the output tensor is:
+    output_dimension = floor(input_dimension * scale).
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$X,
+    TensorOf<[F32]>:$scales,
+    DefaultValuedStrAttr<StrAttr, "nearest">:$mode);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
 def ONNXUpsampleV7Op:ONNX_Op<"UpsampleV7",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Upsample operation";
   let description = [{
   Upsample the input tensor.
@@ -7114,7 +6830,7 @@ def ONNXUpsampleV7Op:ONNX_Op<"UpsampleV7",
 }
 
 def ONNXWhereOp:ONNX_Op<"Where",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Where operation";
   let description = [{
   Return elements, either from X or Y, depending on condition.
@@ -7142,11 +6858,10 @@ def ONNXWhereOp:ONNX_Op<"Where",
       return {21};
     }
   }];
-  let hasVerifier = 1;
 }
 
 def ONNXXorOp:ONNX_Op<"Xor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Xor operation";
   let description = [{
   Returns the tensor resulted from performing the `xor` logical operation
@@ -7188,11 +6903,10 @@ def ONNXXorOp:ONNX_Op<"Xor",
         return {0};
       }
     }];
-    let hasVerifier = 1;
 }
 
 def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ArrayFeatureExtractor operation";
   let description = [{
   Select elements of the input tensor based on the indices passed.<br>
@@ -7215,7 +6929,7 @@ def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
 }
 
 def ONNXBinarizerOp:ONNX_Op<"Binarizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Binarizer operation";
   let description = [{
   Maps the values of the input tensor to either 0 or 1, element-wise, based on the outcome of a comparison against a threshold value.
@@ -7237,7 +6951,7 @@ def ONNXBinarizerOp:ONNX_Op<"Binarizer",
 }
 
 def ONNXCastMapOp:ONNX_Op<"CastMap",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX CastMap operation";
   let description = [{
   Converts a map to a tensor.<br>The map key must be an int64 and the values will be ordered
@@ -7263,7 +6977,7 @@ def ONNXCastMapOp:ONNX_Op<"CastMap",
 }
 
 def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX CategoryMapper operation";
   let description = [{
   Converts strings to integers and vice versa.<br>
@@ -7295,8 +7009,34 @@ def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
   let hasVerifier = 1;
 }
 
+def ONNXDictVectorizerOp:ONNX_Op<"DFT",
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX DFT operation";
+    let description = [{
+  Computes the discrete Fourier transform of input.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]> TensorOf<[BF16]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input,
+    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$dft_length,
+    DefaultValuedAttr<SI64Attr, "1">:$axis,
+    DefaultValuedAttr<SI64Attr, "0">:$inverse,
+    DefaultValuedAttr<SI64Attr, "0">:$onesided);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+}
+
 def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX DictVectorizer operation";
   let description = [{
   Uses an index mapping to convert a dictionary to an array.<br>
@@ -7330,7 +7070,7 @@ def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",
 }
 
 def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX FeatureVectorizer operation";
   let description = [{
   Concatenates input tensors into one continuous output.<br>
@@ -7355,7 +7095,7 @@ def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
 }
 
 def ONNXImputerOp:ONNX_Op<"Imputer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Imputer operation";
   let description = [{
   Replaces inputs that equal one value with another, leaving all other elements alone.<br>
@@ -7387,7 +7127,7 @@ def ONNXImputerOp:ONNX_Op<"Imputer",
 }
 
 def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LabelEncoder operation";
   let description = [{
   Maps each element in the input tensor to another value.<br>
@@ -7433,7 +7173,7 @@ def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
 }
 
 def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LinearClassifier operation";
   let description = [{
   Linear classifier
@@ -7461,7 +7201,7 @@ def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
 }
 
 def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LinearRegressor operation";
   let description = [{
   Generalized linear regression evaluation.<br>
@@ -7491,7 +7231,7 @@ def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
 }
 
 def ONNXNormalizerOp:ONNX_Op<"Normalizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Normalizer operation";
   let description = [{
   Normalize the input.  There are three normalization modes, which have the corresponding formulas,
@@ -7522,7 +7262,7 @@ def ONNXNormalizerOp:ONNX_Op<"Normalizer",
 }
 
 def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX OneHotEncoder operation";
   let description = [{
   Replace each input element with an array of ones and zeros, where a single
@@ -7554,7 +7294,7 @@ def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
 }
 
 def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SVMClassifier operation";
   let description = [{
   Support Vector Machine classifier
@@ -7587,7 +7327,7 @@ def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
 }
 
 def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SVMRegressor operation";
   let description = [{
   Support Vector Machine regression prediction and one-class SVM anomaly detection.
@@ -7616,7 +7356,7 @@ def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
 }
 
 def ONNXScalerOp:ONNX_Op<"Scaler",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Scaler operation";
   let description = [{
   Rescale input data, for example to standardize features by removing the mean and scaling to unit variance.
@@ -7639,7 +7379,7 @@ def ONNXScalerOp:ONNX_Op<"Scaler",
 }
 
 def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX TreeEnsembleClassifier operation";
   let description = [{
   Tree Ensemble classifier.  Returns the top class for each of N inputs.<br>
@@ -7686,7 +7426,7 @@ def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
 }
 
 def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX TreeEnsembleRegressor operation";
   let description = [{
   Tree Ensemble regressor.  Returns the regressed values for each input in N.<br>
@@ -7733,7 +7473,7 @@ def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
 }
 
 def ONNXZipMapOp:ONNX_Op<"ZipMap",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ZipMap operation";
   let description = [{
   Creates a map from the input and the attributes.<br>
@@ -7759,7 +7499,7 @@ def ONNXZipMapOp:ONNX_Op<"ZipMap",
 }
 
 def ONNXAdagradOp:ONNX_Op<"Adagrad",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Adagrad operation";
   let description = [{
   Compute one iteration of ADAGRAD, a stochastic gradient based optimization
@@ -7834,7 +7574,7 @@ def ONNXAdagradOp:ONNX_Op<"Adagrad",
 }
 
 def ONNXAdamOp:ONNX_Op<"Adam",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Adam operation";
   let description = [{
   Compute one iteration of Adam, a stochastic gradient based optimization
@@ -7922,7 +7662,7 @@ def ONNXAdamOp:ONNX_Op<"Adam",
 }
 
 def ONNXGradientOp:ONNX_Op<"Gradient",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Gradient operation";
   let description = [{
   Gradient operator computes the partial derivatives of a specific tensor w.r.t.
@@ -8068,7 +7808,7 @@ def ONNXGradientOp:ONNX_Op<"Gradient",
 }
 
 def ONNXMomentumOp:ONNX_Op<"Momentum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Momentum operation";
   let description = [{
   Compute one iteration of stochastic gradient update with momentum.
