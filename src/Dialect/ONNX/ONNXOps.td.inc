@@ -6189,7 +6189,7 @@ def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
   let description = [{
   The operator computes the softmax (normalized exponential) values for each layer in the batch
    of the given input.
-  
+
   The input does not need to explicitly be a 2D vector; rather, it will be
   coerced into one. For an arbitrary n-dimensional tensor
   input \in [a_0, a_1, ..., a_{k-1}, a_k, ..., a_{n-1\}\] and k is
