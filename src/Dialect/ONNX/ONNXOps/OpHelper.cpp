@@ -681,11 +681,9 @@ DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
 // Create a DenseElementsAttr based on the size of type.
 DenseElementsAttr createDenseElementsAttrFromSize(
     PatternRewriter &rewriter, Value value) {
-  auto inType = value.getType().cast<ShapedType>();
-  SmallVector<int64_t, 1> dims(1, 1);
-  SmallVector<int64_t, 1> values = {inType.getNumElements()};
-  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
+  int64_t size = value.getType().cast<ShapedType>().getNumElements();
+  auto tensorType = RankedTensorType::get({}, rewriter.getIntegerType(64));
+  return DenseElementsAttr::get(tensorType, size);
 }
 
 /// Check whether a value is produced by a dense ONNXConstantOp.
