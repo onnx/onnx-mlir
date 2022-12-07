@@ -32,7 +32,8 @@ OpFoldResult ONNXConstantOp::fold(ArrayRef<Attribute> operands) {
   // A handful of funny attributes that appear in a lit test:
   if (FloatAttr floatAttr = value_floatAttr()) {
     return DenseElementsAttr::get(
-        RankedTensorType::get({}, FloatType::getF32(getContext())), floatAttr);
+        RankedTensorType::get({}, FloatType::getF32(getContext())),
+        floatAttr.getValue().convertToFloat());
   }
   if (ArrayAttr floatsAttr = value_floatsAttr()) {
     return DenseElementsAttr::get(
