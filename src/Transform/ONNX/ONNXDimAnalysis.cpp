@@ -578,7 +578,7 @@ void DimAnalysis::visitDim(
 
   // SqueezeOp
   if (auto squeezeOp = dyn_cast<ONNXSqueezeOp>(op)) {
-    exploreSameInputDims<ONNXSqueezeOp, ONNXSqueezeOpShapeHelper>(
+    exploreSameInputDims_xxx<ONNXSqueezeOp, NewONNXSqueezeOpShapeHelper>(
         dim, squeezeOp, sameDims);
     return;
   }

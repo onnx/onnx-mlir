@@ -446,6 +446,35 @@ using NewONNXSplitV11OpShapeHelper =
     NewONNXCommonSplitOpShapeHelper<mlir::ONNXSplitV11Op>;
 
 //===----------------------------------------------------------------------===//
+// Squeeze ops
+//===----------------------------------------------------------------------===//
+
+// Different versions of split op use common code, so specialize with
+// templated code.
+template <typename OP_TYPE>
+struct NewONNXCommonSqueezeOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXCommonSqueezeOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXCommonSqueezeOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Custom method to save axes in the op/graph.
+  void saveAxes();
+  // Common code for compute shape.
+  mlir::LogicalResult customComputeShape(
+      DimsExpr &squeezedDims, bool squeezeFromShape);
+  // Data: squeezedAxes contains all of the axles to squeeze, normalized (i.e.
+  // between 0 and dataRank).
+  llvm::SmallVector<int64_t, 4> squeezedAxes;
+};
+
+using NewONNXSqueezeOpShapeHelper =
+    NewONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqueezeOp>;
+using NewONNXSqueezeV11OpShapeHelper =
+    NewONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqueezeV11Op>;
+
+//===----------------------------------------------------------------------===//
 // Non specific Ops, namely ops that
 //   * need customization only for themselves (no sharing of code)
 //   * have no specific parameters
@@ -499,10 +528,6 @@ using NewONNXReverseSequenceOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
 using NewONNXSpaceToDepthOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
-using NewONNXSqueezeOpShapeHelper =
-    NewONNXNonSpecificOpShapeHelper<mlir::ONNXSqueezeOp>;
-using NewONNXSqueezeV11OpShapeHelper =
-    NewONNXNonSpecificOpShapeHelper<mlir::ONNXSqueezeV11Op>;
 
 // using NewONNXOpShapeHelper =
 //    NewONNXNonSpecificOpShapeHelper<mlir::ONNXOp>;
