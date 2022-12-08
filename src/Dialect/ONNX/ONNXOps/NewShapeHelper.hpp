@@ -15,6 +15,17 @@
 
 #pragma once
 
+//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+#define AEE_MIGRATE 1
+#if AEE_MIGRATE
+
+//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+#else
+
 #include <utility>
 
 #include "llvm/ADT/SmallVector.h"
@@ -143,6 +154,13 @@ private:
   bool ownScope, ownBuilder;
 };
 
+// Update a tensor type by using the given shape, elementType and encoding.
+// TODO: when all ops are migrated to the new scheme, make this function private
+// to NewONNXOpShapeHelper.
+void updateType(mlir::Value val, llvm::ArrayRef<int64_t> shape,
+    mlir::Type elementType = nullptr, mlir::Attribute encoding = nullptr,
+    bool refineShape = true);
+
 //===----------------------------------------------------------------------===//
 // Unary Ops
 //===----------------------------------------------------------------------===//
@@ -158,6 +176,11 @@ struct NewONNXUnaryOpShapeHelper : public NewONNXOpShapeHelper {
 
   mlir::LogicalResult computeShape() final;
 };
+
+// Handle shape inference for unary element-wise operators. Perform the entire
+// operation: (1) create the shape helper, compute shape, apply shape to the
+// output types.
+mlir::LogicalResult inferShapeForUnaryOps(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // Broadcast Ops
@@ -604,3 +627,8 @@ void SaveOnnxAttrInOp(mlir::Operation *op,
   setAttr(specificOp, newAttr);
 }
 } // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+#endif
