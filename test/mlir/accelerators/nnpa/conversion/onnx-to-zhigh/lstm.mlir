@@ -22,10 +22,10 @@ func.func @test_onnx_to_zhigh_ccfd0(%X: tensor<7x2000x204xf32>, %W: tensor<1x800
 // CHECK:           [[VAR_9_:%.+]] = "zhigh.StickForLSTM"([[VAR_8_]]#2, [[VAR_8_]]#0, [[VAR_8_]]#3, [[VAR_8_]]#1) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[hn_output_:%.+]], [[VAR_cf_output_:%.+]] = "zhigh.LSTM"([[VAR_3_]], [[VAR_cst_]], [[VAR_cst_]], [[VAR_6_]], [[VAR_1_]], [[VAR_9_]], [[VAR_2_]]) {direction = "forward", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, none, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> (tensor<*xf32>, tensor<*xf32>)
 // CHECK:           [[VAR_10_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<7x1x2000x200xf32>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_11_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Slice"([[VAR_10_]], [[VAR_11_]], [[VAR_14_]], [[VAR_12_]], [[VAR_13_]]) : (tensor<7x1x2000x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
 // CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.SqueezeV11"([[VAR_15_]]) {axes = [0]} : (tensor<1x1x2000x200xf32>) -> tensor<1x2000x200xf32>
@@ -58,8 +58,8 @@ func.func @test_onnx_to_zhigh_ccfd0_reverse(%X: tensor<7x2000x204xf32>, %W: tens
 // CHECK:           [[VAR_9_:%.+]] = "zhigh.StickForLSTM"([[VAR_8_]]#2, [[VAR_8_]]#0, [[VAR_8_]]#3, [[VAR_8_]]#1) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[hn_output_:%.+]], [[VAR_cf_output_:%.+]] = "zhigh.LSTM"([[VAR_3_]], [[VAR_cst_]], [[VAR_cst_]], [[VAR_6_]], [[VAR_1_]], [[VAR_9_]], [[VAR_2_]]) {direction = "reverse", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, none, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> (tensor<*xf32>, tensor<*xf32>)
 // CHECK:           [[VAR_10_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<7x1x2000x200xf32>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_11_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Slice"([[VAR_10_]], [[VAR_11_]], [[VAR_12_]], [[VAR_11_]], [[VAR_12_]]) : (tensor<7x1x2000x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
 // CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.SqueezeV11"([[VAR_13_]]) {axes = [0]} : (tensor<1x1x2000x200xf32>) -> tensor<1x2000x200xf32>
@@ -92,10 +92,10 @@ func.func @test_onnx_to_zhigh_ccfd0_bidir(%X: tensor<7x2000x204xf32>, %W: tensor
 // CHECK:           [[VAR_9_:%.+]] = "zhigh.StickForLSTM"([[VAR_8_]]#2, [[VAR_8_]]#0, [[VAR_8_]]#3, [[VAR_8_]]#1) : (tensor<2x200x200xf32>, tensor<2x200x200xf32>, tensor<2x200x200xf32>, tensor<2x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[hn_output_:%.+]], [[VAR_cf_output_:%.+]] = "zhigh.LSTM"([[VAR_3_]], [[VAR_cst_]], [[VAR_cst_]], [[VAR_6_]], [[VAR_1_]], [[VAR_9_]], [[VAR_2_]]) {direction = "bidirectional", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, none, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> (tensor<*xf32>, tensor<*xf32>)
 // CHECK:           [[VAR_10_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<7x2x2000x200xf32>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_11_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_15:%.+]]:2 = "onnx.SplitV11"([[VAR_10_]]) {axis = 1 : si64} : (tensor<7x2x2000x200xf32>) -> (tensor<7x1x2000x200xf32>, tensor<7x1x2000x200xf32>)
 // CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Slice"([[VAR_15_]]#0, [[VAR_11_]], [[VAR_14_]], [[VAR_12_]], [[VAR_13_]]) : (tensor<7x1x2000x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
@@ -131,10 +131,10 @@ func.func @test_lstm_in_ccfd1(%X: tensor<7x2000x204xf32>, %W: tensor<1x800x204xf
 // CHECK:           [[VAR_11_:%.+]] = "zhigh.StickForLSTM"([[VAR_10_]]#2, [[VAR_10_]]#0, [[VAR_10_]]#3, [[VAR_10_]]#1) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[hn_output_:%.+]], [[VAR_cf_output_:%.+]] = "zhigh.LSTM"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]], [[VAR_8_]], [[VAR_1_]], [[VAR_11_]], [[VAR_2_]]) {direction = "forward", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x2000x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x2000x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> (tensor<*xf32>, tensor<*xf32>)
 // CHECK:           [[VAR_12_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<7x1x2000x200xf32>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_15_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_16_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_17_:%.+]] = "onnx.Slice"([[VAR_12_]], [[VAR_13_]], [[VAR_16_]], [[VAR_14_]], [[VAR_15_]]) : (tensor<7x1x2000x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
 // CHECK-DAG:       [[VAR_18_:%.+]] = "onnx.SqueezeV11"([[VAR_17_]]) {axes = [0]} : (tensor<1x1x2000x200xf32>) -> tensor<1x2000x200xf32>
@@ -167,10 +167,10 @@ func.func @test_lstm_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x800x204xf
 // CHECK:           [[VAR_11_:%.+]] = "zhigh.StickForLSTM"([[VAR_10_]]#2, [[VAR_10_]]#0, [[VAR_10_]]#3, [[VAR_10_]]#1) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[hn_output_:%.+]], [[VAR_cf_output_:%.+]] = "zhigh.LSTM"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]], [[VAR_8_]], [[VAR_1_]], [[VAR_11_]], [[VAR_2_]]) {direction = "forward", hidden_size = 200 : si64, return_all_steps = 1 : si64} : (tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x2000x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x2000x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> (tensor<*xf32>, tensor<*xf32>)
 // CHECK-DAG:       [[VAR_12_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_15_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_16_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK:           [[VAR_17_:%.+]] = "onnx.Slice"([[VAR_12_]], [[VAR_13_]], [[VAR_16_]], [[VAR_14_]], [[VAR_15_]]) : (tensor<*xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
 // CHECK:           [[VAR_18_:%.+]] = "onnx.SqueezeV11"([[VAR_17_]]) {axes = [0]} : (tensor<1x1x2000x200xf32>) -> tensor<1x2000x200xf32>
 // CHECK:           return [[VAR_18_]] : tensor<1x2000x200xf32>
@@ -227,10 +227,10 @@ func.func @test_lstm_noB_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x800x2
 // CHECK:           [[VAR_8_:%.+]] = "zhigh.StickForLSTM"([[VAR_7_]]#2, [[VAR_7_]]#0, [[VAR_7_]]#3, [[VAR_7_]]#1) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[hn_output_:%.+]], [[VAR_cf_output_:%.+]] = "zhigh.LSTM"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_5_]], [[CST]], [[VAR_8_]], [[CST]]) {direction = "forward", hidden_size = 200 : si64, return_all_steps = 1 : si64} : (tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x2000x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x2000x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<*xf32>, none, tensor<*xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
 // CHECK-DAG:       [[VAR_9_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_10_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_11_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK:           [[VAR_14_:%.+]] = "onnx.Slice"([[VAR_9_]], [[VAR_10_]], [[VAR_13_]], [[VAR_11_]], [[VAR_12_]]) : (tensor<*xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
 // CHECK:           [[VAR_15_:%.+]] = "onnx.SqueezeV11"([[VAR_14_]]) {axes = [0]} : (tensor<1x1x2000x200xf32>) -> tensor<1x2000x200xf32>
 // CHECK:           return [[VAR_15_]] : tensor<1x2000x200xf32>
@@ -287,10 +287,10 @@ func.func @test_onnx_to_zhigh_ccfd0_dyn(%X: tensor<?x?x?xf32>, %W: tensor<1x800x
 // CHECK:           [[VAR_9_:%.+]] = "zhigh.StickForLSTM"([[VAR_8_]]#2, [[VAR_8_]]#0, [[VAR_8_]]#3, [[VAR_8_]]#1) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[hn_output_:%.+]], [[VAR_cf_output_:%.+]] = "zhigh.LSTM"([[VAR_3_]], [[VAR_cst_]], [[VAR_cst_]], [[VAR_6_]], [[VAR_1_]], [[VAR_9_]], [[VAR_2_]]) {direction = "forward", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, none, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> (tensor<*xf32>, tensor<*xf32>)
 // CHECK:           [[VAR_10_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<?x1x?x200xf32>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_11_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Slice"([[VAR_10_]], [[VAR_11_]], [[VAR_14_]], [[VAR_12_]], [[VAR_13_]]) : (tensor<?x1x?x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x?x200xf32>
 // CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.SqueezeV11"([[VAR_15_]]) {axes = [0]} : (tensor<1x1x?x200xf32>) -> tensor<1x?x200xf32>
@@ -323,10 +323,10 @@ func.func @test_onnx_to_zhigh_ccfd1_dyn(%X: tensor<?x?x?xf32>, %W: tensor<1x800x
 // CHECK:           [[VAR_11_:%.+]] = "zhigh.StickForLSTM"([[VAR_10_]]#2, [[VAR_10_]]#0, [[VAR_10_]]#3, [[VAR_10_]]#1) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[hn_output_:%.+]], [[VAR_cf_output_:%.+]] = "zhigh.LSTM"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]], [[VAR_8_]], [[VAR_1_]], [[VAR_11_]], [[VAR_2_]]) {direction = "forward", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x?x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x?x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> (tensor<*xf32>, tensor<*xf32>)
 // CHECK:           [[VAR_12_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<?x1x?x200xf32>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_15_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_16_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_17_:%.+]] = "onnx.Slice"([[VAR_12_]], [[VAR_13_]], [[VAR_16_]], [[VAR_14_]], [[VAR_15_]]) : (tensor<?x1x?x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x?x200xf32>
 // CHECK-DAG:       [[VAR_18_:%.+]] = "onnx.SqueezeV11"([[VAR_17_]]) {axes = [0]} : (tensor<1x1x?x200xf32>) -> tensor<1x?x200xf32>
@@ -358,10 +358,10 @@ func.func @test_onnx_to_zhigh_ccfd0_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<
 // CHECK:           [[VAR_9_:%.+]] = "zhigh.StickForLSTM"([[VAR_8_]]#2, [[VAR_8_]]#0, [[VAR_8_]]#3, [[VAR_8_]]#1) : (tensor<2x200x200xf32>, tensor<2x200x200xf32>, tensor<2x200x200xf32>, tensor<2x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[hn_output_:%.+]], [[VAR_cf_output_:%.+]] = "zhigh.LSTM"([[VAR_3_]], [[VAR_cst_]], [[VAR_cst_]], [[VAR_6_]], [[VAR_1_]], [[VAR_9_]], [[VAR_2_]]) {direction = "bidirectional", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, none, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> (tensor<*xf32>, tensor<*xf32>)
 // CHECK:           [[VAR_10_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<?x2x?x200xf32>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_11_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_15_:%.+]]:2 = "onnx.SplitV11"([[VAR_10_]]) {axis = 1 : si64} : (tensor<?x2x?x200xf32>) -> (tensor<?x1x?x200xf32>, tensor<?x1x?x200xf32>)
 // CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Slice"([[VAR_15_]]#0, [[VAR_11_]], [[VAR_14_]], [[VAR_12_]], [[VAR_13_]]) : (tensor<?x1x?x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x?x200xf32>
@@ -397,10 +397,10 @@ func.func @test_onnx_to_zhigh_ccfd1_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<
 // CHECK:           [[VAR_11_:%.+]] = "zhigh.StickForLSTM"([[VAR_10_]]#2, [[VAR_10_]]#0, [[VAR_10_]]#3, [[VAR_10_]]#1) : (tensor<2x200x200xf32>, tensor<2x200x200xf32>, tensor<2x200x200xf32>, tensor<2x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[hn_output_:%.+]], [[VAR_cf_output_:%.+]] = "zhigh.LSTM"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]], [[VAR_8_]], [[VAR_1_]], [[VAR_11_]], [[VAR_2_]]) {direction = "bidirectional", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x?x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x?x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> (tensor<*xf32>, tensor<*xf32>)
 // CHECK:           [[VAR_12_:%.+]] = "zhigh.Unstick"([[hn_output_]]) : (tensor<*xf32>) -> tensor<?x2x?x200xf32>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_15_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_16_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_17_:%.+]]:2 = "onnx.SplitV11"([[VAR_12_]]) {axis = 1 : si64} : (tensor<?x2x?x200xf32>) -> (tensor<?x1x?x200xf32>, tensor<?x1x?x200xf32>)
 // CHECK-DAG:       [[VAR_18_:%.+]] = "onnx.Slice"([[VAR_17_]]#0, [[VAR_13_]], [[VAR_16_]], [[VAR_14_]], [[VAR_15_]]) : (tensor<?x1x?x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x?x200xf32>

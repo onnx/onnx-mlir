@@ -46,7 +46,7 @@ parser.add_argument("--check-operation-version",
                     action="store_true",
                     default=False)
 parser.add_argument("--list-operation-version",
-                    help="list the version stored in  version_dicts without performing checks",
+                    help="list the version stored in version_dicts without performing checks",
                     action="store_true",
                     default=False)
 
@@ -267,7 +267,7 @@ version_dict = {
  'TreeEnsembleRegressor': [1],
  'Unique': [11],
  'Unsqueeze': [13, 11],
- 'Upsample': [10, 9, 7],
+ 'Upsample': [9, 7],
  'Where': [16],
  'Xor': [7],
  'ZipMap': [1]}
@@ -291,6 +291,11 @@ special_op_handler = dict([
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
 ])
+
+# Operations with custom assembly format (alphabetical order).
+OpsWithCustomAssemblyFormat = [
+    'Constant',
+]
 
 # Operations supporting canonicalization (alphabetical order).
 OpsWithCanonicalizer = [
@@ -985,8 +990,13 @@ def gen_op_def(schema, with_version = False):
         traits.append("OpInterface<\"HasOnnxSubgraphOpInterface\">")
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
-    # Generate decl for canonicalizer.
     indent = inc_indent(indent)
+
+    # Generate decl for custom assembly format.
+    if opName in OpsWithCustomAssemblyFormat:
+        s += indent + 'let hasCustomAssemblyFormat = 1;\n'
+
+    # Generate decl for canonicalizer.
     if opName in OpsWithCanonicalizer:
         s += indent + 'let hasCanonicalizer = 1;\n'
 

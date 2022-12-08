@@ -22,10 +22,10 @@ func.func @test_onnx_to_zhigh_gru0(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x
 // CHECK:           [[VAR_9_:%.+]] = "zhigh.StickForGRU"([[VAR_8_]]#0, [[VAR_8_]]#1, [[VAR_8_]]#2) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_10_:%.+]] = "zhigh.GRU"([[VAR_3_]], [[VAR_cst_]], [[VAR_6_]], [[VAR_1_]], [[VAR_9_]], [[VAR_2_]]) {direction = "forward", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_11_:%.+]] = "zhigh.Unstick"([[VAR_10_]]) : (tensor<*xf32>) -> tensor<7x1x2000x200xf32>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_15_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK:           [[VAR_16_:%.+]] = "onnx.Slice"([[VAR_11_]], [[VAR_12_]], [[VAR_15_]], [[VAR_13_]], [[VAR_14_]]) : (tensor<7x1x2000x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
 // CHECK:           [[VAR_17_:%.+]] = "onnx.SqueezeV11"([[VAR_16_]]) {axes = [0]} : (tensor<1x1x2000x200xf32>) -> tensor<1x2000x200xf32>
 // CHECK:           return [[VAR_11_]], [[VAR_17_]] : tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>
@@ -54,10 +54,10 @@ func.func @test_gru1(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf32>, %R: 
 // CHECK:           [[VAR_10_:%.+]] = "zhigh.StickForGRU"([[VAR_9_]]#0, [[VAR_9_]]#1, [[VAR_9_]]#2) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_11_:%.+]] = "zhigh.GRU"([[VAR_3_]], [[VAR_4_]], [[VAR_7_]], [[VAR_1_]], [[VAR_10_]], [[VAR_2_]]) {direction = "forward", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x2000x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_12_:%.+]] = "zhigh.Unstick"([[VAR_11_]]) : (tensor<*xf32>) -> tensor<7x1x2000x200xf32>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_15_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_16_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK:           [[VAR_17_:%.+]] = "onnx.Slice"([[VAR_12_]], [[VAR_13_]], [[VAR_16_]], [[VAR_14_]], [[VAR_15_]]) : (tensor<7x1x2000x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
 // CHECK:           [[VAR_18_:%.+]] = "onnx.SqueezeV11"([[VAR_17_]]) {axes = [0]} : (tensor<1x1x2000x200xf32>) -> tensor<1x2000x200xf32>
 // CHECK:           return [[VAR_12_]], [[VAR_18_]] : tensor<7x1x2000x200xf32>, tensor<1x2000x200xf32>
@@ -86,10 +86,10 @@ func.func @test_gru_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x204xf3
 // CHECK:           [[VAR_10_:%.+]] = "zhigh.StickForGRU"([[VAR_9_]]#0, [[VAR_9_]]#1, [[VAR_9_]]#2) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_11_:%.+]] = "zhigh.GRU"([[VAR_3_]], [[VAR_4_]], [[VAR_7_]], [[VAR_1_]], [[VAR_10_]], [[VAR_2_]]) {direction = "forward", hidden_size = 200 : si64, return_all_steps = 1 : si64} : (tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x2000x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
 // CHECK-DAG:       [[VAR_12_:%.+]] = "zhigh.Unstick"([[VAR_11_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_15_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_16_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK:           [[VAR_17_:%.+]] = "onnx.Slice"([[VAR_12_]], [[VAR_13_]], [[VAR_16_]], [[VAR_14_]], [[VAR_15_]]) : (tensor<*xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
 // CHECK:           [[VAR_18_:%.+]] = "onnx.SqueezeV11"([[VAR_17_]]) {axes = [0]} : (tensor<1x1x2000x200xf32>) -> tensor<1x2000x200xf32
 // CHECK:           return [[VAR_18_]] : tensor<1x2000x200xf32>
@@ -142,10 +142,10 @@ func.func @test_gru_noB_noY_noYc(%X: tensor<7x2000x204xf32>, %W: tensor<1x600x20
 // CHECK:           [[VAR_7_:%.+]] = "zhigh.StickForGRU"([[VAR_6_]]#0, [[VAR_6_]]#1, [[VAR_6_]]#2) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_8_:%.+]] = "zhigh.GRU"([[VAR_0_]], [[VAR_1_]], [[VAR_4_]], [[CST]], [[VAR_7_]], [[CST]]) {direction = "forward", hidden_size = 200 : si64, return_all_steps = 1 : si64} : (tensor<7x2000x204xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<1x2000x200xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<*xf32>, none, tensor<*xf32>, none) -> tensor<*xf32>
 // CHECK-DAG:       [[VAR_9_:%.+]] = "zhigh.Unstick"([[VAR_8_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_10_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_11_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK:           [[VAR_14_:%.+]] = "onnx.Slice"([[VAR_9_]], [[VAR_10_]], [[VAR_13_]], [[VAR_11_]], [[VAR_12_]]) : (tensor<*xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x2000x200xf32>
 // CHECK:           [[VAR_15_:%.+]] = "onnx.SqueezeV11"([[VAR_14_]]) {axes = [0]} : (tensor<1x1x2000x200xf32>) -> tensor<1x2000x200xf32
 // CHECK:           return [[VAR_15_]] : tensor<1x2000x200xf32>
@@ -199,10 +199,10 @@ func.func @test_onnx_to_zhigh_gru0_dyn(%X: tensor<?x?x?xf32>, %W: tensor<1x600x?
 // CHECK:           [[VAR_9_:%.+]] = "zhigh.StickForGRU"([[VAR_8_]]#0, [[VAR_8_]]#1, [[VAR_8_]]#2) : (tensor<1x200x200xf32>, tensor<1x200x200xf32>, tensor<1x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_10_:%.+]] = "zhigh.GRU"([[VAR_3_]], [[VAR_cst_]], [[VAR_6_]], [[VAR_1_]], [[VAR_9_]], [[VAR_2_]]) {direction = "forward", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_11_:%.+]] = "zhigh.Unstick"([[VAR_10_]]) : (tensor<*xf32>) -> tensor<?x1x?x200xf32>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_15_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK:           [[VAR_16_:%.+]] = "onnx.Slice"([[VAR_11_]], [[VAR_12_]], [[VAR_15_]], [[VAR_13_]], [[VAR_14_]]) : (tensor<?x1x?x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x?x200xf32>
 // CHECK:           [[VAR_17_:%.+]] = "onnx.SqueezeV11"([[VAR_16_]]) {axes = [0]} : (tensor<1x1x?x200xf32>) -> tensor<1x?x200xf32>
 // CHECK:           return [[VAR_11_]], [[VAR_17_]] : tensor<?x1x?x200xf32>, tensor<1x?x200xf32>
@@ -232,10 +232,10 @@ func.func @test_onnx_to_zhigh_gru0_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<2
 // CHECK:           [[VAR_9_:%.+]] = "zhigh.StickForGRU"([[VAR_8_]]#0, [[VAR_8_]]#1, [[VAR_8_]]#2) : (tensor<2x200x200xf32>, tensor<2x200x200xf32>, tensor<2x200x200xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_10_:%.+]] = "zhigh.GRU"([[VAR_3_]], [[VAR_cst_]], [[VAR_6_]], [[VAR_1_]], [[VAR_9_]], [[VAR_2_]]) {direction = "bidirectional", hidden_size = 200 : si64, return_all_steps = -1 : si64} : (tensor<?x?x?xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, none, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_11_:%.+]] = "zhigh.Unstick"([[VAR_10_]]) : (tensor<*xf32>) -> tensor<?x2x?x200xf32>
-// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_15_:%.+]] = onnx.Constant dense<2147483647> : tensor<1xi64>
 // CHECK:           [[VAR_16_:%.+]]:2 = "onnx.SplitV11"([[VAR_11_]]) {axis = 1 : si64} : (tensor<?x2x?x200xf32>) -> (tensor<?x1x?x200xf32>, tensor<?x1x?x200xf32>)
 // CHECK:           [[VAR_17_:%.+]] = "onnx.Slice"([[VAR_16_]]#0, [[VAR_12_]], [[VAR_15_]], [[VAR_13_]], [[VAR_14_]]) : (tensor<?x1x?x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x?x200xf32>
 // CHECK:           [[VAR_18_:%.+]] = "onnx.Slice"([[VAR_16_]]#1, [[VAR_13_]], [[VAR_14_]], [[VAR_13_]], [[VAR_14_]]) : (tensor<?x1x?x200xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x?x200xf32>
