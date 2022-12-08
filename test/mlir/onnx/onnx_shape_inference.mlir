@@ -102,8 +102,8 @@ func.func @test_dft(%arg0: tensor<1x10x10x2xf32> , %arg1 : tensor<i32>) -> tenso
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_dft
-  // CHECK: [[RES:%.+]] = "onnx.DFT"(%arg0, %arg1) {axis = 1 : si64, inverse = 0 : si64, onesided = 0 : si64} : (tensor<1x10x10x2xf32>, tensor<i32>) -> tensor<1x2x10x2x10x2xf32>
-  // CHECK: return [[RES]] : tensor<1x2x10x2x10x2xf32>
+  // CHECK: [[RES:%.+]] = "onnx.DFT"(%arg0, %arg1) {axis = 1 : si64, inverse = 0 : si64, onesided = 0 : si64} : (tensor<1x10x10x2xf32>, tensor<i32>) -> tensor<1x10x10x2xf32>
+  // CHECK: return [[RES]] : tensor<1x10x10x2xf32>
 }
 
 // -----
