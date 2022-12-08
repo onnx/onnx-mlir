@@ -48,6 +48,13 @@
  * OMTensor so that they can be passed into and out of the compiled model as
  * inputs and outputs.
  *
+ * `OMEntryPoint` is the data structure used to return all entry point names
+ * in a model. These entry point names are the symbols of the inference functions
+ * in the model.
+ *
+ * `OMSignature` is the data structure used to return the output signature of
+ * the given entry point as a JSON string.
+ *
  * \subsection model-entry-point-signature Model Entry Point Signature
  *
  * All compiled models will have the same exact C function signature equivalent
@@ -113,6 +120,11 @@
  * 3.000000 3.000000 3.000000 3.000000 3.000000 3.000000
  * ```
  * Exactly as it should be.
+ *
+ * \subsection freeing-tensor-memory Freeing Tensor Memory
+ *
+ * write a section to talk about freeing Tensors memory (ie how buffers, Tensors and TensorLists
+ * are handled and the difference between their Create and CreateWithOwnership variants work)
  *
  * \subsection reference Reference
  *
