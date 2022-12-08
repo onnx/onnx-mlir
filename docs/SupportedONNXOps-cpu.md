@@ -49,7 +49,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **Cos** |7 | | |
 | **Cosh** |9 | | |
 | **CumSum** |14 | | |
-| **DFT** | |17 | |
+| **DFT** | |unsupported | |
 | **DepthToSpace** |13 | | |
 | **DequantizeLinear** | |unsupported | |
 | **Det** | |unsupported | |
