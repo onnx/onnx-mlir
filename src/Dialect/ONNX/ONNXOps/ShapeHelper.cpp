@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -482,6 +482,10 @@ void SaveOnnxConstInOp(mlir::Operation *op, MutableOperandRange operand,
   Value constVal = createONNX.constantInt64(vals);
   operand.assign(constVal);
 }
+
+//===----------------------------------------------------------------------===//
+// Setting the type of the output using explict element type and shape.
+//===----------------------------------------------------------------------===//
 
 /// Update a tensor type by using the given shape, elementType and encoding.
 void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,

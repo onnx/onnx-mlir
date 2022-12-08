@@ -14,7 +14,6 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Conversion/ONNXToKrnl/PerfectHash.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #include "mlir/Dialect/SCF/IR/SCF.h"
