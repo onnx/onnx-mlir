@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -137,8 +137,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeFromOperand(Value operand) {
 }
 
 // Reuse the same type for each of the outputs.
-LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
-    Type elementType) {
+LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(Type elementType) {
   // Invoke virtual compute shape.
   if (failed(computeShape()))
     return op->emitError("Failed to scan parameters successfully");
@@ -465,8 +464,8 @@ LogicalResult ONNXPoolOpShapeHelper::customComputeShape(Value xValue,
 // Setting a new constant or attribute value.
 //===----------------------------------------------------------------------===//
 
-void SaveOnnxConstInOp(Operation *op,
-    const llvm::SmallVectorImpl<int64_t> &vals, int operandId) {
+void SaveOnnxConstInOp(
+    Operation *op, const llvm::SmallVectorImpl<int64_t> &vals, int operandId) {
   OpBuilder builder(op->getContext());
   builder.setInsertionPoint(op);
   OnnxBuilder createONNX(builder, op->getLoc());

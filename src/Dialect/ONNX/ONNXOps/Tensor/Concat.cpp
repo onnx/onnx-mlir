@@ -136,7 +136,7 @@ LogicalResult ONNXConcatOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConcatOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // The check of constraints is kept
   // However, current check handles dynamic dim only for the concat dim
   int inputNum = getNumOperands();
@@ -155,7 +155,7 @@ LogicalResult ONNXConcatOp::inferShapes(
     // Tong Chen:
     // TOFIX: attribute modification should be into canonicalization
     // I did not move the code into ShapeHelper
-    auto builder = mlir::Builder(getContext());
+    auto builder = Builder(getContext());
     axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }

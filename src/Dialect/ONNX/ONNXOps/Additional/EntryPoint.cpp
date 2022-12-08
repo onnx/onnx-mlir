@@ -22,8 +22,8 @@ using namespace onnx_mlir;
 // Helper functions
 //===----------------------------------------------------------------------===//
 
-void ONNXEntryPointOp::build(OpBuilder &builder,
-    OperationState &state, func::FuncOp function) {
+void ONNXEntryPointOp::build(
+    OpBuilder &builder, OperationState &state, func::FuncOp function) {
   state.addAttribute(ONNXEntryPointOp::getEntryPointFuncAttrName(),
       SymbolRefAttr::get(function));
 }

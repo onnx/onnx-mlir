@@ -35,8 +35,7 @@ LogicalResult ONNXSqueezeOpLoweringCommon(Operation *op,
          "Failed to convert type to MemRefType");
 
   // Get shape.
-  ONNXCommonSqueezeOpShapeHelper<OP_TYPE> shapeHelper(
-      op, operands, &createIE);
+  ONNXCommonSqueezeOpShapeHelper<OP_TYPE> shapeHelper(op, operands, &createIE);
   shapeHelper.computeShapeAndAssertOnFailure();
 
   // Lower to ReinterpretCastOp so that the data is never copied or modified.

@@ -111,7 +111,7 @@ LogicalResult ONNXAveragePoolOp::verify() {
 }
 
 LogicalResult ONNXAveragePoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>())
     return success();
@@ -126,7 +126,7 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapesGlobalPool(this);
 }
 
@@ -135,7 +135,7 @@ LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGlobalLpPoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapesGlobalPool(this);
 }
 
@@ -144,7 +144,7 @@ LogicalResult ONNXGlobalLpPoolOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapesGlobalPool(this);
 }
 
@@ -212,7 +212,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::verify() {
 }
 
 LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>())
     return success();
@@ -233,7 +233,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXMaxRoiPoolOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!X().getType().isa<RankedTensorType>())
     return success();
 

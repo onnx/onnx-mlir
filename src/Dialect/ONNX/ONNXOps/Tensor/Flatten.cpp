@@ -93,7 +93,7 @@ LogicalResult ONNXFlattenOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXFlattenOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape is not yet known.
   if (!hasShapeAndRank(input()))
     return success();

@@ -100,7 +100,7 @@ LogicalResult ONNXExpandOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXExpandOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
     return success();
   if (!shape().getType().isa<RankedTensorType>())

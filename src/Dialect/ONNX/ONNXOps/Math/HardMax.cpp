@@ -54,9 +54,9 @@ LogicalResult ONNXHardmaxOp::inferShapes(
 
   // axis attribute must be in the range [-r,r], where r = rank(input).
   if (axisValue < -inputRank || axisValue > inputRank)
-    return onnx_Diagnostic::emitAttributeOutOfRangeError(
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
         *this->getOperation(), "axis", axisValue,
-        onnx_Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
+        onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
 
   return inferShapeForUnaryOps(this->getOperation());
 }

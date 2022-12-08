@@ -169,7 +169,7 @@ LogicalResult ONNXGatherNDOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGatherNDOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the shape of the output if the inputs shape is not yet known.
   if (llvm::any_of(
           this->getOperands(), [](Value op) { return !hasShapeAndRank(op); }))

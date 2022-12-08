@@ -37,8 +37,8 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
 
   void replaceGemmOp(ONNXGemmOp &gemmOp, Operation *op,
       ONNXGemmOpAdaptor &operandAdaptor, Type elemType,
-      ONNXGemmOpShapeHelper &shapeHelper,
-      ConversionPatternRewriter &rewriter, Location loc) const {
+      ONNXGemmOpShapeHelper &shapeHelper, ConversionPatternRewriter &rewriter,
+      Location loc) const {
     float alphaLit = gemmOp.alpha().convertToFloat();
     float betaLit = gemmOp.beta().convertToFloat();
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());

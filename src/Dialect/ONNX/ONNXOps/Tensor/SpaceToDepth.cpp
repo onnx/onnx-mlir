@@ -102,7 +102,7 @@ LogicalResult ONNXSpaceToDepthOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSpaceToDepthOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no input shape exists.
   if (!input().getType().isa<RankedTensorType>())
     return success();

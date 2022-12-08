@@ -328,8 +328,7 @@ Value createONNXConstantOpWithDenseAttr(
 Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
   SmallVector<int64_t, 1> dims(1, 0);
   SmallVector<int64_t> values;
-  auto tensorType =
-      RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
   auto denseAttr =
       DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);

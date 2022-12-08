@@ -113,7 +113,7 @@ LogicalResult ONNXOneHotOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOneHotOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!indices().getType().isa<RankedTensorType>())
     return success();

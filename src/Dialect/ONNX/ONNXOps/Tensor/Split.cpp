@@ -42,7 +42,7 @@ LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
   // Negative axis means values are counted from the opposite side.
   if (axisIndex < 0) {
     axisIndex = rank + axisIndex;
-    auto builder = mlir::Builder(op->getContext());
+    auto builder = Builder(op->getContext());
     splitOp.axisAttr(
         IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
             APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
@@ -145,7 +145,7 @@ LogicalResult ONNXSplitOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSplitOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape isn't known yet.
   if (!hasShapeAndRank(input()))
     return success();
@@ -158,7 +158,7 @@ LogicalResult ONNXSplitOp::inferShapes(
 }
 
 LogicalResult ONNXSplitV11Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape isn't known yet.
   if (!hasShapeAndRank(input()))
     return success();

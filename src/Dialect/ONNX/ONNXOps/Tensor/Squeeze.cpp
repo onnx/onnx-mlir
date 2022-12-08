@@ -154,7 +154,7 @@ LogicalResult NewONNXSqueezeV11OpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSqueezeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   auto dataType = data().getType().dyn_cast<RankedTensorType>();
   if (!dataType)
     return success();
@@ -165,7 +165,7 @@ LogicalResult ONNXSqueezeOp::inferShapes(
 }
 
 LogicalResult ONNXSqueezeV11Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   auto dataType = data().getType().dyn_cast<RankedTensorType>();
   if (!dataType)
     return success();

@@ -38,7 +38,7 @@ LogicalResult NewONNXTransposeOpShapeHelper::computeShape() {
   if (!permAttr) {
     // Generate reverse order for default transpose operation.
     SmallVector<int64_t, 4> defaultVals;
-    auto builder = mlir::Builder(op->getContext());
+    auto builder = Builder(op->getContext());
     for (int i = rank - 1; i >= 0; --i)
       defaultVals.emplace_back(i);
     // Set default attribute.
@@ -69,7 +69,7 @@ LogicalResult NewONNXTransposeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXTransposeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
     return success();

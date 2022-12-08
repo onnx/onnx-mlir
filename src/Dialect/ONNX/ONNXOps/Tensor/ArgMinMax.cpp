@@ -39,7 +39,7 @@ LogicalResult ONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
   // Negative axis means values are counted from the opposite side.
   if (axisValue < 0) {
     axisValue = dataRank + axisValue;
-    auto builder = mlir::Builder(op->getContext());
+    auto builder = Builder(op->getContext());
     argOp.axisAttr(
         IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
             APInt(64, /*value=*/axisValue, /*isSigned=*/true)));
@@ -91,7 +91,7 @@ LogicalResult ONNXArgMaxOp::verify() {
 }
 
 LogicalResult ONNXArgMaxOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(data()))
     return success();
 
@@ -124,7 +124,7 @@ LogicalResult ONNXArgMinOp::verify() {
 }
 
 LogicalResult ONNXArgMinOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(data()))
     return success();
 

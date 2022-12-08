@@ -93,7 +93,7 @@ LogicalResult ONNXPadOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPadOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>() ||
       !pads().getType().isa<RankedTensorType>())

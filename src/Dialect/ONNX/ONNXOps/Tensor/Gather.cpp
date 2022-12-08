@@ -87,7 +87,7 @@ LogicalResult ONNXGatherOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGatherOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (llvm::any_of(this->getOperands(),
           [](const Value &op) { return !hasShapeAndRank(op); }))
     return success();

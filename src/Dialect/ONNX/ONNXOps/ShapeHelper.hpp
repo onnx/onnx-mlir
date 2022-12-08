@@ -287,7 +287,7 @@ struct ONNXPoolOpShapeHelper : public ONNXOpShapeHelper {
 };
 
 #define DECLARE_SHAPE_HELPER(SHAPE_HELPER)                                     \
-  class SHAPE_HELPER : public ONNXPoolOpShapeHelper {                       \
+  class SHAPE_HELPER : public ONNXPoolOpShapeHelper {                          \
   public:                                                                      \
     SHAPE_HELPER(mlir::Operation *op, mlir::ArrayRef<mlir::Value> operands,    \
         IndexExprBuilder *ieBuilder = nullptr,                                 \
@@ -541,8 +541,7 @@ struct ONNXNonSpecificOpShapeHelper : public ONNXOpShapeHelper {
 
 using NewONNXCategoryMapperOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
-using NewONNXClipOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
+using NewONNXClipOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
 using NewONNXCompressOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
 using NewONNXConcatOpShapeHelper =
@@ -559,18 +558,15 @@ using NewONNXGatherElementsOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherElementsOp>;
 using NewONNXGatherNDOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherNDOp>;
-using NewONNXLRNOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
+using NewONNXLRNOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
 using NewONNXReshapeOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
 using NewONNXReverseSequenceOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
 using NewONNXSpaceToDepthOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
-using NewONNXTileOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
-using NewONNXTopKOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
+using NewONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
+using NewONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using NewONNXTransposeOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
 

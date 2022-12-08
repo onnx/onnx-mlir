@@ -77,7 +77,7 @@ static LogicalResult RNNShapeInference(T *op, int gates) {
       hiddenSize = wShape[1] / gates;
     // Update hidden_size attribute.
     if (!ShapedType::isDynamic(hiddenSize)) {
-      auto builder = mlir::Builder(op->getContext());
+      auto builder = Builder(op->getContext());
       auto hiddenSizeAttr =
           IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
               APInt(64, /*value=*/hiddenSize, /*isSigned=*/true));
@@ -151,7 +151,7 @@ static LogicalResult RNNShapeInference(T *op, int gates) {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGRUOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   int gates = 3;
   return RNNShapeInference(this, gates);
 }
@@ -161,7 +161,7 @@ LogicalResult ONNXGRUOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLSTMOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   int gates = 4;
   return RNNShapeInference(this, gates);
 }
@@ -171,7 +171,7 @@ LogicalResult ONNXLSTMOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXRNNOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   int gates = 1;
   return RNNShapeInference(this, gates);
 }

@@ -56,15 +56,15 @@ LogicalResult ONNXRoiAlignOpShapeHelper::computeShape() {
 LogicalResult ONNXRoiAlignOp::verify() {
   ONNXRoiAlignOpAdaptor operandAdaptor = ONNXRoiAlignOpAdaptor(*this);
   // get input info.
-  mlir::Value X = operandAdaptor.X();
-  mlir::Value batch_indices = operandAdaptor.batch_indices();
+  Value X = operandAdaptor.X();
+  Value batch_indices = operandAdaptor.batch_indices();
 
   if (!hasShapeAndRank(X) || !hasShapeAndRank(batch_indices))
     return success();
 
-  int64_t x_rank = X.getType().cast<mlir::ShapedType>().getRank();
+  int64_t x_rank = X.getType().cast<ShapedType>().getRank();
   int64_t batch_indices_rank =
-      batch_indices.getType().cast<mlir::ShapedType>().getRank();
+      batch_indices.getType().cast<ShapedType>().getRank();
 
   // Test ranks.
   if (x_rank != 4)
@@ -80,7 +80,7 @@ LogicalResult ONNXRoiAlignOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXRoiAlignOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>() ||
       !batch_indices().getType().isa<RankedTensorType>())

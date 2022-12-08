@@ -133,8 +133,7 @@ LogicalResult ONNXCastOp::inferShapes(
     return UnrankedTensorType::get(elementType);
   };
 
-  Type targetType =
-      (*this)->getAttr("to").cast<::TypeAttr>().getValue();
+  Type targetType = (*this)->getAttr("to").cast<::TypeAttr>().getValue();
   OpBuilder builder(getContext());
   getResult().setType(getOutputType(targetType));
   return success();
@@ -309,9 +308,9 @@ LogicalResult ONNXLogSoftmaxOp::verify() {
 
   // axis attribute must be in the range [-r,r-1], where r = rank(input).
   if (axisIndex < -inputRank || axisIndex >= inputRank)
-    return onnx_Diagnostic::emitAttributeOutOfRangeError(
+    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
         *this->getOperation(), "axis", axisIndex,
-        onnx_Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
+        onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
 
   return success();
 }
