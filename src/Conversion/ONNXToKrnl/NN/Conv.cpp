@@ -31,7 +31,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
   void convUnoptimized(ConversionPatternRewriter &rewriter, ONNXConvOp &convOp,
       ONNXConvOpAdaptor &operandAdaptor, NewONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc) const {
-    auto loc = convOp.getLoc();
+    Location loc = convOp.getLoc();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, SCFBuilder,
         MathBuilder, MemRefBuilder>
         create(rewriter, loc);
@@ -230,7 +230,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     ONNXConvOpAdaptor operandAdaptor(operands);
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 

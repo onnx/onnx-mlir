@@ -27,7 +27,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     ONNXPadOp padOp = llvm::dyn_cast<ONNXPadOp>(op);
     ONNXPadOpAdaptor operandAdaptor(operands);
     Value data = operandAdaptor.data();

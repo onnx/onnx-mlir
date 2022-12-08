@@ -29,7 +29,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = ONNXLoc<ONNXLoopOp>(op);
+    Location loc = ONNXLoc<ONNXLoopOp>(op);
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     ONNXLoopOpAdaptor loopOpAdaptor(operands, op->getAttrDictionary());
 
@@ -524,7 +524,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   LogicalResult rewriteWithSCFWhile(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const {
-    auto loc = ONNXLoc<ONNXLoopOp>(op);
+    Location loc = ONNXLoc<ONNXLoopOp>(op);
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);

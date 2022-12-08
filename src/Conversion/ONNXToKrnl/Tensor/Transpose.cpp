@@ -28,7 +28,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXTransposeOpAdaptor operandAdaptor(operands);
     ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
         rewriter, loc);
 

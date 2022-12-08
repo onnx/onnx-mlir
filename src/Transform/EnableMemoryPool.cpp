@@ -87,7 +87,7 @@ public:
 
   LogicalResult matchAndRewrite(
       memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
-    auto loc = allocOp.getLoc();
+    Location loc = allocOp.getLoc();
 
     auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
 

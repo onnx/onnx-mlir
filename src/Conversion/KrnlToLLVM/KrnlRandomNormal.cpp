@@ -39,7 +39,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     KrnlRandomNormalOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     mlir::Type inType = op->getOperand(2).getType();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 

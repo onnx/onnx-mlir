@@ -43,7 +43,7 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     IndexExprScope scope(&rewriter, loc);
     ARG_OP argOp = llvm::cast<ARG_OP>(op);
     typename ARG_OP::Adaptor operandAdaptor(operands);

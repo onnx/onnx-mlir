@@ -30,7 +30,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXReshapeOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     Value data = operandAdaptor.data();
 
     // Convert the output type to MemRefType.

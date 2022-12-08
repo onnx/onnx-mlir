@@ -25,7 +25,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     ONNXConstantOfShapeOpAdaptor operandAdaptor(operands);
 
     auto valueAttr = llvm::cast<ONNXConstantOfShapeOp>(op)

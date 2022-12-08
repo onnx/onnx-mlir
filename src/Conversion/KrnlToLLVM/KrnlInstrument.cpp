@@ -42,7 +42,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     auto *context = op->getContext();
     KrnlInstrumentOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     KrnlInstrumentOp instrumentOp = llvm::dyn_cast<KrnlInstrumentOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 

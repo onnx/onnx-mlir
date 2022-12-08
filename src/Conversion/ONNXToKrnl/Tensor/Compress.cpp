@@ -27,7 +27,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = ONNXLoc<ONNXCompressOp>(op);
+    Location loc = ONNXLoc<ONNXCompressOp>(op);
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);

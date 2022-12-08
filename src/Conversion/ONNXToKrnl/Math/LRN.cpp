@@ -31,7 +31,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXLRNOpAdaptor operandAdaptor(operands);
     ONNXLRNOp lrnOp = llvm::cast<ONNXLRNOp>(op);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     LocalMultiDialectBuilder create(rewriter, loc);
 
     // Get shape.
