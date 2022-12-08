@@ -99,7 +99,6 @@ LogicalResult NewONNXConcatShapeTransposeOpShapeHelper::computeShape() {
 
   // Compute dims for ShapeOp
   Value data = operandAdaptor.inputs()[0];
-  // MemRefBoundsIndexCapture dataBounds(data);
   int64_t rank = createIE->getTypeRank(data);
 
   // Compute the normalized start/end. Negative value means counting

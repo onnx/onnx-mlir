@@ -237,6 +237,12 @@ def main(argv):
         dprint("Need an single input file as last option: ", args, ".")
         return
     lit_test_filename = args[0]
+    if not os.path.exists(lit_test_filename):
+        # If don't find the path, try in the test/mlir sub directory.
+        directory = os.path.dirname(sys.argv[0])
+        # This file is in onnx-mlir/utils... tests are in onnx-mlir/test/mlir.
+        directory += "/../test/mlir/"
+        lit_test_filename = directory + lit_test_filename
     if debug:
         print('// Process lit test file "' + lit_test_filename + '".')
 

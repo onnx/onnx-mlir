@@ -3,7 +3,7 @@
 // TODO: Remove test_no_argument_1 from the test - empty function body is no longer
 // supported in mlir: https://reviews.llvm.org/D91886
 func.func private @test_no_argument_2() -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value =  dense<[[1.000000e+0, 2.000000e+00], [3.000000e+00, 4.000000e+00]]> : tensor<2x2xf32>} : () -> tensor<*xf32>
+  %0 = onnx.Constant {value =  dense<[[1.000000e+0, 2.000000e+00], [3.000000e+00, 4.000000e+00]]> : tensor<2x2xf32>} : tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 }
 
@@ -406,7 +406,7 @@ func.func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // -----
 
 func.func private @test_reshape_constant(%arg0 : tensor<1x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[2, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %0 = onnx.Constant dense<[2, 5]> : tensor<2xi64>
   %1 = "onnx.Reshape"(%arg0, %0) : (tensor<1x10xf32>, tensor<2xi64>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:     test_reshape_constant
@@ -423,7 +423,7 @@ func.func private @test_reshape_constant(%arg0 : tensor<1x10xf32>) -> tensor<*xf
 
 func.func private @test_reshape_constant_dealloc(%arg0 : tensor<10x1xf32>) -> tensor<*xf32> {
   %0 = "onnx.Transpose"(%arg0) : (tensor<10x1xf32>) -> tensor<*xf32>
-  %1 = "onnx.Constant"() {value = dense<[2, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = onnx.Constant dense<[2, 5]> : tensor<2xi64>
   %2 = "onnx.Reshape"(%0, %1) : (tensor<*xf32>, tensor<2xi64>) -> tensor<*xf32>
   "func.return"(%2) : (tensor<*xf32>) -> ()
 
@@ -843,7 +843,7 @@ func.func private @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 // -----
 
 func.func private @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
-  %cst = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64> } : () -> tensor<1xi64>
+  %cst = onnx.Constant dense<[1]> : tensor<1xi64>
   %0 ="onnx.ReduceSum"(%arg0, %cst) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<3x2x2xf32>, tensor<1xi64>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
@@ -1040,7 +1040,7 @@ func.func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // -----
 
 func.func private @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[0, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0 = onnx.Constant dense<[0, 3]> : tensor<2xi64>
   %1 = "onnx.Unsqueeze"(%arg0, %0) : (tensor<10x10xf32>, tensor<2xi64>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
@@ -1067,7 +1067,7 @@ func.func private @test_unsqueezev11(%arg0 : tensor<10x10xf32>) -> tensor<*xf32>
 // is retuned. This test confirms the deallocation is not generated.
 
 func.func private @test_unsqueeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[0, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0 = onnx.Constant dense<[0, 3]> : tensor<2xi64>
   %1 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
   %2 = "onnx.Unsqueeze"(%1, %0) : (tensor<*xf32>, tensor<2xi64>) -> tensor<*xf32>
   "func.return"(%2) : (tensor<*xf32>) -> ()
@@ -1097,8 +1097,8 @@ func.func private @test_unsqueezev11_dealloc(%arg0 : tensor<10x20xf32>) -> tenso
 
 // Test for multiple `reinterpret_cast` in a function. Only returned memrefs should not be deallocated.
 func.func private @test_unsqueeze_squeeze_dealloc(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[1, -1]> : tensor<2xi64>} : () -> tensor<2xi64>
-  %1 = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0 = onnx.Constant dense<[1, -1]> : tensor<2xi64>
+  %1 = onnx.Constant dense<[1, 2]> : tensor<2xi64>
   %2 = "onnx.Transpose"(%arg0) : (tensor<10x20xf32>) -> tensor<*xf32>
   %3 = "onnx.Unsqueeze"(%2, %0) : (tensor<*xf32>, tensor<2xi64>) -> tensor<*xf32>
   %4 = "onnx.Transpose"(%3) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
@@ -1384,7 +1384,7 @@ func.func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 // -----
 
 func.func private @test_constant_dense_2d_value(%arg0: tensor<1xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : () -> tensor<*xf32>
+  %0 = onnx.Constant {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
   // CHECK-LABEL: test_constant_dense_2d_value
   // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = {{.*}}, shape = [3, 2], value = dense<{{.*}}[0.000000e+00, 0.000000e+00], [1.000000e+00, 1.100000e+00], [2.000000e+00, 2.100000e+00]{{.*}}> : tensor<3x2xf32>} : () -> memref<3x2xf32>
@@ -1521,7 +1521,7 @@ func.func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>)
 // -----
 
 func.func private @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0 = onnx.Constant dense<[1, -2]> : tensor<2xi64>
   %1 = "onnx.Squeeze"(%arg0, %0) : (tensor<16x1x32x1x64xf32>, tensor<2xi64>) -> (tensor<*xf32>)
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
@@ -1546,7 +1546,7 @@ func.func private @test_squeezev11(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*
 // `SqueezeV11` ops are lowerd to `reinterpret_cast` op. `reinterpret_cast` ops just change the view of input memref. So, input memref should not be deallocated if it is retuned. This test confirms the deallocation is not generated.
 
 func.func private @test_squeeze_dealloc(%arg0 : tensor<16x32x1x1x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0 = onnx.Constant dense<[1, -2]> : tensor<2xi64>
   %1 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2, 4]} : (tensor<16x32x1x1x64xf32>) -> tensor<*xf32>
   %2 = "onnx.Squeeze"(%1, %0) : (tensor<*xf32>, tensor<2xi64>) -> (tensor<*xf32>)
   "func.return"(%2) : (tensor<*xf32>) -> ()
@@ -1606,7 +1606,7 @@ func.func private @test_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf
 // -----
 
 func.func private @test_split_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
-  %split = "onnx.Constant"() {value = dense<[2, 30]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %split = onnx.Constant dense<[2, 30]> : tensor<2xi64>
   %0, %1 = "onnx.Split"(%arg0, %split) { axis = 1 : si64} : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
   "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
@@ -1980,7 +1980,7 @@ func.func private @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) ->
 //   - Output dimensions are computed during compilation time.
 //   - Krnl iterates are used to set values to the output.
 func.func private @test_constant_of_shape_static_dims() -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[3, 4, 5]> : tensor<3xi64> } : () -> tensor<3xi64>
+  %0 = onnx.Constant dense<[3, 4, 5]> : tensor<3xi64>
   %1 = "onnx.ConstantOfShape"(%0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
@@ -2495,8 +2495,8 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
 
 func.func @test_resize1(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
-  %0 = "onnx.Constant"() {value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
-  %1 = "onnx.Constant"() {value = dense<[1.000000e+00,  3.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+  %0 = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>
+  %1 = onnx.Constant dense<[1.000000e+00,  3.000000e+00]> : tensor<2xf32>
   %2 = "onnx.Resize"(%arg0, %0, %1, %cst) {coordinate_transformation_mode = "asymmetric", mode = "nearest", nearest_mode = "floor"} : (tensor<3x4xf32>, tensor<4xf32>, tensor<2xf32>, none) -> tensor<*xf32>
   "func.return"(%2) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_resize1
@@ -2550,8 +2550,8 @@ func.func @test_resize1(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 
 func.func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
-  %0 = "onnx.Constant"() {value = dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
-  %1 = "onnx.Constant"() {value = dense<[1.000000e+00,  3.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+  %0 = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<4xf32>
+  %1 = onnx.Constant dense<[1.000000e+00,  3.000000e+00]> : tensor<2xf32>
   %2 = "onnx.Resize"(%arg0, %0, %1, %cst) {mode = "linear"} : (tensor<3x4xf32>, tensor<4xf32>, tensor<2xf32>, none) -> tensor<*xf32>
   "func.return"(%2) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_resize2
@@ -2919,7 +2919,7 @@ func.func @test_scatter_nd1(%arg0: tensor<4x4x4xf32>, %arg1: tensor<2x1xi64>, %a
 // -----
 
 func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3xi64>  {
-  %0 = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<i64>
+  %0 = onnx.Constant {value = dense<0> : tensor<1xi64>} : tensor<i64>
   %7 = "onnx.SequenceErase"(%arg0, %0) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<i64>) -> !onnx.Seq<tensor<?x4x5xf32>>
   %4 = "onnx.SequenceAt"(%7, %0) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<i64>) -> tensor<?x4x5xf32>
   %5 = "onnx.Shape"(%4) : (tensor<?x4x5xf32>) -> tensor<3xi64>

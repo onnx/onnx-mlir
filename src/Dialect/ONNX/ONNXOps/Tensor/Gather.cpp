@@ -27,12 +27,9 @@ namespace onnx_mlir {
 
 template <>
 LogicalResult NewONNXGatherOpShapeHelper::computeShape() {
-  // Shape inference indicated by passing a null rewriter pointer.
   // Read data and indices shapes as dim indices.
   ONNXGatherOpAdaptor operandAdaptor(operands);
   ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);
-  // MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
-  // MemRefBoundsIndexCapture indicesBounds(operandAdaptor.indices());
   DimsExpr dataDims, indicesDims;
   createIE->getShapeAsDims(operandAdaptor.data(), dataDims);
   createIE->getShapeAsDims(operandAdaptor.indices(), indicesDims);

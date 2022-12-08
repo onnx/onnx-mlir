@@ -26,8 +26,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 LogicalResult NewONNXRoiAlignOpShapeHelper::computeShape() {
-  // Shape inference indicated by passing a null rewriter pointer.
-  // get input info.
+  // Get input info.
   ONNXRoiAlignOp roiAlignOp = llvm::cast<ONNXRoiAlignOp>(op);
   ONNXRoiAlignOpAdaptor operandAdaptor(operands);
 
