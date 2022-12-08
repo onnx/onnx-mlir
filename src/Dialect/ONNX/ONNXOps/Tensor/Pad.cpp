@@ -24,7 +24,7 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXPadOpShapeHelper::computeShape() {
+LogicalResult ONNXPadOpShapeHelper::computeShape() {
   ONNXPadOpAdaptor operandAdaptor(operands);
   Value dataOperand = operandAdaptor.data();
   Value padsOperand = operandAdaptor.pads();
@@ -101,6 +101,6 @@ LogicalResult ONNXPadOp::inferShapes(
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
 
-  NewONNXPadOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXPadOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

@@ -108,5 +108,5 @@ LogicalResult ONNXFlattenOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXFlattenOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXFlattenOp>;
 } // namespace onnx_mlir

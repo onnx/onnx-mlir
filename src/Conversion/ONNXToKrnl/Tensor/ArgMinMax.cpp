@@ -51,7 +51,7 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // Get shape.
-    NewONNXArgMinMaxOpShapeHelper<ARG_OP> shapeHelper(
+    ONNXArgMinMaxOpShapeHelper<ARG_OP> shapeHelper(
         op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     DimsExpr outputDims = shapeHelper.getOutputDims();

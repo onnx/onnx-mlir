@@ -178,7 +178,7 @@ public:
     ArrayRef<int64_t> dims = onnx_mlir::getShape(data.getType());
 
     // Get start and end values.
-    NewONNXShapeOpShapeHelper shapeHelper(shapeOp.getOperation(), {});
+    ONNXShapeOpShapeHelper shapeHelper(shapeOp.getOperation(), {});
     LogicalResult shapeComputed = shapeHelper.computeShape();
     if (failed(shapeComputed)) {
       shapeOp.emitError("Failed to scan " + ONNXShapeOp::getOperationName() +
@@ -320,7 +320,7 @@ public:
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
 
     // Get starts, ends, axes and steps via ShapeHelper.
-    NewONNXSliceOpShapeHelper shapeHelper(sliceOp.getOperation(), {});
+    ONNXSliceOpShapeHelper shapeHelper(sliceOp.getOperation(), {});
     if (failed(shapeHelper.computeShape())) {
       sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
                         " parameters successfully");

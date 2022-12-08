@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXSliceOpShapeHelper::computeShape() {
+LogicalResult ONNXSliceOpShapeHelper::computeShape() {
   // Get info about input data operand.
   ONNXSliceOpAdaptor operandAdaptor(operands);
   Value data = operandAdaptor.data();
@@ -193,6 +193,6 @@ LogicalResult ONNXSliceOp::inferShapes(
   }
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
-  NewONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

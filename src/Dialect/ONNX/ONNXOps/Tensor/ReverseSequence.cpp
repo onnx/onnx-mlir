@@ -90,5 +90,5 @@ LogicalResult ONNXReverseSequenceOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXReverseSequenceOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXReverseSequenceOp>;
 } // namespace onnx_mlir

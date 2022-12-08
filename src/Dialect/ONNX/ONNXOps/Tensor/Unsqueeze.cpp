@@ -28,7 +28,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <typename OP_TYPE>
-LogicalResult NewONNXCommonUnsqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
+LogicalResult ONNXCommonUnsqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &unsqueezedDims) {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr outputDims;
@@ -149,6 +149,6 @@ LogicalResult ONNXUnsqueezeV11Op::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXCommonUnsqueezeOpShapeHelper<ONNXUnsqueezeOp>;
-template struct NewONNXCommonUnsqueezeOpShapeHelper<ONNXUnsqueezeV11Op>;
+template struct ONNXCommonUnsqueezeOpShapeHelper<ONNXUnsqueezeOp>;
+template struct ONNXCommonUnsqueezeOpShapeHelper<ONNXUnsqueezeV11Op>;
 } // namespace onnx_mlir

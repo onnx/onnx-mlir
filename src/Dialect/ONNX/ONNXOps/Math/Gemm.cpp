@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXGemmOpShapeHelper::computeShape() {
+LogicalResult ONNXGemmOpShapeHelper::computeShape() {
   // Output dims of result.
   DimsExpr outputDims;
 
@@ -126,6 +126,6 @@ LogicalResult ONNXGemmOp::inferShapes(
 
   auto elementType = A().getType().cast<ShapedType>().getElementType();
 
-  NewONNXGemmOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXGemmOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

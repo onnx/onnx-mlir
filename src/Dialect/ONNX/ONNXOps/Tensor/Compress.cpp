@@ -128,5 +128,5 @@ LogicalResult ONNXCompressOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXCompressOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXCompressOp>;
 } // namespace onnx_mlir

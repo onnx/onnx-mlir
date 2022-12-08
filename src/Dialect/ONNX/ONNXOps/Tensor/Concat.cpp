@@ -169,5 +169,5 @@ LogicalResult ONNXConcatOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXConcatOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXConcatOp>;
 } // namespace onnx_mlir

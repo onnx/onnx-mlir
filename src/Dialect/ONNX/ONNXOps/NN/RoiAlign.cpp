@@ -24,7 +24,7 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXRoiAlignOpShapeHelper::computeShape() {
+LogicalResult ONNXRoiAlignOpShapeHelper::computeShape() {
   // Get input info.
   ONNXRoiAlignOp roiAlignOp = llvm::cast<ONNXRoiAlignOp>(op);
   ONNXRoiAlignOpAdaptor operandAdaptor(operands);
@@ -87,6 +87,6 @@ LogicalResult ONNXRoiAlignOp::inferShapes(
     return success();
 
   auto elementType = X().getType().cast<ShapedType>().getElementType();
-  NewONNXRoiAlignOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXRoiAlignOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

@@ -31,7 +31,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
         rewriter, loc);
 
-    NewONNXSliceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXSliceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

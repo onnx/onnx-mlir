@@ -34,7 +34,7 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Get shape.
-    NewONNXOneHotOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXOneHotOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     int64_t axis = shapeHelper.axis;
 

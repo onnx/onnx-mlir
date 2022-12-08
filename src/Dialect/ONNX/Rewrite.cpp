@@ -126,7 +126,7 @@ DenseElementsAttr createDenseElementsAttrFromShapeOp(
     PatternRewriter &rewriter, Operation *op) {
   ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
   int64_t start, end;
-  NewONNXShapeOpShapeHelper::getStartEndValues(shapeOp, start, end);
+  ONNXShapeOpShapeHelper::getStartEndValues(shapeOp, start, end);
   return createDenseElementsAttrFromShape(rewriter, shapeOp.data(), start, end);
 }
 

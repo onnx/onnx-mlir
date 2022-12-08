@@ -32,7 +32,7 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     Value input = operandAdaptor.input();
     Location loc = op->getLoc();
     IndexExprBuilderForKrnl createIE(rewriter, loc);
-    NewONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

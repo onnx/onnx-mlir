@@ -39,7 +39,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // Shape helper.
-    NewONNXPadOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXPadOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

@@ -37,7 +37,7 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
   if (!hasShapeAndRank(input))
     return success();
 
-  NewONNXUnaryOpShapeHelper shapeHelper(op, {});
+  ONNXUnaryOpShapeHelper shapeHelper(op, {});
   if (failed(shapeHelper.computeShape()))
     return op->emitError("Failed to scan parameters successfully");
   SmallVector<int64_t, 4> outputDims;

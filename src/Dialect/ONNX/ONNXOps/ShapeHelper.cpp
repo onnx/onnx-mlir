@@ -81,7 +81,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-NewONNXOpShapeHelper::NewONNXOpShapeHelper(Operation *inputOp,
+ONNXOpShapeHelper::ONNXOpShapeHelper(Operation *inputOp,
     ArrayRef<Value> inputOperands, IndexExprBuilder *inputIeBuilder,
     IndexExprScope *inputScope)
     : op(inputOp), operands(inputOperands), createIE(inputIeBuilder),
@@ -108,26 +108,26 @@ NewONNXOpShapeHelper::NewONNXOpShapeHelper(Operation *inputOp,
   }
 }
 
-NewONNXOpShapeHelper::~NewONNXOpShapeHelper() {
+ONNXOpShapeHelper::~ONNXOpShapeHelper() {
   if (ownScope)
     delete scope;
   if (ownBuilder)
     delete createIE;
 }
 
-void NewONNXOpShapeHelper::computeShapeAndAssertOnFailure() {
+void ONNXOpShapeHelper::computeShapeAndAssertOnFailure() {
   // Invoke virtual compute shape.
   LogicalResult res = computeShape();
   assert(succeeded(res) && "Failed to compute shape");
 }
 
-void NewONNXOpShapeHelper::setOutputDims(const DimsExpr &inferredDims, int n) {
+void ONNXOpShapeHelper::setOutputDims(const DimsExpr &inferredDims, int n) {
   Value output = getOutput(n);
   privateOutputsDims[n] = inferredDims;
   refineDims(privateOutputsDims[n], output);
 }
 
-LogicalResult NewONNXOpShapeHelper::computeShapeFromOperand(Value operand) {
+LogicalResult ONNXOpShapeHelper::computeShapeFromOperand(Value operand) {
   // Output and operand have the same shape. Just pass the operand shape to the
   // output.
   DimsExpr outputDims;
@@ -137,7 +137,7 @@ LogicalResult NewONNXOpShapeHelper::computeShapeFromOperand(Value operand) {
 }
 
 // Reuse the same type for each of the outputs.
-mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
+mlir::LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
     Type elementType) {
   // Invoke virtual compute shape.
   if (failed(computeShape()))
@@ -152,7 +152,7 @@ mlir::LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateType(
 }
 
 // Use a distinct type for each of the output.
-LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
+LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
     TypeRange elementTypeRange) {
   uint64_t resNum = op->getNumResults();
   assert((elementTypeRange.size() == resNum) && "Incorrect elementTypes size");
@@ -173,7 +173,7 @@ LogicalResult NewONNXOpShapeHelper::computeShapeAndUpdateTypes(
 // ONNX Op Shape Helper for Generic Unary Elementwise Operations
 //===----------------------------------------------------------------------===//
 
-LogicalResult NewONNXUnaryOpShapeHelper::computeShape() {
+LogicalResult ONNXUnaryOpShapeHelper::computeShape() {
   // Output and input have the same shape. Just pass the input shape to the
   // output.
   return computeShapeFromOperand(operands[0]);
@@ -183,7 +183,7 @@ LogicalResult NewONNXUnaryOpShapeHelper::computeShape() {
 // ONNX Broadcast Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-LogicalResult NewONNXBroadcastOpShapeHelper::customComputeShape(
+LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
     ArrayRef<Value> initialOperands, DimsExpr *additionalOperand) {
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
@@ -283,7 +283,7 @@ LogicalResult NewONNXBroadcastOpShapeHelper::customComputeShape(
   return success();
 }
 
-LogicalResult NewONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
+LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
   if (hasNoBroadcasting || (hasUniBroadcasting && operandIndex == 0)) {
@@ -325,7 +325,7 @@ LogicalResult NewONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
 // Pooling ops.
 //===----------------------------------------------------------------------===//
 
-LogicalResult NewONNXPoolOpShapeHelper::customComputeShape(Value xValue,
+LogicalResult ONNXPoolOpShapeHelper::customComputeShape(Value xValue,
     Value wValue, Optional<ArrayAttr> kernelShapeOpt, llvm::StringRef autoPad,
     Optional<ArrayAttr> padOpt, Optional<ArrayAttr> strideOpt,
     Optional<ArrayAttr> dilationOpt) {

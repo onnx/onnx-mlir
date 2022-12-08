@@ -44,7 +44,7 @@ std::pair<Value, Value> matMulInputs(
 }
 
 template <typename OP_TYPE>
-LogicalResult NewONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
+LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
   typename OP_TYPE::Adaptor operandAdaptor(operands);
 
   // Output dims of result.
@@ -212,8 +212,8 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
 
 namespace onnx_mlir {
 
-template struct NewONNXGenericMatMulOpShapeHelper<ONNXMatMulOp>;
-template struct NewONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp>;
-template struct NewONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp>;
 
 } // namespace onnx_mlir

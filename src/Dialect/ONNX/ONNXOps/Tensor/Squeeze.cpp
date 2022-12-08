@@ -37,7 +37,7 @@ namespace onnx_mlir {
 // attribute (v11). This saving is performed using the specialized "saveAxes()"
 // function.
 template <typename OP_TYPE>
-LogicalResult NewONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
+LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &squeezedDims, bool axesFromShape) {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr outputDims;
@@ -180,6 +180,6 @@ LogicalResult ONNXSqueezeV11Op::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXCommonSqueezeOpShapeHelper<ONNXSqueezeOp>;
-template struct NewONNXCommonSqueezeOpShapeHelper<ONNXSqueezeV11Op>;
+template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeOp>;
+template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeV11Op>;
 } // namespace onnx_mlir

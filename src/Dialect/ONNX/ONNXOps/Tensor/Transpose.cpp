@@ -84,5 +84,5 @@ LogicalResult ONNXTransposeOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXTransposeOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXTransposeOp>;
 } // namespace onnx_mlir

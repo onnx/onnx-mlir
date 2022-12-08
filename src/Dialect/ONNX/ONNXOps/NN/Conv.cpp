@@ -315,7 +315,7 @@ namespace onnx_mlir {
 NewONNXConvOpShapeHelper::NewONNXConvOpShapeHelper(Operation *op,
     ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
     IndexExprScope *scope)
-    : NewONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ true,
+    : ONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ true,
           /*ceil mode*/ false, scope) {}
 
 LogicalResult NewONNXConvOpShapeHelper::computeShape() {

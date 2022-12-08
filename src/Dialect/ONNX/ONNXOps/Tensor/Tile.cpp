@@ -78,5 +78,5 @@ LogicalResult ONNXTileOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXTileOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXTileOp>;
 } // namespace onnx_mlir

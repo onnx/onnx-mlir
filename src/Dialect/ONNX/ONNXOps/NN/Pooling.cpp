@@ -63,7 +63,7 @@ namespace onnx_mlir {
 NewONNXAveragePoolOpShapeHelper::NewONNXAveragePoolOpShapeHelper(Operation *op,
     ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
     IndexExprScope *scope)
-    : NewONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ false,
+    : ONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ false,
           /*ceil mode, dummy value*/ false, scope) {
   // Set ceil mode to appropriate value.
   ONNXAveragePoolOp poolOp = llvm::cast<ONNXAveragePoolOp>(op);
@@ -157,7 +157,7 @@ namespace onnx_mlir {
 NewONNXMaxPoolSingleOutOpShapeHelper::NewONNXMaxPoolSingleOutOpShapeHelper(
     Operation *op, ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
     IndexExprScope *scope)
-    : NewONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ false,
+    : ONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ false,
           /*ceil mode, dummy value*/ false, scope) {
   // Set ceil mode to appropriate value.
   ONNXMaxPoolSingleOutOp poolOp = llvm::cast<ONNXMaxPoolSingleOutOp>(op);

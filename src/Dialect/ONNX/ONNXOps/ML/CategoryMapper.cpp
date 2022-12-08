@@ -97,5 +97,5 @@ LogicalResult ONNXCategoryMapperOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXCategoryMapperOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXCategoryMapperOp>;
 } // namespace onnx_mlir

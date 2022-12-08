@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <typename OP_TYPE>
-LogicalResult NewONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
+LogicalResult ONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
   // Get info about input data operand.
   OP_TYPE argOp = llvm::cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands);
@@ -140,7 +140,7 @@ LogicalResult ONNXArgMinOp::inferShapes(
 
 namespace onnx_mlir {
 
-template struct NewONNXArgMinMaxOpShapeHelper<ONNXArgMaxOp>;
-template struct NewONNXArgMinMaxOpShapeHelper<ONNXArgMinOp>;
+template struct ONNXArgMinMaxOpShapeHelper<ONNXArgMaxOp>;
+template struct ONNXArgMinMaxOpShapeHelper<ONNXArgMinOp>;
 
 } // namespace onnx_mlir

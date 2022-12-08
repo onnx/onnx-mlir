@@ -35,7 +35,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   unsigned axis = splitOp.axis();
 
   // Get shape.
-  NewONNXCommonSplitOpShapeHelper<OP_TYPE> shapeHelper(op, operands, &createIE);
+  ONNXCommonSplitOpShapeHelper<OP_TYPE> shapeHelper(op, operands, &createIE);
   shapeHelper.computeShapeAndAssertOnFailure();
 
   // Alloc and dealloc.

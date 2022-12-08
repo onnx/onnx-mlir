@@ -117,5 +117,5 @@ LogicalResult ONNXTopKOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXTopKOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXTopKOp>;
 } // namespace onnx_mlir

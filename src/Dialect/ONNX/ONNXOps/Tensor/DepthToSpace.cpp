@@ -114,5 +114,5 @@ LogicalResult ONNXDepthToSpaceOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXDepthToSpaceOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXDepthToSpaceOp>;
 } // namespace onnx_mlir

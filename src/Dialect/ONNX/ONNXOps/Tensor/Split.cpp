@@ -26,7 +26,7 @@ namespace onnx_mlir {
 
 // Code common for all split ops.
 template <typename OP_TYPE>
-LogicalResult NewONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
+LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
     ArrayRef<IndexExpr> indexExprArray) {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   OP_TYPE splitOp = llvm::cast<OP_TYPE>(op);
@@ -179,6 +179,6 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXCommonSplitOpShapeHelper<ONNXSplitOp>;
-template struct NewONNXCommonSplitOpShapeHelper<ONNXSplitV11Op>;
+template struct ONNXCommonSplitOpShapeHelper<ONNXSplitOp>;
+template struct ONNXCommonSplitOpShapeHelper<ONNXSplitV11Op>;
 } // namespace onnx_mlir

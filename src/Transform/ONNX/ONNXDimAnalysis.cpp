@@ -109,7 +109,7 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
 /// Use this function for unary operations.
 void exploreSameInputDimsUnaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
-  onnx_mlir::NewONNXUnaryOpShapeHelper shapeHelper(op, {});
+  onnx_mlir::ONNXUnaryOpShapeHelper shapeHelper(op, {});
   shapeHelper.computeShapeAndAssertOnFailure();
   // Find the unknown input dimensions that were transferred to the unknown
   // output dimension.
@@ -127,7 +127,7 @@ void exploreSameInputDimsBinaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
   Value B = op->getOperands()[1];
 
   // Build shape helper
-  onnx_mlir::NewONNXBroadcastOpShapeHelper shapeHelper(
+  onnx_mlir::ONNXBroadcastOpShapeHelper shapeHelper(
       op, ArrayRef<Value>({A, B}));
   shapeHelper.computeShapeAndAssertOnFailure();
   // Find the unknown input dimensions that were transferred to the unknown
@@ -400,7 +400,7 @@ void DimAnalysis::visitDim(
 
   // GemmOp
   if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
-    exploreSameInputDims<ONNXGemmOp, NewONNXGemmOpShapeHelper>(
+    exploreSameInputDims<ONNXGemmOp, ONNXGemmOpShapeHelper>(
         dim, gemmOp, sameDims);
     return;
   }
@@ -443,7 +443,7 @@ void DimAnalysis::visitDim(
 
   // PadOp
   if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
-    exploreSameInputDims<ONNXPadOp, NewONNXPadOpShapeHelper>(
+    exploreSameInputDims<ONNXPadOp, ONNXPadOpShapeHelper>(
         dim, padOp, sameDims);
     return;
   }
@@ -537,7 +537,7 @@ void DimAnalysis::visitDim(
 
   // SliceOp
   if (auto sliceOp = dyn_cast<ONNXSliceOp>(op)) {
-    exploreSameInputDims<ONNXSliceOp, NewONNXSliceOpShapeHelper>(
+    exploreSameInputDims<ONNXSliceOp, ONNXSliceOpShapeHelper>(
         dim, sliceOp, sameDims);
     return;
   }

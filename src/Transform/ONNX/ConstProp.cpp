@@ -822,7 +822,7 @@ Value ConstPropSlice(
       allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
 
   // Get starts, ends, axes and steps via ShapeHelper.
-  NewONNXSliceOpShapeHelper shapeHelper(op, {});
+  ONNXSliceOpShapeHelper shapeHelper(op, {});
   if (failed(shapeHelper.computeShape())) {
     sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
                       " parameters successfully");

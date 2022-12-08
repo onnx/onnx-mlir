@@ -41,7 +41,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   bool enableTiling;
 
   void genericGemm(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
-      Type elementType, NewONNXGemmOpShapeHelper &shapeHelper, Value alloc,
+      Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
       Value zeroVal, Value alphaVal, Value betaVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
     // R is result (alloc).
@@ -110,7 +110,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
   void tiledTransposedGemm(ONNXGemmOp &gemmOp,
       ONNXGemmOpAdaptor &operandAdaptor, Type elementType,
-      NewONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
+      ONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       Value alphaVal, Value betaVal, ConversionPatternRewriter &rewriter,
       Location loc) const {
 
@@ -315,7 +315,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
     Location loc = op->getLoc();
     IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
-    NewONNXGemmOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    ONNXGemmOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

@@ -195,5 +195,5 @@ LogicalResult ONNXGatherNDOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXGatherNDOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXGatherNDOp>;
 } // namespace onnx_mlir

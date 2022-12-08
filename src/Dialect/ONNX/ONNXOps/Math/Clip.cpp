@@ -82,5 +82,5 @@ LogicalResult ONNXClipOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXClipOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXClipOp>;
 } // namespace onnx_mlir

@@ -24,7 +24,7 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXOneHotOpShapeHelper::computeShape() {
+LogicalResult ONNXOneHotOpShapeHelper::computeShape() {
   ONNXOneHotOp oneHotOp = llvm::cast<ONNXOneHotOp>(op);
   ONNXOneHotOpAdaptor operandAdaptor(operands);
   Value indices = operandAdaptor.indices();
@@ -119,6 +119,6 @@ LogicalResult ONNXOneHotOp::inferShapes(
     return success();
 
   auto elementType = values().getType().cast<ShapedType>().getElementType();
-  NewONNXOneHotOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXOneHotOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

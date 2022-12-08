@@ -27,7 +27,7 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
+LogicalResult ONNXExpandOpShapeHelper::computeShape() {
   // Get info about input operands.
   ONNXExpandOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.input();
@@ -51,7 +51,7 @@ LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
     // We also pass here the scope of the ExpandOp shape helper so that the
     // computations performed in the ShapeOp shape helper can be used in the
     // context of the ExpandOp.
-    NewONNXShapeOpShapeHelper shapeHelper(
+    ONNXShapeOpShapeHelper shapeHelper(
         shapeOp.getOperation(), {}, createIE, /* important */ getScope());
     if (failed(shapeHelper.computeShape()))
       return op->emitError("failed to get shape op shape");
@@ -107,6 +107,6 @@ LogicalResult ONNXExpandOp::inferShapes(
     return success();
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
-  NewONNXExpandOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXExpandOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

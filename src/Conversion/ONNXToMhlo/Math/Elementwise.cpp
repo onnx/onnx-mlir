@@ -195,7 +195,7 @@ struct ONNXElementwiseCompareBinaryOpLoweringToMhlo : public ConversionPattern {
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
     IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
-    NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
+    ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     int64_t outputRank = shapeHelper.outputRank;
@@ -225,7 +225,7 @@ struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
     IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
-    NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
+    ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     int64_t outputRank = shapeHelper.outputRank;
@@ -254,7 +254,7 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
     // Since code is actually not needed here at this time, one could use
     // IndexExprBuilderForAnalysis createIE(loc) instead.
     IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
-    NewONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
+    ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     int64_t outputRank = shapeHelper.outputRank;
