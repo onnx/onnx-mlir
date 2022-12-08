@@ -12,7 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -39,9 +41,10 @@ struct ONNXSqueezeOpLoweringToMhlo : public ConversionPattern {
     ShapedType dataType = data.getType().cast<ShapedType>();
     int64_t rank = dataType.getRank();
 
-    ONNXSqueezeOpShapeHelper shapeHelper(&squeezeOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Shape helper is unused
+    IndexExprBuilderForMhlo createIE(rewriter, loc);
+    NewONNXSqueezeOpShapeHelper shapeHelper(op, operands, &createIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     SmallVector<int64_t, 4> axesList;
     if (DenseElementsAttr axesAttr =

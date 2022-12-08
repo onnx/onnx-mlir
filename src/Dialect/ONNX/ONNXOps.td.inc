@@ -837,6 +837,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
 
 def ONNXConstantOp:ONNX_Op<"Constant",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  let hasCustomAssemblyFormat = 1;
   let hasCanonicalizer = 1;
   let summary = "ONNX Constant operation";
   let description = [{

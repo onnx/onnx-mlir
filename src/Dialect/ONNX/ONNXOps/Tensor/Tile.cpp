@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,25 +25,20 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXTileOpShapeHelper::computeShape(
-    ONNXTileOpAdaptor operandAdaptor) {
-  // Shape inference indicated by passing a null rewriter pointer.
+template <>
+LogicalResult NewONNXTileOpShapeHelper::computeShape() {
+  ONNXTileOpAdaptor operandAdaptor(operands);
   // Get info about input data operand.
   Value input = operandAdaptor.input();
-  // TOFIX: need to check is_a<ShapedType>?
-  int64_t inputRank = input.getType().cast<ShapedType>().getShape().size();
+  int64_t inputRank = createIE->getTypeRank(input);
   Value repeats = operandAdaptor.repeats();
-
   // Compute outputDims
   DimsExpr outputDims;
   outputDims.resize(inputRank);
-  MemRefBoundsIndexCapture inputBounds(input);
-  ArrayValueIndexCapture repeatsCapture(repeats, fGetDenseVal, fLoadVal);
   for (auto i = 0; i < inputRank; i++) {
-    DimIndexExpr dimInput(inputBounds.getDim(i));
-    SymbolIndexExpr repeatsValue(repeatsCapture.getSymbol(i));
-    IndexExpr dimOutput = dimInput * repeatsValue;
-    outputDims[i] = dimOutput;
+    IndexExpr dimInput = createIE->getShapeAsDim(input, i);
+    IndexExpr repeatsValue = createIE->getIntFromArrayAsSymbol(repeats, i);
+    outputDims[i] = dimInput * repeatsValue;
   }
   setOutputDims(outputDims);
   return success();
@@ -74,6 +70,14 @@ LogicalResult ONNXTileOp::inferShapes(
     return emitError("Repeats tensor must have rank one");
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXTileOpShapeHelper, ONNXTileOp,
-      ONNXTileOpAdaptor>(*this, elementType);
+  NewONNXTileOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct NewONNXNonSpecificOpShapeHelper<ONNXTileOp>;
+} // namespace onnx_mlir

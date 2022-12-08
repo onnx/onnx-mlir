@@ -42,7 +42,6 @@ LogicalResult NewONNXDepthToSpaceOpShapeHelper::computeShape() {
   // shape [N, C / (blocksize * blocksize), H * blocksize, W * blocksize].
   DimsExpr outputDims;
   outputDims.resize(inputRank);
-  // MemRefBoundsIndexCapture inputBounds(input);
   DimIndexExpr N(createIE->getShapeAsDim(input, 0));
   DimIndexExpr C(createIE->getShapeAsDim(input, 1));
   DimIndexExpr H(createIE->getShapeAsDim(input, 2));
