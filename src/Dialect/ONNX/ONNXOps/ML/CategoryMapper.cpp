@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXCategoryMapperOpShapeHelper::computeShape() {
+LogicalResult ONNXCategoryMapperOpShapeHelper::computeShape() {
   ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
   return computeShapeFromOperand(operandAdaptor.X());
 }
@@ -88,7 +88,7 @@ LogicalResult ONNXCategoryMapperOp::inferShapes(
   else
     outputElementType = IntegerType::get(getContext(), /*width=*/64);
 
-  NewONNXCategoryMapperOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXCategoryMapperOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(outputElementType);
 }
 

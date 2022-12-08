@@ -26,7 +26,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXLRNOpShapeHelper::computeShape() {
+LogicalResult ONNXLRNOpShapeHelper::computeShape() {
   ONNXLRNOpAdaptor operandAdaptor(operands);
   return computeShapeFromOperand(operandAdaptor.X());
 }
@@ -44,7 +44,7 @@ LogicalResult NewONNXLRNOpShapeHelper::computeShape() {
 LogicalResult ONNXLRNOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Type elementType = X().getType().cast<ShapedType>().getElementType();
-  NewONNXLRNOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXLRNOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

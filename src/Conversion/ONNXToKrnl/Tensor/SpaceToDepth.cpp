@@ -40,7 +40,7 @@ struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // Get shape.
-    NewONNXSpaceToDepthOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXSpaceToDepthOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     Value input = operandAdaptor.input();

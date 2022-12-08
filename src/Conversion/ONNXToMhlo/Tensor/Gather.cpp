@@ -36,7 +36,7 @@ struct ONNXGatherOpLoweringToMhlo : public ConversionPattern {
 
     // Is it unused?
     IndexExprBuilderForMhlo createIE(rewriter, loc);
-    NewONNXGatherOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXGatherOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     Type outputType = *op->result_type_begin();

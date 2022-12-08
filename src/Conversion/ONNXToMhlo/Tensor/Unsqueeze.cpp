@@ -43,7 +43,7 @@ struct ONNXUnsqueezeOpLoweringToMhlo : public ConversionPattern {
     // Unused; for example, axles can be read from it.
     // Code below does not seems to handle >v11 where axles are inputs.
     IndexExprBuilderForMhlo createIE(rewriter, loc);
-    NewONNXUnsqueezeOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXUnsqueezeOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     SmallVector<int64_t, 4> axesList;

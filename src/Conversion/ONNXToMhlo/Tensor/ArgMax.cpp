@@ -69,7 +69,7 @@ struct ONNXArgMaxOpLoweringToMhlo : public ConversionPattern {
 
     // Shape helper (not really used).
     IndexExprBuilderForMhlo createIE(rewriter, loc);
-    NewONNXArgMaxOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXArgMaxOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     Type outputType = *op->result_type_begin();

@@ -35,7 +35,7 @@ struct ONNXConvOpLoweringToMhlo : public ConversionPattern {
     Location loc = op->getLoc();
 
     IndexExprBuilderForMhlo createMhloIE(rewriter, loc);
-    NewONNXConvOpShapeHelper shapeHelper(op, operands, &createMhloIE);
+    ONNXConvOpShapeHelper shapeHelper(op, operands, &createMhloIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     llvm::SmallVector<IndexExpr, 2> kernelShape = shapeHelper.kernelShape;

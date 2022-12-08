@@ -295,9 +295,9 @@ struct ONNXPoolOpShapeHelper : public ONNXOpShapeHelper {
     virtual ~SHAPE_HELPER() {}                                                 \
     mlir::LogicalResult computeShape() final;                                  \
   };
-DECLARE_SHAPE_HELPER(NewONNXAveragePoolOpShapeHelper)
-DECLARE_SHAPE_HELPER(NewONNXConvOpShapeHelper)
-DECLARE_SHAPE_HELPER(NewONNXMaxPoolSingleOutOpShapeHelper)
+DECLARE_SHAPE_HELPER(ONNXAveragePoolOpShapeHelper)
+DECLARE_SHAPE_HELPER(ONNXConvOpShapeHelper)
+DECLARE_SHAPE_HELPER(ONNXMaxPoolSingleOutOpShapeHelper)
 #undef DECLARE_SHAPE_HELPER
 
 //===----------------------------------------------------------------------===//
@@ -356,11 +356,11 @@ struct ONNXGenericMatMulOpShapeHelper : public ONNXOpShapeHelper {
 };
 
 // Type definition for the ops that uses ONNXGenericMatMulOpShapeHelper.
-using NewONNXMatMulOpShapeHelper =
+using ONNXMatMulOpShapeHelper =
     ONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulOp>;
-using NewONNXMatMulIntegerOpShapeHelper =
+using ONNXMatMulIntegerOpShapeHelper =
     ONNXGenericMatMulOpShapeHelper<mlir::ONNXMatMulIntegerOp>;
-using NewONNXQLinearMatMulOpShapeHelper =
+using ONNXQLinearMatMulOpShapeHelper =
     ONNXGenericMatMulOpShapeHelper<mlir::ONNXQLinearMatMulOp>;
 
 //===----------------------------------------------------------------------===//
@@ -427,9 +427,9 @@ struct ONNXArgMinMaxOpShapeHelper : public ONNXOpShapeHelper {
   mlir::LogicalResult computeShape() final;
 };
 
-using NewONNXArgMaxOpShapeHelper =
+using ONNXArgMaxOpShapeHelper =
     ONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMaxOp>;
-using NewONNXArgMinOpShapeHelper =
+using ONNXArgMinOpShapeHelper =
     ONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMinOp>;
 
 //===----------------------------------------------------------------------===//
@@ -451,9 +451,9 @@ struct ONNXCommonSplitOpShapeHelper : public ONNXOpShapeHelper {
       mlir::ArrayRef<IndexExpr> indexExprArray);
 };
 
-using NewONNXSplitOpShapeHelper =
+using ONNXSplitOpShapeHelper =
     ONNXCommonSplitOpShapeHelper<mlir::ONNXSplitOp>;
-using NewONNXSplitV11OpShapeHelper =
+using ONNXSplitV11OpShapeHelper =
     ONNXCommonSplitOpShapeHelper<mlir::ONNXSplitV11Op>;
 
 //===----------------------------------------------------------------------===//
@@ -480,9 +480,9 @@ struct ONNXCommonSqueezeOpShapeHelper : public ONNXOpShapeHelper {
   llvm::SmallVector<int64_t, 4> squeezedAxes;
 };
 
-using NewONNXSqueezeOpShapeHelper =
+using ONNXSqueezeOpShapeHelper =
     ONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqueezeOp>;
-using NewONNXSqueezeV11OpShapeHelper =
+using ONNXSqueezeV11OpShapeHelper =
     ONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqueezeV11Op>;
 
 //===----------------------------------------------------------------------===//
@@ -508,9 +508,9 @@ struct ONNXCommonUnsqueezeOpShapeHelper : public ONNXOpShapeHelper {
   llvm::SmallVector<int64_t, 4> unsqueezedAxes;
 };
 
-using NewONNXUnsqueezeOpShapeHelper =
+using ONNXUnsqueezeOpShapeHelper =
     ONNXCommonUnsqueezeOpShapeHelper<mlir::ONNXUnsqueezeOp>;
-using NewONNXUnsqueezeV11OpShapeHelper =
+using ONNXUnsqueezeV11OpShapeHelper =
     ONNXCommonUnsqueezeOpShapeHelper<mlir::ONNXUnsqueezeV11Op>;
 
 //===----------------------------------------------------------------------===//
@@ -539,35 +539,35 @@ struct ONNXNonSpecificOpShapeHelper : public ONNXOpShapeHelper {
   mlir::LogicalResult computeShape() final;
 };
 
-using NewONNXCategoryMapperOpShapeHelper =
+using ONNXCategoryMapperOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
-using NewONNXClipOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
-using NewONNXCompressOpShapeHelper =
+using ONNXClipOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
+using ONNXCompressOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
-using NewONNXConcatOpShapeHelper =
+using ONNXConcatOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
-using NewONNXConcatShapeTransposeOpShapeHelper =
+using ONNXConcatShapeTransposeOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
-using NewONNXDepthToSpaceOpShapeHelper =
+using ONNXDepthToSpaceOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
-using NewONNXFlattenOpShapeHelper =
+using ONNXFlattenOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXFlattenOp>;
-using NewONNXGatherOpShapeHelper =
+using ONNXGatherOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherOp>;
-using NewONNXGatherElementsOpShapeHelper =
+using ONNXGatherElementsOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherElementsOp>;
-using NewONNXGatherNDOpShapeHelper =
+using ONNXGatherNDOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherNDOp>;
-using NewONNXLRNOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
-using NewONNXReshapeOpShapeHelper =
+using ONNXLRNOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
+using ONNXReshapeOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
-using NewONNXReverseSequenceOpShapeHelper =
+using ONNXReverseSequenceOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
-using NewONNXSpaceToDepthOpShapeHelper =
+using ONNXSpaceToDepthOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
-using NewONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
-using NewONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
-using NewONNXTransposeOpShapeHelper =
+using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
+using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
+using ONNXTransposeOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
 using ONNXDFTOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDFTOp>;
 

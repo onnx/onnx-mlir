@@ -35,7 +35,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     LocalMultiDialectBuilder create(rewriter, loc);
 
     // Get shape.
-    NewONNXLRNOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXLRNOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

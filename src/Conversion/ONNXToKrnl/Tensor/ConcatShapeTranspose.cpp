@@ -36,7 +36,7 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // Get shape.
-    NewONNXConcatShapeTransposeOpShapeHelper shapeHelper(
+    ONNXConcatShapeTransposeOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 

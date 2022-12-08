@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXGatherElementsOpShapeHelper::computeShape() {
+LogicalResult ONNXGatherElementsOpShapeHelper::computeShape() {
   ONNXGatherElementsOpAdaptor operandAdaptor(operands);
   return computeShapeFromOperand(operandAdaptor.indices());
 }
@@ -101,7 +101,7 @@ LogicalResult ONNXGatherElementsOp::inferShapes(
     return success();
 
   Type elementType = data().getType().cast<ShapedType>().getElementType();
-  NewONNXGatherElementsOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXGatherElementsOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

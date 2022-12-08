@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXReshapeOpShapeHelper::computeShape() {
+LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   ONNXReshapeOpAdaptor operandAdaptor(operands);
   DimsExpr outputDims;
 
@@ -117,7 +117,7 @@ LogicalResult ONNXReshapeOp::inferShapes(
     return emitError("Shape tensor must have constant shape");
 
   Type elementType = data().getType().cast<ShapedType>().getElementType();
-  NewONNXReshapeOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXReshapeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

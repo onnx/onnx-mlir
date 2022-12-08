@@ -24,7 +24,7 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 template <>
-LogicalResult NewONNXTransposeOpShapeHelper::computeShape() {
+LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
   // Basic information.
   ONNXTransposeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
@@ -75,7 +75,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
     return success();
 
   Type elementType = data().getType().cast<ShapedType>().getElementType();
-  NewONNXTransposeOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXTransposeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

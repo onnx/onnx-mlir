@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXTopKOpShapeHelper::computeShape() {
+LogicalResult ONNXTopKOpShapeHelper::computeShape() {
   DimsExpr outputDims;
   ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   // Get info about X and K operands.
@@ -108,7 +108,7 @@ LogicalResult ONNXTopKOp::inferShapes(
 
   Builder b(getContext());
   Type elementType = X().getType().cast<ShapedType>().getElementType();
-  NewONNXTopKOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXTopKOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateTypes({elementType, b.getI64Type()});
 }
 

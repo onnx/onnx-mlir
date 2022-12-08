@@ -33,7 +33,7 @@ struct ONNXGatherElementsOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Get shape.
-    NewONNXGatherElementsOpShapeHelper shapeHelper(
+    ONNXGatherElementsOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 

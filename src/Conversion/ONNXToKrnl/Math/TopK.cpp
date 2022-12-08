@@ -55,7 +55,7 @@ struct ONNXTopKOpLowering : public ConversionPattern {
     // bool sortedMode = TopKOp.sorted() == 1;
 
     // Compute the output's dimension sizes.
-    NewONNXTopKOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXTopKOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     DimsExpr resDims = shapeHelper.getOutputDims();
 

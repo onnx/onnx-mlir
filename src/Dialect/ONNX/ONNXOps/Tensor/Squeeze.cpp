@@ -101,7 +101,7 @@ LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
 }
 
 template <>
-void NewONNXSqueezeOpShapeHelper::saveAxes() {
+void ONNXSqueezeOpShapeHelper::saveAxes() {
   // Create a ConstantOp associated with this Squeeze Op
   // There could be an issue if we were to generate a constant Op late in
   // lowering, but since we normalize them during the first shape inference, we
@@ -112,13 +112,13 @@ void NewONNXSqueezeOpShapeHelper::saveAxes() {
 }
 
 template <>
-void NewONNXSqueezeV11OpShapeHelper::saveAxes() {
+void ONNXSqueezeV11OpShapeHelper::saveAxes() {
   SaveOnnxAttrInOp<ONNXSqueezeV11Op>(op, squeezedAxes,
       [](ONNXSqueezeV11Op op, ArrayAttr attr) { op.axesAttr(attr); });
 }
 
 template <>
-LogicalResult NewONNXSqueezeOpShapeHelper::computeShape() {
+LogicalResult ONNXSqueezeOpShapeHelper::computeShape() {
   ONNXSqueezeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   Value axes = operandAdaptor.axes();
   SmallVector<IndexExpr, 4> squeezedDims;
@@ -131,7 +131,7 @@ LogicalResult NewONNXSqueezeOpShapeHelper::computeShape() {
 }
 
 template <>
-LogicalResult NewONNXSqueezeV11OpShapeHelper::computeShape() {
+LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape() {
   ONNXSqueezeV11OpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   auto axesAttr = operandAdaptor.axesAttr();
   SmallVector<IndexExpr, 4> squeezedDims;
@@ -160,7 +160,7 @@ LogicalResult ONNXSqueezeOp::inferShapes(
     return success();
 
   Type elementType = dataType.getElementType();
-  NewONNXSqueezeOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXSqueezeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -171,7 +171,7 @@ LogicalResult ONNXSqueezeV11Op::inferShapes(
     return success();
 
   Type elementType = dataType.getElementType();
-  NewONNXSqueezeV11OpShapeHelper shapeHelper(getOperation(), {});
+  ONNXSqueezeV11OpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

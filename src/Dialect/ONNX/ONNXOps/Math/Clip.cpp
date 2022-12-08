@@ -26,7 +26,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXClipOpShapeHelper::computeShape() {
+LogicalResult ONNXClipOpShapeHelper::computeShape() {
   ONNXClipOpAdaptor operandAdaptor(operands);
   return computeShapeFromOperand(operandAdaptor.input());
 }
@@ -73,7 +73,7 @@ LogicalResult ONNXClipOp::inferShapes(
       return emitError("Min tensor ranked with nonzero size");
   }
 
-  NewONNXClipOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXClipOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

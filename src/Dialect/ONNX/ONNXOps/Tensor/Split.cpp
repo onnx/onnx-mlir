@@ -89,7 +89,7 @@ LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
 
 // Code for SplitOp compute shape.
 template <>
-LogicalResult NewONNXSplitOpShapeHelper::computeShape() {
+LogicalResult ONNXSplitOpShapeHelper::computeShape() {
   ONNXSplitOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   Value split = operandAdaptor.split();
   SmallVector<IndexExpr, 4> indexExprArray;
@@ -105,7 +105,7 @@ LogicalResult NewONNXSplitOpShapeHelper::computeShape() {
 
 // Code for SplitV11Op compute shape.
 template <>
-LogicalResult NewONNXSplitV11OpShapeHelper::computeShape() {
+LogicalResult ONNXSplitV11OpShapeHelper::computeShape() {
   ONNXSplitV11OpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   ArrayAttr splitAttr = operandAdaptor.splitAttr();
   SmallVector<IndexExpr, 4> indexExprArray;
@@ -152,7 +152,7 @@ LogicalResult ONNXSplitOp::inferShapes(
 
   auto inputType = input().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  NewONNXSplitOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXSplitOpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -165,7 +165,7 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 
   auto inputType = input().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  NewONNXSplitV11OpShapeHelper shapeHelper(getOperation(), {});
+  ONNXSplitV11OpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXCompressOpShapeHelper::computeShape() {
+LogicalResult ONNXCompressOpShapeHelper::computeShape() {
   // Check that input and condition are ranked.
   ONNXCompressOp compressOp = llvm::cast<ONNXCompressOp>(op);
   ONNXCompressOpAdaptor operandAdaptor(operands);
@@ -119,7 +119,7 @@ LogicalResult ONNXCompressOp::inferShapes(
     return success();
 
   Type elementType = input().getType().cast<ShapedType>().getElementType();
-  NewONNXCompressOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXCompressOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

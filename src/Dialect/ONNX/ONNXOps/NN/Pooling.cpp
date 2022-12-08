@@ -60,7 +60,7 @@ static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
 
 namespace onnx_mlir {
 
-NewONNXAveragePoolOpShapeHelper::NewONNXAveragePoolOpShapeHelper(Operation *op,
+ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(Operation *op,
     ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
     IndexExprScope *scope)
     : ONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ false,
@@ -70,7 +70,7 @@ NewONNXAveragePoolOpShapeHelper::NewONNXAveragePoolOpShapeHelper(Operation *op,
   ceilMode = poolOp.ceil_mode();
 }
 
-LogicalResult NewONNXAveragePoolOpShapeHelper::computeShape() {
+LogicalResult ONNXAveragePoolOpShapeHelper::computeShape() {
   ONNXAveragePoolOp poolOp = llvm::cast<ONNXAveragePoolOp>(op);
   ONNXAveragePoolOpAdaptor operandAdaptor = ONNXAveragePoolOpAdaptor(operands);
   return customComputeShape(operandAdaptor.X(), /*W*/ nullptr,
@@ -117,7 +117,7 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
     return success();
 
   Type elementType = X().getType().cast<ShapedType>().getElementType();
-  NewONNXAveragePoolOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXAveragePoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -154,7 +154,7 @@ LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
 
 namespace onnx_mlir {
 
-NewONNXMaxPoolSingleOutOpShapeHelper::NewONNXMaxPoolSingleOutOpShapeHelper(
+ONNXMaxPoolSingleOutOpShapeHelper::ONNXMaxPoolSingleOutOpShapeHelper(
     Operation *op, ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
     IndexExprScope *scope)
     : ONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ false,
@@ -164,7 +164,7 @@ NewONNXMaxPoolSingleOutOpShapeHelper::NewONNXMaxPoolSingleOutOpShapeHelper(
   ceilMode = poolOp.ceil_mode();
 }
 
-LogicalResult NewONNXMaxPoolSingleOutOpShapeHelper::computeShape() {
+LogicalResult ONNXMaxPoolSingleOutOpShapeHelper::computeShape() {
   ONNXMaxPoolSingleOutOp poolOp = llvm::cast<ONNXMaxPoolSingleOutOp>(op);
   ONNXMaxPoolSingleOutOpAdaptor operandAdaptor =
       ONNXMaxPoolSingleOutOpAdaptor(operands);
@@ -223,7 +223,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
 
   Type elementType = X().getType().cast<ShapedType>().getElementType();
   IndexExprBuilderForAnalysis createIE(getLoc());
-  NewONNXMaxPoolSingleOutOpShapeHelper shapeHelper(
+  ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(
       getOperation(), {}, &createIE);
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

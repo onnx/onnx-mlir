@@ -34,7 +34,7 @@ struct ONNXTileOpLoweringToMhlo : public ConversionPattern {
 
     // I believe it is not currently used.
     IndexExprBuilderForAnalysis createIE(loc);
-    NewONNXTileOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXTileOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

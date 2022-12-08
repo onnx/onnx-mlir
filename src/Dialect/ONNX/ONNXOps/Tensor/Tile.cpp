@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXTileOpShapeHelper::computeShape() {
+LogicalResult ONNXTileOpShapeHelper::computeShape() {
   ONNXTileOpAdaptor operandAdaptor(operands);
   // Get info about input data operand.
   Value input = operandAdaptor.input();
@@ -69,7 +69,7 @@ LogicalResult ONNXTileOp::inferShapes(
     return emitError("Repeats tensor must have rank one");
 
   Type elementType = input().getType().cast<ShapedType>().getElementType();
-  NewONNXTileOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXTileOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

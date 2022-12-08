@@ -38,7 +38,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   // Handle the generic cases, including when there are broadcasts.
   void replaceGenericMatmul(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      NewONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value fZero,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value fZero,
       ConversionPatternRewriter &rewriter, Location loc) const {
 
     // Define loops and bounds.
@@ -231,7 +231,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   // substitution.
   void replace2x2Matmul2d(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      NewONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
@@ -290,7 +290,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   // broadcasting.
   void replace2x2Matmul2dBroadcasting(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      NewONNXMatMulOpShapeHelper &shapeHelper, bool broadcastingB,
+      ONNXMatMulOpShapeHelper &shapeHelper, bool broadcastingB,
       bool sameStaticBroadcast, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
     // Prepare: loop bounds and zero
@@ -399,7 +399,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Get shape.
-    NewONNXMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

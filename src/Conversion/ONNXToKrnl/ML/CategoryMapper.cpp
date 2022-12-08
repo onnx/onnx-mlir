@@ -52,7 +52,7 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     LocalDialectBuilder create(rewriter, loc);
 
     // Get shape.
-    NewONNXCategoryMapperOpShapeHelper shapeHelper(
+    ONNXCategoryMapperOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 

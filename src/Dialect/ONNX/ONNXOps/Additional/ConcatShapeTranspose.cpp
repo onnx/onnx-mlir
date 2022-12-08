@@ -48,7 +48,7 @@ int64_t normalizeClampedPerSpec(int64_t axis, int64_t rank) {
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXConcatShapeTransposeOpShapeHelper::computeShape() {
+LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
   ONNXConcatShapeTransposeOpAdaptor operandAdaptor(operands);
   ONNXConcatShapeTransposeOp concatOp =
       llvm::cast<ONNXConcatShapeTransposeOp>(op);
@@ -161,7 +161,7 @@ LogicalResult ONNXConcatShapeTransposeOp::inferShapes(
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   Type intType = IntegerType::get(getContext(), 64).cast<Type>();
   SmallVector<Type> elementTypes = {intType, commonType.getElementType()};
-  NewONNXConcatShapeTransposeOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXConcatShapeTransposeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateTypes(elementTypes);
 }
 

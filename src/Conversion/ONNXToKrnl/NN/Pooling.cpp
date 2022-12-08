@@ -504,10 +504,10 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 void populateLoweringONNXPoolingOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXPoolOpLowering<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor, NewONNXMaxPoolSingleOutOpShapeHelper>>(
+      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(
       typeConverter, ctx);
   patterns.insert<ONNXPoolOpLowering<ONNXAveragePoolOp,
-      ONNXAveragePoolOpAdaptor, NewONNXAveragePoolOpShapeHelper>>(
+      ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>>(
       typeConverter, ctx);
 }
 

@@ -171,7 +171,7 @@ LogicalResult ONNXMatMulOp::inferShapes(
     return success();
 
   Type elementType = A().getType().cast<ShapedType>().getElementType();
-  NewONNXMatMulOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXMatMulOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -187,7 +187,7 @@ LogicalResult ONNXMatMulIntegerOp::inferShapes(
     return success();
 
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();
-  NewONNXMatMulIntegerOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXMatMulIntegerOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -202,7 +202,7 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
     return success();
 
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();
-  NewONNXQLinearMatMulOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXQLinearMatMulOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

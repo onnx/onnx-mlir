@@ -33,7 +33,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
         create(rewriter, loc);
     // Get shape.
-    NewONNXReverseSequenceOpShapeHelper shapeHelper(
+    ONNXReverseSequenceOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 

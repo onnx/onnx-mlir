@@ -361,14 +361,14 @@ void DimAnalysis::visitDim(
 
   // AveragePoolOp
   if (auto poolOp = dyn_cast<ONNXAveragePoolOp>(op)) {
-    exploreSameInputDims<ONNXAveragePoolOp, NewONNXAveragePoolOpShapeHelper>(
+    exploreSameInputDims<ONNXAveragePoolOp, ONNXAveragePoolOpShapeHelper>(
         dim, poolOp, sameDims);
     return;
   }
 
   // ArgMaxOp
   if (auto argmaxOp = dyn_cast<ONNXArgMaxOp>(op)) {
-    exploreSameInputDims<ONNXArgMaxOp, NewONNXArgMaxOpShapeHelper>(
+    exploreSameInputDims<ONNXArgMaxOp, ONNXArgMaxOpShapeHelper>(
         dim, argmaxOp, sameDims);
     return;
   }
@@ -386,7 +386,7 @@ void DimAnalysis::visitDim(
 
   // ConvOp
   if (auto convOp = dyn_cast<ONNXConvOp>(op)) {
-    exploreSameInputDims<ONNXConvOp, NewONNXConvOpShapeHelper>(
+    exploreSameInputDims<ONNXConvOp, ONNXConvOpShapeHelper>(
         dim, convOp, sameDims);
     return;
   }
@@ -407,7 +407,7 @@ void DimAnalysis::visitDim(
 
   // MatMulOp
   if (auto matmulOp = dyn_cast<ONNXMatMulOp>(op)) {
-    exploreSameInputDims<ONNXMatMulOp, NewONNXMatMulOpShapeHelper>(
+    exploreSameInputDims<ONNXMatMulOp, ONNXMatMulOpShapeHelper>(
         dim, matmulOp, sameDims);
     // If we know by this analysis that two unknown dims at the same index in
     // the batchsize space are the same, then the output dim must be the same
@@ -437,7 +437,7 @@ void DimAnalysis::visitDim(
   // MaxPoolSingleOutOp
   if (auto poolOp = dyn_cast<ONNXMaxPoolSingleOutOp>(op)) {
     exploreSameInputDims<ONNXMaxPoolSingleOutOp,
-        NewONNXMaxPoolSingleOutOpShapeHelper>(dim, poolOp, sameDims);
+        ONNXMaxPoolSingleOutOpShapeHelper>(dim, poolOp, sameDims);
     return;
   }
 
@@ -543,28 +543,28 @@ void DimAnalysis::visitDim(
 
   // SplitOp
   if (auto splitOp = dyn_cast<ONNXSplitOp>(op)) {
-    exploreSameInputDims<ONNXSplitOp, NewONNXSplitOpShapeHelper>(
+    exploreSameInputDims<ONNXSplitOp, ONNXSplitOpShapeHelper>(
         dim, splitOp, sameDims);
     return;
   }
 
   // SqueezeOp
   if (auto squeezeOp = dyn_cast<ONNXSqueezeOp>(op)) {
-    exploreSameInputDims<ONNXSqueezeOp, NewONNXSqueezeOpShapeHelper>(
+    exploreSameInputDims<ONNXSqueezeOp, ONNXSqueezeOpShapeHelper>(
         dim, squeezeOp, sameDims);
     return;
   }
 
   // TransposeOp
   if (auto transposeOp = dyn_cast<ONNXTransposeOp>(op)) {
-    exploreSameInputDims<ONNXTransposeOp, NewONNXTransposeOpShapeHelper>(
+    exploreSameInputDims<ONNXTransposeOp, ONNXTransposeOpShapeHelper>(
         dim, transposeOp, sameDims);
     return;
   }
 
   // Unsqueeze
   if (auto unsqueezeOp = dyn_cast<ONNXUnsqueezeOp>(op)) {
-    exploreSameInputDims<ONNXUnsqueezeOp, NewONNXUnsqueezeOpShapeHelper>(
+    exploreSameInputDims<ONNXUnsqueezeOp, ONNXUnsqueezeOpShapeHelper>(
         dim, unsqueezeOp, sameDims);
     return;
   }

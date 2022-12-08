@@ -29,7 +29,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
   bool enableParallel;
 
   void convUnoptimized(ConversionPatternRewriter &rewriter, ONNXConvOp &convOp,
-      ONNXConvOpAdaptor &operandAdaptor, NewONNXConvOpShapeHelper &shapeHelper,
+      ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc) const {
     Location loc = convOp.getLoc();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, SCFBuilder,
@@ -236,7 +236,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     // Get shape.
     IndexExprBuilderForKrnl createIE(rewriter, loc);
-    NewONNXConvOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXConvOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

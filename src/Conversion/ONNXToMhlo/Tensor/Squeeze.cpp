@@ -42,7 +42,7 @@ struct ONNXSqueezeOpLoweringToMhlo : public ConversionPattern {
 
     // Shape helper is unused
     IndexExprBuilderForMhlo createIE(rewriter, loc);
-    NewONNXSqueezeOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXSqueezeOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     SmallVector<int64_t, 4> axesList;

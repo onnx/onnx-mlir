@@ -48,7 +48,7 @@ struct ONNXSplitOpLoweringToMhlo : public ConversionPattern {
 
     // Get a shape helper (not used?)
     IndexExprBuilderForMhlo createIE(rewriter, loc);
-    NewONNXSplitOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXSplitOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     SmallVector<int64_t, 4> splitSizes;

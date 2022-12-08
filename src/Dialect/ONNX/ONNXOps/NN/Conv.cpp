@@ -312,13 +312,13 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
 
 namespace onnx_mlir {
 
-NewONNXConvOpShapeHelper::NewONNXConvOpShapeHelper(Operation *op,
+ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(Operation *op,
     ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
     IndexExprScope *scope)
     : ONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ true,
           /*ceil mode*/ false, scope) {}
 
-LogicalResult NewONNXConvOpShapeHelper::computeShape() {
+LogicalResult ONNXConvOpShapeHelper::computeShape() {
   ONNXConvOp poolOp = llvm::cast<ONNXConvOp>(op);
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(operands);
   return customComputeShape(operandAdaptor.X(), operandAdaptor.W(),
@@ -426,7 +426,7 @@ LogicalResult ONNXConvOp::inferShapes(
     return success();
 
   Type elementType = X().getType().cast<ShapedType>().getElementType();
-  NewONNXConvOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXConvOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

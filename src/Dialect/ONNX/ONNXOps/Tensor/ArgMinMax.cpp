@@ -97,7 +97,7 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 
   // ONNX spec specifies the reduced type as an int64
   Type elementType = IntegerType::get(getContext(), 64);
-  NewONNXArgMaxOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXArgMaxOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -130,7 +130,7 @@ LogicalResult ONNXArgMinOp::inferShapes(
 
   // ONNX spec specifies the reduced type as an int64
   Type elementType = IntegerType::get(getContext(), 64);
-  NewONNXArgMinOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXArgMinOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXFlattenOpShapeHelper::computeShape() {
+LogicalResult ONNXFlattenOpShapeHelper::computeShape() {
   // Get info about input operand.
   ONNXFlattenOpAdaptor operandAdaptor(operands);
   ONNXFlattenOp flattenOp = llvm::cast<ONNXFlattenOp>(op);
@@ -99,7 +99,7 @@ LogicalResult ONNXFlattenOp::inferShapes(
     return success();
 
   Type elementType = input().getType().cast<ShapedType>().getElementType();
-  NewONNXFlattenOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXFlattenOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

@@ -35,7 +35,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     ONNXCompressOp compressOp = cast<ONNXCompressOp>(op);
 
     // Get shape, also deliver normalized "axis", -1 if undef.
-    NewONNXCompressOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXCompressOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Get input shape.

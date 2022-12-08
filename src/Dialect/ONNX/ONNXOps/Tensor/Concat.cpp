@@ -26,7 +26,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXConcatOpShapeHelper::computeShape() {
+LogicalResult ONNXConcatOpShapeHelper::computeShape() {
   ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
   ONNXConcatOpAdaptor operandAdaptor(operands);
   unsigned numInputs = op->getNumOperands();
@@ -160,7 +160,7 @@ LogicalResult ONNXConcatOp::inferShapes(
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
-  NewONNXConcatOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXConcatOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(commonType.getElementType());
 }
 

@@ -35,7 +35,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     ONNXConcatOpAdaptor operandAdaptor(operands);
     ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
     // Get shape.
-    NewONNXConcatOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXConcatOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     auto axis = concatOp.axis();

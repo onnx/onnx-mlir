@@ -67,7 +67,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Get shape.
-    NewONNXTileOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXTileOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

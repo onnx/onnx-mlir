@@ -39,7 +39,7 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Get shape.
-    NewONNXDepthToSpaceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXDepthToSpaceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     int64_t bs = spaceToDepthOp.blocksize();

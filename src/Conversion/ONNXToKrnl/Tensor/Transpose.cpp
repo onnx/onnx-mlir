@@ -51,7 +51,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     uint64_t outRank = outMemRefType.getShape().size();
 
     // Get shape.
-    NewONNXTransposeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXTransposeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // If the order of the dimensions whose value is not 1 does not change after

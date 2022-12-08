@@ -60,7 +60,7 @@ struct ONNXTransposeOpLoweringToMhlo : public ConversionPattern {
 
     // Get a shape helper: unused, needed?
     IndexExprBuilderForAnalysis createIE(loc);
-    NewONNXTransposeOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXTransposeOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     Value transposeValue =

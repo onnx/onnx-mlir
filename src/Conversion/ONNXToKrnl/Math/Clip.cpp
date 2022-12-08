@@ -46,7 +46,7 @@ struct ONNXClipOpLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     // Get shape.
-    NewONNXClipOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXClipOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.

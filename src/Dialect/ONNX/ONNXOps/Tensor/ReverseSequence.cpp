@@ -25,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXReverseSequenceOpShapeHelper::computeShape() {
+LogicalResult ONNXReverseSequenceOpShapeHelper::computeShape() {
   // Get info about input data operand.
   ONNXReverseSequenceOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.input();
@@ -81,7 +81,7 @@ LogicalResult ONNXReverseSequenceOp::inferShapes(
     return success();
 
   Type elementType = input().getType().cast<ShapedType>().getElementType();
-  NewONNXReverseSequenceOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXReverseSequenceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
