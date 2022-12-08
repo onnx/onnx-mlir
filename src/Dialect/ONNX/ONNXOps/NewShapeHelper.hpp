@@ -109,7 +109,10 @@ struct NewONNXOpShapeHelper {
   // original operation. First call is used for operations with one result,
   // second for operations with one or more results.
   mlir::LogicalResult computeShapeAndUpdateType(mlir::Type elementType);
-  mlir::LogicalResult computeShapeAndUpdateTypes(mlir::TypeRange elementTypes);
+  // When elementTypeRange has 1 element, this time is reused for all results;
+  // otherwise one element type per output is expected.
+  mlir::LogicalResult computeShapeAndUpdateTypes(
+      mlir::TypeRange elementTypeRange);
 
   // Get/set output dims for the N-th output dimension as Index Expressions.
   DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }
@@ -419,6 +422,59 @@ using NewONNXArgMinOpShapeHelper =
     NewONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMinOp>;
 
 //===----------------------------------------------------------------------===//
+// Split ops
+//===----------------------------------------------------------------------===//
+
+// Different versions of split op use common code, so specialize with
+// templated code.
+template <typename OP_TYPE>
+struct NewONNXCommonSplitOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXCommonSplitOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXCommonSplitOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Common code for compute shape.
+  mlir::LogicalResult customComputeShape(
+      mlir::ArrayRef<IndexExpr> indexExprArray);
+};
+
+using NewONNXSplitOpShapeHelper =
+    NewONNXCommonSplitOpShapeHelper<mlir::ONNXSplitOp>;
+using NewONNXSplitV11OpShapeHelper =
+    NewONNXCommonSplitOpShapeHelper<mlir::ONNXSplitV11Op>;
+
+//===----------------------------------------------------------------------===//
+// Squeeze ops
+//===----------------------------------------------------------------------===//
+
+// Different versions of split op use common code, so specialize with
+// templated code.
+template <typename OP_TYPE>
+struct NewONNXCommonSqueezeOpShapeHelper : public NewONNXOpShapeHelper {
+  NewONNXCommonSqueezeOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : NewONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~NewONNXCommonSqueezeOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Custom method to save axes in the op/graph.
+  void saveAxes();
+  // Common code for compute shape.
+  mlir::LogicalResult customComputeShape(
+      DimsExpr &squeezedDims, bool squeezeFromShape);
+  // Data: squeezedAxes contains all of the axles to squeeze, normalized (i.e.
+  // between 0 and dataRank).
+  llvm::SmallVector<int64_t, 4> squeezedAxes;
+};
+
+using NewONNXSqueezeOpShapeHelper =
+    NewONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqueezeOp>;
+using NewONNXSqueezeV11OpShapeHelper =
+    NewONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqueezeV11Op>;
+
+//===----------------------------------------------------------------------===//
 // Non specific Ops, namely ops that
 //   * need customization only for themselves (no sharing of code)
 //   * have no specific parameters
@@ -468,6 +524,10 @@ using NewONNXLRNOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
 using NewONNXReshapeOpShapeHelper =
     NewONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
+using NewONNXReverseSequenceOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
+using NewONNXSpaceToDepthOpShapeHelper =
+    NewONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
 
 // using NewONNXOpShapeHelper =
 //    NewONNXNonSpecificOpShapeHelper<mlir::ONNXOp>;
