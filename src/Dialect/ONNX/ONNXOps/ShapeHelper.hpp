@@ -569,6 +569,7 @@ using NewONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using NewONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using NewONNXTransposeOpShapeHelper =
     ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
+using ONNXDFTOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDFTOp>;
 
 // using ONNXOpShapeHelper =
 //    ONNXNonSpecificOpShapeHelper<mlir::ONNXOp>;
