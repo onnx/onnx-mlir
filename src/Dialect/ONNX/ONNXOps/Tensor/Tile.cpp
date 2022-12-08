@@ -29,7 +29,7 @@ LogicalResult NewONNXTileOpShapeHelper::computeShape() {
   ONNXTileOpAdaptor operandAdaptor(operands);
   // Get info about input data operand.
   Value input = operandAdaptor.input();
-  int64_t inputRank = createIE->getTypeRank(input);
+  int64_t inputRank = createIE->getShapedTypeRank(input);
   Value repeats = operandAdaptor.repeats();
   // Compute outputDims
   DimsExpr outputDims;

@@ -54,7 +54,7 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
     Value onVal = create.krnl.loadIE(values, oneIE);
 
     // Iterate over all of the inputs.
-    int64_t indicesRank = create.krnlIE.getTypeRank(indices);
+    int64_t indicesRank = create.krnlIE.getShapedTypeRank(indices);
     SmallVector<IndexExpr, 4> indicesLbs(indicesRank, zeroIE);
     SmallVector<IndexExpr, 4> indicesUbs;
     create.krnlIE.getShapeAsDims(indices, indicesUbs);

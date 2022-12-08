@@ -54,7 +54,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
         rewriter, op, resMemRefType, loc, shapeHelper.getOutputDims());
 
     // Bounds.
-    uint64_t rank = create.krnlIE.getTypeRank(data);
+    uint64_t rank = create.krnlIE.getShapedTypeRank(data);
 
     // Literal indices.
     LiteralIndexExpr zero(0);

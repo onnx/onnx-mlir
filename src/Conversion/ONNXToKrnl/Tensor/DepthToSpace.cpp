@@ -44,7 +44,7 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
 
     int64_t bs = spaceToDepthOp.blocksize();
     StringRef mode = spaceToDepthOp.mode();
-    assert(create.krnlIE.getTypeRank(input) == 4 &&
+    assert(create.krnlIE.getShapedTypeRank(input) == 4 &&
            "Input tensor should have rank equal to 4");
 
     // Compute the new dimensions.

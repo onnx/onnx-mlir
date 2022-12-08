@@ -197,14 +197,14 @@ LogicalResult NewONNXBroadcastOpShapeHelper::customComputeShape(
   outputRank = additionalOperRank;
   for (uint64_t i = 0; i < numOfInputs; ++i)
     outputRank =
-        std::max(outputRank, createIE->getTypeRank(initialOperands[i]));
+        std::max(outputRank, createIE->getShapedTypeRank(initialOperands[i]));
   dimsExpr.resize(outputRank);
 
   // Prepare dims for every input. Prepend 1s if the input's shape has smaller
   // rank, so that all the shapes have the same rank.
   LiteralIndexExpr one(1);
   for (uint64_t i = 0; i < numOfInputs; ++i) {
-    uint64_t r = createIE->getTypeRank(initialOperands[i]);
+    uint64_t r = createIE->getShapedTypeRank(initialOperands[i]);
     // Prepend 1s.
     DimsExpr dims(outputRank - r, one);
     // Get from the input.
@@ -330,7 +330,7 @@ LogicalResult NewONNXPoolOpShapeHelper::customComputeShape(Value xValue,
     Optional<ArrayAttr> padOpt, Optional<ArrayAttr> strideOpt,
     Optional<ArrayAttr> dilationOpt) {
   // Basic information.
-  int64_t rank = createIE->getTypeRank(xValue);
+  int64_t rank = createIE->getShapedTypeRank(xValue);
   int64_t spatialOffset = 2;
   int64_t spatialRank = rank - spatialOffset;
 

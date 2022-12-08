@@ -40,7 +40,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
     // Get input shape.
     Value inputMemRef = operandAdaptor.input();
-    int64_t inputRank = create.krnlIE.getTypeRank(inputMemRef);
+    int64_t inputRank = create.krnlIE.getShapedTypeRank(inputMemRef);
     Optional<int64_t> axis = compressOp.axis();
 
     // Create a few constants.

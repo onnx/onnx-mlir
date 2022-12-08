@@ -42,7 +42,7 @@ LogicalResult NewONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr outputDims;
   Value data = operandAdaptor.data();
-  int64_t dataRank = createIE->getTypeRank(data);
+  int64_t dataRank = createIE->getShapedTypeRank(data);
 
   // Init state.
   bool modified = false;

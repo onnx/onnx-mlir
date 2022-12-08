@@ -30,7 +30,7 @@ LogicalResult NewONNXTransposeOpShapeHelper::computeShape() {
   ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
 
   Value data = operandAdaptor.data();
-  auto rank = createIE->getTypeRank(data);
+  auto rank = createIE->getShapedTypeRank(data);
 
   // Transposition which handles the default case of
   // reversing the shape of the tensor (similar to numpy.transpose).

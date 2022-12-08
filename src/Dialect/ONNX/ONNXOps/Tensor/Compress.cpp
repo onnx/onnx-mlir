@@ -31,7 +31,7 @@ LogicalResult NewONNXCompressOpShapeHelper::computeShape() {
   ONNXCompressOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.input();
   Value cond = operandAdaptor.condition();
-  int64_t inputRank = createIE->getTypeRank(input);
+  int64_t inputRank = createIE->getShapedTypeRank(input);
   createIE->assertHasShapeAndRank(cond);
   Optional<int64_t> optionalAxis = compressOp.axis();
 

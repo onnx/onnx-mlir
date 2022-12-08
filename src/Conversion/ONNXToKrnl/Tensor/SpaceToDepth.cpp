@@ -47,7 +47,7 @@ struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
     int64_t bs = operandAdaptor.blocksize();
 
     // Compute the new dimensions.
-    assert(create.krnlIE.getTypeRank(input) == 4 &&
+    assert(create.krnlIE.getShapedTypeRank(input) == 4 &&
            "Input tensor should have rank equal to 4");
 
     DimIndexExpr B(create.krnlIE.getShapeAsDim(input, 0));

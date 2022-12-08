@@ -28,7 +28,7 @@ LogicalResult NewONNXOneHotOpShapeHelper::computeShape() {
   ONNXOneHotOp oneHotOp = llvm::cast<ONNXOneHotOp>(op);
   ONNXOneHotOpAdaptor operandAdaptor(operands);
   Value indices = operandAdaptor.indices();
-  int64_t indicesRank = createIE->getTypeRank(indices);
+  int64_t indicesRank = createIE->getShapedTypeRank(indices);
 
   // Axis is a required attribute and should have default value of -1.
   axis = oneHotOp.axis();

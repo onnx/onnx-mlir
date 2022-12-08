@@ -33,7 +33,7 @@ LogicalResult NewONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
 
   unsigned int numOfResults = splitOp.getNumResults();
   Value input = operandAdaptor.input();
-  int64_t rank = createIE->getTypeRank(input);
+  int64_t rank = createIE->getShapedTypeRank(input);
 
   // Checking value of axis parameter.
   int64_t axisIndex = operandAdaptor.axis();

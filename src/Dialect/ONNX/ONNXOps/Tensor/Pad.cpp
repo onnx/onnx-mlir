@@ -31,7 +31,7 @@ LogicalResult NewONNXPadOpShapeHelper::computeShape() {
   DimsExpr outputDims;
 
   // Get info about input data operand.
-  uint64_t dataRank = createIE->getTypeRank(dataOperand);
+  uint64_t dataRank = createIE->getShapedTypeRank(dataOperand);
 
   // Initialize context and results (pads & output)
   pads.resize(2 * dataRank); // pads two sides of each axis.
