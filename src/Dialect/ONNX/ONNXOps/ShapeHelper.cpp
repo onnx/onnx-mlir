@@ -178,6 +178,7 @@ template struct ONNXOpShapeHelper<ONNXCompressOp>;
 template struct ONNXOpShapeHelper<ONNXConcatOp>;
 template struct ONNXOpShapeHelper<ONNXConcatShapeTransposeOp>;
 template struct ONNXOpShapeHelper<ONNXConvOp>;
+template struct ONNXOpShapeHelper<ONNXDFTOp>;
 template struct ONNXOpShapeHelper<ONNXDepthToSpaceOp>;
 template struct ONNXOpShapeHelper<ONNXExpandOp>;
 template struct ONNXOpShapeHelper<ONNXFlattenOp>;
