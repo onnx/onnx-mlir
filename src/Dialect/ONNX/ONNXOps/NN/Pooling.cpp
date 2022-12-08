@@ -223,8 +223,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
 
   Type elementType = X().getType().cast<ShapedType>().getElementType();
   IndexExprBuilderForAnalysis createIE(getLoc());
-  ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(
-      getOperation(), {}, &createIE);
+  ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(getOperation(), {}, &createIE);
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
