@@ -48,7 +48,7 @@ Value IndexExprBuilderForMhlo::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
   // Need to add some acceptable dialects to MHLO conversion.
   llvm_unreachable(
-      "unimplemented (see IndexExprBuilderForKrnl for functionality).");
+      "unimplemented getVal (see IndexExprBuilderForKrnl for functionality).");
 }
 
 Value IndexExprBuilderForMhlo::getShapeVal(

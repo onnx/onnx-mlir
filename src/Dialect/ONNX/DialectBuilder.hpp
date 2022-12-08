@@ -137,14 +137,17 @@ struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 // =============================================================================
 
 // This class is not meant to work with the MultiDialectBuilder as it is not
-// used for building, only for analysis.
+// used for building, only for analysis. We force OpBuilder to be null as
+// missing builder is used within IndexExpr as a sign that we are in shape
+// inference analysis. Be mindful not to expect builder to then be passed to
+// other builders.
 
 struct IndexExprBuilderForAnalysis : IndexExprBuilder {
   IndexExprBuilderForAnalysis(mlir::Location loc) : IndexExprBuilder(loc) {}
   IndexExprBuilderForAnalysis(mlir::OpBuilder &b, mlir::Location loc)
-      : IndexExprBuilder(b, loc) {}
+      : IndexExprBuilder(loc) {} // Builder omitted during analysis.
   IndexExprBuilderForAnalysis(const DialectBuilder &db)
-      : IndexExprBuilder(db) {}
+      : IndexExprBuilder(db.getLoc()) {} // Builder omitted during analysis.
   virtual ~IndexExprBuilderForAnalysis() {}
 
 protected:

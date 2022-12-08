@@ -159,7 +159,7 @@ IndexExpr IndexExprBuilder::getIntFromArray(
     int64_t intVal = getScalarValue<int64_t>(denseAttr, type, i);
     return LiteralIndexExpr(intVal);
   }
-  // If our scalar array is not a constant; we have a questionmark.
+  // If our scalar array is not a constant; we have a runtime value.
   if (Value val = getVal(array, i)) {
     // Assume that we can write code.
     MathBuilder createMath(*this);
@@ -168,8 +168,9 @@ IndexExpr IndexExprBuilder::getIntFromArray(
       return SymbolIndexExpr(castedVal);
     else
       return DimIndexExpr(castedVal);
-  } else
+  } else {
     return QuestionmarkIndexExpr();
+  }
 }
 
 IndexExpr IndexExprBuilder::getIntAsSymbol(Value value) {

@@ -27,7 +27,6 @@ namespace onnx_mlir {
 
 template <>
 LogicalResult NewONNXGatherOpShapeHelper::computeShape() {
-  // Shape inference indicated by passing a null rewriter pointer.
   // Read data and indices shapes as dim indices.
   ONNXGatherOpAdaptor operandAdaptor(operands);
   ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);

@@ -15,7 +15,6 @@
 
 #include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOps/Tensor/SqueezeUnsqueeze.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -96,7 +95,6 @@ LogicalResult NewONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
 
   // Save the final result.
   setOutputDims(outputDims);
-
   // Save the modified state
   if (modified)
     saveAxes();
@@ -111,25 +109,13 @@ void NewONNXSqueezeOpShapeHelper::saveAxes() {
   // should never encounter a "saveAxles" situation during lowering.
 
   ONNXSqueezeOp squeezeOp = llvm::cast<ONNXSqueezeOp>(op);
-  OpBuilder builder(squeezeOp.getContext());
-  auto tensorType =
-      RankedTensorType::get(squeezedAxes.size(), builder.getI64Type());
-  auto constDenseAttr =
-      DenseElementsAttr::get(tensorType, llvm::makeArrayRef(squeezedAxes));
-  builder.setInsertionPoint(squeezeOp);
-  auto constOp = builder.create<mlir::ONNXConstantOp>(
-      squeezeOp.getLoc(), mlir::Attribute(), constDenseAttr);
-  Value constRes = constOp.output();
-  squeezeOp.setOperand(1, constRes);
+  SaveOnnxConstInOp(op, squeezeOp.axesMutable(), squeezedAxes);
 }
 
 template <>
 void NewONNXSqueezeV11OpShapeHelper::saveAxes() {
-  // Write attribues in op.
-  ONNXSqueezeV11Op squeezeOp = llvm::cast<ONNXSqueezeV11Op>(op);
-  OpBuilder builder(squeezeOp.getContext());
-  ArrayAttr newAxesAttr = builder.getI64ArrayAttr(squeezedAxes);
-  squeezeOp.axesAttr(newAxesAttr);
+  SaveOnnxAttrInOp<ONNXSqueezeV11Op>(op, squeezedAxes,
+      [](ONNXSqueezeV11Op op, ArrayAttr attr) { op.axesAttr(attr); });
 }
 
 template <>
