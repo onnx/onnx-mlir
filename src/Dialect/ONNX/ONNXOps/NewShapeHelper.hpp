@@ -571,10 +571,10 @@ using NewONNXTransposeOpShapeHelper =
 // Setting a new constant or attribute value.
 //===----------------------------------------------------------------------===//
 
-/* 
+/*
    Save into op's mutable operand a newly formed ONNX Constant that holds the
    integer values provided in "vals".
-   
+
    Example:
      ONNXUnsqueezeOp unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
      SaveOnnxConstInOp(op, unsqueezeOp.axesMutable(), unsqueezedAxes);
