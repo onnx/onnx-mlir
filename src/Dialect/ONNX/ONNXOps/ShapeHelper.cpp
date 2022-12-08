@@ -137,7 +137,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeFromOperand(Value operand) {
 }
 
 // Reuse the same type for each of the outputs.
-mlir::LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
+LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
     Type elementType) {
   // Invoke virtual compute shape.
   if (failed(computeShape()))
@@ -148,7 +148,7 @@ mlir::LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
     IndexExpr::getShape(getOutputDims(i), shapeVect);
     updateType(op->getResults()[i], shapeVect, elementType);
   }
-  return mlir::success();
+  return success();
 }
 
 // Use a distinct type for each of the output.
@@ -465,7 +465,7 @@ LogicalResult ONNXPoolOpShapeHelper::customComputeShape(Value xValue,
 // Setting a new constant or attribute value.
 //===----------------------------------------------------------------------===//
 
-void SaveOnnxConstInOp(mlir::Operation *op,
+void SaveOnnxConstInOp(Operation *op,
     const llvm::SmallVectorImpl<int64_t> &vals, int operandId) {
   OpBuilder builder(op->getContext());
   builder.setInsertionPoint(op);
@@ -474,7 +474,7 @@ void SaveOnnxConstInOp(mlir::Operation *op,
   op->setOperand(operandId, constVal);
 }
 
-void SaveOnnxConstInOp(mlir::Operation *op, MutableOperandRange operand,
+void SaveOnnxConstInOp(Operation *op, MutableOperandRange operand,
     const llvm::SmallVectorImpl<int64_t> &vals) {
   OpBuilder builder(op->getContext());
   builder.setInsertionPoint(op);

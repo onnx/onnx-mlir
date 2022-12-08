@@ -121,7 +121,7 @@ LogicalResult NewONNXConcatShapeTransposeOpShapeHelper::computeShape() {
   if (!permAttr) {
     // Generate reverse order for default transpose operation.
     SmallVector<int64_t, 4> defaultVals;
-    auto builder = mlir::Builder(concatOp.getContext());
+    auto builder = Builder(concatOp.getContext());
     for (int i = rank - 1; i >= 0; --i)
       defaultVals.emplace_back(i);
     // Set default attribute.
@@ -150,7 +150,7 @@ LogicalResult NewONNXConcatShapeTransposeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConcatShapeTransposeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
 
   // If any input is not ranked tensor, do nothing.
   int inputNum = getNumOperands();

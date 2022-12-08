@@ -44,7 +44,7 @@ LogicalResult ONNXHardmaxOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXHardmaxOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(input()))
     return success();
 
@@ -54,9 +54,9 @@ LogicalResult ONNXHardmaxOp::inferShapes(
 
   // axis attribute must be in the range [-r,r], where r = rank(input).
   if (axisValue < -inputRank || axisValue > inputRank)
-    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+    return onnx_Diagnostic::emitAttributeOutOfRangeError(
         *this->getOperation(), "axis", axisValue,
-        onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
+        onnx_Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
 
   return inferShapeForUnaryOps(this->getOperation());
 }

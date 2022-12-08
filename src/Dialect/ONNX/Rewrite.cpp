@@ -458,7 +458,7 @@ ArrayAttr perm4RNN(Builder &b) { return b.getI64ArrayAttr({2, 0, 1, 3}); }
 
 class InputOutputTransposer {
 public:
-  InputOutputTransposer(mlir::OpBuilder &b, mlir::Location loc)
+  InputOutputTransposer(OpBuilder &b, Location loc)
       : create(b, loc) {}
 
   void transposeInput(MutableOperandRange operand, ArrayAttr perm) {
@@ -481,7 +481,7 @@ private:
   // Helper to create an ONNX transposition, using
   // ONNXTransposeOp::inferShapes() to infer the output shape.
   Value transpose(Value input, ArrayAttr perm) {
-    Type elType = onnx_mlir::getElementType(input.getType());
+    Type elType = onnx_getElementType(input.getType());
     Type unrankedType = UnrankedTensorType::get({elType}); // placeholder
     Value transposed = create.transpose(unrankedType, input, perm);
     auto transposeOp = llvm::cast<ONNXTransposeOp>(transposed.getDefiningOp());
@@ -489,7 +489,7 @@ private:
     return transposed;
   }
 
-  onnx_mlir::OnnxBuilder create;
+  onnx_OnnxBuilder create;
 };
 } // namespace
 

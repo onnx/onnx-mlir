@@ -27,8 +27,8 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXBernoulliOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto builder = mlir::OpBuilder(getContext());
+    std::function<void(Region &)> doShapeInference) {
+  auto builder = OpBuilder(getContext());
   if (!hasShapeAndRank(input())) {
     return success();
   }
