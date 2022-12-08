@@ -216,7 +216,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     if (enableParallel) {
       create.scf.parallelLoop(parLbs, parUbs, steps,
-          [&](DialectBuilder &create, ValueRange outerIndices) {
+          [&](SCFBuilder &create, ValueRange outerIndices) {
             bodyFunction(outerIndices);
           });
     } else {
