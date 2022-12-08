@@ -55,8 +55,8 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape(
         outputDims.emplace_back(dataBounds.getDim(i));
       }
     }
-    outputDims.emplace_back(LiteralIndexExpr(2));
   }
+  outputDims.emplace_back(LiteralIndexExpr(2));
 
   // Save the final result.
   setOutputDims(outputDims);
