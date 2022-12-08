@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,43 +25,41 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXTopKOpShapeHelper::computeShape(
-    ONNXTopKOpAdaptor operandAdaptor) {
+template <>
+LogicalResult NewONNXTopKOpShapeHelper::computeShape() {
   DimsExpr outputDims;
-
+  ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   // Get info about X and K operands.
   Value X = operandAdaptor.X();
   Value K = operandAdaptor.K();
-  MemRefBoundsIndexCapture XBounds(X);
-  int64_t rank = XBounds.getRank();
+  int64_t rank = createIE->getTypeRank(X);
 
-  // Axis to compute topk.
-  int64_t axis = op->axis();
+  // Axis to compute TopK.
+  int64_t axis = operandAdaptor.axis();
   axis = axis < 0 ? axis + rank : axis;
   assert(axis >= 0 && axis < rank && "axis is out of bound");
 
   // K is a scalar tensor storing the number of returned values along the given
   // axis.
-  ArrayValueIndexCapture kCapture(K, fGetDenseVal, fLoadVal);
-  SymbolIndexExpr kIE(kCapture.getSymbol(0));
+  IndexExpr kIE = createIE->getIntAsSymbol(K);
   if (kIE.isUndefined())
     return op->emitError("K input parameter could not be processed");
 
   // If K is literal, it must be less than the axis dimension size.
-  if (kIE.isLiteral() && XBounds.getDim(axis).isLiteral())
-    if (kIE.getLiteral() >= XBounds.getDim(axis).getLiteral())
+  IndexExpr XAxisDim = createIE->getShapeAsDim(X, axis);
+  if (kIE.isLiteral() && XAxisDim.isLiteral())
+    if (kIE.getLiteral() >= XAxisDim.getLiteral())
       return op->emitError("K value is out of bound");
 
   for (int64_t i = 0; i < rank; ++i) {
     if (i == axis)
       outputDims.emplace_back(kIE);
     else
-      outputDims.emplace_back(XBounds.getDim(i));
+      outputDims.emplace_back(createIE->getShapeAsDim(X, i));
   }
 
-  dimsForOutput(0) = outputDims;
-  dimsForOutput(1) = outputDims;
-
+  setOutputDims(outputDims, 0);
+  setOutputDims(outputDims, 1);
   return success();
 }
 
@@ -110,10 +109,14 @@ LogicalResult ONNXTopKOp::inferShapes(
 
   Builder b(getContext());
   auto elementType = X().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferMultipleShapes<ONNXTopKOpShapeHelper, ONNXTopKOp,
-      ONNXTopKOpAdaptor>(*this, {elementType, b.getI64Type()});
+  NewONNXTopKOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateTypes({elementType, b.getI64Type()});
 }
 
 //===----------------------------------------------------------------------===//
-// Helper functions
+// Template instantiation
 //===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct NewONNXNonSpecificOpShapeHelper<ONNXTopKOp>;
+} // namespace onnx_mlir

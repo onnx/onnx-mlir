@@ -27,7 +27,6 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 LogicalResult NewONNXGemmOpShapeHelper::computeShape() {
-  // Shape inference indicated by passing a null rewriter pointer.
   // Output dims of result.
   DimsExpr outputDims;
 

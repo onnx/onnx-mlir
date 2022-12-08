@@ -49,7 +49,6 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
            "Input tensor should have rank equal to 4");
 
     // Compute the new dimensions.
-    // MemRefBoundsIndexCapture bounds(input);
 
     DimIndexExpr B(create.krnlIE.getShapeAsDim(input, 0));
     DimIndexExpr C(create.krnlIE.getShapeAsDim(input, 1));
