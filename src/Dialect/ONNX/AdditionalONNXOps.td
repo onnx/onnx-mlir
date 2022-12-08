@@ -26,6 +26,7 @@
 
 include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
+include "src/IR/AttrBase.td"
 
 //===----------------------------------------------------------------------===//
 // ONNX Ops to assist lowering of ONNX.
@@ -224,7 +225,7 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [Pure,
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C,
       ONNXTensor_KCMN4C4K]>:$data,
-      AnyAttr:$target_layout
+      AnyAttrOf<[LayoutAttr]>:$target_layout
       );
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C,
       ONNXTensor_KCMN4C4K]>:$Out);
