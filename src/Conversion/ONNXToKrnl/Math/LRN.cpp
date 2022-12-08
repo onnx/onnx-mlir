@@ -45,7 +45,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     auto outputMemRefShape = outputMemRefType.getShape();
-    auto elementType = outputMemRefType.getElementType();
+    Type elementType = outputMemRefType.getElementType();
     int64_t outputRank = outputMemRefShape.size();
 
     Value input = operandAdaptor.X();

@@ -99,7 +99,7 @@ LogicalResult ONNXPadOp::inferShapes(
       !pads().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
 
   ONNXPadOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);

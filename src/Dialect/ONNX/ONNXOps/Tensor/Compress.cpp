@@ -118,7 +118,7 @@ LogicalResult ONNXCompressOp::inferShapes(
   if (!hasShapeAndRank(input()))
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
   NewONNXCompressOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

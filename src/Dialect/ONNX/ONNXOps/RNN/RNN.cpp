@@ -39,7 +39,7 @@ static LogicalResult RNNShapeInference(T *op, int gates) {
   }
 
   auto xTy = X.getType().cast<RankedTensorType>();
-  auto elementType = xTy.getElementType();
+  Type elementType = xTy.getElementType();
 
   // xShape :: [batch_size, seq_length, input_size] if batchwiseLayout
   // xShape :: [seq_length, batch_size, input_size] otherwise

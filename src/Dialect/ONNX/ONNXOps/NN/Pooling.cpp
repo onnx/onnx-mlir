@@ -116,7 +116,7 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
   if (!X().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
   NewONNXAveragePoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -221,7 +221,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
   auto kernelShape = kernel_shape();
   assert(kernelShape && "verified that we had kernel shape");
 
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
   IndexExprBuilderForAnalysis createIE(getLoc());
   NewONNXMaxPoolSingleOutOpShapeHelper shapeHelper(
       getOperation(), {}, &createIE);

@@ -118,7 +118,7 @@ LogicalResult ONNXOneHotOp::inferShapes(
   if (!indices().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = values().getType().cast<ShapedType>().getElementType();
+  Type elementType = values().getType().cast<ShapedType>().getElementType();
   ONNXOneHotOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

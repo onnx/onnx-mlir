@@ -86,7 +86,7 @@ LogicalResult ONNXRoiAlignOp::inferShapes(
       !batch_indices().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
   ONNXRoiAlignOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

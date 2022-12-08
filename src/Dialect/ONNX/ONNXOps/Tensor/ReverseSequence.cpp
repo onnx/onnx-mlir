@@ -80,7 +80,7 @@ LogicalResult ONNXReverseSequenceOp::inferShapes(
   if (!input().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
   NewONNXReverseSequenceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

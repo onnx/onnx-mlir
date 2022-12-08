@@ -74,7 +74,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
   if (!data().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
   NewONNXTransposeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

@@ -425,7 +425,7 @@ LogicalResult ONNXConvOp::inferShapes(
       (hasBias && !B().getType().isa<RankedTensorType>()))
     return success();
 
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
   NewONNXConvOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

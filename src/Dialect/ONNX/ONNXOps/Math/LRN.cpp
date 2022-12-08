@@ -43,7 +43,7 @@ LogicalResult NewONNXLRNOpShapeHelper::computeShape() {
 
 LogicalResult ONNXLRNOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
   NewONNXLRNOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

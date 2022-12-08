@@ -107,7 +107,7 @@ LogicalResult ONNXSpaceToDepthOp::inferShapes(
   if (!input().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
   NewONNXSpaceToDepthOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

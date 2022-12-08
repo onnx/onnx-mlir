@@ -100,7 +100,7 @@ LogicalResult ONNXGatherElementsOp::inferShapes(
           [](const Value &op) { return !hasShapeAndRank(op); }))
     return success();
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
   NewONNXGatherElementsOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

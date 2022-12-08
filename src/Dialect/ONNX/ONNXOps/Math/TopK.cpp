@@ -107,7 +107,7 @@ LogicalResult ONNXTopKOp::inferShapes(
     return success();
 
   Builder b(getContext());
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
   NewONNXTopKOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateTypes({elementType, b.getI64Type()});
 }

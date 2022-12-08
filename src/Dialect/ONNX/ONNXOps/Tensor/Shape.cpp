@@ -121,7 +121,7 @@ LogicalResult ONNXShapeOp::inferShapes(
     return success();
 
   // Output is an 1D int64 tensor containing the shape of the input tensor.
-  auto elementType = IntegerType::get(getContext(), 64);
+  Type elementType = IntegerType::get(getContext(), 64);
   ONNXShapeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

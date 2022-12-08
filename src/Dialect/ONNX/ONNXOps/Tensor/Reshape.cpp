@@ -116,7 +116,7 @@ LogicalResult ONNXReshapeOp::inferShapes(
   if (outputRank < 0)
     return emitError("Shape tensor must have constant shape");
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
   NewONNXReshapeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

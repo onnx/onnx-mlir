@@ -68,7 +68,7 @@ LogicalResult ONNXTileOp::inferShapes(
   if (repeatsTensorTy.getShape().size() != 1)
     return emitError("Repeats tensor must have rank one");
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
   NewONNXTileOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

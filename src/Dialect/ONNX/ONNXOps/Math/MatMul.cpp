@@ -170,7 +170,7 @@ LogicalResult ONNXMatMulOp::inferShapes(
       !B().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = A().getType().cast<ShapedType>().getElementType();
+  Type elementType = A().getType().cast<ShapedType>().getElementType();
   NewONNXMatMulOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -186,7 +186,7 @@ LogicalResult ONNXMatMulIntegerOp::inferShapes(
       !B().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = getResult().getType().cast<ShapedType>().getElementType();
+  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
   NewONNXMatMulIntegerOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -201,7 +201,7 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
       !b().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = getResult().getType().cast<ShapedType>().getElementType();
+  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
   NewONNXQLinearMatMulOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

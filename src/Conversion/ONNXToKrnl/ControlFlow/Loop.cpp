@@ -425,7 +425,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // Suppose the scanout type is is <d1 , d2,... dnxT>
           // Use memref<d1xmemref<d2, ..., dnxT>>
           // seqElementType: memref<d2, ..., dnxT>
-          auto elementType = rankedScanOutTy.getElementType();
+          Type elementType = rankedScanOutTy.getElementType();
           ArrayRef<int64_t> shape1 =
               llvm::makeArrayRef(rankedScanOutTy.getShape().begin() + 1,
                   rankedScanOutTy.getShape().end());

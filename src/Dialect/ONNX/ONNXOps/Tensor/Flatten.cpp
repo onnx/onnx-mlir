@@ -98,7 +98,7 @@ LogicalResult ONNXFlattenOp::inferShapes(
   if (!hasShapeAndRank(input()))
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
   NewONNXFlattenOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

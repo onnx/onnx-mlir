@@ -124,7 +124,7 @@ LogicalResult ONNXGemmOp::inferShapes(
       (hasBias && !C().getType().isa<RankedTensorType>()))
     return success();
 
-  auto elementType = A().getType().cast<ShapedType>().getElementType();
+  Type elementType = A().getType().cast<ShapedType>().getElementType();
 
   ONNXGemmOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);

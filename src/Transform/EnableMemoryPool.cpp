@@ -96,7 +96,7 @@ public:
       return failure();
 
     // Filter out MemRefs with Index type.
-    auto elementType = memRefType.getElementType();
+    Type elementType = memRefType.getElementType();
     if (elementType.isIndex())
       return failure();
 

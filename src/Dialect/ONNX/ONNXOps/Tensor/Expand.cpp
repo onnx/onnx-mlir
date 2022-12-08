@@ -106,7 +106,7 @@ LogicalResult ONNXExpandOp::inferShapes(
   if (!shape().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
   ONNXExpandOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

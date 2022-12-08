@@ -161,7 +161,7 @@ LogicalResult ONNXSliceOp::inferShapes(
   auto startsDim = startsType.getShape()[0];
   {
     OpBuilder builder(this->getContext());
-    const auto elementType = builder.getIntegerType(64);
+    const Type elementType = builder.getIntegerType(64);
     const auto tensorType =
         mlir::RankedTensorType::get({startsDim}, elementType);
 
@@ -192,7 +192,7 @@ LogicalResult ONNXSliceOp::inferShapes(
     }
   }
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
   ONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

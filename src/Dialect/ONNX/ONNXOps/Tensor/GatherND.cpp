@@ -185,7 +185,7 @@ LogicalResult ONNXGatherNDOp::inferShapes(
   if (indicesShape[indicesRank - 1] < 0)
     return success(); // cannot infer the oputput shape yet.
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
   NewONNXGatherNDOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

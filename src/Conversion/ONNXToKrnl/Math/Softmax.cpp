@@ -258,7 +258,7 @@ struct ONNXSoftmaxLowering : public ConversionPattern {
     OpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
     // Insert an allocation and deallocation for the result of this operation.
-    auto elementType = memRefType.getElementType();
+    Type elementType = memRefType.getElementType();
 
     bool insertDealloc = checkInsertDealloc(op);
     Value alloc =
