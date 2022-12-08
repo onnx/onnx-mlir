@@ -83,8 +83,8 @@ void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
 /// This function uses ShapeHelper to explore the same unknown dimensions.
 /// Use this function for operations that use adaptor to compute shape.
 template <typename ONNX_OP, typename SHAPE_HELPER>
-void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
-    ONNX_OP op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
+void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
+    onnx_mlir::DimAnalysis::DimSetT &sameDims) {
   SHAPE_HELPER shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
   // The operation may have multiple outputs, find the index of the processing
@@ -362,8 +362,8 @@ void DimAnalysis::visitDim(
 
   // AveragePoolOp
   if (auto poolOp = dyn_cast<ONNXAveragePoolOp>(op)) {
-    exploreSameInputDims<ONNXAveragePoolOp,
-        NewONNXAveragePoolOpShapeHelper>(dim, poolOp, sameDims);
+    exploreSameInputDims<ONNXAveragePoolOp, NewONNXAveragePoolOpShapeHelper>(
+        dim, poolOp, sameDims);
     return;
   }
 

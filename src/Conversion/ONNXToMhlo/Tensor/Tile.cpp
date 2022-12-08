@@ -33,7 +33,7 @@ struct ONNXTileOpLoweringToMhlo : public ConversionPattern {
     ONNXTileOp tileOp = cast<ONNXTileOp>(op);
     Location loc = op->getLoc();
 
-    // I believe it is not currently used. 
+    // I believe it is not currently used.
     IndexExprBuilderForAnalysis createIE(loc);
     NewONNXTileOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
