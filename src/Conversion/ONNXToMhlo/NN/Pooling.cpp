@@ -158,8 +158,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
 void populateLoweringONNXPoolingOpToMhloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXPoolOpLoweringToMhlo<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(
-      ctx);
+      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(ctx);
 }
 
 } // namespace onnx_mlir

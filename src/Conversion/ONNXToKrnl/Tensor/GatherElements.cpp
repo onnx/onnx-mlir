@@ -33,8 +33,7 @@ struct ONNXGatherElementsOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Get shape.
-    ONNXGatherElementsOpShapeHelper shapeHelper(
-        op, operands, &create.krnlIE);
+    ONNXGatherElementsOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

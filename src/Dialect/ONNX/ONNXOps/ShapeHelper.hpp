@@ -427,10 +427,8 @@ struct ONNXArgMinMaxOpShapeHelper : public ONNXOpShapeHelper {
   mlir::LogicalResult computeShape() final;
 };
 
-using ONNXArgMaxOpShapeHelper =
-    ONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMaxOp>;
-using ONNXArgMinOpShapeHelper =
-    ONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMinOp>;
+using ONNXArgMaxOpShapeHelper = ONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMaxOp>;
+using ONNXArgMinOpShapeHelper = ONNXArgMinMaxOpShapeHelper<mlir::ONNXArgMinOp>;
 
 //===----------------------------------------------------------------------===//
 // Split ops
@@ -451,8 +449,7 @@ struct ONNXCommonSplitOpShapeHelper : public ONNXOpShapeHelper {
       mlir::ArrayRef<IndexExpr> indexExprArray);
 };
 
-using ONNXSplitOpShapeHelper =
-    ONNXCommonSplitOpShapeHelper<mlir::ONNXSplitOp>;
+using ONNXSplitOpShapeHelper = ONNXCommonSplitOpShapeHelper<mlir::ONNXSplitOp>;
 using ONNXSplitV11OpShapeHelper =
     ONNXCommonSplitOpShapeHelper<mlir::ONNXSplitV11Op>;
 

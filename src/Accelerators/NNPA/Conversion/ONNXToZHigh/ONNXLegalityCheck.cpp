@@ -818,8 +818,9 @@ bool isSuitableForZDNN<ONNXConvOp>(
 
   // `getStrPaddingType` returns `SAME_PADDING`, `VALID_PADDING`, or empty.
   // `zdnn_conv2d` only support padding for `SAME_PADDING` and `VALID_PADDING`.
-  StringRef paddingType = getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor,
-      ONNXConvOpShapeHelper>(op);
+  StringRef paddingType =
+      getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor, ONNXConvOpShapeHelper>(
+          op);
 
   if (paddingType.empty())
     return false;
