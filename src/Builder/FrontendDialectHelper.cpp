@@ -250,8 +250,9 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
     return createDenseElmAttr<uint64_t>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::BOOL):
     return createDenseElmAttr<bool>(externalDataDir, tp, denseBuilder);
-  case (onnx::TensorProto::STRING):
+  case (onnx::TensorProto::STRING): {
     /**
+
       The string type has two differences from other data type:
       1. Need to explicitly construct StringAttr for DenseElementAttr. ArrayRef
      of data with other type  can be directly used to construct
@@ -268,6 +269,7 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
        };
      auto r = createDenseElmAttr<std::string>(externalDataDir, tp,
      denseBuilderString);
+
      **/
 
     // Exteranl data or raw data of string is not implemented in this  PR.
@@ -282,6 +284,7 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
       myData.emplace_back(mlir::StringAttr::get(builder.getContext(), s));
     return mlir::DenseElementsAttr::get(
         tensorType, llvm::makeArrayRef(myData.data(), myData.size()));
+  }
   default:
     llvm_unreachable(
         "Failed to import ONNX TensorProto due to unsupported data types.");
