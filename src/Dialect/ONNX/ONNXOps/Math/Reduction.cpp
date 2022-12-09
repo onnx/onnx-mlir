@@ -129,7 +129,7 @@ static LogicalResult inferShapeForReductionOps(OP &op) {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceL1Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceL1Op, ONNXReduceL1OpAdaptor>(
       *this);
 }
@@ -139,7 +139,7 @@ LogicalResult ONNXReduceL1Op::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceL2Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceL2Op, ONNXReduceL2OpAdaptor>(
       *this);
 }
@@ -149,7 +149,7 @@ LogicalResult ONNXReduceL2Op::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceLogSumOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceLogSumOp,
       ONNXReduceLogSumOpAdaptor>(*this);
 }
@@ -159,7 +159,7 @@ LogicalResult ONNXReduceLogSumOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceLogSumExpOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceLogSumExpOp,
       ONNXReduceLogSumExpOpAdaptor>(*this);
 }
@@ -169,7 +169,7 @@ LogicalResult ONNXReduceLogSumExpOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceMaxOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceMaxOp, ONNXReduceMaxOpAdaptor>(
       *this);
 }
@@ -179,7 +179,7 @@ LogicalResult ONNXReduceMaxOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceMeanOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceMeanOp, ONNXReduceMeanOpAdaptor>(
       *this);
 }
@@ -189,7 +189,7 @@ LogicalResult ONNXReduceMeanOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceMinOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceMinOp, ONNXReduceMinOpAdaptor>(
       *this);
 }
@@ -199,7 +199,7 @@ LogicalResult ONNXReduceMinOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceProdOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceProdOp, ONNXReduceProdOpAdaptor>(
       *this);
 }
@@ -208,7 +208,7 @@ LogicalResult ONNXReduceProdOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceSumOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!data().getType().isa<RankedTensorType>())
     return success();
 
@@ -228,7 +228,7 @@ LogicalResult ONNXReduceSumOp::inferShapes(
   } else if (getONNXConstantOp(axes())) {
     constAxes = getONNXConstantOp(axes())
                     .valueAttr()
-                    .dyn_cast_or_null<mlir::DenseElementsAttr>();
+                    .dyn_cast_or_null<DenseElementsAttr>();
     if (!constAxes) {
       return emitError("ReduceSum: expect dense value for axes ");
     }
@@ -265,7 +265,7 @@ LogicalResult ONNXReduceSumOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceSumV11Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceSumV11Op,
       ONNXReduceSumV11OpAdaptor>(*this);
 }
@@ -274,7 +274,7 @@ LogicalResult ONNXReduceSumV11Op::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceSumSquareOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceSumSquareOp,
       ONNXReduceSumSquareOpAdaptor>(*this);
 }

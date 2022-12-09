@@ -23,8 +23,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
-// hi alex: todo, we should not have krnl dependences here.
-#include "src/Dialect/Krnl/DialectBuilder.hpp"
+// Please do not add dependences on ONNX or KRNL dialects.
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 #define DEBUG_TYPE "dialect_builder"
@@ -676,12 +675,12 @@ void SCFBuilder::ifThenElse(Value cond,
 
 void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
     ValueRange steps,
-    function_ref<void(DialectBuilder &createKrnl, ValueRange)> bodyFn) const {
+    function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
   // SmallVectorImpl<Value> ivStorage;
   b().create<scf::ParallelOp>(loc(), lowerBounds, upperBounds, steps,
       [&](OpBuilder &childBuilder, Location childLoc,
           ValueRange inductionVars) {
-        KrnlBuilder builder(childBuilder, childLoc);
+        SCFBuilder builder(childBuilder, childLoc);
         bodyFn(builder, inductionVars);
         yield();
       });

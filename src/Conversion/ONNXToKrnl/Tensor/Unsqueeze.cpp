@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -37,7 +36,7 @@ LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
          "Failed to convert type to MemRefType");
 
   // Get shape.
-  NewONNXCommonUnsqueezeOpShapeHelper<OP_TYPE> shapeHelper(
+  ONNXCommonUnsqueezeOpShapeHelper<OP_TYPE> shapeHelper(
       op, operands, &createIE);
   shapeHelper.computeShapeAndAssertOnFailure();
 

@@ -85,7 +85,7 @@ void IndexExprBuilder::assertHasShapeAndRank(Value value) {
 //===----------------------------------------------------------------------===//
 // Get Rank of Type / Size of 1D array
 
-uint64_t IndexExprBuilder::getTypeRank(Value value) {
+uint64_t IndexExprBuilder::getShapedTypeRank(Value value) {
   assertHasShapeAndRank(value);
   // Find shaped type size (rank of 0 is scalar).
   return value.getType().cast<ShapedType>().getRank();
@@ -98,7 +98,7 @@ uint64_t IndexExprBuilder::getArraySize(ArrayAttr attrArray) {
 
 // Size from 1D value array.
 uint64_t IndexExprBuilder::getArraySize(Value array) {
-  uint64_t rank = getTypeRank(array);
+  uint64_t rank = getShapedTypeRank(array);
   assert(rank < 2 && "expected a scalar or a 1 dimension array of int values");
   if (rank == 0)
     return 1;
@@ -243,7 +243,7 @@ bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue, uint64_t i) {
 }
 
 bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue) {
-  uint64_t rank = getTypeRank(tensorOrMemrefValue);
+  uint64_t rank = getShapedTypeRank(tensorOrMemrefValue);
   for (uint64_t i = 0; i < rank; ++i)
     if (!isLiteralShape(tensorOrMemrefValue, i))
       return false;
@@ -251,7 +251,7 @@ bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue) {
 }
 
 int64_t IndexExprBuilder::getShape(Value tensorOrMemrefValue, uint64_t i) {
-  uint64_t rank = getTypeRank(tensorOrMemrefValue);
+  uint64_t rank = getShapedTypeRank(tensorOrMemrefValue);
   assert(i < rank && "expected index smaller than memref rank");
   return tensorOrMemrefValue.getType().cast<ShapedType>().getShape()[i];
 }
@@ -285,7 +285,7 @@ IndexExpr IndexExprBuilder::getShapeAsDim(
 void IndexExprBuilder::getShapeAsLiterals(
     Value tensorOrMemrefValue, IndexExprList &list) {
   list.clear();
-  uint64_t rank = getTypeRank(tensorOrMemrefValue);
+  uint64_t rank = getShapedTypeRank(tensorOrMemrefValue);
   for (uint64_t i = 0; i < rank; ++i)
     list.emplace_back(getShapeAsLiteral(tensorOrMemrefValue, i));
 }
@@ -293,7 +293,7 @@ void IndexExprBuilder::getShapeAsLiterals(
 void IndexExprBuilder::getShapeAsSymbols(
     Value tensorOrMemrefValue, IndexExprList &list) {
   list.clear();
-  uint64_t rank = getTypeRank(tensorOrMemrefValue);
+  uint64_t rank = getShapedTypeRank(tensorOrMemrefValue);
   for (uint64_t i = 0; i < rank; ++i)
     list.emplace_back(getShapeAsSymbol(tensorOrMemrefValue, i));
 }
@@ -301,7 +301,7 @@ void IndexExprBuilder::getShapeAsSymbols(
 void IndexExprBuilder::getShapeAsDims(
     Value tensorOrMemrefValue, IndexExprList &list) {
   list.clear();
-  uint64_t rank = getTypeRank(tensorOrMemrefValue);
+  uint64_t rank = getShapedTypeRank(tensorOrMemrefValue);
   for (uint64_t i = 0; i < rank; ++i)
     list.emplace_back(getShapeAsDim(tensorOrMemrefValue, i));
 }

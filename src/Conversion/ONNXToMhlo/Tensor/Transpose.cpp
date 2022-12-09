@@ -14,7 +14,6 @@
 
 #include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -61,7 +60,7 @@ struct ONNXTransposeOpLoweringToMhlo : public ConversionPattern {
 
     // Get a shape helper: unused, needed?
     IndexExprBuilderForAnalysis createIE(loc);
-    NewONNXTransposeOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXTransposeOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     Value transposeValue =

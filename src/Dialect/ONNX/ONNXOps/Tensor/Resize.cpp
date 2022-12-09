@@ -27,7 +27,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXResizeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!X().getType().isa<RankedTensorType>()) {
     return success();
   }

@@ -788,12 +788,12 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr &b) {
 }
 
 //===----------------------------------------------------------------------===//
-// Capturing Index Expressions
+// TO BE DEPRECATED: Capturing Index Expressions
 //===----------------------------------------------------------------------===//
 
-// Capture array of values given by an operand. Will find its definitition and
-// use it locate its constant values, or load dynamically if they are not
-// constant.
+// TO BE DEPRECATED: Capture array of values given by an operand. Will find its
+// definitition and use it locate its constant values, or load dynamically if
+// they are not constant.
 class ArrayValueIndexCapture {
 public:
   // Lambda functions to extract/generate info. No code is provided in order to
@@ -834,7 +834,7 @@ private:
   LoadVal fLoadVallFromArrayAtIndex;
 };
 
-// Capture array of values given by attributes.
+// TO BE DEPRECATED: Capture array of values given by attributes.
 class ArrayAttributeIndexCapture {
 public:
   ArrayAttributeIndexCapture(mlir::ArrayAttr array);
@@ -851,9 +851,9 @@ private:
   bool hasDefault;
 };
 
-// Capture memory bounds give by a tensor or memref. Locate its shape, return
-// constant values when available or generate the appropriate dim operation when
-// they are not constant at compile time.
+// TO BE DEPRECATED: Capture memory bounds give by a tensor or memref. Locate
+// its shape, return constant values when available or generate the appropriate
+// dim operation when they are not constant at compile time.
 class MemRefBoundsIndexCapture {
 public:
   MemRefBoundsIndexCapture();

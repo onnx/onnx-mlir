@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -38,12 +37,12 @@ namespace onnx_mlir {
 // attribute (v11). This saving is performed using the specialized "saveAxes()"
 // function.
 template <typename OP_TYPE>
-LogicalResult NewONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
+LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &squeezedDims, bool axesFromShape) {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr outputDims;
   Value data = operandAdaptor.data();
-  int64_t dataRank = createIE->getTypeRank(data);
+  int64_t dataRank = createIE->getShapedTypeRank(data);
 
   // Init state.
   bool modified = false;
@@ -102,7 +101,7 @@ LogicalResult NewONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
 }
 
 template <>
-void NewONNXSqueezeOpShapeHelper::saveAxes() {
+void ONNXSqueezeOpShapeHelper::saveAxes() {
   // Create a ConstantOp associated with this Squeeze Op
   // There could be an issue if we were to generate a constant Op late in
   // lowering, but since we normalize them during the first shape inference, we
@@ -113,13 +112,13 @@ void NewONNXSqueezeOpShapeHelper::saveAxes() {
 }
 
 template <>
-void NewONNXSqueezeV11OpShapeHelper::saveAxes() {
+void ONNXSqueezeV11OpShapeHelper::saveAxes() {
   SaveOnnxAttrInOp<ONNXSqueezeV11Op>(op, squeezedAxes,
       [](ONNXSqueezeV11Op op, ArrayAttr attr) { op.axesAttr(attr); });
 }
 
 template <>
-LogicalResult NewONNXSqueezeOpShapeHelper::computeShape() {
+LogicalResult ONNXSqueezeOpShapeHelper::computeShape() {
   ONNXSqueezeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   Value axes = operandAdaptor.axes();
   SmallVector<IndexExpr, 4> squeezedDims;
@@ -132,7 +131,7 @@ LogicalResult NewONNXSqueezeOpShapeHelper::computeShape() {
 }
 
 template <>
-LogicalResult NewONNXSqueezeV11OpShapeHelper::computeShape() {
+LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape() {
   ONNXSqueezeV11OpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   auto axesAttr = operandAdaptor.axesAttr();
   SmallVector<IndexExpr, 4> squeezedDims;
@@ -155,24 +154,24 @@ LogicalResult NewONNXSqueezeV11OpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSqueezeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   auto dataType = data().getType().dyn_cast<RankedTensorType>();
   if (!dataType)
     return success();
 
   Type elementType = dataType.getElementType();
-  NewONNXSqueezeOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXSqueezeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 LogicalResult ONNXSqueezeV11Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   auto dataType = data().getType().dyn_cast<RankedTensorType>();
   if (!dataType)
     return success();
 
   Type elementType = dataType.getElementType();
-  NewONNXSqueezeV11OpShapeHelper shapeHelper(getOperation(), {});
+  ONNXSqueezeV11OpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -181,6 +180,6 @@ LogicalResult ONNXSqueezeV11Op::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXCommonSqueezeOpShapeHelper<ONNXSqueezeOp>;
-template struct NewONNXCommonSqueezeOpShapeHelper<ONNXSqueezeV11Op>;
+template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeOp>;
+template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeV11Op>;
 } // namespace onnx_mlir

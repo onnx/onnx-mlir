@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -25,14 +24,14 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXPadOpShapeHelper::computeShape() {
+LogicalResult ONNXPadOpShapeHelper::computeShape() {
   ONNXPadOpAdaptor operandAdaptor(operands);
   Value dataOperand = operandAdaptor.data();
   Value padsOperand = operandAdaptor.pads();
   DimsExpr outputDims;
 
   // Get info about input data operand.
-  uint64_t dataRank = createIE->getTypeRank(dataOperand);
+  uint64_t dataRank = createIE->getShapedTypeRank(dataOperand);
 
   // Initialize context and results (pads & output)
   pads.resize(2 * dataRank); // pads two sides of each axis.
@@ -94,14 +93,14 @@ LogicalResult ONNXPadOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPadOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>() ||
       !pads().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
 
-  NewONNXPadOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXPadOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

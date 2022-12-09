@@ -27,7 +27,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSizeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Output is scalar of int64 containing the size of the input tensor.
   SmallVector<int64_t, 1> outDims;
   getResult().setType(

@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,7 +25,7 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXSliceOpShapeHelper::computeShape() {
+LogicalResult ONNXSliceOpShapeHelper::computeShape() {
   // Get info about input data operand.
   ONNXSliceOpAdaptor operandAdaptor(operands);
   Value data = operandAdaptor.data();
@@ -151,7 +150,7 @@ LogicalResult NewONNXSliceOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSliceOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
     return success();
@@ -162,9 +161,8 @@ LogicalResult ONNXSliceOp::inferShapes(
   auto startsDim = startsType.getShape()[0];
   {
     OpBuilder builder(this->getContext());
-    const auto elementType = builder.getIntegerType(64);
-    const auto tensorType =
-        mlir::RankedTensorType::get({startsDim}, elementType);
+    const Type elementType = builder.getIntegerType(64);
+    const auto tensorType = RankedTensorType::get({startsDim}, elementType);
 
     // If axes is not specified, default to [0, ..., ndim-1]
     if (this->getOperand(3).getType().isa<NoneType>()) {
@@ -172,11 +170,11 @@ LogicalResult ONNXSliceOp::inferShapes(
       for (size_t s = 0; s < (size_t)startsDim; ++s)
         vals.emplace_back(s);
       auto constantDenseAttribute =
-          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
+          DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
       builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<mlir::ONNXConstantOp>(
-          this->getLoc(), mlir::Attribute(), constantDenseAttribute);
-      mlir::Value constantResult = constantOp.output();
+      auto constantOp = builder.create<ONNXConstantOp>(
+          this->getLoc(), Attribute(), constantDenseAttribute);
+      Value constantResult = constantOp.output();
       this->setOperand(3, constantResult);
     }
 
@@ -184,16 +182,16 @@ LogicalResult ONNXSliceOp::inferShapes(
     if (this->getOperand(4).getType().isa<NoneType>()) {
       SmallVector<int64_t, 1> vals(startsDim, 1);
       auto constantDenseAttribute =
-          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
+          DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
       builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<mlir::ONNXConstantOp>(
-          this->getLoc(), mlir::Attribute(), constantDenseAttribute);
-      mlir::Value constantResult = constantOp.output();
+      auto constantOp = builder.create<ONNXConstantOp>(
+          this->getLoc(), Attribute(), constantDenseAttribute);
+      Value constantResult = constantOp.output();
       this->setOperand(4, constantResult);
     }
   }
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
-  NewONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

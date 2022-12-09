@@ -14,7 +14,6 @@
 
 #include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -159,8 +158,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
 void populateLoweringONNXPoolingOpToMhloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXPoolOpLoweringToMhlo<ONNXMaxPoolSingleOutOp,
-      ONNXMaxPoolSingleOutOpAdaptor, NewONNXMaxPoolSingleOutOpShapeHelper>>(
-      ctx);
+      ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(ctx);
 }
 
 } // namespace onnx_mlir

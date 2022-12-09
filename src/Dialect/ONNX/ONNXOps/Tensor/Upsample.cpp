@@ -72,7 +72,7 @@ LogicalResult ONNXUpsampleOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXUpsampleOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!X().getType().isa<RankedTensorType>()) {
     return success();
   }

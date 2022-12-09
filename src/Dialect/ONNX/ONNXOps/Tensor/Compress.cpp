@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,13 +25,13 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXCompressOpShapeHelper::computeShape() {
+LogicalResult ONNXCompressOpShapeHelper::computeShape() {
   // Check that input and condition are ranked.
   ONNXCompressOp compressOp = llvm::cast<ONNXCompressOp>(op);
   ONNXCompressOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.input();
   Value cond = operandAdaptor.condition();
-  int64_t inputRank = createIE->getTypeRank(input);
+  int64_t inputRank = createIE->getShapedTypeRank(input);
   createIE->assertHasShapeAndRank(cond);
   Optional<int64_t> optionalAxis = compressOp.axis();
 
@@ -114,13 +113,13 @@ LogicalResult ONNXCompressOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCompressOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape is not yet knwon.
   if (!hasShapeAndRank(input()))
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
-  NewONNXCompressOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  ONNXCompressOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -129,5 +128,5 @@ LogicalResult ONNXCompressOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXCompressOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXCompressOp>;
 } // namespace onnx_mlir
