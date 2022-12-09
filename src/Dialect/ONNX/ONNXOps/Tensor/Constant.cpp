@@ -27,7 +27,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConstantOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if ((sparse_value().has_value() && value().has_value()) ||
       (!sparse_value().has_value() && !value().has_value()))
     return emitError("Require exactly one of the two attributes, "

@@ -24,30 +24,31 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-template <typename ShapeHelper, typename OperandAdaptor>
-LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
-    OperandAdaptor operandAdaptor, ArrayRef<IndexExpr> indexExprArray) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  // Get info about input and output data.
-  auto op = shapeHelper->op;
-  unsigned int numOfResults = op->getNumResults();
-  auto rank =
-      operandAdaptor.input().getType().template cast<ShapedType>().getRank();
+// Code common for all split ops.
+template <typename OP_TYPE>
+LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
+    ArrayRef<IndexExpr> indexExprArray) {
+  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  OP_TYPE splitOp = llvm::cast<OP_TYPE>(op);
+
+  unsigned int numOfResults = splitOp.getNumResults();
+  Value input = operandAdaptor.input();
+  int64_t rank = createIE->getShapedTypeRank(input);
 
   // Checking value of axis parameter.
-  int64_t axisIndex = op->axis();
+  int64_t axisIndex = operandAdaptor.axis();
   if (axisIndex < -rank || axisIndex >= rank)
     return op->emitError("Split axis value out of bound");
   // Negative axis means values are counted from the opposite side.
   if (axisIndex < 0) {
     axisIndex = rank + axisIndex;
-    auto builder = mlir::Builder(op->getContext());
-    op->axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
+    auto builder = Builder(op->getContext());
+    splitOp.axisAttr(
+        IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+            APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
   SmallVector<IndexExpr, 4> splitDims;
-  MemRefBoundsIndexCapture inputBounds(operandAdaptor.input());
   if (!indexExprArray.empty()) {
     if (indexExprArray.size() != numOfResults)
       return op->emitError("Split size not equal to the number of results");
@@ -58,7 +59,7 @@ LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
   } else {
     // If split parameter is not specified, the dimension is split to
     // equal-sized parts.
-    DimIndexExpr splitInputDim(inputBounds.getDim(axisIndex));
+    IndexExpr splitInputDim = createIE->getShapeAsDim(input, axisIndex);
     LiteralIndexExpr numOfPartitions(numOfResults);
     if (splitInputDim.isLiteral() &&
         (splitInputDim.getLiteral() % numOfResults != 0))
@@ -78,46 +79,40 @@ LogicalResult ONNXSplitOpShapeHelperCommon(ShapeHelper *shapeHelper,
       if (j == axisIndex) {
         outputDims[j] = splitDims[i];
       } else {
-        outputDims[j] = inputBounds.getDim(j);
+        outputDims[j] = createIE->getShapeAsDim(input, j);
       }
     }
-    shapeHelper->dimsForOutput(i) = outputDims;
+    setOutputDims(outputDims, i);
   }
   return success();
 }
 
-LogicalResult ONNXSplitOpShapeHelper::computeShape(
-    ONNXSplitOpAdaptor operandAdaptor) {
-
-  auto split = op->split();
-
+// Code for SplitOp compute shape.
+template <>
+LogicalResult ONNXSplitOpShapeHelper::computeShape() {
+  ONNXSplitOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  Value split = operandAdaptor.split();
   SmallVector<IndexExpr, 4> indexExprArray;
-  // TODO: getONNXConstantOp might be a problem during code gen as ONNX
-  // constant get lowered to global constants.
-  if (auto splitConstOp = getONNXConstantOp(split)) {
-    ArrayValueIndexCapture splitCapture(split, fGetDenseVal, fLoadVal);
-    auto splitRank =
-        splitConstOp.valueAttr().dyn_cast_or_null<DenseElementsAttr>().size();
-    splitCapture.getSymbolList(splitRank, indexExprArray);
-  } else if (!split.getType().template isa<NoneType>()) {
-    llvm_unreachable("dynamic split not yet supported");
+  if (split.getType().template isa<NoneType>()) {
+    // None is fine, indexExprArray will be empty.
+  } else {
+    createIE->getIntFromArrayAsSymbols(split, indexExprArray);
+    assert(IndexExpr::isLiteral(indexExprArray) &&
+           "dynamic split not yet supported");
   }
-
-  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
+  return customComputeShape(indexExprArray);
 }
 
-LogicalResult ONNXSplitV11OpShapeHelper::computeShape(
-    ONNXSplitV11OpAdaptor operandAdaptor) {
-  auto splitAttr = op->split();
+// Code for SplitV11Op compute shape.
+template <>
+LogicalResult ONNXSplitV11OpShapeHelper::computeShape() {
+  ONNXSplitV11OpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  ArrayAttr splitAttr = operandAdaptor.splitAttr();
   SmallVector<IndexExpr, 4> indexExprArray;
-  if (splitAttr.has_value()) {
-    ArrayAttributeIndexCapture splitCapture(splitAttr.value());
-    auto splitRank = splitCapture.size();
-    for (unsigned i = 0; i < splitRank; ++i) {
-      indexExprArray.emplace_back(splitCapture.getLiteral(i));
-    }
+  if (splitAttr) {
+    createIE->getIntFromArrayAsLiterals(splitAttr, indexExprArray);
   }
-  return ONNXSplitOpShapeHelperCommon(this, operandAdaptor, indexExprArray);
+  return customComputeShape(indexExprArray);
 }
 
 } // namespace onnx_mlir
@@ -150,33 +145,40 @@ LogicalResult ONNXSplitOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSplitOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape isn't known yet.
   if (!hasShapeAndRank(input()))
     return success();
 
   auto inputType = input().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  SmallVector<Type> elementTypes(getNumResults(), elementType);
-
-  return shapeHelperInferMultipleShapes<ONNXSplitOpShapeHelper, ONNXSplitOp,
-      ONNXSplitOpAdaptor>(*this, elementTypes);
+  ONNXSplitOpShapeHelper shapeHelper(getOperation(), {});
+  // Same time for all results.
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 LogicalResult ONNXSplitV11Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape isn't known yet.
   if (!hasShapeAndRank(input()))
     return success();
 
   auto inputType = input().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  SmallVector<Type> elementTypes(getNumResults(), elementType);
-
-  return shapeHelperInferMultipleShapes<ONNXSplitV11OpShapeHelper,
-      ONNXSplitV11Op, ONNXSplitV11OpAdaptor>(*this, elementTypes);
+  ONNXSplitV11OpShapeHelper shapeHelper(getOperation(), {});
+  // Same time for all results.
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
 // Helper functions
 //===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXCommonSplitOpShapeHelper<ONNXSplitOp>;
+template struct ONNXCommonSplitOpShapeHelper<ONNXSplitV11Op>;
+} // namespace onnx_mlir

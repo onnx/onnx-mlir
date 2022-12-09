@@ -69,7 +69,7 @@ if (not check_operation_version and not list_operation_version) and current_onnx
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
- 
+
 version_dict = {
  'Abs': [13],
  'Acos': [7],
@@ -292,6 +292,11 @@ special_op_handler = dict([
     ("Slice", "ImportNodeSlice"),
 ])
 
+# Operations with custom assembly format (alphabetical order).
+OpsWithCustomAssemblyFormat = [
+    'Constant',
+]
+
 # Operations supporting canonicalization (alphabetical order).
 OpsWithCanonicalizer = [
     'Add',
@@ -327,7 +332,7 @@ OpsWithVerifier = [
     'ArgMin',
     'AveragePool',
     'BitShift',
-    'CategoryMapper',    
+    'CategoryMapper',
     'Compress',
     'Concat',
     'ConcatFromSequence',
@@ -342,7 +347,7 @@ OpsWithVerifier = [
     'Flatten',
     'Gather',
     'GatherElements',
-    'GatherND',        
+    'GatherND',
     'Greater',
     'GreaterOrEqual',
     'Hardmax',
@@ -387,7 +392,7 @@ OpsWithVerifier = [
 ]
 
 # Op with Helper functions
-# Here the functions are for data flow analysis. 
+# Here the functions are for data flow analysis.
 OpsWithHelpers = {
   "Loop": """
     mlir::Operation::result_range v_final();
@@ -985,8 +990,13 @@ def gen_op_def(schema, with_version = False):
         traits.append("OpInterface<\"HasOnnxSubgraphOpInterface\">")
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
-    # Generate decl for canonicalizer.
     indent = inc_indent(indent)
+
+    # Generate decl for custom assembly format.
+    if opName in OpsWithCustomAssemblyFormat:
+        s += indent + 'let hasCustomAssemblyFormat = 1;\n'
+
+    # Generate decl for canonicalizer.
     if opName in OpsWithCanonicalizer:
         s += indent + 'let hasCanonicalizer = 1;\n'
 

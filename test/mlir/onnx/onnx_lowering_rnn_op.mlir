@@ -71,9 +71,9 @@ func.func private @test_rnn_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
 
 func.func private @test_rnn_forward_mode_constant_weight_and_bias(%arg0: tensor<7x2x3xf32>, %arg1: tensor<1x2x4xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
-  %w = "onnx.Constant"() {value = dense<[[[1., 1., 1.], [1., 1., 1.], [1., 1., 1.], [1., 1., 1.]]]> : tensor<1x4x3xf32>} : () -> tensor<1x4x3xf32> 
-  %r = "onnx.Constant"() {value = dense<[[[2., 2., 2., 2.], [2., 2., 2., 2.], [2., 2., 2., 2.], [2., 2., 2., 2.]]]> : tensor<1x4x4xf32>} : () -> tensor<1x4x4xf32> 
-  %b = "onnx.Constant"() {value = dense<[[1., 2., 3., 4., 5., 6., 7., 8.]]> : tensor<1x8xf32>} : () -> tensor<1x8xf32> 
+  %w = onnx.Constant dense<[[[1., 1., 1.], [1., 1., 1.], [1., 1., 1.], [1., 1., 1.]]]> : tensor<1x4x3xf32>
+  %r = onnx.Constant dense<[[[2., 2., 2., 2.], [2., 2., 2., 2.], [2., 2., 2., 2.], [2., 2., 2., 2.]]]> : tensor<1x4x4xf32>
+  %b = onnx.Constant dense<[[1., 2., 3., 4., 5., 6., 7., 8.]]> : tensor<1x8xf32>
 
   %Y, %Y_h = "onnx.RNN"(%arg0, %w, %r, %b, %cst, %arg1) {hidden_size = 4 : si64} : (tensor<7x2x3xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>

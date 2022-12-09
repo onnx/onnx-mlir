@@ -87,7 +87,7 @@ public:
 
   LogicalResult matchAndRewrite(
       memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
-    auto loc = allocOp.getLoc();
+    Location loc = allocOp.getLoc();
 
     auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
 
@@ -96,7 +96,7 @@ public:
       return failure();
 
     // Filter out MemRefs with Index type.
-    auto elementType = memRefType.getElementType();
+    Type elementType = memRefType.getElementType();
     if (elementType.isIndex())
       return failure();
 

@@ -28,7 +28,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();
   if (!inTy) {
     return success();

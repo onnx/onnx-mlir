@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,12 +25,12 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXDepthToSpaceOpShapeHelper::computeShape() {
+LogicalResult ONNXDepthToSpaceOpShapeHelper::computeShape() {
   // Get info about input data operand and blocksize.
   ONNXDepthToSpaceOp depthOp = llvm::cast<ONNXDepthToSpaceOp>(op);
   ONNXDepthToSpaceOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.input();
-  int64_t inputRank = createIE->getTypeRank(input);
+  int64_t inputRank = createIE->getShapedTypeRank(input);
   assert(inputRank == 4 && "Unexpected input tensor rank");
   int64_t blocksize = depthOp.blocksize();
   assert(blocksize > 0 && "blocksize should be strictly positive");
@@ -42,7 +41,6 @@ LogicalResult NewONNXDepthToSpaceOpShapeHelper::computeShape() {
   // shape [N, C / (blocksize * blocksize), H * blocksize, W * blocksize].
   DimsExpr outputDims;
   outputDims.resize(inputRank);
-  // MemRefBoundsIndexCapture inputBounds(input);
   DimIndexExpr N(createIE->getShapeAsDim(input, 0));
   DimIndexExpr C(createIE->getShapeAsDim(input, 1));
   DimIndexExpr H(createIE->getShapeAsDim(input, 2));
@@ -101,13 +99,13 @@ LogicalResult ONNXDepthToSpaceOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDepthToSpaceOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no input shape exists.
   if (!input().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
-  NewONNXDepthToSpaceOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  ONNXDepthToSpaceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -116,5 +114,5 @@ LogicalResult ONNXDepthToSpaceOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXDepthToSpaceOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXDepthToSpaceOp>;
 } // namespace onnx_mlir

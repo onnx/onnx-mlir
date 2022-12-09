@@ -27,12 +27,12 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLayoutTransformOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   ONNXLayoutTransformOp operandAdaptor(*this);
   if (!hasShapeAndRank(operandAdaptor.data()))
     return success();
 
-  auto builder = mlir::Builder(getContext());
+  auto builder = Builder(getContext());
   Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
       builder, data().getType(), target_layoutAttr());
   getResult().setType(resType);

@@ -56,7 +56,7 @@ LogicalResult ONNXOneHotEncoderOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOneHotEncoderOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   ShapedType inputType = X().getType().dyn_cast<RankedTensorType>();
   if (!inputType)
     return success();

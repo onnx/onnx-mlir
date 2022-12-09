@@ -16,7 +16,6 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
@@ -704,11 +703,11 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
   if (!isValidElementTypeAndRank(op.X()))
     return false;
 
-  NewONNXMaxPoolSingleOutOpShapeHelper shapeHelper(op.getOperation(), {});
+  ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
 
   if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
-          ONNXMaxPoolSingleOutOpAdaptor, NewONNXMaxPoolSingleOutOpShapeHelper>(
+          ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
           op, op.o_Y()))
     return false;
 
@@ -732,7 +731,7 @@ bool isSuitableForZDNN<ONNXAveragePoolOp>(
     return false;
 
   return checkLegalityPoolOpsCommon<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor,
-      NewONNXAveragePoolOpShapeHelper>(op, op.Y());
+      ONNXAveragePoolOpShapeHelper>(op, op.Y());
 }
 
 /// Check if input, output, kernel, strides, and paddingType for each axis meet
@@ -789,7 +788,7 @@ bool isSuitableForZDNN<ONNXConvOp>(
     return false;
 
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
-  NewONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
+  ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
 
   ShapedType inputType = op.X().getType().cast<ShapedType>();
@@ -819,8 +818,9 @@ bool isSuitableForZDNN<ONNXConvOp>(
 
   // `getStrPaddingType` returns `SAME_PADDING`, `VALID_PADDING`, or empty.
   // `zdnn_conv2d` only support padding for `SAME_PADDING` and `VALID_PADDING`.
-  StringRef paddingType = getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor,
-      NewONNXConvOpShapeHelper>(op);
+  StringRef paddingType =
+      getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor, ONNXConvOpShapeHelper>(
+          op);
 
   if (paddingType.empty())
     return false;
