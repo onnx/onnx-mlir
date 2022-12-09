@@ -34,8 +34,7 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     IndexExprBuilderForKrnl createIE(rewriter, loc);
     NewONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);
-    LogicalResult shapeComputed = shapeHelper.computeShape();
-    assert(succeeded(shapeComputed) && "Failed to compute shape");
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());

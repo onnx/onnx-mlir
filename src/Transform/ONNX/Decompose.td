@@ -264,13 +264,6 @@ def UpsamplePattern : Pat<
      (GetNullFloatAttr), $mode, (GetNullFloatAttr))
 >;
 
-def UpsampleV9Pattern : Pat<
-  (ONNXUpsampleV9Op $x, $scales, $mode),
-  (ONNXResizeOp $x, (CreateUnitConstant), $scales, (CreateUnitConstant),
-     (GetNullStringAttr), (GetNullFloatAttr), (GetNullIntegerAttr),
-     (GetNullFloatAttr), $mode, (GetNullFloatAttr))
->;
-
 def UpsampleV7Pattern : Pat<
   (ONNXUpsampleV7Op $x, $mode, $scales),
   (ONNXResizeOp $x, (CreateUnitConstant),

@@ -290,7 +290,7 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   llvm::NamedMDNode *identMetadata =
       llvmModule.getOrInsertNamedMetadata("llvm.ident");
   llvm::Metadata *identNode[] = {
-      llvm::MDString::get(ctx, getOnnxMlirFullVersion())};
+      llvm::MDString::get(ctx, getOnnxMlirCommitVersion())};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
 #ifdef PRODUCT_VERSION_MAJOR

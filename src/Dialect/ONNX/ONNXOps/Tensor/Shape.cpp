@@ -53,7 +53,7 @@ LogicalResult NewONNXShapeOpShapeHelper::computeShape() {
   Value data = operandAdaptor.data();
 
   // Compute and store start/end in NewONNXShapeOpShapeHelper object.
-  int64_t rank = createIE->getShapeRank(data);
+  int64_t rank = createIE->getTypeRank(data);
   start = shapeOp.start();
   start = normalizeClampedPerSpec(start, rank);
   end = shapeOp.end().has_value() ? shapeOp.end().value() : rank;
@@ -123,7 +123,6 @@ LogicalResult ONNXShapeOp::inferShapes(
 
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   auto elementType = IntegerType::get(getContext(), 64);
-  IndexExprBuilderForAnalysis createIE(getLoc());
-  NewONNXShapeOpShapeHelper shapeHelper(getOperation(), {}, &createIE);
+  NewONNXShapeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

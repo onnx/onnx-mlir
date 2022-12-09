@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,19 +25,16 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXCompressOpShapeHelper::computeShape(
-    ONNXCompressOpAdaptor operandAdaptor) {
+template <>
+LogicalResult NewONNXCompressOpShapeHelper::computeShape() {
   // Check that input and condition are ranked.
+  ONNXCompressOp compressOp = llvm::cast<ONNXCompressOp>(op);
+  ONNXCompressOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.input();
-  ShapedType inputType = input.getType().dyn_cast_or_null<ShapedType>();
-  assert(inputType && inputType.hasRank() &&
-         "Input should have a known shape and rank");
-  int64_t inputRank = inputType.getRank();
   Value cond = operandAdaptor.condition();
-  ShapedType condType = cond.getType().dyn_cast_or_null<ShapedType>();
-  assert(condType && condType.hasRank() &&
-         "Condition should have a known shape and rank");
-  Optional<int64_t> optionalAxis = op->axis();
+  int64_t inputRank = createIE->getTypeRank(input);
+  createIE->assertHasShapeAndRank(cond);
+  Optional<int64_t> optionalAxis = compressOp.axis();
 
   // axis attribute (if specified) must be in the range [-r,r-1], where r =
   // rank(input).
@@ -62,8 +60,7 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape(
   else {
     // Has same dimensionality as input, with axis dimension being the dynamic
     // size.
-    MemRefBoundsIndexCapture inputBounds(input);
-    inputBounds.getDimList(outputDims);
+    createIE->getShapeAsDims(input, outputDims);
 
     // Negative axis means values are counted from the opposite side.
     // TODO: should be in normalization pass
@@ -123,6 +120,14 @@ LogicalResult ONNXCompressOp::inferShapes(
     return success();
 
   auto elementType = input().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXCompressOpShapeHelper, ONNXCompressOp,
-      ONNXCompressOpAdaptor>(*this, elementType);
+  NewONNXCompressOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct NewONNXNonSpecificOpShapeHelper<ONNXCompressOp>;
+} // namespace onnx_mlir

@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,17 +25,10 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXCategoryMapperOpShapeHelper::computeShape(
-    ONNXCategoryMapperOpAdaptor operandAdaptor) {
-  Value X = operandAdaptor.X();
-  MemRefBoundsIndexCapture bounds(X);
-  int64_t rank = bounds.getRank();
-
-  DimsExpr outputDims(rank);
-  for (int64_t i = 0; i < rank; ++i)
-    outputDims[i] = bounds.getDim(i);
-  setOutputDims(outputDims);
-  return success();
+template <>
+LogicalResult NewONNXCategoryMapperOpShapeHelper::computeShape() {
+  ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
+  return computeShapeFromOperand(operandAdaptor.X());
 }
 
 } // namespace onnx_mlir
@@ -95,7 +89,14 @@ LogicalResult ONNXCategoryMapperOp::inferShapes(
   else
     outputElementType = IntegerType::get(getContext(), /*width=*/64);
 
-  return shapeHelperInferShapes<ONNXCategoryMapperOpShapeHelper,
-      ONNXCategoryMapperOp, ONNXCategoryMapperOpAdaptor>(
-      *this, outputElementType);
+  NewONNXCategoryMapperOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(outputElementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct NewONNXNonSpecificOpShapeHelper<ONNXCategoryMapperOp>;
+} // namespace onnx_mlir
