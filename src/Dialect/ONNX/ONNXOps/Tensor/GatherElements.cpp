@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,20 +25,10 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXGatherElementsOpShapeHelper::computeShape(
-    ONNXGatherElementsOpAdaptor operandAdaptor) {
-  MemRefBoundsIndexCapture indicesBounds(operandAdaptor.indices());
-  DimsExpr indicesDims;
-  indicesBounds.getDimList(indicesDims);
-
-  // Output has the shape of indices.
-  DimsExpr outputDims;
-  int64_t indicesRank = indicesDims.size();
-  for (int i = 0; i < indicesRank; ++i)
-    outputDims.emplace_back(indicesDims[i]);
-
-  setOutputDims(outputDims);
-  return success();
+template <>
+LogicalResult NewONNXGatherElementsOpShapeHelper::computeShape() {
+  ONNXGatherElementsOpAdaptor operandAdaptor(operands);
+  return computeShapeFromOperand(operandAdaptor.indices());
 }
 
 } // namespace onnx_mlir
@@ -111,6 +102,14 @@ LogicalResult ONNXGatherElementsOp::inferShapes(
     return success();
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXGatherElementsOpShapeHelper,
-      ONNXGatherElementsOp, ONNXGatherElementsOpAdaptor>(*this, elementType);
+  NewONNXGatherElementsOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct NewONNXNonSpecificOpShapeHelper<ONNXGatherElementsOp>;
+} // namespace onnx_mlir

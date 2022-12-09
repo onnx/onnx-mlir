@@ -610,7 +610,7 @@ func.func @test_constant_1() -> tensor<i64> {
   %0 = "onnx.Constant"() {value_int = 1 : si64} : () -> tensor<i64>
   return %0 : tensor<i64>
 // CHECK-LABEL:       func @test_constant_1
-// CHECK:           [[VAR_0:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<i64>
+// CHECK:           [[VAR_0:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<i64>} : () -> tensor<i64>
 // CHECK:           return [[VAR_0]] : tensor<i64>
 }
 
@@ -621,7 +621,7 @@ func.func @test_constant_2() -> tensor<f32> {
   %0 = "onnx.Constant"() {value_float = 2.0 : f32 } : () -> tensor<f32>
   return %0 : tensor<f32>
 // CHECK-LABEL:     func @test_constant_2 
-// CHECK: [[VAR_0:%.+]] = "onnx.Constant"() {value = dense<2.000000e+00> : tensor<1xf32>} : () -> tensor<f32>
+// CHECK: [[VAR_0:%.+]] = "onnx.Constant"() {value = dense<2.000000e+00> : tensor<f32>} : () -> tensor<f32>
 // CHECK: return [[VAR_0]] : tensor<f32>
 }
 
