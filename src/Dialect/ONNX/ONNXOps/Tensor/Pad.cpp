@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,29 +25,14 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-ONNXPadOpShapeHelper::ONNXPadOpShapeHelper(
-    ONNXPadOp *newOp, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXPadOp>(
-          newOp, newOp->getOperation()->getNumResults(), inScope),
-      pads() {}
-
-ONNXPadOpShapeHelper::ONNXPadOpShapeHelper(ONNXPadOp *newOp,
-    OpBuilder *rewriter, ArrayValueIndexCapture::GetDenseVal fGetDenseVal,
-    ArrayValueIndexCapture::LoadVal fLoadVal, IndexExprScope *inScope)
-    : ONNXOpShapeHelper<ONNXPadOp>(newOp,
-          newOp->getOperation()->getNumResults(), rewriter, fGetDenseVal,
-          fLoadVal, inScope),
-      pads() {}
-
-LogicalResult ONNXPadOpShapeHelper::computeShape(
-    ONNXPadOpAdaptor operandAdaptor) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  // Output dims of results.
+LogicalResult NewONNXPadOpShapeHelper::computeShape() {
+  ONNXPadOpAdaptor operandAdaptor(operands);
+  Value dataOperand = operandAdaptor.data();
+  Value padsOperand = operandAdaptor.pads();
   DimsExpr outputDims;
 
   // Get info about input data operand.
-  MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
-  uint64_t dataRank = dataBounds.getRank();
+  uint64_t dataRank = createIE->getTypeRank(dataOperand);
 
   // Initialize context and results (pads & output)
   pads.resize(2 * dataRank); // pads two sides of each axis.
@@ -56,21 +42,20 @@ LogicalResult ONNXPadOpShapeHelper::computeShape(
   // where
   // - xi_begin: the number of pad values added at the beginning of axis `i`
   // - xi_end: the number of pad values added at the end of axis `i`.
-  ArrayValueIndexCapture padsCapture(
-      operandAdaptor.pads(), fGetDenseVal, fLoadVal);
 
   // Calculate output dimension sizes.
   for (uint64_t i = 0; i < dataRank; i++) {
     // Get begin/end pads.
-    SymbolIndexExpr padBegin(padsCapture.getSymbol(i));
-    SymbolIndexExpr padEnd(padsCapture.getSymbol(i + dataRank));
+    SymbolIndexExpr padBegin(createIE->getIntFromArrayAsSymbol(padsOperand, i));
+    SymbolIndexExpr padEnd(
+        createIE->getIntFromArrayAsSymbol(padsOperand, i + dataRank));
     if (padBegin.isUndefined() || padEnd.isUndefined())
       return op->emitError("pad parameter could not be processed");
     // Get input dim.
-    DimIndexExpr dimInput(dataBounds.getDim(i));
+    DimIndexExpr dimInput(createIE->getShapeAsDim(dataOperand, i));
 
     // Calculation for output size.
-    IndexExpr dimOutputFinal = padBegin + dimInput + padEnd;
+    IndexExpr dimOutputFinal = (padBegin + dimInput) + padEnd;
 
     // Save results.
     pads[i] = padBegin;
@@ -80,7 +65,6 @@ LogicalResult ONNXPadOpShapeHelper::computeShape(
 
   // Save the final result.
   setOutputDims(outputDims);
-
   return success();
 }
 
@@ -117,6 +101,7 @@ LogicalResult ONNXPadOp::inferShapes(
     return success();
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXPadOpShapeHelper, ONNXPadOp,
-      ONNXPadOpAdaptor>(*this, elementType);
+
+  NewONNXPadOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }

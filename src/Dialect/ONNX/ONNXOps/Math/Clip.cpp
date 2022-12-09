@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,17 +25,12 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXClipOpShapeHelper::computeShape(
-    ONNXClipOpAdaptor operandAdaptor) {
-  Value input = operandAdaptor.input();
-  MemRefBoundsIndexCapture bounds(input);
-  int64_t rank = bounds.getRank();
-
-  DimsExpr outputDims(rank);
-  for (int64_t i = 0; i < rank; ++i)
-    outputDims[i] = bounds.getDim(i);
+template <>
+LogicalResult NewONNXClipOpShapeHelper::computeShape() {
+  ONNXClipOpAdaptor operandAdaptor(operands);
+  DimsExpr outputDims;
+  createIE->getShapeAsDims(operandAdaptor.input(), outputDims);
   setOutputDims(outputDims);
-
   return success();
 }
 
@@ -80,6 +76,14 @@ LogicalResult ONNXClipOp::inferShapes(
       return emitError("Min tensor ranked with nonzero size");
   }
 
-  updateType(getResult(), inputTy.getShape(), elementType);
-  return success();
+  NewONNXClipOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct NewONNXNonSpecificOpShapeHelper<ONNXClipOp>;
+} // namespace onnx_mlir
