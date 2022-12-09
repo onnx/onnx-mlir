@@ -64,9 +64,8 @@ llvm::StringRef convertONNXTensorDataLayoutToString(
 // Add ONNX tensor encoding to ranked & shaped types. Return type only has the
 // encoding if the layout is custom, Currently assert for non ranked/shaped
 // type.
-mlir::Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-    mlir::Builder &builder, const mlir::Type inputType,
-    mlir::Attribute encodingAttr);
+mlir::Type convertTensorTypeToTensorTypeWithEncoding(
+    const mlir::Type inputType, mlir::Attribute encodingAttr);
 
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
 bool isONNXTensor(const mlir::Type type);

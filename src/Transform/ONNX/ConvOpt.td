@@ -36,7 +36,7 @@ def StandardLayoutAttr:
 
 // Rewrite ranked and shaped type to have the given ONNX Tensor Encoding.
 def tensorTypeWithONNXTensorEncoding:
-  NativeCodeCall<"::onnx_mlir::convertTensorTypeToTensorTypeWithONNXTensorEncoding($_builder, $0.getType(), $1)">;
+  NativeCodeCall<"::onnx_mlir::convertTensorTypeToTensorTypeWithEncoding($0.getType(), $1)">;
 
 // To avoid converting ops over and over again, has to have a mechanism
 // to check if values are already using a custom ONNX data layout or not.

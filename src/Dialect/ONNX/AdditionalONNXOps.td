@@ -231,11 +231,12 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [Pure,
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>]>:$data,
                        OptionalAttr<AnyAttrOf<[LayoutAttr]>>:$target_layout
   );
-  let results = (outs AnyTypeOf<[TensorOf<[F32]>]>:$Out);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>]>:$output);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$data, "::mlir::Attribute":$target_layout)>, // Defined layouts.
   ];
   let hasCanonicalizer = 1;
+  let hasVerifier = 1;
 }
 
 //===----------------------------------------------------------------------===//

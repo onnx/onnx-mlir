@@ -122,26 +122,18 @@ bool hasCustomONNXTensorDataLayout(const Type type) {
          ONNXTensorEncodingAttr::DataLayout::STANDARD;
 }
 
-// Add ONNX tensor encoding to rank & shaped types. Assert otherwise.
-Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-    Builder &builder, const Type inputType, Attribute encodingAttr) {
-  Type resType = builder.getNoneType();
-  if (!inputType.isa<NoneType>()) {
-    ShapedType shapedType = inputType.cast<ShapedType>();
-    if (shapedType.hasRank()) {
-      // Compute shape: this op does not change the shape, just the layout.
-      ArrayRef<int64_t> inputShape = shapedType.getShape();
-      SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
-      resType = RankedTensorType::get(
-          resShape, shapedType.getElementType(), encodingAttr);
-      return resType;
-    } else {
-      resType = UnrankedTensorType::get(shapedType.getElementType());
-    }
+// Add a tensor encoding to a rank & shaped type. Otherwise, return an unranked
+// type as it is.
+Type convertTensorTypeToTensorTypeWithEncoding(
+    const Type inputType, Attribute encodingAttr) {
+  Type resType = inputType;
+  if (auto rankedType = llvm::dyn_cast_or_null<RankedTensorType>(inputType)) {
+    // Compute shape: this op does not change the shape, just the layout.
+    ArrayRef<int64_t> inputShape = rankedType.getShape();
+    SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
+    resType = RankedTensorType::get(
+        resShape, rankedType.getElementType(), encodingAttr);
   }
-  // May remove the unreachable as it may be ok to try to convert unranked /
-  // unshaped type; let's be a bit stricter initially.
-  llvm_unreachable("Should only convert types that are ranked and shaped.");
   return resType;
 }
 
