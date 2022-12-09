@@ -123,4 +123,3 @@ func.func @test_onnx_layout_transform_on_ztensor(%arg0: tensor<3x5x7xf32, #zhigh
 // CHECK:           return [[RES_]] : memref<3x5x7xf16, #map1>
 // CHECK:         }
 }
-

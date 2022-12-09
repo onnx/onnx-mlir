@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --canonicalize %s -split-input-file | FileCheck %s
 
-func.func @remove_stick_and_unstick(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+func.func @remove_stick_and_unstick_same_layout(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "zhigh.Stick"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.layout<{ dataLayout = "2D"}>>
   %1 = "zhigh.Relu"(%0) : (tensor<10x10xf32, #zhigh.layout<{ dataLayout = "2D"}>>) -> tensor<10x10xf32, #zhigh.layout<{ dataLayout = "2D"}>>
   %2 = "zhigh.Unstick"(%1) : (tensor<10x10xf32, #zhigh.layout<{ dataLayout = "2D"}>>) -> tensor<10x10xf32>
@@ -10,7 +10,7 @@ func.func @remove_stick_and_unstick(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf
   %5 = "zhigh.Unstick"(%4) : (tensor<10x10xf32, #zhigh.layout<{ dataLayout = "2D"}>>) -> tensor<10x10xf32>
   "func.return"(%5) : (tensor<10x10xf32>) -> ()
 
-  // CHECK-LABEL: remove_stick_and_unstick
+  // CHECK-LABEL: remove_stick_and_unstick_same_layout
   // CHECK: zhigh.Stick
   // CHECK: zhigh.Relu
   // CHECK-NOT: zhigh.Unstick
@@ -45,8 +45,8 @@ func.func @remove_stick_only(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // -----
 
-// Do not remove unstick/stick because of different layout.
-func.func @donot_remove_stick_and_unstick(%arg0 : tensor<5x10x10xf32>) -> tensor<5x10x10xf32> {
+// Replace unstick/stick by onnx.LayoutTransform because of different layout.
+func.func @replace_stick_and_unstick_by_layout_transform(%arg0 : tensor<5x10x10xf32>) -> tensor<5x10x10xf32> {
   %0 = "zhigh.Stick"(%arg0) : (tensor<5x10x10xf32>) -> tensor<5x10x10xf32, #zhigh.layout<{dataLayout = "3D"}>>
   %1 = "zhigh.Relu"(%0) : (tensor<5x10x10xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<5x10x10xf32, #zhigh.layout<{dataLayout = "3D"}>>
   %2 = "zhigh.Unstick"(%1) : (tensor<5x10x10xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<5x10x10xf32>
@@ -56,11 +56,10 @@ func.func @donot_remove_stick_and_unstick(%arg0 : tensor<5x10x10xf32>) -> tensor
   %5 = "zhigh.Unstick"(%4) {layout = "3DS"} : (tensor<5x10x10xf32, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<5x10x10xf32>
   "func.return"(%5) : (tensor<5x10x10xf32>) -> ()
 
-  // CHECK-LABEL: donot_remove_stick_and_unstick
+  // CHECK-LABEL: replace_stick_and_unstick_by_layout_transform
   // CHECK: zhigh.Stick
   // CHECK: zhigh.Relu
-  // CHECK: zhigh.Unstick
-  // CHECK: zhigh.Stick
+  // CHECK: onnx.LayoutTransform
   // CHECK: zhigh.Relu
   // CHECK: zhigh.Unstick
 }
