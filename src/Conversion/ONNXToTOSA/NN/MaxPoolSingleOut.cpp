@@ -18,6 +18,7 @@
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
 
 using namespace mlir;
@@ -31,12 +32,19 @@ class ONNXMaxPoolSingleOutOpLoweringToTOSA
 public:
   using OpConversionPattern<ONNXMaxPoolSingleOutOp>::OpConversionPattern;
   using OpAdaptor = typename ONNXMaxPoolSingleOutOp::Adaptor;
-  LogicalResult matchAndRewrite(ONNXMaxPoolSingleOutOp op, OpAdaptor adaptor,
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-
+    auto maxpoolOp = llvm::cast<ONNXMaxPoolSingleOutOp>(op);
     Location loc = op->getLoc();
+    OpAdaptor adaptor(operands, op->getAttrDictionary());
+    // Get shape.
+    IndexExprBuilderForTosa createTosaIE(rewriter, loc);
+    NewONNXMaxPoolSingleOutOpShapeHelper shapeHelper(
+        op, adaptor.getOperands(), &createTosaIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
-    Value Input = adaptor.X();
+    shapeHelper.pads;
+    Input = adaptor.X();
     // - The attribute Ceil_mode is ignored because its effect is already
     // impacting the return type of the operator
     // - The attribute auto_pad is ignored because it is marked as deprecated
@@ -54,7 +62,7 @@ public:
           op, "memrefs as inputs are unsupported by TOSA");
     }
     auto InputType = Input.getType().cast<TensorType>();
-    auto resultType = op.getResult().getType();
+    auto resultType = maxpoolOp.getResult().getType();
     auto resultShape = resultType.cast<TensorType>().getShape();
     // Construct the transposed type for the new MaxPool OP
     Type newResultType = RankedTensorType::get(
@@ -62,21 +70,24 @@ public:
         InputType.getElementType());
 
     if (autoPad != "NOTSET") {
-      op.emitWarning(
+      maxpoolOp.emitWarning(
           "auto_pad attribute is deprecated and its value will be ignored");
     }
     if (dilations) {
-      op.emitWarning("dilations attribute is unsupported by TOSA and its value "
-                     "will be ignored");
+      maxpoolOp.emitWarning(
+          "dilations attribute is unsupported by TOSA and its value "
+          "will be ignored");
     }
     if (storageOrder && storageOrder.getSInt() != 0) {
-      op.emitWarning("storage_order attribute is unsupported by TOSA and its "
-                     "value will be ignored");
+      maxpoolOp.emitWarning(
+          "storage_order attribute is unsupported by TOSA and its "
+          "value will be ignored");
     }
 
     // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a
     // transpose to change the format
-    Input = tosa::createTosaTransposedTensor(rewriter, op, Input, {0, 2, 3, 1});
+    Input = tosa::createTosaTransposedTensor(
+        rewriter, maxpoolOp, Input, {0, 2, 3, 1});
 
     // Pads and Strides are optionals for ONNX but mandatory for TOSA
     if (!pads) {
@@ -99,12 +110,13 @@ public:
     // Construct the old result shape out of the new one
     auto newInputType = Input.getType().cast<RankedTensorType>().getShape();
     Value sourceTensor =
-        tosa::getConstTensor<int32_t>(rewriter, op, {0, 3, 1, 2}, {4}).value();
+        tosa::getConstTensor<int32_t>(rewriter, maxpoolOp, {0, 3, 1, 2}, {4})
+            .value();
     Type transposedResultType = RankedTensorType::get(
         {newInputType[0], newInputType[3], newInputType[1], newInputType[2]},
         InputType.getElementType());
     tosa::CreateReplaceOpAndInfer<mlir::tosa::TransposeOp>(
-        rewriter, op, transposedResultType, Input, sourceTensor);
+        rewriter, maxpoolOp, transposedResultType, Input, sourceTensor);
     return success();
   }
 };
