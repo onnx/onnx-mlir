@@ -215,11 +215,16 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [Pure,
   let summary = "An operation that transforms data between different layout formats";
   let description = [{
     An operation that transforms a tensor from a layout to another layout. 
-    A Tensor layout is defined by an attribute, which allows this operations
-    work with arbitrary layouts for accelerators as well.
+    A layout is defined by an attribute, i.e. `target_layout`, which allows this
+    operation work with an arbitrary layout (e.g. a layout used for accelerators).
 
-    Operations that transforms a tensor to the same layout are considered as
-    a no operation and will be removed.
+    `target_layout` is optional. If it is not given, the input tensor will be
+    transformed to a normal tensor that does not have layout.
+
+    If `target_layout` is the same as the input's layout, this operation will
+    become an no-op by canonicalization. 
+
+    The input and output tensors must have the same shape.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
