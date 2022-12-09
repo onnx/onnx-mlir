@@ -270,6 +270,8 @@ struct ONNXGenericPoolOpShapeHelper : public ONNXOpShapeHelper {
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXGenericPoolOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
+  // Actual computation of the pool shape and parameters using every different
+  // switches that differs between pooling and conv ops.
   mlir::LogicalResult customComputeShape(mlir::Value X /* image */,
       mlir::Value W /* filter */,
       mlir::Optional<mlir::ArrayAttr> kernelShapeOpt, llvm::StringRef autoPad,
