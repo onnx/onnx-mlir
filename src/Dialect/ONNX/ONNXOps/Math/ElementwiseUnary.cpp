@@ -32,22 +32,13 @@ namespace onnx_mlir {
 /// Handle shape inference for unary element-wise operators.
 LogicalResult inferShapeForUnaryOps(Operation *op) {
   Value input = op->getOperand(0);
-  Value output = op->getResult(0);
-
   if (!hasShapeAndRank(input))
     return success();
 
   ONNXUnaryOpShapeHelper shapeHelper(op, {});
-  if (failed(shapeHelper.computeShape()))
-    return op->emitError("Failed to scan parameters successfully");
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.getOutputDims(), outputDims);
-
-  // Inferred shape is getting from the input's shape.
   RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
-  updateType(
-      output, outputDims, inputType.getElementType(), inputType.getEncoding());
-  return success();
+  return shapeHelper.computeShapeAndUpdateType(
+      inputType.getElementType(), inputType.getEncoding());
 }
 
 } // namespace onnx_mlir

@@ -111,9 +111,12 @@ struct ONNXOpShapeHelper {
   // original operation. First call is used for operations where all the results
   // share the same output type, second for operations where all results have
   // their own output types.
-  mlir::LogicalResult computeShapeAndUpdateType(mlir::Type elementType);
+  mlir::LogicalResult computeShapeAndUpdateType(
+      mlir::Type elementType, mlir::Attribute encoding = nullptr);
+  // If encoding list can be empty or have one entry per type.
   mlir::LogicalResult computeShapeAndUpdateTypes(
-      mlir::TypeRange elementTypeRange);
+      mlir::TypeRange elementTypeRange,
+      mlir::ArrayRef<mlir::Attribute> encodingList = {});
 
   // Get/set output dims for the N-th output dimension as Index Expressions.
   DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }

@@ -137,7 +137,8 @@ LogicalResult ONNXOpShapeHelper::computeShapeFromOperand(Value operand) {
 }
 
 // Reuse the same type for each of the outputs.
-LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(Type elementType) {
+LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
+    Type elementType, mlir::Attribute encoding) {
   // Invoke virtual compute shape.
   if (failed(computeShape()))
     return op->emitError("Failed to scan parameters successfully");
@@ -145,16 +146,20 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(Type elementType) {
   for (uint64_t i = 0; i < resNum; ++i) {
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
-    updateType(op->getResults()[i], shapeVect, elementType);
+    updateType(op->getResults()[i], shapeVect, elementType, encoding);
   }
   return success();
 }
 
 // Use a distinct type for each of the output.
 LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
-    TypeRange elementTypeRange) {
+    TypeRange elementTypeRange, mlir::ArrayRef<mlir::Attribute> encodingList) {
   uint64_t resNum = op->getNumResults();
-  assert((elementTypeRange.size() == resNum) && "Incorrect elementTypes size");
+  assert((elementTypeRange.size() == resNum) &&
+         "Incorrect number of elementTypes");
+  bool hasEncoding = encodingList.size() > 0;
+  assert((!hasEncoding || encodingList.size() == resNum) &&
+         "Incorrect number of encoding");
   // Invoke virtual compute.
   if (failed(computeShape()))
     return op->emitError("Failed to scan " + op->getName().getStringRef() +
@@ -163,7 +168,8 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
     Type currElementType = elementTypeRange[i];
-    updateType(op->getResults()[i], shapeVect, currElementType);
+    updateType(op->getResults()[i], shapeVect, currElementType,
+        hasEncoding ? encodingList[i] : nullptr);
   }
   return success();
 }

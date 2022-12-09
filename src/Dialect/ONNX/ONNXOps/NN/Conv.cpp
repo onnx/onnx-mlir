@@ -461,7 +461,7 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
   }
 }
 
-static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferedPads,
+static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferredPads,
     llvm::StringRef autoPad, ArrayRef<int64_t> xShape,
     Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> padsOpt,
     Optional<ArrayAttr> stridesOpt, Optional<ArrayAttr> outputPadsOpt,
@@ -479,7 +479,7 @@ static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferedPads,
   // pads[end_i] = total_padding[i] - (total_padding[i]/2)
   // Else: pads[start_i] = total_padding[i] - (total_padding[i]/2);
   // pads[end_i] = (total_padding[i]/2)
-  inferedPads.resize(spatialRank * 2);
+  inferredPads.resize(spatialRank * 2);
   for (unsigned int i = 0; i < spatialRank; ++i) {
     auto inputSize = xShape[spatialOffset + i];
     auto outputSize = ArrayAttrIntVal(outputShapeOpt, spatialOffset + i);
@@ -496,8 +496,8 @@ static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferedPads,
     if (autoPad != "SAME_UPPER") {
       std::swap(beginPad, endPad);
     }
-    inferedPads[i] = beginPad;
-    inferedPads[spatialRank + i] = endPad;
+    inferredPads[i] = beginPad;
+    inferredPads[spatialRank + i] = endPad;
   }
 }
 
@@ -616,12 +616,12 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
     if (outChannels != ArrayAttrIntVal(outputShape, 1)) {
       return emitOpError("mismatch in output channel size");
     }
-    SmallVector<int64_t, 4> inferedPads;
+    SmallVector<int64_t, 4> inferredPads;
     // Determine padding values based on output shape.
     auto autoPad = auto_pad();
-    insertConvTransposePads(inferedPads, autoPad, xShape, kernelShape, padsOpt,
+    insertConvTransposePads(inferredPads, autoPad, xShape, kernelShape, padsOpt,
         stridesOpt, outputPads, outputShape, dilationsOpt);
-    padsAttr(builder.getI64ArrayAttr(inferedPads));
+    padsAttr(builder.getI64ArrayAttr(inferredPads));
     for (uint64_t i = 0; i < xShape.size(); ++i) {
       outputShapeFinal.emplace_back(ArrayAttrIntVal(outputShape, i));
     }
