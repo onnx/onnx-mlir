@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,13 +25,13 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXTopKOpShapeHelper::computeShape() {
+LogicalResult ONNXTopKOpShapeHelper::computeShape() {
   DimsExpr outputDims;
   ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   // Get info about X and K operands.
   Value X = operandAdaptor.X();
   Value K = operandAdaptor.K();
-  int64_t rank = createIE->getTypeRank(X);
+  int64_t rank = createIE->getShapedTypeRank(X);
 
   // Axis to compute TopK.
   int64_t axis = operandAdaptor.axis();
@@ -101,15 +100,15 @@ LogicalResult ONNXTopKOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXTopKOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the operands shape isn't known yet.
   if (llvm::any_of(this->getOperands(),
           [](const Value &op) { return !hasShapeAndRank(op); }))
     return success();
 
   Builder b(getContext());
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
-  NewONNXTopKOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXTopKOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateTypes({elementType, b.getI64Type()});
 }
 
@@ -118,5 +117,5 @@ LogicalResult ONNXTopKOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXTopKOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXTopKOp>;
 } // namespace onnx_mlir

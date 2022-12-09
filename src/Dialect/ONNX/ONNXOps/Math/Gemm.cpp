@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
@@ -26,7 +25,7 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXGemmOpShapeHelper::computeShape() {
+LogicalResult ONNXGemmOpShapeHelper::computeShape() {
   // Output dims of result.
   DimsExpr outputDims;
 
@@ -117,7 +116,7 @@ LogicalResult NewONNXGemmOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGemmOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   bool hasBias = !C().getType().isa<NoneType>();
   // Cannot infer shape if no shape exists.
   if (!A().getType().isa<RankedTensorType>() ||
@@ -125,8 +124,8 @@ LogicalResult ONNXGemmOp::inferShapes(
       (hasBias && !C().getType().isa<RankedTensorType>()))
     return success();
 
-  auto elementType = A().getType().cast<ShapedType>().getElementType();
+  Type elementType = A().getType().cast<ShapedType>().getElementType();
 
-  NewONNXGemmOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXGemmOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

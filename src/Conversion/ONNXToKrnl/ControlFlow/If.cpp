@@ -25,7 +25,7 @@ struct ONNXIfOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = ONNXLoc<ONNXIfOp>(op);
+    Location loc = ONNXLoc<ONNXIfOp>(op);
     auto ifOp = dyn_cast<ONNXIfOp>(op);
     ONNXIfOpAdaptor ifOpAdaptor(operands, op->getAttrDictionary());
 

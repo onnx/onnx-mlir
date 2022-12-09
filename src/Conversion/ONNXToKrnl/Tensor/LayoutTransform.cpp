@@ -28,7 +28,7 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXLayoutTransformOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
 
     // Operands and attributes.
     Value data = operandAdaptor.data();

@@ -30,7 +30,7 @@ LogicalResult ONNXOptionalOp::verify() {
 }
 
 LogicalResult ONNXOptionalOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   Type ty;
   if (auto typeAttr = type()) {
     ty = typeAttr.value();
@@ -54,7 +54,7 @@ LogicalResult ONNXOptionalGetElementOp::verify() {
 }
 
 LogicalResult ONNXOptionalGetElementOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   Type elementType = input().getType().cast<OptType>().getElementType();
   getResult().setType(elementType);
   return success();
@@ -71,7 +71,7 @@ LogicalResult ONNXOptionalHasElementOp::verify() {
 }
 
 LogicalResult ONNXOptionalHasElementOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   Builder builder(getContext());
   Type scalarBoolType = RankedTensorType::get({}, builder.getI1Type());
   getResult().setType(scalarBoolType);

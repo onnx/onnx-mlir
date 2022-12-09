@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -28,7 +27,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     ONNXPadOp padOp = llvm::dyn_cast<ONNXPadOp>(op);
     ONNXPadOpAdaptor operandAdaptor(operands);
     Value data = operandAdaptor.data();
@@ -40,7 +39,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // Shape helper.
-    NewONNXPadOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXPadOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
@@ -55,7 +54,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
         rewriter, op, resMemRefType, loc, shapeHelper.getOutputDims());
 
     // Bounds.
-    uint64_t rank = create.krnlIE.getTypeRank(data);
+    uint64_t rank = create.krnlIE.getShapedTypeRank(data);
 
     // Literal indices.
     LiteralIndexExpr zero(0);
