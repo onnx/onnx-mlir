@@ -261,24 +261,24 @@ struct ONNXShapeOpShapeHelper : public ONNXOpShapeHelper {
 // Pooling Ops (ONNXMaxPoolSingleOutOp, ONNXAveragePoolOp, ONNXConvOp)
 //===----------------------------------------------------------------------===//
 
-// Generic pool shape helper, further refined by specific pooling ops.
-struct ONNXPoolOpShapeHelper : public ONNXOpShapeHelper {
-  ONNXPoolOpShapeHelper(mlir::Operation *op,
-      mlir::ArrayRef<mlir::Value> operands, IndexExprBuilder *ieBuilder,
-      bool hasFilter, bool ceilMode, IndexExprScope *scope)
-      : ONNXOpShapeHelper(op, operands, ieBuilder, scope), hasFilter(hasFilter),
-        ceilMode(ceilMode) {}
-  virtual ~ONNXPoolOpShapeHelper() {}
+// Generic pool shape helper.
+template <typename OP_TYPE>
+struct ONNXGenericPoolOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXGenericPoolOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXGenericPoolOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
   mlir::LogicalResult customComputeShape(mlir::Value X /* image */,
       mlir::Value W /* filter */,
       mlir::Optional<mlir::ArrayAttr> kernelShapeOpt, llvm::StringRef autoPad,
       mlir::Optional<mlir::ArrayAttr> padOpt,
       mlir::Optional<mlir::ArrayAttr> strideOpt,
-      mlir::Optional<mlir::ArrayAttr> dilationOpt);
+      mlir::Optional<mlir::ArrayAttr> dilationOpt,
+      bool hasFilter, // If has filter, it also has CO and optional kernel.
+      bool ceilMode); // Use ceil or floor for auto_pad=NOTSET policy.
 
-  // Additional data for pool operations.
-  bool hasFilter; // If has filter, it also has CO and optional kernel.
-  bool ceilMode;  // Use ceil or floor for auto_pad=NOTSET policy.
   // Values set by customComputeShape.
   llvm::SmallVector<IndexExpr, 2> kernelShape;
   llvm::SmallVector<IndexExpr, 4> pads;
@@ -286,19 +286,11 @@ struct ONNXPoolOpShapeHelper : public ONNXOpShapeHelper {
   llvm::SmallVector<int64_t, 2> dilations;
 };
 
-#define DECLARE_SHAPE_HELPER(SHAPE_HELPER)                                     \
-  class SHAPE_HELPER : public ONNXPoolOpShapeHelper {                          \
-  public:                                                                      \
-    SHAPE_HELPER(mlir::Operation *op, mlir::ArrayRef<mlir::Value> operands,    \
-        IndexExprBuilder *ieBuilder = nullptr,                                 \
-        IndexExprScope *scope = nullptr);                                      \
-    virtual ~SHAPE_HELPER() {}                                                 \
-    mlir::LogicalResult computeShape() final;                                  \
-  };
-DECLARE_SHAPE_HELPER(ONNXAveragePoolOpShapeHelper)
-DECLARE_SHAPE_HELPER(ONNXConvOpShapeHelper)
-DECLARE_SHAPE_HELPER(ONNXMaxPoolSingleOutOpShapeHelper)
-#undef DECLARE_SHAPE_HELPER
+using ONNXAveragePoolOpShapeHelper =
+    ONNXGenericPoolOpShapeHelper<mlir::ONNXAveragePoolOp>;
+using ONNXConvOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXConvOp>;
+using ONNXMaxPoolSingleOutOpShapeHelper =
+    ONNXGenericPoolOpShapeHelper<mlir::ONNXMaxPoolSingleOutOp>;
 
 //===----------------------------------------------------------------------===//
 // Slice Op

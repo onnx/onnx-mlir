@@ -13,12 +13,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
+
+#include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // Support
@@ -312,18 +313,13 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
 
 namespace onnx_mlir {
 
-ONNXConvOpShapeHelper::ONNXConvOpShapeHelper(Operation *op,
-    ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
-    IndexExprScope *scope)
-    : ONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ true,
-          /*ceil mode*/ false, scope) {}
-
+template <>
 LogicalResult ONNXConvOpShapeHelper::computeShape() {
   ONNXConvOp poolOp = llvm::cast<ONNXConvOp>(op);
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(operands);
   return customComputeShape(operandAdaptor.X(), operandAdaptor.W(),
       poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
-      poolOp.dilations());
+      poolOp.dilations(), /*hasFilter*/ true, /*ceil mode*/ false);
 }
 
 } // namespace onnx_mlir
@@ -849,3 +845,13 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
   updateType(getResult(), outputDims, outputElementType);
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation; keep at the end of the file.
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template struct ONNXGenericPoolOpShapeHelper<ONNXConvOp>;
+
+} // namespace onnx_mlir
