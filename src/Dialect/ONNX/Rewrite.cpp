@@ -20,7 +20,6 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -127,7 +126,7 @@ DenseElementsAttr createDenseElementsAttrFromShapeOp(
     PatternRewriter &rewriter, Operation *op) {
   ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
   int64_t start, end;
-  NewONNXShapeOpShapeHelper::getStartEndValues(shapeOp, start, end);
+  ONNXShapeOpShapeHelper::getStartEndValues(shapeOp, start, end);
   return createDenseElementsAttrFromShape(rewriter, shapeOp.data(), start, end);
 }
 
@@ -459,8 +458,7 @@ ArrayAttr perm4RNN(Builder &b) { return b.getI64ArrayAttr({2, 0, 1, 3}); }
 
 class InputOutputTransposer {
 public:
-  InputOutputTransposer(mlir::OpBuilder &b, mlir::Location loc)
-      : create(b, loc) {}
+  InputOutputTransposer(OpBuilder &b, Location loc) : create(b, loc) {}
 
   void transposeInput(MutableOperandRange operand, ArrayAttr perm) {
     assert(operand.size() == 1 && "should be called with singleton range");

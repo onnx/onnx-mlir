@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -28,14 +27,14 @@ using namespace mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXSpaceToDepthOpShapeHelper::computeShape() {
+LogicalResult ONNXSpaceToDepthOpShapeHelper::computeShape() {
   // Get info about input data operand and blocksize.
   ONNXSpaceToDepthOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   Value input = operandAdaptor.input();
   int64_t blocksize = operandAdaptor.blocksize();
   assert(blocksize > 0 && "blocksize should be strictly positive");
 
-  int64_t inputRank = createIE->getTypeRank(input);
+  int64_t inputRank = createIE->getShapedTypeRank(input);
   assert(inputRank == 4 && "Unexpected input tensor rank");
 
   // Compute outputDims.
@@ -103,13 +102,13 @@ LogicalResult ONNXSpaceToDepthOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSpaceToDepthOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no input shape exists.
   if (!input().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
-  NewONNXSpaceToDepthOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  ONNXSpaceToDepthOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -118,5 +117,5 @@ LogicalResult ONNXSpaceToDepthOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXSpaceToDepthOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXSpaceToDepthOp>;
 } // namespace onnx_mlir

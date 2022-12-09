@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -25,13 +24,13 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 template <>
-LogicalResult NewONNXTransposeOpShapeHelper::computeShape() {
+LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
   // Basic information.
   ONNXTransposeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
 
   Value data = operandAdaptor.data();
-  auto rank = createIE->getTypeRank(data);
+  auto rank = createIE->getShapedTypeRank(data);
 
   // Transposition which handles the default case of
   // reversing the shape of the tensor (similar to numpy.transpose).
@@ -39,7 +38,7 @@ LogicalResult NewONNXTransposeOpShapeHelper::computeShape() {
   if (!permAttr) {
     // Generate reverse order for default transpose operation.
     SmallVector<int64_t, 4> defaultVals;
-    auto builder = mlir::Builder(op->getContext());
+    auto builder = Builder(op->getContext());
     for (int i = rank - 1; i >= 0; --i)
       defaultVals.emplace_back(i);
     // Set default attribute.
@@ -70,13 +69,13 @@ LogicalResult NewONNXTransposeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXTransposeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
-  NewONNXTransposeOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXTransposeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -85,5 +84,5 @@ LogicalResult ONNXTransposeOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXTransposeOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXTransposeOp>;
 } // namespace onnx_mlir

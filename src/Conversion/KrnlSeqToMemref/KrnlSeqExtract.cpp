@@ -42,7 +42,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     KrnlSeqExtractOpAdaptor operandAdaptor(operands);
     KrnlSeqExtractOp thisOp = dyn_cast<KrnlSeqExtractOp>(op);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
 
     auto output = rewriter

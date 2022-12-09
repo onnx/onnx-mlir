@@ -24,43 +24,42 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXDFTOpShapeHelper::computeShape(
-    ONNXDFTOpAdaptor operandAdaptor) {
+template <>
+LogicalResult ONNXDFTOpShapeHelper::computeShape() {
+  ONNXDFTOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   // Get info about input data operand.
   Value input = operandAdaptor.input();
-  auto inputType = input.getType().cast<ShapedType>();
+  // Get the rank to compensate for N dimensions.
+  int64_t rank = createIE->getShapedTypeRank(input);
 
-  // Get the rank to compensate for N dimensions
-  int64_t rank = inputType.getRank();
+  // Axis is a required attribute and should have default value of 1.
+  int64_t axis = operandAdaptor.axis();
 
-  // axis is a required attribute and should have default value of 1.
-  int64_t axis = op->axis();
-
-  // onesided is a required attribute and should have default value of 0.
-  // However onesided can also be a value of 1 and if so a specific shape is
+  // OneSided is a required attribute and should have default value of 0.
+  // However oneSided can also be a value of 1 and if so a specific shape is
   // expected Values can be 0 or 1.
-  int64_t onesided = op->onesided();
-  bool isOneSided = (onesided == 0);
+  int64_t oneSided = operandAdaptor.onesided();
+  bool isOneSided = (oneSided == 0);
 
-  // Compute outputDims for DFT
+  // Compute outputDims for DFT.
+  LiteralIndexExpr one(1);
   DimsExpr outputDims;
-  MemRefBoundsIndexCapture dataBounds(input);
-  for (int64_t i = 0; i < rank - 1; i++) {
+  for (int64_t i = 0; i < rank; ++i) {
     if (isOneSided) {
-      outputDims.emplace_back(dataBounds.getDim(i));
+      outputDims.emplace_back(createIE->getShapeAsDim(input, i));
     } else {
       if (axis + 1 == i) {
-        outputDims.emplace_back(dataBounds.getDim(i).floorDiv(2));
+        IndexExpr d = createIE->getShapeAsDim(input, i).floorDiv(2) + one;
+        outputDims.emplace_back(d);
       } else {
-        outputDims.emplace_back(dataBounds.getDim(i));
+        outputDims.emplace_back(createIE->getShapeAsDim(input, i));
       }
     }
-    outputDims.emplace_back(LiteralIndexExpr(2));
   }
+  outputDims.emplace_back(LiteralIndexExpr(2));
 
   // Save the final result.
   setOutputDims(outputDims);
-
   return success();
 }
 } // namespace onnx_mlir
@@ -71,11 +70,19 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape(
 
 LogicalResult ONNXDFTOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer the output shape if the input shape is not yet knwon.
+  // Cannot infer the output shape if the input shape is not yet known.
   if (!hasShapeAndRank(input()))
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXDFTOpShapeHelper, ONNXDFTOp,
-      ONNXDFTOpAdaptor>(*this, elementType);
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  ONNXDFTOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXDFTOp>;
+} // namespace onnx_mlir

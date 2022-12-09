@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -27,14 +26,14 @@ namespace onnx_mlir {
 
 // Code common for all split ops.
 template <typename OP_TYPE>
-LogicalResult NewONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
+LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
     ArrayRef<IndexExpr> indexExprArray) {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   OP_TYPE splitOp = llvm::cast<OP_TYPE>(op);
 
   unsigned int numOfResults = splitOp.getNumResults();
   Value input = operandAdaptor.input();
-  int64_t rank = createIE->getTypeRank(input);
+  int64_t rank = createIE->getShapedTypeRank(input);
 
   // Checking value of axis parameter.
   int64_t axisIndex = operandAdaptor.axis();
@@ -43,7 +42,7 @@ LogicalResult NewONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
   // Negative axis means values are counted from the opposite side.
   if (axisIndex < 0) {
     axisIndex = rank + axisIndex;
-    auto builder = mlir::Builder(op->getContext());
+    auto builder = Builder(op->getContext());
     splitOp.axisAttr(
         IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
             APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
@@ -90,7 +89,7 @@ LogicalResult NewONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
 
 // Code for SplitOp compute shape.
 template <>
-LogicalResult NewONNXSplitOpShapeHelper::computeShape() {
+LogicalResult ONNXSplitOpShapeHelper::computeShape() {
   ONNXSplitOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   Value split = operandAdaptor.split();
   SmallVector<IndexExpr, 4> indexExprArray;
@@ -106,7 +105,7 @@ LogicalResult NewONNXSplitOpShapeHelper::computeShape() {
 
 // Code for SplitV11Op compute shape.
 template <>
-LogicalResult NewONNXSplitV11OpShapeHelper::computeShape() {
+LogicalResult ONNXSplitV11OpShapeHelper::computeShape() {
   ONNXSplitV11OpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   ArrayAttr splitAttr = operandAdaptor.splitAttr();
   SmallVector<IndexExpr, 4> indexExprArray;
@@ -146,27 +145,27 @@ LogicalResult ONNXSplitOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSplitOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape isn't known yet.
   if (!hasShapeAndRank(input()))
     return success();
 
   auto inputType = input().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  NewONNXSplitOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXSplitOpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 LogicalResult ONNXSplitV11Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape isn't known yet.
   if (!hasShapeAndRank(input()))
     return success();
 
   auto inputType = input().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  NewONNXSplitV11OpShapeHelper shapeHelper(getOperation(), {});
+  ONNXSplitV11OpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -180,6 +179,6 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXCommonSplitOpShapeHelper<ONNXSplitOp>;
-template struct NewONNXCommonSplitOpShapeHelper<ONNXSplitV11Op>;
+template struct ONNXCommonSplitOpShapeHelper<ONNXSplitOp>;
+template struct ONNXCommonSplitOpShapeHelper<ONNXSplitV11Op>;
 } // namespace onnx_mlir

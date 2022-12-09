@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -30,13 +29,13 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   IndexExprBuilderForKrnl createIE(rewriter, loc);
 
   Value input = operandAdaptor.input();
-  uint64_t rank = createIE.getTypeRank(input);
+  uint64_t rank = createIE.getShapedTypeRank(input);
   // splitOp.input().getType().template cast<ShapedType>().getRank();
   unsigned outputNum = splitOp.getNumResults();
   unsigned axis = splitOp.axis();
 
   // Get shape.
-  NewONNXCommonSplitOpShapeHelper<OP_TYPE> shapeHelper(op, operands, &createIE);
+  ONNXCommonSplitOpShapeHelper<OP_TYPE> shapeHelper(op, operands, &createIE);
   shapeHelper.computeShapeAndAssertOnFailure();
 
   // Alloc and dealloc.

@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXReverseSequenceOpShapeHelper::computeShape() {
+LogicalResult ONNXReverseSequenceOpShapeHelper::computeShape() {
   // Get info about input data operand.
   ONNXReverseSequenceOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.input();
@@ -77,12 +76,12 @@ LogicalResult ONNXReverseSequenceOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReverseSequenceOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
-  NewONNXReverseSequenceOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  ONNXReverseSequenceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -91,5 +90,5 @@ LogicalResult ONNXReverseSequenceOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXReverseSequenceOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXReverseSequenceOp>;
 } // namespace onnx_mlir

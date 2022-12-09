@@ -27,7 +27,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXIsNaNOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   ONNXIsNaNOpAdaptor operandAdaptor(*this);
   if (!hasShapeAndRank(operandAdaptor.X()))
     return success();

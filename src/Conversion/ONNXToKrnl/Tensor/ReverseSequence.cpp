@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------Gather.cpp - Lowering Gather Op----------------------=== //
+//===-------- ReverseSequence.cpp - Lowering ReverseSequence Op-----------=== //
 //
 // Copyright 2020-2022 The IBM Research Authors.
 //
@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -34,8 +33,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
         create(rewriter, loc);
     // Get shape.
-    NewONNXReverseSequenceOpShapeHelper shapeHelper(
-        op, operands, &create.krnlIE);
+    ONNXReverseSequenceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "llvm/Support/Debug.h"
 #include <numeric>
@@ -56,7 +55,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     IndexExprScope outerScope(&rewriter, loc);
 
     // Get shape.
-    NewONNXGatherNDOpShapeHelper shapeHelper(
+    ONNXGatherNDOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE, &outerScope);
     shapeHelper.computeShapeAndAssertOnFailure();
 

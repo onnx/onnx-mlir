@@ -14,7 +14,6 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "llvm/Support/Debug.h"
 
@@ -40,12 +39,12 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Get shape.
-    NewONNXDepthToSpaceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXDepthToSpaceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     int64_t bs = spaceToDepthOp.blocksize();
     StringRef mode = spaceToDepthOp.mode();
-    assert(create.krnlIE.getTypeRank(input) == 4 &&
+    assert(create.krnlIE.getShapedTypeRank(input) == 4 &&
            "Input tensor should have rank equal to 4");
 
     // Compute the new dimensions.
