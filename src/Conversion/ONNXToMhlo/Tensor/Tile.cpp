@@ -14,7 +14,6 @@
 
 #include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -35,7 +34,7 @@ struct ONNXTileOpLoweringToMhlo : public ConversionPattern {
 
     // I believe it is not currently used.
     IndexExprBuilderForAnalysis createIE(loc);
-    NewONNXTileOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXTileOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

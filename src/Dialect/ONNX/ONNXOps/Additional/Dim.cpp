@@ -36,7 +36,7 @@ LogicalResult ONNXDimOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDimOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   OpBuilder b(getContext());
   getResult().setType(RankedTensorType::get({1}, b.getI64Type()));
   return success();

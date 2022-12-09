@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,11 +25,11 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXTileOpShapeHelper::computeShape() {
+LogicalResult ONNXTileOpShapeHelper::computeShape() {
   ONNXTileOpAdaptor operandAdaptor(operands);
   // Get info about input data operand.
   Value input = operandAdaptor.input();
-  int64_t inputRank = createIE->getTypeRank(input);
+  int64_t inputRank = createIE->getShapedTypeRank(input);
   Value repeats = operandAdaptor.repeats();
   // Compute outputDims
   DimsExpr outputDims;
@@ -55,7 +54,7 @@ LogicalResult NewONNXTileOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXTileOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!input().getType().isa<RankedTensorType>())
     return success();
@@ -69,8 +68,8 @@ LogicalResult ONNXTileOp::inferShapes(
   if (repeatsTensorTy.getShape().size() != 1)
     return emitError("Repeats tensor must have rank one");
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
-  NewONNXTileOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  ONNXTileOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -79,5 +78,5 @@ LogicalResult ONNXTileOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXTileOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXTileOp>;
 } // namespace onnx_mlir

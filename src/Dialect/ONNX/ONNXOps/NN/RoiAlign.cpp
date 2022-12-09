@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -25,7 +24,7 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXRoiAlignOpShapeHelper::computeShape() {
+LogicalResult ONNXRoiAlignOpShapeHelper::computeShape() {
   // Get input info.
   ONNXRoiAlignOp roiAlignOp = llvm::cast<ONNXRoiAlignOp>(op);
   ONNXRoiAlignOpAdaptor operandAdaptor(operands);
@@ -57,15 +56,15 @@ LogicalResult NewONNXRoiAlignOpShapeHelper::computeShape() {
 LogicalResult ONNXRoiAlignOp::verify() {
   ONNXRoiAlignOpAdaptor operandAdaptor = ONNXRoiAlignOpAdaptor(*this);
   // get input info.
-  mlir::Value X = operandAdaptor.X();
-  mlir::Value batch_indices = operandAdaptor.batch_indices();
+  Value X = operandAdaptor.X();
+  Value batch_indices = operandAdaptor.batch_indices();
 
   if (!hasShapeAndRank(X) || !hasShapeAndRank(batch_indices))
     return success();
 
-  int64_t x_rank = X.getType().cast<mlir::ShapedType>().getRank();
+  int64_t x_rank = X.getType().cast<ShapedType>().getRank();
   int64_t batch_indices_rank =
-      batch_indices.getType().cast<mlir::ShapedType>().getRank();
+      batch_indices.getType().cast<ShapedType>().getRank();
 
   // Test ranks.
   if (x_rank != 4)
@@ -81,13 +80,13 @@ LogicalResult ONNXRoiAlignOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXRoiAlignOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>() ||
       !batch_indices().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
-  NewONNXRoiAlignOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXRoiAlignOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

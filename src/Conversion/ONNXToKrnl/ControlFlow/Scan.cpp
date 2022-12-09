@@ -28,7 +28,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = ONNXLoc<ONNXScanOp>(op);
+    Location loc = ONNXLoc<ONNXScanOp>(op);
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     ONNXScanOpAdaptor scanOpAdapter(operands, op->getAttrDictionary());
 

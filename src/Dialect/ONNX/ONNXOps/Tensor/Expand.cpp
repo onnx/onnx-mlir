@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -28,7 +27,7 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
+LogicalResult ONNXExpandOpShapeHelper::computeShape() {
   // Get info about input operands.
   ONNXExpandOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.input();
@@ -52,7 +51,7 @@ LogicalResult NewONNXExpandOpShapeHelper::computeShape() {
     // We also pass here the scope of the ExpandOp shape helper so that the
     // computations performed in the ShapeOp shape helper can be used in the
     // context of the ExpandOp.
-    NewONNXShapeOpShapeHelper shapeHelper(
+    ONNXShapeOpShapeHelper shapeHelper(
         shapeOp.getOperation(), {}, createIE, /* important */ getScope());
     if (failed(shapeHelper.computeShape()))
       return op->emitError("failed to get shape op shape");
@@ -101,13 +100,13 @@ LogicalResult ONNXExpandOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXExpandOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
     return success();
   if (!shape().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
-  NewONNXExpandOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  ONNXExpandOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
