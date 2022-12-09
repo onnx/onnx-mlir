@@ -113,7 +113,9 @@ func.func @test_onnx_layout_transform_on_ztensor(%arg0: tensor<3x5x7xf32, #zhigh
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-LABEL:  func.func @test_onnx_layout_transform_on_ztensor
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5x7xf16, #map>) -> memref<3x5x7xf16, #map1> {
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x5x7xf16, #map1>
+
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<3x5x7xf16, #map1>
+
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 5, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 7){
 // CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
