@@ -571,9 +571,14 @@ private:
       }
     }
 
-    for (const auto &output : llvm::enumerate(node.output()))
-      frontend_symbols_.AddMapping(
-          output.value(), genericOp->getOpResult(output.index()));
+    for (const auto &output : llvm::enumerate(node.output())) {
+      // Skip the output with empty name, which is used as a placeholder
+      // in mulitple outputs.
+      // Found in models. Not sure about the specification.
+      if (output.value() != "")
+        frontend_symbols_.AddMapping(
+            output.value(), genericOp->getOpResult(output.index()));
+    }
   }
 
   void getNodeInputs(const onnx::NodeProto &node, std::vector<Value> &inputs) {
