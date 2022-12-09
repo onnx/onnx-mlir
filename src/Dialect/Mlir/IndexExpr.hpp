@@ -884,6 +884,7 @@ private:
 // Make IndexExpressions of a given type from provided input list/range
 //===----------------------------------------------------------------------===//
 
+// Create a list of IndexExpr of kind INDEXEXPR from an ArrayRef of block args.
 template <class INDEXEXPR>
 void getIndexExprList(mlir::ArrayRef<mlir::BlockArgument> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -892,6 +893,8 @@ void getIndexExprList(mlir::ArrayRef<mlir::BlockArgument> inputList,
     outputList.emplace_back(INDEXEXPR(item));
 }
 
+// Create a list of IndexExpr of kind INDEXEXPR from a value range (list of
+// values).
 template <class INDEXEXPR>
 void getIndexExprList(
     mlir::ValueRange range, llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -900,6 +903,7 @@ void getIndexExprList(
     outputList.emplace_back(INDEXEXPR(item));
 }
 
+// Create a list of IndexExpr of kind INDEXEXPR from another list of IndexExpr.
 template <class INDEXEXPR>
 void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -907,5 +911,14 @@ void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
   for (auto item : inputList)
     outputList.emplace_back(INDEXEXPR(item));
 }
+
+// Create a list of IndexExpr of kind LiteralIndexExpr from a list of integers.
+void getIndexExprListFromInt(llvm::SmallVectorImpl<int64_t> &inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList);
+
+// Create a list of IndexExpr of kind LiteralIndexExpr/Questionmark from a
+// shape. Negative values are translated to Questionmarks.
+void getIndexExprListFromShape(llvm::SmallVectorImpl<int64_t> &inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList);
 
 } // namespace onnx_mlir

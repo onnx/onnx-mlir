@@ -536,40 +536,31 @@ struct ONNXNonSpecificOpShapeHelper : public ONNXOpShapeHelper {
   mlir::LogicalResult computeShape() final;
 };
 
-using ONNXCategoryMapperOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
+// Ops listed in alphabetical order. Disable formatting for easier sorting.
+// clang-format off
+using ONNXCategoryMapperOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
 using ONNXClipOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
-using ONNXCompressOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
-using ONNXConcatOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
-using ONNXConcatShapeTransposeOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
-using ONNXDepthToSpaceOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
-using ONNXFlattenOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXFlattenOp>;
-using ONNXGatherOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherOp>;
-using ONNXGatherElementsOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherElementsOp>;
-using ONNXGatherNDOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherNDOp>;
+using ONNXCompressOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
+using ONNXConcatOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
+using ONNXConcatShapeTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
+using ONNXDFTOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDFTOp>;
+using ONNXDepthToSpaceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
+using ONNXEinsumOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXEinsumOp>;
+using ONNXFlattenOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXFlattenOp>;
+using ONNXGatherElementsOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherElementsOp>;
+using ONNXGatherNDOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherNDOp>;
+using ONNXGatherOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherOp>;
 using ONNXLRNOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
-using ONNXReshapeOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
-using ONNXReverseSequenceOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
-using ONNXSpaceToDepthOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
+using ONNXReshapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
+using ONNXReverseSequenceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
+using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
 using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
-using ONNXTransposeOpShapeHelper =
-    ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
-using ONNXDFTOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDFTOp>;
+using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
+// clang-format on
 
-// using ONNXOpShapeHelper =
-//    ONNXNonSpecificOpShapeHelper<mlir::ONNXOp>;
+// Pattern to use: replace "_" by operation's name.
+// using ONNXOp_ShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNX_Op>;
 
 //===----------------------------------------------------------------------===//
 // Setting a new constant or attribute value.

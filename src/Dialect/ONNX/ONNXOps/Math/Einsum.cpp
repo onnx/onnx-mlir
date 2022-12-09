@@ -20,6 +20,38 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXEinsumOpShapeHelper::computeShape() {
+  ONNXEinsumOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  ONNXEinsumOp einsumOp = llvm::cast<ONNXEinsumOp>(op);
+
+  // Infer shape, if success, `*shape` holds the results as a
+  // einsum::Shape which is defined as a SmallVector<int64_t, 4>.
+  auto errorFn = [&]() {
+    return einsumOp.emitOpError()
+           << "equation '" << einsumOp.equation() << "': ";
+  };
+  FailureOr<einsum::Shape> shape =
+      einsum::inferOutputShape(operandAdaptor, errorFn);
+  assert(succeeded(shape) && "any failure should be caught in verify()");
+
+  // Translate shape (ints) into list of IndexExpr literals/questionmarks.
+  // Limitation: no dynamic shapes are built here.
+  DimsExpr outputDims;
+  getIndexExprListFromShape(*shape, outputDims);
+  IndexExpr::debugPrint("hi alex, shape in einsum shape helper", outputDims);
+  setOutputDims(outputDims);
+  return success();
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -58,15 +90,16 @@ LogicalResult ONNXEinsumOp::inferShapes(
   if (!llvm::all_of(operandAdaptor.Inputs(), hasShapeAndRank))
     return success(); // Can only infer once operand shapes are known.
 
-  auto errorFn = [this]() {
-    return this->emitOpError() << "equation '" << this->equation() << "': ";
-  };
-  FailureOr<einsum::Shape> shape =
-      einsum::inferOutputShape(operandAdaptor, errorFn);
-  assert(succeeded(shape) && "any failure should be caught in verify()");
   Type elementType =
       getOperand(0).getType().cast<ShapedType>().getElementType();
-
-  updateType(getResult(), *shape, elementType);
-  return success();
+  ONNXEinsumOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXEinsumOp>;
+} // namespace onnx_mlir
