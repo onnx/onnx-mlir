@@ -153,8 +153,8 @@ if (ONNX_MLIR_ENABLE_MHLO)
   add_subdirectory(third_party/mlir-hlo EXCLUDE_FROM_ALL)
 
   # mlir-hlo depends on these paths being visible, but does not propagate them.
-  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/mlir-hlo)
-  include_directories(${CMAKE_CURRENT_BINARY_DIR}/third_party/mlir-hlo)
+  include_directories(${ONNX_MLIR_SRC_ROOT}/third_party/mlir-hlo)
+  include_directories(${ONNX_MLIR_BIN_ROOT}/third_party/mlir-hlo)
 endif()
 
 if (NOT TARGET benchmark)
