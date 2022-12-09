@@ -3775,7 +3775,7 @@ func.func @test_transpose_lowered_to_a_view_op_inv(%arg0: tensor<?x1x1x384xf32>)
 module {
   func.func @test_onnx_layout_transform(%arg0: tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32> {
     %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
-    %1 = "onnx.LayoutTransform"(%0) {target_layout = "STANDARD"} : (tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32>
+    %1 = "onnx.LayoutTransform"(%0) : (tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32>
     return %1 : tensor<5x3x32x32xf32>
   }
 // CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d1 floordiv 4, d2, d3, d1 mod 4)>
