@@ -62,7 +62,7 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlEntryPointOp op, PatternRewriter &rewriter) const override {
-    auto loc = op.getLoc();
+    Location loc = op.getLoc();
 
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     auto module = op->getParentOfType<ModuleOp>();

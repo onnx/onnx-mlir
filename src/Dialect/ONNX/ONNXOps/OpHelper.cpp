@@ -328,10 +328,9 @@ Value createONNXConstantOpWithDenseAttr(
 Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
   SmallVector<int64_t, 1> dims(1, 0);
   SmallVector<int64_t> values;
-  auto tensorType =
-      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
   auto denseAttr =
-      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+      DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
@@ -339,9 +338,9 @@ Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
 Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
   SmallVector<int64_t, 1> dims(1, 0);
   SmallVector<float> values;
-  auto tensorType = mlir::RankedTensorType::get(dims, rewriter.getF32Type());
+  auto tensorType = RankedTensorType::get(dims, rewriter.getF32Type());
   auto denseAttr =
-      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+      DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
@@ -496,43 +495,8 @@ ArrayAttr createArrayAttrFromConstantOp(Builder &builder, Value constOp) {
 // Create a DenseElementsAttr from a float attribute.
 DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     PatternRewriter &rewriter, Type elementType, FloatAttr attr) {
-  SmallVector<int64_t, 1> dims(1, 1);
-  SmallVector<float, 1> values(1, attr.getValue().convertToFloat());
-  auto tensorType = RankedTensorType::get(dims, elementType);
-  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
-}
-
-// Create a DenseElementsAttr from a integer attribute.
-// The attribute is assumed to be SingedInteger
-DenseElementsAttr createDenseElementsAttrFromIntegerAttr(
-    PatternRewriter &rewriter, Type elementType, IntegerAttr attr) {
-  SmallVector<int64_t, 1> dims(1, 1);
-  SmallVector<int64_t, 1> values(1, attr.getSInt());
-  auto tensorType = RankedTensorType::get(dims, elementType);
-  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
-}
-
-DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
-    PatternRewriter &rewriter, Type elementType, SmallVector<Attribute> attrs) {
-  SmallVector<int64_t, 1> dims(1, attrs.size());
-  SmallVector<float, 1> values;
-  for (auto attr : attrs) {
-    values.push_back(attr.cast<FloatAttr>().getValue().convertToFloat());
-  }
-  auto tensorType = RankedTensorType::get(dims, elementType);
-  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
-}
-
-// Integer attribute is assumed to be Signedless
-DenseElementsAttr createDenseElementsAttrFromIntegerAttrs(
-    PatternRewriter &rewriter, Type elementType, SmallVector<Attribute> attrs) {
-  SmallVector<int64_t, 1> dims(1, attrs.size());
-  SmallVector<int64_t, 1> values;
-  for (auto attr : attrs) {
-    values.push_back(attr.cast<IntegerAttr>().getInt());
-  }
-  auto tensorType = RankedTensorType::get(dims, elementType);
-  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
+  auto tensorType = RankedTensorType::get({1}, elementType);
+  return DenseElementsAttr::get(tensorType, {attr.getValue()});
 }
 
 //===----------------------------------------------------------------------===//
@@ -598,18 +562,6 @@ void getDims(Value val, SmallVectorImpl<Value> &dims) {
     dims.emplace_back(val);
 }
 
-// Create a DenseElementsAttr from a String attribute.
-DenseElementsAttr createDenseElementsAttrFromStringAttrs(
-    PatternRewriter &rewriter, Type elementType, SmallVector<Attribute> attrs) {
-  SmallVector<int64_t, 1> dims(1, attrs.size());
-  SmallVector<StringRef, 1> values;
-  for (auto attr : attrs) {
-    values.push_back(attr.cast<StringAttr>().getValue());
-  }
-  auto tensorType = RankedTensorType::get(dims, elementType);
-  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
-}
-
 /// Create a DenseElementsAttr from a raw buffer.
 DenseElementsAttr createDenseElementsAttrFromRawBuffer(
     Type resType, char *buf) {
@@ -626,42 +578,25 @@ DenseElementsAttr createDenseElementsAttrFromRawBuffer(
 
 Value normalizeConstantOp(
     PatternRewriter &rewriter, Value output, Attribute attr) {
-  Type elementType;
-  Type outputType = output.getType();
-  if (outputType.dyn_cast<ShapedType>()) {
-    elementType = outputType.cast<ShapedType>().getElementType();
-  } else {
-    elementType = outputType;
-  }
+  ShapedType outputType = output.getType().cast<ShapedType>();
+  Type elementType = outputType.getElementType();
 
   DenseElementsAttr denseAttr;
-  if (attr.dyn_cast<FloatAttr>()) {
-    denseAttr =
-        createDenseElementsAttrFromFloatAttrs(rewriter, elementType, {attr});
-  } else if (attr.dyn_cast<IntegerAttr>()) {
-    denseAttr = createDenseElementsAttrFromIntegerAttr(
-        rewriter, elementType, attr.cast<IntegerAttr>());
-  } else if (attr.dyn_cast<StringAttr>()) {
-    denseAttr =
-        createDenseElementsAttrFromStringAttrs(rewriter, elementType, {attr});
-  } else if (attr.dyn_cast<ArrayAttr>()) {
-    ArrayAttr myAttr = attr.cast<ArrayAttr>();
-    SmallVector<Attribute> attrs(
-        myAttr.getValue().begin(), myAttr.getValue().end());
-    if (attrs[0].dyn_cast<FloatAttr>()) {
-      denseAttr =
-          createDenseElementsAttrFromFloatAttrs(rewriter, elementType, attrs);
-    } else if (attrs[0].dyn_cast<IntegerAttr>()) {
-      denseAttr =
-          createDenseElementsAttrFromIntegerAttrs(rewriter, elementType, attrs);
-    } else if (attrs[0].dyn_cast<StringAttr>()) {
-      denseAttr =
-          createDenseElementsAttrFromStringAttrs(rewriter, elementType, attrs);
+  if (ArrayAttr arrayAttr = attr.dyn_cast<ArrayAttr>()) {
+    int64_t dim = arrayAttr.size();
+    auto tensorType = RankedTensorType::get({dim}, elementType);
+    denseAttr = DenseElementsAttr::get(tensorType, arrayAttr.getValue());
+  } else {
+    auto tensorType = RankedTensorType::get({}, elementType);
+    if (FloatAttr floatAttr = attr.dyn_cast<FloatAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, {floatAttr.getValue()});
+    } else if (IntegerAttr intAttr = attr.dyn_cast<IntegerAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, intAttr.getSInt());
+    } else if (StringAttr strAttr = attr.dyn_cast<StringAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, {strAttr.getValue()});
     } else {
       llvm_unreachable("unexpected Attribute");
     }
-  } else {
-    llvm_unreachable("unexpected Attribute");
   }
   return rewriter.create<ONNXConstantOp>(output.getLoc(), output.getType(),
       Attribute(), denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(),
@@ -757,8 +692,8 @@ template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp, Type type);
 // A complete list of types can be found in:
 // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
 // TODO: Update Int*/Uint* to emit signed/unsigned MLIR types
-mlir::Type convertONNXTypeToMLIRType(
-    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
+Type convertONNXTypeToMLIRType(
+    OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
   switch (onnxType) {
   case onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16:
     return builder_.getBF16Type();
@@ -787,7 +722,7 @@ mlir::Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
     return builder_.getI1Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
-    return mlir::ONNXStringType::get(builder_.getContext());
+    return ONNXStringType::get(builder_.getContext());
 
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:

@@ -67,8 +67,8 @@ LogicalResult ONNXNonMaxSuppressionOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto b = mlir::Builder(getContext());
+    std::function<void(Region &)> doShapeInference) {
+  auto b = Builder(getContext());
   getResult().setType(RankedTensorType::get({-1, 3}, b.getI64Type()));
   return success();
 }

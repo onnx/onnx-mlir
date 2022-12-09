@@ -49,7 +49,6 @@ NOT_IMPLEMENTED_INFER_SHAPES(ONNXClipV12Op)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXClipV6Op)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXConcatFromSequenceOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXDetOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXDFTOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXDictVectorizerOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXFeatureVectorizerOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXGradientOp)
@@ -126,3 +125,93 @@ Type getBroadcastedRankedType(
 
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
+
+using namespace mlir;
+
+//===----------------------------------------------------------------------===//
+// ONNXConstantOp custom assembly format print and parse.
+// If the op has a sparse_value attr, it just prints its SparseElementsAttr:
+//
+//   onnx.Constant sparse<0, 1.000000e+00> : tensor<3xf32>
+//
+// and, if the op has a value attr, it just prints its DenseElementsAttr:
+//
+//   onnx.Constant dense<[5, 5, 16, 2]> : tensor<4xi64>
+//
+// provided the ElementsAttr type matches the op result type.
+//
+// TODO: Ensure constant result types always match their attributes because
+//       constant folding needs that.
+//
+// In case of type mismatch or if the op has another attr than sparse_value or
+// value or has no attr, the op prints an attribute dictionary followed by the
+// op result type, just like the default assembly format.
+//
+//   onnx.Constant {value = dense<1024> : tensor<1xi64>} : tensor<*xi64>
+//
+//   onnx.Constant {value_int = 1 : si64} : tensor<i64>
+//
+//   onnx.Constant : tensor<64xf32>
+//
+//===----------------------------------------------------------------------===//
+
+void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
+  // If the result type is dynamic then it won't match the attribute type and
+  // we fall back to printing as attribute dictionary at the end.
+  Type resultType = getResult().getType();
+  if (auto attr = value()) {
+    // ONNXConstantOp value must be ElementsAttr, but not SparseElementsAttr.
+    auto elements = attr->cast<ElementsAttr>();
+    assert(!elements.isa<SparseElementsAttr>() &&
+           "ONNXConstantOp value cannot be sparse");
+    if (elements.getType() == resultType) {
+      // NOTE: Here we can insert logic to print alternatives to
+      //       DenseElementsAttr, like DenseResourceElementsAttr, in the same
+      //       way as DenseElementsAttr to hide these internal representations.
+      odsPrinter << ' ';
+      odsPrinter.printAttribute(elements);
+      return;
+    }
+  }
+  if (auto attr = sparse_value()) {
+    // ONNXConstantOp sparse_value must be SparseElementsAttr.
+    auto sparseElements = attr->cast<SparseElementsAttr>();
+    if (sparseElements.getType() == resultType) {
+      odsPrinter << ' ';
+      odsPrinter.printAttribute(sparseElements);
+      return;
+    }
+  }
+  // Fallback if there's something funny: no value or sparse_value attribute,
+  // or types mismatch.
+  odsPrinter.printOptionalAttrDict((*this)->getAttrs(), /*elidedAttrs=*/{});
+  odsPrinter << " : " << resultType;
+}
+
+ParseResult ONNXConstantOp::parse(OpAsmParser &parser, OperationState &result) {
+  Attribute attr;
+  Type type;
+  // First try to parse attribute dictionary.
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
+  // If there is no attribute dictionary, the parse above succeeds parsing
+  // nothing. We detect this case by the absence of result attributes.
+  if (result.attributes.empty()) {
+    // Try to parse a SparseElementsAttr or or other ElementsAttr.
+    OptionalParseResult opt = parser.parseOptionalAttribute(attr, type);
+    if (opt.has_value()) {
+      if (*opt)
+        return failure();
+      const char *name =
+          attr.isa<SparseElementsAttr>() ? "sparse_value" : "value";
+      result.addAttribute(name, attr);
+      result.addTypes({attr.cast<ElementsAttr>().getType()});
+      return success();
+    }
+    // No sparse_value or value attr, so attribute dictionary really is empty.
+  }
+  if (parser.parseColonType(type))
+    return failure();
+  result.addTypes({type});
+  return success();
+}

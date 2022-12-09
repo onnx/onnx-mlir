@@ -27,8 +27,8 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXNonZeroOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto builder = mlir::Builder(getContext());
+    std::function<void(Region &)> doShapeInference) {
+  auto builder = Builder(getContext());
   Type inputType = getOperand().getType();
   if (!inputType.isa<RankedTensorType>())
     return success();

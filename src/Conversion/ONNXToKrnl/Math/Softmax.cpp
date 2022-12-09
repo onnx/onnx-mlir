@@ -254,11 +254,11 @@ struct ONNXSoftmaxLowering : public ConversionPattern {
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
 
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     OpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
     // Insert an allocation and deallocation for the result of this operation.
-    auto elementType = memRefType.getElementType();
+    Type elementType = memRefType.getElementType();
 
     bool insertDealloc = checkInsertDealloc(op);
     Value alloc =

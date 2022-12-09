@@ -511,7 +511,7 @@ private:
           // Mapping gives a connection with an input.
           Type inputType = inputs[outputMap[j] - MAX_TYPE].getType();
           if (inputType.isa<TensorType>()) {
-            auto elementType = inputType.cast<TensorType>().getElementType();
+            Type elementType = inputType.cast<TensorType>().getElementType();
             auto outType = UnrankedTensorType::get(elementType);
             outputTypes.emplace_back(outType);
           } else {
@@ -519,7 +519,7 @@ private:
           }
         } else if (j < outputMap.size() && outputMap[j] != -1) {
           // Mapping gives a direct type.
-          auto elementType = buildTypeFromIndex(outputMap[j]);
+          Type elementType = buildTypeFromIndex(outputMap[j]);
           auto outType = UnrankedTensorType::get(elementType);
           outputTypes.emplace_back(outType);
         } else if (!givenOutputTypes.empty()) {
@@ -571,9 +571,14 @@ private:
       }
     }
 
-    for (const auto &output : llvm::enumerate(node.output()))
-      frontend_symbols_.AddMapping(
-          output.value(), genericOp->getOpResult(output.index()));
+    for (const auto &output : llvm::enumerate(node.output())) {
+      // Skip the output with empty name, which is used as a placeholder
+      // in mulitple outputs.
+      // Found in models. Not sure about the specification.
+      if (output.value() != "")
+        frontend_symbols_.AddMapping(
+            output.value(), genericOp->getOpResult(output.index()));
+    }
   }
 
   void getNodeInputs(const onnx::NodeProto &node, std::vector<Value> &inputs) {
@@ -713,7 +718,7 @@ private:
       dims.push_back(1);
       llvm::SmallVector<float, 1> values;
       values.push_back(0.5);
-      auto elementType = builder_.getF32Type();
+      Type elementType = builder_.getF32Type();
       llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
@@ -730,7 +735,7 @@ private:
       dims.push_back(1);
       llvm::SmallVector<bool, 1> values;
       values.push_back(false);
-      auto elementType = builder_.getIntegerType(1);
+      Type elementType = builder_.getIntegerType(1);
       llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
@@ -756,7 +761,7 @@ private:
 
       std::vector<Value> inputs;
       getNodeInputs(node, inputs);
-      auto elementType =
+      Type elementType =
           inputs[0].getType().cast<TensorType>().getElementType();
 
       llvm::SmallVector<Attribute, 2> values(
@@ -798,7 +803,7 @@ private:
 
     // Data input is imported but starts, ends, axes, and steps may come from
     // attributes, and need to be created as constant ops.
-    const auto elementType = builder_.getIntegerType(64);
+    const Type elementType = builder_.getIntegerType(64);
     const auto attributes = ImportNodeAttributes(node);
     for (auto attr : attributes) {
       if (auto arrayAttr = attr.getValue().dyn_cast<ArrayAttr>()) {

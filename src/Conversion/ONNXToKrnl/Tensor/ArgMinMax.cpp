@@ -14,7 +14,6 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -44,7 +43,7 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     IndexExprScope scope(&rewriter, loc);
     ARG_OP argOp = llvm::cast<ARG_OP>(op);
     typename ARG_OP::Adaptor operandAdaptor(operands);
@@ -52,7 +51,7 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // Get shape.
-    NewONNXArgMinMaxOpShapeHelper<ARG_OP> shapeHelper(
+    ONNXArgMinMaxOpShapeHelper<ARG_OP> shapeHelper(
         op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     DimsExpr outputDims = shapeHelper.getOutputDims();

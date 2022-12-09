@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -26,7 +26,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXLRNOpShapeHelper::computeShape() {
+LogicalResult ONNXLRNOpShapeHelper::computeShape() {
   ONNXLRNOpAdaptor operandAdaptor(operands);
   return computeShapeFromOperand(operandAdaptor.X());
 }
@@ -42,9 +42,9 @@ LogicalResult NewONNXLRNOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLRNOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
-  NewONNXLRNOpShapeHelper shapeHelper(getOperation(), {});
+    std::function<void(Region &)> doShapeInference) {
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXLRNOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -53,5 +53,5 @@ LogicalResult ONNXLRNOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXLRNOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXLRNOp>;
 } // namespace onnx_mlir
