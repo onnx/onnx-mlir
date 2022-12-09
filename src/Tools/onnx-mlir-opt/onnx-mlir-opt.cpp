@@ -189,8 +189,12 @@ int main(int argc, char **argv) {
   }
 
   // TODO(imaihal): Change preloadDialectsInContext to false.
-  return failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,
-      registry, split_input_file, verify_diagnostics, verify_passes,
-      allowUnregisteredDialects, /*preloadDialectsInContext*/ true,
-      /*emitBytecode*/ false, /*implicitModule*/ true));
+  if (failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,
+          registry, split_input_file, verify_diagnostics, verify_passes,
+          allowUnregisteredDialects, /*preloadDialectsInContext*/ true,
+          /*emitBytecode*/ false, /*implicitModule*/ true)))
+    return mlir::asMainReturnCode(failure());
+
+  output->keep();
+  return mlir::asMainReturnCode(success());
 }
