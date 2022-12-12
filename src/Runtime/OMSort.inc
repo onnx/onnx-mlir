@@ -360,8 +360,11 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     // MacOS supports qsort_r in different API
     sortFunc = qsort_r;
 #elif defined(_MSC_VER)
+#pragma warning(push, 3)
+#pragma warning(disable : 4028)
     // Windows supports qsort_s
     sortFunc = qsort_s;
+#pragma warning(pop)
 #else
     // Use standard quick sort in libc
     sortFunc = qsort_r;
