@@ -7,6 +7,8 @@ func.func @gemm_to_linear(%arg0: tensor<1x5xf32>, %arg1: tensor<4x5xf32>, %arg2:
     return %0 : tensor<1x4xf32>
   }
 
+// -----
+
 func.func @gemm_to_linear_opt(%arg0: tensor<1x5xf32>, %arg1: tensor<4x5xf32>) -> tensor<1x4xf32> {
    %none = "onnx.NoValue"() {value} : () -> none
    %0 = "onnx.Gemm"(%arg0, %arg1, %none) {transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x5xf32>, none) -> tensor<1x4xf32>
