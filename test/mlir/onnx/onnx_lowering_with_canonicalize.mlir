@@ -3830,8 +3830,8 @@ func.func @test_transpose_lowered_to_a_view_op_inv(%arg0: tensor<?x1x1x384xf32>)
 // onnx-mlir-opt bibi.mlir -convert-onnx-to-krnl -canonicalize -convert-krnl-to-affine --normalize-memrefs
 module {
   func.func @test_onnx_layout_transform(%arg0: tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32> {
-    %0 = "onnx.LayoutTransform"(%arg0) {target_layout = "NCHW4C"} : (tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32, #onnx.encoding<{dataLayout = "NCHW4C"}>>
-    %1 = "onnx.LayoutTransform"(%0) {target_layout = "STANDARD"} : (tensor<5x3x32x32xf32, #onnx.encoding<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32>
+    %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
+    %1 = "onnx.LayoutTransform"(%0) : (tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32>
     return %1 : tensor<5x3x32x32xf32>
   }
 // mlir2FileCheck.py -a'["input"]'

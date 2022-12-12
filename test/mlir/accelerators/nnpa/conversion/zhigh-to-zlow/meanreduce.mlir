@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
-func.func @should_lower_to_zlow(%arg0: tensor<1x5x7x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
-  %0 = "zhigh.MeanReduce2d"(%arg0) : (tensor<1x5x7x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
+func.func @should_lower_to_zlow(%arg0: tensor<1x5x7x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+  %0 = "zhigh.MeanReduce2d"(%arg0) : (tensor<1x5x7x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
@@ -28,8 +28,8 @@ func.func @should_lower_to_zlow(%arg0: tensor<1x5x7x3xf32, #zhigh.encoding<{data
 
 // -----
 
-func.func @should_lower_to_zlow_unknown_dims(%arg0: tensor<1x?x?x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
-  %0 = "zhigh.MeanReduce2d"(%arg0) : (tensor<1x?x?x3xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
+func.func @should_lower_to_zlow_unknown_dims(%arg0: tensor<1x?x?x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
+  %0 = "zhigh.MeanReduce2d"(%arg0) : (tensor<1x?x?x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>

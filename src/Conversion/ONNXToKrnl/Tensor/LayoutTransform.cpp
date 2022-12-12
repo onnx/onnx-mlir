@@ -39,8 +39,8 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType inMemRefType = inConvertedType.cast<MemRefType>();
     // Convert the output type to MemRefType.
-    Type outConvertedType =
-        typeConverter->convertType(*op->result_type_begin());
+    Type outputTensorType = *op->result_type_begin();
+    Type outConvertedType = typeConverter->convertType(outputTensorType);
     assert(outConvertedType && outConvertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType outMemRefType = outConvertedType.cast<MemRefType>();
@@ -63,8 +63,10 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this
     // operation.
-    Value alloc =
-        insertAllocAndDeallocSimple(rewriter, op, outMemRefType, loc, ubs);
+    int64_t alignment =
+        KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outMemRefType, loc, ubs, alignment);
 
     // Insert loop over all inputs.
     ValueRange loopDef = createKrnl.defineLoops(rank);
