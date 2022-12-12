@@ -52,6 +52,15 @@ def GetLayout : NativeCodeCall<
       "::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
 >;
 
+def NoOneIsOfNHWCLayout: Constraint<
+  CPred<"!oneIsOfNHWCLayout($0.getType(), $1.getType())">,
+  "No tensor is of NHWC layout"
+>;
+
+def GetEncodingAttr : NativeCodeCall<
+  "::onnx_mlir::zhigh::getZTensorEncoding($0.getType())"
+>;
+
 def GetMinusBcastConst : NativeCodeCall<
   "::onnx_mlir::zhigh::getMinusBcastConst($_builder, $_loc, $0, $1)"
 >;
@@ -60,7 +69,7 @@ def IsStaticShapeTensor:
   Constraint<
     CPred<
       "$0.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
-    "hasStaticShape">;
+    "is a tensor of static shape">;
 
 def IsPlusConstantFloat : Constraint<
   CPred<"($0.getValueAsDouble() > 0.0)">,
@@ -85,10 +94,20 @@ def UnstickStickRemovalPattern : Pat<
 >;
 
 // zhigh.Stick (zhigh.Unstick (%X)) = %X
-def StickUnstickRemovalPattern : Pat<
+def StickUnstickSameLayoutRemovalPattern : Pat<
   (ZHighStickOp:$stick (ZHighUnstickOp:$unstick $arg), $_),
   (replaceWithValue $arg),
   [(SameLayout $arg, $stick)]
+>;
+
+// zhigh.Stick (zhigh.Unstick (%X)) = onnx.LayoutTransform(%X)
+// Does not support NHWC layout because onnx.LayoutTransform requires that
+// the input and output must have the same shape, but NHWC stickify/unstickify
+// transposes the shape.
+def StickUnstickDiffLayoutRemovalPattern : Pat<
+  (ZHighStickOp:$stick (ZHighUnstickOp:$unstick $arg), $_),
+  (ONNXLayoutTransformOp $arg, (GetEncodingAttr $stick)),
+  [(NotSameLayout $arg, $stick), (NoOneIsOfNHWCLayout $arg, $stick)]
 >;
 
 // The pattern

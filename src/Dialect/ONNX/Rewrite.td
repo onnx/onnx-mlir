@@ -162,9 +162,9 @@ def  ElementTypeIsNotUnsigned: Constraint<
     CPred<"!$_self.getType().dyn_cast<ShapedType>().getElementType().isUnsignedInteger()">,
     "element type is not unsigned int">;
 
-def HaveSameONNXTensorDataLayout : Constraint<
-    CPred<"identicalONNXTensorDataLayout($0.getType(), $0.getType())">,
-    "have same ONNX Tensor Data Layouts">;
+def HaveSameEncodingAttr: Constraint<
+    CPred<"sameEncodingAttr($0.getType(), $1.getType())">,
+    "have same RankedTensorType's encoding attribute">;
 
 def IsStaticShapeTensor:
   Constraint<
@@ -397,9 +397,9 @@ def FuseCastCastPattern : Pat<
 // ONNX_Op (onnx.ONNXLayoutTransformOp (%X)) = ONNX_Op (%X) when input and
 // output layouts are identical
 def ONNXLayoutTransformEliminationPattern : Pat<
-	(ONNXLayoutTransformOp:$res $arg, $target_layout),
-	(replaceWithValue $arg),
-  [(HaveSameONNXTensorDataLayout $res, $arg),
+  (ONNXLayoutTransformOp:$res $arg, $target_layout),
+  (replaceWithValue $arg),
+  [(HaveSameEncodingAttr $res, $arg),
    (HaveSameElementType $res, $arg)]>;
 
 //===----------------------------------------------------------------------===//
