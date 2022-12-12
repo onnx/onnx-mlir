@@ -426,14 +426,13 @@ LogicalResult ONNXRoundOp::inferShapes(
 
 LogicalResult ONNXScalerOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto inputType = X().getType().dyn_cast<RankedTensorType>();
-
-  if (!inputType)
+  if (!hasShapeAndRank(X()))
     return success();
 
-  updateType(
-      getResult(), inputType.getShape(), FloatType::getF32(getContext()));
-  return success();
+  ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
+  RankedTensorType xType = X().getType().dyn_cast<RankedTensorType>();
+  return shapeHelper.computeShapeAndUpdateType(
+      FloatType::getF32(getContext()), xType.getEncoding());
 }
 
 //===----------------------------------------------------------------------===//
