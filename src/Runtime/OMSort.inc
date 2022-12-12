@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "onnx-mlir/Runtime/OMTensor.h"
+#include "onnx-mlir/Runtime/OnnxDataType.h"
 #include "src/Runtime/OMSort.h"
 #ifdef __cplusplus
 #include "src/Runtime/OMTensorHelper.hpp"
@@ -323,48 +324,6 @@ compareFunctionType *getCompareFunction(
   return compFunc;
 }
 
-uint64_t getDataSize(OM_DATA_TYPE dataType) {
-  uint64_t size = 0;
-  switch (dataType) {
-  case ONNX_TYPE_BOOL:
-    size = sizeof(bool);
-    break;
-  case ONNX_TYPE_UINT8:
-    size = sizeof(uint8_t);
-    break;
-  case ONNX_TYPE_INT8:
-    size = sizeof(int8_t);
-    break;
-  case ONNX_TYPE_UINT16:
-    size = sizeof(uint16_t);
-    break;
-  case ONNX_TYPE_INT16:
-    size = sizeof(int16_t);
-    break;
-  case ONNX_TYPE_UINT32:
-    size = sizeof(uint32_t);
-    break;
-  case ONNX_TYPE_INT32:
-    size = sizeof(int32_t);
-    break;
-  case ONNX_TYPE_UINT64:
-    size = sizeof(uint64_t);
-    break;
-  case ONNX_TYPE_INT64:
-    size = sizeof(int64_t);
-    break;
-  case ONNX_TYPE_FLOAT:
-    size = sizeof(float);
-    break;
-  case ONNX_TYPE_DOUBLE:
-    size = sizeof(double);
-    break;
-  default:
-    assert(false && "unexpected data type in getDataSize");
-  }
-  return size;
-}
-
 void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     uint64_t axis, uint64_t ascending, uint64_t algorithm) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
@@ -385,7 +344,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   // Choose the appropriate compare function
   compareFunctionType *compareElements =
       getCompareFunction(ascending, dataType);
-  uint64_t datasize = getDataSize(dataType);
+  uint64_t datasize = OM_DATA_TYPE_SIZE[dataType];
 
   // Choose the sorting function
   sortFunctionType *sortFunc = bubble_sort;
