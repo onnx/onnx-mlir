@@ -28,14 +28,23 @@ using namespace onnx_mlir;
 
 LogicalResult ONNXLayoutTransformOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  ONNXLayoutTransformOp operandAdaptor(*this);
-  if (!hasShapeAndRank(operandAdaptor.data()))
+  if (!hasShapeAndRank(data()))
     return success();
 
-  auto builder = Builder(getContext());
-  Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-      builder, data().getType(), target_layoutAttr());
+  Type resType = convertTensorTypeToTensorTypeWithEncoding(
+      data().getType(), target_layoutAttr());
   getResult().setType(resType);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Verifier
+//===----------------------------------------------------------------------===//
+LogicalResult ONNXLayoutTransformOp::verify() {
+  if (hasShapeAndRank(data()) && hasShapeAndRank(output())) {
+    if (getShape(data().getType()) != getShape(output().getType()))
+      return emitOpError("Input and output tensors must have the same shape");
+  }
   return success();
 }
 
@@ -44,8 +53,8 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 void ONNXLayoutTransformOp::build(OpBuilder &builder, OperationState &state,
-    Value data, StringAttr targetLayoutAttr) {
-  Type resType = convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-      builder, data.getType(), targetLayoutAttr);
+    Value data, Attribute targetLayoutAttr) {
+  Type resType = convertTensorTypeToTensorTypeWithEncoding(
+      data.getType(), targetLayoutAttr);
   build(builder, state, resType, data, targetLayoutAttr);
 }
