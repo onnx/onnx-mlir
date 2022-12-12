@@ -70,7 +70,7 @@ struct ONNXTopKOpLowering : public ConversionPattern {
         insertDealloc);
 
     // Compute argSort of X along axis.
-    Value argsort = emitArgSort(rewriter, loc, X, axis,
+    Value argSort = emitArgSort(rewriter, loc, X, axis,
         /*ascending=*/ascendingMode, /*algorithm=*/OMSORT_QUICKSORT);
 
     // Produce the final result.
