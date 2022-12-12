@@ -6186,6 +6186,7 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
 
 def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Softmax operation";
   let description = [{
   The operator computes the softmax (normalized exponential) values for each layer in the batch

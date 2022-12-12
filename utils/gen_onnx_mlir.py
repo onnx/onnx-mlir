@@ -316,6 +316,7 @@ OpsWithCanonicalizer = [
     'RNN',
     'Shape',
     'Size',
+    'SoftmaxV11',
     'SpaceToDepth',
     'Squeeze',
     'SqueezeV11',
