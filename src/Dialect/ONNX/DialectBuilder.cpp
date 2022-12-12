@@ -133,7 +133,7 @@ Value OnnxBuilder::min(ValueRange inputs) const {
   }) && "All inputs must have the same element type");
   Type outputType = inputs[0].getType();
   for (uint64_t i = 1; i < inputs.size(); ++i)
-    outputType = OpTrait::util::getBroadcastedType(
+    outputType = mlir::OpTrait::util::getBroadcastedType(
         toTensor(outputType), inputs[i].getType());
   return b().create<ONNXMinOp>(loc(), toTensor(outputType), inputs);
 }

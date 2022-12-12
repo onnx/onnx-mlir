@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -35,7 +34,7 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Get shape.
-    NewONNXOneHotOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXOneHotOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     int64_t axis = shapeHelper.axis;
 
@@ -55,7 +54,7 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
     Value onVal = create.krnl.loadIE(values, oneIE);
 
     // Iterate over all of the inputs.
-    int64_t indicesRank = create.krnlIE.getTypeRank(indices);
+    int64_t indicesRank = create.krnlIE.getShapedTypeRank(indices);
     SmallVector<IndexExpr, 4> indicesLbs(indicesRank, zeroIE);
     SmallVector<IndexExpr, 4> indicesUbs;
     create.krnlIE.getShapeAsDims(indices, indicesUbs);

@@ -138,7 +138,7 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
   mlir::LogicalResult matchAndRewrite(mlir::Operation *op,
       llvm::ArrayRef<mlir::Value> operands,
       mlir::ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    mlir::Location loc = op->getLoc();
 
     RNNOp rnnOp = llvm::dyn_cast<RNNOp>(op);
     typename RNNOp::Adaptor operandAdaptor(operands);

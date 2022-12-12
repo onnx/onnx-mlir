@@ -14,7 +14,6 @@
 
 //#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -30,9 +29,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
   bool enableParallel;
 
   void convUnoptimized(ConversionPatternRewriter &rewriter, ONNXConvOp &convOp,
-      ONNXConvOpAdaptor &operandAdaptor, NewONNXConvOpShapeHelper &shapeHelper,
+      ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc) const {
-    auto loc = convOp.getLoc();
+    Location loc = convOp.getLoc();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, SCFBuilder,
         MathBuilder, MemRefBuilder>
         create(rewriter, loc);
@@ -217,7 +216,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     if (enableParallel) {
       create.scf.parallelLoop(parLbs, parUbs, steps,
-          [&](DialectBuilder &create, ValueRange outerIndices) {
+          [&](SCFBuilder &create, ValueRange outerIndices) {
             bodyFunction(outerIndices);
           });
     } else {
@@ -231,13 +230,13 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     ONNXConvOpAdaptor operandAdaptor(operands);
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
     // Get shape.
     IndexExprBuilderForKrnl createIE(rewriter, loc);
-    NewONNXConvOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXConvOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

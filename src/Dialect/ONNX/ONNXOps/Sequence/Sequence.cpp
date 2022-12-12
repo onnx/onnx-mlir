@@ -73,7 +73,7 @@ ShapedType sequenceAddType(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSequenceAtOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   auto outputType = getResult().getType();
   auto inputElementType =
       input_sequence().getType().cast<SeqType>().getElementType();
@@ -89,7 +89,7 @@ LogicalResult ONNXSequenceAtOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSequenceConstructOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   auto types = inputs().getTypes();
   ShapedType seqTensorType = types[0].cast<ShapedType>();
   for (size_t i = 1; i < types.size(); ++i) {
@@ -105,7 +105,7 @@ LogicalResult ONNXSequenceConstructOp::inferShapes(
 
 LogicalResult ONNXSequenceEmptyOp::verify() {
   // For the Optional dtypeAttr, the default type is F32
-  auto builder = mlir::OpBuilder(getContext());
+  auto builder = OpBuilder(getContext());
   Type elementType;
   if (dtypeAttr()) {
     elementType = convertONNXTypeToMLIRType(builder,
@@ -123,7 +123,7 @@ LogicalResult ONNXSequenceEmptyOp::verify() {
 }
 
 LogicalResult ONNXSequenceEmptyOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   auto originTy = getResult().getType().cast<SeqType>();
   auto elementTy = originTy.getElementType();
   auto returnTy = SeqType::get(elementTy, 0);
@@ -136,7 +136,7 @@ LogicalResult ONNXSequenceEmptyOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSequenceEraseOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   auto inputTy = input_sequence().getType().cast<SeqType>();
   int64_t length = inputTy.getLength();
 
@@ -158,7 +158,7 @@ LogicalResult ONNXSequenceInsertOp::verify() {
   // These cast should be guaranteed by default verifier
   Type seqElementType = operandAdaptor.input_sequence()
                             .getType()
-                            .dyn_cast<mlir::SeqType>()
+                            .dyn_cast<SeqType>()
                             .getElementType();
   Type elementType1 = seqElementType.dyn_cast<ShapedType>().getElementType();
   ShapedType insertType =
@@ -173,9 +173,9 @@ LogicalResult ONNXSequenceInsertOp::verify() {
 }
 
 LogicalResult ONNXSequenceInsertOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Merge the tensor type for the seq and the inserted tensor
-  SeqType seqType = input_sequence().getType().cast<mlir::SeqType>();
+  SeqType seqType = input_sequence().getType().cast<SeqType>();
   ShapedType tensorType = tensor().getType().cast<ShapedType>();
   int64_t length = seqType.getLength();
   if (length == 0) {
@@ -195,14 +195,13 @@ LogicalResult ONNXSequenceInsertOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSequenceLengthOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   Type outputTy = getResult().getType();
   if (!outputTy.isa<RankedTensorType>() ||
       outputTy.cast<RankedTensorType>().getRank() != 0) {
     SmallVector<int64_t, 1> dims;
-    auto builder = mlir::Builder(getContext());
-    Type scalarTy =
-        mlir::RankedTensorType::get(dims, builder.getIntegerType(64));
+    auto builder = Builder(getContext());
+    Type scalarTy = RankedTensorType::get(dims, builder.getIntegerType(64));
     getResult().setType(scalarTy);
   }
   // ElementType of I64 will be checked by verifier

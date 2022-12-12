@@ -25,7 +25,7 @@
 
 namespace mlir {
 // OpSet level supported by onnx-mlir
-static constexpr int CURRENT_ONNX_OPSET = 16;
+static constexpr int CURRENT_ONNX_OPSET = 17;
 } // end namespace mlir
 
 #define GET_OP_CLASSES

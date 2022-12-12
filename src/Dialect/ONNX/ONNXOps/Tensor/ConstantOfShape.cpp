@@ -62,7 +62,7 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConstantOfShapeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
 
   Type elementType;
 
@@ -77,11 +77,10 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
     elementType = FloatType::getF32(getContext());
 
     llvm::SmallVector<int64_t, 2> dims(1, 1);
-    auto tensorType = mlir::RankedTensorType::get(dims, elementType);
+    auto tensorType = RankedTensorType::get(dims, elementType);
 
     llvm::SmallVector<float, 1> values(1, 0.);
-    valueAttr(
-        mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values)));
+    valueAttr(DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values)));
   }
 
   // 'input' must be a 1D tensor.

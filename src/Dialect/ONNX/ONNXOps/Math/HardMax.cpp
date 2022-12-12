@@ -44,7 +44,7 @@ LogicalResult ONNXHardmaxOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXHardmaxOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(input()))
     return success();
 
