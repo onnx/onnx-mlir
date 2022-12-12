@@ -23,9 +23,9 @@ func.func @test_softmax_3D(%arg0 : tensor<10x10x10xf32>) -> tensor<*xf32> {
 
 // CHECK-LABEL:  func.func @test_softmax_3D
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10x10xf32>) -> tensor<10x10x10xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<10x10x10xf32>) -> tensor<10x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
-// CHECK:           [[VAR_1_:%.+]] = "zhigh.Softmax"([[VAR_0_]]) {act_func = "ACT_NONE"} : (tensor<10x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<10x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
-// CHECK:           [[VAR_2_:%.+]] = "zhigh.Unstick"([[VAR_1_]]) : (tensor<10x10x10xf32, #zhigh.encoding<{dataLayout = "3DS"}>>) -> tensor<10x10x10xf32>
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<10x10x10xf32>) -> tensor<10x10x10xf32, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Softmax"([[VAR_0_]]) {act_func = "ACT_NONE"} : (tensor<10x10x10xf32, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<10x10x10xf32, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_2_:%.+]] = "zhigh.Unstick"([[VAR_1_]]) : (tensor<10x10x10xf32, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<10x10x10xf32>
 // CHECK:           return [[VAR_2_]] : tensor<10x10x10xf32>
 // CHECK:         }
 }

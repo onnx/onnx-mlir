@@ -26,6 +26,7 @@ include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
+include "src/IR/AttrBase.td"
 
 //===----------------------------------------------------------------------===//
 // Definition of the ONNX dialect.
@@ -54,12 +55,11 @@ def ONNX_Dialect : Dialect {
 //===----------------------------------------------------------------------===//
 
 // Attribute for Tensors that have a different data layout than normal ONNX tensors.
-class ONNX_Attr<string name, list<Trait> traits = []>
-	: AttrDef<ONNX_Dialect, name, traits>;
+class ONNX_LayoutAttr<string name, list<Trait> traits = []>
+	: BaseLayoutAttr<ONNX_Dialect, name, traits>;
 
 // ONNX tensor encoding attribute.
-def ONNXTensorEncodingAttr : ONNX_Attr<"ONNXTensorEncoding"> {
-  let mnemonic = "encoding";
+def ONNXTensorEncodingAttr : ONNX_LayoutAttr<"ONNXTensorEncoding"> {
   let hasCustomAssemblyFormat = 1;
   let description = [{
     An attribute to encode information on properties of ONNX tensors. A tensor with

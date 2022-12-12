@@ -5,10 +5,10 @@ func.func @test_div(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> ten
   "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_div
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "2D"} : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "2D"} : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>
-// CHECK:           [[VAR_2_:%.+]] = "zhigh.Div"([[VAR_0_]], [[VAR_1_]]) : (tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>) -> tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>
-// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<10x10xf32, #zhigh.encoding<{dataLayout = "2D"}>>) -> tensor<10x10xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "2D"} : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.layout<{dataLayout = "2D"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "2D"} : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.layout<{dataLayout = "2D"}>>
+// CHECK:           [[VAR_2_:%.+]] = "zhigh.Div"([[VAR_0_]], [[VAR_1_]]) : (tensor<10x10xf32, #zhigh.layout<{dataLayout = "2D"}>>, tensor<10x10xf32, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<10x10xf32, #zhigh.layout<{dataLayout = "2D"}>>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<10x10xf32, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<10x10xf32>
 // CHECK:           return [[VAR_3_]] : tensor<10x10xf32>
 // CHECK:         }
 }
