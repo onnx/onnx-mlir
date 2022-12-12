@@ -34,9 +34,16 @@ struct ONNXMatMulOpLinalgLowering : public ConversionPattern {
     auto outputType = op->getResult(0).getType().cast<ShapedType>();
 
     // ToFix: dimension size is assumed to be static
-    SmallVector<Value> newDynamicSizes;
+    SmallVector<Value> dynamicDims;
+    if (outputType.isDynamicDim(0)) {
+        dynamicDims.emplace_back(rewriter.create<tensor::DimOp>(loc, operands[0] , 0));
+    }
+    if (outputType.isDynamicDim(1)) {
+        dynamicDims.emplace_back(rewriter.create<tensor::DimOp>(loc, operands[1] , 1));
+    }
+
     auto outV = rewriter.create<tensor::EmptyOp>(loc, outputType.getShape(),
-        outputType.getElementType(), newDynamicSizes);
+        outputType.getElementType(), dynamicDims);
 
     SmallVector<Value, 1> outputs;
     outputs.emplace_back(outV);
