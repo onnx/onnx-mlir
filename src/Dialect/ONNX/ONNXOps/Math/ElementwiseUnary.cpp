@@ -32,13 +32,29 @@ namespace onnx_mlir {
 /// Handle shape inference for unary element-wise operators.
 LogicalResult inferShapeForUnaryOps(Operation *op) {
   Value input = op->getOperand(0);
+  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  return inferShapeForUnaryOps(
+      op, inputType.getElementType(), inputType.getEncoding());
+}
+
+/// Handle shape inference for unary element-wise operators with specific output
+/// type.
+LogicalResult inferShapeForUnaryOps(Operation *op, Type elementType) {
+  Value input = op->getOperand(0);
+  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  return inferShapeForUnaryOps(op, elementType, inputType.getEncoding());
+}
+
+/// Handle shape inference for unary element-wise operators with specific output
+/// type and encoding.
+LogicalResult inferShapeForUnaryOps(
+    Operation *op, Type elementType, Attribute encoding) {
+  Value input = op->getOperand(0);
   if (!hasShapeAndRank(input))
     return success();
 
   ONNXUnaryOpShapeHelper shapeHelper(op, {});
-  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
-  return shapeHelper.computeShapeAndUpdateType(
-      inputType.getElementType(), inputType.getEncoding());
+  return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
 }
 
 } // namespace onnx_mlir

@@ -22,9 +22,82 @@ using namespace onnx_mlir;
 // Support
 //===----------------------------------------------------------------------===//
 
+//===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <typename OP_TYPE>
+LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::customComputeShape(
+    DimsExpr &axes, int noopWithEmptyAxes) {
+  // DimsExpr axes; // hi alex
+  // int noopWithEmptyAxes = 0;
+  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  Value data = operandAdaptor.data();
+  int64_t rank = createIE->getShapedTypeRank(data);
+  // Normalize the axes: at present, we only support compile time axes, but
+  // with keep_dim on, it might not be too difficult to generate the code.
+  SmallVector<int64_t, 4> uniqueAxes;
+  if (axes.size() > 0) {
+    for (uint64_t i = 0; i < axes.size(); ++i) {
+      if (!axes[i].isLiteral())
+        return op->emitError("expect compile time constant for reduction axes");
+      int64_t axis = axes[i].getLiteral();
+      if (axis < -rank || axis > rank - 1)
+        return op->emitError("reduction axis is out of bound");
+      axis = axis >= 0 ? axis : (rank + axis);
+      if (std::find(uniqueAxes.begin(), uniqueAxes.end(), axis) ==
+          uniqueAxes.end())
+        uniqueAxes.emplace_back(axis);
+    }
+  } else if (!noopWithEmptyAxes) {
+    // Mark all axes as target for reduction.
+    for (int64_t axis = 0; axis < rank; ++axis)
+      uniqueAxes.emplace_back(axis);
+  }
+
+  // Mark reduction axes.
+  isReductionAxis.resize(rank);
+  for (int64_t i = 0; i < rank; ++i)
+    isReductionAxis[i] =
+        std::find(uniqueAxes.begin(), uniqueAxes.end(), i) != uniqueAxes.end();
+
+  // Generate the output dims.
+  bool isKeepDims = (operandAdaptor.keepdims() == 1) ? true : false;
+  DimsExpr outputDims;
+  LiteralIndexExpr one(1);
+  for (int64_t i = 0; i < rank; ++i) {
+    if (isReductionAxis[i]) {
+      if (isKeepDims)
+        outputDims.emplace_back(one); // reduction dimension
+    } else
+      outputDims.emplace_back(createIE->getShapeAsDim(data, i));
+  }
+
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+
+// Default generic computeShape.
+template <typename OP_TYPE>
+LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
+#if 1
+  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  DimsExpr axes;
+  createIE->getIntFromArrayAsLiterals(operandAdaptor.axesAttr(), axes);
+  return customComputeShape(axes, /*noopWithEmptyAxes*/ false);
+#else
+  return success();
+#endif
+}
+
+} // namespace onnx_mlir
+
 namespace {
 
-// Get reduction type.
+// Get reduction type from literal attributes.
 static RankedTensorType getReductionOutputType(
     ShapedType operandTy, Optional<ArrayAttr> axesAttrs, uint64_t keepdims) {
   int64_t rank = operandTy.getRank();
@@ -122,6 +195,23 @@ static LogicalResult inferShapeForReductionOps(OP &op) {
   return success();
 }
 
+template <class OP_TYPE>
+static LogicalResult inferShapeForReductionOps_xxx(OP_TYPE &op) {
+  #if 1
+  typename OP_TYPE::Adaptor operandAdaptor(op);
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &operand) { return !hasShapeAndRank(operand); }))
+    return success(); // cannot infer when the operands shape is not yet known.
+
+  ShapedType dataType =
+      operandAdaptor.data().getType().template cast<ShapedType>();
+  ONNXGenericReductionOpShapeHelper<OP_TYPE> shapeHelper(op.getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(dataType.getElementType());
+  #else
+  return success();  // hi alex
+  #endif
+}
+
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -130,8 +220,7 @@ static LogicalResult inferShapeForReductionOps(OP &op) {
 
 LogicalResult ONNXReduceL1Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceL1Op, ONNXReduceL1OpAdaptor>(
-      *this);
+  return inferShapeForReductionOps_xxx<ONNXReduceL1Op>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -140,8 +229,7 @@ LogicalResult ONNXReduceL1Op::inferShapes(
 
 LogicalResult ONNXReduceL2Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceL2Op, ONNXReduceL2OpAdaptor>(
-      *this);
+  return inferShapeForReductionOps_xxx<ONNXReduceL2Op>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -150,8 +238,7 @@ LogicalResult ONNXReduceL2Op::inferShapes(
 
 LogicalResult ONNXReduceLogSumOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceLogSumOp,
-      ONNXReduceLogSumOpAdaptor>(*this);
+  return inferShapeForReductionOps_xxx<ONNXReduceLogSumOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -160,8 +247,7 @@ LogicalResult ONNXReduceLogSumOp::inferShapes(
 
 LogicalResult ONNXReduceLogSumExpOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceLogSumExpOp,
-      ONNXReduceLogSumExpOpAdaptor>(*this);
+  return inferShapeForReductionOps_xxx<ONNXReduceLogSumExpOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -170,8 +256,7 @@ LogicalResult ONNXReduceLogSumExpOp::inferShapes(
 
 LogicalResult ONNXReduceMaxOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceMaxOp, ONNXReduceMaxOpAdaptor>(
-      *this);
+  return inferShapeForReductionOps_xxx<ONNXReduceMaxOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -180,8 +265,7 @@ LogicalResult ONNXReduceMaxOp::inferShapes(
 
 LogicalResult ONNXReduceMeanOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceMeanOp, ONNXReduceMeanOpAdaptor>(
-      *this);
+  return inferShapeForReductionOps_xxx<ONNXReduceMeanOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -190,8 +274,7 @@ LogicalResult ONNXReduceMeanOp::inferShapes(
 
 LogicalResult ONNXReduceMinOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceMinOp, ONNXReduceMinOpAdaptor>(
-      *this);
+  return inferShapeForReductionOps_xxx<ONNXReduceMinOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -200,8 +283,7 @@ LogicalResult ONNXReduceMinOp::inferShapes(
 
 LogicalResult ONNXReduceProdOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceProdOp, ONNXReduceProdOpAdaptor>(
-      *this);
+  return inferShapeForReductionOps_xxx<ONNXReduceProdOp>(*this);
 }
 //===----------------------------------------------------------------------===//
 // ReduceSum
@@ -266,8 +348,7 @@ LogicalResult ONNXReduceSumOp::inferShapes(
 
 LogicalResult ONNXReduceSumV11Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceSumV11Op,
-      ONNXReduceSumV11OpAdaptor>(*this);
+  return inferShapeForReductionOps_xxx<ONNXReduceSumV11Op>(*this);
 }
 //===----------------------------------------------------------------------===//
 // ReduceSumSquare
@@ -275,6 +356,24 @@ LogicalResult ONNXReduceSumV11Op::inferShapes(
 
 LogicalResult ONNXReduceSumSquareOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceSumSquareOp,
-      ONNXReduceSumSquareOpAdaptor>(*this);
+  return inferShapeForReductionOps_xxx<ONNXReduceSumSquareOp>(*this);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation; keep at the end of the file.
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template struct ONNXGenericReductionOpShapeHelper<ONNXReduceL1Op>;
+template struct ONNXGenericReductionOpShapeHelper<ONNXReduceL2Op>;
+template struct ONNXGenericReductionOpShapeHelper<ONNXReduceLogSumOp>;
+template struct ONNXGenericReductionOpShapeHelper<ONNXReduceLogSumExpOp>;
+template struct ONNXGenericReductionOpShapeHelper<ONNXReduceMaxOp>;
+template struct ONNXGenericReductionOpShapeHelper<ONNXReduceMeanOp>;
+template struct ONNXGenericReductionOpShapeHelper<ONNXReduceMinOp>;
+template struct ONNXGenericReductionOpShapeHelper<ONNXReduceProdOp>;
+template struct ONNXGenericReductionOpShapeHelper<ONNXReduceSumV11Op>;
+template struct ONNXGenericReductionOpShapeHelper<ONNXReduceSumSquareOp>;
+
+} // namespace onnx_mlir

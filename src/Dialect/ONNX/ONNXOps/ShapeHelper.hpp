@@ -101,8 +101,8 @@ struct ONNXOpShapeHelper {
   // signature. This method is responsible to compute at a minimum the output
   // dims.
   virtual mlir::LogicalResult computeShape() = 0;
-  // Helper function that set single output dims from the given value.
-  mlir::LogicalResult computeShapeFromOperand(mlir::Value operand);
+  // Helper function that set n'th output dims from the given value.
+  mlir::LogicalResult computeShapeFromOperand(mlir::Value operand, int n = 0);
 
   // Compute shape and assert on failure.
   void computeShapeAndAssertOnFailure();
@@ -166,13 +166,21 @@ struct ONNXUnaryOpShapeHelper : public ONNXOpShapeHelper {
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXUnaryOpShapeHelper() {}
 
-  mlir::LogicalResult computeShape() final;
+  mlir::LogicalResult computeShape() final {
+    return computeShapeFromOperand(operands[0]);
+  }
 };
 
 // Handle shape inference for unary element-wise operators. Perform the entire
 // operation: (1) create the shape helper, compute shape, apply shape to the
 // output types.
 mlir::LogicalResult inferShapeForUnaryOps(mlir::Operation *op);
+// Same as above, but allow a type change.
+mlir::LogicalResult inferShapeForUnaryOps(
+    mlir::Operation *op, mlir::Type elementType);
+// Same as above, but allow a type and encoding change.
+mlir::LogicalResult inferShapeForUnaryOps(
+    mlir::Operation *op, mlir::Type elementType, mlir::Attribute encoding);
 
 //===----------------------------------------------------------------------===//
 // Broadcast Ops
@@ -508,6 +516,54 @@ using ONNXUnsqueezeV11OpShapeHelper =
     ONNXCommonUnsqueezeOpShapeHelper<mlir::ONNXUnsqueezeV11Op>;
 
 //===----------------------------------------------------------------------===//
+// Reduction Ops ()
+//===----------------------------------------------------------------------===//
+
+// Generic Reduction shape helper.
+template <typename OP_TYPE>
+struct ONNXGenericReductionOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXGenericReductionOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXGenericReductionOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Actual computation of the pool shape and parameters using every different
+  // switches that differs between pooling and conv ops.
+  mlir::LogicalResult customComputeShape(
+      DimsExpr &axes, int noopWithEmptyAxes);
+  // Values set by customComputeShape.
+  llvm::SmallVector<bool, 4> isReductionAxis;
+};
+
+using ONNXReduceL1OpShapeHelper =
+    ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL1Op>;
+using ONNXReduceL2OpShapeHelper =
+ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL2Op>;
+using ONNXReduceLogSumOpShapeHelper =
+ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumOp>;
+using ONNXReduceLogSumExpOpShapeHelper =
+ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumExpOp>;
+using ONNXReduceMaxOpShapeHelper =
+ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMaxOp>;
+using ONNXReduceMeanOpShapeHelper =
+ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMeanOp>;
+using ONNXReduceMinOpShapeHelper =
+ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMinOp>;
+using ONNXReduceProdOpShapeHelper =
+ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceProdOp>;
+using ONNXReduceSumV11OpShapeHelper =
+ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumV11Op>;
+using ONNXReduceSumSquareOpShapeHelper =
+ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumSquareOp>;
+
+/*
+using ShapeHelper =
+ONNXGenericReductionOpShapeHelper<mlir::>;
+
+*/
+
+//===----------------------------------------------------------------------===//
 // Non specific Ops, namely ops that
 //   * need customization only for themselves (no sharing of code)
 //   * have no specific parameters
@@ -548,6 +604,7 @@ using ONNXGatherElementsOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXG
 using ONNXGatherNDOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherNDOp>;
 using ONNXGatherOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherOp>;
 using ONNXLRNOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
+using ONNXOneHotEncoderOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXOneHotEncoderOp>;
 using ONNXReshapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
 using ONNXReverseSequenceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
 using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;

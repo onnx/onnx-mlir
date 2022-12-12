@@ -127,12 +127,12 @@ void ONNXOpShapeHelper::setOutputDims(const DimsExpr &inferredDims, int n) {
   refineDims(privateOutputsDims[n], output);
 }
 
-LogicalResult ONNXOpShapeHelper::computeShapeFromOperand(Value operand) {
+LogicalResult ONNXOpShapeHelper::computeShapeFromOperand(Value operand, int n) {
   // Output and operand have the same shape. Just pass the operand shape to the
   // output.
   DimsExpr outputDims;
   createIE->getShapeAsDims(operand, outputDims);
-  setOutputDims(outputDims);
+  setOutputDims(outputDims, n);
   return success();
 }
 
@@ -172,16 +172,6 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
         hasEncoding ? encodingList[i] : nullptr);
   }
   return success();
-}
-
-//===----------------------------------------------------------------------===//
-// ONNX Op Shape Helper for Generic Unary Elementwise Operations
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXUnaryOpShapeHelper::computeShape() {
-  // Output and input have the same shape. Just pass the input shape to the
-  // output.
-  return computeShapeFromOperand(operands[0]);
 }
 
 //===----------------------------------------------------------------------===//
