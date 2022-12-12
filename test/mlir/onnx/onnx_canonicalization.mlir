@@ -917,3 +917,15 @@ func.func @test_dim_to_constant(%arg0: tensor<?x256xi64>) -> (tensor<1xi64>) {
 // CHECK:     [[RES:%.+]] = onnx.Constant dense<256> : tensor<1xi64>
 // CHECK:     return [[RES]] : tensor<1xi64>
 }
+
+// -----
+
+
+func.func @test_layout_transform(%arg0: tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>> {
+    %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32,#onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
+    return %0 : tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
+
+// CHECK-LABEL: test_layout_transform 
+// CHECK-NOT: "onnx.LayoutTransform"
+// CHECK: return
+}

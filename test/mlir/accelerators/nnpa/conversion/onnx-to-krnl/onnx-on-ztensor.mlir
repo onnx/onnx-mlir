@@ -3,9 +3,9 @@
 // Test doing unary element-wise computation directly on zTensor.
 // Taking ONNXSqrtOp as the example.
 // Need to check that the buffer is correctly aligned to 4K.
-func.func @test_onnx_sqrt_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
-  %0 = "onnx.Sqrt"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>
-  return %0 : tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>
+func.func @test_onnx_sqrt_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>> {
+  %0 = "onnx.Sqrt"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
+  return %0 : tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0) -> (d0)>
@@ -33,9 +33,9 @@ func.func @test_onnx_sqrt_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.encoding<{da
 // Test doing broadcasting binary element-wise computation directly on zTensor.
 // Taking ONNXAddOp as the example.
 // Need to check that the buffer is correctly aligned to 4K.
-func.func @test_onnx_add_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>, %arg1: tensor<?x3x5x1xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>> {
-  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>, tensor<?x3x5x1xf32, #zhigh.encoding<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>
-  return %0 : tensor<?x3x5x7xf32, #zhigh.encoding<{dataLayout = "4D"}>>
+func.func @test_onnx_add_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, %arg1: tensor<?x3x5x1xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>> {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, tensor<?x3x5x1xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
+  return %0 : tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
@@ -70,9 +70,9 @@ func.func @test_onnx_add_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.encoding<{dat
 
 // Test doing broadcasting binary element-wise computation directly on zTensor.
 // Need to check that the buffer is correctly aligned to 4K.
-func.func @test_onnx_concat_on_ztensor(%arg0: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, %arg1: tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>> {
-  %0 = "onnx.Concat"(%arg0, %arg1) {axis = 3 : si64} : (tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>, tensor<?x4x4x192xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
-  return %0 : tensor<?x4x4x384xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>
+func.func @test_onnx_concat_on_ztensor(%arg0: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "NHWC"}>> {
+  %0 = "onnx.Concat"(%arg0, %arg1) {axis = 3 : si64} : (tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
+  return %0 : tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0)>
@@ -98,5 +98,30 @@ func.func @test_onnx_concat_on_ztensor(%arg0: tensor<?x4x4x192xf32, #zhigh.encod
 // CHECK:             krnl.store [[LOAD_PARAM_1_MEM_]], [[RES_]]{{.}}[[VAR_2_1_]]#0, [[VAR_2_1_]]#1, [[VAR_2_1_]]#2, [[LOAD_PARAM_0_MEM_1_]]{{.}} : memref<?x4x4x384xf16, #map>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x4x4x384xf16, #map>
+// CHECK:         }
+}
+
+// -----
+
+// Test changing data layout for a zTensor.
+// Need to check that the buffer is correctly aligned to 4K.
+func.func @test_onnx_layout_transform_on_ztensor(%arg0: tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>> {
+  %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #zhigh.layout<{dataLayout = "3D"}>} : (tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>
+  return %0 : tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (0, d2 floordiv 64, d0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-LABEL:  func.func @test_onnx_layout_transform_on_ztensor
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5x7xf16, #map>) -> memref<3x5x7xf16, #map1> {
+
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<3x5x7xf16, #map1>
+
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 5, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 7){
+// CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x5x7xf16, #map>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x5x7xf16, #map1>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<3x5x7xf16, #map1>
 // CHECK:         }
 }

@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
-func.func @matmul(%arg0: tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg1: tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg2: tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> {
- %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> 
+func.func @matmul(%arg0: tensor<4x8xf32, #zhigh.layout<{dataLayout = "2D"}>>, %arg1: tensor<8x16xf32, #zhigh.layout<{dataLayout = "2D"}>>, %arg2: tensor<16xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32> {
+ %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<4x8xf32, #zhigh.layout<{dataLayout = "2D"}>>, tensor<8x16xf32, #zhigh.layout<{dataLayout = "2D"}>>, tensor<16xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32> 
  return %0 : tensor<*xf32> 
 
 // CHECK-DAG: #map = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
@@ -26,8 +26,8 @@ func.func @matmul(%arg0: tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, 
 
 // -----
 
-func.func @matmul_stack(%arg0: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %arg1: tensor<2x8x16xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %arg2: tensor<2x16xf32, #zhigh.encoding<{dataLayout = "2DS"}>>) -> tensor<*xf32> {
- %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x8x16xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<2x16xf32, #zhigh.encoding<{dataLayout = "2DS"}>>) -> tensor<*xf32> 
+func.func @matmul_stack(%arg0: tensor<2x4x8xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %arg1: tensor<2x8x16xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %arg2: tensor<2x16xf32, #zhigh.layout<{dataLayout = "2DS"}>>) -> tensor<*xf32> {
+ %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<2x4x8xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x8x16xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x16xf32, #zhigh.layout<{dataLayout = "2DS"}>>) -> tensor<*xf32> 
  return %0 : tensor<*xf32> 
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
@@ -55,8 +55,8 @@ func.func @matmul_stack(%arg0: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "
 
 // -----
 
-func.func @matmul_broadcast(%arg0: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, %arg1: tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg2: tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> {
- %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<2x4x8xf32, #zhigh.encoding<{dataLayout = "3DS"}>>, tensor<8x16xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<16xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> 
+func.func @matmul_broadcast(%arg0: tensor<2x4x8xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %arg1: tensor<8x16xf32, #zhigh.layout<{dataLayout = "2D"}>>, %arg2: tensor<16xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32> {
+ %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<2x4x8xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<8x16xf32, #zhigh.layout<{dataLayout = "2D"}>>, tensor<16xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32> 
  return %0 : tensor<*xf32> 
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
@@ -85,8 +85,8 @@ func.func @matmul_broadcast(%arg0: tensor<2x4x8xf32, #zhigh.encoding<{dataLayout
 
 // -----
 
-func.func @matmul_unknown_dims(%arg0: tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg1: tensor<8x?xf32, #zhigh.encoding<{dataLayout = "2D"}>>, %arg2: tensor<?xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> {
- %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<4x8xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<8x?xf32, #zhigh.encoding<{dataLayout = "2D"}>>, tensor<?xf32, #zhigh.encoding<{dataLayout = "1D"}>>) -> tensor<*xf32> 
+func.func @matmul_unknown_dims(%arg0: tensor<4x8xf32, #zhigh.layout<{dataLayout = "2D"}>>, %arg1: tensor<8x?xf32, #zhigh.layout<{dataLayout = "2D"}>>, %arg2: tensor<?xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32> {
+ %0 ="zhigh.MatMul"(%arg0, %arg1, %arg2) : (tensor<4x8xf32, #zhigh.layout<{dataLayout = "2D"}>>, tensor<8x?xf32, #zhigh.layout<{dataLayout = "2D"}>>, tensor<?xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32> 
  return %0 : tensor<*xf32> 
 
 // CHECK-DAG: #map = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
