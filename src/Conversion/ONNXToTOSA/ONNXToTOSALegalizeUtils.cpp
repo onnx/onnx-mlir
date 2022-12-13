@@ -27,14 +27,22 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DerivedTypes.h"
 #include <cstdint>
+#include <src/Dialect/Mlir/IndexExpr.hpp>
 
 using namespace mlir;
 namespace onnx_mlir {
 namespace tosa {
 
-Value sliceTensor(PatternRewriter &rewriter, Operation *op,
-    Value &inputConst, const llvm::ArrayRef<int64_t> &size,
-    const llvm::ArrayRef<int64_t> &start) {
+llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
+    llvm::ArrayRef<IndexExpr> indexVector) {
+  llvm::SmallVector<int64_t, 4> literalVector(indexVector.size());
+  llvm::transform(indexVector, literalVector.begin(),
+      [](const auto &indexExpr) { return indexExpr.getLiteral(); });
+  return literalVector;
+}
+
+Value sliceTensor(PatternRewriter &rewriter, Operation *op, Value &inputConst,
+    const llvm::ArrayRef<int64_t> &size, const llvm::ArrayRef<int64_t> &start) {
   ArrayAttr sizeAttr = rewriter.getI64ArrayAttr(size);
   ArrayAttr startAttr = rewriter.getI64ArrayAttr(start);
   Value newSliceInput =
@@ -51,12 +59,14 @@ Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
   Value permList = getConstTensor(
       rewriter, op, perm, {value.getType().cast<RankedTensorType>().getRank()})
                        .value();
+  auto valueType = value.getType().cast<ShapedType>();
   // get new value type
-  Type newValueTy = RankedTensorType::get(
-      {-1, -1, -1, -1}, value.getType().cast<ShapedType>().getElementType());
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(valueType.getShape().size(), -1),
+      valueType.getElementType());
   // create transpose for value
   Value newValue = CreateOpAndInfer<mlir::tosa::TransposeOp>(
-      rewriter, op->getLoc(), newValueTy, value, permList);
+      rewriter, op->getLoc(), newValueType, value, permList);
   return newValue;
 }
 
