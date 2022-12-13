@@ -20,7 +20,16 @@
 #define FALSE 0
 
 //
-// Declare comparation funcions for data types and sorting directions
+// Declare compare funcions for data types and sorting directions.
+// As backgound, the performance of this sort function is important for the
+// whole model performance (e.g. the dominant part of the Yolov3 model).
+// Sort functions in this file use data-type-specific compare functions,
+// instead of general compare function for all data types. General compare
+// functions check the data type in tight and long loops, to avoid
+// to call switch statements to check data types in the loops.
+// Sort functions in this file check the data type in advance at once before
+// the sort loop, and data-type-specific compare functions not checking the
+// data type at runtime is called in the loops.
 //
 #if defined(__APPLE__)
 typedef int(
