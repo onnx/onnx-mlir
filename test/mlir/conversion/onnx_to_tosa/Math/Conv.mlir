@@ -120,3 +120,17 @@ func.func @test_onnx_conv2d_group(%arg0: tensor<5x64x1024x1024xf32>, %arg1 : ten
 //  CHECK: [[PERM3:%.+]] = "tosa.const"() {value = dense<[0, 3, 1, 2]> : tensor<4xi64>} : () -> tensor<4xi64>
 //  CHECK: {{%.+}} = "tosa.transpose"([[OUTPUT]], [[PERM3]]) : (tensor<5x76x76x12xf32>, tensor<4xi64>) -> tensor<5x12x76x76xf32>
 }
+
+// -----
+func.func @test_onnx_conv2d_autopad(%arg0: tensor<5x3x500x1024xf32>, %arg1 : tensor<2x3x64x64xf32>, %arg2: tensor<2xf32>) ->  tensor<5x2x500x1024xf32> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "SAME_LOWER"} : (tensor<5x3x500x1024xf32>, tensor<2x3x64x64xf32>, tensor<2xf32>) ->  tensor<5x2x500x1024xf32>
+  return %0 : tensor<5x2x500x1024xf32>
+// CHECK-LABEL:  func @test_onnx_conv2d_autopad
+// CHECK: [[PERM1:%.+]] = "tosa.const"() {value = dense<[0, 2, 3, 1]> : tensor<4xi64>} : () -> tensor<4xi64>
+// CHECK: [[TRANSINPUT:%.+]] = "tosa.transpose"(%arg0, [[PERM1]]) : (tensor<5x3x500x1024xf32>, tensor<4xi64>) -> tensor<5x500x1024x3xf32>
+// CHECK: [[PERM2:%.+]] = "tosa.const"() {value = dense<[0, 2, 3, 1]> : tensor<4xi64>} : () -> tensor<4xi64>
+// CHECK: [[TRANSKERNEL:%.+]] = "tosa.transpose"(%arg1, [[PERM2]]) : (tensor<2x3x64x64xf32>, tensor<4xi64>) -> tensor<2x64x64x3xf32>
+// CHECK: [[OUTPUT:%.+]] = "tosa.conv2d"([[TRANSINPUT]], [[TRANSKERNEL]], %arg2) {dilation = [1, 1], pad = [32, 31, 32, 31], stride = [1, 1]} : (tensor<5x500x1024x3xf32>, tensor<2x64x64x3xf32>, tensor<2xf32>) -> tensor<5x500x1024x2xf32>
+// CHECK: [[PERM3:%.+]] = "tosa.const"() {value = dense<[0, 3, 1, 2]> : tensor<4xi64>} : () -> tensor<4xi64>
+// CHECK: {{%.+}} = "tosa.transpose"([[OUTPUT]], [[PERM3]]) : (tensor<5x500x1024x2xf32>, tensor<4xi64>) -> tensor<5x2x500x1024xf32>
+}
