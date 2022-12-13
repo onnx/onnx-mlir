@@ -46,6 +46,22 @@ static LogicalResult verifyShapeForBroadcastingOps(
   return success();
 }
 
+// hi alex
+static LogicalResult verifyShapeForBroadcastingOps_xxx(
+    Operation *op, Type elementType = nullptr) {
+  if (!operandsOfOpHaveShapesAndRanks(op))
+    return success();
+
+  auto resultTy = op->getOperand(0).getType().template cast<ShapedType>();
+  for (unsigned i = 1; i < op->getNumOperands(); ++i) {
+    auto nextTy = op->getOperand(i).getType().template cast<ShapedType>();
+    resultTy = getBroadcastedType(resultTy, nextTy, elementType);
+    if (resultTy == nullptr)
+      op->emitError("Broadcast op with incompatible dimensions");
+  }
+  return success();
+}
+
 // Handle shape inference for numpy style broadcasting operators.
 template <class OP_TYPE>
 static LogicalResult inferShapeForBroadcastingOps(
