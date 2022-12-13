@@ -21,7 +21,10 @@
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 namespace onnx_mlir {
 namespace zhigh {
