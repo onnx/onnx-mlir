@@ -33,7 +33,7 @@ namespace tosa {
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>
 TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
-    mlir::Type result_ty, Args &&...args) {
+    mlir::Type result_ty, Args &&... args) {
   auto op = rewriter.create<TosaOp>(loc, result_ty, args...);
 
   mlir::InferShapedTypeOpInterface shapeInterface =
@@ -79,7 +79,7 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
 
 template <typename TosaOp, typename... Args>
 void CreateReplaceOpAndInfer(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::Type result_ty, Args &&...args) {
+    mlir::Operation *op, mlir::Type result_ty, Args &&... args) {
   auto result =
       CreateOpAndInfer<TosaOp>(rewriter, op->getLoc(), result_ty, args...);
   rewriter.replaceOp(op, result->getResults());
