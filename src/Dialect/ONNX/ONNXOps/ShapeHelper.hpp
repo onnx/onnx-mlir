@@ -551,16 +551,12 @@ using ONNXReduceMinOpShapeHelper =
     ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMinOp>;
 using ONNXReduceProdOpShapeHelper =
     ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceProdOp>;
+using ONNXReduceSumOpShapeHelper =
+    ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumOp>;
 using ONNXReduceSumV11OpShapeHelper =
     ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumV11Op>;
 using ONNXReduceSumSquareOpShapeHelper =
     ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumSquareOp>;
-
-/*
-using ShapeHelper =
-ONNXGenericReductionOpShapeHelper<mlir::>;
-
-*/
 
 //===----------------------------------------------------------------------===//
 // Non specific Ops, namely ops that

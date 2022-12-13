@@ -22,10 +22,6 @@ using namespace onnx_mlir;
 // Support
 //===----------------------------------------------------------------------===//
 
-//===----------------------------------------------------------------------===//
-// Support
-//===----------------------------------------------------------------------===//
-
 namespace onnx_mlir {
 
 template <typename OP_TYPE>
@@ -87,6 +83,49 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
   DimsExpr axes;
   createIE->getIntFromArrayAsLiterals(operandAdaptor.axesAttr(), axes);
   return customComputeShape(axes, /*noopWithEmptyAxes*/ false);
+}
+
+// ComputeShape that is specific to ReduceSumOp.
+template <>
+LogicalResult
+ONNXGenericReductionOpShapeHelper<ONNXReduceSumOp>::computeShape() {
+  ONNXReduceSumOp reduceOp = llvm::cast<ONNXReduceSumOp>(op);
+  ONNXReduceSumOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  DimsExpr axes;
+  if (isFromNone(operandAdaptor.axes())) {
+    // Default will be used.
+  } else if (getONNXConstantOp(operandAdaptor.axes())) {
+    createIE->getIntFromArrayAsSymbols(operandAdaptor.axes(), axes);
+  } else {
+    // When the axis is dynamic, try to infer the rank of output tensor
+    uint64_t dataRank = createIE->getShapedTypeRank(operandAdaptor.data());
+    uint64_t axesRank = createIE->getShapedTypeRank(operandAdaptor.axes());
+
+
+    // Can not infer when keepdims is false
+    if (!operandAdaptor.keepdims())
+      return success();
+
+    // Interesting idea below, namely to reuse info from output, or if not
+    // there, from input putting question mark in there. Not sure if successful,
+    // if it is, it should be generalized to all ops. Infer from the output
+
+    if (reduceOp.getResult().getType().isa<RankedTensorType>()) {
+      // Can not improve further, but save shape in ShapeHelper
+      DimsExpr outputDims;
+      createIE->getShapeAsDims(reduceOp.getResult(), outputDims);
+      setOutputDims(outputDims);
+      return success();
+    }
+    // Else set is as questionmarks. Output tensor should have the same rank as
+    // the input. But size of dims is unknown.
+    uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.data());
+    DimsExpr outputDims(rank, QuestionmarkIndexExpr());
+    setOutputDims(outputDims);
+    return success();
+  }
+  bool noopWithEmptyAxes = operandAdaptor.noop_with_empty_axes() != 0;
+  return customComputeShape(axes, noopWithEmptyAxes);
 }
 
 } // namespace onnx_mlir
@@ -196,9 +235,14 @@ static LogicalResult inferShapeForReductionOps(OP &op) {
 template <class OP_TYPE>
 static LogicalResult inferShapeForReductionOps_xxx(OP_TYPE &op) {
   typename OP_TYPE::Adaptor operandAdaptor(op);
+  if (!hasShapeAndRank(operandAdaptor.data()))
+    return success();
+
+#if 0
   if (llvm::any_of(operandAdaptor.getOperands(),
           [](const Value &operand) { return !hasShapeAndRank(operand); }))
     return success(); // cannot infer when the operands shape is not yet known.
+#endif
 
   ShapedType dataType =
       operandAdaptor.data().getType().template cast<ShapedType>();
@@ -285,9 +329,17 @@ LogicalResult ONNXReduceProdOp::inferShapes(
 
 LogicalResult ONNXReduceSumOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!data().getType().isa<RankedTensorType>())
+#if 1
+  if (!hasShapeAndRank(data())|| !hasShapeAndRank(axes()))
     return success();
 
+  ShapedType dataType = data().getType().template cast<ShapedType>();
+  ONNXReduceSumOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(dataType.getElementType());
+
+#else
+  if (!data().getType().isa<RankedTensorType>())
+    return success();
   auto operandTy = data().getType().cast<RankedTensorType>();
   /**
    *    In OpSet 13, axes of ReduceSum is an input, not an attribute.
@@ -299,9 +351,11 @@ LogicalResult ONNXReduceSumOp::inferShapes(
    **/
   DenseElementsAttr constAxes;
   if (isFromNone(axes())) {
+    fprintf(stderr, "hi alex, old, none\n");
     // constAxes should just be NULL
     // Default value will be given in getReductionOutputType
   } else if (getONNXConstantOp(axes())) {
+    fprintf(stderr, "hi alex, old, const\n");
     constAxes = getONNXConstantOp(axes())
                     .valueAttr()
                     .dyn_cast_or_null<DenseElementsAttr>();
@@ -310,14 +364,17 @@ LogicalResult ONNXReduceSumOp::inferShapes(
     }
   } else {
     // When the axis is dynamic, try to infer the rank of output tensor
+    fprintf(stderr, "hi alex, old, else\n");
 
     // Can not infer when keepdims is false
     if (!keepdims())
       return success();
+    fprintf(stderr, "hi alex, old, has keep dim, continue\n");
 
     if (getResult().getType().isa<RankedTensorType>())
       // Can not improve further
       return success();
+    fprintf(stderr, "hi alex, old, has unranked, continue\n");
 
     // Output tensor should have the same rank as the input
     // But size of dims is unknown
@@ -325,6 +382,8 @@ LogicalResult ONNXReduceSumOp::inferShapes(
     SmallVector<int64_t, 4> dims(outputNumDim, -1);
     getResult().setType(
         RankedTensorType::get(dims, operandTy.getElementType()));
+    fprintf(stderr, "hi alex, old, set to unkown with size %d\n", (int)outputNumDim);
+
     return success();
   }
 
@@ -333,6 +392,7 @@ LogicalResult ONNXReduceSumOp::inferShapes(
   if (!type)
     return emitError("unknown shape");
   getResult().setType(type);
+#endif
   return success();
 }
 
