@@ -227,6 +227,13 @@ def Equal: Constraint<CPred<"$0 == $1">, "are equal">;
 
 class EqualString<string s> : Constraint<CPred<"$0 == \"" # s # "\"">>;
 
+def AxisIsTheLastDim: Constraint<
+  CPred<"($1.getValue().getSExtValue() == -1) ||"
+        "(onnx_mlir::hasShapeAndRank($0) &&"
+        " ($0.getType().cast<ShapedType>().getRank() == $1.getValue().getSExtValue() + 1))">,
+  "Axis is the last dimension of the input"
+>;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -931,6 +938,18 @@ def DimOpToConstantPattern: Pat<
       (GetNullArrayAttr), (GetNullStringAttr), (GetNullArrayAttr)
    ),
    [(DimAtIndexIsConstant $input, $axis)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXSoftmaxV11 to the latest version
+//===----------------------------------------------------------------------===//
+
+// When axis is the last dimension of the input tensor, the semantics of V11 is
+// the same as that of V13 (the latest version).
+def SoftmaxV11ToLatestPattern: Pat<
+   (ONNXSoftmaxV11Op $input, $axisAttr),
+   (ONNXSoftmaxOp $input, $axisAttr),
+   [(AxisIsTheLastDim $input, $axisAttr)]
 >;
 
 #endif // ONNX_REWRITE
