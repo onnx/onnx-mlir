@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//===------- ZHighHelper.td - Common Pattern Match for ZHigh --------------===//
+//===------- OpHelper.td - Common Pattern Match for ZHigh -----------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ZHIGH_HELPER 
-#define ZHIGH_HELPER 
+#ifndef OP_HELPER 
+#define OP_HELPER 
 
 #ifndef OP_BASE
 include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
@@ -68,4 +68,4 @@ def IsPlusConstantFloat : Constraint<
   "Is the float attribute is greater than 0"
 >;
 
-#endif // ZHIGH_HELPER 
+#endif // OP_HELPER 

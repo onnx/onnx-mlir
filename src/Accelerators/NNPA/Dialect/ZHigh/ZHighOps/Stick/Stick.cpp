@@ -18,7 +18,7 @@ using namespace onnx_mlir;
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/Stick/ONNXStick.inc"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/Stick/ONNXZHighStick.inc"
 } // end anonymous namespace
 
 namespace onnx_mlir {

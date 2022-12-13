@@ -2,16 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------- ZHighHelper.cpp - NNPA ZHigh Helper Functions ---------------===//
+//===-------- OpHelper.cpp - NNPA ZHigh Helper Functions ------------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
 //===----------------------------------------------------------------------===//
-
-#include "mlir/IR/Matchers.h"
-#include "mlir/IR/PatternMatch.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"

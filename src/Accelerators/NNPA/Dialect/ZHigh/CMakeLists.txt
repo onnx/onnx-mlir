@@ -4,12 +4,12 @@ add_onnx_mlir_dialect(ZHigh zhigh)
 add_onnx_mlir_dialect_doc(zhigh ZHigh.td)
 
 add_onnx_mlir_library(OMZHighOps
-  # Top files for ZHigh dialect
+  # Top files for ZHigh dialect.
   ZHighOps.cpp
   ZHighOps/OpHelper.cpp
   ZHighOps/ShapeHelper.cpp
 
-  # Support for shape inference and verifiers
+  # Support for shape inference, verifier, and canonicalization.
   # Please list in the alphabetical order.
   ZHighOps/BatchNorm/BatchNorm.cpp
   ZHighOps/Conv2D/Conv2D.cpp
