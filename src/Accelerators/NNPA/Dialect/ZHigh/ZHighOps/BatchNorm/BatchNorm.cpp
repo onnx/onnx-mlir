@@ -19,6 +19,10 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 namespace zhigh {
 
+//===----------------------------------------------------------------------===//
+// Shape inference
+//===----------------------------------------------------------------------===//
+
 LogicalResult ZHighBatchNormOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());

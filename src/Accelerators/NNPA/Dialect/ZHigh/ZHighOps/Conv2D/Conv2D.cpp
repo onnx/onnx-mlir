@@ -19,6 +19,10 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 namespace zhigh {
 
+//===----------------------------------------------------------------------===//
+// Verifier
+//===----------------------------------------------------------------------===//
+
 LogicalResult ZHighConv2DOp::verify() {
   ZHighConv2DOpAdaptor operandAdaptor(*this);
   // Get operands.
@@ -61,6 +65,10 @@ LogicalResult ZHighConv2DOp::verify() {
 
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// Shape inference
+//===----------------------------------------------------------------------===//
 
 LogicalResult ZHighConv2DOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
