@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//===------- ZHighCombine.td - Pattern Match for ZHighDialect -------------===//
+//===------- ZHighUnstick.td - Pattern Match for ZHighUnstick -------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -11,13 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ZHIGH_COMBINE
-#define ZHIGH_COMBINE
+#ifndef UNSTICK_TD 
+#define UNSTICK_TD 
 
 #ifndef OP_BASE
-include "ZHigh.td"
+include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
 include "src/Dialect/ONNX/ONNX.td"
 #endif // OP_BASE
+
+include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 
 /// Note: The DRR definition used for defining patterns is shown below:
 ///
@@ -28,7 +30,13 @@ include "src/Dialect/ONNX/ONNX.td"
 /// >;
 
 //===----------------------------------------------------------------------===//
-// Transformations
+// DRR patterns 
 //===----------------------------------------------------------------------===//
 
-#endif // ZHIGH_COMBINE
+// zhigh.Unstick (zhigh.Stick (%X)) = %X
+def UnstickStickRemovalPattern : Pat<
+  (ZHighUnstickOp (ZHighStickOp $arg, $_)),
+  (replaceWithValue $arg)
+>;
+
+#endif // UNSTICK_TD

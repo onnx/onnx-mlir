@@ -29,8 +29,8 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/TypeSwitch.h"
 
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -235,10 +235,6 @@ void ZHighDialect::initialize() {
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.cpp.inc"
       >();
 }
-
-//===----------------------------------------------------------------------===//
-// Define ZHigh Op's functions
-//===----------------------------------------------------------------------===//
 
 } // namespace zhigh
 } // namespace onnx_mlir

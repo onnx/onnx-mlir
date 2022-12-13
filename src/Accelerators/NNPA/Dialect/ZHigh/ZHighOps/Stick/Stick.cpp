@@ -16,8 +16,17 @@
 using namespace mlir;
 using namespace onnx_mlir;
 
+namespace {
+/// Include the patterns defined in the Declarative Rewrite framework.
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/Stick/ONNXStick.inc"
+} // end anonymous namespace
+
 namespace onnx_mlir {
 namespace zhigh {
+
+//===----------------------------------------------------------------------===//
+// Custom builders
+//===----------------------------------------------------------------------===//
 
 void ZHighStickOp::build(
     OpBuilder &builder, OperationState &state, Value input, StringAttr layout) {
@@ -56,6 +65,10 @@ void ZHighStickOp::build(
   build(builder, state, resType, input, layout);
 }
 
+//===----------------------------------------------------------------------===//
+// Shape inference
+//===----------------------------------------------------------------------===//
+
 LogicalResult ZHighStickOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!hasRankedType(In()))
@@ -83,6 +96,18 @@ LogicalResult ZHighStickOp::inferShapes(
   updateType(getResult(), outputDims, inputType.getElementType(),
       ZTensorEncodingAttr::get(this->getContext(), dataLayout));
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Canonicalization patterns
+//===----------------------------------------------------------------------===//
+
+void ZHighStickOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<NoneTypeStickRemovalPattern>(context);
+  results.insert<ReplaceONNXLeakyReluPattern>(context);
+  results.insert<StickUnstickSameLayoutRemovalPattern>(context);
+  results.insert<StickUnstickDiffLayoutRemovalPattern>(context);
 }
 
 } // namespace zhigh

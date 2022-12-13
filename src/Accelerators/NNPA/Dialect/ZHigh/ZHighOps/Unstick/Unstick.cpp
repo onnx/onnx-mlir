@@ -16,8 +16,17 @@
 using namespace mlir;
 using namespace onnx_mlir;
 
+namespace {
+/// Include the patterns defined in the Declarative Rewrite framework.
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/Unstick/ONNXZHighUnstick.inc"
+} // end anonymous namespace
+
 namespace onnx_mlir {
 namespace zhigh {
+
+//===----------------------------------------------------------------------===//
+// Custom builders
+//===----------------------------------------------------------------------===//
 
 void ZHighUnstickOp::build(
     OpBuilder &builder, OperationState &state, Value input) {
@@ -44,6 +53,10 @@ void ZHighUnstickOp::build(
   build(builder, state, resType, input);
 }
 
+//===----------------------------------------------------------------------===//
+// Shape inference
+//===----------------------------------------------------------------------===//
+
 LogicalResult ZHighUnstickOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!hasRankedType(In()))
@@ -63,6 +76,15 @@ LogicalResult ZHighUnstickOp::inferShapes(
   IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   updateType(getResult(), outputDims, getElementType(In().getType()));
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Canonicalization patterns
+//===----------------------------------------------------------------------===//
+
+void ZHighUnstickOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<UnstickStickRemovalPattern>(context);
 }
 
 } // namespace zhigh
