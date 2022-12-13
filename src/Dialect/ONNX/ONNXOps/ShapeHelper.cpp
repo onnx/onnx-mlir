@@ -137,7 +137,8 @@ LogicalResult ONNXOpShapeHelper::computeShapeFromOperand(Value operand) {
 }
 
 // Reuse the same type for each of the outputs.
-LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(Type elementType) {
+LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
+    Type elementType, Attribute encoding) {
   // Invoke virtual compute shape.
   if (failed(computeShape()))
     return op->emitError("Failed to scan parameters successfully");
@@ -145,7 +146,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(Type elementType) {
   for (uint64_t i = 0; i < resNum; ++i) {
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
-    updateType(op->getResults()[i], shapeVect, elementType);
+    updateType(op->getResults()[i], shapeVect, elementType, encoding);
   }
   return success();
 }

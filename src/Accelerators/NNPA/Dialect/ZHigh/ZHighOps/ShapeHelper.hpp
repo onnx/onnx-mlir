@@ -114,27 +114,27 @@ private:
 //===----------------------------------------------------------------------===//
 // Shape helper for StickOp.
 
-struct ZHighStickOpShapeHelper : public ZHighOpShapeHelper<ZHighStickOp> {
-  ZHighStickOpShapeHelper(ZHighStickOp *newOp);
-  ZHighStickOpShapeHelper(ZHighStickOp *newOp, mlir::OpBuilder *rewriter);
-  mlir::LogicalResult computeShape(ZHighStickOpAdaptor operandAdaptor);
+struct ZHighStickOpShapeHelper : public ONNXOpShapeHelper {
+  ZHighStickOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ZHighStickOpShapeHelper() {}
+
+  mlir::LogicalResult computeShape() final;
 };
 
 //===----------------------------------------------------------------------===//
 // Shape helper for UnstickOp.
 
-struct ZHighUnstickOpShapeHelper : public ZHighOpShapeHelper<ZHighUnstickOp> {
-  ZHighUnstickOpShapeHelper(ZHighUnstickOp *newOp, mlir::StringAttr layout);
-  ZHighUnstickOpShapeHelper(ZHighUnstickOp *newOp, mlir::OpBuilder *rewriter,
-      mlir::StringAttr layout);
-  mlir::LogicalResult computeShape(ZHighUnstickOpAdaptor operandAdaptor);
+struct ZHighUnstickOpShapeHelper : public ONNXOpShapeHelper {
+  ZHighUnstickOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ZHighUnstickOpShapeHelper() {}
 
-private:
-  // Store the layout of the input.
-  // - During shape inference, layout is obtained from zTensor input.
-  // - During lowering, layout is obtained from a dictionary that maps MemRef to
-  // layout.
-  mlir::StringAttr layout;
+  mlir::LogicalResult computeShape() final;
 };
 
 // =============================================================================

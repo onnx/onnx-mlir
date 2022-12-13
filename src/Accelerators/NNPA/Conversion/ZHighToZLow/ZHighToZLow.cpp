@@ -496,13 +496,12 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
 
-    ZHighStickOp stickOp = llvm::dyn_cast<ZHighStickOp>(op);
     ZHighStickOpAdaptor operandAdaptor(operands);
     StringAttr layout = cast<ZHighStickOp>(op).layoutAttr();
 
-    ZHighStickOpShapeHelper shapeHelper(&stickOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighStickOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -510,7 +509,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Set pre-transformed layout: if NHWC, we can directly stickify from NCHW.
     if (isNHWCLayout(layout))
@@ -612,7 +611,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
 
-    ZHighUnstickOp unstickOp = llvm::dyn_cast<ZHighUnstickOp>(op);
     ZHighUnstickOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.In();
 
@@ -623,9 +621,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     StringAttr layout =
         getZTensorLayoutAttr(rewriter, op->getOperand(0).getType());
 
-    ZHighUnstickOpShapeHelper shapeHelper(&unstickOp, &rewriter, layout);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighUnstickOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -633,7 +631,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Set layout: if NHWC, we can directly unstickify to NCHW.
     if (isNHWCLayout(layout))

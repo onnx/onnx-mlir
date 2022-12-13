@@ -111,7 +111,8 @@ struct ONNXOpShapeHelper {
   // original operation. First call is used for operations where all the results
   // share the same output type, second for operations where all results have
   // their own output types.
-  mlir::LogicalResult computeShapeAndUpdateType(mlir::Type elementType);
+  mlir::LogicalResult computeShapeAndUpdateType(
+      mlir::Type elementType, mlir::Attribute encoding = nullptr);
   mlir::LogicalResult computeShapeAndUpdateTypes(
       mlir::TypeRange elementTypeRange);
 

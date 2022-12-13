@@ -66,36 +66,63 @@ void ZHighStickOp::build(
 }
 
 //===----------------------------------------------------------------------===//
+// ShapeHelper
+//===----------------------------------------------------------------------===//
+
+LogicalResult ZHighStickOpShapeHelper::computeShape() {
+  auto stickOp = llvm::dyn_cast<ZHighStickOp>(op);
+  ZHighStickOp::Adaptor operandAdaptor(operands);
+
+  // Output dims of result.
+  DimsExpr outputDims;
+
+  // Get operands and bounds.
+  Value input = operandAdaptor.In();
+  MemRefBoundsIndexCapture inBounds(input);
+  int64_t rank = inBounds.getRank();
+
+  for (int64_t i = 0; i < rank; ++i)
+    outputDims.emplace_back(inBounds.getDim(i));
+
+  // Direct stickify from NCHW to NHWC.
+  if (isNHWCLayout(stickOp.layoutAttr())) {
+    assert((rank == 4) && "Stickify input must have rank 4");
+    // NCHW -> NHWC
+    outputDims[0] = inBounds.getDim(0);
+    outputDims[1] = inBounds.getDim(2);
+    outputDims[2] = inBounds.getDim(3);
+    outputDims[3] = inBounds.getDim(1);
+  }
+
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Shape inference
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighStickOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(In()))
+  Value input = In();
+  if (!hasRankedType(input))
     return success();
 
-  OpBuilder builder(this->getContext());
-  ShapedType inputType = In().getType().cast<ShapedType>();
-  ArrayRef<int64_t> inputShape = inputType.getShape();
-
-  ZHighStickOpAdaptor operandAdaptor(*this);
-  ZHighStickOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return emitError("Failed to scan ZHigh Stick parameters successfully");
-
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-
+  auto inputType = input.getType().cast<RankedTensorType>();
   StringAttr layout = layoutAttr();
+  Type elementType = inputType.getElementType();
+  int64_t rank = inputType.getRank();
+
   ZTensorEncodingAttr::DataLayout dataLayout;
   if (layout)
     dataLayout = convertStringAttrToZTensorDataLayout(layout);
   else
-    dataLayout = getZTensorDataLayoutByRank(inputShape.size());
+    dataLayout = getZTensorDataLayoutByRank(rank);
+  auto encoding = ZTensorEncodingAttr::get(this->getContext(), dataLayout);
 
-  updateType(getResult(), outputDims, inputType.getElementType(),
-      ZTensorEncodingAttr::get(this->getContext(), dataLayout));
-  return success();
+  ZHighStickOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
 }
 
 //===----------------------------------------------------------------------===//
