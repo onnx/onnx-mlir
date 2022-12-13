@@ -24,20 +24,10 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXGatherElementsOpShapeHelper::computeShape(
-    ONNXGatherElementsOpAdaptor operandAdaptor) {
-  MemRefBoundsIndexCapture indicesBounds(operandAdaptor.indices());
-  DimsExpr indicesDims;
-  indicesBounds.getDimList(indicesDims);
-
-  // Output has the shape of indices.
-  DimsExpr outputDims;
-  int64_t indicesRank = indicesDims.size();
-  for (int i = 0; i < indicesRank; ++i)
-    outputDims.emplace_back(indicesDims[i]);
-
-  setOutputDims(outputDims);
-  return success();
+template <>
+LogicalResult ONNXGatherElementsOpShapeHelper::computeShape() {
+  ONNXGatherElementsOpAdaptor operandAdaptor(operands);
+  return computeShapeFromOperand(operandAdaptor.indices());
 }
 
 } // namespace onnx_mlir
@@ -104,13 +94,21 @@ LogicalResult ONNXGatherElementsOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGatherElementsOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the operands shape is not yet known.
   if (llvm::any_of(this->getOperands(),
           [](const Value &op) { return !hasShapeAndRank(op); }))
     return success();
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXGatherElementsOpShapeHelper,
-      ONNXGatherElementsOp, ONNXGatherElementsOpAdaptor>(*this, elementType);
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXGatherElementsOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXGatherElementsOp>;
+} // namespace onnx_mlir

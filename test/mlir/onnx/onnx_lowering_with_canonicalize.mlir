@@ -97,7 +97,7 @@ func.func @test_concat_4(%arg0 : tensor<?x1x?xf32>, %arg1 : tensor<?x3x32xf32>, 
 // -----
 
 func.func @test_sequence_insert(%arg0: tensor<?x4x5xf32>, %arg1:tensor<3x4x5xf32>) -> tensor<3xi64>  {
-  %0 = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<i64>
+  %0 = onnx.Constant {value = dense<0> : tensor<1xi64>} : tensor<i64>
   %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
   %2 = "onnx.NoValue"() {value} : () -> none
   %3 = "onnx.SequenceInsert"(%1, %arg0, %0) : (!onnx.Seq<tensor<*xf32>>, tensor<?x4x5xf32>, tensor<i64>) -> !onnx.Seq<tensor<?x4x5xf32>>
@@ -155,18 +155,18 @@ func.func @test_sequence_insert(%arg0: tensor<?x4x5xf32>, %arg1:tensor<3x4x5xf32
 
 // Check nested if lowering (function computes scalar Sign).
 func.func @test_if_sign(%arg0: tensor<f32>) -> tensor<i32> {
-  %0 = "onnx.Constant"() {value = dense<0.0> : tensor<1xf32>} : () -> tensor<f32>
+  %0 = onnx.Constant {value = dense<0.0> : tensor<1xf32>} : tensor<f32>
   %1 = "onnx.Less"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
   %2 = "onnx.If"(%1) ({
-    %3 = "onnx.Constant"() {value = dense<-1> : tensor<1xi32>} : () -> tensor<i32>
+    %3 = onnx.Constant {value = dense<-1> : tensor<1xi32>} : tensor<i32>
     onnx.Return %3 : tensor<i32>
   }, {
     %4 = "onnx.Greater"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
     %5 = "onnx.If"(%4) ({
-      %6 = "onnx.Constant"() {value = dense<1> : tensor<1xi32>} : () -> tensor<i32>
+      %6 = onnx.Constant {value = dense<1> : tensor<1xi32>} : tensor<i32>
       onnx.Return %6 : tensor<i32>
     }, {
-      %7 = "onnx.Constant"() {value = dense<0> : tensor<1xi32>} : () -> tensor<i32>
+      %7 = onnx.Constant {value = dense<0> : tensor<1xi32>} : tensor<i32>
       onnx.Return %7 : tensor<i32>
     }) : (tensor<i1>) -> tensor<i32>
     onnx.Return %5 : tensor<i32>
@@ -224,7 +224,7 @@ func.func private @test_squeezev11_unknown_dimensions(%arg0 : tensor<?x1x32x?x64
 // -----
 
 func.func private @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0 = onnx.Constant dense<[1, -2]> : tensor<2xi64>
   %1 = "onnx.Squeeze"(%arg0, %0) : (tensor<?x1x32x?x64xf32>, tensor<2xi64>) -> (tensor<*xf32>)
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
@@ -243,9 +243,9 @@ func.func private @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf3
 // Slice where all the parameters are constant.
 func.func @test_slice_constant_default_axes(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
   %axes = "onnx.NoValue"() {value} : () -> none
-  %starts = "onnx.Constant"() {value = dense<[1, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %ends = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %steps = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %starts = onnx.Constant dense<[1, 0]> : tensor<2xi64>
+  %ends = onnx.Constant dense<[2, 3]> : tensor<2xi64>
+  %steps = onnx.Constant dense<[1, 2]> : tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, none, tensor<2xi64>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
@@ -267,9 +267,9 @@ func.func @test_slice_constant_default_axes(%arg0 : tensor<2x4xf32>) -> tensor<*
 // -----
 
 func.func @test_slice_constant_default_steps(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
-  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %starts = "onnx.Constant"() {value = dense<[1, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %ends = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %axes = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+  %starts = onnx.Constant dense<[1, 0]> : tensor<2xi64>
+  %ends = onnx.Constant dense<[2, 3]> : tensor<2xi64>
   %steps = "onnx.NoValue"() {value} : () -> none
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, none) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
@@ -291,10 +291,10 @@ func.func @test_slice_constant_default_steps(%arg0 : tensor<2x4xf32>) -> tensor<
 // -----
 
 func.func @test_slice_all_constant(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
-  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %starts = "onnx.Constant"() {value = dense<[1, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %ends = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %steps = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %axes = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+  %starts = onnx.Constant dense<[1, 0]> : tensor<2xi64>
+  %ends = onnx.Constant dense<[2, 3]> : tensor<2xi64>
+  %steps = onnx.Constant dense<[1, 2]> : tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
@@ -316,10 +316,10 @@ func.func @test_slice_all_constant(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
 // -----
 
 func.func @test_slice_all_constant_negative(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
-  %axes = "onnx.Constant"() {value = dense<[0, -1]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %starts = "onnx.Constant"() {value = dense<[1, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %ends = "onnx.Constant"() {value = dense<[2, -1]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %steps = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %axes = onnx.Constant dense<[0, -1]> : tensor<2xi64>
+  %starts = onnx.Constant dense<[1, 0]> : tensor<2xi64>
+  %ends = onnx.Constant dense<[2, -1]> : tensor<2xi64>
+  %steps = onnx.Constant dense<[1, 2]> : tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
@@ -341,10 +341,10 @@ func.func @test_slice_all_constant_negative(%arg0 : tensor<2x4xf32>) -> tensor<*
 // -----
 
 func.func @test_slice_all_constant_end_outofbound(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
-  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %starts = "onnx.Constant"() {value = dense<[1, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %ends = "onnx.Constant"() {value = dense<[5, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %steps = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %axes = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+  %starts = onnx.Constant dense<[1, 0]> : tensor<2xi64>
+  %ends = onnx.Constant dense<[5, 3]> : tensor<2xi64>
+  %steps = onnx.Constant dense<[1, 2]> : tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
@@ -366,10 +366,10 @@ func.func @test_slice_all_constant_end_outofbound(%arg0 : tensor<2x4xf32>) -> te
 // -----
 
 func.func @test_slice_all_constant_negative_steps(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
-  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %starts = "onnx.Constant"() {value = dense<[1, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %ends = "onnx.Constant"() {value = dense<[2, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %steps = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %axes = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+  %starts = onnx.Constant dense<[1, 3]> : tensor<2xi64>
+  %ends = onnx.Constant dense<[2, 0]> : tensor<2xi64>
+  %steps = onnx.Constant dense<[1, -2]> : tensor<2xi64>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
@@ -392,12 +392,12 @@ func.func @test_slice_all_constant_negative_steps(%arg0 : tensor<2x4xf32>) -> te
 
 // Slice where the data is dyn sized along a non-sliced dim
 func.func @dyntest_slice_constant_dynshape_not_spliced(%arg0 : tensor<?x4x5xf32>) -> tensor<*xf32> {
-  // %data = "onnx.Constant"() {value = dense<[ [ [ 0, 1, 2, 3, 4 ], [ 10, 11, 12, 13, 14 ], [ 20, 21, 22, 23, 24 ], [ 30, 31, 32, 33, 34 ] ], [ [ 100, 101, 102, 103, 104 ], [ 110, 111, 112, 113, 114 ], [ 120, 121, 122, 123, 124 ], [ 130, 131, 132, 133, 134 ] ], [ [ 200, 201, 202, 203, 204 ], [ 210, 211, 212, 213, 214 ], [ 220, 221, 222, 223, 224 ], [ 230, 231, 232, 233, 234 ] ] ] > : tensor<3x4x5xi64> } : () -> tensor<3x4x5xi64>
+  // %data = onnx.Constant dense<[ [ [ 0, 1, 2, 3, 4 ], [ 10, 11, 12, 13, 14 ], [ 20, 21, 22, 23, 24 ], [ 30, 31, 32, 33, 34 ] ], [ [ 100, 101, 102, 103, 104 ], [ 110, 111, 112, 113, 114 ], [ 120, 121, 122, 123, 124 ], [ 130, 131, 132, 133, 134 ] ], [ [ 200, 201, 202, 203, 204 ], [ 210, 211, 212, 213, 214 ], [ 220, 221, 222, 223, 224 ], [ 230, 231, 232, 233, 234 ] ] ] > : tensor<3x4x5xi64>
   // slice * 1-3 1-4 with neg numbers
-  %axes = "onnx.Constant"() {value = dense<[2, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %starts = "onnx.Constant"() {value = dense<[1, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %ends = "onnx.Constant"() {value = dense<[-1, -1]> : tensor<2xi64> } : () -> tensor<2xi64>
-  %steps = "onnx.Constant"() {value = dense<[1, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %axes = onnx.Constant dense<[2, 1]> : tensor<2xi64>
+  %starts = onnx.Constant dense<[1, 1]> : tensor<2xi64>
+  %ends = onnx.Constant dense<[-1, -1]> : tensor<2xi64>
+  %steps = onnx.Constant dense<[1, 1]> : tensor<2xi64>
   %res = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<?x4x5xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
   "func.return"(%res) : (tensor<*xf32>) -> ()
 
@@ -425,10 +425,10 @@ func.func @dyntest_slice_constant_dynshape_not_spliced(%arg0 : tensor<?x4x5xf32>
 // output as a vector
 
 func.func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 : tensor<2xi64>) {
-   %data = "onnx.Constant"() {value = dense<[ [ [ 0, 1, 2, 3, 4 ], [ 10, 11, 12, 13, 14 ], [ 20, 21, 22, 23, 24 ], [ 30, 31, 32, 33, 34 ] ], [ [ 100, 101, 102, 103, 104 ], [ 110, 111, 112, 113, 114 ], [ 120, 121, 122, 123, 124 ], [ 130, 131, 132, 133, 134 ] ], [ [ 200, 201, 202, 203, 204 ], [ 210, 211, 212, 213, 214 ], [ 220, 221, 222, 223, 224 ], [ 230, 231, 232, 233, 234 ] ] ] > : tensor<3x4x5xi64> } : () -> tensor<3x4x5xi64>
+   %data = onnx.Constant dense<[ [ [ 0, 1, 2, 3, 4 ], [ 10, 11, 12, 13, 14 ], [ 20, 21, 22, 23, 24 ], [ 30, 31, 32, 33, 34 ] ], [ [ 100, 101, 102, 103, 104 ], [ 110, 111, 112, 113, 114 ], [ 120, 121, 122, 123, 124 ], [ 130, 131, 132, 133, 134 ] ], [ [ 200, 201, 202, 203, 204 ], [ 210, 211, 212, 213, 214 ], [ 220, 221, 222, 223, 224 ], [ 230, 231, 232, 233, 234 ] ] ] > : tensor<3x4x5xi64>
 
   // slice * 1-3 1-4 with neg numbers
-  %axes = "onnx.Constant"() {value = dense<[2, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %axes = onnx.Constant dense<[2, 1]> : tensor<2xi64>
   %res = "onnx.Slice"(%data, %arg0, %arg1, %axes, %arg2) : (tensor<3x4x5xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<3x?x?xi64>
   return
 
@@ -595,7 +595,7 @@ func.func @test_gemm_c_dyn(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %
 
 // Test tile with constant repeats
 func.func @test_tile1(%arg0 : tensor<4x8xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() { value = dense<[3, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %0 = onnx.Constant dense<[3, 2]> : tensor<2xi64>
   %1 = "onnx.Tile"(%arg0, %0) : (tensor<4x8xf32>, tensor<2xi64>) -> tensor<*xf32>
   return %1 : tensor<*xf32>
 
@@ -647,7 +647,7 @@ func.func @test_tile2(%arg0 : tensor<8xf32>, %arg1 : tensor<1xi64>) -> tensor<*x
 
 // Test gather along axis 0, first example in ONNX for Gather. Positive indices, so no select.
 func.func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
-  %indices = "onnx.Constant"() {value = dense<[[0, 1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
+  %indices = onnx.Constant dense<[[0, 1], [1, 2]]> : tensor<2x2xi64>
   %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
   "func.return"(%0) : (tensor<2x2x2xf32>) -> ()
 
@@ -671,7 +671,7 @@ func.func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 
 // Test gather along axis 0, first example in ONNX for Gather. Positive indices, so no select.
 func.func @test_gather_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
-  %indices = "onnx.Constant"() {value = dense<[[0, -1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
+  %indices = onnx.Constant dense<[[0, -1], [1, 2]]> : tensor<2x2xi64>
   %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
   "func.return"(%0) : (tensor<2x2x2xf32>) -> ()
 
@@ -700,7 +700,7 @@ func.func @test_gather_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 
 // Test gather along axis 1, second example in ONNX for Gather.
 func.func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<3x1x2xf32> {
-  %indices = "onnx.Constant"() {value = dense<[[0, 2]]> : tensor<1x2xi64>} : () -> tensor<1x2xi64>
+  %indices = onnx.Constant dense<[[0, 2]]> : tensor<1x2xi64>
   %0 = "onnx.Gather"(%arg0, %indices) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<3x1x2xf32>
   "func.return"(%0) : (tensor<3x1x2xf32>) -> ()
 
@@ -724,7 +724,7 @@ func.func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<3x1x2xf32> {
 
 // COM: Test GatherElements along axis 0. Positive indices, so no select.
 func.func @test_gather_elements_axis0(%arg0 : tensor<3x3xf32>) -> tensor<2x3xf32> {
-  %indices = "onnx.Constant"() {value = dense<[[1, 2, 0], [2, 0, 0]]> : tensor<2x3xi64>} : () -> tensor<2x3xi64>
+  %indices = onnx.Constant dense<[[1, 2, 0], [2, 0, 0]]> : tensor<2x3xi64>
   %0 = "onnx.GatherElements"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x3xf32>, tensor<2x3xi64>) -> tensor<2x3xf32>
   "func.return"(%0) : (tensor<2x3xf32>) -> ()
 
@@ -748,7 +748,7 @@ func.func @test_gather_elements_axis0(%arg0 : tensor<3x3xf32>) -> tensor<2x3xf32
 
 // Test GatherElements along axis 0. Negative indices.
 func.func @test_gather_elements_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2xf32> {
-  %indices = "onnx.Constant"() {value = dense<[[0, -1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
+  %indices = onnx.Constant dense<[[0, -1], [1, 2]]> : tensor<2x2xi64>
   %0 = "onnx.GatherElements"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2xf32>
   "func.return"(%0) : (tensor<2x2xf32>) -> ()
 
@@ -777,7 +777,7 @@ func.func @test_gather_elements_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2x
 
 // COM: Test GatherElements along axis 1. Positive indices, so no select.
 func.func @test_gather_elements_axis1(%arg0 : tensor<3x2xf32>) -> tensor<2x2xf32> {
-  %indices = "onnx.Constant"() {value = dense<[[0, 0], [1, 0]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
+  %indices = onnx.Constant dense<[[0, 0], [1, 0]]> : tensor<2x2xi64>
   %0 = "onnx.GatherElements"(%arg0, %indices) {axis = 1 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2xf32>
   "func.return"(%0) : (tensor<2x2xf32>) -> ()
 
@@ -801,7 +801,7 @@ func.func @test_gather_elements_axis1(%arg0 : tensor<3x2xf32>) -> tensor<2x2xf32
 
 // COM: test split with unknown dimensions and explicit split.
 func.func @test_split_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
-  %split = "onnx.Constant"() {value = dense<[2, 30]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %split = onnx.Constant dense<[2, 30]> : tensor<2xi64>
   %0, %1 = "onnx.Split"(%arg0, %split) { axis = 1 : si64} : (tensor<?x?x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
   "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
@@ -2438,8 +2438,8 @@ func.func @pad_reflect_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %a
 // -----
 
 func.func @pad_constant_mode_constant_pads(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
-  %0 = "onnx.Constant"() {value = dense<[0, 3, 2, 1]> : tensor<4xi64> } : () -> tensor<4xi64>
-  %1 = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<1xf32> } : () -> tensor<1xf32>
+  %0 = onnx.Constant dense<[0, 3, 2, 1]> : tensor<4xi64>
+  %1 = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
   %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<16x16xf32>, tensor<4xi64>, tensor<1xf32>) -> tensor<18x20xf32>
   return %2 : tensor<18x20xf32>
 
@@ -2465,7 +2465,7 @@ func.func @pad_constant_mode_constant_pads(%arg0: tensor<16x16xf32>) -> tensor<1
 // -----
 
 func.func @test_expand_with_arith_constant(%arg0 : tensor<2x1x6x1xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Constant"() {value = dense<[7, 1, 5]> : tensor<3xi64> } : () -> tensor<3xi64>
+  %0 = onnx.Constant dense<[7, 1, 5]> : tensor<3xi64>
   %1 = "onnx.Expand"(%arg0, %0) : (tensor<2x1x6x1xf32>, tensor<3xi64>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
 
@@ -2525,7 +2525,7 @@ func.func @test_expand_with_arith_constant(%arg0 : tensor<2x1x6x1xf32>) -> tenso
 // -----
 
 func.func @test_cumsum_constant_axis(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
-  %axis ="onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %axis = onnx.Constant dense<1> : tensor<i32>
   %0 = "onnx.CumSum"(%arg0, %axis) : (tensor<2x3xf64>, tensor<i32>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
 
@@ -2576,7 +2576,7 @@ func.func @test_cumsum_constant_axis(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
 // -----
 
 func.func @test_cumsum_constant_axis_reverse_mode(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
-  %axis ="onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %axis = onnx.Constant dense<1> : tensor<i32>
   %0 = "onnx.CumSum"(%arg0, %axis) {reverse = 1 : si64} : (tensor<2x3xf64>, tensor<i32>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
 
@@ -2628,7 +2628,7 @@ func.func @test_cumsum_constant_axis_reverse_mode(%arg0: tensor<2x3xf64>) -> ten
 
 
 func.func @test_cumsum_constant_axis_exclusive_mode(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
-  %axis ="onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %axis = onnx.Constant dense<1> : tensor<i32>
   %0 = "onnx.CumSum"(%arg0, %axis) {exclusive = 1 : si64} : (tensor<2x3xf64>, tensor<i32>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
 
@@ -2685,7 +2685,7 @@ func.func @test_cumsum_constant_axis_exclusive_mode(%arg0: tensor<2x3xf64>) -> t
 
 
 func.func @test_cumsum_constant_axis_exclusive_reverse_mode(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
-  %axis ="onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %axis = onnx.Constant dense<1> : tensor<i32>
   %0 = "onnx.CumSum"(%arg0, %axis) {exclusive = 1 : si64, reverse = 1 : si64} : (tensor<2x3xf64>, tensor<i32>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
 
@@ -3685,12 +3685,12 @@ func.func @top_k_unknown_dims(%arg0: tensor<?x?xf32>, %arg1: tensor<1xi64>) -> (
 // -----
 
 func.func @test_loop_tiny_yolo() -> tensor<?xi32> {
-    %0 = "onnx.Constant"() {value = dense<7> : tensor<i64>} : () -> tensor<i64>
-    %1 = "onnx.Constant"() {value = dense<true> : tensor<i1>} : () -> tensor<i1>
-    %2 = "onnx.Constant"() {value = dense<0> : tensor<i32>} : () -> tensor<i32>
+    %0 = onnx.Constant dense<7> : tensor<i64>
+    %1 = onnx.Constant dense<true> : tensor<i1>
+    %2 = onnx.Constant dense<0> : tensor<i32>
     %3:2 = "onnx.Loop"(%0, %1, %2) ( {
     ^bb0(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<i32>):  // no predecessors
-      %4 = "onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+      %4 = onnx.Constant dense<1> : tensor<i32>
       %5 = "onnx.Add"(%arg2, %4) : (tensor<i32>, tensor<i32>) -> tensor<i32>
       onnx.Return %arg1, %5, %arg2 : tensor<i1>, tensor<i32>, tensor<i32>
     }) {input_names = ["i", "cond", "prev"], output_names = ["cond_out", "current", "range"]} : (tensor<i64>, tensor<i1>, tensor<i32>) -> (tensor<i32>, tensor<?xi32>)
@@ -3774,8 +3774,8 @@ func.func @test_transpose_lowered_to_a_view_op_inv(%arg0: tensor<?x1x1x384xf32>)
 // onnx-mlir-opt bibi.mlir -convert-onnx-to-krnl -canonicalize -convert-krnl-to-affine --normalize-memrefs
 module {
   func.func @test_onnx_layout_transform(%arg0: tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32> {
-    %0 = "onnx.LayoutTransform"(%arg0) {target_layout = "NCHW4C"} : (tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32, #onnx.encoding<{dataLayout = "NCHW4C"}>>
-    %1 = "onnx.LayoutTransform"(%0) {target_layout = "STANDARD"} : (tensor<5x3x32x32xf32, #onnx.encoding<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32>
+    %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
+    %1 = "onnx.LayoutTransform"(%0) : (tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32>
     return %1 : tensor<5x3x32x32xf32>
   }
 // CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d1 floordiv 4, d2, d3, d1 mod 4)>

@@ -49,15 +49,15 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     ONNXGatherNDOpAdaptor operandAdaptor(operands);
     ONNXGatherNDOp gatherNDOp = cast<ONNXGatherNDOp>(op);
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
     IndexExprScope outerScope(&rewriter, loc);
 
-    ONNXGatherNDOpShapeHelper shapeHelper(&gatherNDOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Get shape.
+    ONNXGatherNDOpShapeHelper shapeHelper(
+        op, operands, &create.krnlIE, &outerScope);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Operands and attributes.
     Value data = operandAdaptor.data();

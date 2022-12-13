@@ -95,7 +95,7 @@ struct ONNXHardmaxOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
-    auto elementType = memRefType.getElementType();
+    Type elementType = memRefType.getElementType();
     Value zero = create.math.constantIndex(0);
 
     int64_t rank = memRefType.getRank();

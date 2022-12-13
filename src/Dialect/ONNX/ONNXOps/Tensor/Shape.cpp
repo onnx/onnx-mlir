@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -47,13 +46,13 @@ static int64_t normalizeClampedPerSpec(int64_t axis, int64_t rank) {
 
 } // namespace
 
-LogicalResult NewONNXShapeOpShapeHelper::computeShape() {
+LogicalResult ONNXShapeOpShapeHelper::computeShape() {
   ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
   ONNXShapeOpAdaptor operandAdaptor(operands);
   Value data = operandAdaptor.data();
 
-  // Compute and store start/end in NewONNXShapeOpShapeHelper object.
-  int64_t rank = createIE->getTypeRank(data);
+  // Compute and store start/end in ONNXShapeOpShapeHelper object.
+  int64_t rank = createIE->getShapedTypeRank(data);
   start = shapeOp.start();
   start = normalizeClampedPerSpec(start, rank);
   end = shapeOp.end().has_value() ? shapeOp.end().value() : rank;
@@ -67,7 +66,7 @@ LogicalResult NewONNXShapeOpShapeHelper::computeShape() {
   return success();
 }
 
-void NewONNXShapeOpShapeHelper::computeSelectedDataShape(
+void ONNXShapeOpShapeHelper::computeSelectedDataShape(
     DimsExpr &selectedDataShape) {
   assert(start != -1 && end != -1 && "must compute shape first");
   ONNXShapeOpAdaptor operandAdaptor(operands);
@@ -78,7 +77,7 @@ void NewONNXShapeOpShapeHelper::computeSelectedDataShape(
     selectedDataShape.emplace_back(createIE->getShapeAsDim(data, i));
 }
 
-/* static */ void NewONNXShapeOpShapeHelper::getStartEndValues(
+/* static */ void ONNXShapeOpShapeHelper::getStartEndValues(
     ONNXShapeOp shapeOp, int64_t &startVal, int64_t &endVal) {
   // Get rank of data operand.
   ONNXShapeOpAdaptor operandAdaptor(shapeOp);
@@ -105,7 +104,7 @@ LogicalResult ONNXShapeOp::verify() {
   if (!data().getType().isa<RankedTensorType>())
     return success();
   int64_t start, end;
-  NewONNXShapeOpShapeHelper::getStartEndValues(*this, start, end);
+  ONNXShapeOpShapeHelper::getStartEndValues(*this, start, end);
   if (start > end)
     return emitOpError() << "Start: " << start << " is after End: " << end;
   return success();
@@ -116,13 +115,13 @@ LogicalResult ONNXShapeOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXShapeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
     return success();
 
   // Output is an 1D int64 tensor containing the shape of the input tensor.
-  auto elementType = IntegerType::get(getContext(), 64);
-  NewONNXShapeOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = IntegerType::get(getContext(), 64);
+  ONNXShapeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

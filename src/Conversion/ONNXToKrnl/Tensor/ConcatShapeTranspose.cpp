@@ -15,7 +15,6 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -31,15 +30,13 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ONNXConcatShapeTransposeOp concatShapeTransposeOp =
-        llvm::cast<ONNXConcatShapeTransposeOp>(op);
     ONNXConcatShapeTransposeOpAdaptor operandAdaptor(
         operands, op->getAttrDictionary());
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
         create(rewriter, loc);
 
     // Get shape.
-    NewONNXConcatShapeTransposeOpShapeHelper shapeHelper(
+    ONNXConcatShapeTransposeOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 

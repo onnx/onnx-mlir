@@ -29,7 +29,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = ONNXLoc<ONNXLoopOp>(op);
+    Location loc = ONNXLoc<ONNXLoopOp>(op);
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     ONNXLoopOpAdaptor loopOpAdaptor(operands, op->getAttrDictionary());
 
@@ -425,7 +425,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // Suppose the scanout type is is <d1 , d2,... dnxT>
           // Use memref<d1xmemref<d2, ..., dnxT>>
           // seqElementType: memref<d2, ..., dnxT>
-          auto elementType = rankedScanOutTy.getElementType();
+          Type elementType = rankedScanOutTy.getElementType();
           ArrayRef<int64_t> shape1 =
               llvm::makeArrayRef(rankedScanOutTy.getShape().begin() + 1,
                   rankedScanOutTy.getShape().end());
@@ -524,7 +524,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   LogicalResult rewriteWithSCFWhile(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const {
-    auto loc = ONNXLoc<ONNXLoopOp>(op);
+    Location loc = ONNXLoc<ONNXLoopOp>(op);
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);

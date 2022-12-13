@@ -24,19 +24,19 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXGatherNDOpShapeHelper::computeShape(
-    ONNXGatherNDOpAdaptor operandAdaptor) {
+template <>
+LogicalResult ONNXGatherNDOpShapeHelper::computeShape() {
+  ONNXGatherNDOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   Value data = operandAdaptor.data();
   Value indices = operandAdaptor.indices();
-  MemRefBoundsIndexCapture dataBounds(data);
-  MemRefBoundsIndexCapture indicesBounds(indices);
   DimsExpr dataDims, indicesDims;
-  dataBounds.getDimList(dataDims);
-  indicesBounds.getDimList(indicesDims);
+  createIE->getShapeAsDims(data, dataDims);
+  createIE->getShapeAsDims(indices, indicesDims);
 
   int64_t dataRank = dataDims.size();
   int64_t indicesRank = indicesDims.size();
-  int64_t b = op->batch_dims();
+  // int64_t b = op->batch_dims();
+  int64_t b = operandAdaptor.batch_dims();
 
   assert(indices.getType().isa<ShapedType>() && "Expecting a shaped type");
   auto indicesType = indices.getType().cast<ShapedType>();
@@ -44,7 +44,7 @@ LogicalResult ONNXGatherNDOpShapeHelper::computeShape(
   int64_t indicesLastDim = indicesShape[indicesRank - 1];
   int64_t outputRank = dataRank + indicesRank - indicesLastDim - 1 - b;
 
-  // Ensure the operator contraints are statisfied.
+  // Ensure the operator constraints are satisfied.
   assert(dataRank >= 1 && "dataRank should be >= 1");
   assert(indicesRank >= 1 && "indicesRank should be >= 1");
   assert(b >= 0 && "batch_dim should not be negative");
@@ -169,7 +169,7 @@ LogicalResult ONNXGatherNDOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGatherNDOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the shape of the output if the inputs shape is not yet known.
   if (llvm::any_of(
           this->getOperands(), [](Value op) { return !hasShapeAndRank(op); }))
@@ -185,8 +185,15 @@ LogicalResult ONNXGatherNDOp::inferShapes(
   if (indicesShape[indicesRank - 1] < 0)
     return success(); // cannot infer the oputput shape yet.
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXGatherNDOpShapeHelper, ONNXGatherNDOp,
-      ONNXGatherNDOpAdaptor>(*this, elementType);
-  return success();
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXGatherNDOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXGatherNDOp>;
+} // namespace onnx_mlir

@@ -64,9 +64,8 @@ llvm::StringRef convertONNXTensorDataLayoutToString(
 // Add ONNX tensor encoding to ranked & shaped types. Return type only has the
 // encoding if the layout is custom, Currently assert for non ranked/shaped
 // type.
-mlir::Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-    mlir::Builder &builder, const mlir::Type inputType,
-    mlir::StringAttr layoutAttr);
+mlir::Type convertTensorTypeToTensorTypeWithEncoding(
+    const mlir::Type inputType, mlir::Attribute encodingAttr);
 
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
 bool isONNXTensor(const mlir::Type type);
@@ -204,34 +203,10 @@ bool hasShapeAndRank(mlir::Value val);
 // Support for Rewrite.
 //===----------------------------------------------------------------------===//
 
-// Create a DenseElementsAttr from a float attribute.
+// Create a (rank 1) DenseElementsAttr from a float attribute.
 mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::FloatAttr attr);
-
-mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
-    mlir::PatternRewriter &rewriter, mlir::Type elementType,
-    llvm::SmallVector<mlir::Attribute> attrs);
-
-// Create a DenseElementsAttr from a integer attribute.
-// The attribute is assumed to be SingedInteger.
-mlir::DenseElementsAttr createDenseElementsAttrFromIntegerAttr(
-    mlir::PatternRewriter &rewriter, mlir::Type elementType,
-    mlir::IntegerAttr attr);
-
-mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
-    mlir::PatternRewriter &rewriter, mlir::Type elementType,
-    llvm::SmallVector<mlir::Attribute> attrs);
-
-// Integer attribute is assumed to be Signedless
-mlir::DenseElementsAttr createDenseElementsAttrFromIntegerAttrs(
-    mlir::PatternRewriter &rewriter, mlir::Type elementType,
-    llvm::SmallVector<mlir::Attribute> attrs);
-
-// Create a DenseElementsAttr from a String attribute.
-mlir::DenseElementsAttr createDenseElementsAttrFromStringAttrs(
-    mlir::PatternRewriter &rewriter, mlir::Type elementType,
-    llvm::SmallVector<mlir::Attribute> attrs);
 
 /// Create a DenseElementsAttr from a raw buffer.
 mlir::DenseElementsAttr createDenseElementsAttrFromRawBuffer(

@@ -23,7 +23,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXScatterOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -94,7 +94,7 @@ LogicalResult ONNXScatterElementsOp::verify() {
 }
 
 LogicalResult ONNXScatterElementsOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -184,6 +184,6 @@ LogicalResult ONNXScatterNDOp::verify() {
 }
 
 LogicalResult ONNXScatterNDOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }

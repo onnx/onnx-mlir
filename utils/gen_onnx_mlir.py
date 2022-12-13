@@ -46,7 +46,7 @@ parser.add_argument("--check-operation-version",
                     action="store_true",
                     default=False)
 parser.add_argument("--list-operation-version",
-                    help="list the version stored in  version_dicts without performing checks",
+                    help="list the version stored in version_dicts without performing checks",
                     action="store_true",
                     default=False)
 
@@ -69,7 +69,7 @@ if (not check_operation_version and not list_operation_version) and current_onnx
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
- 
+
 version_dict = {
  'Abs': [13],
  'Acos': [7],
@@ -267,7 +267,7 @@ version_dict = {
  'TreeEnsembleRegressor': [1],
  'Unique': [11],
  'Unsqueeze': [13, 11],
- 'Upsample': [10, 9, 7],
+ 'Upsample': [9, 7],
  'Where': [16],
  'Xor': [7],
  'ZipMap': [1]}
@@ -292,6 +292,11 @@ special_op_handler = dict([
     ("Slice", "ImportNodeSlice"),
 ])
 
+# Operations with custom assembly format (alphabetical order).
+OpsWithCustomAssemblyFormat = [
+    'Constant',
+]
+
 # Operations supporting canonicalization (alphabetical order).
 OpsWithCanonicalizer = [
     'Add',
@@ -311,6 +316,7 @@ OpsWithCanonicalizer = [
     'RNN',
     'Shape',
     'Size',
+    'SoftmaxV11',
     'SpaceToDepth',
     'Squeeze',
     'SqueezeV11',
@@ -327,7 +333,7 @@ OpsWithVerifier = [
     'ArgMin',
     'AveragePool',
     'BitShift',
-    'CategoryMapper',    
+    'CategoryMapper',
     'Compress',
     'Concat',
     'ConcatFromSequence',
@@ -342,7 +348,7 @@ OpsWithVerifier = [
     'Flatten',
     'Gather',
     'GatherElements',
-    'GatherND',        
+    'GatherND',
     'Greater',
     'GreaterOrEqual',
     'Hardmax',
@@ -387,7 +393,7 @@ OpsWithVerifier = [
 ]
 
 # Op with Helper functions
-# Here the functions are for data flow analysis. 
+# Here the functions are for data flow analysis.
 OpsWithHelpers = {
   "Loop": """
     mlir::Operation::result_range v_final();
@@ -1003,8 +1009,13 @@ def gen_op_def(schema, with_version = False):
         traits.append("OpInterface<\"HasOnnxSubgraphOpInterface\">")
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
-    # Generate decl for canonicalizer.
     indent = inc_indent(indent)
+
+    # Generate decl for custom assembly format.
+    if opName in OpsWithCustomAssemblyFormat:
+        s += indent + 'let hasCustomAssemblyFormat = 1;\n'
+
+    # Generate decl for canonicalizer.
     if opName in OpsWithCanonicalizer:
         s += indent + 'let hasCanonicalizer = 1;\n'
 

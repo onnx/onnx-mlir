@@ -112,6 +112,14 @@ struct TransformValueToONNXData<uint64_t> {
   }
 };
 
+template <>
+struct TransformValueToONNXData<std::string> {
+  static const google::protobuf::RepeatedPtrField<std::string> &data(
+      const onnx::TensorProto &tp) {
+    return tp.string_data();
+  }
+};
+
 template <typename T>
 using DenseElementsAttrBuilder =
     llvm::function_ref<mlir::DenseElementsAttr(llvm::ArrayRef<T>)>;
@@ -242,6 +250,41 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
     return createDenseElmAttr<uint64_t>(externalDataDir, tp, denseBuilder);
   case (onnx::TensorProto::BOOL):
     return createDenseElmAttr<bool>(externalDataDir, tp, denseBuilder);
+  case (onnx::TensorProto::STRING): {
+    /**
+
+      The string type has two differences from other data type:
+      1. Need to explicitly construct StringAttr for DenseElementAttr. ArrayRef
+     of data with other type  can be directly used to construct
+     DenseElementAttr. We can define a different denseBuilder for string.
+      2. Can not to use llvm::sys::getSwappedBytes on std::string type. Need to
+     find out the details.
+
+     Example:
+     auto denseBuilderString = [tensorType](llvm::ArrayRef<std::string>
+     arrayRef) { llvm::SmallVector<mlir::Attribute> attrs; for(auto ref :
+     arrayRef) attrs.emplace_back(mlir::StringAttr::get(tensorType.getContext(),
+     ref)); return mlir::DenseElementsAttr::get(tensorType,
+     llvm::makeArrayRef(attrs.data(), attrs.size()));
+       };
+     auto r = createDenseElmAttr<std::string>(externalDataDir, tp,
+     denseBuilderString);
+
+     **/
+
+    // Exteranl data or raw data of string is not implemented in this  PR.
+    assert(!((tp.has_data_location() &&
+                 tp.data_location() == onnx::TensorProto::EXTERNAL) ||
+               tp.has_raw_data()) &&
+           "Not implemented: import string DenseElementAttr from external or "
+           "raw data");
+    auto data = TransformValueToONNXData<std::string>::data(tp);
+    llvm::SmallVector<mlir::Attribute> myData;
+    for (auto s : data)
+      myData.emplace_back(mlir::StringAttr::get(builder.getContext(), s));
+    return mlir::DenseElementsAttr::get(
+        tensorType, llvm::makeArrayRef(myData.data(), myData.size()));
+  }
   default:
     llvm_unreachable(
         "Failed to import ONNX TensorProto due to unsupported data types.");

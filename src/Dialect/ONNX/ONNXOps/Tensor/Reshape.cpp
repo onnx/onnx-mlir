@@ -24,21 +24,18 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXReshapeOpShapeHelper::computeShape(
-    ONNXReshapeOpAdaptor operandAdaptor) {
-  // Shape inference indicated by passing a null rewriter pointer.
-  // Output dims of results.
+template <>
+LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
+  ONNXReshapeOpAdaptor operandAdaptor(operands);
   DimsExpr outputDims;
 
   // Get info about input data operand.
   Value data = operandAdaptor.data();
-  MemRefBoundsIndexCapture dataBounds(data);
   int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
 
   // Get info about shape operand.
   Value shape = operandAdaptor.shape();
-  ArrayValueIndexCapture shapeCapture(shape, fGetDenseVal, fLoadVal);
-  int64_t outputRank = shape.getType().cast<ShapedType>().getShape()[0];
+  int64_t outputRank = createIE->getShape(shape, 0);
   assert(outputRank != -1 && "Shape tensor must have constant shape");
 
   // Initialize context and results.
@@ -53,18 +50,19 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape(
   // Compute the total number of elements using the input data operand.
   IndexExpr numOfElements = LiteralIndexExpr(1);
   for (unsigned i = 0; i < dataRank; ++i)
-    numOfElements = numOfElements * dataBounds.getDim(i);
+    numOfElements = numOfElements * createIE->getShapeAsDim(data, i);
 
   // Compute the total number of elements from the shape values.
   IndexExpr numOfElementsFromShape = LiteralIndexExpr(1);
   for (unsigned i = 0; i < outputRank; ++i) {
-    SymbolIndexExpr dimShape(shapeCapture.getSymbol(i));
+    IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
     if (dimShape.isUndefined())
       return op->emitError("shape input parameter could not be processed");
     IndexExpr dim;
     if (i < dataRank)
       // dimShape == 0: use dim from the input.
-      dim = dimShape.selectOrSelf(dimShape == 0, dataBounds.getDim(i));
+      dim = dimShape.selectOrSelf(
+          dimShape == 0, createIE->getShapeAsDim(data, i));
     else
       dim = dimShape;
 
@@ -100,7 +98,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReshapeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape tensor is specified.
   if (!data().getType().isa<RankedTensorType>())
     return success();
@@ -118,7 +116,15 @@ LogicalResult ONNXReshapeOp::inferShapes(
   if (outputRank < 0)
     return emitError("Shape tensor must have constant shape");
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXReshapeOpShapeHelper, ONNXReshapeOp,
-      ONNXReshapeOpAdaptor>(*this, elementType);
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXReshapeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXReshapeOp>;
+} // namespace onnx_mlir

@@ -24,20 +24,18 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXGatherOpShapeHelper::computeShape(
-    ONNXGatherOpAdaptor operandAdaptor) {
-  // Shape inference indicated by passing a null rewriter pointer.
+template <>
+LogicalResult ONNXGatherOpShapeHelper::computeShape() {
   // Read data and indices shapes as dim indices.
-  MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
-  MemRefBoundsIndexCapture indicesBounds(operandAdaptor.indices());
+  ONNXGatherOpAdaptor operandAdaptor(operands);
+  ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);
   DimsExpr dataDims, indicesDims;
-  dataBounds.getDimList(dataDims);
-  indicesBounds.getDimList(indicesDims);
+  createIE->getShapeAsDims(operandAdaptor.data(), dataDims);
+  createIE->getShapeAsDims(operandAdaptor.indices(), indicesDims);
 
   int64_t dataRank = dataDims.size();
-  int64_t axisIndex = op->axis();
+  int64_t axisIndex = gatherOp.axis();
   assert(axisIndex >= -dataRank && axisIndex < dataRank && "Invalid axisIndex");
-
   // Negative value means counting dimensions from the back.
   axisIndex = (axisIndex < 0) ? axisIndex + dataRank : axisIndex;
 
@@ -89,12 +87,20 @@ LogicalResult ONNXGatherOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGatherOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (llvm::any_of(this->getOperands(),
           [](const Value &op) { return !hasShapeAndRank(op); }))
     return success();
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXGatherOpShapeHelper, ONNXGatherOp,
-      ONNXGatherOpAdaptor>(*this, elementType);
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXGatherOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXGatherOp>;
+} // namespace onnx_mlir

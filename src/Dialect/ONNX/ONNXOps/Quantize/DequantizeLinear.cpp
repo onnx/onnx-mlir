@@ -113,7 +113,7 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDequantizeLinearOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
 
   if (auto xTy = x().getType().dyn_cast<RankedTensorType>()) {
     auto xShape = xTy.getShape();

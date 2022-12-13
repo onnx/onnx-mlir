@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -25,11 +24,11 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult NewONNXOneHotOpShapeHelper::computeShape() {
+LogicalResult ONNXOneHotOpShapeHelper::computeShape() {
   ONNXOneHotOp oneHotOp = llvm::cast<ONNXOneHotOp>(op);
   ONNXOneHotOpAdaptor operandAdaptor(operands);
   Value indices = operandAdaptor.indices();
-  int64_t indicesRank = createIE->getTypeRank(indices);
+  int64_t indicesRank = createIE->getShapedTypeRank(indices);
 
   // Axis is a required attribute and should have default value of -1.
   axis = oneHotOp.axis();
@@ -114,12 +113,12 @@ LogicalResult ONNXOneHotOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOneHotOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!indices().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = values().getType().cast<ShapedType>().getElementType();
-  NewONNXOneHotOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = values().getType().cast<ShapedType>().getElementType();
+  ONNXOneHotOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -33,9 +34,10 @@ struct ONNXGatherOpLoweringToMhlo : public ConversionPattern {
     ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
     Location loc = op->getLoc();
 
-    ONNXGatherOpShapeHelper shapeHelper(&gatherOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Is it unused?
+    IndexExprBuilderForMhlo createIE(rewriter, loc);
+    ONNXGatherOpShapeHelper shapeHelper(op, operands, &createIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");

@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -27,7 +26,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXConcatOpShapeHelper::computeShape() {
+LogicalResult ONNXConcatOpShapeHelper::computeShape() {
   ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
   ONNXConcatOpAdaptor operandAdaptor(operands);
   unsigned numInputs = op->getNumOperands();
@@ -51,7 +50,6 @@ LogicalResult NewONNXConcatOpShapeHelper::computeShape() {
   // size is used if there is one. Otherwise, the dimension of the first
   // input tensor (implementation dependent) is used for the output tensor.
   DimsExpr outputDims(commonRank);
-  // hi alex Value firstInput = operandAdaptor.inputs()[0];
   for (unsigned dim = 0; dim < commonRank; dim++) {
     outputDims[dim] = createIE->getShapeAsDim(firstInput, dim);
   }
@@ -138,7 +136,7 @@ LogicalResult ONNXConcatOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConcatOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // The check of constraints is kept
   // However, current check handles dynamic dim only for the concat dim
   int inputNum = getNumOperands();
@@ -157,12 +155,12 @@ LogicalResult ONNXConcatOp::inferShapes(
     // Tong Chen:
     // TOFIX: attribute modification should be into canonicalization
     // I did not move the code into ShapeHelper
-    auto builder = mlir::Builder(getContext());
+    auto builder = Builder(getContext());
     axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
-  NewONNXConcatOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXConcatOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(commonType.getElementType());
 }
 
@@ -171,5 +169,5 @@ LogicalResult ONNXConcatOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXConcatOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXConcatOp>;
 } // namespace onnx_mlir

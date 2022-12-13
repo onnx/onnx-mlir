@@ -85,7 +85,7 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSplitToSequenceOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   Value inputValue = input();
   if (!hasShapeAndRank(inputValue))
     return success(); // Cannot infer output shape if input shape isn't known.
