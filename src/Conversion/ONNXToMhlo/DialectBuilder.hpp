@@ -18,7 +18,7 @@
 #include "mlir/IR/Location.h"
 #include "mlir/IR/Value.h"
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
