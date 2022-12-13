@@ -45,9 +45,10 @@ llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
       tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
 
   // Check if the idiv_check for the output dimentions in
-  // https://www.mlplatform.org/tosa/tosa_spec.html#_max_pool2d has no rest. If
-  // it has a rest, we add size(stride) to the end of the padding dimension to
-  // get one dimension up. Height and width need to have seperate values.
+  // https://www.mlplatform.org/tosa/tosa_spec.html#_max_pool2d has no
+  // remainder. If it has a remainder, we add size(stride) to the end of the
+  // padding dimension to get one dimension up. Height and width need to have
+  // seperate values.
   int64_t xAxis = 0;
   if ((inputShape[2] + padsVec[0] + padsVec[2] - kernelShapeVec[0]) %
       stridesVec[0])
@@ -95,7 +96,7 @@ public:
 
     if (inputType.getShape().size() != 4) {
       return rewriter.notifyMatchFailure(
-          maxpoolOp, "TOSA only supports tensors with size 4");
+          maxpoolOp, "TOSA only supports maxpool 2d");
     }
 
     // Construct the transposed type for the new MaxPool OP
@@ -104,14 +105,12 @@ public:
         inputType.getElementType());
 
     if (dilations) {
-      return rewriter.notifyMatchFailure(maxpoolOp,
-          "dilations attribute is unsupported by TOSA and its value "
-          "will be ignored");
+      return rewriter.notifyMatchFailure(
+          maxpoolOp, "dilations attribute is unsupported by TOSA");
     }
     if (storageOrder && storageOrder.getSInt() != 0) {
-      return rewriter.notifyMatchFailure(maxpoolOp,
-          "storage_order attribute is unsupported by TOSA and its "
-          "value will be ignored");
+      return rewriter.notifyMatchFailure(
+          maxpoolOp, "storage_order attribute is unsupported by TOSA");
     }
 
     // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a

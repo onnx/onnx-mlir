@@ -10,7 +10,7 @@
 // =============================================================================
 //
 // This file contains the dialect build for the TOSA dialect. Uses the same
-// implementation as MHLO with minor differences.
+// implementation as ONNXToMhlo with minor differences.
 //
 //===----------------------------------------------------------------------===//
 

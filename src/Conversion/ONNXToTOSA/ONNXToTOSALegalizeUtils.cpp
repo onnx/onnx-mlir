@@ -35,10 +35,9 @@ namespace tosa {
 
 llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
     llvm::ArrayRef<IndexExpr> indexVector) {
-  llvm::SmallVector<int64_t, 4> literalVector;
-  for (const auto &indexExpr : indexVector) {
-    literalVector.push_back(indexExpr.getLiteral());
-  }
+  llvm::SmallVector<int64_t, 4> literalVector(indexVector.size());
+  llvm::transform(indexVector, literalVector.begin(),
+      [](const auto &indexExpr) { return indexExpr.getLiteral(); });
   return literalVector;
 }
 
