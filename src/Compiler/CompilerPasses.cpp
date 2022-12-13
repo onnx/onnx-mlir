@@ -132,8 +132,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
         bufferization::createEmptyTensorToAllocTensorPass());
 
     // Linalg bufferization can be before or after LowerToKrnlPass
-    // However, sice bufferization::AllocTensorOp is in LowerToKrnl temporarily,
-    // these passes have to be called before LowerToKrnlPass
     pm.addNestedPass<func::FuncOp>(createLinalgBufferizePass());
   }
   pm.addPass(onnx_mlir::createLowerToKrnlPass(optLevel, enableParallel));
