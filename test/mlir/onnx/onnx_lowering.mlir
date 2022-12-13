@@ -197,7 +197,7 @@ func.func private @test_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
@@ -220,7 +220,7 @@ func.func private @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK-DAG:       [[VAR_c0_0_:%.+]] = arith.constant 0 : index
   // CHECK-DAG:       [[VAR_c0_1_:%.+]] = arith.constant 0 : index
   // CHECK:           [[VAR_3_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c0_1_]] : memref<?x10xf32>
-  // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to #map([[VAR_3_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10){
+  // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to #map1([[VAR_3_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10){
   // CHECK:             [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK:             [[VAR_5_:%.+]] = math.tanh [[LOAD_PARAM_0_MEM_]] : f32
@@ -244,7 +244,7 @@ func.func private @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = arith.constant {{0.+}} : f32
@@ -272,7 +272,7 @@ func.func private @test_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = arith.constant {{0.+}} : f32
@@ -300,7 +300,7 @@ func.func private @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[COS:%.+]] = math.cos [[LOAD]] : f32
@@ -322,7 +322,7 @@ func.func private @test_sin(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[SIN:%.+]] = math.sin [[LOAD]] : f32
@@ -344,7 +344,7 @@ func.func private @test_log(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[LOG:%.+]] = math.log [[LOAD]] : f32
@@ -366,7 +366,7 @@ func.func private @test_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = arith.constant {{0.+}} : f32
@@ -393,7 +393,7 @@ func.func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = arith.constant {{0.+}} : f32
@@ -504,7 +504,7 @@ func.func private @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = arith.constant {{0.+}} : f32
@@ -533,7 +533,7 @@ func.func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = arith.constant {{0.+}} : f32
@@ -559,7 +559,7 @@ func.func private @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = arith.constant {{0.+}} : f32
@@ -589,7 +589,7 @@ func.func private @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = arith.constant {{0.+}} : f32
@@ -620,7 +620,7 @@ func.func private @test_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ONE:%.+]] = arith.constant {{1.+}} : f32
@@ -643,7 +643,7 @@ func.func private @test_softplus(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
@@ -668,7 +668,7 @@ func.func private @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ABS:%.+]] = math.absf [[LOAD]] : f32
@@ -910,7 +910,7 @@ func.func private @test_reducesum1(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64
 // CHECK:           [[VAR_c3_i64:%.+]] = arith.constant 3 : i64
 // CHECK:           [[VAR_c0_i64:%.+]] = arith.constant 0 : i64
 // CHECK:           [[VAR_2:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.iterate([[VAR_2]]) with ([[VAR_2]] -> [[VAR_arg2:%.+]] = 0 to #map([[VAR_0]])){
+// CHECK:           krnl.iterate([[VAR_2]]) with ([[VAR_2]] -> [[VAR_arg2:%.+]] = 0 to #map1([[VAR_0]])){
 // CHECK:             [[IV:%.+]] = krnl.get_induction_var_value([[VAR_2]]) : (!krnl.loop) -> index
 // CHECK:             [[VAR_6:%.+]] = krnl.load [[VAR_arg1]]{{.*}}[[[IV]]{{.*}} : memref<?xi64>
 // CHECK:             [[VAR_7:%.+]] = arith.cmpi slt, [[VAR_6]], [[VAR_c0_i64]] : i64
@@ -976,7 +976,7 @@ func.func @test_reducesum2(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64>) -> te
 // CHECK:           [[VAR_c3_i64:%.+]] = arith.constant 3 : i64
 // CHECK:           [[VAR_c0_i64:%.+]] = arith.constant 0 : i64
 // CHECK:           [[VAR_5:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.iterate([[VAR_5]]) with ([[VAR_5]] -> [[VAR_arg2:%.+]] = 0 to #map([[VAR_0]])){
+// CHECK:           krnl.iterate([[VAR_5]]) with ([[VAR_5]] -> [[VAR_arg2:%.+]] = 0 to #map1([[VAR_0]])){
 // CHECK:             [[IV:%.+]] = krnl.get_induction_var_value([[VAR_5]]) : (!krnl.loop) -> index
 // CHECK:             [[VAR_9:%.+]] = krnl.load [[VAR_arg1]]{{.}}[[IV]]{{.}} : memref<?xi64>
 // CHECK:             [[VAR_10:%.+]] = arith.cmpi slt, [[VAR_9]], [[VAR_c0_i64]] : i64
@@ -1029,7 +1029,7 @@ func.func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[SQRT:%.+]] = math.sqrt [[LOAD]] : f32
@@ -1209,7 +1209,7 @@ func.func private @test_sign_f(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = arith.constant {{0.+}} : f32
@@ -1237,7 +1237,7 @@ func.func private @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xi32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xi32>
   // CHECK: [[ZERO:%.+]] = arith.constant 0 : i32
@@ -1351,7 +1351,7 @@ func.func private @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[ABS:%.+]] = math.absf [[LOAD]] : f32
@@ -1373,7 +1373,7 @@ func.func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xi32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xi32>
   // CHECK: [[ABS:%.+]] = math.absi [[LOAD]] : i32
@@ -1965,7 +1965,7 @@ func.func private @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) ->
 
   // CHECK: [[CST_VALUE:%.+]] = arith.constant 1.000000e+00 : f32
   // CHECK: [[LOOP_DEF:%.+]]:3 = krnl.define_loops 3
-  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg1 = 0 to #map([[DIM_0]]), [[LOOP_DEF]]#1 -> %arg2 = 0 to #map1([[DIM_0]], [[DIM_1]]), [[LOOP_DEF]]#2 -> %arg3 = 0 to #map2([[DIM_0]], [[DIM_1]], [[DIM_2]])){
+  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg1 = 0 to #map([[DIM_0]]), [[LOOP_DEF]]#1 -> %arg2 = 0 to #map2([[DIM_0]], [[DIM_1]]), [[LOOP_DEF]]#2 -> %arg3 = 0 to #map3([[DIM_0]], [[DIM_1]], [[DIM_2]])){
   // CHECK:   [[IV:%.+]]:3 = krnl.get_induction_var_value([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
   // CHECK:   krnl.store [[CST_VALUE]], [[RES]][[[IV]]#0, [[IV]]#1, [[IV]]#2] : memref<?x?x?xf32>
   // CHECK: }
@@ -2046,10 +2046,10 @@ func.func private @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
 // CHECK-DAG:         [[CST_2_1_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:         [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK:             [[VAR_7_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_3_]] : memref<2x?x4xf32>
-// CHECK-DAG:         [[VAR_8_:%.+]] = affine.apply #map([[I_0_]], [[I_1_]]){{.}}[[CST_2_1_]], [[VAR_7_]]{{.}}
+// CHECK-DAG:         [[VAR_8_:%.+]] = affine.apply #map2([[I_0_]], [[I_1_]]){{.}}[[CST_2_1_]], [[VAR_7_]]{{.}}
 // CHECK-DAG:         [[CST_2_2_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:         [[CST_4_:%.+]] = arith.constant 4 : index
-// CHECK:             [[VAR_9_:%.+]] = affine.apply #map1([[I_2_]]){{.}}[[CST_4_]]{{.}}
+// CHECK:             [[VAR_9_:%.+]] = affine.apply #map3([[I_2_]]){{.}}[[CST_4_]]{{.}}
 // CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_8_]], [[VAR_9_]]{{.}} : memref<?x4xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x4xf32>
@@ -2108,7 +2108,7 @@ func.func private @test_floor(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[FLOOR:%.+]] = math.floor [[LOAD]] : f32
@@ -2130,7 +2130,7 @@ func.func private @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = arith.constant 0 : index
   // CHECK: [[C0_1:%.+]] = arith.constant 0 : index
   // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_1]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to #map1([[DIM_2]]), [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10){
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
   // CHECK: [[CEIL:%.+]] = math.ceil [[LOAD]] : f32
   // CHECK: krnl.store [[CEIL]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<?x10xf32>
@@ -2704,7 +2704,7 @@ func.func @test_reversesequence_1(%arg0: tensor<10x?xf32>, %arg1: tensor<10xi64>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_0_]]) {{.*}}: memref<10x?xf32>
 // CHECK-DAG:       [[VAR_c1_0_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to #map([[VAR_0_]])){
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to #map1([[VAR_0_]])){
 // CHECK:             [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[IV]]#1] : memref<10xi64>
 // CHECK:             [[VAR_4_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
