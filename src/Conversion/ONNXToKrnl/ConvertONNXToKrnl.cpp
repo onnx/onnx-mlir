@@ -25,31 +25,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct BufferAllocTensorOpLowering : public ConversionPattern {
-  BufferAllocTensorOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            bufferization::AllocTensorOp::getOperationName(), 1, ctx) {}
-
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-
-    Location loc = op->getLoc();
-    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
-
-    auto alloc =
-        create.mem.alloc(typeConverter->convertType(op->getResult(0).getType())
-                             .cast<MemRefType>(),
-            operands);
-    rewriter.replaceOp(op, alloc->getResults());
-    return success();
-  }
-};
-
-void populateLoweringBufferAllocTensorOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<BufferAllocTensorOpLowering>(typeConverter, ctx);
-}
-
 //===----------------------------------------------------------------------===//
 // EntryPoint Op lowering to Krnl Entry Point.
 //===----------------------------------------------------------------------===//
@@ -282,8 +257,6 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXSequenceLengthOpPattern(patterns, typeConverter, ctx);
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(ctx);
-  // Experiment: lowering bufferization::AllocTensorOp to memref alloc
-  populateLoweringBufferAllocTensorOpPattern(patterns, typeConverter, ctx);
 }
 
 //===----------------------------------------------------------------------===//

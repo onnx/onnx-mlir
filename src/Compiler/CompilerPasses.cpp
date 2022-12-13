@@ -124,13 +124,17 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
         onnx_mlir::createInstrumentONNXSignaturePass());
   if (enableLinalg) {
     pm.addPass(onnx_mlir::createLowerONNXToLinalgPass());
+
+    // Convert tensor.EmptyOp to bufferization.alloc_tensor
+    // This pass has to come before Linalg Bufferize pass.
+    // Otherwise, the bufferization.alloc_tensor will not be lowered
+    pm.addNestedPass<func::FuncOp>(
+        bufferization::createEmptyTensorToAllocTensorPass());
+
     // Linalg bufferization can be before or after LowerToKrnlPass
     // However, sice bufferization::AllocTensorOp is in LowerToKrnl temporarily,
     // these passes have to be called before LowerToKrnlPass
     pm.addNestedPass<func::FuncOp>(createLinalgBufferizePass());
-    // Convert tensor.EmptyOp to bufferization.alloc_tensor
-    pm.addNestedPass<func::FuncOp>(
-        bufferization::createEmptyTensorToAllocTensorPass());
   }
   pm.addPass(onnx_mlir::createLowerToKrnlPass(optLevel, enableParallel));
   // An additional pass of canonicalization is helpful because lowering
