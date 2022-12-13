@@ -20,6 +20,70 @@ namespace onnx_mlir {
 namespace zhigh {
 
 //===----------------------------------------------------------------------===//
+// ShapeHelper
+//===----------------------------------------------------------------------===//
+
+LogicalResult ZHighConv2DOpShapeHelper::computeShape() {
+  ZHighConv2DOp convOp = llvm::dyn_cast<ZHighConv2DOp>(op);
+  ZHighConv2DOp::Adaptor operandAdaptor(operands);
+  // Get operands.
+  // X: [B, HI, WI, CI]
+  Value X = operandAdaptor.input();
+  // W: [KH, KW, CI, CO]
+  Value W = operandAdaptor.input_kernel();
+  // Get attributes.
+  ArrayAttr strides = convOp.strides();
+  StringRef paddingType = convOp.padding_type();
+
+  // Get bounds
+  MemRefBoundsIndexCapture XBounds(X);
+  MemRefBoundsIndexCapture WBounds(W);
+  IndexExpr B = XBounds.getDim(0);
+  IndexExpr HI = XBounds.getDim(1);
+  IndexExpr WI = XBounds.getDim(2);
+  IndexExpr CI = XBounds.getDim(3);
+  IndexExpr KH = WBounds.getDim(0);
+  IndexExpr KW = WBounds.getDim(1);
+  IndexExpr CO = WBounds.getDim(3);
+  IndexExpr strideH = LiteralIndexExpr(strides[0].cast<IntegerAttr>().getInt());
+  IndexExpr strideW = LiteralIndexExpr(strides[1].cast<IntegerAttr>().getInt());
+
+  // Compute output height and weight.
+  IndexExpr HO, WO;
+  if (paddingType.equals_insensitive("SAME_PADDING")) {
+    HO = HI.ceilDiv(strideH);
+    WO = WI.ceilDiv(strideW);
+  } else if (paddingType.equals_insensitive("VALID_PADDING")) {
+    IndexExpr newHI = HI - KH + 1;
+    IndexExpr newWI = WI - KW + 1;
+    HO = newHI.ceilDiv(strideH);
+    WO = newWI.ceilDiv(strideW);
+  } else {
+    llvm_unreachable("Unsupported padding_type");
+  }
+
+  // Output shape: [B, HO, WO, CO]
+  DimsExpr outputDims;
+  outputDims.emplace_back(B);
+  outputDims.emplace_back(HO);
+  outputDims.emplace_back(WO);
+  outputDims.emplace_back(CO);
+
+  // Keep all original dimensions.
+  allOriginalDims.emplace_back(B);
+  allOriginalDims.emplace_back(CI);
+  allOriginalDims.emplace_back(HI);
+  allOriginalDims.emplace_back(WI);
+  allOriginalDims.emplace_back(CO);
+  allOriginalDims.emplace_back(HO);
+  allOriginalDims.emplace_back(WO);
+
+  // Save the final results.
+  setOutputDims(outputDims);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Verifier
 //===----------------------------------------------------------------------===//
 
@@ -75,18 +139,10 @@ LogicalResult ZHighConv2DOp::inferShapes(
   if (!hasRankedType(input()) || !hasRankedType(input_kernel()))
     return success();
 
-  Builder builder(getContext());
-  ZHighConv2DOpAdaptor operandAdaptor(*this);
-  ZHighConv2DOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return emitError("Failed to scan ZHigh Conv2D parameters successfully");
-
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
-  updateType(getResult(), outputDims, inputType.getElementType(),
-      inputType.getEncoding());
-  return success();
+  ZHighConv2DOpShapeHelper shapeHelper(getOperation());
+  return shapeHelper.computeShapeAndUpdateType(
+      inputType.getElementType(), inputType.getEncoding());
 }
 
 } // namespace zhigh

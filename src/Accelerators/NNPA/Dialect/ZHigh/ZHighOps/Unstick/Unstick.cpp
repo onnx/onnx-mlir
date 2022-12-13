@@ -102,7 +102,7 @@ LogicalResult ZHighUnstickOp::inferShapes(
   if (!hasRankedType(In()))
     return success();
 
-  ZHighUnstickOpShapeHelper shapeHelper(getOperation(), {});
+  ZHighUnstickOpShapeHelper shapeHelper(getOperation());
   Type elementType = getElementType(In().getType());
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

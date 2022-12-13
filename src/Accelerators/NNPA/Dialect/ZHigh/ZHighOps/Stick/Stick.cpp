@@ -111,7 +111,6 @@ LogicalResult ZHighStickOp::inferShapes(
 
   auto inputType = input.getType().cast<RankedTensorType>();
   StringAttr layout = layoutAttr();
-  Type elementType = inputType.getElementType();
   int64_t rank = inputType.getRank();
 
   ZTensorEncodingAttr::DataLayout dataLayout;
@@ -121,7 +120,8 @@ LogicalResult ZHighStickOp::inferShapes(
     dataLayout = getZTensorDataLayoutByRank(rank);
   auto encoding = ZTensorEncodingAttr::get(this->getContext(), dataLayout);
 
-  ZHighStickOpShapeHelper shapeHelper(getOperation(), {});
+  ZHighStickOpShapeHelper shapeHelper(getOperation());
+  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
   return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
 }
 

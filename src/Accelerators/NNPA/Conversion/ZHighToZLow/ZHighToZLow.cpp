@@ -536,12 +536,11 @@ struct ZHighToZLowStickForLSTMOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighStickForLSTMOp stickOp = llvm::dyn_cast<ZHighStickForLSTMOp>(op);
     ZHighStickForLSTMOpAdaptor operandAdaptor(operands);
 
-    ZHighStickForLSTMOpShapeHelper shapeHelper(&stickOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighStickForLSTMOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -549,7 +548,7 @@ struct ZHighToZLowStickForLSTMOpLowering : public ConversionPattern {
 
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Emit a ZLow operation.
     rewriter.create<ZLowStickForLSTMOp>(loc, operandAdaptor.f_gate(),
@@ -574,12 +573,11 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighStickForGRUOp stickOp = llvm::dyn_cast<ZHighStickForGRUOp>(op);
     ZHighStickForGRUOpAdaptor operandAdaptor(operands);
 
-    ZHighStickForGRUOpShapeHelper shapeHelper(&stickOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighStickForGRUOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -587,7 +585,7 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
 
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Emit a ZLow operation.
     rewriter.create<ZLowStickForGRUOp>(loc, operandAdaptor.z_gate(),
@@ -923,7 +921,7 @@ struct ZHighToZLowMeanReduce2DOpLowering : public ConversionPattern {
 //===----------------------------------------------------------------------===//
 // Lower ZHigh Pool2D to ZLow Pool2D
 //===----------------------------------------------------------------------===//
-template <typename ZHIGHPOOLOP, typename ZHIGHADAPTOR, typename ZLOWPOOLOP>
+template <typename ZHIGHPOOLOP, typename ZLOWPOOLOP>
 struct ZHighToZLowPool2DOpLowering : public ConversionPattern {
   ZHighToZLowPool2DOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -932,17 +930,17 @@ struct ZHighToZLowPool2DOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ZHIGHPOOLOP pool2dOp = llvm::dyn_cast<ZHIGHPOOLOP>(op);
-    ZHIGHADAPTOR operandAdaptor(operands);
+    typename ZHIGHPOOLOP::Adaptor operandAdaptor(operands);
 
     // Helper builders.
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
     IndexExprScope scope(create.krnl);
 
     // Infer shape.
-    ZHighPoolingOpShapeHelper<ZHIGHPOOLOP, ZHIGHADAPTOR> shapeHelper(
-        &pool2dOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighPoolingOpShapeHelper<ZHIGHPOOLOP> shapeHelper(
+        op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert type.
     ZMemRefType zMemRefType =
@@ -950,7 +948,7 @@ struct ZHighToZLowPool2DOpLowering : public ConversionPattern {
 
     // Allocate result buffers.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Create a buffer to store the original shape information.
     Value shapeMemRef =
@@ -977,22 +975,21 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighMatMulOp matmulOp = llvm::dyn_cast<ZHighMatMulOp>(op);
     ZHighMatMulOpAdaptor operandAdaptor(operands);
 
     MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
     IndexExprScope scope(create.krnl);
 
-    ZHighMatMulOpShapeHelper shapeHelper(&matmulOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighMatMulOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
     // Create a 1D MemRef containing necessary dimensions for constructing
@@ -1068,9 +1065,9 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
     IndexExprScope scope(create.krnl);
 
     // Infer shape.
-    ZHighLSTMOpShapeHelper shapeHelper(&lstmOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighLSTMOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert type.
     ZMemRefType hnZMemRefType =
@@ -1080,9 +1077,9 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
 
     // Allocate result buffers.
     Value allocHnOutput = insertAllocAndDeallocZMemRef(
-        hnZMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        hnZMemRefType, shapeHelper.getOutputDims(0), op, rewriter);
     Value allocCfOutput = insertAllocAndDeallocZMemRef(
-        cfZMemRefType, shapeHelper.dimsForOutput(1), op, rewriter);
+        cfZMemRefType, shapeHelper.getOutputDims(1), op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
     // Create a 1D MemRef containing necessary dimensions for constructing
@@ -1156,9 +1153,9 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
     IndexExprScope scope(create.krnl);
 
     // Infer shape.
-    ZHighGRUOpShapeHelper shapeHelper(&gruOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighGRUOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert type.
     ZMemRefType hnZMemRefType =
@@ -1166,7 +1163,7 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
 
     // Allocate result buffers.
     Value allocHnOutput = insertAllocAndDeallocZMemRef(
-        hnZMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        hnZMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
     // Create a 1D MemRef containing necessary dimensions for constructing
@@ -1234,9 +1231,9 @@ struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
     IndexExprScope scope(create.krnl);
 
     // Infer shape.
-    ZHighConv2DOpShapeHelper shapeHelper(&conv2dOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighConv2DOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert type.
     ZMemRefType zMemRefType =
@@ -1244,7 +1241,7 @@ struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
 
     // Allocate result buffers.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Create a buffer to store the original shape information.
     Value shapeMemRef =
@@ -1330,10 +1327,12 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBatchNormOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowConv2DOpLowering>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowPool2DOpLowering<ZHighMaxPool2DOp,
-      ZHighMaxPool2DOpAdaptor, ZLowMaxPool2DOp>>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowPool2DOpLowering<ZHighAvgPool2DOp,
-      ZHighAvgPool2DOpAdaptor, ZLowAvgPool2DOp>>(typeConverter, ctx);
+  patterns
+      .insert<ZHighToZLowPool2DOpLowering<ZHighMaxPool2DOp, ZLowMaxPool2DOp>>(
+          typeConverter, ctx);
+  patterns
+      .insert<ZHighToZLowPool2DOpLowering<ZHighAvgPool2DOp, ZLowAvgPool2DOp>>(
+          typeConverter, ctx);
 }
 
 } // namespace zhigh
