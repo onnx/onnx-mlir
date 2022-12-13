@@ -106,10 +106,11 @@ ONNXGenericReductionOpShapeHelper<ONNXReduceSumOp>::computeShape() {
       // to compte the shape, it is currently residing in Krnl lowering.
 
       // In fact, this case here requires further handling of unranked tensors,
-      // which I doubt we support. But there is currently a lit tests expect the
-      // *xf32 sizes. So leave reporting success here, even though I really
-      // suspect we should report failure.
-      // return op->emitError("does not support unranked reduction output");
+      // which I doubt we support. But there is currently a lit tests
+      // (onnx/onnx_shape_inference.mlir's test_reduce_sum_5) expect the *xf32
+      // sizes. So leave reporting success here, even though I really suspect we
+      // should report failure. return op->emitError("does not support unranked
+      // reduction output");
       return success();
     }
     // With keep dim, by def the output has the same rank as the input; without
