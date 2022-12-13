@@ -530,8 +530,7 @@ struct ONNXGenericReductionOpShapeHelper : public ONNXOpShapeHelper {
   mlir::LogicalResult computeShape() final;
   // Actual computation of the pool shape and parameters using every different
   // switches that differs between pooling and conv ops.
-  mlir::LogicalResult customComputeShape(
-      DimsExpr &axes, int noopWithEmptyAxes);
+  mlir::LogicalResult customComputeShape(DimsExpr &axes, int noopWithEmptyAxes);
   // Values set by customComputeShape.
   llvm::SmallVector<bool, 4> isReductionAxis;
 };
@@ -539,23 +538,23 @@ struct ONNXGenericReductionOpShapeHelper : public ONNXOpShapeHelper {
 using ONNXReduceL1OpShapeHelper =
     ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL1Op>;
 using ONNXReduceL2OpShapeHelper =
-ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL2Op>;
+    ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL2Op>;
 using ONNXReduceLogSumOpShapeHelper =
-ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumOp>;
+    ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumOp>;
 using ONNXReduceLogSumExpOpShapeHelper =
-ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumExpOp>;
+    ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumExpOp>;
 using ONNXReduceMaxOpShapeHelper =
-ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMaxOp>;
+    ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMaxOp>;
 using ONNXReduceMeanOpShapeHelper =
-ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMeanOp>;
+    ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMeanOp>;
 using ONNXReduceMinOpShapeHelper =
-ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMinOp>;
+    ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMinOp>;
 using ONNXReduceProdOpShapeHelper =
-ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceProdOp>;
+    ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceProdOp>;
 using ONNXReduceSumV11OpShapeHelper =
-ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumV11Op>;
+    ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumV11Op>;
 using ONNXReduceSumSquareOpShapeHelper =
-ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumSquareOp>;
+    ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumSquareOp>;
 
 /*
 using ShapeHelper =

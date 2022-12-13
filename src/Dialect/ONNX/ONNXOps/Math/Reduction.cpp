@@ -83,14 +83,10 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::customComputeShape(
 // Default generic computeShape.
 template <typename OP_TYPE>
 LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
-#if 1
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr axes;
   createIE->getIntFromArrayAsLiterals(operandAdaptor.axesAttr(), axes);
   return customComputeShape(axes, /*noopWithEmptyAxes*/ false);
-#else
-  return success();
-#endif
 }
 
 } // namespace onnx_mlir
@@ -180,6 +176,7 @@ static RankedTensorType getReductionOutputType(ShapedType operandTy,
   return RankedTensorType::get(dims, operandTy.getElementType());
 }
 
+#if 0
 // Handle shape inference for reduction like operators.
 template <class OP, class ADAPTOR>
 static LogicalResult inferShapeForReductionOps(OP &op) {
@@ -194,10 +191,10 @@ static LogicalResult inferShapeForReductionOps(OP &op) {
   updateType(op.getResult(), getShape(resultTy), resultTy.getElementType());
   return success();
 }
+#endif
 
 template <class OP_TYPE>
 static LogicalResult inferShapeForReductionOps_xxx(OP_TYPE &op) {
-  #if 1
   typename OP_TYPE::Adaptor operandAdaptor(op);
   if (llvm::any_of(operandAdaptor.getOperands(),
           [](const Value &operand) { return !hasShapeAndRank(operand); }))
@@ -207,9 +204,6 @@ static LogicalResult inferShapeForReductionOps_xxx(OP_TYPE &op) {
       operandAdaptor.data().getType().template cast<ShapedType>();
   ONNXGenericReductionOpShapeHelper<OP_TYPE> shapeHelper(op.getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(dataType.getElementType());
-  #else
-  return success();  // hi alex
-  #endif
 }
 
 } // namespace
