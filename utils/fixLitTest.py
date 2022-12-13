@@ -135,7 +135,7 @@ def run_FileCheck(test_name, compiled_file_name, model_file_name):
         dprint(">> Start failure report of test \"" + test_name + "\".")
         dprint(res)
         dprint(">> Stop failure report of test \"" + test_name + "\".")
-        dprint(">> run again with option \"-t -f " + test_name + 
+        dprint(">> run again with option \"-tdf " + test_name +
             "\" to focus on this test.")
 
 def print_file(file_name):

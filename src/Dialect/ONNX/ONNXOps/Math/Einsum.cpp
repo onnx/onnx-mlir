@@ -44,7 +44,6 @@ LogicalResult ONNXEinsumOpShapeHelper::computeShape() {
   // Limitation: no dynamic shapes are built here.
   DimsExpr outputDims;
   getIndexExprListFromShape(*shape, outputDims);
-  IndexExpr::debugPrint("hi alex, shape in einsum shape helper", outputDims);
   setOutputDims(outputDims);
   return success();
 }
