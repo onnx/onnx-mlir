@@ -27,27 +27,7 @@ using namespace onnx_mlir;
 
 namespace {
 
-// Verify shape for numpy style broadcasting operators.
-template <class OP_TYPE>
 static LogicalResult verifyShapeForBroadcastingOps(
-    OP_TYPE &op, Type elementType = nullptr) {
-  typename OP_TYPE::Adaptor operandAdaptor(op);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // cannot infer when the operands shape is not yet known.
-
-  auto resultTy = op.getOperand(0).getType().template cast<ShapedType>();
-  for (unsigned i = 1; i < op->getNumOperands(); ++i) {
-    auto nextTy = op.getOperand(i).getType().template cast<ShapedType>();
-    resultTy = getBroadcastedType(resultTy, nextTy, elementType);
-    if (resultTy == nullptr)
-      op.emitError("Broadcast op with incompatible dimensions");
-  }
-  return success();
-}
-
-// hi alex
-static LogicalResult verifyShapeForBroadcastingOps_xxx(
     Operation *op, Type elementType = nullptr) {
   if (!operandsOfOpHaveShapesAndRanks(op))
     return success();
@@ -88,7 +68,7 @@ static LogicalResult inferShapeForBroadcastingOps(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXAddOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXAddOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXAddOp::inferShapes(
@@ -101,7 +81,7 @@ LogicalResult ONNXAddOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXAndOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXAndOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXAndOp::inferShapes(
@@ -114,7 +94,7 @@ LogicalResult ONNXAndOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXBitShiftOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXBitShiftOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXBitShiftOp::inferShapes(
@@ -127,7 +107,7 @@ LogicalResult ONNXBitShiftOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDivOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXDivOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXDivOp::inferShapes(
@@ -140,7 +120,7 @@ LogicalResult ONNXDivOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXEqualOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXEqualOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXEqualOp::inferShapes(
@@ -154,7 +134,7 @@ LogicalResult ONNXEqualOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGreaterOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXGreaterOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXGreaterOp::inferShapes(
@@ -168,7 +148,7 @@ LogicalResult ONNXGreaterOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGreaterOrEqualOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXGreaterOrEqualOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXGreaterOrEqualOp::inferShapes(
@@ -183,7 +163,7 @@ LogicalResult ONNXGreaterOrEqualOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLessOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXLessOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXLessOp::inferShapes(
@@ -197,7 +177,7 @@ LogicalResult ONNXLessOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLessOrEqualOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXLessOrEqualOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXLessOrEqualOp::inferShapes(
@@ -211,7 +191,7 @@ LogicalResult ONNXLessOrEqualOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXMaxOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXMaxOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXMaxOp::inferShapes(
@@ -224,7 +204,7 @@ LogicalResult ONNXMaxOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXMeanOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXMeanOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXMeanOp::inferShapes(
@@ -237,7 +217,7 @@ LogicalResult ONNXMeanOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXMinOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXMinOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXMinOp::inferShapes(
@@ -274,7 +254,7 @@ LogicalResult ONNXModOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXMulOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXMulOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXMulOp::inferShapes(
@@ -287,7 +267,7 @@ LogicalResult ONNXMulOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOrOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXOrOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXOrOp::inferShapes(
@@ -321,7 +301,7 @@ LogicalResult ONNXPowOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSubOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXSubOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXSubOp::inferShapes(
@@ -334,7 +314,7 @@ LogicalResult ONNXSubOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSumOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXSumOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXSumOp::inferShapes(
@@ -348,7 +328,7 @@ LogicalResult ONNXSumOp::inferShapes(
 
 LogicalResult ONNXWhereOp::verify() {
   Type resultElementType = X().getType().cast<ShapedType>().getElementType();
-  return verifyShapeForBroadcastingOps<ONNXWhereOp>(*this, resultElementType);
+  return verifyShapeForBroadcastingOps(getOperation(), resultElementType);
 }
 
 LogicalResult ONNXWhereOp::inferShapes(
@@ -362,7 +342,7 @@ LogicalResult ONNXWhereOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXXorOp::verify() {
-  return verifyShapeForBroadcastingOps<ONNXXorOp>(*this);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXXorOp::inferShapes(
