@@ -17,6 +17,7 @@ include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
+include "src/IR/AttrBase.td"
 
 //===----------------------------------------------------------------------===//
 // ZHigh Dialect
@@ -36,11 +37,10 @@ def ZHigh_Dialect : Dialect {
 
 // All of the Tensor attributes will extend this class.
 class ZHigh_Attr<string name, list<Trait> traits = []>
-	: AttrDef<ZHigh_Dialect, name, traits>;
+	: BaseLayoutAttr<ZHigh_Dialect, name, traits>;
 
 // ztensor encoding attribute.
 def ZTensorEncodingAttr : ZHigh_Attr<"ZTensorEncoding"> {
-  let mnemonic = "encoding";
   let hasCustomAssemblyFormat = 1;
 
   let description = [{

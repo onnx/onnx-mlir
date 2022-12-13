@@ -917,3 +917,50 @@ func.func @test_dim_to_constant(%arg0: tensor<?x256xi64>) -> (tensor<1xi64>) {
 // CHECK:     [[RES:%.+]] = onnx.Constant dense<256> : tensor<1xi64>
 // CHECK:     return [[RES]] : tensor<1xi64>
 }
+
+// -----
+
+func.func @test_layout_transform(%arg0: tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>> {
+    %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32,#onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
+    return %0 : tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
+
+// CHECK-LABEL: test_layout_transform 
+// CHECK-NOT: "onnx.LayoutTransform"
+// CHECK: return
+}
+
+// -----
+
+func.func @test_softmax_v11_ranked(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
+  %0 = "onnx.SoftmaxV11"(%arg0) {axis = 2 : si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>
+  return %0 : tensor<10x20x30xf32>
+
+// CHECK-LABEL:  func.func @test_softmax_v11_ranked
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Softmax"([[PARAM_0_]]) {axis = 2 : si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>
+// CHECK:           return [[VAR_0_]] : tensor<10x20x30xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_softmax_v11_unranked_unchanged(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.SoftmaxV11"(%arg0) {axis = 2 : si64} : (tensor<*xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_softmax_v11_unranked_unchanged
+// CHECK: "onnx.SoftmaxV11"
+}
+
+// -----
+
+func.func @test_softmax_v11_unranked(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.SoftmaxV11"(%arg0) {axis = -1 : si64} : (tensor<*xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_softmax_v11_unranked
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Softmax"([[PARAM_0_]]) {axis = -1 : si64} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           return [[VAR_0_]] : tensor<*xf32>
+// CHECK:         }
+}

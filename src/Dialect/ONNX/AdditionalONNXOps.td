@@ -26,6 +26,7 @@
 
 include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
+include "src/IR/AttrBase.td"
 
 //===----------------------------------------------------------------------===//
 // ONNX Ops to assist lowering of ONNX.
@@ -213,25 +214,29 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "An operation that transforms data between different layout formats";
   let description = [{
-    An operation that transforms data between different ONNX layout format.
-    Currently, it supports transformations from standard format to a
-    NCHWxC/KCNMxCyK layout, or back. At this time, only F32 is supported.
+    An operation that transforms a tensor from a layout to another layout. 
+    A layout is defined by an attribute, i.e. `target_layout`, which allows this
+    operation work with an arbitrary layout (e.g. a layout used for accelerators).
 
-    Operations that transforms data from the same ONNX layout format are
-    considered as a no operation and will be removed.
+    `target_layout` is optional. If it is not given, the input tensor will be
+    transformed to a normal tensor that does not have layout.
+
+    If `target_layout` is the same as the input's layout, this operation will
+    become an no-op by canonicalization. 
+
+    The input and output tensors must have the same shape.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C,
-      ONNXTensor_KCMN4C4K]>:$data,
-      DefaultValuedStrAttr<StrAttr, "STANDARD">:$target_layout
-      );
-  let results = (outs AnyTypeOf<[TensorOf<[F32]>, ONNXTensor_NCHW4C,
-      ONNXTensor_KCMN4C4K]>:$Out);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>]>:$data,
+                       OptionalAttr<AnyAttrOf<[LayoutAttr]>>:$target_layout
+  );
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>]>:$output);
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$data, "::mlir::StringAttr":$target_layout)>, // Defined layouts.
+    OpBuilder<(ins "::mlir::Value":$data, "::mlir::Attribute":$target_layout)>, // Defined layouts.
   ];
   let hasCanonicalizer = 1;
+  let hasVerifier = 1;
 }
 
 //===----------------------------------------------------------------------===//
