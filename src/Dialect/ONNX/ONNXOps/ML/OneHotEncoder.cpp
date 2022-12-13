@@ -24,7 +24,7 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-template<>
+template <>
 LogicalResult ONNXOneHotEncoderOpShapeHelper::computeShape() {
   ONNXOneHotEncoderOp oneHotOp = llvm::cast<ONNXOneHotEncoderOp>(op);
   ONNXOneHotEncoderOpAdaptor operandAdaptor(operands);
@@ -52,7 +52,7 @@ LogicalResult ONNXOneHotEncoderOpShapeHelper::computeShape() {
   setOutputDims(outputDims);
   return success();
 }
-}
+} // namespace onnx_mlir
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
