@@ -77,7 +77,7 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::customComputeShape(
 // Default generic computeShape.
 template <typename OP_TYPE>
 LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
-ca  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr axes;
   createIE->getIntFromArrayAsLiterals(operandAdaptor.axesAttr(), axes);
   return customComputeShape(axes, /*noopWithEmptyAxes*/ false);
@@ -236,6 +236,9 @@ LogicalResult ONNXReduceProdOp::inferShapes(
 LogicalResult ONNXReduceSumOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(data()))
+    return success();
+  // Has an interesting axes but not yet shaped, wait for later.
+  if (!isFromNone(axes()) && !hasShapeAndRank(axes()))
     return success();
 
   ShapedType dataType = data().getType().template cast<ShapedType>();
