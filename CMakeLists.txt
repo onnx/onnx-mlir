@@ -125,8 +125,8 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   # Disable warning for non-standard usages of std::complex template which was
   # introduced in MSVC 14.34.
   # More details at https://github.com/microsoft/STL/pull/2759.
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING")
-
 endif()
 
 # Suppress warnings in third party code if requested.
@@ -137,7 +137,7 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
-  elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC") 
+  elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     # MSVC complains when overriding existing warning levels flags, so remove them.
     STRING(REGEX REPLACE "/W[0-4xX]" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
     STRING(REGEX REPLACE "/W[0-4xX]" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
