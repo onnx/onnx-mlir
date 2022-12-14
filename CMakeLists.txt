@@ -117,10 +117,26 @@ else()
   message(WARNING "Java Development component or JNI not found, JNI targets will not work")
 endif()
 
-# Use the new MSVC preprocessor to improve standard conformance.
-if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC") 
+if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  # Use the new MSVC preprocessor to improve standard conformance.
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Zc:preprocessor")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:preprocessor")
+
+  # Starting from MSVC 14.34, the following warning was introduced:
+  #
+  # llvm/include/mlir/IR/BuiltinAttributes.h(353): error C2220: the following
+  # warning is treated as an error
+  #
+  # llvm/include/mlir/IR/BuiltinAttributes.h(353): warning C4996:
+  # 'std::complex<llvm::APFloat>::complex': warning STL4037: The effect of
+  # instantiating the template std::complex for any type other than float,
+  # double, or long double is unspecified.
+  # You can define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING to suppress
+  # this warning.
+  #
+  # Since the code is part of upstream mlir, suppress the warning for now.
+
+  add_definitions(-D_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING)
 endif()
 
 # Suppress warnings in third party code if requested.
