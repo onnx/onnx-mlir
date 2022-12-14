@@ -13,12 +13,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
+
+#include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // Support
@@ -60,22 +61,13 @@ static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
 
 namespace onnx_mlir {
 
-ONNXAveragePoolOpShapeHelper::ONNXAveragePoolOpShapeHelper(Operation *op,
-    ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
-    IndexExprScope *scope)
-    : ONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ false,
-          /*ceil mode, dummy value*/ false, scope) {
-  // Set ceil mode to appropriate value.
-  ONNXAveragePoolOp poolOp = llvm::cast<ONNXAveragePoolOp>(op);
-  ceilMode = poolOp.ceil_mode();
-}
-
+template <>
 LogicalResult ONNXAveragePoolOpShapeHelper::computeShape() {
-  ONNXAveragePoolOp poolOp = llvm::cast<ONNXAveragePoolOp>(op);
   ONNXAveragePoolOpAdaptor operandAdaptor = ONNXAveragePoolOpAdaptor(operands);
+  ONNXAveragePoolOp poolOp = llvm::cast<ONNXAveragePoolOp>(op);
   return customComputeShape(operandAdaptor.X(), /*W*/ nullptr,
       poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
-      /*dilation*/ None);
+      /*dilation*/ None, /*hasFilter*/ false, poolOp.ceil_mode());
 }
 
 } // namespace onnx_mlir
@@ -154,23 +146,14 @@ LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
 
 namespace onnx_mlir {
 
-ONNXMaxPoolSingleOutOpShapeHelper::ONNXMaxPoolSingleOutOpShapeHelper(
-    Operation *op, ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
-    IndexExprScope *scope)
-    : ONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ false,
-          /*ceil mode, dummy value*/ false, scope) {
-  // Set ceil mode to appropriate value.
-  ONNXMaxPoolSingleOutOp poolOp = llvm::cast<ONNXMaxPoolSingleOutOp>(op);
-  ceilMode = poolOp.ceil_mode();
-}
-
+template <>
 LogicalResult ONNXMaxPoolSingleOutOpShapeHelper::computeShape() {
-  ONNXMaxPoolSingleOutOp poolOp = llvm::cast<ONNXMaxPoolSingleOutOp>(op);
   ONNXMaxPoolSingleOutOpAdaptor operandAdaptor =
       ONNXMaxPoolSingleOutOpAdaptor(operands);
+  ONNXMaxPoolSingleOutOp poolOp = llvm::cast<ONNXMaxPoolSingleOutOp>(op);
   return customComputeShape(operandAdaptor.X(), /*W*/ nullptr,
       poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
-      poolOp.dilations());
+      poolOp.dilations(), /*hasFilter*/ false, poolOp.ceil_mode());
 }
 
 } // namespace onnx_mlir
@@ -268,3 +251,14 @@ LogicalResult ONNXMaxRoiPoolOp::inferShapes(
   updateType(getResult(), outputDims, x_type.getElementType());
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation; keep at the end of the file.
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template struct ONNXGenericPoolOpShapeHelper<ONNXAveragePoolOp>;
+template struct ONNXGenericPoolOpShapeHelper<ONNXMaxPoolSingleOutOp>;
+
+} // namespace onnx_mlir

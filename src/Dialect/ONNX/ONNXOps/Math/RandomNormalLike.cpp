@@ -81,6 +81,6 @@ LogicalResult ONNXRandomNormalLikeOp::inferShapes(
     else
       return emitError("dtype attribute is invalid (use: 0, 1 or 2)");
   }
-  updateType(getResult(), inputType.getShape(), elementType);
-  return success();
+
+  return inferShapeForUnaryOps(getOperation(), elementType);
 }
