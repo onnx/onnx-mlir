@@ -32,22 +32,29 @@ namespace onnx_mlir {
 /// Handle shape inference for unary element-wise operators.
 LogicalResult inferShapeForUnaryOps(Operation *op) {
   Value input = op->getOperand(0);
-  Value output = op->getResult(0);
+  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  return inferShapeForUnaryOps(
+      op, inputType.getElementType(), inputType.getEncoding());
+}
 
+/// Handle shape inference for unary element-wise operators with specific output
+/// type.
+LogicalResult inferShapeForUnaryOps(Operation *op, Type elementType) {
+  Value input = op->getOperand(0);
+  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  return inferShapeForUnaryOps(op, elementType, inputType.getEncoding());
+}
+
+/// Handle shape inference for unary element-wise operators with specific output
+/// type and encoding.
+LogicalResult inferShapeForUnaryOps(
+    Operation *op, Type elementType, Attribute encoding) {
+  Value input = op->getOperand(0);
   if (!hasShapeAndRank(input))
     return success();
 
   ONNXUnaryOpShapeHelper shapeHelper(op, {});
-  if (failed(shapeHelper.computeShape()))
-    return op->emitError("Failed to scan parameters successfully");
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.getOutputDims(), outputDims);
-
-  // Inferred shape is getting from the input's shape.
-  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
-  updateType(
-      output, outputDims, inputType.getElementType(), inputType.getEncoding());
-  return success();
+  return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
 }
 
 } // namespace onnx_mlir
@@ -435,14 +442,13 @@ LogicalResult ONNXRoundOp::inferShapes(
 
 LogicalResult ONNXScalerOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto inputType = X().getType().dyn_cast<RankedTensorType>();
-
-  if (!inputType)
+  if (!hasShapeAndRank(X()))
     return success();
 
-  updateType(
-      getResult(), inputType.getShape(), FloatType::getF32(getContext()));
-  return success();
+  ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
+  RankedTensorType xType = X().getType().dyn_cast<RankedTensorType>();
+  return shapeHelper.computeShapeAndUpdateType(
+      FloatType::getF32(getContext()), xType.getEncoding());
 }
 
 //===----------------------------------------------------------------------===//
