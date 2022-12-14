@@ -4,7 +4,9 @@
 #include <assert.h>
 #endif
 
+#ifndef __USE_GNU
 #define __USE_GNU
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,31 +38,43 @@ typedef int(
     compareFunctionType(void *dataPtr, const void *idx1, const void *idx2));
 #define declare_compare_function(fname, typeName, direction, symbol)           \
   int compare##fname##direction(                                               \
-      void *dataPtr, const void *idx1, const void *idx2) {                     \
-    return ((typeName *)dataPtr)[*((uint64_t *)idx1)] symbol(                  \
-        (typeName *)dataPtr)[*((uint64_t *)idx2)];                             \
+      void *dataPtr, const void *idx1p, const void *idx2p) {                   \
+    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
+    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
+    typeName *data = (typeName *)dataPtr;                                      \
+    return (data[idx1] symbol data[idx2]) ||                                   \
+           ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
   }
 #elif defined(_MSC_VER)
 typedef int(__cdecl compareFunctionType)(void *, const void *, const void *);
 #define declare_compare_function(fname, typeName, direction, symbol)           \
   int compare##fname##direction(                                               \
-      void *dataPtr, const void *idx1, const void *idx2) {                     \
-    return ((typeName *)dataPtr)[*((uint64_t *)idx1)] symbol(                  \
-        (typeName *)dataPtr)[*((uint64_t *)idx2)];                             \
+      void *dataPtr, const void *idx1p, const void *idx2p) {                   \
+    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
+    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
+    typeName *data = (typeName *)dataPtr;                                      \
+    return (data[idx1] symbol data[idx2]) ||                                   \
+           ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
   }
 #else
 typedef int(
     compareFunctionType(const void *idx1, const void *idx2, void *dataPtr));
 #define declare_compare_function(fname, typeName, direction, symbol)           \
   int compare##fname##direction(                                               \
-      const void *idx1, const void *idx2, void *dataPtr) {                     \
-    return ((typeName *)dataPtr)[*((uint64_t *)idx1)] symbol(                  \
-        (typeName *)dataPtr)[*((uint64_t *)idx2)];                             \
+      const void *idx1p, const void *idx2p, void *dataPtr) {                   \
+    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
+    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
+    typeName *data = (typeName *)dataPtr;                                      \
+    int ret = (data[idx1] symbol data[idx2]) ||                                \
+              ((data[idx1] == data[idx2]) && (idx1 > idx2));                   \
+    return ret;                                                                \
   }
 #endif
 #define compareFunction(fname, typeName, direction) compare##fname##direction
 // clang-format off
 // declare ascending functions
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
 declare_compare_function(Bool, bool, Ascending, >)
 declare_compare_function(Uint8, uint8_t, Ascending, >)
 declare_compare_function(Int8, int8_t, Ascending, >)
@@ -84,6 +98,7 @@ declare_compare_function(Uint64, uint64_t, Descending, <)
 declare_compare_function(Int64, int64_t, Descending, <)
 declare_compare_function(Float, float, Descending, <)
 declare_compare_function(Double, double, Descending, <)
+#pragma GCC diagnostic pop
 // clang-format on
 
 //
