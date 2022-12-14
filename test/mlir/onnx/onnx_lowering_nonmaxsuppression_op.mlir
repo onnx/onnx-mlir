@@ -1592,9 +1592,12 @@ func.func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: 
   %0 = "onnx.NonMaxSuppression"(%arg0, %arg1, %arg2, %arg3, %arg4) {center_point_box = 1 : si64} : (tensor<?x?x?xf32>, tensor<?x?x?xf32>, tensor<1xi64>, tensor<1xf32>, tensor<1xf32>) -> tensor<*xi64>
   return %0 : tensor<*xi64>
 
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (d1)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2) -> (d2)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1) -> (d0, d1)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<() -> ()>
+// CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<(d0, d1) -> (d1)>
+// CHECK-DAG:   [[MAP_5_:#.+]] = affine_map<(d0, d1, d2) -> (d2)>
 // CHECK-LABEL:  func.func @test_nonmaxsuppression_unknown_dims
 // CHECK-SAME:   ([[BOXES_:%.+]]: memref<?x?x?xf32>, [[SCORES_:%.+]]: memref<?x?x?xf32>, [[MAX_OUTPUT_BOXES_PER_CLASS_:%.+]]: memref<1xi64>, [[IOU_THRESHOLD_:%.+]]: memref<1xf32>, [[SCORE_THRESHOLD_:%.+]]: memref<1xf32>) -> memref<?x3xi64> {
 // CHECK-DAG:       [[CST_9_dot_99999993_:%.+]] = arith.constant 9.99999993E-9 : f32
@@ -1607,21 +1610,21 @@ func.func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK-DAG:       [[VAR_false_:%.+]] = arith.constant false
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_2_1_:%.+]] = arith.constant 2 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_:%.+]] = krnl.load [[MAX_OUTPUT_BOXES_PER_CLASS_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xi64>
 // CHECK-DAG:       [[LOAD_SCORE_THRESHOLD_MEM_:%.+]] = krnl.load [[SCORE_THRESHOLD_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xf32>
 // CHECK-DAG:       [[LOAD_IOU_THRESHOLD_MEM_:%.+]] = krnl.load [[IOU_THRESHOLD_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xf32>
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[SCORES_]], [[CST_0_1_]] : memref<?x?x?xf32>
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[SCORES_]], [[CST_1_1_]] : memref<?x?x?xf32>
+// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[SCORES_]], [[CST_1_]] : memref<?x?x?xf32>
 // CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[SCORES_]], [[CST_2_1_]] : memref<?x?x?xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
 // CHECK:           [[VAR_3_:%.+]] = arith.index_cast [[LOAD_MAX_OUTPUT_BOXES_PER_CLASS_MEM_]] : i64 to index
 // CHECK:           [[VAR_4_:%.+]] = arith.minsi [[VAR_3_]], [[VAR_dim_3_]] : index
 // CHECK:           krnl.store [[VAR_4_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[VAR_dim_4_:%.+]] = memref.dim [[SCORES_]], [[CST_0_1_]] : memref<?x?x?xf32>
-// CHECK-DAG:       [[VAR_dim_5_:%.+]] = memref.dim [[SCORES_]], [[CST_1_1_]] : memref<?x?x?xf32>
+// CHECK-DAG:       [[VAR_dim_5_:%.+]] = memref.dim [[SCORES_]], [[CST_1_]] : memref<?x?x?xf32>
 // CHECK-DAG:       [[VAR_dim_6_:%.+]] = memref.dim [[SCORES_]], [[CST_2_1_]] : memref<?x?x?xf32>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloca() : memref<index>
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloca() : memref<index>
@@ -1636,7 +1639,7 @@ func.func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK:               [[LOAD_SCORES_MEM_:%.+]] = krnl.load [[SCORES_]]{{.}}[[VAR_16_]]#0, [[VAR_16_]]#1, [[VAR_21_]]{{.}} : memref<?x?x?xf32>
 // CHECK-DAG:           [[VAR_23_:%.+]] = arith.cmpf ogt, [[LOAD_SCORES_MEM_]], [[LOAD_SCORE_THRESHOLD_MEM_]] : f32
 // CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<index>
-// CHECK:               [[VAR_25_:%.+]] = arith.addi [[LOAD_RES_1_MEM_]], [[CST_1_1_]] : index
+// CHECK:               [[VAR_25_:%.+]] = arith.addi [[LOAD_RES_1_MEM_]], [[CST_1_]] : index
 // CHECK:               [[VAR_26_:%.+]] = arith.select [[VAR_23_]], [[VAR_25_]], [[LOAD_RES_1_MEM_]] : index
 // CHECK:               krnl.store [[VAR_26_]], [[RES_1_]][] : memref<index>
 // CHECK:             }
@@ -1651,12 +1654,12 @@ func.func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK:           krnl.store [[VAR_8_]], [[RES_]][] : memref<index>
 // CHECK-DAG:       [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[VAR_dim_9_:%.+]] = memref.dim [[SCORES_]], [[CST_0_1_]] : memref<?x?x?xf32>
-// CHECK-DAG:       [[VAR_dim_10_:%.+]] = memref.dim [[SCORES_]], [[CST_1_1_]] : memref<?x?x?xf32>
+// CHECK-DAG:       [[VAR_dim_10_:%.+]] = memref.dim [[SCORES_]], [[CST_1_]] : memref<?x?x?xf32>
 // CHECK-DAG:       [[VAR_dim_11_:%.+]] = memref.dim [[SCORES_]], [[CST_2_1_]] : memref<?x?x?xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc([[VAR_dim_9_]], [[VAR_dim_10_]], [[VAR_dim_11_]]) {{.*}}: memref<?x?x?xindex>
 // CHECK-DAG:       [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
-// CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_9_]]), [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to [[MAP_0_]]1([[VAR_dim_9_]], [[VAR_dim_10_]]), [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to [[MAP_0_]]2([[VAR_dim_9_]], [[VAR_dim_10_]], [[VAR_dim_11_]])){
+// CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_9_]]), [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to [[MAP_4_]]([[VAR_dim_9_]], [[VAR_dim_10_]]), [[LOOP_2_]]#2 -> [[I_5_:%.+]] = 0 to [[MAP_5_]]([[VAR_dim_9_]], [[VAR_dim_10_]], [[VAR_dim_11_]])){
 // CHECK:             [[VAR_16_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             krnl.store [[VAR_16_1_]]#2, [[RES_3_]]{{.}}[[VAR_16_1_]]#0, [[VAR_16_1_]]#1, [[VAR_16_1_]]#2] : memref<?x?x?xindex>
 // CHECK:           }
@@ -1690,16 +1693,16 @@ func.func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK:               [[VAR_27_:%.+]] = arith.andi [[VAR_26_1_]], [[VAR_25_1_]] : i1
 // CHECK:               scf.if [[VAR_27_]] {
 // CHECK-DAG:             [[LOAD_BOXES_MEM_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_16_2_]]#0, [[LOAD_RES_2_MEM_2_]], [[CST_0_1_]]{{.}} : memref<?x?x?xf32>
-// CHECK-DAG:             [[LOAD_BOXES_MEM_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_16_2_]]#0, [[LOAD_RES_2_MEM_2_]], [[CST_1_1_]]{{.}} : memref<?x?x?xf32>
+// CHECK-DAG:             [[LOAD_BOXES_MEM_1_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_16_2_]]#0, [[LOAD_RES_2_MEM_2_]], [[CST_1_]]{{.}} : memref<?x?x?xf32>
 // CHECK-DAG:             [[LOAD_BOXES_MEM_2_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_16_2_]]#0, [[LOAD_RES_2_MEM_2_]], [[CST_2_1_]]{{.}} : memref<?x?x?xf32>
 // CHECK-DAG:             [[LOAD_BOXES_MEM_3_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_16_2_]]#0, [[LOAD_RES_2_MEM_2_]], [[CST_3_]]{{.}} : memref<?x?x?xf32>
 // CHECK-DAG:             [[LOAD_RES_5_MEM_:%.+]] = krnl.load [[RES_5_]][] : memref<index>
 // CHECK:                 krnl.store [[VAR_16_2_]]#0, [[RES_4_]]{{.}}[[LOAD_RES_5_MEM_]], [[CST_0_1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 krnl.store [[VAR_16_2_]]#1, [[RES_4_]]{{.}}[[LOAD_RES_5_MEM_]], [[CST_1_1_]]{{.}} : memref<?x3xindex>
+// CHECK:                 krnl.store [[VAR_16_2_]]#1, [[RES_4_]]{{.}}[[LOAD_RES_5_MEM_]], [[CST_1_]]{{.}} : memref<?x3xindex>
 // CHECK:                 krnl.store [[LOAD_RES_2_MEM_2_]], [[RES_4_]]{{.}}[[LOAD_RES_5_MEM_]], [[CST_2_1_]]{{.}} : memref<?x3xindex>
-// CHECK:                 [[VAR_33_:%.+]] = arith.addi [[LOAD_SCORES_MEM_2_]], [[CST_1_1_]] : index
+// CHECK:                 [[VAR_33_:%.+]] = arith.addi [[LOAD_SCORES_MEM_2_]], [[CST_1_]] : index
 // CHECK:                 krnl.store [[VAR_33_]], [[RES_6_]][] : memref<index>
-// CHECK:                 [[VAR_34_:%.+]] = arith.addi [[LOAD_RES_5_MEM_]], [[CST_1_1_]] : index
+// CHECK:                 [[VAR_34_:%.+]] = arith.addi [[LOAD_RES_5_MEM_]], [[CST_1_]] : index
 // CHECK:                 krnl.store [[VAR_34_]], [[RES_5_]][] : memref<index>
 // CHECK:                 [[LOOP_5_:%.+]] = krnl.define_loops 1
 // CHECK:                 krnl.iterate([[LOOP_5_]]) with ([[LOOP_5_]] -> [[I_9_:%.+]] = [[CST_0_1_]] to [[VAR_dim_3_]]){
@@ -1708,7 +1711,7 @@ func.func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK:                   [[VAR_38_:%.+]] = arith.cmpi eq, [[LOAD_RES_7_MEM_]], [[VAR_false_]] : i1
 // CHECK:                   scf.if [[VAR_38_]] {
 // CHECK-DAG:                 [[LOAD_BOXES_MEM_4_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_16_2_]]#0, [[VAR_36_]], [[CST_0_1_]]{{.}} : memref<?x?x?xf32>
-// CHECK-DAG:                 [[LOAD_BOXES_MEM_5_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_16_2_]]#0, [[VAR_36_]], [[CST_1_1_]]{{.}} : memref<?x?x?xf32>
+// CHECK-DAG:                 [[LOAD_BOXES_MEM_5_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_16_2_]]#0, [[VAR_36_]], [[CST_1_]]{{.}} : memref<?x?x?xf32>
 // CHECK-DAG:                 [[LOAD_BOXES_MEM_6_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_16_2_]]#0, [[VAR_36_]], [[CST_2_1_]]{{.}} : memref<?x?x?xf32>
 // CHECK-DAG:                 [[LOAD_BOXES_MEM_7_:%.+]] = krnl.load [[BOXES_]]{{.}}[[VAR_16_2_]]#0, [[VAR_36_]], [[CST_3_]]{{.}} : memref<?x?x?xf32>
 // CHECK-DAG:                 [[VAR_43_:%.+]] = arith.divf [[LOAD_BOXES_MEM_2_]], [[CST_2_dot_000000_]] : f32
