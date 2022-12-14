@@ -191,21 +191,17 @@ public:
     // Because the bias is not broadcastable for TOSA while it is for Onnx,
     // we create an empty bias and use an add (broadcastable for tosa)
     // afterwards
-    // Base C shape on B[0] shape
+    // Base dummy C shape on B[0] shape
     ArrayRef<int64_t> cformat(B.getType().cast<TensorType>().getShape()[0]);
     std::vector<float> elements = {};
     for (int i = 0; i < cformat[0]; ++i)
       elements.push_back(0.0F);
     Value dummyC = tosa::getConstTensor<float>(rewriter, op, elements, cformat).value();
 
-    //rewriter.replaceOpWithNewOp<mlir::tosa::FullyConnectedOp>(
-    //    op, resultType, A, B, dummyC);
     Value fcRes = tosa::CreateOpAndInfer<mlir::tosa::FullyConnectedOp>(rewriter,
         op->getLoc(), resultType, A, B, dummyC).getResult();
     // If C was present in the original GEMM, we create an add to take the bias into account
     if (!C.getType().isa<mlir::NoneType>()) {
-      // CONST for C
-      // Add
       tosa::CreateReplaceOpAndInfer<mlir::tosa::AddOp>(rewriter, op, resultType, fcRes, C);
     }
     else {
