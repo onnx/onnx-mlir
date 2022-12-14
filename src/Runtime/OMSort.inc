@@ -73,8 +73,10 @@ typedef int(
 #define compareFunction(fname, typeName, direction) compare##fname##direction
 // clang-format off
 // declare ascending functions
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
 declare_compare_function(Bool, bool, Ascending, >)
 declare_compare_function(Uint8, uint8_t, Ascending, >)
 declare_compare_function(Int8, int8_t, Ascending, >)
@@ -98,7 +100,9 @@ declare_compare_function(Uint64, uint64_t, Descending, <)
 declare_compare_function(Int64, int64_t, Descending, <)
 declare_compare_function(Float, float, Descending, <)
 declare_compare_function(Double, double, Descending, <)
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 // clang-format on
 
 //
