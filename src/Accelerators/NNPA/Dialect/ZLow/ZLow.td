@@ -31,6 +31,13 @@ def ZLow_Dialect : Dialect {
 class ZLow_Op<string mnemonic, list<Trait> traits = []> :
     Op<ZLow_Dialect, mnemonic, traits>;
 
+// F16 is used as a container for DLFloat16 that is not supported in MLIR.
+def DLF16 : Type<CPred<"$_self.isF16()">, "dlfloat16 type">,
+                 BuildableType<"$_builder.getF16Type()">;
+
+// MemRef-like type for zTensor.
+def ZMemRef : MemRefOf<[DLF16]>;
+
 //===----------------------------------------------------------------------===//
 // ZLow Operations
 //===----------------------------------------------------------------------===//
@@ -42,10 +49,10 @@ def ZLowAddOp:ZLow_Op<"add", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform an add.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[AnyMemRef]>:$Y,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       ZMemRef:$Y,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$layout);
 }
 
@@ -54,10 +61,10 @@ def ZLowSubOp:ZLow_Op<"sub", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a sub.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[AnyMemRef]>:$Y,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       ZMemRef:$Y,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$layout);
 }
 
@@ -66,10 +73,10 @@ def ZLowMulOp:ZLow_Op<"mul", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a mul.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[AnyMemRef]>:$Y,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       ZMemRef:$Y,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$layout);
 }
 
@@ -78,10 +85,10 @@ def ZLowDivOp:ZLow_Op<"div", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a div.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[AnyMemRef]>:$Y,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       ZMemRef:$Y,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$layout);
 }
 
@@ -90,9 +97,9 @@ def ZLowLogOp:ZLow_Op<"log", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a log.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$layout);
 }
 
@@ -101,9 +108,9 @@ def ZLowExpOp:ZLow_Op<"exp", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a exp.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$layout);
 }
 
@@ -112,10 +119,10 @@ def ZLowMinOp:ZLow_Op<"min", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a min.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[AnyMemRef]>:$Y,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       ZMemRef:$Y,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$layout);
 }
 
@@ -124,10 +131,10 @@ def ZLowMaxOp:ZLow_Op<"max", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a max.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[AnyMemRef]>:$Y,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       ZMemRef:$Y,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$layout);
 }
 
@@ -136,9 +143,9 @@ def ZLowReluOp:ZLow_Op<"relu", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a relu.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$layout);
 }
 
@@ -147,9 +154,9 @@ def ZLowTanhOp:ZLow_Op<"tanh", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a tanh.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$layout);
 }
 
@@ -158,9 +165,9 @@ def ZLowSigmoidOp:ZLow_Op<"sigmoid", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a sigmoid.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$layout);
 }
 
@@ -171,10 +178,10 @@ def ZLowSoftmaxOp:ZLow_Op<"softmax", [MemRefsNormalizable]> {
   work_area: a 4K-aligned buffer.
   act_func: ACT_NONE or ACT_LOG.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[AnyMemRef]>:$work_area,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[I8]>:$work_area,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        StrAttr:$act_func);
 }
 
@@ -197,11 +204,11 @@ def ZLowMatMulOp:ZLow_Op<"matmul", [MemRefsNormalizable]> {
   * is_bcast: -1 broadcasting, 0: no broadcasting.
   * is_stacked: -1 stacked, 0: unstacked.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[AnyMemRef]>:$Y,
-                       AnyTypeOf<[AnyMemRef]>:$Bias,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       ZMemRef:$Y,
+                       ZMemRef:$Bias,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out,
                        DefaultValuedAttr<SI64Attr, "-1">:$is_bcast,
                        DefaultValuedAttr<SI64Attr, "-1">:$is_stacked);
 }
@@ -221,17 +228,17 @@ def ZLowLSTMOp:ZLow_Op<"lstm", [MemRefsNormalizable]> {
   * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep
   * prev_layer for where input comes is "none", "uni", or "bidir"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input,
-                       AnyTypeOf<[AnyMemRef]>:$h0,
-                       AnyTypeOf<[AnyMemRef]>:$c0,
-                       AnyTypeOf<[AnyMemRef]>:$input_weights,
-                       AnyTypeOf<[AnyMemRef]>:$input_bias,
-                       AnyTypeOf<[AnyMemRef]>:$hidden_weights,
-                       AnyTypeOf<[AnyMemRef]>:$hidden_bias,
-                       AnyTypeOf<[AnyMemRef]>:$work_area,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$hn_output,
-                       AnyTypeOf<[AnyMemRef]>:$cf_output,
+  let arguments = (ins ZMemRef:$input,
+                       ZMemRef:$h0,
+                       ZMemRef:$c0,
+                       ZMemRef:$input_weights,
+                       ZMemRef:$input_bias,
+                       ZMemRef:$hidden_weights,
+                       ZMemRef:$hidden_bias,
+                       MemRefOf<[I8]>:$work_area,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$hn_output,
+                       ZMemRef:$cf_output,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
                        DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps,
                        DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
@@ -252,15 +259,15 @@ def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable]> {
   * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
   * prev_layer for where input comes is "none", "uni", or "bidir"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input,
-                       AnyTypeOf<[AnyMemRef]>:$h0,
-                       AnyTypeOf<[AnyMemRef]>:$input_weights,
-                       AnyTypeOf<[AnyMemRef]>:$input_bias,
-                       AnyTypeOf<[AnyMemRef]>:$hidden_weights,
-                       AnyTypeOf<[AnyMemRef]>:$hidden_bias,
-                       AnyTypeOf<[AnyMemRef]>:$work_area,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$hn_output,
+  let arguments = (ins ZMemRef:$input,
+                       ZMemRef:$h0,
+                       ZMemRef:$input_weights,
+                       ZMemRef:$input_bias,
+                       ZMemRef:$hidden_weights,
+                       ZMemRef:$hidden_bias,
+                       MemRefOf<[I8]>:$work_area,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$hn_output,
                        DefaultValuedStrAttr<StrAttr, "forward">:$direction,
                        DefaultValuedAttr<SI64Attr, "-1">:$return_all_steps,
                        DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
@@ -271,8 +278,8 @@ def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable]> {
   let description = [{
   "ZLow operation to perform a stick."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins MemRefOf<[F16, F32]>:$X,
+                       ZMemRef:$Out,
                        OptionalAttr<StrAttr>:$layout);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
@@ -288,11 +295,11 @@ def ZLowStickForLSTMOp:ZLow_Op<"stickForLSTM", [MemRefsNormalizable]> {
   Variadic: list of pointers for input data to be transformed: 
     - LSTM concatenated: 4 data pointers, one for each input gate in Forget, Input, Cell, Output (FICO) order.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$f_gate,
-                       AnyTypeOf<[AnyMemRef]>:$i_gate,
-                       AnyTypeOf<[AnyMemRef]>:$c_gate,
-                       AnyTypeOf<[AnyMemRef]>:$o_gate,
-                       AnyTypeOf<[AnyMemRef]>:$out,
+  let arguments = (ins MemRefOf<[F16, F32]>:$f_gate,
+                       MemRefOf<[F16, F32]>:$i_gate,
+                       MemRefOf<[F16, F32]>:$c_gate,
+                       MemRefOf<[F16, F32]>:$o_gate,
+                       ZMemRef:$out,
                        DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
@@ -303,10 +310,10 @@ def ZLowStickForGRUOp:ZLow_Op<"stickForGRU", [MemRefsNormalizable]> {
   Variadic: list of pointers for input data to be transformed: 
     - GRU concatenated: 3 data pointers, one for each input gate in (Z)update, Reset, Hidden, (ZRH) gate order.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$z_gate,
-                       AnyTypeOf<[AnyMemRef]>:$r_gate,
-                       AnyTypeOf<[AnyMemRef]>:$h_gate,
-                       AnyTypeOf<[AnyMemRef]>:$out,
+  let arguments = (ins MemRefOf<[F16, F32]>:$z_gate,
+                       MemRefOf<[F16, F32]>:$r_gate,
+                       MemRefOf<[F16, F32]>:$h_gate,
+                       ZMemRef:$out,
                        DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
@@ -315,8 +322,8 @@ def ZLowUnstickOp:ZLow_Op<"unstick", [MemRefsNormalizable]> {
   let description = [{
   ZLow operation to perform a unstick.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
-                       AnyTypeOf<[AnyMemRef]>:$Out,
+  let arguments = (ins ZMemRef:$X,
+                       MemRefOf<[F16, F32]>:$Out,
                        OptionalAttr<StrAttr>:$layout);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
@@ -342,11 +349,11 @@ def ZLowConv2DOp:ZLow_Op<"conv2d", [MemRefsNormalizable]> {
   * padding_type: SAME_PADDING or VALID_PADDING.
   * act_func: ACT_NONE or ACT_RELU.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input,
-                       AnyTypeOf<[AnyMemRef]>:$input_kernel,
-                       AnyTypeOf<[AnyMemRef]>:$input_bias,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$output,
+  let arguments = (ins ZMemRef:$input,
+                       ZMemRef:$input_kernel,
+                       ZMemRef:$input_bias,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$output,
                        I64ArrayAttr:$kernel_shape,
                        I64ArrayAttr:$strides,
                        DefaultValuedStrAttr<StrAttr, "SAME_PADDING">:$padding_type,
@@ -368,9 +375,9 @@ def ZLowAvgPool2DOp:ZLow_Op<"avgpool2d", [MemRefsNormalizable]> {
   * strides: 1D array of stride height and width
   * padding_type: SAME_PADDING or VALID_PADDING.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$output,
+  let arguments = (ins ZMemRef:$input,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$output,
                        I64ArrayAttr:$kernel_shape,
                        I64ArrayAttr:$strides,
                        DefaultValuedStrAttr<StrAttr, "SAME_PADDING">:$padding_type
@@ -392,9 +399,9 @@ def ZLowMaxPool2DOp:ZLow_Op<"maxpool2d", [MemRefsNormalizable]> {
   * strides: 1D array of stride height and width
   * padding_type: SAME_PADDING or VALID_PADDING.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$output,
+  let arguments = (ins ZMemRef:$input,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$output,
                        I64ArrayAttr:$kernel_shape,
                        I64ArrayAttr:$strides,
                        DefaultValuedStrAttr<StrAttr, "SAME_PADDING">:$padding_type
@@ -411,9 +418,9 @@ def ZLowMeanReduce2DOp:ZLow_Op<"meanreduce2d", [MemRefsNormalizable]> {
     * 3th item: width": 3rd dim of input
     * 4nd item: channel": 4th dim of input
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$output);
+  let arguments = (ins ZMemRef:$input,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$output);
 }
 
 def ZLowBatchNormOp:ZLow_Op<"batchnorm", [MemRefsNormalizable]> {
@@ -426,11 +433,11 @@ def ZLowBatchNormOp:ZLow_Op<"batchnorm", [MemRefsNormalizable]> {
     * 3rd item: width
     * 4th item: channel
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input,
-                       AnyTypeOf<[AnyMemRef]>:$A,
-                       AnyTypeOf<[AnyMemRef]>:$B,
-                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
-                       AnyTypeOf<[AnyMemRef]>:$output);
+  let arguments = (ins ZMemRef:$input,
+                       ZMemRef:$A,
+                       ZMemRef:$B,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$output);
 }
 
 def ZLowDummyOp:ZLow_Op<"dummy", [MemRefsNormalizable]> {
