@@ -1736,4 +1736,24 @@ void MemRefBoundsIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
     list.emplace_back(get<INDEX>(i));
 }
 
+void getIndexExprListFromInt(llvm::SmallVectorImpl<int64_t> &inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList) {
+  outputList.clear();
+  for (auto item : inputList)
+    outputList.emplace_back(LiteralIndexExpr(item));
+}
+
+// Create a list of IndexExpr of kind LiteralIndexExpr/Questionmark from a
+// shape.
+void getIndexExprListFromShape(llvm::SmallVectorImpl<int64_t> &inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList) {
+  outputList.clear();
+  for (auto item : inputList) {
+    if (item >= 0)
+      outputList.emplace_back(LiteralIndexExpr(item));
+    else
+      outputList.emplace_back(QuestionmarkIndexExpr());
+  }
+}
+
 } // namespace onnx_mlir
