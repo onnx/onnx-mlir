@@ -125,7 +125,7 @@ A multi-threaded experiment from command line written in Python is provided.
 import datetime
 import os
 import threading
- 
+
 def execCmd(cmd):
     try:
         print("command " + cmd + " starts at " + str(datetime.datetime.now()))
@@ -133,14 +133,14 @@ def execCmd(cmd):
         print("command " + cmd + " is finished at " + str(datetime.datetime.now()))
     except:
         print("command " + cmd + " meets errors")
- 
+
 if __name__ == '__main__':
 
 #define 2 different commands
     cmds = ['onnx-mlir -O3 mnist.onnx -o mnist03','onnx-mlir -O1 mnist.onnx -o mnist01']
 
     threads = []
-    
+
     print("program starts at " + str(datetime.datetime.now()))
 
 #run the commands
@@ -171,7 +171,9 @@ The signature of the model inference function for all models is:
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
 ```
 
-I.e., all models ingests an `OMTensorList*`, and returns an `OMTensorList*`. Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html), with the C interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
+OM_EXTERNAL_VISIBILITY const char *const *omQueryEntryPoints(
+    int64_t *numOfEntryPoints);
+I.e., all models ingests an `OMTensorList*`, and returns an `OMTensorList*`. Note, memory is properly freed. Thererfore, the returned `OMTensorList*` does not have to be freed since it is a part of the model. Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html), with the C interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
 
 ### Feeding Inputs and Retrieving Results
 

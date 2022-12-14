@@ -123,8 +123,13 @@
  *
  * \subsection freeing-tensor-memory Freeing Tensor Memory
  *
- * write a section to talk about freeing Tensors memory (ie how buffers, Tensors and TensorLists
- * are handled and the difference between their Create and CreateWithOwnership variants work)
+ *
+ * When creating an OMTensor or OMTensorList with a specified data pointer, a user has the option to
+ * create a tensor or tensorList with or without ownership (omTensorCreateWithOwnership or omTensorListCreateWithOwnership).
+ * If the ownership flag is set to "false", then a user is responsible for freeing memory until the last use.
+ * Otherwise, if the flag is set to "true", then destruction of the tensor (omTensorDestroy or omTensorListDestroy)
+ * will also free any associated memory and data buffers.
+ *
  *
  * \subsection reference Reference
  *
