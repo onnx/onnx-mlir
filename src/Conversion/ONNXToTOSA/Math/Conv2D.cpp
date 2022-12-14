@@ -13,12 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
+#include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include <llvm/ADT/ArrayRef.h>
-#include <llvm/ADT/SmallVector.h>
-#include <mlir/IR/PatternMatch.h>
+#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
+#include <src/Dialect/Mlir/IndexExpr.hpp>
 
 using namespace mlir;
 
@@ -31,10 +30,9 @@ namespace {
 /// Afterwards we have to concat the results into a single tensor
 Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
     Type &resultType, const llvm::ArrayRef<int64_t> weightShape,
-    Value &newInput, Value &newWeight, Value &bias, IntegerAttr &group,
+    Value &newInput, Value &newWeight, Value &bias, const int64_t groups,
     ArrayAttr &pads, ArrayAttr &strides, ArrayAttr &dilations) {
   // Set up constants outside of loop
-  const int64_t groups = group.getSInt();
   const int64_t sizeOfSliceInput = weightShape[1];
   const int64_t sizeOfSliceKernel = weightShape[0] / groups;
   auto newInputShape = newInput.getType().cast<ShapedType>().getShape();
@@ -75,81 +73,81 @@ Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
   return conv2D;
 }
 
-class ONNXConvOpLoweringToTOSA : public OpConversionPattern<ONNXConvOp> {
+class ONNXConvOpLoweringToTOSA : public ConversionPattern {
 public:
-  using OpConversionPattern<ONNXConvOp>::OpConversionPattern;
+  ONNXConvOpLoweringToTOSA(MLIRContext *ctx)
+      : ConversionPattern(ONNXConvOp::getOperationName(), 1, ctx) {}
+
   using OpAdaptor = typename ONNXConvOp::Adaptor;
-  LogicalResult matchAndRewrite(ONNXConvOp op, OpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    OpAdaptor adaptor(operands, op->getAttrDictionary());
+    auto convOp = llvm::cast<ONNXConvOp>(op);
+
     auto input = adaptor.X();
     auto weights = adaptor.W();
     auto bias = adaptor.B();
 
+    auto inputType = input.getType().cast<TensorType>();
     auto weightType = weights.getType().cast<ShapedType>();
+
+    // Get shapehelper for autopad attributes
+    IndexExprBuilderForTosa createTosaIE(rewriter, convOp->getLoc());
+    NewONNXConvOpShapeHelper shapeHelper(op, operands, &createTosaIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     auto weightShape = weightType.getShape();
 
-    StringAttr autopad = adaptor.auto_padAttr();
-    ArrayAttr dilations = adaptor.dilationsAttr();
-    IntegerAttr group = adaptor.groupAttr();
-    ArrayAttr pads = adaptor.padsAttr();
-    ArrayAttr strides = adaptor.stridesAttr();
+    Type resultType = convOp.getResult().getType();
 
-    Type resultType = getTypeConverter()->convertType(op.getResult().getType());
-
-    // NOTE: we would like if inferShapes() had filled in explicit padding
-    // but currently inferShapes() does not do this for ConvOp (it does for
-    // ConvTransposeOp). We have not implemented code for autopad so fail.
-    if (autopad && autopad != "NOTSET")
-      return rewriter.notifyMatchFailure(op, "padding must be explicit");
+    if (inputType.getShape().size() != 4) {
+      return rewriter.notifyMatchFailure(convOp, "TOSA only supports conv 2d");
+    }
 
     // Convert input [N,IC,IH,IW] -> [N,IH,IW,IC]
     Value newInput =
-        tosa::createTosaTransposedTensor(rewriter, op, input, {0, 2, 3, 1});
+        tosa::createTosaTransposedTensor(rewriter, convOp, input, {0, 2, 3, 1});
 
     // Convert weights [OC,IC,KH,KW] -> [OC,KH,KW,IC]
-    Value newWeight =
-        tosa::createTosaTransposedTensor(rewriter, op, weights, {0, 2, 3, 1});
+    Value newWeight = tosa::createTosaTransposedTensor(
+        rewriter, convOp, weights, {0, 2, 3, 1});
 
     if (bias.getType().isa<NoneType>()) {
       DenseElementsAttr newBiasAttr = DenseElementsAttr::get(
           RankedTensorType::get({weightShape[0]}, rewriter.getF32Type()),
           {0.0F});
       bias = rewriter.create<mlir::tosa::ConstOp>(
-          op->getLoc(), newBiasAttr.getType(), newBiasAttr);
-    }
-    if (!dilations) {
-      dilations = rewriter.getI64ArrayAttr({1, 1});
-    }
-    if (!strides) {
-      strides = rewriter.getI64ArrayAttr({1, 1});
-    }
-    if (!pads) {
-      pads = rewriter.getI64ArrayAttr({0, 0, 0, 0});
-    } else {
-      llvm::SmallVector<int64_t, 4> newPadVec = extractFromI64ArrayAttr(pads);
-      pads = rewriter.getI64ArrayAttr(
-          {newPadVec[0], newPadVec[2], newPadVec[1], newPadVec[3]});
+          convOp->getLoc(), newBiasAttr.getType(), newBiasAttr);
     }
 
+    ArrayAttr dilations = rewriter.getI64ArrayAttr(shapeHelper.dilations);
+    ArrayAttr strides = rewriter.getI64ArrayAttr(shapeHelper.strides);
+    llvm::SmallVector<int64_t, 4> pads =
+        tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
+    // reorder padding values
+    ArrayAttr newPads =
+        rewriter.getI64ArrayAttr({pads[0], pads[2], pads[1], pads[3]});
+
+    // Handle group parameter by creating multiple convs
+    const int64_t group = adaptor.group();
     Value conv2D = NULL;
-    if (group.getSInt() == 1) {
+    if (group == 1) {
       Type newConvOutputType = RankedTensorType::get(
           {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
 
       conv2D = tosa::CreateOpAndInfer<mlir::tosa::Conv2DOp>(rewriter,
-          op->getLoc(), newConvOutputType, newInput, newWeight, bias, pads,
-          strides, dilations);
+          convOp->getLoc(), newConvOutputType, newInput, newWeight, bias,
+          newPads, strides, dilations);
     } else {
-      conv2D = createConvInGroups(rewriter, op, resultType, weightShape,
-          newInput, newWeight, bias, group, pads, strides, dilations);
+      conv2D = createConvInGroups(rewriter, convOp, resultType, weightShape,
+          newInput, newWeight, bias, group, newPads, strides, dilations);
     }
 
     // Convert output [N,OH,OW,OC] -> [N,OC,OH,OW]
-    Value newOutput =
-        tosa::createTosaTransposedTensor(rewriter, op, conv2D, {0, 3, 1, 2});
+    Value newOutput = tosa::createTosaTransposedTensor(
+        rewriter, convOp, conv2D, {0, 3, 1, 2});
 
-    rewriter.replaceOp(op, {newOutput});
+    rewriter.replaceOp(convOp, {newOutput});
     return success();
   }
 };
@@ -158,7 +156,7 @@ public:
 void populateLoweringONNXConvOpToTOSAPattern(ConversionTarget &target,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
-  patterns.insert<ONNXConvOpLoweringToTOSA>(typeConverter, ctx);
+  patterns.insert<ONNXConvOpLoweringToTOSA>(ctx);
 }
 
 } // namespace onnx_mlir

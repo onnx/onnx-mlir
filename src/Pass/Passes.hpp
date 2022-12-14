@@ -39,9 +39,6 @@ std::unique_ptr<mlir::Pass> createShapeInferencePass(
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 
-/// Pass for eliding the values of constant operations.
-std::unique_ptr<mlir::Pass> createElideConstantValuePass();
-
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();
 std::unique_ptr<mlir::Pass> createInstrumentPass(

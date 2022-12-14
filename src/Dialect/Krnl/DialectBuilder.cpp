@@ -304,7 +304,7 @@ Value IndexExprBuilderForKrnl::getVal(Value intArrayVal, uint64_t i) {
   uint64_t rank = getTypeRank(intArrayVal);
   if (rank == 0)
     return create.krnl.load(intArrayVal, {});
-  uint64_t size = getIntArraySize(intArrayVal);
+  uint64_t size = getArraySize(intArrayVal);
   assert(i < size && "out of bound reference");
   Value iVal = create.math.constantIndex(i);
   return create.krnl.load(intArrayVal, {iVal});

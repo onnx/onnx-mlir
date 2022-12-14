@@ -16,6 +16,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
+#include <mlir/Dialect/Arith/IR/Arith.h>
 
 using namespace mlir;
 
@@ -93,7 +94,8 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   });
 
   // Define legal dialects and operations
-  target.addLegalDialect<mlir::tosa::TosaDialect, mlir::func::FuncDialect>();
+  target.addLegalDialect<mlir::tosa::TosaDialect, mlir::func::FuncDialect,
+      mlir::arith::ArithDialect>();
 
   // Define patterns
   populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context);
