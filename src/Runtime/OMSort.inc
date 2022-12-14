@@ -33,9 +33,11 @@
 // the sort loop, and data-type-specific compare functions not checking the
 // data type at runtime is called in the loops.
 //
+#define DEBUG
 #if defined(__APPLE__)
 typedef int(
     compareFunctionType(void *dataPtr, const void *idx1, const void *idx2));
+#ifndef DEBUG
 #define declare_compare_function(fname, typeName, direction, symbol)           \
   int compare##fname##direction(                                               \
       void *dataPtr, const void *idx1p, const void *idx2p) {                   \
@@ -45,8 +47,23 @@ typedef int(
     return (data[idx1] symbol data[idx2]) ||                                   \
            ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
   }
+#else // DEBUG
+#define declare_compare_function(fname, typeName, direction, symbol)           \
+  int compare##fname##direction(                                               \
+      void *dataPtr, const void *idx1p, const void *idx2p) {                   \
+    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
+    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
+    typeName *data = (typeName *)dataPtr;                                      \
+    int ret = (data[idx1] symbol data[idx2]) ||                                \
+           ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
+    printf("XXX: COMPARE %f(%ld) %f(%ld) => %d\n", data[idx1], idx1,           \
+        data[idx2], idx2, ret); fflush(stdout);                                \
+    return ret;                                                                \
+  }
+#endif // DEBUG
 #elif defined(_MSC_VER)
 typedef int(__cdecl compareFunctionType)(void *, const void *, const void *);
+#ifndef DEBUG
 #define declare_compare_function(fname, typeName, direction, symbol)           \
   int compare##fname##direction(                                               \
       void *dataPtr, const void *idx1p, const void *idx2p) {                   \
@@ -56,9 +73,34 @@ typedef int(__cdecl compareFunctionType)(void *, const void *, const void *);
     return (data[idx1] symbol data[idx2]) ||                                   \
            ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
   }
+#else // DEBUG
+#define declare_compare_function(fname, typeName, direction, symbol)           \
+  int compare##fname##direction(                                               \
+      void *dataPtr, const void *idx1p, const void *idx2p) {                   \
+    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
+    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
+    typeName *data = (typeName *)dataPtr;                                      \
+    int ret = (data[idx1] symbol data[idx2]) ||                                \
+           ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
+    printf("XXX: COMPARE %f(%ld) %f(%ld) => %d\n", data[idx1], idx1,           \
+        data[idx2], idx2, ret); fflush(stdout);                                \
+    return ret;                                                                \
+  }
+#endif // DEBUG
 #else
 typedef int(
     compareFunctionType(const void *idx1, const void *idx2, void *dataPtr));
+#ifndef DEBUG
+#define declare_compare_function(fname, typeName, direction, symbol)           \
+  int compare##fname##direction(                                               \
+      const void *idx1p, const void *idx2p, void *dataPtr) {                   \
+    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
+    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
+    typeName *data = (typeName *)dataPtr;                                      \
+    return (data[idx1] symbol data[idx2]) ||                                   \
+           ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
+  }
+#else // DEBUG
 #define declare_compare_function(fname, typeName, direction, symbol)           \
   int compare##fname##direction(                                               \
       const void *idx1p, const void *idx2p, void *dataPtr) {                   \
@@ -66,9 +108,12 @@ typedef int(
     uint64_t idx2 = *((uint64_t *)idx2p);                                      \
     typeName *data = (typeName *)dataPtr;                                      \
     int ret = (data[idx1] symbol data[idx2]) ||                                \
-              ((data[idx1] == data[idx2]) && (idx1 > idx2));                   \
+           ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
+    printf("XXX: COMPARE %f(%ld) %f(%ld) => %d\n", data[idx1], idx1,           \
+        data[idx2], idx2, ret); fflush(stdout);                                \
     return ret;                                                                \
   }
+#endif
 #endif
 #define compareFunction(fname, typeName, direction) compare##fname##direction
 // clang-format off
@@ -368,6 +413,10 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   // Sorting not necessary for empty array
   if (sort_elems == 0)
     return;
+#ifdef DEBUG
+  omTensorPrint("XXX omTensorSort INPUT: ", inputTensor);
+  omTensorPrint("XXX omTensorSort ORDER(BEGIN): ", orderTensor);
+#endif
 
   // Choose the appropriate compare function
   compareFunctionType *compareElements =
@@ -439,5 +488,8 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
       }
     }
   }
+#ifdef DEBUG
+  omTensorPrint("XXX omTensorSort ORDER(END): ", orderTensor);
+#endif
   return;
 }
