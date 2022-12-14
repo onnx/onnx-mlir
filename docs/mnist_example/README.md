@@ -171,9 +171,7 @@ The signature of the model inference function for all models is:
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
 ```
 
-OM_EXTERNAL_VISIBILITY const char *const *omQueryEntryPoints(
-    int64_t *numOfEntryPoints);
-I.e., all models ingests an `OMTensorList*`, and returns an `OMTensorList*`. Note, memory is properly freed. Thererfore, the returned `OMTensorList*` does not have to be freed since it is a part of the model. Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html), with the C interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
+I.e., all models ingests an `OMTensorList*`, and returns an `OMTensorList*`. Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html), with the C interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
 
 ### Feeding Inputs and Retrieving Results
 
@@ -197,10 +195,19 @@ int main() {
   // The first input is of tensor<1x1x28x28xf32>.
   int64_t rank = 4;
   int64_t shape[] = {1, 1, 28, 28};
-  OMTensor *tensor = omTensorCreate(img_data, shape, rank, ONNX_TYPE_FLOAT);
-  // Create a tensor list.
+
+  // Create a tensor using omTensorCreateWithOwnership (returns a pointer to OMTensor).
+  // When the parameter, owning is set to "true", the OMTensor will release the data
+  // pointer upon destruction. If owning is set to false, the data pointer will not be
+  // freed upon destruction.
+  OMTensor *tensor = omTensorCreateWithOwnership(img_data, shape, rank, ONNX_TYPE_FLOAT, /*owning=*/true);
+
+  // Create a tensor list using omTensorListCreateWithOwnership (returns a pointer to the OMTensorList).
+  // When the parameter, owning is set to "true", the OMTensorList will release the data
+  // pointer upon destruction. If owning is set to false, the data pointer will not be
+  // freed upon destruction.
   inputTensors[0] = tensor;
-  OMTensorList *tensorListIn = omTensorListCreate(inputTensors, inputNum);
+  OMTensorList *tensorListIn = omTensorListCreateWithOwnership(inputTensors, inputNum, /*owning=*/true);
 
   // Compute outputs.
   OMTensorList *tensorListOut = run_main_graph(tensorListIn);
