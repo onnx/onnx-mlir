@@ -33,7 +33,7 @@
 // the sort loop, and data-type-specific compare functions not checking the
 // data type at runtime is called in the loops.
 //
-#define DEBUG
+#undef DEBUG
 #if defined(__APPLE__)
 typedef int(
     compareFunctionType(void *dataPtr, const void *idx1, const void *idx2));
