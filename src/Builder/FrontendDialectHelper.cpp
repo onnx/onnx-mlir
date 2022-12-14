@@ -222,7 +222,7 @@ mlir::ElementsAttr createStringElmAttr(
   assert(!tp.has_raw_data() && "string TensorProto cannot be raw data");
   auto data = tp.string_data();
   llvm::SmallVector<llvm::StringRef> copy(data.begin(), data.end());
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(copy));
+  return mlir::DenseElementsAttr::get(tensorType, llvm::ArrayRef(copy));
 }
 
 } // namespace

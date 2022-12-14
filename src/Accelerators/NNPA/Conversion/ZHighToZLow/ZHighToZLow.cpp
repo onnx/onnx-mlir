@@ -205,7 +205,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
             ->getDialect()
             ->getNamespace(), // use the dialect as the blob "hint"
         HeapAsmResourceBlob::allocateAndCopy(
-            llvm::makeArrayRef(rawData, sizeInBytes), alignof(char)));
+            llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
     stickifiedConstant.valueAttr(valueAttr);
     free(rawData);
 
@@ -694,7 +694,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
             /*name=*/
             rewriter.getStringAttr(
                 "constant_stickify_" + std::to_string(constantID)),
-            /*value=*/stickifiedConstOp.valueAttr(),
+            /*value=*/stickifiedConstOp.getValueAttr(),
             /*offset=*/nullptr,
             /*alignment=*/stickifiedConstOp.alignmentAttr());
 

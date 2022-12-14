@@ -28,7 +28,7 @@ template <>
 LogicalResult ONNXEyeLikeOpShapeHelper::computeShape() {
   ONNXEyeLikeOpAdaptor operandAdaptor(operands);
   DimsExpr outputDims;
-  createIE->getShapeAsDims(operandAdaptor.input(), outputDims);
+  createIE->getShapeAsDims(operandAdaptor.getInput(), outputDims);
   setOutputDims(outputDims);
   return success();
 }
@@ -45,15 +45,15 @@ LogicalResult ONNXEyeLikeOpShapeHelper::computeShape() {
 
 LogicalResult ONNXEyeLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
-  RankedTensorType inputType = input().getType().cast<RankedTensorType>();
+  RankedTensorType inputType = getInput().getType().cast<RankedTensorType>();
   Type elementType;
-  if (dtypeAttr()) {
+  if (getDtypeAttr()) {
     auto builder = OpBuilder(getContext());
     elementType = convertONNXTypeToMLIRType(builder,
-        (onnx::TensorProto_DataType)dtypeAttr().getValue().getSExtValue());
+        (onnx::TensorProto_DataType)getDtypeAttr().getValue().getSExtValue());
   } else {
     elementType = inputType.getElementType();
   }

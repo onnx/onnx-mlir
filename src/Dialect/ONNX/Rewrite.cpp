@@ -105,7 +105,7 @@ bool areProducedByTransposeOp(ValueRange values) {
 
 // Create a DenseElementsAttr based on the shape of type.
 DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
-    Value value, int64_t start = 0, llvm::Optional<int64_t> end = llvm::None) {
+    Value value, int64_t start = 0, llvm::Optional<int64_t> end = std::nullopt) {
 
   auto inType = value.getType().cast<ShapedType>();
   assert(inType.hasRank() && "inType must be ranked");
@@ -118,7 +118,7 @@ DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
   SmallVector<int64_t, 4> values(
       shape.begin() + start, shape.begin() + endValue);
   auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
+  return DenseElementsAttr::get(tensorType, ArrayRef(values));
 }
 
 // Create a DenseElementsAttr from Shape Op
@@ -127,7 +127,8 @@ DenseElementsAttr createDenseElementsAttrFromShapeOp(
   ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
   int64_t start, end;
   ONNXShapeOpShapeHelper::getStartEndValues(shapeOp, start, end);
-  return createDenseElementsAttrFromShape(rewriter, shapeOp.data(), start, end);
+  return createDenseElementsAttrFromShape(
+      rewriter, shapeOp.getData(), start, end);
 }
 
 } // namespace onnx_mlir
@@ -217,7 +218,7 @@ public:
     // Rewrite
     loopOp->replaceUsesOfWith(maxTripCountValue, newMaxTripCountValue);
     // Modify the condition return
-    Region &loopBody = onnxLoopOp.body();
+    Region &loopBody = onnxLoopOp.getBody();
     Operation *loopBodyTerminator = loopBody.front().getTerminator();
     loopBodyTerminator->setOperand(0, loopBody.front().getArgument(1));
     return success();
@@ -232,7 +233,9 @@ private:
     Operation *definingOp = v.getDefiningOp();
     if (v.getType().cast<ShapedType>().getElementType().isa<IntegerType>() &&
         isa<ONNXConstantOp>(definingOp) &&
-        cast<ONNXConstantOp>(definingOp).valueAttr().isa<DenseElementsAttr>())
+        cast<ONNXConstantOp>(definingOp)
+            .getValueAttr()
+            .isa<DenseElementsAttr>())
       return true;
     return false;
   }
@@ -272,8 +275,9 @@ private:
   // A helper function to get an integer constant from a value.
   int64_t getOneIntegerConstant(Value v) const {
     Operation *definingOp = v.getDefiningOp();
-    DenseElementsAttr valueAttr =
-        cast<ONNXConstantOp>(definingOp).valueAttr().cast<DenseElementsAttr>();
+    DenseElementsAttr valueAttr = cast<ONNXConstantOp>(definingOp)
+                                      .getValueAttr()
+                                      .cast<DenseElementsAttr>();
     return (*valueAttr.getValues<APInt>().begin()).getSExtValue();
   }
 
@@ -303,7 +307,7 @@ private:
       return std::make_pair(false, maxTripCountValue);
 
     // Get the loop region.
-    Region &loopBody = onnxLoopOp.body();
+    Region &loopBody = onnxLoopOp.getBody();
     // Make sure the region has only one block.
     if (!loopBody.hasOneBlock())
       return std::make_pair(false, maxTripCountValue);
@@ -407,7 +411,7 @@ private:
       DenseElementsAttr valueAttr = DenseElementsAttr::get(
           RankedTensorType::get({},
               maxTripCountValue.getType().cast<ShapedType>().getElementType()),
-          makeArrayRef(values));
+          ArrayRef(values));
       return std::make_pair(true, onnx.constant(valueAttr));
     }
 
@@ -500,7 +504,7 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXOp onnxOp, PatternRewriter &rewriter) const override {
-    if (onnxOp.layout() == 0) {
+    if (onnxOp.getLayout() == 0) {
       return success();
     }
 
@@ -516,12 +520,12 @@ public:
       // Transpose the X and initial_h inputs by inserting an ONNXTransposeOp
       // before each and replacing the each input with the transpose output.
       rewriter.setInsertionPoint(onnxOp); // insert before (redundant)
-      transposer.transposeInput(onnxOp.XMutable(), perm3);
-      transposer.transposeInput(onnxOp.initial_hMutable(), perm3);
+      transposer.transposeInput(onnxOp.getXMutable(), perm3);
+      transposer.transposeInput(onnxOp.getInitialHMutable(), perm3);
       if (onnxLSTMOp)
-        transposer.transposeInput(onnxLSTMOp.initial_cMutable(), perm3);
+        transposer.transposeInput(onnxLSTMOp.getInitialCMutable(), perm3);
       // Set layout to zero.
-      onnxOp->setAttr(onnxOp.layoutAttrName(),
+      onnxOp->setAttr(onnxOp.getLayoutAttrName(),
           rewriter.getIntegerAttr(
               rewriter.getIntegerType(64, /*isSigned=*/true), 0));
       // Update the output shape. Since the onnxOp is reused, it potentially had
@@ -539,10 +543,10 @@ public:
     ValueRange results = onnxOp.getResults();
     if (results.size() > 0) {
       rewriter.setInsertionPointAfter(onnxOp);
-      transposer.transposeOutput(onnxOp.Y(), perm4RNN(rewriter));
-      transposer.transposeOutput(onnxOp.Y_h(), perm3);
+      transposer.transposeOutput(onnxOp.getY(), perm4RNN(rewriter));
+      transposer.transposeOutput(onnxOp.getYH(), perm3);
       if (onnxLSTMOp)
-        transposer.transposeOutput(onnxLSTMOp.Y_c(), perm3);
+        transposer.transposeOutput(onnxLSTMOp.getYC(), perm3);
     }
 
     return success();

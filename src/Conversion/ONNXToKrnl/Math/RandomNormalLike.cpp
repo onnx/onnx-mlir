@@ -34,7 +34,7 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
 
     // Get the input memref:
     ONNXRandomNormalLikeOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -71,11 +71,11 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     // Create the Krnl Random Normal operation:
     ONNXRandomNormalLikeOp randomNormalLikeOp =
         cast<ONNXRandomNormalLikeOp>(op);
-    double mean = randomNormalLikeOp.mean().convertToDouble();
+    double mean = randomNormalLikeOp.getMean().convertToDouble();
     Value meanValue = create.math.constant(elementType, mean);
-    double scale = randomNormalLikeOp.scale().convertToDouble();
+    double scale = randomNormalLikeOp.getScale().convertToDouble();
     Value scaleValue = create.math.constant(elementType, scale);
-    auto seed = randomNormalLikeOp.seed();
+    auto seed = randomNormalLikeOp.getSeed();
     srand(time(NULL));
     double doubleSeed = rand() % 100;
     if (seed)

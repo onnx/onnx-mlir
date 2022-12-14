@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -51,7 +52,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
   // Try to update inferredDim if existingDim is static.
   for (unsigned i = 0; i < existingDims.size(); ++i) {
     // existingDim is dynamic, nothing to do.
-    if (existingDims[i] == -1)
+    if (existingDims[i] == ShapedType::kDynamic)
       continue;
 
     // inferredDim is unknown at shape inference: update it.
@@ -426,7 +427,7 @@ static void resetTypeShapeToQuestionmarks(Value val) {
   if (!valType)
     return;
   // Reset any compile time literal to unknown (aka question marks).
-  SmallVector<int64_t, 4> newShape(valType.getRank(), -1);
+  SmallVector<int64_t, 4> newShape(valType.getRank(), ShapedType::kDynamic);
   auto resType = RankedTensorType::Builder(valType).setShape(newShape);
   // Reset type
   val.setType(resType);

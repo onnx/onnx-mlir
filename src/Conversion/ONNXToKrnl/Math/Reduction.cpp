@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -167,7 +168,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     // Get axes value defined by op
     // Leave empty is not defined
     std::vector<int64_t> definedAxes;
-    ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).axesAttr();
+    ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).getAxesAttr();
     if (axisAttrs) {
       for (auto axisAttr : axisAttrs.getValue()) {
         int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
@@ -189,7 +190,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
         axes.push_back(i);
 
     // KeepDims
-    auto keepdims = llvm::dyn_cast<ONNXReductionOp>(op).keepdims();
+    auto keepdims = llvm::dyn_cast<ONNXReductionOp>(op).getKeepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
 
     // Get type information
@@ -236,7 +237,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
 
     KrnlIterateOp iterateOpInit = create.krnl.iterate(packInit);
-    Block &iterationBlockInit = iterateOpInit.bodyRegion().front();
+    Block &iterationBlockInit = iterateOpInit.getBodyRegion().front();
 
     // Perform the insertions into the body of the initialization loop.
 
@@ -264,7 +265,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       addDimensionToPack(rewriter, loc, pack, input, i);
 
     KrnlIterateOp iterateOp = create.krnl.iterate(pack);
-    Block &iterationBlock = iterateOp.bodyRegion().front();
+    Block &iterationBlock = iterateOp.getBodyRegion().front();
 
     // Perform the insertions into the body of the reduction loop.
     // Insert instructions inside the KernelIterateOp body.
@@ -394,7 +395,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // KeepDims
-    int64_t keepdims = reduceSumOp.keepdims();
+    int64_t keepdims = reduceSumOp.getKeepdims();
     bool isKeepdims = (keepdims == 1);
 
     // Get axes dims
@@ -413,13 +414,13 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     Value valueOne = nullptr;
     std::map<int64_t, int64_t> outInDimMap;
 
-    Value axesValue = reduceSumOp.axes();
+    Value axesValue = reduceSumOp.getAxes();
     // Dynamic axes
     if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
       dynamicAxes = true;
       // Handle only when keepdims == true
       if (!isKeepdims)
-        return emitError(loc, "not keepdims() not implemented");
+        return emitError(loc, "not getKeepdims() not implemented");
 
       // Define a mask memref with same size of input and bool type
       // maskVal[i] == true if ith dim will be reduced
@@ -439,9 +440,11 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       auto axesDim = axesVal.getType().cast<MemRefType>().getShape()[0];
 
       // Initialize mask to 0
-      // Unless noop_with_empty_axesDim is false and axesDim is -1
+      // Unless noop_with_empty_axesDim is false and axesDim is
+      // ShapedType::kDynamic.
       Value initVal;
-      if (axesDim == -1 && !reduceSumOp.noop_with_empty_axes()) {
+      if (axesDim == ShapedType::kDynamic &&
+          !reduceSumOp.getNoopWithEmptyAxes()) {
         IndexExprScope axesloopContex(&rewriter, loc);
         Value zeroIndex = create.math.constantIndex(0);
         IndexExpr axesBound0 = create.krnlIE.getShapeAsDim(axesVal, 0);
@@ -462,7 +465,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           axesVal.getType().cast<MemRefType>().getElementType();
       auto dataDimConst = create.math.constant(axesElementType, inRank);
       Value zeroValue = create.math.constant(axesElementType, 0);
-      if (axesDim == -1) {
+      if (axesDim == ShapedType::kDynamic) {
         // When axes is dynamic, generate a Krnl loop
         KrnlBuilder createKrnl(rewriter, loc);
         ValueRange loopDef = createKrnl.defineLoops(1);
@@ -499,7 +502,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       // ArrayAttr.
       if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
         auto constAxes = getONNXConstantOp(axesValue)
-                             .valueAttr()
+                             .getValueAttr()
                              .dyn_cast_or_null<mlir::DenseElementsAttr>();
         for (auto element : constAxes.getValues<IntegerAttr>())
           definedAxes.push_back(element.getInt());
@@ -515,7 +518,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
             axes.push_back(newaxis);
         }
-      } else if (!reduceSumOp.noop_with_empty_axes()) {
+      } else if (!reduceSumOp.getNoopWithEmptyAxes()) {
         for (decltype(inRank) i = 0; i < inRank; ++i) {
           axes.push_back(i);
         }
@@ -571,7 +574,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
 
     KrnlIterateOp iterateOpInit = create.krnl.iterate(packInit);
-    Block &iterationBlockInit = iterateOpInit.bodyRegion().front();
+    Block &iterationBlockInit = iterateOpInit.getBodyRegion().front();
 
     // Perform the insertions into the body of the initialization loop.
 
@@ -600,7 +603,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       addDimensionToPack(rewriter, loc, pack, input, i);
 
     KrnlIterateOp iterateOp = create.krnl.iterate(pack);
-    Block &iterationBlock = iterateOp.bodyRegion().front();
+    Block &iterationBlock = iterateOp.getBodyRegion().front();
 
     // Perform the insertions into the body of the reduction loop.
     // Insert instructions inside the KernelIterateOp body.

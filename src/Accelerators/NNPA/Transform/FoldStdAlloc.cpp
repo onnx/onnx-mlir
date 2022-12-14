@@ -166,7 +166,7 @@ public:
     RankedTensorType tensorType =
         RankedTensorType::get(memRefType.getShape(), elementType);
     DenseElementsAttr dataAttr = DenseElementsAttr::get<int64_t>(
-        tensorType, llvm::makeArrayRef<int64_t>(data));
+        tensorType, llvm::ArrayRef<int64_t>(data));
 
     KrnlGlobalOp resOp = rewriter.create<KrnlGlobalOp>(loc, memRefType,
         /*shape=*/

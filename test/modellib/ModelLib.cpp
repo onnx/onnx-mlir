@@ -179,7 +179,7 @@ ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
   float *arrayPtr = reinterpret_cast<float *>(bufferPtr);
   auto array = std::vector<float>(arrayPtr, arrayPtr + numElems);
   auto denseAttr =
-      DenseElementsAttr::get(resultType, llvm::makeArrayRef(array));
+      DenseElementsAttr::get(resultType, llvm::ArrayRef(array));
   return builder.create<ONNXConstantOp>(loc, resultType, Attribute(), denseAttr,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
       ArrayAttr());

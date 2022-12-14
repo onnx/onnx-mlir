@@ -192,7 +192,7 @@ bool CanExpandPowOpToMul(ONNXPowOp op) {
 
   auto constOp = dyn_cast<ONNXConstantOp>(exponent.getDefiningOp());
   if (DenseElementsAttr dataAttr =
-          constOp.valueAttr().dyn_cast<DenseElementsAttr>()) {
+          constOp.getValueAttr().dyn_cast<DenseElementsAttr>()) {
     if (dataAttr.getNumElements() == 1) {
       Type elementType = dataAttr.getElementType();
       if (elementType.isa<FloatType>()) {
@@ -270,7 +270,7 @@ DenseElementsAttr insertZerosForNonPaddedDims(
     pads[i + extensionLength] = beginPad;
     pads[nDims + extensionLength + i + extensionLength] = endPad;
   }
-  return rewriter.getI64TensorAttr(llvm::makeArrayRef(pads));
+  return rewriter.getI64TensorAttr(llvm::ArrayRef(pads));
 }
 
 DenseElementsAttr createDenseFloatAttrOfValue(
@@ -279,7 +279,7 @@ DenseElementsAttr createDenseFloatAttrOfValue(
   SmallVector<float, 1> wrapper(1, 0);
   wrapper[0] = constantValue;
   return DenseElementsAttr::get(
-      RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
+      RankedTensorType::get({}, elementType), llvm::ArrayRef(wrapper));
 }
 
 // Create an ArrayAttr of IntegerAttr(s) of zero values.
@@ -335,7 +335,7 @@ struct ExpandPowToMulPattern : public ConversionPattern {
     // powOp.Y() is exponent that must be a scalar integer tensor by the Match
     // phase.
     auto constOp = dyn_cast<ONNXConstantOp>(powOp.Y().getDefiningOp());
-    auto dataAttr = constOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    auto dataAttr = constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
     Type elementType = dataAttr.getElementType();
     if (elementType.isa<FloatType>()) {
       auto valueIt = dataAttr.getValues<APFloat>().begin();

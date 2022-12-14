@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
@@ -32,7 +32,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     ONNXScanOpAdaptor scanOpAdapter(operands, op->getAttrDictionary());
 
-    auto &scanBody = scanOp.body();
+    auto &scanBody = scanOp.getBody();
     auto bodyArgs = scanBody.getArguments();
 
     // Allocate memory for two kinds of outputs:
@@ -48,7 +48,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
     // Copy content of vInit to vFinal, which is used to host intermediate
     // values produced by scan body function invocation in a scope accessible
     // by all scan iterations.
-    int64_t numInputs = scanOp.num_scan_inputs();
+    int64_t numInputs = scanOp.getNumScanInputs();
     auto v_initials =
         llvm::make_range(operands.begin(), operands.end() - numInputs);
     for (const auto &vInitAndFinal : llvm::zip(v_initials, outputs))
@@ -68,7 +68,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
     pack.pushOperandBound(maxTripCount);
     KrnlBuilder createKrnl(rewriter, loc);
     KrnlIterateOp iterateOp = createKrnl.iterate(pack);
-    Block &iterationBlock = iterateOp.bodyRegion().front();
+    Block &iterationBlock = iterateOp.getBodyRegion().front();
     rewriter.setInsertionPointToStart(&iterationBlock);
 
     {
@@ -83,9 +83,9 @@ struct ONNXScanOpLowering : public ConversionPattern {
       SmallVector<Value, 4> localVars;
 
       auto opScanInputRange = llvm::make_range(
-          operands.end() - scanOp.num_scan_inputs(), operands.end());
+          operands.end() - scanOp.getNumScanInputs(), operands.end());
       auto bodyScanInputRange = llvm::make_range(
-          bodyArgs.end() - scanOp.num_scan_inputs(), bodyArgs.end());
+          bodyArgs.end() - scanOp.getNumScanInputs(), bodyArgs.end());
       for (const auto &opAndBodyScanInput :
           llvm::zip(opScanInputRange, bodyScanInputRange)) {
         auto opScanInput = std::get<0>(opAndBodyScanInput);
@@ -99,7 +99,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
       }
 
       auto &scanBodyEntryBlock = scanBody.front();
-      BlockAndValueMapping mapper;
+      IRMapping mapper;
       for (unsigned i = 0, e = params.size(); i != e; ++i) {
         // Verify that the types of the provided values match the function
         // argument types.
@@ -164,7 +164,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
       // outside the iteration scope so next iteration can have use them as
       // init value.
       auto vIntermediate = llvm::make_range(
-          bodyOutputs.begin(), bodyOutputs.begin() + scanOp.v_initial().size());
+          bodyOutputs.begin(), bodyOutputs.begin() + scanOp.getVInitial().size());
       for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
         emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
             std::get<1>(vIntermediateToFinal));
@@ -174,7 +174,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
       auto scanIntermediate =
           llvm::make_range(vIntermediate.end(), bodyOutputs.end());
       auto scanOutputs = llvm::make_range(
-          outputs.begin() + scanOp.v_initial().size(), outputs.end());
+          outputs.begin() + scanOp.getVInitial().size(), outputs.end());
       for (auto scanIntermediateToFinal :
           llvm::zip(scanIntermediate, scanOutputs))
         emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
@@ -204,7 +204,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
       Operation *op, ONNXScanOpAdaptor scanOpAdapter,
       SmallVectorImpl<mlir::Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
-    for (const auto &ioPair : llvm::zip(scanOp.v_initial(), scanOp.v_final())) {
+    for (const auto &ioPair : llvm::zip(scanOp.getVInitial(), scanOp.v_final())) {
       auto vInit = std::get<0>(ioPair);
       auto vFinal = std::get<1>(ioPair);
 

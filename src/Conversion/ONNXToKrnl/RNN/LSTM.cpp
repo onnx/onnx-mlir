@@ -62,16 +62,16 @@ struct LstmBiasPack {
 template <>
 bool hasAllNoneOutput<ONNXLSTMOp>(ONNXLSTMOp *op) {
   return (
-      isFromNone(op->Y()) && isFromNone(op->Y_h()) && isFromNone(op->Y_c()));
+      isFromNone(op->getY()) && isFromNone(op->getYH()) && isFromNone(op->getYC()));
 }
 
 template <>
 std::tuple<LstmActivationPack, LstmActivationPack>
 getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
-  auto direction = op->direction();
-  auto activations = op->activations();
-  auto activationAlpha = op->activation_alpha();
-  auto activationBeta = op->activation_beta();
+  auto direction = op->getDirection();
+  auto activations = op->getActivations();
+  auto activationAlpha = op->getActivationAlpha();
+  auto activationBeta = op->getActivationBeta();
 
   LstmActivationPack activationForward, activationReverse;
 
@@ -199,11 +199,11 @@ getWeightPack<ONNXLSTMOp, LstmWeightPack>(
   LstmWeightPack weightForward, weightReverse;
 
   // parameter weight: [direction, 4*hiddenSize, inputSize]
-  Value W = op->W();
+  Value W = op->getW();
   // recurrence weight: [direction, 4*hiddenSize, hiddenSize]
-  Value R = op->R();
+  Value R = op->getR();
   // direction
-  StringRef direction = op->direction();
+  StringRef direction = op->getDirection();
 
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
   Type elementType = W.getType().cast<ShapedType>().getElementType();
@@ -273,12 +273,12 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
   LstmBiasPack biasForward, biasReverse;
 
   // bias: [direction, 8*hiddenSize] for both parameter and recurrence weights.
-  Value B = op->B();
+  Value B = op->getB();
   // peephold: [direction, 3*hiddenSize] for input, output and forget gates.
-  Value P = op->P();
+  Value P = op->getP();
 
   // direction
-  StringRef direction = op->direction();
+  StringRef direction = op->getDirection();
 
   // Split B.
   if (!isFromNone(B)) {
@@ -395,21 +395,21 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
   LstmState state;
 
   // direction
-  StringRef direction = op->direction();
+  StringRef direction = op->getDirection();
 
   // Insert allocation and deallocation for the results of this operation.
   // If the result is not returned, then no allocation happens.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.X(),
-      operandAdaptor.W(), operandAdaptor.R(), op->Y(),
+  state.allH = allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.getX(),
+      operandAdaptor.getW(), operandAdaptor.getR(), op->getY(),
       checkInsertDealloc(op->getOperation(), 0));
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.X(),
-      operandAdaptor.W(), operandAdaptor.R(), op->Y_h(),
+  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.getX(),
+      operandAdaptor.getW(), operandAdaptor.getR(), op->getYH(),
       checkInsertDealloc(op->getOperation(), 1));
   // Y_c :: [num_directions, batch_size, hidden_size]
-  state.ct = allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.X(),
-      operandAdaptor.W(), operandAdaptor.R(), op->Y_c(),
+  state.ct = allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.getX(),
+      operandAdaptor.getW(), operandAdaptor.getR(), op->getYC(),
       checkInsertDealloc(op->getOperation(), 2));
 
   // Insert allocation and deallocation the intermediate Ht and Ct for the
@@ -418,22 +418,22 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
   // Ct :: [batch_size, hidden_size]
   if (direction == FORWARD || direction == BIDIRECTIONAL) {
     state.forwardHt = allocIntermediateState(
-        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+        rewriter, loc, operandAdaptor.getX(), operandAdaptor.getR());
     state.forwardCt = allocIntermediateState(
-        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+        rewriter, loc, operandAdaptor.getX(), operandAdaptor.getR());
   }
   if (direction == REVERSE || direction == BIDIRECTIONAL) {
     state.reverseHt = allocIntermediateState(
-        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+        rewriter, loc, operandAdaptor.getX(), operandAdaptor.getR());
     state.reverseCt = allocIntermediateState(
-        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+        rewriter, loc, operandAdaptor.getX(), operandAdaptor.getR());
   }
 
   // Initialize Ht and Ct.
   initializeIntermediateStates(rewriter, loc, state.forwardHt, state.reverseHt,
-      state.forwardCt, state.reverseCt, operandAdaptor.initial_h(),
-      operandAdaptor.initial_c(),
-      operandAdaptor.X().getType().cast<MemRefType>().getElementType(),
+      state.forwardCt, state.reverseCt, operandAdaptor.getInitialH(),
+      operandAdaptor.getInitialC(),
+      operandAdaptor.getX().getType().cast<MemRefType>().getElementType(),
       direction, /*onlyHidden=*/false);
   return state;
 }
@@ -592,12 +592,12 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
     Location loc, ONNXLSTMOp *op, LstmState state,
     std::vector<Value> &outputs) {
   Value noneValue;
-  auto direction = op->direction();
+  auto direction = op->getDirection();
 
   // First output: all sequences.
-  outputs.emplace_back((isFromNone(op->Y()) ? noneValue : state.allH));
+  outputs.emplace_back((isFromNone(op->getY()) ? noneValue : state.allH));
   // Second output: hidden.
-  if (isFromNone(op->Y_h()))
+  if (isFromNone(op->getYH()))
     outputs.emplace_back(noneValue);
   else {
     stateToOutputForHiddenOrCell(
@@ -605,7 +605,7 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
     outputs.emplace_back(state.ht);
   }
   // Third output: cell.
-  if (isFromNone(op->Y_c()))
+  if (isFromNone(op->getYC()))
     outputs.emplace_back(noneValue);
   else {
     stateToOutputForHiddenOrCell(

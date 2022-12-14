@@ -94,7 +94,7 @@ bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
 
 ElementsAttr getConstValueElements(Value constValue) {
   ONNXConstantOp constOp = getONNXConstantOp(constValue);
-  return constOp.valueAttr().cast<ElementsAttr>();
+  return constOp.getValueAttr().cast<ElementsAttr>();
 }
 
 // Creates ONNXConstantOp with the location and result type from replacingValue.
@@ -312,14 +312,14 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     llvm::Optional<ArrayAttr> splitAttr) {
   // Basic info.
   unsigned numResults = splitOp.getNumResults();
-  Value input = splitOp.input();
+  Value input = splitOp.getInput();
   if (!isDenseONNXConstant(input))
     return failure();
   ConstPropCounters::count("Split", {input});
   ShapedType inputType = input.getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
 
-  uint64_t splitAxis = splitOp.axis();
+  uint64_t splitAxis = splitOp.getAxis();
   int64_t splitAxisSize = inputShape[splitAxis];
   std::vector<int64_t> splitSizes(numResults, splitAxisSize / numResults);
   if (splitAttr.has_value()) {
@@ -362,7 +362,7 @@ public:
   LogicalResult matchAndRewrite(
       ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
 
-    auto split = splitOp.split();
+    auto split = splitOp.getSplit();
     auto builder = mlir::Builder(splitOp.getContext());
 
     llvm::Optional<ArrayAttr> optionalAttr;
@@ -385,7 +385,7 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXSplitV11Op splitOp, PatternRewriter &rewriter) const override {
-    return ConstPropSplitPatternCommon(splitOp, rewriter, splitOp.split());
+    return ConstPropSplitPatternCommon(splitOp, rewriter, splitOp.getSplit());
   }
 };
 
@@ -438,7 +438,7 @@ void ScatterNDImpl(ElementsAttr dataElements, ElementsAttr indicesElements,
   int64_t slice_size =
       ShapedType::getNumElements(updatesShape.drop_front(outer.size()));
   auto dataStrides = getStrides(dataShape);
-  auto sliceStrides = llvm::makeArrayRef(dataStrides).take_front(indices_nd);
+  auto sliceStrides = llvm::ArrayRef(dataStrides).take_front(indices_nd);
 
   auto indicesIter = indices.begin();
   auto updatesIter = updates.begin();
@@ -461,28 +461,28 @@ public:
     if (!scatterNdOp.getResult().getType().isa<RankedTensorType>())
       return failure();
 
-    if (!isDenseONNXConstant(scatterNdOp.data()))
+    if (!isDenseONNXConstant(scatterNdOp.getData()))
       return failure();
 
-    if (!isDenseONNXConstant(scatterNdOp.indices()))
+    if (!isDenseONNXConstant(scatterNdOp.getIndices()))
       return failure();
 
-    if (!isDenseONNXConstant(scatterNdOp.updates()))
+    if (!isDenseONNXConstant(scatterNdOp.getUpdates()))
       return failure();
 
     ConstPropCounters::count("Scatter",
-        {scatterNdOp.data(), scatterNdOp.indices(), scatterNdOp.updates()});
+        {scatterNdOp.getData(), scatterNdOp.getIndices(), scatterNdOp.getUpdates()});
 
     OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
-    ElementsAttr dataElements = getConstValueElements(scatterNdOp.data());
-    ElementsAttr indicesElements = getConstValueElements(scatterNdOp.indices());
-    ElementsAttr updatesElements = getConstValueElements(scatterNdOp.updates());
+    ElementsAttr dataElements = getConstValueElements(scatterNdOp.getData());
+    ElementsAttr indicesElements = getConstValueElements(scatterNdOp.getIndices());
+    ElementsAttr updatesElements = getConstValueElements(scatterNdOp.getUpdates());
     ElementsAttr scatteredElements = elementsBuilder.fromWideNums(
         dataElements.getType(), [&](MutableArrayRef<WideNum> dst) {
           ScatterNDImpl(dataElements, indicesElements, updatesElements, dst);
         });
     ONNXConstantOp constOp = createReplacingConstantOp(
-        rewriter, scatterNdOp.data(), scatteredElements);
+        rewriter, scatterNdOp.getData(), scatteredElements);
 
     rewriter.replaceOp(scatterNdOp, constOp.getResult());
     return success();
@@ -676,7 +676,7 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
   ConstPropCounters::count("Gather", {inputValue, indicesValue});
   Operation *op = replacingValue.getDefiningOp();
   ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
-  int64_t axis = gatherOp.axis();
+  int64_t axis = gatherOp.getAxis();
   if (axis < 0)
     axis += inputValue.getType().cast<ShapedType>().getRank();
 

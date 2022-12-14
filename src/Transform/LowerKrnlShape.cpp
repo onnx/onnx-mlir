@@ -49,7 +49,7 @@ public:
       KrnlShapeOp krnlShapeOp, PatternRewriter &rewriter) const override {
     Location loc = krnlShapeOp.getLoc();
     size_t rank =
-        krnlShapeOp.alloc().getType().dyn_cast<MemRefType>().getShape().size();
+        krnlShapeOp.getAlloc().getType().dyn_cast<MemRefType>().getShape().size();
 
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);
@@ -62,7 +62,7 @@ public:
     for (size_t idx = 0; idx < rank; idx++) {
       Value index = create.math.constantIndex(idx);
       Value operand =
-          create.krnl.dim(rewriter.getIndexType(), krnlShapeOp.alloc(), index);
+          create.krnl.dim(rewriter.getIndexType(), krnlShapeOp.getAlloc(), index);
 
       // Store value in the new MemRef.
       Value idxValue = create.math.constant(rewriter.getIndexType(), idx);

@@ -846,7 +846,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      resultTypes.push_back(mlir::UnrankedTensorType::get(to()));
+      resultTypes.push_back(mlir::UnrankedTensorType::get(getTo()));
       return resultTypes;
     }
   }];
@@ -1009,7 +1009,7 @@ def ONNXClipOp:ONNX_Op<"Clip",
   let description = [{
   Clip operator limits the given input within an interval. The interval is
   specified by the inputs 'min' and 'max'. They default to
-  numeric_limits::lowest() and numeric_limits::max(), respectively.
+  numeric_limits::lowest() and numeric_limits::getMax(), respectively.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$min,
@@ -1042,7 +1042,7 @@ def ONNXClipV12Op:ONNX_Op<"ClipV12",
   let description = [{
   Clip operator limits the given input within an interval. The interval is
   specified by the inputs 'min' and 'max'. They default to
-  numeric_limits::lowest() and numeric_limits::max(), respectively.
+  numeric_limits::lowest() and numeric_limits::getMax(), respectively.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$min,
@@ -1075,7 +1075,7 @@ def ONNXClipV11Op:ONNX_Op<"ClipV11",
   let description = [{
   Clip operator limits the given input within an interval. The interval is
   specified by the inputs 'min' and 'max'. They default to
-  numeric_limits::lowest() and numeric_limits::max(), respectively.
+  numeric_limits::lowest() and numeric_limits::getMax(), respectively.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$min,
@@ -1108,7 +1108,7 @@ def ONNXClipV6Op:ONNX_Op<"ClipV6",
   let description = [{
   Clip operator limits the given input within an interval. The interval is
   specified with arguments 'min' and 'max'. They default to
-  numeric_limits::lowest() and numeric_limits::max() respectively.
+  numeric_limits::lowest() and numeric_limits::getMax() respectively.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
     DefaultValuedAttr<F32Attr, "(3.402823e+38)">:$max,
@@ -1309,9 +1309,9 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      if (auto attr = valueAttr()) {
+      if (auto attr = getValueAttr()) {
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
-      } else if (auto attr = sparse_valueAttr()) {
+      } else if (auto attr = getSparseValueAttr()) {
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
       }
       return resultTypes;
@@ -1361,7 +1361,7 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      if (auto attr = valueAttr()) {
+      if (auto attr = getValueAttr()) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
           attr.cast<TypedAttr>().getType().cast<ShapedType>().getElementType()));
       } else {
@@ -4455,10 +4455,10 @@ def ONNXModOp:ONNX_Op<"Mod",
   Performs element-wise binary modulus (with Numpy-style broadcasting support).
       The sign of the remainder is the same as that of the Divisor.
   
-      Mod operator can also behave like C fmod() or numpy.fmod. In this case, the sign of the remainder however, will be the same as the Dividend
-      (in contrast to integer mod). To force a behavior like numpy.fmod() an 'fmod' Attribute is provided.
+      Mod operator can also behave like C getFmod() or numpy.fmod. In this case, the sign of the remainder however, will be the same as the Dividend
+      (in contrast to integer mod). To force a behavior like numpy.getFmod() an 'fmod' Attribute is provided.
       This attribute is set to 0 by default causing the behavior to be like integer mod.
-      Setting this attribute to 1 causes the remainder to be calculated similar to that of numpy.fmod().
+      Setting this attribute to 1 causes the remainder to be calculated similar to that of numpy.getFmod().
   
       If the input type is floating point, then `fmod` attribute must be set to 1.
   
@@ -5669,14 +5669,14 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      if (auto attr = dtypeAttr()) {
-      if (dtype() == 0) {
+      if (auto attr = getDtypeAttr()) {
+      if (getDtype() == 0) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
             FloatType::getF16(getContext())));
-      } else if (dtype() == 1) {
+      } else if (getDtype() == 1) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
             FloatType::getF32(getContext())));
-      } else if (dtype() == 2) {
+      } else if (getDtype() == 2) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
             FloatType::getF64(getContext())));
       } else {
@@ -6871,7 +6871,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
       return {20};
     }
 
-    mlir::Operation::operand_range v_initial();
+    mlir::Operation::operand_range getVInitial();
     mlir::Operation::result_range v_final();
     mlir::Operation::operand_range scan_inputs();
     mlir::Operation::result_range scan_outputs();

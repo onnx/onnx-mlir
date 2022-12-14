@@ -134,9 +134,9 @@ bool ScanLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(initialShape), dataRangeLB, dataRangeUB);
+      llvm::ArrayRef(initialShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
+      llvm::ArrayRef(xShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1];
 }

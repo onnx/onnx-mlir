@@ -113,11 +113,11 @@ KrnlGetRefOp getCurrentAllocGetRef(memref::AllocOp *allocOp) {
 
 /*!
  *  RewritePattern that replaces:
- *    %mempool = alloc() : memref<<dims1>x<type>>
- *    %mem2 = alloc() : memref<<dims2>x<type>>
+ *    %mempool = getAlloc() : memref<<dims1>x<type>>
+ *    %mem2 = getAlloc() : memref<<dims2>x<type>>
  *    %1 = krnl.getref %mem2 0 : memref<<dims2>x<type>>
  *  =>
- *    %mempool = alloc() : memref<<dims1 + dims2>x<type>>
+ *    %mempool = getAlloc() : memref<<dims1 + dims2>x<type>>
  *    %1 = krnl.getref %mem1 <dims1> : memref<<dims2>x<type>>
  *
  *
@@ -427,7 +427,7 @@ public:
 
     // Bundle MemRef type: <?xi8>
     SmallVector<int64_t, 1> memPoolShape;
-    memPoolShape.emplace_back(-1);
+    memPoolShape.emplace_back(ShapedType::kDynamic);
     auto bundledMemPoolMemRefType =
         MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
 

@@ -169,7 +169,7 @@ struct IndexExprBuilder : DialectBuilder {
   bool isLiteralShape(mlir::Value tensorOrMemrefValue, uint64_t i);
   // Return true if the entire shape is known at compile time.
   bool isLiteralShape(mlir::Value tensorOrMemrefValue);
-  // Get the raw shape (as integer, -1 when runtime value).
+  // Get the raw shape (as integer, ShapedType::kDynamic when runtime value).
   int64_t getShape(mlir::Value tensorOrMemrefValue, uint64_t i);
 
   // Get an index expression from tensor/memref shape.

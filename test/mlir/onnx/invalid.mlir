@@ -504,7 +504,7 @@ func.func @test_scatterND_verifier_5(%arg0 : tensor<1x2x3x4xf32>, %arg1 : tensor
 // -----
 
 func.func @test_sequence_empty() -> none {
-  // expected-error @+1 {{SequenceEmpty dtype() does not match the output type}}
+  // expected-error @+1 {{SequenceEmpty getDtype() does not match the output type}}
   %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xi32>>
   %2 = "onnx.NoValue"() {value} : () -> none
   return %2 : none

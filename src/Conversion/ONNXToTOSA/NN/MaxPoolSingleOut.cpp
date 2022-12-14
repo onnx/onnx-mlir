@@ -79,13 +79,12 @@ public:
     ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(op, operands, &createTosaIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    Value input = adaptor.X();
+    Value input = adaptor.getX();
 
     // The attributes storage_order and dilations are unsupported
-    mlir::IntegerAttr storageOrder = adaptor.storage_orderAttr();
-    mlir::ArrayAttr dilations = adaptor.dilationsAttr();
-    mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
-    const int64_t ceilMode = adaptor.ceil_mode();
+    mlir::IntegerAttr storageOrder = adaptor.getStorageOrderAttr();
+    mlir::ArrayAttr dilations = adaptor.getDilationsAttr();
+    const int64_t ceilMode = adaptor.getCeilMode();
 
     if (input.getType().isa<MemRefType>()) {
       return rewriter.notifyMatchFailure(
@@ -100,7 +99,8 @@ public:
 
     // Construct the transposed type for the new MaxPool OP
     Type newResultType = RankedTensorType::get(
-        llvm::SmallVector<int64_t, 4>(inputType.getShape().size(), -1),
+        llvm::SmallVector<int64_t, 4>(
+            inputType.getShape().size(), ShapedType::kDynamic),
         inputType.getElementType());
 
     if (dilations) {
@@ -132,10 +132,13 @@ public:
     IndexExpr::getLiteral(shapeHelper.pads, pads);
 
     // reorder padding values
-    mlir::ArrayAttr newPads = rewriter.getI64ArrayAttr({pads[0],
+    auto newPads = rewriter.getDenseI64ArrayAttr({pads[0],
         pads[2] + ceilConstants[0], pads[1], pads[3] + ceilConstants[1]});
 
-    mlir::ArrayAttr strides = rewriter.getI64ArrayAttr(shapeHelper.strides);
+    auto strides = rewriter.getDenseI64ArrayAttr(shapeHelper.strides);
+    auto kernelShape = rewriter.getDenseI64ArrayAttr(llvm::to_vector(
+        llvm::map_range(adaptor.getKernelShape().getAsValueRange<IntegerAttr>(),
+            [](APInt x) { return x.getSExtValue(); })));
 
     Value newMaxpool = tosa::CreateOpAndInfer<mlir::tosa::MaxPool2dOp>(rewriter,
         loc, newResultType, newMaxpoolInput, kernelShape, strides, newPads);
@@ -148,9 +151,10 @@ public:
         tosa::getConstTensor<int32_t>(rewriter, maxpoolOp, {0, 3, 1, 2}, {4})
             .value();
 
-    Type transposedResultType = RankedTensorType::get(
-        llvm::SmallVector<int64_t, 4>(newMaxpoolType.size(), -1),
-        inputType.getElementType());
+    Type transposedResultType =
+        RankedTensorType::get(llvm::SmallVector<int64_t, 4>(
+                                  newMaxpoolType.size(), ShapedType::kDynamic),
+            inputType.getElementType());
     tosa::CreateReplaceOpAndInfer<mlir::tosa::TransposeOp>(
         rewriter, maxpoolOp, transposedResultType, newMaxpool, sourceTensor);
     return success();

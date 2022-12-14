@@ -60,9 +60,9 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Operands and attributes.
-    Value data = operandAdaptor.data();
-    Value indices = operandAdaptor.indices();
-    int64_t b = gatherNDOp.batch_dims();
+    Value data = operandAdaptor.getData();
+    Value indices = operandAdaptor.getIndices();
+    int64_t b = gatherNDOp.getBatchDims();
     auto indicesType = indices.getType().cast<ShapedType>();
     auto dataType = data.getType().cast<ShapedType>();
     ArrayRef<int64_t> indicesShape = indicesType.getShape();
