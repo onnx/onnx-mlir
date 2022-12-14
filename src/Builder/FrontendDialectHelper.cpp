@@ -114,21 +114,13 @@ struct TransformValueToONNXData<uint64_t> {
   }
 };
 
-template <>
-struct TransformValueToONNXData<std::string> {
-  static const google::protobuf::RepeatedPtrField<std::string> &data(
-      const onnx::TensorProto &tp) {
-    return tp.string_data();
-  }
-};
-
 // Converts to the cpp type 'To' that correspond's to the tensor element type
 // (bool, int8, float_16, uint32, etc) from the the proto data field type
 // which may be a wider type (int32, uint64). In most cases the conversion is
 // just standard C implicit conversion. The exception is float_16 and bfloat_16
 // which must be bit-wise converted from uint16_t.
 template <typename To, typename From>
-To deserializeDatum(From from) {
+To deserializeDatum(const From &from) {
   if constexpr (onnx_mlir::isFP16Type<To>)
     return To::bitcastFromU16(from);
   else
@@ -137,10 +129,11 @@ To deserializeDatum(From from) {
 
 // When the protobuf repeated field has type T,
 // access the data directly via ArrayRef.
-template <typename T, typename U>
-std::enable_if_t<std::is_same_v<T, U>, mlir::DenseElementsAttr>
-createDenseElmAttrFromProtoData(mlir::ShapedType tensorType,
-    const google::protobuf::RepeatedField<U> &data) {
+template <typename T, typename Repeated>
+std::enable_if_t<std::is_same_v<T, typename Repeated::value_type>,
+    mlir::DenseElementsAttr>
+createDenseElmAttrFromProtoData(
+    mlir::ShapedType tensorType, const Repeated &data) {
   return mlir::DenseElementsAttr::get(
       tensorType, llvm::makeArrayRef(data.data(), data.size()));
 }
@@ -148,13 +141,15 @@ createDenseElmAttrFromProtoData(mlir::ShapedType tensorType,
 // When the protobuf repeated field has a type different from T,
 // copy the data into correctly typed SmallVector because
 // DenseElementsAttr needs argument type of the correct bitwidth.
-template <typename T, typename U>
-std::enable_if_t<!std::is_same_v<T, U>, mlir::DenseElementsAttr>
-createDenseElmAttrFromProtoData(mlir::ShapedType tensorType,
-    const google::protobuf::RepeatedField<U> &data) {
+template <typename T, typename Repeated>
+std::enable_if_t<!std::is_same_v<T, typename Repeated::value_type>,
+    mlir::DenseElementsAttr>
+createDenseElmAttrFromProtoData(
+    mlir::ShapedType tensorType, const Repeated &data) {
   llvm::SmallVector<T> copy;
   copy.resize_for_overwrite(data.size());
-  std::transform(data.begin(), data.end(), copy.data(), deserializeDatum<T, U>);
+  std::transform(data.begin(), data.end(), copy.data(),
+      deserializeDatum<T, typename Repeated::value_type>);
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(copy));
 }
 
@@ -205,6 +200,18 @@ mlir::DenseElementsAttr createDenseElmAttr(mlir::ShapedType tensorType,
   }
 }
 
+mlir::DenseElementsAttr createDenseStringElmAttr(
+    mlir::ShapedType tensorType, const onnx::TensorProto &tp) {
+  // The string type is different from other data types in that it cannot be
+  // raw or external data and it needs to be converted to StringRef
+  // (or StringAttr) to construct a DenseElementsAttr.
+  assert(!(tp.has_data_location() &&
+             tp.data_location() == onnx::TensorProto::EXTERNAL) &&
+         "string TensorProto cannot be external data");
+  assert(!tp.has_raw_data() && "string TensorProto cannot be raw data");
+  return createDenseElmAttrFromProtoData<llvm::StringRef>(
+      tensorType, tp.string_data());
+}
 } // namespace
 
 namespace onnx_mlir {
@@ -258,22 +265,8 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
     return createDenseElmAttr<uint64_t>(tensorType, tp, externalDataDir);
   case (onnx::TensorProto::BOOL):
     return createDenseElmAttr<bool>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::STRING): {
-    // The string type is different from other data types in that it cannot be
-    // raw or external data and it needs to be converted to StringAttr to
-    // construct a DenseElementsAttr.
-    assert(!((tp.has_data_location() &&
-                 tp.data_location() == onnx::TensorProto::EXTERNAL) ||
-               tp.has_raw_data()) &&
-           "Not implemented: import string DenseElementAttr from external or "
-           "raw data");
-    auto data = TransformValueToONNXData<std::string>::data(tp);
-    llvm::SmallVector<mlir::Attribute> myData;
-    for (auto s : data)
-      myData.emplace_back(mlir::StringAttr::get(builder.getContext(), s));
-    return mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(myData.data(), myData.size()));
-  }
+  case (onnx::TensorProto::STRING):
+    return createDenseStringElmAttr(tensorType, tp);
   default:
     llvm_unreachable(
         "Failed to import ONNX TensorProto due to unsupported data types.");
