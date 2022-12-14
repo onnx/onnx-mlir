@@ -122,11 +122,11 @@ public:
 
     ArrayAttr dilations = rewriter.getI64ArrayAttr(shapeHelper.dilations);
     ArrayAttr strides = rewriter.getI64ArrayAttr(shapeHelper.strides);
-    llvm::SmallVector<int64_t, 4> transposedPads =
+    llvm::SmallVector<int64_t, 4> pads =
         tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
     // reorder padding values
-    ArrayAttr pads = rewriter.getI64ArrayAttr({transposedPads[0],
-        transposedPads[2], transposedPads[1], transposedPads[3]});
+    ArrayAttr newPads =
+        rewriter.getI64ArrayAttr({pads[0], pads[2], pads[1], pads[3]});
 
     // Handle group parameter by creating multiple convs
     const int64_t group = adaptor.group();
@@ -136,11 +136,11 @@ public:
           {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
 
       conv2D = tosa::CreateOpAndInfer<mlir::tosa::Conv2DOp>(rewriter,
-          convOp->getLoc(), newConvOutputType, newInput, newWeight, bias, pads,
-          strides, dilations);
+          convOp->getLoc(), newConvOutputType, newInput, newWeight, bias,
+          newPads, strides, dilations);
     } else {
       conv2D = createConvInGroups(rewriter, convOp, resultType, weightShape,
-          newInput, newWeight, bias, group, pads, strides, dilations);
+          newInput, newWeight, bias, group, newPads, strides, dilations);
     }
 
     // Convert output [N,OH,OW,OC] -> [N,OC,OH,OW]
