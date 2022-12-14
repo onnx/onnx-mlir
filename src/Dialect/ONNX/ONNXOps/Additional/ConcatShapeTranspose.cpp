@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -48,7 +48,7 @@ int64_t normalizeClampedPerSpec(int64_t axis, int64_t rank) {
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXConcatShapeTransposeOpShapeHelper::computeShape() {
+LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
   ONNXConcatShapeTransposeOpAdaptor operandAdaptor(operands);
   ONNXConcatShapeTransposeOp concatOp =
       llvm::cast<ONNXConcatShapeTransposeOp>(op);
@@ -99,8 +99,7 @@ LogicalResult NewONNXConcatShapeTransposeOpShapeHelper::computeShape() {
 
   // Compute dims for ShapeOp
   Value data = operandAdaptor.inputs()[0];
-  // MemRefBoundsIndexCapture dataBounds(data);
-  int64_t rank = createIE->getTypeRank(data);
+  int64_t rank = createIE->getShapedTypeRank(data);
 
   // Compute the normalized start/end. Negative value means counting
   // dimensions from the back.
@@ -122,7 +121,7 @@ LogicalResult NewONNXConcatShapeTransposeOpShapeHelper::computeShape() {
   if (!permAttr) {
     // Generate reverse order for default transpose operation.
     SmallVector<int64_t, 4> defaultVals;
-    auto builder = mlir::Builder(concatOp.getContext());
+    auto builder = Builder(concatOp.getContext());
     for (int i = rank - 1; i >= 0; --i)
       defaultVals.emplace_back(i);
     // Set default attribute.
@@ -151,7 +150,7 @@ LogicalResult NewONNXConcatShapeTransposeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConcatShapeTransposeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
 
   // If any input is not ranked tensor, do nothing.
   int inputNum = getNumOperands();
@@ -162,7 +161,7 @@ LogicalResult ONNXConcatShapeTransposeOp::inferShapes(
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   Type intType = IntegerType::get(getContext(), 64).cast<Type>();
   SmallVector<Type> elementTypes = {intType, commonType.getElementType()};
-  NewONNXConcatShapeTransposeOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXConcatShapeTransposeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateTypes(elementTypes);
 }
 
@@ -171,5 +170,5 @@ LogicalResult ONNXConcatShapeTransposeOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXConcatShapeTransposeOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXConcatShapeTransposeOp>;
 } // namespace onnx_mlir

@@ -162,9 +162,9 @@ def  ElementTypeIsNotUnsigned: Constraint<
     CPred<"!$_self.getType().dyn_cast<ShapedType>().getElementType().isUnsignedInteger()">,
     "element type is not unsigned int">;
 
-def HaveSameONNXTensorDataLayout : Constraint<
-    CPred<"identicalONNXTensorDataLayout($0.getType(), $0.getType())">,
-    "have same ONNX Tensor Data Layouts">;
+def HaveSameEncodingAttr: Constraint<
+    CPred<"sameEncodingAttr($0.getType(), $1.getType())">,
+    "have same RankedTensorType's encoding attribute">;
 
 def IsStaticShapeTensor:
   Constraint<
@@ -226,6 +226,13 @@ def TransposeVariadicInput: NativeCodeCall<
 def Equal: Constraint<CPred<"$0 == $1">, "are equal">;
 
 class EqualString<string s> : Constraint<CPred<"$0 == \"" # s # "\"">>;
+
+def AxisIsTheLastDim: Constraint<
+  CPred<"($1.getValue().getSExtValue() == -1) ||"
+        "(onnx_mlir::hasShapeAndRank($0) &&"
+        " ($0.getType().cast<ShapedType>().getRank() == $1.getValue().getSExtValue() + 1))">,
+  "Axis is the last dimension of the input"
+>;
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
@@ -397,9 +404,9 @@ def FuseCastCastPattern : Pat<
 // ONNX_Op (onnx.ONNXLayoutTransformOp (%X)) = ONNX_Op (%X) when input and
 // output layouts are identical
 def ONNXLayoutTransformEliminationPattern : Pat<
-	(ONNXLayoutTransformOp:$res $arg, $target_layout),
-	(replaceWithValue $arg),
-  [(HaveSameONNXTensorDataLayout $res, $arg),
+  (ONNXLayoutTransformOp:$res $arg, $target_layout),
+  (replaceWithValue $arg),
+  [(HaveSameEncodingAttr $res, $arg),
    (HaveSameElementType $res, $arg)]>;
 
 //===----------------------------------------------------------------------===//
@@ -931,6 +938,18 @@ def DimOpToConstantPattern: Pat<
       (GetNullArrayAttr), (GetNullStringAttr), (GetNullArrayAttr)
    ),
    [(DimAtIndexIsConstant $input, $axis)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXSoftmaxV11 to the latest version
+//===----------------------------------------------------------------------===//
+
+// When axis is the last dimension of the input tensor, the semantics of V11 is
+// the same as that of V13 (the latest version).
+def SoftmaxV11ToLatestPattern: Pat<
+   (ONNXSoftmaxV11Op $input, $axisAttr),
+   (ONNXSoftmaxOp $input, $axisAttr),
+   [(AxisIsTheLastDim $input, $axisAttr)]
 >;
 
 #endif // ONNX_REWRITE

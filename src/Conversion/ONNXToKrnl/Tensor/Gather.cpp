@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -34,7 +33,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Get shape.
-    NewONNXGatherOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXGatherOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.

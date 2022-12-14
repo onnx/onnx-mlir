@@ -69,7 +69,7 @@ if (not check_operation_version and not list_operation_version) and current_onnx
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
- 
+
 version_dict = {
  'Abs': [13],
  'Acos': [7],
@@ -316,6 +316,7 @@ OpsWithCanonicalizer = [
     'RNN',
     'Shape',
     'Size',
+    'SoftmaxV11',
     'SpaceToDepth',
     'Squeeze',
     'SqueezeV11',
@@ -332,7 +333,7 @@ OpsWithVerifier = [
     'ArgMin',
     'AveragePool',
     'BitShift',
-    'CategoryMapper',    
+    'CategoryMapper',
     'Compress',
     'Concat',
     'ConcatFromSequence',
@@ -347,7 +348,7 @@ OpsWithVerifier = [
     'Flatten',
     'Gather',
     'GatherElements',
-    'GatherND',        
+    'GatherND',
     'Greater',
     'GreaterOrEqual',
     'Hardmax',
@@ -392,7 +393,7 @@ OpsWithVerifier = [
 ]
 
 # Op with Helper functions
-# Here the functions are for data flow analysis. 
+# Here the functions are for data flow analysis.
 OpsWithHelpers = {
   "Loop": """
     mlir::Operation::result_range v_final();

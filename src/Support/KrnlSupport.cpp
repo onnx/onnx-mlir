@@ -221,7 +221,7 @@ bool hasAllConstantDimensions(MemRefType memRefType) {
 
 /// Get the MemRef element size in bytes.
 unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
-  auto elementType = memRefType.getElementType();
+  Type elementType = memRefType.getElementType();
 
   unsigned sizeInBits;
   if (elementType.isIntOrFloat()) {

@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXGatherNDOpShapeHelper::computeShape() {
+LogicalResult ONNXGatherNDOpShapeHelper::computeShape() {
   ONNXGatherNDOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   Value data = operandAdaptor.data();
   Value indices = operandAdaptor.indices();
@@ -170,7 +169,7 @@ LogicalResult ONNXGatherNDOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGatherNDOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the shape of the output if the inputs shape is not yet known.
   if (llvm::any_of(
           this->getOperands(), [](Value op) { return !hasShapeAndRank(op); }))
@@ -186,8 +185,8 @@ LogicalResult ONNXGatherNDOp::inferShapes(
   if (indicesShape[indicesRank - 1] < 0)
     return success(); // cannot infer the oputput shape yet.
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
-  NewONNXGatherNDOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXGatherNDOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -196,5 +195,5 @@ LogicalResult ONNXGatherNDOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXGatherNDOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXGatherNDOp>;
 } // namespace onnx_mlir

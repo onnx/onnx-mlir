@@ -27,12 +27,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXIsNaNOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  ONNXIsNaNOpAdaptor operandAdaptor(*this);
-  if (!hasShapeAndRank(operandAdaptor.X()))
-    return success();
-
+    std::function<void(Region &)> doShapeInference) {
   IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
-  updateType(getResult(), getShape(X().getType()), i1Type);
-  return success();
+  return inferShapeForUnaryOps(getOperation(), i1Type);
 }

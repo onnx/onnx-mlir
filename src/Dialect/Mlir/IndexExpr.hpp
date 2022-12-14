@@ -788,12 +788,12 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr &b) {
 }
 
 //===----------------------------------------------------------------------===//
-// Capturing Index Expressions
+// TO BE DEPRECATED: Capturing Index Expressions
 //===----------------------------------------------------------------------===//
 
-// Capture array of values given by an operand. Will find its definitition and
-// use it locate its constant values, or load dynamically if they are not
-// constant.
+// TO BE DEPRECATED: Capture array of values given by an operand. Will find its
+// definitition and use it locate its constant values, or load dynamically if
+// they are not constant.
 class ArrayValueIndexCapture {
 public:
   // Lambda functions to extract/generate info. No code is provided in order to
@@ -834,7 +834,7 @@ private:
   LoadVal fLoadVallFromArrayAtIndex;
 };
 
-// Capture array of values given by attributes.
+// TO BE DEPRECATED: Capture array of values given by attributes.
 class ArrayAttributeIndexCapture {
 public:
   ArrayAttributeIndexCapture(mlir::ArrayAttr array);
@@ -851,9 +851,9 @@ private:
   bool hasDefault;
 };
 
-// Capture memory bounds give by a tensor or memref. Locate its shape, return
-// constant values when available or generate the appropriate dim operation when
-// they are not constant at compile time.
+// TO BE DEPRECATED: Capture memory bounds give by a tensor or memref. Locate
+// its shape, return constant values when available or generate the appropriate
+// dim operation when they are not constant at compile time.
 class MemRefBoundsIndexCapture {
 public:
   MemRefBoundsIndexCapture();
@@ -884,6 +884,7 @@ private:
 // Make IndexExpressions of a given type from provided input list/range
 //===----------------------------------------------------------------------===//
 
+// Create a list of IndexExpr of kind INDEXEXPR from an ArrayRef of block args.
 template <class INDEXEXPR>
 void getIndexExprList(mlir::ArrayRef<mlir::BlockArgument> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -892,6 +893,8 @@ void getIndexExprList(mlir::ArrayRef<mlir::BlockArgument> inputList,
     outputList.emplace_back(INDEXEXPR(item));
 }
 
+// Create a list of IndexExpr of kind INDEXEXPR from a value range (list of
+// values).
 template <class INDEXEXPR>
 void getIndexExprList(
     mlir::ValueRange range, llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -900,6 +903,7 @@ void getIndexExprList(
     outputList.emplace_back(INDEXEXPR(item));
 }
 
+// Create a list of IndexExpr of kind INDEXEXPR from another list of IndexExpr.
 template <class INDEXEXPR>
 void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -907,5 +911,14 @@ void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
   for (auto item : inputList)
     outputList.emplace_back(INDEXEXPR(item));
 }
+
+// Create a list of IndexExpr of kind LiteralIndexExpr from a list of integers.
+void getIndexExprListFromInt(llvm::SmallVectorImpl<int64_t> &inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList);
+
+// Create a list of IndexExpr of kind LiteralIndexExpr/Questionmark from a
+// shape. Negative values are translated to Questionmarks.
+void getIndexExprListFromShape(llvm::SmallVectorImpl<int64_t> &inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList);
 
 } // namespace onnx_mlir

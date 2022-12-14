@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <typename OP_TYPE>
-LogicalResult NewONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
+LogicalResult ONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
   // Get info about input data operand.
   OP_TYPE argOp = llvm::cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands);
@@ -40,7 +39,7 @@ LogicalResult NewONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
   // Negative axis means values are counted from the opposite side.
   if (axisValue < 0) {
     axisValue = dataRank + axisValue;
-    auto builder = mlir::Builder(op->getContext());
+    auto builder = Builder(op->getContext());
     argOp.axisAttr(
         IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
             APInt(64, /*value=*/axisValue, /*isSigned=*/true)));
@@ -92,13 +91,13 @@ LogicalResult ONNXArgMaxOp::verify() {
 }
 
 LogicalResult ONNXArgMaxOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(data()))
     return success();
 
   // ONNX spec specifies the reduced type as an int64
-  auto elementType = IntegerType::get(getContext(), 64);
-  NewONNXArgMaxOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = IntegerType::get(getContext(), 64);
+  ONNXArgMaxOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -125,13 +124,13 @@ LogicalResult ONNXArgMinOp::verify() {
 }
 
 LogicalResult ONNXArgMinOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(data()))
     return success();
 
   // ONNX spec specifies the reduced type as an int64
-  auto elementType = IntegerType::get(getContext(), 64);
-  NewONNXArgMinOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = IntegerType::get(getContext(), 64);
+  ONNXArgMinOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -141,7 +140,7 @@ LogicalResult ONNXArgMinOp::inferShapes(
 
 namespace onnx_mlir {
 
-template struct NewONNXArgMinMaxOpShapeHelper<ONNXArgMaxOp>;
-template struct NewONNXArgMinMaxOpShapeHelper<ONNXArgMinOp>;
+template struct ONNXArgMinMaxOpShapeHelper<ONNXArgMaxOp>;
+template struct ONNXArgMinMaxOpShapeHelper<ONNXArgMinOp>;
 
 } // namespace onnx_mlir

@@ -24,20 +24,12 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXReverseSequenceOpShapeHelper::computeShape(
-    ONNXReverseSequenceOpAdaptor operandAdaptor) {
-
+template <>
+LogicalResult ONNXReverseSequenceOpShapeHelper::computeShape() {
   // Get info about input data operand.
+  ONNXReverseSequenceOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.input();
-  MemRefBoundsIndexCapture inputBounds(input);
-  int64_t inputRank = inputBounds.getRank();
-
-  DimsExpr outputDims;
-  for (int64_t i = 0; i < inputRank; ++i)
-    outputDims.emplace_back(inputBounds.getDim(i));
-
-  setOutputDims(outputDims);
-  return success();
+  return computeShapeFromOperand(input);
 }
 
 } // namespace onnx_mlir
@@ -84,11 +76,19 @@ LogicalResult ONNXReverseSequenceOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReverseSequenceOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXReverseSequenceOpShapeHelper,
-      ONNXReverseSequenceOp, ONNXReverseSequenceOpAdaptor>(*this, elementType);
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  ONNXReverseSequenceOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXReverseSequenceOp>;
+} // namespace onnx_mlir

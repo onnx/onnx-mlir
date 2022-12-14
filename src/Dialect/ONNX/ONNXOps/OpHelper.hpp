@@ -64,9 +64,8 @@ llvm::StringRef convertONNXTensorDataLayoutToString(
 // Add ONNX tensor encoding to ranked & shaped types. Return type only has the
 // encoding if the layout is custom, Currently assert for non ranked/shaped
 // type.
-mlir::Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-    mlir::Builder &builder, const mlir::Type inputType,
-    mlir::StringAttr layoutAttr);
+mlir::Type convertTensorTypeToTensorTypeWithEncoding(
+    const mlir::Type inputType, mlir::Attribute encodingAttr);
 
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
 bool isONNXTensor(const mlir::Type type);
@@ -199,6 +198,7 @@ bool AreTheSameConstantOpDenseAttr(
 
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(mlir::Value val);
+bool operandsOfOpHaveShapesAndRanks(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.

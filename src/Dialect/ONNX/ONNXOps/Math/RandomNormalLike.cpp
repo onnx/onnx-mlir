@@ -24,10 +24,10 @@ using namespace onnx_mlir;
 
 LogicalResult ONNXRandomNormalLikeOp::verify() {
   ONNXRandomNormalLikeOpAdaptor operandAdaptor(*this);
-  mlir::Value input = operandAdaptor.input();
+  Value input = operandAdaptor.input();
   if (!hasShapeAndRank(input))
     return success();
-  mlir::Value output = this->output();
+  Value output = this->output();
   if (!hasShapeAndRank(output))
     return success();
 
@@ -60,7 +60,7 @@ LogicalResult ONNXRandomNormalLikeOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXRandomNormalLikeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())
     return success();
   auto inputType = input().getType().cast<RankedTensorType>();
@@ -81,6 +81,6 @@ LogicalResult ONNXRandomNormalLikeOp::inferShapes(
     else
       return emitError("dtype attribute is invalid (use: 0, 1 or 2)");
   }
-  updateType(getResult(), inputType.getShape(), elementType);
-  return success();
+
+  return inferShapeForUnaryOps(getOperation(), elementType);
 }

@@ -261,9 +261,13 @@ def process_line(i, line):
         new_line = new_line.replace(x, y)
     uses = use_map_qual_pat.findall(new_line)
     for u in uses:
+        # Should never have num here as it is part of the ":" <num> pattern.
+        # Had a problem because there is are map names like "map" which 
+        # subsume names like "map1", "map2"... Since maps are always used with a
+        # "(" after it, add it both to the from (x) and to (y) string.
         (name, num) = u
-        x = use_name(name, num, "", "#")
-        y = translate_use_name(name, num, "")
+        x = use_name(name, num, "", "#")+"("
+        y = translate_use_name(name, num, "")+"("
         new_line = new_line.replace(x, y)
 
     # In debug mode, no need to perform FileCheck specific changes.

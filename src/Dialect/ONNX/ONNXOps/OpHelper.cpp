@@ -122,36 +122,18 @@ bool hasCustomONNXTensorDataLayout(const Type type) {
          ONNXTensorEncodingAttr::DataLayout::STANDARD;
 }
 
-// Add ONNX tensor encoding to rank & shaped types. Assert otherwise.
-Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-    Builder &builder, const Type inputType, StringAttr layoutAttr) {
-  Type resType = builder.getNoneType();
-  if (!inputType.isa<NoneType>()) {
-    ShapedType shapedType = inputType.cast<ShapedType>();
-    if (shapedType.hasRank()) {
-      assert(layoutAttr && "ONNXLayoutTransformOp builder expect a layout");
-      ONNXTensorEncodingAttr::DataLayout dataLayout;
-      int64_t xFactor, yFactor;
-      // Fails if layout is unknown or standard layout.
-      bool success = convertStringToONNXCustomTensorDataLayout(
-          layoutAttr, dataLayout, xFactor, yFactor);
-      // Compute shape: this op does not change the shape, just the layout.
-      ArrayRef<int64_t> inputShape = shapedType.getShape();
-      SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
-      Attribute encodingAttr = {};
-      if (success)
-        encodingAttr = ONNXTensorEncodingAttr::get(
-            builder.getContext(), dataLayout, xFactor, yFactor);
-      resType = RankedTensorType::get(
-          resShape, shapedType.getElementType(), encodingAttr);
-      return resType;
-    } else {
-      resType = UnrankedTensorType::get(shapedType.getElementType());
-    }
+// Add a tensor encoding to a rank & shaped type. Otherwise, return an unranked
+// type as it is.
+Type convertTensorTypeToTensorTypeWithEncoding(
+    const Type inputType, Attribute encodingAttr) {
+  Type resType = inputType;
+  if (auto rankedType = llvm::dyn_cast_or_null<RankedTensorType>(inputType)) {
+    // Compute shape: this op does not change the shape, just the layout.
+    ArrayRef<int64_t> inputShape = rankedType.getShape();
+    SmallVector<int64_t, 4> resShape(inputShape.begin(), inputShape.end());
+    resType = RankedTensorType::get(
+        resShape, rankedType.getElementType(), encodingAttr);
   }
-  // May remove the unreachable as it may be ok to try to convert unranked /
-  // unshaped type; let's be a bit stricter initially.
-  llvm_unreachable("Should only convert types that are ranked and shaped.");
   return resType;
 }
 
@@ -328,10 +310,9 @@ Value createONNXConstantOpWithDenseAttr(
 Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
   SmallVector<int64_t, 1> dims(1, 0);
   SmallVector<int64_t> values;
-  auto tensorType =
-      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
   auto denseAttr =
-      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+      DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
@@ -339,9 +320,9 @@ Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
 Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
   SmallVector<int64_t, 1> dims(1, 0);
   SmallVector<float> values;
-  auto tensorType = mlir::RankedTensorType::get(dims, rewriter.getF32Type());
+  auto tensorType = RankedTensorType::get(dims, rewriter.getF32Type());
   auto denseAttr =
-      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+      DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
@@ -476,6 +457,14 @@ bool hasShapeAndRank(Value val) {
     shapedType = valType.dyn_cast<ShapedType>();
   }
   return shapedType && shapedType.hasRank();
+}
+
+bool operandsOfOpHaveShapesAndRanks(Operation *op) {
+  int num = op->getNumOperands();
+  for (int i = 0; i < num; ++i)
+    if (!hasShapeAndRank(op->getOperand(i)))
+      return false;
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
@@ -693,8 +682,8 @@ template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp, Type type);
 // A complete list of types can be found in:
 // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
 // TODO: Update Int*/Uint* to emit signed/unsigned MLIR types
-mlir::Type convertONNXTypeToMLIRType(
-    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
+Type convertONNXTypeToMLIRType(
+    OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
   switch (onnxType) {
   case onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16:
     return builder_.getBF16Type();
@@ -723,7 +712,7 @@ mlir::Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
     return builder_.getI1Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
-    return mlir::ONNXStringType::get(builder_.getContext());
+    return ONNXStringType::get(builder_.getContext());
 
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:

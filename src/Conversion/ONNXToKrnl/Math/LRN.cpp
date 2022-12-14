@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -32,11 +31,11 @@ struct ONNXLRNOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXLRNOpAdaptor operandAdaptor(operands);
     ONNXLRNOp lrnOp = llvm::cast<ONNXLRNOp>(op);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     LocalMultiDialectBuilder create(rewriter, loc);
 
     // Get shape.
-    NewONNXLRNOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXLRNOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
@@ -46,7 +45,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     auto outputMemRefShape = outputMemRefType.getShape();
-    auto elementType = outputMemRefType.getElementType();
+    Type elementType = outputMemRefType.getElementType();
     int64_t outputRank = outputMemRefShape.size();
 
     Value input = operandAdaptor.X();

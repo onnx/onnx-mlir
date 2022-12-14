@@ -14,11 +14,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
-
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -33,22 +32,29 @@ namespace onnx_mlir {
 /// Handle shape inference for unary element-wise operators.
 LogicalResult inferShapeForUnaryOps(Operation *op) {
   Value input = op->getOperand(0);
-  Value output = op->getResult(0);
+  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  return inferShapeForUnaryOps(
+      op, inputType.getElementType(), inputType.getEncoding());
+}
 
+/// Handle shape inference for unary element-wise operators with specific output
+/// type.
+LogicalResult inferShapeForUnaryOps(Operation *op, Type elementType) {
+  Value input = op->getOperand(0);
+  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
+  return inferShapeForUnaryOps(op, elementType, inputType.getEncoding());
+}
+
+/// Handle shape inference for unary element-wise operators with specific output
+/// type and encoding.
+LogicalResult inferShapeForUnaryOps(
+    Operation *op, Type elementType, Attribute encoding) {
+  Value input = op->getOperand(0);
   if (!hasShapeAndRank(input))
     return success();
 
-  NewONNXUnaryOpShapeHelper shapeHelper(op, {});
-  if (failed(shapeHelper.computeShape()))
-    return op->emitError("Failed to scan parameters successfully");
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.getOutputDims(), outputDims);
-
-  // Inferred shape is getting from the input's shape.
-  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
-  updateType(
-      output, outputDims, inputType.getElementType(), inputType.getEncoding());
-  return success();
+  ONNXUnaryOpShapeHelper shapeHelper(op, {});
+  return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
 }
 
 } // namespace onnx_mlir
@@ -58,7 +64,7 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXAbsOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -67,7 +73,7 @@ LogicalResult ONNXAbsOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXAcosOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -76,7 +82,7 @@ LogicalResult ONNXAcosOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXAcoshOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -85,7 +91,7 @@ LogicalResult ONNXAcoshOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXAsinOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -94,7 +100,7 @@ LogicalResult ONNXAsinOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXAsinhOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -103,7 +109,7 @@ LogicalResult ONNXAsinhOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXAtanOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -112,7 +118,7 @@ LogicalResult ONNXAtanOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXAtanhOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -121,7 +127,7 @@ LogicalResult ONNXAtanhOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCastOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   ShapedType inputType = input().getType().dyn_cast<RankedTensorType>();
   if (!inputType) {
     return success();
@@ -134,8 +140,7 @@ LogicalResult ONNXCastOp::inferShapes(
     return UnrankedTensorType::get(elementType);
   };
 
-  mlir::Type targetType =
-      (*this)->getAttr("to").cast<::mlir::TypeAttr>().getValue();
+  Type targetType = (*this)->getAttr("to").cast<::TypeAttr>().getValue();
   OpBuilder builder(getContext());
   getResult().setType(getOutputType(targetType));
   return success();
@@ -146,7 +151,7 @@ LogicalResult ONNXCastOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCastLikeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   ShapedType inputType = input().getType().dyn_cast<RankedTensorType>();
   if (!inputType) {
     return success();
@@ -174,7 +179,7 @@ LogicalResult ONNXCastLikeOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCeilOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -183,7 +188,7 @@ LogicalResult ONNXCeilOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCeluOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -192,7 +197,7 @@ LogicalResult ONNXCeluOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCosOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -201,7 +206,7 @@ LogicalResult ONNXCosOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCoshOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -210,7 +215,7 @@ LogicalResult ONNXCoshOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCumSumOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -219,7 +224,7 @@ LogicalResult ONNXCumSumOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXEluOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -228,7 +233,7 @@ LogicalResult ONNXEluOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXErfOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -237,7 +242,7 @@ LogicalResult ONNXErfOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXExpOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -246,7 +251,7 @@ LogicalResult ONNXExpOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXFloorOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -255,7 +260,7 @@ LogicalResult ONNXFloorOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXHardSigmoidOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -264,7 +269,7 @@ LogicalResult ONNXHardSigmoidOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXHardSwishOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -273,7 +278,7 @@ LogicalResult ONNXHardSwishOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXInstanceNormalizationOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -282,7 +287,7 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLeakyReluOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -291,7 +296,7 @@ LogicalResult ONNXLeakyReluOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLogOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -318,7 +323,7 @@ LogicalResult ONNXLogSoftmaxOp::verify() {
 }
 
 LogicalResult ONNXLogSoftmaxOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -327,7 +332,7 @@ LogicalResult ONNXLogSoftmaxOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLpNormalizationOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -336,7 +341,7 @@ LogicalResult ONNXLpNormalizationOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -345,7 +350,7 @@ LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXNegOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -354,7 +359,7 @@ LogicalResult ONNXNegOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXNotOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -380,7 +385,7 @@ LogicalResult ONNXPReluOp::verify() {
 }
 
 LogicalResult ONNXPReluOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   ONNXPReluOpAdaptor operandAdaptor(*this);
   if (llvm::any_of(operandAdaptor.getOperands(),
           [](const Value &op) { return !hasShapeAndRank(op); }))
@@ -409,7 +414,7 @@ LogicalResult ONNXPReluOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReciprocalOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -418,7 +423,7 @@ LogicalResult ONNXReciprocalOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReluOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -427,7 +432,7 @@ LogicalResult ONNXReluOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXRoundOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -436,15 +441,14 @@ LogicalResult ONNXRoundOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXScalerOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto inputType = X().getType().dyn_cast<RankedTensorType>();
-
-  if (!inputType)
+    std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(X()))
     return success();
 
-  updateType(
-      getResult(), inputType.getShape(), FloatType::getF32(getContext()));
-  return success();
+  ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
+  RankedTensorType xType = X().getType().dyn_cast<RankedTensorType>();
+  return shapeHelper.computeShapeAndUpdateType(
+      FloatType::getF32(getContext()), xType.getEncoding());
 }
 
 //===----------------------------------------------------------------------===//
@@ -452,7 +456,7 @@ LogicalResult ONNXScalerOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSeluOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -461,7 +465,7 @@ LogicalResult ONNXSeluOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXShrinkOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -470,7 +474,7 @@ LogicalResult ONNXShrinkOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSigmoidOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -479,7 +483,7 @@ LogicalResult ONNXSigmoidOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSignOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -488,7 +492,7 @@ LogicalResult ONNXSignOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSinOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -497,7 +501,7 @@ LogicalResult ONNXSinOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSinhOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -506,7 +510,7 @@ LogicalResult ONNXSinhOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSoftmaxOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -515,7 +519,7 @@ LogicalResult ONNXSoftmaxOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSoftmaxV11Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -524,7 +528,7 @@ LogicalResult ONNXSoftmaxV11Op::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSoftplusOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -533,7 +537,7 @@ LogicalResult ONNXSoftplusOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSoftsignOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -542,7 +546,7 @@ LogicalResult ONNXSoftsignOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSqrtOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -551,7 +555,7 @@ LogicalResult ONNXSqrtOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXTanOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -560,7 +564,7 @@ LogicalResult ONNXTanOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXTanhOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -569,7 +573,7 @@ LogicalResult ONNXTanhOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXThresholdedReluOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -578,6 +582,6 @@ LogicalResult ONNXThresholdedReluOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXTriluOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }

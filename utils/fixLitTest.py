@@ -66,6 +66,7 @@ def print_usage():
 run_command = ""
 fix_fct_name = ""
 debug = 0
+debug_command_str = ""
 test_error_functions = []
 
 # File names.
@@ -84,14 +85,13 @@ segment_mlir2FileCheck_command = []
 # Run commands.
 
 def run_onnx_mlir_opt(code_file_name, omo_command, output_file_name):
-    global debug
+    global debug, debug_command_str
 
     # Gen command from string.
     command = omo_command.split()
     command.append(code_file_name)
     if debug:
-        print("//  Commands:")
-        print("//    ", ' '.join(command))
+        debug_command_str += "//    " + ' '.join(command) + "\n"
     res = subprocess.run(command, capture_output=True, text=True).stdout
     # Write command output
     with open(output_file_name, 'w') as f:
@@ -99,7 +99,7 @@ def run_onnx_mlir_opt(code_file_name, omo_command, output_file_name):
 
 def run_mlir2FileCheck(model_file_name, compiled_file_name, 
         m2fc_command, output_file_name):
-    global debug
+    global debug, debug_command_str
 
     if not m2fc_command:
         m2fc_command = "mlir2FileCheck.py"
@@ -115,18 +115,18 @@ def run_mlir2FileCheck(model_file_name, compiled_file_name,
     command.extend(["-i", compiled_file_name])
     command.extend(["-m", model_file_name])
     if debug:
-        print("//    ", ' '.join(command))
+        debug_command_str += "//    " + ' '.join(command) + "\n"
     res = subprocess.run(command, capture_output=True, text=True).stdout
     # Write command output
     with open(output_file_name, 'w') as f:
         f.write(res)
 
 def run_FileCheck(test_name, compiled_file_name, model_file_name):
-    global debug, test_error_functions
+    global debug, debug_command_str, test_error_functions
     command = ['FileCheck', '--input-file='+compiled_file_name,
         model_file_name]
     if debug:
-        print("//    ", ' '.join(command))
+        debug_command_str += "//    " + ' '.join(command) + "\n"
     res = subprocess.run(command, capture_output=True, text=True).stderr
     if len(res) == 0:
         dprint(">> Successful test of \"" + test_name + "\".")
@@ -135,7 +135,7 @@ def run_FileCheck(test_name, compiled_file_name, model_file_name):
         dprint(">> Start failure report of test \"" + test_name + "\".")
         dprint(res)
         dprint(">> Stop failure report of test \"" + test_name + "\".")
-        dprint(">> run again with option \"-t -f " + test_name + 
+        dprint(">> run again with option \"-tdf " + test_name +
             "\" to focus on this test.")
 
 def print_file(file_name):
@@ -237,8 +237,14 @@ def main(argv):
         dprint("Need an single input file as last option: ", args, ".")
         return
     lit_test_filename = args[0]
+    if not os.path.exists(lit_test_filename):
+        # If don't find the path, try in the test/mlir sub directory.
+        directory = os.path.dirname(sys.argv[0])
+        # This file is in onnx-mlir/utils... tests are in onnx-mlir/test/mlir.
+        directory += "/../test/mlir/"
+        lit_test_filename = directory + lit_test_filename
     if debug:
-        print('// Process lit test file "' + lit_test_filename + '".')
+        dprint('// Process lit test file "' + lit_test_filename + '".')
 
     # Process the lit test file. 
     # Segments are all of the text between "// -----".
@@ -290,7 +296,7 @@ def main(argv):
             if has_fct and curr_segment_fct_name == fix_fct_name:
                 found_fct_to_fix = True
                 if debug:
-                    print("//  Found function to fix:", curr_segment_fct_name)
+                    dprint("// Found function to fix: " + curr_segment_fct_name)
             continue
          # Handle mlir2FileCheck command
         m = re.match(r'\s*//\s*(mlir2FileCheck.py.*)$', line)
@@ -313,14 +319,14 @@ def main(argv):
         print_usage()
     
     # Process segments.
-    dprint(">> File runs \"" + run_command + "\" ")
+    dprint("// File runs \"" + run_command + "\" ")
     if has_repair:
         emit_unmodified_segment(0)
     for i in range(1, len(segment_text)):
         if not has_fct or segment_fct_name[i] == fix_fct_name:
             # We have the selected function or we do them all
             if has_repair:
-                sys.stderr.write("// > repair "+ segment_fct_name[i] + "\n")
+                dprint("// > repair "+ segment_fct_name[i] + "\n")
                 emit_modified_segment(i, has_test)
             elif has_test:
                 test_orig_model(i)
@@ -328,8 +334,13 @@ def main(argv):
             # Specified a function, but does not have it.
             # Print through if requested
             if has_print:
-                sys.stderr.write("// > print "+ segment_fct_name[i] + "\n")
+                if debug:
+                    dprint("// > print "+ segment_fct_name[i] + "\n")
                 emit_unmodified_segment(i)
+
+    if debug:
+        dprint("// Commands used:")
+        dprint(debug_command_str)
 
     test_error_num = len(test_error_functions)
     if has_test:

@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,13 +25,10 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXGatherOpShapeHelper::computeShape() {
-  // Shape inference indicated by passing a null rewriter pointer.
+LogicalResult ONNXGatherOpShapeHelper::computeShape() {
   // Read data and indices shapes as dim indices.
   ONNXGatherOpAdaptor operandAdaptor(operands);
   ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);
-  // MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
-  // MemRefBoundsIndexCapture indicesBounds(operandAdaptor.indices());
   DimsExpr dataDims, indicesDims;
   createIE->getShapeAsDims(operandAdaptor.data(), dataDims);
   createIE->getShapeAsDims(operandAdaptor.indices(), indicesDims);
@@ -91,13 +87,13 @@ LogicalResult ONNXGatherOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGatherOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   if (llvm::any_of(this->getOperands(),
           [](const Value &op) { return !hasShapeAndRank(op); }))
     return success();
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
-  NewONNXGatherOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXGatherOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -106,5 +102,5 @@ LogicalResult ONNXGatherOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXGatherOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXGatherOp>;
 } // namespace onnx_mlir
