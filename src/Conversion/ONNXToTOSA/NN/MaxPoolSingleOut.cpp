@@ -85,7 +85,6 @@ public:
     mlir::IntegerAttr storageOrder = adaptor.storage_orderAttr();
     mlir::ArrayAttr dilations = adaptor.dilationsAttr();
     mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
-    mlir::ArrayAttr pads = adaptor.padsAttr();
     mlir::ArrayAttr strides = adaptor.stridesAttr();
 
     if (input.getType().isa<MemRefType>()) {
@@ -121,18 +120,17 @@ public:
     // When ceil mode is 1, we need to add values to the padding
     const llvm::SmallVector<int64_t, 4> ceilConstants =
         getCeilConstants(inputType.getShape(), shapeHelper);
-    llvm::SmallVector<int64_t, 4> transposedPads =
+    llvm::SmallVector<int64_t, 4> pads =
         tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
 
     // reorder padding values
-    pads = rewriter.getI64ArrayAttr(
-        {transposedPads[0], transposedPads[2] + ceilConstants[0],
-            transposedPads[1], transposedPads[3] + ceilConstants[1]});
+    mlir::ArrayAttr newPads = rewriter.getI64ArrayAttr({pads[0],
+        pads[2] + ceilConstants[0], pads[1], pads[3] + ceilConstants[1]});
 
     strides = rewriter.getI64ArrayAttr(shapeHelper.strides);
 
     input = tosa::CreateOpAndInfer<mlir::tosa::MaxPool2dOp>(
-        rewriter, loc, newResultType, input, kernelShape, strides, pads);
+        rewriter, loc, newResultType, input, kernelShape, strides, newPads);
 
     // Revert to original shape (NCHW)
     // Construct the old result shape out of the new one
