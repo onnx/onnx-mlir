@@ -25,6 +25,7 @@
 #include "mlir/IR/PatternMatch.h"                 // from @llvm-project
 #include "mlir/Interfaces/InferTypeOpInterface.h" // from @llvm-project
 #include "mlir/Support/LLVM.h"                    // from @llvm-project
+#include <src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp>
 
 namespace onnx_mlir {
 namespace tosa {
@@ -53,27 +54,10 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
   // the new result shaped type. This is because rescale can include a cast to
   // different bit-width types and does not have a TypeAttr to define the
   // target type.
-  auto result = op->getResult(0);
   auto predictedShape = returnedShapes[0];
-  auto currentKnowledge =
-      mlir::tosa::ValueKnowledge::getKnowledgeFromType(result_ty);
-
-  // Compute the knowledge based on the inferred type.
-  auto inferredKnowledge =
-      mlir::tosa::ValueKnowledge::getPessimisticValueState();
-  inferredKnowledge.dtype = result_ty.cast<mlir::ShapedType>().getElementType();
-  inferredKnowledge.hasRank = predictedShape.hasRank();
-  if (predictedShape.hasRank()) {
-    for (auto dim : predictedShape.getDims()) {
-      inferredKnowledge.sizes.push_back(dim);
-    }
-  }
-
-  // Compute the new type based on the joined version.
-  auto newKnowledge =
-      mlir::tosa::ValueKnowledge::join(currentKnowledge, inferredKnowledge);
-  auto new_ty = newKnowledge.getType();
-  result.setType(new_ty);
+  if (predictedShape.hasRank())
+    updateType(op, predictedShape.getDims(),
+        result_ty.cast<mlir::ShapedType>().getElementType());
   return op;
 }
 
