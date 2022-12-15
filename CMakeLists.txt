@@ -13,6 +13,14 @@ option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party 
 
 set(CMAKE_CXX_STANDARD 17)
 
+# New in cmake 3.15:
+# https://cmake.org/cmake/help/latest/policy/CMP0094.html
+# Stops python lookup as soon as a version satisfying version constraints
+# is founded.
+if (POLICY CMP0094)
+  cmake_policy(SET CMP0094 NEW)
+endif()
+
 # On systems that still have legacy lib64 directories (e.g., rhel/fedora,
 # etc.), by default some components (e.g., cmake) install into lib while
 # others (e.g., python) install into lib64.
