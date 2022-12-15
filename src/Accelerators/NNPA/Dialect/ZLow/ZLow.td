@@ -456,4 +456,33 @@ def ZLowDummyOp:ZLow_Op<"dummy", [MemRefsNormalizable]> {
   let hasCanonicalizer = 1;
 }
 
+def ZLowConvertDLF16ToF32Op:ZLow_Op<"dlf16_to_f32", []> {
+  let summary = "Convert a dlfloat16 value to a float32 value";
+  let description = [{
+  This operation converts a dlfloat16 value to a float32 value. 
+  }];
+  let arguments = (ins DLF16:$input);
+  let results = (outs F32:$output);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$input), [{
+      build($_builder, $_state, $_builder.getF32Type(), input);
+    }]>
+  ];
+}
+
+def ZLowConvertF32ToDLF16Op:ZLow_Op<"f32_to_dlf16", []> {
+  let summary = "Convert a float32 value to a dlfloat16 value";
+  let description = [{
+  This operation converts a float32 value to a dlfloat16 value. 
+  }];
+  let arguments = (ins F32:$input);
+  let results = (outs DLF16:$output);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$input), [{
+      // F16 is used as a container for DLF16.
+      build($_builder, $_state, $_builder.getF16Type(), input);
+    }]>
+  ];
+}
+
 #endif // ZLOW_OPS

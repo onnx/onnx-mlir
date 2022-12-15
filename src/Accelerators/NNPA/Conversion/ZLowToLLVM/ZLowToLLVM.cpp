@@ -1515,6 +1515,68 @@ private:
   ApiRegistry apiRegistry;
 };
 
+class ZLowDLF16ToF32Lowering : public ConvertToLLVMPattern {
+public:
+  explicit ZLowDLF16ToF32Lowering(MLIRContext *context,
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry)
+      : ConvertToLLVMPattern(
+            ZLowConvertDLF16ToF32Op::getOperationName(), context, lowering_) {
+    this->apiRegistry = apiRegistry;
+  }
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+    ZLowConvertDLF16ToF32Op::Adaptor operandAdaptor(operands);
+    Value input = operandAdaptor.input();
+    Type llvmI16Ty = rewriter.getI16Type();
+
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    // I16 is used as a container for DLF16.
+    Value inputI16 = create.llvm.bitcast(llvmI16Ty, input);
+
+    Value output = callApi(
+        rewriter, loc, module, apiRegistry, API::DLF16_TO_F32, {inputI16});
+    rewriter.replaceOp(op, {output});
+    return success();
+  }
+
+private:
+  ApiRegistry apiRegistry;
+};
+
+class ZLowF32ToDLF16Lowering : public ConvertToLLVMPattern {
+public:
+  explicit ZLowF32ToDLF16Lowering(MLIRContext *context,
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry)
+      : ConvertToLLVMPattern(
+            ZLowConvertF32ToDLF16Op::getOperationName(), context, lowering_) {
+    this->apiRegistry = apiRegistry;
+  }
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+
+    ZLowConvertF32ToDLF16Op::Adaptor operandAdaptor(operands);
+    Value input = operandAdaptor.input();
+    Type llvmF16Ty = rewriter.getF16Type();
+
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    // I16 is used as a container for DLF16.
+    Value outputI16 =
+        callApi(rewriter, loc, module, apiRegistry, API::F32_TO_DLF16, {input});
+    Value output = create.llvm.bitcast(llvmF16Ty, outputI16);
+    rewriter.replaceOp(op, {output});
+    return success();
+  }
+
+private:
+  ApiRegistry apiRegistry;
+};
+
 void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx) {
   ApiRegistry apiRegistry = RegisterAllApis(ctx);
@@ -1533,7 +1595,10 @@ void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
       ZLowMatMulLowering,
       ZLowConv2DLowering,
       ZLowMeanReduce2DLowering,
-      ZLowBatchNormLowering
+      ZLowBatchNormLowering,
+      // Scalar operations
+      ZLowDLF16ToF32Lowering,
+      ZLowF32ToDLF16Lowering
     >(ctx, typeConverter, apiRegistry);
   patterns.insert<
       // Elementwise operations
