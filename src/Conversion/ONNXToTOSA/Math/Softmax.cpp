@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Softmax.cpp - Softmax Op --------------------===//
+//===---------------- Softmax.cpp - Softmax Op ----------------------------===//
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
@@ -26,15 +26,14 @@ namespace onnx_mlir {
 namespace {
 
 template <typename Softmax>
-Value convertSoftmax(PatternRewriter &rewriter, Operation *op,
-    RankedTensorType rsumType, const Value &op1ExpIn, int axis,
-    int32_t inputRank) = delete;
+Value computeReduceSum(PatternRewriter &rewriter, Operation *op,
+    RankedTensorType rsumType, const Value &op1ExpIn, int axis) = delete;
 
 // Before opset 13, softmax reduces axis and every dimension following.
 template <>
-Value convertSoftmax<ONNXSoftmaxV11Op>(PatternRewriter &rewriter, Operation *op,
-    RankedTensorType rsumType, const Value &op1ExpIn, int axis,
-    int32_t inputRank) {
+Value computeReduceSum<ONNXSoftmaxV11Op>(PatternRewriter &rewriter,
+    Operation *op, RankedTensorType rsumType, const Value &op1ExpIn, int axis) {
+  const int64_t inputRank = rsumType.getRank();
   // Create shared outputType with dynamic shape. Infer method when creating
   // ops will insert a static shape if possible
   Type outputType = RankedTensorType::get(
@@ -52,9 +51,8 @@ Value convertSoftmax<ONNXSoftmaxV11Op>(PatternRewriter &rewriter, Operation *op,
 
 // From opset 13, softmax uses axis as the reduce axis.
 template <>
-Value convertSoftmax<ONNXSoftmaxOp>(PatternRewriter &rewriter, Operation *op,
-    RankedTensorType rsumType, const Value &op1ExpIn, int axis,
-    int32_t inputRank) {
+Value computeReduceSum<ONNXSoftmaxOp>(PatternRewriter &rewriter, Operation *op,
+    RankedTensorType rsumType, const Value &op1ExpIn, int axis) {
   return tosa::CreateOpAndInfer<mlir::tosa::ReduceSumOp>(rewriter, op->getLoc(),
       rsumType, op1ExpIn, rewriter.getI64IntegerAttr(axis));
 }
@@ -66,29 +64,31 @@ public:
   using OpAdaptor = typename SoftmaxOp::Adaptor;
   LogicalResult matchAndRewrite(SoftmaxOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
+
+    Location loc = op->getLoc();
+    Value input = adaptor.input();
     // softmax = exp(logits) / reduce_sum(exp(logits), -1)
-    auto outputType = op.getResult().getType().template dyn_cast<TensorType>();
-    auto inputType = adaptor.input().getType().template dyn_cast<TensorType>();
-    IntegerAttr axisAttr = adaptor.axisAttr();
-
-    // reduce_sum on last dimension
-    int32_t inputRank = inputType.getShape().size();
-
-    // Get ONNX softmax axis
-    int axis = axisAttr.getSInt();
-    // Tosa only supports positive values
-    if (axis < 0) {
-      axis += inputRank;
-    }
-    // The legalization below is based on convertSoftmaxOp in
-    // tensorflow tosa/transforms/legalize_common.cc, with the
-    // addition of handling for axis.
+    auto outputType =
+        op.getResult().getType().template dyn_cast<RankedTensorType>();
+    auto inputType =
+        adaptor.input().getType().template dyn_cast<RankedTensorType>();
 
     // Not a ranked tensor input/output
     if (!outputType || !inputType) {
       return rewriter.notifyMatchFailure(
           op, "input and result not ranked tensors");
     }
+
+    // Get ONNX softmax axis
+    int64_t axis = adaptor.axis();
+    // Tosa only supports positive values
+    int64_t inputRank = inputType.getRank();
+    if (axis < 0) {
+      axis += inputRank;
+    }
+    // The legalization below is based on convertSoftmaxOp in
+    // tensorflow tosa/transforms/legalize_common.cc, with the
+    // addition of handling for axis.
 
     // Floating-point lowering is more direct:
     //
@@ -97,16 +97,16 @@ public:
     // op3 = reciprocal(op2)
     // op4 = mul(op1, op3)
     auto op1ExpIn = tosa::CreateOpAndInfer<mlir::tosa::ExpOp>(
-        rewriter, op->getLoc(), outputType, adaptor.input());
-    RankedTensorType rsumType = RankedTensorType::get(
-        llvm::SmallVector<int64_t, 4>(inputType.getShape().size(), -1),
-        outputType.getElementType());
+        rewriter, loc, outputType, input);
+    RankedTensorType rsumType =
+        RankedTensorType::get(llvm::SmallVector<int64_t, 4>(inputRank, -1),
+            outputType.getElementType());
 
-    Value op2ReducesumOp1 = convertSoftmax<SoftmaxOp>(
-        rewriter, op, rsumType, op1ExpIn.getResult(), axis, inputRank);
+    Value op2ReducesumOp1 = computeReduceSum<SoftmaxOp>(
+        rewriter, op, rsumType, op1ExpIn.getResult(), axis);
 
     auto op3ReciprocalOp2 = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(
-        rewriter, op->getLoc(), op2ReducesumOp1.getType(), op2ReducesumOp1);
+        rewriter, loc, op2ReducesumOp1.getType(), op2ReducesumOp1);
 
     tosa::CreateReplaceOpAndInfer<mlir::tosa::MulOp>(rewriter, op, outputType,
         op1ExpIn.getResult(), op3ReciprocalOp2.getResult(), 0);
