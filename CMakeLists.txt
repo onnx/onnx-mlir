@@ -16,7 +16,7 @@ set(CMAKE_CXX_STANDARD 17)
 # New in cmake 3.15:
 # https://cmake.org/cmake/help/latest/policy/CMP0094.html
 # Stops python lookup as soon as a version satisfying version constraints
-# is founded.
+# is found.
 if (POLICY CMP0094)
   cmake_policy(SET CMP0094 NEW)
 endif()
