@@ -44,8 +44,8 @@ typedef int(
     uint64_t idx1 = *((uint64_t *)idx1p);                                      \
     uint64_t idx2 = *((uint64_t *)idx2p);                                      \
     typeName *data = (typeName *)dataPtr;                                      \
-    return (data[idx1] symbol data[idx2]) ||                                   \
-           ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
+    return ((data[idx1] symbol data[idx2]) ||                                  \
+            ((data[idx1] == data[idx2]) && (idx1 > idx2)) ? 1 : -1;            \
   }
 #else // DEBUG
 #define declare_compare_function(fname, typeName, direction, symbol)           \
