@@ -35,16 +35,10 @@ DisposablePool::~DisposablePool() {}
 
 void DisposablePool::insert(DisposableElementsAttr disposable) {
   // TODO: make this thread safe
+  assert(isActive());
   auto insertion = pool.try_emplace(disposable.getId(), disposable);
   if (!insertion.second)
     llvm_unreachable("cannot insert existing DisposableElementsAttr");
-}
-
-DisposableElementsAttr DisposablePool::lookup(size_t id) const {
-  auto found = pool.find(id);
-  if (found == pool.end())
-    return nullptr;
-  return found->second;
 }
 
 /*static*/
@@ -63,7 +57,7 @@ void DisposablePool::garbageCollectUnreachable(ModuleOp moduleOp) {
   collectReachable<ONNXConstantOp>(moduleOp, reachable);
   collectReachable<ONNXConstantOfShapeOp>(moduleOp, reachable);
   for (auto &entry : reachable)
-    assert(this->pool.count(entry.first) == 1 &&
+    assert(pool.count(entry.first) == 1 &&
            "reachable disposables must be in the pool");
   eraseUnreachable(reachable);
 }

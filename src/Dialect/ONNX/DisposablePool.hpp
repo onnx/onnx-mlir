@@ -41,12 +41,13 @@ public:
   DisposablePool(mlir::Dialect *dialect, mlir::MLIRContext *context);
   ~DisposablePool();
 
-  mlir::DisposableElementsAttr lookup(size_t id) const;
-
   // Disposes every DisposableElementsAttr in the pool which is unreachable
   // (doesn't appear in moduleOp).
   void garbageCollectUnreachable(mlir::ModuleOp moduleOp);
 
+  // Can be called when the pool is empty, namely after calling scrub(), to
+  // ensure that no more DisposableElementsAttr instances are created, i.e.
+  // will cause all future calls to insert() to fail.
   void close() {
     assert(pool.empty() && "pool must be scrubbed before close");
     active = false;
@@ -60,6 +61,8 @@ private:
   using Pool = std::unordered_map<size_t, mlir::DisposableElementsAttr>;
   using Scrubbed = std::unordered_map<size_t, mlir::DenseElementsAttr>;
 
+  // Called from ElementsAttrBuilder to record all instances of
+  // DisposableElementsAttr as they are created.
   void insert(mlir::DisposableElementsAttr disposable);
 
   template <typename CONST_OP>
