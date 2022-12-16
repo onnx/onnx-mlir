@@ -29,11 +29,14 @@ namespace zlow {
 
 ApiRegistry RegisterAllApis(MLIRContext *context) {
   auto voidTy = LLVM::LLVMVoidType::get(context);
-  auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
+  auto int8Ty = IntegerType::get(context, 8);
   auto int16Ty = IntegerType::get(context, 16);
   auto int32Ty = IntegerType::get(context, 32);
   auto int64Ty = IntegerType::get(context, 64);
   auto float32Ty = FloatType::getF32(context);
+  auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
+  auto int16PtrTy = LLVM::LLVMPointerType::get(int16Ty);
+  auto float32PtrTy = LLVM::LLVMPointerType::get(float32Ty);
 
   // Declare API type as an enum value, its string name and an LLVM Type
   // specifying its signature.
@@ -83,8 +86,8 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
     // Note: consider to use dlf16_to_fp32 and fp32_to_dlf16 for better
     // performance.
     // TODO: make sure there is no problem causing by using int16 as arguments.
-    ApiSpec(API::DLF16_TO_F32, "cnvt_1_dlf16_to_fp32", float32Ty, {int16Ty}, false),
-    ApiSpec(API::F32_TO_DLF16, "cnvt_1_fp32_to_dlf16", int16Ty, {float32Ty}, false),
+    ApiSpec(API::DLF16_TO_F32, "dlf16_to_fp32", int64Ty, {int16PtrTy, float32PtrTy, int64Ty}, false),
+    ApiSpec(API::F32_TO_DLF16, "fp32_to_dlf16", int64Ty, {float32PtrTy, int16PtrTy, int64Ty}, false),
   };
   // clang-format on
 
