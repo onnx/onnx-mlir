@@ -58,6 +58,7 @@ std::vector<T> nums(std::integer_sequence<T, ints...> int_seq) {
 MLIRContext *createCtx() {
   MLIRContext *ctx = new MLIRContext();
   ctx->loadDialect<ONNXDialect>();
+  DisposablePool::create(ctx); // Registers an instance with the dialect.
   return ctx;
 }
 
@@ -78,7 +79,7 @@ class Test {
 public:
   Test()
       : ctx(createCtx()), loc(UnknownLoc::get(ctx)), builder(ctx),
-        elmsBuilder(DisposablePool::create(ctx)) {
+        elmsBuilder(ctx) {
     F32 = builder.getF32Type();
     I32 = builder.getI32Type();
     I64 = builder.getI64Type();

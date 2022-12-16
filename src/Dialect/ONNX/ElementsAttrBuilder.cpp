@@ -50,9 +50,6 @@ bool testRawBytesValidityAndSplatness(
 
 } // namespace
 
-ElementsAttrBuilder::ElementsAttrBuilder(DisposablePool &disposablePool)
-    : disposablePool(disposablePool) {}
-
 ElementsAttrBuilder::ElementsAttrBuilder(MLIRContext *context)
     : disposablePool(*DisposablePool::get(context)) {}
 
