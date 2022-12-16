@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------- ZHighHelper.cpp - NNPA ZHigh Helper Functions ---------------===//
+//===-------- OpHelper.cpp - NNPA ZHigh Helper Functions ------------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -174,6 +174,23 @@ Value getMinusBcastConst(
   DenseElementsAttr denseAttr = DenseElementsAttr::get(X.getType(), val);
   MultiDialectBuilder<OnnxBuilder> create(builder, loc);
   return create.onnx.constant(denseAttr);
+}
+
+bool oneIsOfNHWCLayout(Type t1, Type t2) {
+  if (auto rtp1 = llvm::dyn_cast<RankedTensorType>(t1)) {
+    if (onnx_mlir::zhigh::getZTensorLayout(rtp1) ==
+        onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::NHWC)
+      return true;
+    // t1 is not of NHWC, check t2.
+    if (auto rtp2 = llvm::dyn_cast<RankedTensorType>(t2)) {
+      return (onnx_mlir::zhigh::getZTensorLayout(rtp2) ==
+              onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::NHWC);
+    }
+    // t2 is unranked.
+  }
+  // t1 is unranked.
+  // Unranked type is potentially of NHWC.
+  return true;
 }
 
 } // namespace zhigh
