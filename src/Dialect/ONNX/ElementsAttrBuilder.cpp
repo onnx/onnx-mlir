@@ -223,15 +223,6 @@ DisposableElementsAttr ElementsAttrBuilder::expand(
       elms.getBufferBType(), elms.getReaderOrNull());
 }
 
-template <typename... Args>
-DisposableElementsAttr ElementsAttrBuilder::create(
-    ShapedType type, Args &&... args) {
-  size_t id = ++counter;
-  auto d = DisposableElementsAttr::get(type, id, std::forward<Args>(args)...);
-  disposablePool.insert(d);
-  return d;
-}
-
 mlir::DisposableElementsAttr ElementsAttrBuilder::fromSplat(ShapedType type,
     std::unique_ptr<llvm::MemoryBuffer> membuf, BType bufferBType) {
   SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
@@ -256,6 +247,15 @@ DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
   bytesFiller(writeBuffer->getBuffer());
   // We trust bytesFiller and skip testRawBytesValidityAndSplatness()
   return create(type, std::move(writeBuffer), None, bufferBType);
+}
+
+template <typename... Args>
+DisposableElementsAttr ElementsAttrBuilder::create(
+    ShapedType type, Args &&... args) {
+  size_t id = ++counter;
+  auto d = DisposableElementsAttr::get(type, id, std::forward<Args>(args)...);
+  disposablePool.insert(d);
+  return d;
 }
 
 std::atomic<size_t> ElementsAttrBuilder::counter{0};

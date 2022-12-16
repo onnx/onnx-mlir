@@ -95,10 +95,6 @@ public:
       mlir::DisposableElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape);
 
 private:
-  // Create a DisposableElementsAttr and put it in disposablePool.
-  template <typename... Args>
-  mlir::DisposableElementsAttr create(mlir::ShapedType type, Args &&... args);
-
   mlir::DisposableElementsAttr fromSplat(mlir::ShapedType type,
       std::unique_ptr<llvm::MemoryBuffer> membuf, BType bufferBType);
 
@@ -115,6 +111,10 @@ private:
         transform(elms, resultType.getElementType(), transformer);
     return expand(transformed, resultType.getShape());
   }
+
+  // Create a DisposableElementsAttr and put it in disposablePool.
+  template <typename... Args>
+  mlir::DisposableElementsAttr create(mlir::ShapedType type, Args &&... args);
 
   static std::atomic<size_t> counter;
 
