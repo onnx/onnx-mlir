@@ -1,5 +1,5 @@
-REM Check out protobuf v3.18.3
-set protobuf_version=3.18.3
+REM Check out protobuf v3.20.2
+set protobuf_version=3.20.2
 git clone -b v%protobuf_version% --recursive https://github.com/protocolbuffers/protobuf.git
 
 set root_dir=%cd%
