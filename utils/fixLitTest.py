@@ -357,6 +357,8 @@ def main(argv):
             else:
                 dprint(" // > failed test; repair"+ segment_fct_name[i])
                 emit_modified_segment(i, has_test)
+        elif has_test:
+            test_orig_model(i, silent=False)
 
     if debug:
         dprint("// Commands used:")

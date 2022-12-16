@@ -21,6 +21,12 @@ using namespace onnx_mlir;
 
 #include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.cpp.inc"
 
+// Currently, QLinearConv has no lit tests. The shape inference was moved to the
+// new scheme, but there is no way to ensure it is correct. So I suggest that we
+// keep the old code until we get actual tests. Once it is verified, we can
+// delete all of the code guarded by this #define.
+#define PRESERVE_UNTESTED_OLD_QLINEARCONV_CODE 0
+
 //===----------------------------------------------------------------------===//
 // Support
 //===----------------------------------------------------------------------===//
@@ -252,6 +258,7 @@ LogicalResult processConvTypeParams(T *op, Value inputOperand, Value W) {
       op, inputShape, kernelShape, stridesOpt, dilationsOpt);
 }
 
+#if PRESERVE_UNTESTED_OLD_QLINEARCONV_CODE
 //===----------------------------------------------------------------------===//
 // Compute spatial dimensions given dilations, strides, pads, and ceil mode.
 //===----------------------------------------------------------------------===//
@@ -308,6 +315,7 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
     outputDims->emplace_back(res);
   }
 }
+#endif // PRESERVE_UNTESTED_OLD_QLINEARCONV_CODE
 
 } // namespace
 
@@ -326,6 +334,15 @@ template <>
 LogicalResult ONNXConvIntegerOpShapeHelper::computeShape() {
   ONNXConvIntegerOp poolOp = llvm::cast<ONNXConvIntegerOp>(op);
   ONNXConvIntegerOpAdaptor operandAdaptor = ONNXConvIntegerOpAdaptor(operands);
+  return customComputeShape(operandAdaptor.x(), operandAdaptor.w(),
+      poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
+      poolOp.dilations(), /*hasFilter*/ true, /*ceil mode*/ false);
+}
+
+template <>
+LogicalResult ONNXQLinearConvOpShapeHelper::computeShape() {
+  ONNXQLinearConvOp poolOp = llvm::cast<ONNXQLinearConvOp>(op);
+  ONNXQLinearConvOpAdaptor operandAdaptor = ONNXQLinearConvOpAdaptor(operands);
   return customComputeShape(operandAdaptor.x(), operandAdaptor.w(),
       poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
       poolOp.dilations(), /*hasFilter*/ true, /*ceil mode*/ false);
@@ -657,6 +674,29 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
 // QLinearConv
 //===----------------------------------------------------------------------===//
 
+// Enable this one default; but keep the else code as there is currently no lit
+// test of any kind to very functionality.
+
+LogicalResult ONNXQLinearConvOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  // Generic shape for data input X, weight tensor W, and optional bias B
+  // X: (N x C x D1 x D2 ... x Dn)
+  // W: (M x C/group x k1 x k2 x ... x kn)
+  // B: (M) Optional
+
+  // Cannot infer shape if no shape exists.
+  bool hasBias = !B().getType().isa<NoneType>();
+  if (!x().getType().isa<RankedTensorType>() ||
+      !w().getType().isa<RankedTensorType>() ||
+      (hasBias && !B().getType().isa<RankedTensorType>()))
+    return success();
+
+  Type elementType = x().getType().cast<ShapedType>().getElementType();
+  ONNXQLinearConvOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+}
+
+#if PRESERVE_UNTESTED_OLD_QLINEARCONV_CODE
 LogicalResult ONNXQLinearConvOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Generic shape for data input X, weight tensor W, and optional bias B
@@ -753,12 +793,12 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
 }
+#endif // PRESERVE_UNTESTED_OLD_QLINEARCONV_CODE
 
 //===----------------------------------------------------------------------===//
 // ConvInteger - copied almost exactly from Conv (X -> x, W -> w, no bias)
 //===----------------------------------------------------------------------===//
 
-#if 1
 LogicalResult ONNXConvIntegerOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Generic shape for data input X, weight tensor W, and optional bias B
@@ -775,105 +815,6 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
   ONNXConvIntegerOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(outputElementType);
 }
-
-#else
-LogicalResult ONNXConvIntegerOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  // Generic shape for data input X, weight tensor W
-  // X: (N x C x D1 x D2 ... x Dn)
-  // W: (M x C/group x k1 x k2 x ... x kn)
-
-  // Cannot infer shape if no shape exists.
-  if (!x().getType().isa<RankedTensorType>() ||
-      !w().getType().isa<RankedTensorType>()) {
-    return success();
-  }
-
-  auto xTy = x().getType().cast<RankedTensorType>();
-  if (!xTy.getElementType().isInteger(8)) {
-    return emitOpError("Invalid input type");
-  }
-  auto xShape = xTy.getShape();
-  auto weightTy = w().getType().cast<RankedTensorType>();
-  if (!weightTy.getElementType().isInteger(8)) {
-    return emitOpError("Invalid input type");
-  }
-  auto weightShape = weightTy.getShape();
-  auto builder = Builder(this->getContext());
-
-  // Lowest supported convolution is a one dimensional convolution.
-  if (xShape.size() < 3) {
-    return emitOpError("Data input shape must be at least (NxCxD1)");
-  }
-
-  // Check that shape of weight and data have same length.
-  if (xShape.size() != weightShape.size()) {
-    return emitError("Weight size not compatible with data size");
-  }
-
-  // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvIntegerOp::group();
-
-  // Check if the attribute actually exists. If it does not then add it.
-  if (!groupAttr())
-    groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, 1, /*isSigned=*/true)));
-
-  // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
-  if (!ShapedType::isDynamic(xShape[1]) &&
-      !ShapedType::isDynamic(weightShape[1]) &&
-      xShape[1] != (weightShape[1] * group)) {
-    return emitOpError("Channel dimension mismatch");
-  }
-
-  // Note: the value of the group attribute only impacts the way the
-  // computation is carried out and not the actual output size.
-
-  // Number of spatial dimensions.
-  auto spatialOffset = 2;
-  int32_t spatialRank = xShape.size() - spatialOffset;
-
-  // Use kernel_shape attribute if present otherwise use size from weight
-  // argument.
-  auto kernelShape = kernel_shape();
-  if (kernelShape.has_value()) {
-    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank) {
-      return emitOpError(
-          "kernel_shape length incompatible with spatial dimensions");
-    }
-    // Have the right number of values, check them.
-    for (int i = 0; i < spatialRank; ++i)
-      if (ArrayAttrIntVal(kernelShape, i) < 1) {
-        return emitError("bad kernel_shape value");
-      }
-  }
-
-  // Process strides, dilations, kernel_shape and pads.
-  LogicalResult res = processConvTypeParams<ONNXConvIntegerOp>(this, x(), w());
-  assert(succeeded(res));
-  kernelShape = kernel_shape();
-
-  auto dilationsOpt = dilations();
-  auto stridesOpt = strides();
-  auto padsOpt = pads();
-
-  // First two output dimensions consist of the number of batches and the
-  // number of kernels being applied.
-  SmallVector<int64_t, 4> outputDims;
-  // Insert batch size.
-  outputDims.emplace_back(xShape[0]);
-  // Insert number of filters being applied (number of output channels).
-  outputDims.emplace_back(weightShape[0]);
-  // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
-      stridesOpt, dilationsOpt);
-
-  // ONNX spec specifies the output type as an int32
-  Type outputElementType = IntegerType::get(getContext(), 32);
-  updateType(getResult(), outputDims, outputElementType);
-  return success();
-}
-#endif
 
 //===----------------------------------------------------------------------===//
 // Template instantiation; keep at the end of the file.

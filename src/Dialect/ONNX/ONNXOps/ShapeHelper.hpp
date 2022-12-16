@@ -304,6 +304,8 @@ using ONNXAveragePoolOpShapeHelper =
 using ONNXConvOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXConvOp>;
 using ONNXConvIntegerOpShapeHelper =
     ONNXGenericPoolOpShapeHelper<mlir::ONNXConvIntegerOp>;
+using ONNXQLinearConvOpShapeHelper =
+    ONNXGenericPoolOpShapeHelper<mlir::ONNXQLinearConvOp>;
 using ONNXMaxPoolSingleOutOpShapeHelper =
     ONNXGenericPoolOpShapeHelper<mlir::ONNXMaxPoolSingleOutOp>;
 
