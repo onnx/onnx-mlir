@@ -45,7 +45,7 @@ typedef int(
     uint64_t idx2 = *((uint64_t *)idx2p);                                      \
     typeName *data = (typeName *)dataPtr;                                      \
     return ((data[idx1] symbol data[idx2]) ||                                  \
-            ((data[idx1] == data[idx2]) && (idx1 > idx2)) ? 1 : -1;            \
+            ((data[idx1] == data[idx2]) && (idx1 > idx2))) ? 1 : -1;           \
   }
 #else // DEBUG
 #define declare_compare_function(fname, typeName, direction, symbol)           \
@@ -55,9 +55,10 @@ typedef int(
     uint64_t idx2 = *((uint64_t *)idx2p);                                      \
     typeName *data = (typeName *)dataPtr;                                      \
     int ret = (data[idx1] symbol data[idx2]) ||                                \
-           ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
+              ((data[idx1] == data[idx2]) && (idx1 > idx2));                   \
     printf("XXX: COMPARE %f(%ld) %f(%ld) => %d\n", data[idx1], idx1,           \
-        data[idx2], idx2, ret); fflush(stdout);                                \
+        data[idx2], idx2, ret);                                                \
+    fflush(stdout);                                                            \
     return ret;                                                                \
   }
 #endif // DEBUG
@@ -81,9 +82,10 @@ typedef int(__cdecl compareFunctionType)(void *, const void *, const void *);
     uint64_t idx2 = *((uint64_t *)idx2p);                                      \
     typeName *data = (typeName *)dataPtr;                                      \
     int ret = (data[idx1] symbol data[idx2]) ||                                \
-           ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
+              ((data[idx1] == data[idx2]) && (idx1 > idx2));                   \
     printf("XXX: COMPARE %f(%ld) %f(%ld) => %d\n", data[idx1], idx1,           \
-        data[idx2], idx2, ret); fflush(stdout);                                \
+        data[idx2], idx2, ret);                                                \
+    fflush(stdout);                                                            \
     return ret;                                                                \
   }
 #endif // DEBUG
@@ -108,9 +110,10 @@ typedef int(
     uint64_t idx2 = *((uint64_t *)idx2p);                                      \
     typeName *data = (typeName *)dataPtr;                                      \
     int ret = (data[idx1] symbol data[idx2]) ||                                \
-           ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
+              ((data[idx1] == data[idx2]) && (idx1 > idx2));                   \
     printf("XXX: COMPARE %f(%ld) %f(%ld) => %d\n", data[idx1], idx1,           \
-        data[idx2], idx2, ret); fflush(stdout);                                \
+        data[idx2], idx2, ret);                                                \
+    fflush(stdout);                                                            \
     return ret;                                                                \
   }
 #endif
@@ -442,6 +445,9 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     // Windows supports qsort_s
     sortFunc = qsort_s;
 #pragma warning(pop)
+#elif defined(__linux) || defined(__linux__) || defined(linux)
+    // Use standard quick sort in libc
+    sortFunc = qsort_r;
 #else
     // Use standard quick sort in libc
     sortFunc = qsort_r;
