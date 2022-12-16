@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//===------- ZHighCombine.td - Pattern Match for ZHighDialect -------------===//
+//===------- Stick.td - Pattern Match for ZHighStick ----------------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -11,13 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ZHIGH_COMBINE
-#define ZHIGH_COMBINE
+#ifndef STICK_TD 
+#define STICK_TD 
 
 #ifndef OP_BASE
-include "ZHigh.td"
+include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
 include "src/Dialect/ONNX/ONNX.td"
 #endif // OP_BASE
+
+include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 
 /// Note: The DRR definition used for defining patterns is shown below:
 ///
@@ -28,69 +30,13 @@ include "src/Dialect/ONNX/ONNX.td"
 /// >;
 
 //===----------------------------------------------------------------------===//
-// Pattern-Match and Rewrite
+// DRR patterns 
 //===----------------------------------------------------------------------===//
 
-def SameLayout: Constraint<
-  CPred<"($0 && $1 &&"
-        " (::onnx_mlir::zhigh::getZTensorLayout($0.getType()) == "
-        "::onnx_mlir::zhigh::getZTensorLayout($1.getType())))">,
-  "Two ztensors have the same layout"
->;
-
-def NotSameLayout: Constraint<
-  CPred<"($0 && $1 &&"
-        " (::onnx_mlir::zhigh::getZTensorLayout($0.getType()) != "
-        "::onnx_mlir::zhigh::getZTensorLayout($1.getType())))">,
-  "Two ztensors have different layouts"
->;
-
-def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
-
-def GetLayout : NativeCodeCall<
-  "convertZTensorDataLayoutToStringAttr($_builder, "
-      "::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
->;
-
-def NoOneIsOfNHWCLayout: Constraint<
-  CPred<"!oneIsOfNHWCLayout($0.getType(), $1.getType())">,
-  "No tensor is of NHWC layout"
->;
-
-def GetEncodingAttr : NativeCodeCall<
-  "::onnx_mlir::zhigh::getZTensorEncoding($0.getType())"
->;
-
-def GetMinusBcastConst : NativeCodeCall<
-  "::onnx_mlir::zhigh::getMinusBcastConst($_builder, $_loc, $0, $1)"
->;
-
-def IsStaticShapeTensor:
-  Constraint<
-    CPred<
-      "$0.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
-    "is a tensor of static shape">;
-
-def IsPlusConstantFloat : Constraint<
-  CPred<"($0.getValueAsDouble() > 0.0)">,
-  "Is the float attribute is greater than 0"
->;
-
-//===----------------------------------------------------------------------===//
-// Transformations
-//===----------------------------------------------------------------------===//
-
-// zhigh.Stick (None) = None 
 def NoneTypeStickRemovalPattern : Pat<
   (ZHighStickOp:$stick $arg, $layout1),
   (replaceWithValue $arg),
   [(IsNoneType:$arg)]
->;
-
-// zhigh.Unstick (zhigh.Stick (%X)) = %X
-def UnstickStickRemovalPattern : Pat<
-  (ZHighUnstickOp (ZHighStickOp $arg, $_)),
-  (replaceWithValue $arg)
 >;
 
 // zhigh.Stick (zhigh.Unstick (%X)) = %X
@@ -134,4 +80,4 @@ def ReplaceONNXLeakyReluPattern: Pat<
    (SameLayout $X, $stickout)]
 >;
 
-#endif // ZHIGH_COMBINE
+#endif // STICK_TD
