@@ -302,6 +302,8 @@ struct ONNXGenericPoolOpShapeHelper : public ONNXOpShapeHelper {
 using ONNXAveragePoolOpShapeHelper =
     ONNXGenericPoolOpShapeHelper<mlir::ONNXAveragePoolOp>;
 using ONNXConvOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXConvOp>;
+using ONNXConvIntegerOpShapeHelper =
+    ONNXGenericPoolOpShapeHelper<mlir::ONNXConvIntegerOp>;
 using ONNXMaxPoolSingleOutOpShapeHelper =
     ONNXGenericPoolOpShapeHelper<mlir::ONNXMaxPoolSingleOutOp>;
 

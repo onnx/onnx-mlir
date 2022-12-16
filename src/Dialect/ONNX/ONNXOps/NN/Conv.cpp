@@ -322,6 +322,15 @@ LogicalResult ONNXConvOpShapeHelper::computeShape() {
       poolOp.dilations(), /*hasFilter*/ true, /*ceil mode*/ false);
 }
 
+template <>
+LogicalResult ONNXConvIntegerOpShapeHelper::computeShape() {
+  ONNXConvIntegerOp poolOp = llvm::cast<ONNXConvIntegerOp>(op);
+  ONNXConvIntegerOpAdaptor operandAdaptor = ONNXConvIntegerOpAdaptor(operands);
+  return customComputeShape(operandAdaptor.x(), operandAdaptor.w(),
+      poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
+      poolOp.dilations(), /*hasFilter*/ true, /*ceil mode*/ false);
+}
+
 } // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
@@ -749,6 +758,25 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
 // ConvInteger - copied almost exactly from Conv (X -> x, W -> w, no bias)
 //===----------------------------------------------------------------------===//
 
+#if 1
+LogicalResult ONNXConvIntegerOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  // Generic shape for data input X, weight tensor W, and optional bias B
+  // X: (N x C x D1 x D2 ... x Dn)
+  // W: (M x C/group x k1 x k2 x ... x kn)
+  // B: (M) Optional
+
+  // Cannot infer shape if no shape exists.
+  if (!x().getType().isa<RankedTensorType>() ||
+      !w().getType().isa<RankedTensorType>())
+    return success();
+
+  Type outputElementType = IntegerType::get(getContext(), 32);
+  ONNXConvIntegerOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(outputElementType);
+}
+
+#else
 LogicalResult ONNXConvIntegerOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Generic shape for data input X, weight tensor W
@@ -845,6 +873,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
   updateType(getResult(), outputDims, outputElementType);
   return success();
 }
+#endif
 
 //===----------------------------------------------------------------------===//
 // Template instantiation; keep at the end of the file.
@@ -853,5 +882,6 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
 namespace onnx_mlir {
 
 template struct ONNXGenericPoolOpShapeHelper<ONNXConvOp>;
+template struct ONNXGenericPoolOpShapeHelper<ONNXConvIntegerOp>;
 
 } // namespace onnx_mlir
