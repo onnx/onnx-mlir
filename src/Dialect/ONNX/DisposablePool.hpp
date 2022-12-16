@@ -35,7 +35,8 @@ public:
   static DisposablePool *get(mlir::MLIRContext *context);
 
   // Disposes every DisposableElementsAttr and in moduleOp replaces each with a
-  // DenseElementsAttr.
+  // DenseElementsAttr. This is irreversible and is called when we
+  // are done transforming the ONNX dialect, just before we lower it.
   static void scrub(mlir::ModuleOp moduleOp, DisposablePool *disposablepool);
 
   DisposablePool(mlir::Dialect *dialect, mlir::MLIRContext *context);
