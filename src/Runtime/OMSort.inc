@@ -22,22 +22,27 @@
 #define FALSE 0
 
 //
-// Declare compare funcions for data types and sorting directions.
-// As backgound, the performance of this sort function is important for the
-// whole model performance (e.g. the dominant part of the Yolov3 model).
-// Sort functions in this file use data-type-specific compare functions,
-// instead of general compare function for all data types. General compare
-// functions check the data type in tight and long loops, to avoid
-// to call switch statements to check data types in the loops.
-// Sort functions in this file check the data type in advance at once before
-// the sort loop, and data-type-specific compare functions not checking the
-// data type at runtime is called in the loops.
+// Declare compare functions for data types and sorting directions.
 //
-#undef DEBUG
+// Data-type-specific compare functions are used here for performance reason.
+// As background, the performance of this sort function is important for the
+// whole model performance (e.g. the dominant part of the Yolov3 model).
+// If we use data-type-general compare function, including switch statements
+// to check the data type in the compare function, the switch statements are
+// executed in the sort and compare loops, we can avoid this overhead by
+// using data-type-specific compare functions to check the data type at once
+// before entering the loop.
+//
+// This function is expected to provide "stable" sort that preserve the input
+// data order, if the values are the same. Although most sort algorithms (e.g.
+// quick sort) are not stable, we use special compare functions to compare two
+// values at first, then compare the input orders if the values are the same.
+// This comparison functions guarantee the input order among the same values
+// and makes sorting algorithms stable.
+//
 #if defined(__APPLE__)
 typedef int(
     compareFunctionType(void *dataPtr, const void *idx1, const void *idx2));
-#ifndef DEBUG
 #define declare_compare_function(fname, typeName, direction, symbol)           \
   int compare##fname##direction(                                               \
       void *dataPtr, const void *idx1p, const void *idx2p) {                   \
@@ -45,26 +50,12 @@ typedef int(
     uint64_t idx2 = *((uint64_t *)idx2p);                                      \
     typeName *data = (typeName *)dataPtr;                                      \
     return ((data[idx1] symbol data[idx2]) ||                                  \
-            ((data[idx1] == data[idx2]) && (idx1 > idx2))) ? 1 : -1;           \
+               ((data[idx1] == data[idx2]) && (idx1 > idx2)))                  \
+               ? 1                                                             \
+               : -1;                                                           \
   }
-#else // DEBUG
-#define declare_compare_function(fname, typeName, direction, symbol)           \
-  int compare##fname##direction(                                               \
-      void *dataPtr, const void *idx1p, const void *idx2p) {                   \
-    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
-    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
-    typeName *data = (typeName *)dataPtr;                                      \
-    int ret = (data[idx1] symbol data[idx2]) ||                                \
-              ((data[idx1] == data[idx2]) && (idx1 > idx2));                   \
-    printf("XXX: COMPARE %f(%ld) %f(%ld) => %d\n", data[idx1], idx1,           \
-        data[idx2], idx2, ret);                                                \
-    fflush(stdout);                                                            \
-    return ret;                                                                \
-  }
-#endif // DEBUG
 #elif defined(_MSC_VER)
 typedef int(__cdecl compareFunctionType)(void *, const void *, const void *);
-#ifndef DEBUG
 #define declare_compare_function(fname, typeName, direction, symbol)           \
   int compare##fname##direction(                                               \
       void *dataPtr, const void *idx1p, const void *idx2p) {                   \
@@ -74,25 +65,9 @@ typedef int(__cdecl compareFunctionType)(void *, const void *, const void *);
     return (data[idx1] symbol data[idx2]) ||                                   \
            ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
   }
-#else // DEBUG
-#define declare_compare_function(fname, typeName, direction, symbol)           \
-  int compare##fname##direction(                                               \
-      void *dataPtr, const void *idx1p, const void *idx2p) {                   \
-    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
-    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
-    typeName *data = (typeName *)dataPtr;                                      \
-    int ret = (data[idx1] symbol data[idx2]) ||                                \
-              ((data[idx1] == data[idx2]) && (idx1 > idx2));                   \
-    printf("XXX: COMPARE %f(%ld) %f(%ld) => %d\n", data[idx1], idx1,           \
-        data[idx2], idx2, ret);                                                \
-    fflush(stdout);                                                            \
-    return ret;                                                                \
-  }
-#endif // DEBUG
 #else
 typedef int(
     compareFunctionType(const void *idx1, const void *idx2, void *dataPtr));
-#ifndef DEBUG
 #define declare_compare_function(fname, typeName, direction, symbol)           \
   int compare##fname##direction(                                               \
       const void *idx1p, const void *idx2p, void *dataPtr) {                   \
@@ -102,21 +77,6 @@ typedef int(
     return (data[idx1] symbol data[idx2]) ||                                   \
            ((data[idx1] == data[idx2]) && (idx1 > idx2));                      \
   }
-#else // DEBUG
-#define declare_compare_function(fname, typeName, direction, symbol)           \
-  int compare##fname##direction(                                               \
-      const void *idx1p, const void *idx2p, void *dataPtr) {                   \
-    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
-    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
-    typeName *data = (typeName *)dataPtr;                                      \
-    int ret = (data[idx1] symbol data[idx2]) ||                                \
-              ((data[idx1] == data[idx2]) && (idx1 > idx2));                   \
-    printf("XXX: COMPARE %f(%ld) %f(%ld) => %d\n", data[idx1], idx1,           \
-        data[idx2], idx2, ret);                                                \
-    fflush(stdout);                                                            \
-    return ret;                                                                \
-  }
-#endif
 #endif
 #define compareFunction(fname, typeName, direction) compare##fname##direction
 // clang-format off
@@ -190,7 +150,9 @@ void bubble_sort(void *base, size_t dataNum, size_t dataSize,
   uint64_t *idx = (uint64_t *)base;
   for (uint64_t i = 0; i < dataNum; i++) {
     for (uint64_t j = 0; j < dataNum - 1; j++) {
-#if defined(__APPLE__) || defined(_MSC_VER)
+#if defined(__APPLE__)
+      if (compFunc(dataPtr, idx + j, idx + j + 1) > 0)
+#elif defined(_MSC_VER)
       if (compFunc(dataPtr, idx + j, idx + j + 1))
 #else
       if (compFunc(idx + j, idx + j + 1, dataPtr))
@@ -221,7 +183,9 @@ void comb_sort(void *base, size_t dataNum, size_t dataSize,
     gap = (gap < 1) ? 1 : gap;
     swap = FALSE;
     for (uint64_t i = 0; i < dataNum - gap; i++) {
-#if defined(__APPLE__) || defined(_MSC_VER)
+#if defined(__APPLE__)
+      if (compFunc(dataPtr, idx + i, idx + i + gap) > 0)
+#elif defined(_MSC_VER)
       if (compFunc(dataPtr, idx + i, idx + i + gap))
 #else
       if (compFunc(idx + i, idx + i + gap, dataPtr))
@@ -290,7 +254,9 @@ static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
     compareFunctionType compFunc, int64_t begin, int64_t end) {
   int64_t i = begin;
   for (int64_t j = begin; j < end; j++) {
-#if defined(__APPLE__) || defined(_MSC_VER)
+#if defined(__APPLE__)
+    if (compFunc(dataPtr, idx + j, idx + end) <= 0)
+#elif defined(_MSC_VER)
     if (!compFunc(dataPtr, idx + j, idx + end))
 #else
     if (!compFunc(idx + j, idx + end, dataPtr))
@@ -416,10 +382,6 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   // Sorting not necessary for empty array
   if (sort_elems == 0)
     return;
-#ifdef DEBUG
-  omTensorPrint("XXX omTensorSort INPUT: ", inputTensor);
-  omTensorPrint("XXX omTensorSort ORDER(BEGIN): ", orderTensor);
-#endif
 
   // Choose the appropriate compare function
   compareFunctionType *compareElements =
@@ -494,8 +456,5 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
       }
     }
   }
-#ifdef DEBUG
-  omTensorPrint("XXX omTensorSort ORDER(END): ", orderTensor);
-#endif
   return;
 }
