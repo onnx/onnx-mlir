@@ -150,6 +150,18 @@ public:
     return success();
   }
 
+  /// Check if the bias (C) needs broadcasting when we convert GEMM to FC
+  static bool hasCCorrectShape(TensorType A, TensorType B, Value C) {
+      if (!C.getType().isa<mlir::RankedTensorType>())
+        return false;
+      ArrayRef<int64_t> AShape = A.getShape();
+      ArrayRef<int64_t> BShape = B.getShape();
+      ArrayRef<int64_t> CShape = C.getType().cast<RankedTensorType>().getShape();
+      // In the case of GemmToFC, transB is set meaning that B shapes will be interverted so we check B[0]
+      // Also, C is supposed to be of rank 1 so we only need to check C[0]
+      return CShape[0] == AShape[0] || CShape[0] == BShape[0];
+  }
+
   /// The GEMM can be described as a FullyConnected operator
   /// Y = AB^T + C if we perform a transpose on B only with
   /// alpha and beta factors set to 1.
@@ -165,6 +177,7 @@ public:
     auto AType = A.getType().cast<TensorType>();
     auto BType = B.getType().cast<TensorType>();
 
+    bool isCPresent = !C.getType().isa<mlir::NoneType>();
     // If C is present, it can only be of rank 1
     if (C.getType().isa<RankedTensorType>() &&
         C.getType().cast<RankedTensorType>().getRank() != 1) {
@@ -192,16 +205,20 @@ public:
     // we create an empty bias and use an add (broadcastable for tosa)
     // afterwards
     // Base dummy C shape on B[0] shape
-    ArrayRef<int64_t> cformat(B.getType().cast<TensorType>().getShape()[0]);
-    std::vector<float> elements = {};
-    for (int i = 0; i < cformat[0]; ++i)
-      elements.push_back(0.0F);
-    Value dummyC = tosa::getConstTensor<float>(rewriter, op, elements, cformat).value();
+    bool needsBroadcasting = !hasCCorrectShape(AType, BType, C);
+    Value dummyC = C;
+    if (!isCPresent|| needsBroadcasting) {
+      ArrayRef<int64_t> cformat(B.getType().cast<TensorType>().getShape()[0]);
+      std::vector<float> elements = {};
+      for (int i = 0; i < cformat[0]; ++i)
+        elements.push_back(0.0F);
+      dummyC = tosa::getConstTensor<float>(rewriter, op, elements, cformat).value();
+    }
 
     Value fcRes = tosa::CreateOpAndInfer<mlir::tosa::FullyConnectedOp>(rewriter,
         op->getLoc(), resultType, A, B, dummyC).getResult();
     // If C was present in the original GEMM, we create an add to take the bias into account
-    if (!C.getType().isa<mlir::NoneType>()) {
+    if (isCPresent && needsBroadcasting) {
       tosa::CreateReplaceOpAndInfer<mlir::tosa::AddOp>(rewriter, op, resultType, fcRes, C);
     }
     else {
