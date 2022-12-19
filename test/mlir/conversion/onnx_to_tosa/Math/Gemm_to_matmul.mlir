@@ -96,6 +96,22 @@ func.func @test_no_c(%arg0: tensor<1x5xf32>, %arg1: tensor<5x5xf32>) -> tensor<1
 
 // -----
 
+func.func @test_no_c_no_trans(%arg0: tensor<1x5xf32>, %arg1: tensor<5x6xf32>) -> tensor<1x6xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Gemm"(%arg0, %arg1, %none) {alpha = 1.349 : f32} : (tensor<1x5xf32>, tensor<5x6xf32>, none) -> tensor<1x6xf32>
+  return %0 : tensor<1x6xf32>
+}
+// CHECK-LABEL:  @test_no_c_no_trans(%arg0: tensor<1x5xf32>, %arg1: tensor<5x6xf32>) -> tensor<1x6xf32> {
+// CHECK-DAG:    %[[A:.*]] = "tosa.reshape"(%arg0) {new_shape = [1, 1, 5]} : (tensor<1x5xf32>) -> tensor<1x1x5xf32>
+// CHECK-DAG:    %[[B:.*]] = "tosa.reshape"(%arg1) {new_shape = [1, 5, 6]} : (tensor<5x6xf32>) -> tensor<1x5x6xf32>
+// CHECK-DAG:   "tosa.const"() {value = dense<1.349000e+00> : tensor<1x1x1xf32>} : () -> tensor<1x1x1xf32>
+// CHECK-DAG:    %[[ALPHA_A:.*]] = "tosa.mul"(%3, %[[A]]) {shift = 0 : i32} : (tensor<1x1x1xf32>, tensor<1x1x5xf32>) -> tensor<1x1x5xf32>
+// CHECK-DAG:    %[[AB:.*]] = "tosa.matmul"(%[[ALPHA_A]], %[[B]]) : (tensor<1x1x5xf32>, tensor<1x5x6xf32>) -> tensor<1x1x6xf32>
+// CHECK-DAG:    %[[RES:.*]] = "tosa.reshape"(%[[AB]]) {new_shape = [1, 6]} : (tensor<1x1x6xf32>) -> tensor<1x6xf32>
+// CHECK-DAG:    return %[[RES]] : tensor<1x6xf32>
+
+// -----
+
 func.func @test_mixed(%arg0: tensor<11x5xf32>, %arg1: tensor<3x11xf32>, %arg2: tensor<5x3xf32>) -> tensor<5x3xf32> {
   %0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.402 : f32, beta = 1.998 : f32, transA = 1 : si64, transB = 1 : si64} : (tensor<11x5xf32>, tensor<3x11xf32>, tensor<5x3xf32>) -> tensor<5x3xf32>
   return %0 : tensor<5x3xf32>

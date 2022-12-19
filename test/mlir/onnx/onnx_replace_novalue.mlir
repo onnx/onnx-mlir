@@ -36,6 +36,6 @@ func.func @test_onnx_gemm_novalue_multiple_uses(%arg0: tensor<1x5xf32>, %arg1: t
    return %0, %1 : tensor<1x4xf32>, tensor<1x4xf32>
 // CHECK: %[[VAL_1:.*]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<4xf32>} : () -> tensor<4xf32>
 // CHECK: %[[VAL_2:.*]] = "onnx.Gemm"(%arg0, %arg1, %[[VAL_1]]) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x5xf32>, tensor<4xf32>) -> tensor<1x4xf32>
-// CHECK: %[[VAL_3:.*]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<5xf32>} : () -> tensor<5xf32>
-// CHECK: %[[VAL_4:.*]] = "onnx.Gemm"(%arg0, %arg2, %[[VAL_3]]) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<1x5xf32>, tensor<5x4xf32>, tensor<5xf32>) -> tensor<1x4xf32>
+// CHECK: %[[VAL_3:.*]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<4xf32>} : () -> tensor<4xf32>
+// CHECK: %[[VAL_4:.*]] = "onnx.Gemm"(%arg0, %arg2, %[[VAL_3]]) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<1x5xf32>, tensor<5x4xf32>, tensor<4xf32>) -> tensor<1x4xf32>
 }
