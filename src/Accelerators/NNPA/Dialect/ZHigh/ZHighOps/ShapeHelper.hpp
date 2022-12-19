@@ -30,7 +30,7 @@ namespace onnx_mlir {
 namespace zhigh {
 
 //===----------------------------------------------------------------------===//
-// Shape helper for Stick/Unstick ops.
+// Shape helper for Stick/Unstick/MeanReduce2D ops.
 //===----------------------------------------------------------------------===//
 
 #define DECLARE_SHAPE_HELPER_ZHIGH(SHAPE_HELPER)                               \
@@ -48,6 +48,7 @@ DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickForGRUOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickForLSTMOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighUnstickOpShapeHelper)
+DECLARE_SHAPE_HELPER_ZHIGH(ZHighMeanReduce2DOpShapeHelper)
 #undef DECLARE_SHAPE_HELPER_ZHIGH
 
 //===----------------------------------------------------------------------===//
@@ -136,6 +137,32 @@ struct ZHighPoolingOpShapeHelper : public ONNXOpShapeHelper {
   // Keep original dimensions in this order: batchsize, channel_in, height_in,
   // weight_in, height_out, weight_out.
   DimsExpr allOriginalDims;
+};
+
+//===----------------------------------------------------------------------===//
+// Shape helper for UnaryOp.
+//===----------------------------------------------------------------------===//
+
+struct ZHighUnaryOpShapeHelper : public ONNXUnaryOpShapeHelper {
+public:
+  ZHighUnaryOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands = {},
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {}
+};
+
+//===----------------------------------------------------------------------===//
+// Shape helper for BinaryOp.
+// ZHigh BinaryOps do not support broadcasting at this moment. Borrow UnaryOp
+// shapeHelper.
+//===----------------------------------------------------------------------===//
+
+struct ZHighBinaryOpShapeHelper : public ONNXUnaryOpShapeHelper {
+public:
+  ZHighBinaryOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands = {},
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {}
 };
 
 } // namespace zhigh

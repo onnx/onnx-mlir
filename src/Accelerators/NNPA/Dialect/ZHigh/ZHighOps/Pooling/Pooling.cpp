@@ -36,15 +36,16 @@ LogicalResult ZHighPoolingOpShapeHelper<OP>::computeShape() {
   StringRef paddingType = poolOp.padding_type();
 
   // Get bounds
-  MemRefBoundsIndexCapture XBounds(X);
-  IndexExpr B = XBounds.getDim(0);
-  IndexExpr HI = XBounds.getDim(1);
-  IndexExpr WI = XBounds.getDim(2);
-  IndexExpr CI = XBounds.getDim(3);
-  IndexExpr KH = LiteralIndexExpr(kernelShape[0].cast<IntegerAttr>().getInt());
-  IndexExpr KW = LiteralIndexExpr(kernelShape[1].cast<IntegerAttr>().getInt());
-  IndexExpr strideH = LiteralIndexExpr(strides[0].cast<IntegerAttr>().getInt());
-  IndexExpr strideW = LiteralIndexExpr(strides[1].cast<IntegerAttr>().getInt());
+  SmallVector<IndexExpr, 4> XDims;
+  createIE->getShapeAsDims(X, XDims);
+  IndexExpr B = XDims[0];
+  IndexExpr HI = XDims[1];
+  IndexExpr WI = XDims[2];
+  IndexExpr CI = XDims[3];
+  IndexExpr KH = createIE->getIntFromArrayAsLiteral(kernelShape, 0);
+  IndexExpr KW = createIE->getIntFromArrayAsLiteral(kernelShape, 1);
+  IndexExpr strideH = createIE->getIntFromArrayAsLiteral(strides, 0);
+  IndexExpr strideW = createIE->getIntFromArrayAsLiteral(strides, 1);
 
   // Compute output height and weight.
   IndexExpr HO, WO;

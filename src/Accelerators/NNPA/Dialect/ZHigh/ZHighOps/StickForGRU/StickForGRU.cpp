@@ -25,17 +25,19 @@ namespace zhigh {
 
 LogicalResult ZHighStickForGRUOpShapeHelper::computeShape() {
   ZHighStickForGRUOp::Adaptor operandAdaptor(operands);
+  Value zGate = operandAdaptor.z_gate();
+
   // Output dims of result.
   DimsExpr outputDims;
 
   // Get operands and bounds.
-  Value zGate = operandAdaptor.z_gate();
-  MemRefBoundsIndexCapture zBounds(zGate);
-  int64_t rank = zBounds.getRank();
+  SmallVector<IndexExpr, 4> zGateDims;
+  createIE->getShapeAsDims(zGate, zGateDims);
+  int64_t rank = zGateDims.size();
 
   for (int64_t i = 0; i < rank - 1; ++i)
-    outputDims.emplace_back(zBounds.getDim(i));
-  IndexExpr lastDim = zBounds.getDim(rank - 1) * LiteralIndexExpr(3);
+    outputDims.emplace_back(zGateDims[i]);
+  IndexExpr lastDim = zGateDims[rank - 1] * LiteralIndexExpr(3);
   outputDims.emplace_back(lastDim);
 
   // Save the final result.

@@ -36,17 +36,18 @@ LogicalResult ZHighConv2DOpShapeHelper::computeShape() {
   StringRef paddingType = convOp.padding_type();
 
   // Get bounds
-  MemRefBoundsIndexCapture XBounds(X);
-  MemRefBoundsIndexCapture WBounds(W);
-  IndexExpr B = XBounds.getDim(0);
-  IndexExpr HI = XBounds.getDim(1);
-  IndexExpr WI = XBounds.getDim(2);
-  IndexExpr CI = XBounds.getDim(3);
-  IndexExpr KH = WBounds.getDim(0);
-  IndexExpr KW = WBounds.getDim(1);
-  IndexExpr CO = WBounds.getDim(3);
-  IndexExpr strideH = LiteralIndexExpr(strides[0].cast<IntegerAttr>().getInt());
-  IndexExpr strideW = LiteralIndexExpr(strides[1].cast<IntegerAttr>().getInt());
+  SmallVector<IndexExpr, 4> XDims, WDims;
+  createIE->getShapeAsDims(X, XDims);
+  createIE->getShapeAsDims(W, WDims);
+  IndexExpr B = XDims[0];
+  IndexExpr HI = XDims[1];
+  IndexExpr WI = XDims[2];
+  IndexExpr CI = XDims[3];
+  IndexExpr KH = WDims[0];
+  IndexExpr KW = WDims[1];
+  IndexExpr CO = WDims[3];
+  IndexExpr strideH = createIE->getIntFromArrayAsLiteral(strides, 0);
+  IndexExpr strideW = createIE->getIntFromArrayAsLiteral(strides, 1);
 
   // Compute output height and weight.
   IndexExpr HO, WO;

@@ -36,13 +36,14 @@ LogicalResult ZHighLSTMOpShapeHelper::computeShape() {
   bool isAllTimesteps = (lstmOp.return_all_steps() == -1) ? true : false;
 
   // Get bounds
-  MemRefBoundsIndexCapture XBounds(X);
-  MemRefBoundsIndexCapture RBounds(R);
-  IndexExpr S = XBounds.getDim(0);
-  IndexExpr B = XBounds.getDim(1);
-  IndexExpr I = XBounds.getDim(2);
-  IndexExpr D = RBounds.getDim(0);
-  IndexExpr H = RBounds.getDim(1);
+  SmallVector<IndexExpr, 4> XDims, RDims;
+  createIE->getShapeAsDims(X, XDims);
+  createIE->getShapeAsDims(R, RDims);
+  IndexExpr S = XDims[0];
+  IndexExpr B = XDims[1];
+  IndexExpr I = XDims[2];
+  IndexExpr D = RDims[0];
+  IndexExpr H = RDims[1];
 
   // Shape for hn_ouput : [S, D, B, H] if return all  timesteps. [1, D, B, H] if
   // return the final step only.

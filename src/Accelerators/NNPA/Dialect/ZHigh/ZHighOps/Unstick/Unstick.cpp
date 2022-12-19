@@ -59,6 +59,7 @@ void ZHighUnstickOp::build(
 
 LogicalResult ZHighUnstickOpShapeHelper::computeShape() {
   ZHighUnstickOp::Adaptor operandAdaptor(operands);
+  Value input = operandAdaptor.In();
 
   // Output dims of result.
   DimsExpr outputDims;
@@ -71,21 +72,21 @@ LogicalResult ZHighUnstickOpShapeHelper::computeShape() {
   StringAttr layout = getZTensorLayoutAttr(b, op->getOperand(0).getType());
 
   // Get operands and bounds.
-  Value input = operandAdaptor.In();
-  MemRefBoundsIndexCapture inBounds(input);
-  int64_t rank = inBounds.getRank();
+  SmallVector<IndexExpr, 4> inputDims;
+  createIE->getShapeAsDims(input, inputDims);
+  int64_t rank = inputDims.size();
 
   for (int64_t i = 0; i < rank; ++i)
-    outputDims.emplace_back(inBounds.getDim(i));
+    outputDims.emplace_back(inputDims[i]);
 
   // Direct unstickify from NHWC to NCHW.
   if (isNHWCLayout(layout)) {
     assert((rank == 4) && "Unstickify input must have rank 4");
     // NHWC -> NCHW
-    outputDims[0] = inBounds.getDim(0);
-    outputDims[1] = inBounds.getDim(3);
-    outputDims[2] = inBounds.getDim(1);
-    outputDims[3] = inBounds.getDim(2);
+    outputDims[0] = inputDims[0];
+    outputDims[1] = inputDims[3];
+    outputDims[2] = inputDims[1];
+    outputDims[3] = inputDims[2];
   }
 
   // Save the final result.

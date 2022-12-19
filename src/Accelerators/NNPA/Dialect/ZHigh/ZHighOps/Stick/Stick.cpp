@@ -72,26 +72,27 @@ void ZHighStickOp::build(
 LogicalResult ZHighStickOpShapeHelper::computeShape() {
   auto stickOp = llvm::dyn_cast<ZHighStickOp>(op);
   ZHighStickOp::Adaptor operandAdaptor(operands);
+  Value input = operandAdaptor.In();
 
   // Output dims of result.
   DimsExpr outputDims;
 
   // Get operands and bounds.
-  Value input = operandAdaptor.In();
-  MemRefBoundsIndexCapture inBounds(input);
-  int64_t rank = inBounds.getRank();
+  SmallVector<IndexExpr, 4> inputDims;
+  createIE->getShapeAsDims(input, inputDims);
+  int64_t rank = inputDims.size();
 
   for (int64_t i = 0; i < rank; ++i)
-    outputDims.emplace_back(inBounds.getDim(i));
+    outputDims.emplace_back(inputDims[i]);
 
   // Direct stickify from NCHW to NHWC.
   if (isNHWCLayout(stickOp.layoutAttr())) {
     assert((rank == 4) && "Stickify input must have rank 4");
     // NCHW -> NHWC
-    outputDims[0] = inBounds.getDim(0);
-    outputDims[1] = inBounds.getDim(2);
-    outputDims[2] = inBounds.getDim(3);
-    outputDims[3] = inBounds.getDim(1);
+    outputDims[0] = inputDims[0];
+    outputDims[1] = inputDims[2];
+    outputDims[2] = inputDims[3];
+    outputDims[3] = inputDims[1];
   }
 
   // Save the final result.

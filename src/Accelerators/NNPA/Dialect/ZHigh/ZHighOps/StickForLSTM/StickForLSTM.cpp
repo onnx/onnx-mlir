@@ -25,17 +25,19 @@ namespace zhigh {
 
 LogicalResult ZHighStickForLSTMOpShapeHelper::computeShape() {
   ZHighStickForLSTMOp::Adaptor operandAdaptor(operands);
+  Value fGate = operandAdaptor.f_gate();
+
   // Output dims of result.
   DimsExpr outputDims;
 
   // Get operands and bounds.
-  Value fGate = operandAdaptor.f_gate();
-  MemRefBoundsIndexCapture fBounds(fGate);
-  int64_t rank = fBounds.getRank();
+  SmallVector<IndexExpr, 4> fGateDims;
+  createIE->getShapeAsDims(fGate, fGateDims);
+  int64_t rank = fGateDims.size();
 
   for (int64_t i = 0; i < rank - 1; ++i)
-    outputDims.emplace_back(fBounds.getDim(i));
-  IndexExpr lastDim = fBounds.getDim(rank - 1) * LiteralIndexExpr(4);
+    outputDims.emplace_back(fGateDims[i]);
+  IndexExpr lastDim = fGateDims[rank - 1] * LiteralIndexExpr(4);
   outputDims.emplace_back(lastDim);
 
   // Save the final result.
