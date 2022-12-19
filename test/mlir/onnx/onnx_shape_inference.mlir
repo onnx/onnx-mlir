@@ -2261,6 +2261,17 @@ func.func @test_dropout(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<1xf32>, %arg2:
 
 // -----
 
+func.func @test_dropout_no_mask(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<1xf32>, %arg2: tensor<1xi1>) -> tensor<*xf32> {
+  %output, %mask = "onnx.Dropout"(%arg0, %arg1, %arg2) {ratio =  1.000000e-01 : f32} : (tensor<1x2x3x4xf32>, tensor<1xf32>, tensor<1xi1>) -> (tensor<*xf32>, none)
+  "func.return"(%output) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_dropout
+  // CHECK: [[RES:%.+]], [[MASK:%.+]] = "onnx.Dropout"(%arg0, %arg1, %arg2) {ratio =  1.000000e-01 : f32} : (tensor<1x2x3x4xf32>, tensor<1xf32>, tensor<1xi1>) -> (tensor<1x2x3x4xf32>, none)
+  // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test shape inference for OneHotEncoder.
 //===----------------------------------------------------------------------===//
