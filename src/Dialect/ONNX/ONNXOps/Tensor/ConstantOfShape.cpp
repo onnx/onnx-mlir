@@ -39,7 +39,6 @@ LogicalResult ONNXConstantOfShapeOpShapeHelper::computeShape() {
     // Calculate output dimensions.
     createIE->getIntFromArrayAsDims(input, outputDims);
   }
-
   setOutputDims(outputDims);
   return success();
 }

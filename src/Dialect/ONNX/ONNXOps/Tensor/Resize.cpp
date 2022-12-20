@@ -64,7 +64,6 @@ LogicalResult ONNXResizeOp::verify() {
     else
       return emitError("scales() and sizes() can not be both defined");
   }
-
   return success();
 }
 

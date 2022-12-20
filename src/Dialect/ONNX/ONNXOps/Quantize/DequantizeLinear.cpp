@@ -158,10 +158,8 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
 
 LogicalResult ONNXDequantizeLinearOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-
   if (!x().getType().dyn_cast<RankedTensorType>())
     return success();
-
   Type elementType = y().getType().cast<ShapedType>().getElementType();
   ONNXDequantizeLinearOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
