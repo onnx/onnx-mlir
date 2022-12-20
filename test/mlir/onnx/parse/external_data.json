@@ -417,7 +417,7 @@
         ]
       }
     ],
-    "name": "rawdata",
+    "name": "external_data",
     "output": [
       {
         "name": "output0",
