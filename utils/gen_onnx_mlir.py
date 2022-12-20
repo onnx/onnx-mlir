@@ -426,7 +426,25 @@ OpsWithResultTypeInference = {
       } else {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
           FloatType::getF32(getContext())));
-      }'''
+      }''',
+  "RandomNormal":
+  '''if (auto attr = dtypeAttr()) {
+      if (dtype() == 0) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+            FloatType::getF16(getContext())));
+      } else if (dtype() == 1) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+            FloatType::getF32(getContext())));
+      } else if (dtype() == 2) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+            FloatType::getF64(getContext())));
+      } else {
+        llvm_unreachable("dtype not supported for RandomNormal");
+      }
+    } else {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+            FloatType::getF32(getContext())));
+    }'''
 }
 
 # Add an Op in this list if the Op needs result type deduction which is required

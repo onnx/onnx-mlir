@@ -24,6 +24,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  populateLoweringONNXSoftmaxOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
 }
 
 // Performs lowering to TOSA dialect
