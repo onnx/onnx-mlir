@@ -7,7 +7,9 @@ Absolute takes one input data (Tensor<T>) and produces one output data
 (Tensor<T>) where the absolute is, y = abs(x), is applied to
 the tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -29,7 +31,9 @@ ONNX Acos operation
 
 Calculates the arccosine (inverse of cosine) of the given input tensor, element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -51,7 +55,9 @@ ONNX Acosh operation
 
 Calculates the hyperbolic arccosine of the given input tensor element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -122,7 +128,9 @@ Compute one iteration of ADAGRAD, a stochastic gradient based optimization
     In that reference paper, this operator is a special case of the Figure 1's composite mirror
     descent update.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -214,7 +222,9 @@ Compute one iteration of Adam, a stochastic gradient based optimization
     If there are multiple inputs to be optimized, the pseudo code will be applied
     independently to each of them.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -252,7 +262,9 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 (Opset 14 change): Extend supported types to include uint8, int8, uint16, and int16.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -278,7 +290,9 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -307,7 +321,9 @@ is selected if the max appears more than once in the input. Otherwise the index 
 first occurrence is selected.
 The type of the output tensor is integer.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -343,7 +359,9 @@ is selected if the min appears more than once in the input. Otherwise the index 
 first occurrence is selected.
 The type of the output tensor is integer.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -374,7 +392,9 @@ ONNX ArrayFeatureExtractor operation
 Select elements of the input tensor based on the indices passed.<br>
     The indices are applied to the last axes of the tensor.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -397,7 +417,9 @@ ONNX Asin operation
 
 Calculates the arcsine (inverse of sine) of the given input tensor, element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -419,7 +441,9 @@ ONNX Asinh operation
 
 Calculates the hyperbolic arcsine of the given input tensor element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -441,7 +465,9 @@ ONNX Atan operation
 
 Calculates the arctangent (inverse of tangent) of the given input tensor, element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -463,7 +489,9 @@ ONNX Atanh operation
 
 Calculates the hyperbolic arctangent of the given input tensor element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -513,7 +541,9 @@ AveragePool consumes an input tensor X and applies average pooling across
  The output of each pooling window is divided by the number of elements (exclude pad when attribute count_include_pad is zero).
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -561,7 +591,9 @@ by an argument that is present) may also be simply omitted.
 
 This operation is not part of the standard and was added to assist onnx-mlir.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -634,7 +666,9 @@ For previous (depreciated) non-spatial cases, implementors are suggested
 to flatten the input shape to (N x C * D1 * D2 * ... * Dn) before a BatchNormalization Op.
 This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -675,7 +709,9 @@ where an output of 1 is produced with probability p and an output of 0 is produc
 This operator is non-deterministic and may not produce the same values in different
 implementations (even if a seed is specified).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -704,7 +740,9 @@ ONNX Binarizer operation
 
 Maps the values of the input tensor to either 0 or 1, element-wise, based on the outcome of a comparison against a threshold value.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -743,7 +781,9 @@ Bitwise shift operator performs element-wise operation. For each input element, 
  not necessarily identical.
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -765,6 +805,37 @@ Effects: MemoryEffects::Effect{}
 | Result | Description |
 | :----: | ----------- |
 | `Z` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values
+
+### `onnx.BlackmanWindow` (::mlir::ONNXBlackmanWindowOp)
+
+ONNX BlackmanWindow operation
+
+Generates a Blackman window as described in the paper https://ieeexplore.ieee.org/document/1455106.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `output_datatype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `periodic` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `size` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
 
 ### `onnx.ONNX_Call` (::mlir::ONNXCallOp)
 
@@ -820,7 +891,9 @@ The operator casts the elements of a given input tensor (the first input) to
 the same data type as the elements of the second input tensor.
 See documentation of the Cast operator for further details.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -845,7 +918,9 @@ Converts a map to a tensor.<br>The map key must be an int64 and the values will 
     in ascending order based on this key.<br>The operator supports dense packing or sparse packing.
     If using sparse packing, the key cannot exceed the max_map-1 value.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -893,7 +968,25 @@ User must be aware of precision loss and value change caused by range difference
 For example, a 64-bit float 3.1415926459 may be round to a 32-bit float 3.141592. Similarly, converting
 an integer 36 to Boolean may produce 1 because we truncate bits which can't be stored in the targeted type.
 
-Interfaces: Pure (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeInference
+In more detail, the conversion among numerical types should follow these rules:
+
+* Casting from floating point to:
+  * floating point: +/- infinity if OOR (out of range).
+  * fixed point: undefined if OOR.
+  * bool: +/- 0.0 to False; all else to True.
+* Casting from fixed point to:
+  * floating point: +/- infinity if OOR. (+ infinity in the case of uint)
+  * fixed point: when OOR, discard higher bits and reinterpret (with respect to two's complement representation for
+signed types). For example, 200 (int16) -> -56 (int8).
+  * bool: zero to False; nonzero to True.
+* Casting from bool to:
+  * floating point: `{1.0, 0.0}`.
+  * fixed point: `{1, 0}`.
+  * bool: no change.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -928,7 +1021,9 @@ Converts strings to integers and vice versa.<br>
     If the string default value is set, it will convert integers to strings.
     If the int default value is set, it will convert strings to integers.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -961,7 +1056,9 @@ Ceil takes one input data (Tensor<T>) and produces one output data
 (Tensor<T>) where the ceil is, y = ceil(x), is applied to
 the tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -989,7 +1086,9 @@ using formula:
 max(0,x) + min(0,alpha*(exp(x/alpha)-1))
 ```
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1019,7 +1118,9 @@ Clip operator limits the given input within an interval. The interval is
 specified by the inputs 'min' and 'max'. They default to
 numeric_limits::lowest() and numeric_limits::max(), respectively.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1045,7 +1146,9 @@ Clip operator limits the given input within an interval. The interval is
 specified by the inputs 'min' and 'max'. They default to
 numeric_limits::lowest() and numeric_limits::max(), respectively.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1071,7 +1174,9 @@ Clip operator limits the given input within an interval. The interval is
 specified by the inputs 'min' and 'max'. They default to
 numeric_limits::lowest() and numeric_limits::max(), respectively.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1097,7 +1202,9 @@ Clip operator limits the given input within an interval. The interval is
 specified with arguments 'min' and 'max'. They default to
 numeric_limits::lowest() and numeric_limits::max() respectively.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1129,7 +1236,9 @@ Selects slices from an input tensor along a given axis where condition evaluates
     Compress behaves like numpy.compress: https://docs.scipy.org/doc/numpy/reference/generated/numpy.compress.html
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1161,7 +1270,9 @@ All input tensors must have the same shape, except for the dimension size of the
 By default 'new_axis' is 0, the behavior is similar to numpy.concatenate.
 When 'new_axis' is 1, the behavior is similar to numpy.stack.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1190,7 +1301,9 @@ ONNX Concat operation
 
 Concatenate a list of tensors into a single tensor. All input tensors must have the same shape, except for the dimension size of the axis to concatenate on.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1212,13 +1325,52 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `concat_result` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
+### `onnx.ConcatShapeTranspose` (::mlir::ONNXConcatShapeTransposeOp)
+
+ONNX merged operation
+
+Merge the following sequence of ops into one op
+v1 = onnx.concat
+v2 = onnx.shape(v1)
+v3 = onnx.transpose(v1)
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `end` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `start` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `perm` | ::mlir::ArrayAttr | 64-bit integer array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `inputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `shape` | tensor of 64-bit signless integer values
+| `transposed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+
 ### `onnx.ConstantOfShape` (::mlir::ONNXConstantOfShapeOp)
 
 ONNX ConstantOfShape operation
 
 Generate a tensor with given value and shape.
 
-Interfaces: Pure (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1247,7 +1399,9 @@ ONNX Constant operation
 This operator produces a constant tensor. Exactly one of the provided attributes, either value, sparse_value,
 or value_* must be specified.
 
-Interfaces: Pure (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1277,7 +1431,9 @@ ONNX ConvInteger operation
 The integer convolution operator consumes an input tensor, its zero-point, a filter, and its zero-point,
 and computes the output. The production MUST never overflow. The accumulation may overflow if and only if in 32 bits.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1314,7 +1470,9 @@ ONNX Conv operation
 The convolution operator consumes an input tensor and a filter, and
 computes the output.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1362,7 +1520,9 @@ output_shape can also be explicitly specified in which case pads values are auto
 
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1399,7 +1559,9 @@ ONNX Cos operation
 
 Calculates the cosine of the given input tensor, element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1421,7 +1583,9 @@ ONNX Cosh operation
 
 Calculates the hyperbolic cosine of the given input tensor element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1462,7 +1626,9 @@ output = [5, 3, 0]
 ```
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1497,7 +1663,9 @@ The number of inputs and outputs can vary.
 
 This operation is not part of the standard and was added to assist onnx-mlir.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1518,6 +1686,39 @@ Effects: MemoryEffects::Effect{}
 | Result | Description |
 | :----: | ----------- |
 | `outputs` | tensor of any type values or memref of any type values
+
+### `onnx.DFT` (::mlir::ONNXDFTOp)
+
+ONNX DFT operation
+
+Computes the discrete Fourier transform of input.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `inverse` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `onesided` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `dft_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
 
 ### `onnx.DepthToSpace` (::mlir::ONNXDepthToSpaceOp)
 
@@ -1551,7 +1752,9 @@ tmp = np.transpose(tmp, [0, 1, 4, 2, 5, 3])
 y = np.reshape(tmp, [b, c // (blocksize ** 2), h * blocksize, w * blocksize])
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1584,7 +1787,9 @@ for per-tensor / per layer quantization, or a 1-D tensor for per-axis quantizati
 'x_zero_point' and 'x' must have same type. 'x' and 'y' must have same shape. In the case of dequantizing int32,
 there's no zero point (zero point is supposed to be 0).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1618,7 +1823,9 @@ and the inner-most 2 dimensions form square matrices.
 The output is a tensor of shape `[*]`, containing the determinants of all input submatrices.
 e.g., When the input is 2-D, the output is a scalar(shape is empty: `[]`).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1651,7 +1858,9 @@ Uses an index mapping to convert a dictionary to an array.<br>
     then an input of ``{\"a\": 4, \"c\": 8}`` will produce an output of ``[4, 8, 0, 0]``.
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1723,7 +1932,9 @@ The axis identifies the dimension within the shape which is going to be obtained
 
 This operation is not part of the standard and was added to assist onnx-mlir.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1755,7 +1966,9 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 (Opset 14 change): Extend supported types to include uint8, int8, uint16, and int16.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1789,7 +2002,9 @@ scale = 1. / (1. - ratio).
 ```
 This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1841,7 +2056,9 @@ y = saturate (round (x / y_scale) + y_zero_point)
 * rounding to nearest ties to even.
 ```
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1887,7 +2104,9 @@ Specifically, every occurrence of ellipsis in the equation must represent the sa
 The right-hand side may contain exactly one ellipsis. In implicit mode, the ellipsis dimensions are set to the
 beginning of the output. The equation string may contain space (U+0020) character.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1918,7 +2137,9 @@ Elu takes one input data (Tensor<T>) and produces one output data
 0`, `f(x) = x for x >= 0`., is applied to the tensor elementwise.
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1963,7 +2184,9 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1986,7 +2209,9 @@ ONNX Erf operation
 
 Computes the error function of the given input tensor element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2008,7 +2233,9 @@ ONNX Exp operation
 
 Calculates the exponential of the given input tensor, element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2037,7 +2264,9 @@ but the major difference is numpy.broadcast_to() does not allow shape to be smal
 It is possible that the output.shape is not equal to shape, when some dimensions in shape is equal to 1,
 or the shape.ndim < input.shape.ndim.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2066,7 +2295,9 @@ is populated with ones, but attribute 'k' can be used to populate upper or lower
 The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the
 TensorProto message and be valid as an output type.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2098,7 +2329,9 @@ Concatenates input tensors into one continuous output.<br>
     Inputs are copied to the output maintaining the order of the input arguments.<br>
     All inputs must be integers or floats, while the output will be all floating point values.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2128,7 +2361,9 @@ Flattens the input tensor into a 2D matrix. If input tensor has shape
 (d_0, d_1, ... d_n) then the output will have shape
 (d_0 X d_1 ... d_(axis-1), d_axis X d_(axis+1) ... X dn).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2158,7 +2393,9 @@ Floor takes one input data (Tensor<T>) and produces one output data
 (Tensor<T>) where the floor is, y = floor(x), is applied to
 the tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2252,7 +2489,9 @@ Equations (Default: f=Sigmoid, g=Tanh):
   - Ht = (1 - zt) (.) ht + zt (.) Ht-1
 This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2343,7 +2582,9 @@ Example 2:
   ]
 ```
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2462,7 +2703,9 @@ This operator is the inverse of `ScatterND`.
 
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2545,7 +2788,9 @@ output[j_{0}, i_{0}, ..., i_{q-1}, j_{1}, ..., j_{r-2\}\] = input[j_{0}, k, j_{1
   ]
 ```
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2586,7 +2831,9 @@ computation if attribute transA is non-zero, same for B and transB.
 This operator supports **unidirectional broadcasting** (tensor C should be unidirectional broadcastable to tensor A * B); for more details please check [the doc](Broadcasting.md).
 This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2621,7 +2868,9 @@ GlobalAveragePool consumes an input tensor X and applies average pooling across
  the values in the same channel. This is equivalent to AveragePool with kernel size
  equal to the spatial dimension of input tensor.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2645,7 +2894,9 @@ GlobalLpPool consumes an input tensor X and applies lp pool pooling across
  the values in the same channel. This is equivalent to LpPool with kernel size
  equal to the spatial dimension of input tensor.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2675,7 +2926,9 @@ GlobalMaxPool consumes an input tensor X and applies max pooling across
  the values in the same channel. This is equivalent to MaxPool with kernel size
  equal to the spatial dimension of input tensor.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2819,7 +3072,9 @@ forward pass can be reused if the gradient is computed via reverse-mode
 auto-differentiation.
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2852,7 +3107,9 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2878,7 +3135,9 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2899,16 +3158,23 @@ Effects: MemoryEffects::Effect{}
 
 ONNX GridSample operation
 
-Given an `input` and a flow-field `grid`, computes the `output` using `input` values and pixel locations from `grid`.
-Currently, only spatial (4-D) inputs are supported. For `input` with shape (N, C, H, W) and `grid` with shape (N, H_out, W_out, 2),
-the `output` will have shape (N, C, H_out, W_out).
-For each output location `output[N, C, H_out, W_out]`, the size-2 vector `grid[N, H_out, W_out]` specifies `input` pixel locations `x` and `y`,
-which are used to interpolate the output value `output[N, C, H_out, W_out]`.
+Given an input `X` and a flow-field `grid`, computes the output `Y` using `X` values and pixel locations from `grid`.
+Currently, only spatial (4-D) inputs are supported. For input `X` with shape (N, C, H, W) and `grid` with shape (N, H_out, W_out, 2),
+the output `Y` will have shape (N, C, H_out, W_out).
+
+The tensor `X` contains values at centers of square pixels in a H by W 2-dimensional image.
+The tensor `grid` describes normalized positions where the output `Y` is to be computed
+using a specified interpolation method (the mode) and a padding mode (for grid positions falling outside the 2-dimensional image).
+
+Elements in `grid[N, H_out, W_out]` are size-2 vectors specifying positions in the 2-dimensional space of `X`.
+They are used to interpolate output values of `Y[N, C, H_out, W_out]`.
 
 The GridSample operator is often used in doing grid generator and sampler in the [Spatial Transformer Networks](https://arxiv.org/abs/1506.02025).
 See also in [torch.nn.functional.grid_sample](https://pytorch.org/docs/master/generated/torch.nn.functional.grid_sample.html#torch-nn-functional-grid-sample).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2925,13 +3191,75 @@ Effects: MemoryEffects::Effect{}
 | Operand | Description |
 | :-----: | ----------- |
 | `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
-| `grid` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+| `grid` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+
+### `onnx.HammingWindow` (::mlir::ONNXHammingWindowOp)
+
+ONNX HammingWindow operation
+
+Generates a Hamming window as described in the paper https://ieeexplore.ieee.org/document/1455106.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `output_datatype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `periodic` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `size` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+
+### `onnx.HannWindow` (::mlir::ONNXHannWindowOp)
+
+ONNX HannWindow operation
+
+Generates a Hann window as described in the paper https://ieeexplore.ieee.org/document/1455106.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `output_datatype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `periodic` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `size` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
 
 ### `onnx.HardSigmoid` (::mlir::ONNXHardSigmoidOp)
 
@@ -2941,7 +3269,9 @@ HardSigmoid takes one input data (Tensor<T>) and produces one output data
 (Tensor<T>) where the HardSigmoid function, y = max(0, min(1, alpha * x + beta)),
 is applied to the tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2972,7 +3302,9 @@ HardSwish takes one input data (Tensor<T>) and produces one output data (Tensor<
 the HardSwish function, y = x * max(0, min(1, alpha * x + beta)) = x * HardSigmoid<alpha, beta>(x),
 where alpha = 1/6 and beta = 0.5, is applied to the tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3000,7 +3332,9 @@ The \"axis\" attribute indicates the dimension along which Hardmax
 will be performed. The output tensor has the same shape
 and contains the Hardmax values of the corresponding input.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3028,7 +3362,9 @@ ONNX Identity operation
 
 Identity operator
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3050,7 +3386,9 @@ ONNX If operation
 
 If conditional
 
-Interfaces: HasOnnxSubgraphOpInterface, Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3079,7 +3417,9 @@ Replaces inputs that equal one value with another, leaving all other elements al
     which one depends on whether floats or integers are being processed.<br>
     The imputed_value attribute length can be 1 element, or it can have one element per input feature.<br>In other words, if the input tensor has the shape [*,F], then the length of the attribute array may be 1 or F. If it is 1, then it is broadcast along the last dimension and applied to each feature.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3115,7 +3455,9 @@ y = scale * (x - mean) / sqrt(variance + epsilon) + B,
 where mean and variance are computed per instance per channel.
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3145,7 +3487,9 @@ ONNX IsInf operation
 
 Map infinity to true and other values to false.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3174,7 +3518,9 @@ ONNX IsNaN operation
 
 Returns which elements of the input are NaN.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3205,7 +3551,9 @@ where max(0, c - floor((size - 1) / 2)) <= i <= min(C - 1, c + ceil((size - 1) /
 
 Y[n, c, d1, ..., dk] = X[n, c, d1, ..., dk] / (bias + alpha / size * square_sum[n, c, d1, ..., dk] ) ^ beta
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3316,7 +3664,9 @@ Equations (Default: f=Sigmoid, g=Tanh, h=Tanh):
   - Ht = ot (.) h(Ct)
 This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3376,7 +3726,9 @@ Maps each element in the input tensor to another value.<br>
     For key look-up, bit-wise comparison is used so even a float NaN can be
     mapped to a value in 'values_*' attribute.<br>
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3406,20 +3758,53 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of string type values or tensor of 64-bit signless integer values or tensor of 32-bit float values
 
-### `onnx.LayoutTransform` (::mlir::ONNXLayoutTransformOp)
+### `onnx.LayerNormalization` (::mlir::ONNXLayerNormalizationOp)
 
-An operation that transforms data between different layout formats
+ONNX LayerNormalization operation
 
-An operation that transforms data between different ONNX layout format.
-Currently, it supports transformations from standard format to a
-NCHWxC/KCNMxCyK layout, or back. At this time, only F32 is supported.
+This is layer normalization defined in ONNX as function.
+      The overall computation can be split into two stages.
+      The first stage is standardization, which makes the
+      normalized elements have zero mean and unit variances.
+      The computation required by standardization can be
+      described by the following equations.
+      ```
+      Mean = ReduceMean<axes=normalized_axes>(X)
+      D = Sub(X, Mean)
+      DD = Mul(D, D)
+      Var = ReduceMean<axes=normalized_axes>(DD)
+      VarEps = Add(Var, epsilon)
+      StdDev = Sqrt(VarEps)
+      InvStdDev = Reciprocal(StdDev)
+      Normalized = Mul(D, InvStdDev)
+      ```
+      where `normalized_axes` is `[axis, ..., rank of X - 1]`.
+      The variables `Var` and `StdDev` stand for variance and
+      standard deviation, respectively. The second output is
+      `Mean` and the last one is `InvStdDev`.
+      Depending on `stash_type` attribute, the actual computation
+      must happen in different floating-point precision.
+      For example, if `stash_type` is 1, this operator casts
+      all input variables to 32-bit float, perform the computation, and
+      finally cast `Normalized` back to the original type of `X`.
+      The second stage then scales and shifts the outcome of the
+      first stage using
+      ```
+      NormalizedScaled = Mul(Normalized, Scale)
+      Y = Add(NormalizedScaled, B)
+      ```
+      The second stage doesn't depends on `stash_type`.
+      All equations are in [this syntax](https://github.com/onnx/onnx/blob/main/docs/Syntax.md).
+      The same variable (i.e., input, output, and attribute) uses
+      the same name in the equations above and this operator's definition.
+      Let `d[i]` indicate the i-th dimension of `X`.
+      If `X`'s shape is `[d[0], ..., d[axis-1], d[axis], ..., d[rank-1]]`,
+      the shape of `Mean` and `InvStdDev` is `[d[0], ..., d[axis-1], 1, ..., 1]`.
+      `Y` and `X` have the same shape.
 
-Operations that transforms data from the same ONNX layout format are
-considered as a no operation and will be removed.
+Traits: AlwaysSpeculatableImplTrait
 
-This operation is not part of the standard and was added to assist onnx-mlir.
-
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3427,19 +3812,67 @@ Effects: MemoryEffects::Effect{}
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-| `target_layout` | ::mlir::StringAttr | string attribute
+| `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `epsilon` | ::mlir::FloatAttr | 32-bit float attribute
+| `stash_type` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit float values or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout NCHWxC and factors 4, 0 or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout KCNMxCyK and factors 4, 4
+| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `Scale` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | tensor of 32-bit float values or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout NCHWxC and factors 4, 0 or unranked.tensor of 32-bit float values or tensor of 32-bit float values with layout KCNMxCyK and factors 4, 4
+| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `Mean` | tensor of 32-bit float values or tensor of bfloat16 type values or none type
+| `InvStdDev` | tensor of 32-bit float values or tensor of bfloat16 type values or none type
+
+### `onnx.LayoutTransform` (::mlir::ONNXLayoutTransformOp)
+
+An operation that transforms data between different layout formats
+
+An operation that transforms a tensor from a layout to another layout. 
+A layout is defined by an attribute, i.e. `target_layout`, which allows this
+operation work with an arbitrary layout (e.g. a layout used for accelerators).
+
+`target_layout` is optional. If it is not given, the input tensor will be
+transformed to a normal tensor that does not have layout.
+
+If `target_layout` is the same as the input's layout, this operation will
+become an no-op by canonicalization. 
+
+The input and output tensors must have the same shape.
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `target_layout` | ::mlir::Attribute | layout attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit float values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 32-bit float values
 
 ### `onnx.LeakyRelu` (::mlir::ONNXLeakyReluOp)
 
@@ -3452,7 +3885,9 @@ output data (Tensor<T>) where the function `f(x) = alpha * x for x < 0`,
 **History**
 - Version 16 adds bfloat16 to the types allowed.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3483,7 +3918,9 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3509,7 +3946,9 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3532,7 +3971,9 @@ ONNX LinearClassifier operation
 
 Linear classifier
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3571,7 +4012,9 @@ Generalized linear regression evaluation.<br>
     The coefficients array is of length n, and the coefficients for each target are contiguous.
     Intercepts are optional but if provided must match the number of targets.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3602,7 +4045,9 @@ ONNX Log operation
 
 Calculates the natural log of the given input tensor, element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3630,7 +4075,9 @@ The \"axis\" attribute indicates the dimension along which LogSoftmax
 will be performed. The output tensor has the same shape
 and contains the LogSoftmax values of the corresponding input.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3792,7 +4239,9 @@ point-wise operators (e.g. dropout, residual connections, linear layer).
 
 The input/output of subgraph (produced by loop node) matching is based on order instead of name. The implementation will figure out the names based on this order.
 
-Interfaces: HasOnnxSubgraphOpInterface, Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3816,7 +4265,9 @@ ONNX LpNormalization operation
 
 Given a matrix, apply Lp-normalization along the provided axis.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3849,7 +4300,9 @@ LpPool consumes an input tensor X and applies Lp pooling across
  of the input tensor according to the kernel size and downsampling the
  data into the output tensor Y for further processing.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3882,7 +4335,9 @@ ONNX MatMulInteger operation
 Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html.
 The production MUST never overflow. The accumulation may overflow if and only if in 32 bits.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3907,7 +4362,9 @@ ONNX MatMul operation
 
 Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3932,7 +4389,9 @@ Element-wise max of each of the input tensors (with Numpy-style broadcasting sup
 All inputs and outputs must have the same data type.
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3982,7 +4441,9 @@ MaxPool consumes an input tensor X and applies max pooling across
  The output of each pooling window is maximum number of elements exclude pad. 
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4020,7 +4481,9 @@ See ONNXMaxPoolOp for a full description of the MaxPool semantics.
 
 This operation is not part of the standard and was added to assist onnx-mlir.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4056,7 +4519,9 @@ ROI max pool consumes an input tensor X and region of interests (RoIs) to
  apply max pooling across each RoI, to produce output 4-D tensor of shape
  (num_rois, channels, pooled_shape[0], pooled_shape[1]).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4085,7 +4550,7 @@ Effects: MemoryEffects::Effect{}
 ONNX MaxUnpool operation
 
 MaxUnpool essentially computes the partial inverse of the MaxPool op.
- The input information to this op is typically the the output information from a MaxPool op. The first
+ The input information to this op is typically the output information from a MaxPool op. The first
  input tensor X is the tensor that needs to be unpooled, which is typically the pooled tensor (first output)
  from MaxPool. The second input tensor, I, contains the indices to the (locally maximal) elements corrsponding
  to the elements in the first input tensor X. Input tensor I is typically the second output of the MaxPool op.
@@ -4103,7 +4568,9 @@ In addition to the inputs, MaxUnpool takes three attributes, namely kernel_shape
  which define the exact unpooling op. The attributes typically have the same values as the corrsponding
  pooling op that the unpooling op is trying to invert.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4137,7 +4604,9 @@ Element-wise mean of each of the input tensors (with Numpy-style broadcasting su
 All inputs and outputs must have the same data type.
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4160,7 +4629,9 @@ ONNX MeanVarianceNormalization operation
 A MeanVarianceNormalization Function: Perform mean variance normalization
       on the input tensor X using formula: <br/> ``` (X-EX)/sqrt(E(X-EX)^2) ```
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4182,6 +4653,47 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
 
+### `onnx.MelWeightMatrix` (::mlir::ONNXMelWeightMatrixOp)
+
+ONNX MelWeightMatrix operation
+
+Generate a MelWeightMatrix that can be used to re-weight a Tensor containing a linearly sampled frequency spectra (from DFT or STFT) into num_mel_bins frequency information based on the [lower_edge_hertz, upper_edge_hertz] range on the mel scale.
+This function defines the mel scale in terms of a frequency in hertz according to the following formula:
+
+    mel(f) = 2595 * log10(1 + f/700)
+
+In the returned matrix, all the triangles (filterbanks) have a peak value of 1.0.
+
+The returned MelWeightMatrix can be used to right-multiply a spectrogram S of shape [frames, num_spectrogram_bins] of linear scale spectrum values (e.g. STFT magnitudes) to generate a \"mel spectrogram\" M of shape [frames, num_mel_bins].
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `output_datatype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `num_mel_bins` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+| `dft_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+| `sample_rate` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+| `lower_edge_hertz` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `upper_edge_hertz` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+
 ### `onnx.Min` (::mlir::ONNXMinOp)
 
 ONNX Min operation
@@ -4190,7 +4702,9 @@ Element-wise min of each of the input tensors (with Numpy-style broadcasting sup
 All inputs and outputs must have the same data type.
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4224,7 +4738,9 @@ Performs element-wise binary modulus (with Numpy-style broadcasting support).
 
   This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4312,7 +4828,9 @@ Compute one iteration of stochastic gradient update with momentum.
     concatenation of \"X_1\" and \"X_2\" (of course, their gradient and accumulate gradient should
     be concatenated too) and then our pseudo code becomes applicable.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4349,7 +4867,9 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 (Opset 14 change): Extend supported types to include uint8, int8, uint16, and int16.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4373,7 +4893,9 @@ ONNX Multinomial operation
 Generate a tensor of samples from a multinomial distribution according to the probabilities
 of each of the possible outcomes.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4405,7 +4927,9 @@ Neg takes one input data (Tensor<T>) and produces one output data
 (Tensor<T>) where each element flipped sign, y = -x, is applied to
 the tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4512,7 +5036,9 @@ Example 3:
     // print(loss)
     // -1.57
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4549,7 +5075,9 @@ result in the same boxes being selected by the algorithm.
 The selected_indices output is a set of integers indexing into the input collection of bounding boxes representing the selected boxes.
 The bounding box coordinates corresponding to the selected indices can then be obtained using the Gather or GatherND operation.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4585,7 +5113,9 @@ Returns the indices of the elements that are non-zero
     https://docs.scipy.org/doc/numpy/reference/generated/numpy.nonzero.html,
     but for scalar input, NonZero produces output shape (0, N) instead of (1, N), which is different from Numpy's behavior.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4616,9 +5146,9 @@ Example:
 
 This operation is not part of the standard and was added to assist onnx-mlir.
 
-Traits: ConstantLike
+Traits: AlwaysSpeculatableImplTrait, ConstantLike
 
-Interfaces: Pure (MemoryEffectOpInterface)
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -4649,7 +5179,9 @@ Normalize the input.  There are three normalization modes, which have the corres
     For batches, that is, [N,C] tensors, normalization is done along the C axis. In other words, each row
     of the batch is normalized independently.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4677,7 +5209,9 @@ ONNX Not operation
 
 Returns the negation of the input tensor element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4706,7 +5240,9 @@ Replace each input element with an array of ones and zeros, where a single
     If the input is a tensor of float, int32, or double, the data will be cast
     to integers and the cats_int64s category list will be used for the lookups.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4754,7 +5290,9 @@ Produces a one-hot tensor based on inputs.
     output[i, j, k, input[i, j, k]] = 1 for all i, j, k and 0 otherwise.
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4785,7 +5323,9 @@ ONNX OptionalGetElement operation
 Outputs the element in the optional-type input. It is an error if the input value does not have an element
 and the behavior is undefined in this case.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4807,7 +5347,9 @@ ONNX OptionalHasElement operation
 
 Returns true if the optional-type input contains an element. If it is an empty optional-type, this op returns false.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4830,7 +5372,9 @@ ONNX Optional operation
 Constructs an optional-type value containing either an empty optional of a certain type specified by the attribute,
 or a non-empty value containing the input element.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4861,7 +5405,9 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4890,7 +5436,9 @@ output data (Tensor<T>) where the function `f(x) = slope * x for x < 0`,
 - Version 16 adds bfloat16 to the types allowed.
 This operator supports **unidirectional broadcasting** (tensor slope should be unidirectional broadcastable to input tensor X); for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4987,7 +5535,9 @@ Example 3 (`edge` mode):
   ]
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5091,7 +5641,9 @@ Example 3 (`edge` mode):
   ]
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5136,7 +5688,9 @@ Example:
       ],
   ]
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5169,7 +5723,9 @@ produces one output data (Tensor<T>) where the function `f(x) = x^exponent`,
 is applied to the data tensor elementwise.
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5219,7 +5775,9 @@ Each input or output and its related zero point must have same type.
 When bias is present it must be quantized using scale = input scale * weight scale and
 zero point as 0.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5270,7 +5828,9 @@ for per column quantization. If the input is N-D tensor with shape [D1, D2, M, K
 have shape [D1, D2, M, 1] for per row quantization and shape [D1, D2, 1, K] for per column quantization.
 Production must never overflow, and accumulation may overflow if and only if in 32 bits.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5303,7 +5863,9 @@ The quantization formula is y = saturate ((x / y_scale) + y_zero_point).
 For saturation, it saturates to [0, 255] if it's uint8, or [-128, 127] if it's int8.
 For (x / y_scale), it's rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details. 'y_zero_point' and 'y' must have same type.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5393,7 +5955,9 @@ Equations (Default: f=Tanh):
   - Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
 This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5439,7 +6003,9 @@ The data type is specified by the 'dtype' argument, or copied from the input ten
 The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the
 TensorProto message, and be valid as an output type.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5476,7 +6042,9 @@ The data type is specified by the 'dtype' argument. The 'dtype' argument must
 be one of the data types specified in the 'DataType' enum field in the
 TensorProto message.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5508,7 +6076,9 @@ The data type is specified by the 'dtype' argument, or copied from the input ten
 The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the
 TensorProto message and be valid as an output type.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5544,7 +6114,9 @@ The data type is specified by the 'dtype' argument. The 'dtype' argument must
 be one of the data types specified in the 'DataType' enum field in the
 TensorProto message.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5594,7 +6166,9 @@ Inputs: start = 10, limit = 4, delta = -2
 Output: [10, 8, 6]
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5620,7 +6194,9 @@ Reciprocal takes one input data (Tensor<T>) and produces one output data
 (Tensor<T>) where the reciprocal is, y = 1/x, is applied to
 the tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5647,7 +6223,9 @@ the resulting tensor has the reduced dimension pruned.
 The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5681,7 +6259,9 @@ the resulting tensor has the reduced dimension pruned.
 The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5715,7 +6295,9 @@ the resulting tensor has the reduced dimension pruned.
 The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5749,7 +6331,9 @@ the resulting tensor has the reduced dimension pruned.
 The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5783,7 +6367,9 @@ the resulting tensor has the reduced dimension pruned.
 The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5817,7 +6403,9 @@ the resulting tensor has the reduced dimension pruned.
 The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5851,7 +6439,9 @@ the resulting tensor has the reduced dimension pruned.
 The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5885,7 +6475,9 @@ the resulting tensor has the reduced dimension pruned.
 The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5919,7 +6511,9 @@ the resulting tensor has the reduced dimension pruned.
 The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5954,7 +6548,9 @@ the resulting tensor has the reduced dimension pruned.
 The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5988,7 +6584,9 @@ the resulted tensor have the reduced dimension pruned.
 The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
 False instead of True.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6019,7 +6617,9 @@ Relu takes one input data (Tensor<T>) and produces one output data
 (Tensor<T>) where the rectified linear function, y = max(0, x), is applied to
 the tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6049,7 +6649,13 @@ dimension will be set explicitly to zero (i.e. not taken from input tensor).
 Shape (second input) could be an empty shape, which means converting to a scalar.
 The input tensor's shape and the output tensor's shape are required to have the same number of elements.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+If the attribute 'allowzero' is set, it is invalid for the specified shape to
+contain both a zero value and -1, as the value of the dimension corresponding
+to -1 cannot be determined uniquely.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6080,7 +6686,9 @@ Resize the input tensor. In general, it calculates every value in the output ten
 Each dimension value of the output tensor is:
   output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \\"sizes\\" is not specified.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6118,7 +6726,9 @@ Resize the input tensor.
 Each dimension value of the output tensor is:
   output_dimension = floor(input_dimension * scale).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6149,7 +6759,9 @@ Resize the input tensor. In general, it calculates every value in the output ten
 Each dimension value of the output tensor is:
   output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \\"sizes\\" is not specified.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6195,9 +6807,9 @@ The operation takes variable number of operands and produces no results.
 
 This operation is not part of the standard and was added to assist onnx-mlir.
 
-Traits: ReturnLike, Terminator
+Traits: AlwaysSpeculatableImplTrait, ReturnLike, Terminator
 
-Interfaces: Pure (MemoryEffectOpInterface)
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -6245,7 +6857,9 @@ Example 2:
             [10.0, 9.0,  8.0,  11.0],
             [15.0, 14.0, 13.0, 12.0]]
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6285,7 +6899,9 @@ map and from feature map into RoI feature; in each ROI bin,
 the value of the sampled locations are computed directly
 through bilinear interpolation.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6332,7 +6948,9 @@ round([1.5]) = [2.0]
 round([-4.5]) = [-4.0]
 ```
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6348,13 +6966,48 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
+### `onnx.STFT` (::mlir::ONNXSTFTOp)
+
+ONNX STFT operation
+
+Computes the Short-time Fourier Transform of the signal.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `onesided` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `signal` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `frame_step` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+| `window` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type
+| `frame_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+
 ### `onnx.SVMClassifier` (::mlir::ONNXSVMClassifierOp)
 
 ONNX SVMClassifier operation
 
 Support Vector Machine classifier
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6393,7 +7046,9 @@ ONNX SVMRegressor operation
 
 Support Vector Machine regression prediction and one-class SVM anomaly detection.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6428,7 +7083,9 @@ ONNX Scaler operation
 
 Rescale input data, for example to standardize features by removing the mean and scaling to unit variance.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6577,7 +7234,9 @@ values are computed in the outer graph, they need to be passed in as extra state
     }
 
 
-Interfaces: HasOnnxSubgraphOpInterface, Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6613,17 +7272,15 @@ rank r >= 1 and an optional attribute axis that identifies an axis of `data`
 is produced by creating a copy of the input `data`, and then updating its value
 to values specified by `updates` at specific index positions specified by
 `indices`. Its output shape is the same as the shape of `data`.
-
 For each entry in `updates`, the target index in `data` is obtained by combining
 the corresponding entry in `indices` with the index of the entry itself: the
 index-value for dimension = axis is obtained from the value of the corresponding
 entry in `indices` and the index-value for dimension != axis is obtained from the
 index of the entry itself.
-
 `reduction` allows specification of an optional reduction operation, which is applied to all values in `updates`
 tensor into `output` at the specified `indices`.
-In cases where `reduction` is set to \"none\", indices should not have duplicate entries: that is, if idx1 != idx2, 
-then indices[idx1] != indices[idx2]. For instance, in a 2-D tensor case, the update 
+In cases where `reduction` is set to \"none\", indices should not have duplicate entries: that is, if idx1 != idx2,
+then indices[idx1] != indices[idx2]. For instance, in a 2-D tensor case, the update
 corresponding to the [i][j] entry is performed as below:
 ```
   output[indices[i][j]][j] = updates[i][j] if axis = 0,
@@ -6639,9 +7296,7 @@ When `reduction` is set to \"mul\", the update corresponding to the [i][j] entry
   output[indices[i][j]][j] *= updates[i][j] if axis = 0,
   output[i][indices[i][j]] *= updates[i][j] if axis = 1,
 ```
-
 This operator is the inverse of GatherElements. It is similar to Torch's Scatter operation.
-
 Example 1:
 ```
   data = [
@@ -6672,7 +7327,9 @@ Example 2:
   output = [[1.0, 1.1, 3.0, 2.1, 5.0]]
 ```
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6705,14 +7362,14 @@ ScatterND takes three inputs `data` tensor of rank r >= 1, `indices` tensor of r
 and `updates` tensor of rank q + r - indices.shape[-1] - 1. The output of the operation
 is produced by creating a copy of the input `data`, and then updating its value to values
 specified by `updates` at specific index positions specified by `indices`. Its output shape
-is the same as the shape of `data`. Note that `indices` should not have duplicate entries.
-That is, two or more `updates` for the same index-location is not supported.
+is the same as the shape of `data`.
 
 `indices` is an integer tensor. Let k denote indices.shape[-1], the last dimension in the shape of `indices`.
  `indices` is treated as a (q-1)-dimensional tensor of k-tuples, where each k-tuple is a partial-index into `data`.
 Hence, k can be a value at most the rank of `data`. When k equals rank(data), each update entry specifies an
 update to a single element of the tensor. When k is less than rank(data) each update entry specifies an
-update to a slice of the tensor.
+update to a slice of the tensor. Index values are allowed to be negative, as per the usual
+convention for counting backwards from the end, but are expected in the valid range.
 
 `updates` is treated as a (q-1)-dimensional tensor of replacement-slice-values. Thus, the
 first (q-1) dimensions of updates.shape must match the first (q-1) dimensions of indices.shape.
@@ -6723,36 +7380,29 @@ must equal indices.shape[0:q-1] ++ data.shape[k:r-1], where ++ denotes the conca
 of shapes.
 
 The `output` is calculated via the following equation:
-
     output = np.copy(data)
     update_indices = indices.shape[:-1]
     for idx in np.ndindex(update_indices):
         output[indices[idx]] = updates[idx]
-
 The order of iteration in the above loop is not specified.
 In particular, indices should not have duplicate entries: that is, if idx1 != idx2, then indices[idx1] != indices[idx2].
 This ensures that the output value does not depend on the iteration order.
 
 `reduction` allows specification of an optional reduction operation, which is applied to all values in `updates`
 tensor into `output` at the specified `indices`.
-In cases where `reduction` is set to \"none\", indices should not have duplicate entries: that is, if idx1 != idx2, 
+In cases where `reduction` is set to \"none\", indices should not have duplicate entries: that is, if idx1 != idx2,
 then indices[idx1] != indices[idx2]. This ensures that the output value does not depend on the iteration order.
 When `reduction` is set to \"add\", `output` is calculated as follows:
-
     output = np.copy(data)
     update_indices = indices.shape[:-1]
     for idx in np.ndindex(update_indices):
         output[indices[idx]] += updates[idx]
-
 When `reduction` is set to \"mul\", `output` is calculated as follows:
-
     output = np.copy(data)
     update_indices = indices.shape[:-1]
     for idx in np.ndindex(update_indices):
         output[indices[idx]] *= updates[idx]
-
 This operator is the inverse of GatherND.
-
 Example 1:
 ```
   data    = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -6760,7 +7410,6 @@ Example 1:
   updates = [9, 10, 11, 12]
   output  = [1, 11, 3, 10, 9, 6, 7, 12]
 ```
-
 Example 2:
 ```
   data    = [[[1, 2, 3, 4], [5, 6, 7, 8], [8, 7, 6, 5], [4, 3, 2, 1]],
@@ -6776,7 +7425,9 @@ Example 2:
              [[8, 7, 6, 5], [4, 3, 2, 1], [1, 2, 3, 4], [5, 6, 7, 8]]]
 ```
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6858,7 +7509,9 @@ Example 2:
   output = [[1.0, 1.1, 3.0, 2.1, 5.0]]
 ```
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6891,7 +7544,9 @@ Selu takes one input data (Tensor<T>) and produces one output data
 `y = gamma * (alpha * e^x - alpha) for x <= 0`, `y = gamma * x for x > 0`,
 is applied to the tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6922,7 +7577,9 @@ Outputs a tensor copy from the tensor at 'position' in 'input_sequence'.
 Accepted range for 'position' is in `[-n, n - 1]`, where `n` is the number of tensors in 'input_sequence'.
 Negative value means counting positions from the back.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6946,7 +7603,9 @@ ONNX SequenceConstruct operation
 Construct a tensor sequence containing 'inputs' tensors.
 All tensors in 'inputs' must have the same data type.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6968,7 +7627,9 @@ ONNX SequenceEmpty operation
 
 Construct an empty tensor sequence, with given data type.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6993,7 +7654,9 @@ Accepted range for 'position' is in `[-n, n - 1]`, where `n` is the number of te
 Negative value means counting positions from the back.
 'position' is optional, by default it erases the last tensor from 'input_sequence'.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7020,7 +7683,9 @@ Accepted range for 'position' is in `[-n, n]`, where `n` is the number of tensor
 Negative value means counting positions from the back.
 'position' is optional, by default it inserts 'tensor' to the back of 'input_sequence'.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7044,7 +7709,9 @@ ONNX SequenceLength operation
 
 Produces a scalar(tensor of empty shape) containing the number of tensors in 'input_sequence'.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7059,6 +7726,44 @@ Effects: MemoryEffects::Effect{}
 | Result | Description |
 | :----: | ----------- |
 | `length` | tensor of 64-bit signless integer values
+
+### `onnx.SequenceMap` (::mlir::ONNXSequenceMapOp)
+
+ONNX SequenceMap operation
+
+Applies a sub-graph to each sample in the input sequence(s).
+
+Inputs can be either tensors or sequences, with the exception of the first input which must
+be a sequence. The length of the first input sequence will determine the number of samples in the
+outputs. Any other sequence inputs should have the same number of samples. The number of inputs
+and outputs, should match the one of the subgraph.
+
+For each i-th element in the output, a sample will be extracted from the input sequence(s) at
+the i-th position and the sub-graph will be applied to it.
+The outputs will contain the outputs of the sub-graph for each sample, in the same order as in
+the input.
+
+This operator assumes that processing each sample is independent and could executed in parallel
+or in any order. Users cannot expect any specific ordering in which each subgraph is computed.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values
+| `additional_inputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `out_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values
 
 ### `onnx.Shape` (::mlir::ONNXShapeOp)
 
@@ -7077,24 +7782,26 @@ value of r, and specifying any start value < -r is equivalent to specifying a st
 value of 0.
 
 For example:
-Input tensor with shape: [2, 3, 4] 
+Input tensor with shape: [2, 3, 4]
 No attributes specified.
-Output: [2, 3, 4] 
+Output: [2, 3, 4]
 
-Input tensor with shape: [2, 3, 4] 
+Input tensor with shape: [2, 3, 4]
 start: -1
-Output: [4] 
+Output: [4]
 
-Input tensor with shape: [2, 3, 4] 
+Input tensor with shape: [2, 3, 4]
 end: -1
 Output: [2, 3]
 
-Input tensor with shape: [2, 3, 4] 
+Input tensor with shape: [2, 3, 4]
 start: 1
 end: 2
-Output: [3] 
+Output: [3]
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7126,7 +7833,9 @@ having same datatype and shape with input. It has two attributes, lambd and
 bias. The formula of this operator is: If x < -lambd, y = x + bias;
 If x > lambd, y = x - bias; Otherwise, y = 0.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7157,7 +7866,9 @@ Sigmoid takes one input data (Tensor<T>) and produces one output data
 (Tensor<T>) where the sigmoid function, y = 1 / (1 + exp(-x)), is applied to the
 tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7180,7 +7891,9 @@ ONNX Sign operation
 Calculate the sign of the given input tensor element-wise.
 If input > 0, output 1. if input < 0, output -1. if input == 0, output 0.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7202,7 +7915,9 @@ ONNX Sin operation
 
 Calculates the sine of the given input tensor, element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7224,7 +7939,9 @@ ONNX Sinh operation
 
 Calculates the hyperbolic sine of the given input tensor element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7246,7 +7963,9 @@ ONNX Size operation
 
 Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7322,7 +8041,9 @@ Example 2:
       [2, 3, 4],
   ]
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7378,7 +8099,9 @@ If reduction = 'sum', the output is scalar: Sum(L).
 If reduction = 'mean', the output is scalar: ReduceMean(L), or if weight is provided: ReduceSum(L) / ReduceSum(W),
 where tensor W is of shape (N, D1, D2, ..., Dk) and W[n][d1][d2]...[dk] = weights[labels[i][d1][d2]...[dk]].
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7416,7 +8139,9 @@ The \"axis\" attribute indicates the dimension along which Softmax
 will be performed. The output tensor has the same shape
 and contains the Softmax values of the corresponding input.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7438,6 +8163,49 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
 
+### `onnx.SoftmaxV11` (::mlir::ONNXSoftmaxV11Op)
+
+ONNX Softmax operation
+
+The operator computes the softmax (normalized exponential) values for each layer in the batch
+ of the given input.
+
+The input does not need to explicitly be a 2D vector; rather, it will be
+coerced into one. For an arbitrary n-dimensional tensor
+input \in [a_0, a_1, ..., a_{k-1}, a_k, ..., a_{n-1\}\] and k is
+the axis provided, then input will be coerced into a 2-dimensional tensor with
+dimensions [a_0 * ... * a_{k-1}, a_k * ... * a_{n-1\}\]. For the default
+case where axis=1, this means the input tensor will be coerced into a 2D tensor
+of dimensions [a_0, a_1 * ... * a_{n-1\}\], where a_0 is often the batch size.
+In this situation, we must have a_0 = N and a_1 * ... * a_{n-1} = D.
+Each of these dimensions must be matched correctly, or else the operator
+will throw errors. The output tensor has the same shape
+and contains the softmax values of the corresponding input.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+
 ### `onnx.Softplus` (::mlir::ONNXSoftplusOp)
 
 ONNX Softplus operation
@@ -7446,7 +8214,9 @@ Softplus takes one input data (Tensor<T>) and produces one output data
 (Tensor<T>) where the softplus function, y = ln(exp(x) + 1), is applied to
 the tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7468,7 +8238,9 @@ ONNX Softsign operation
 
 Calculates the softsign (x/(1+|x|)) of the given input tensor element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7492,7 +8264,9 @@ SpaceToDepth rearranges blocks of spatial data into depth. More specifically,
 this op outputs a copy of the input tensor where values from the height and width dimensions
 are moved to the depth dimension.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7522,7 +8296,9 @@ Split a tensor into a list of tensors, along the specified
 'axis'. Lengths of the parts can be specified using input 'split'.
 Otherwise, the tensor is split to equal sized parts.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7560,7 +8336,9 @@ Otherwise, the tensor is split into 'size(split)' chunks, with lengths of the pa
 specified in 'split'. In this scenario, the sum of entries in 'split' must be equal to the
 dimension size of input tensor on 'axis'.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7592,7 +8370,9 @@ Split a tensor into a list of tensors, along the specified
 'axis'. Lengths of the parts can be specified using argument 'split'.
 Otherwise, the tensor is split to equal sized parts.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7623,7 +8403,9 @@ Square root takes one input data (Tensor<T>) and produces one output data
 (Tensor<T>) where the square root is, y = x^0.5, is applied to
 the tensor elementwise. If x is negative, then it will return NaN.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7648,7 +8430,9 @@ Takes an input `axes` with a list of axes to squeeze.
 If `axes` is not provided, all the single dimensions will be removed from
 the shape. If an axis is selected with shape entry not equal to one, an error is raised.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7674,7 +8458,9 @@ Takes a  parameter `axes` with a list of axes to squeeze.
 If `axes` is not provided, all the single dimensions will be removed from
 the shape. If an axis is selected with shape entry not equal to one, an error is raised.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7710,7 +8496,9 @@ This operator only accepts [C]- and [1, C]-tensor.
 If all elements in X are dropped, the output will be the empty value of string tensor with shape [1]
 if input shape is [C] and shape [1, 1] if input shape is [1, C].
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7745,7 +8533,9 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 (Opset 14 change): Extend supported types to include uint8, int8, uint16, and int16.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7770,7 +8560,9 @@ Element-wise sum of each of the input tensors (with Numpy-style broadcasting sup
 All inputs and outputs must have the same data type.
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7792,7 +8584,9 @@ ONNX Tan operation
 
 Calculates the tangent of the given input tensor, element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7814,7 +8608,9 @@ ONNX Tanh operation
 
 Calculates the hyperbolic tangent of the given input tensor element-wise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7862,7 +8658,9 @@ this operator first computes the counts of all n-grams and then scale them by th
 Only one of pool_strings and pool_int64s can be set. If pool_int64s is set, the input should be an integer tensor.
 If pool_strings is set, the input must be a string tensor.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7900,7 +8698,9 @@ ThresholdedRelu takes one input data (Tensor<T>) and produces one output data
 (Tensor<T>) where the rectified linear function, y = x for x > alpha, y = 0 otherwise,
 is applied to the tensor elementwise.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7930,7 +8730,9 @@ Constructs a tensor by tiling a given tensor.
 This is the same as function `tile` in Numpy, but no broadcast.
 For example A = [[1, 2], [3, 4]], B = [1, 2], tile(A, B) = [[1, 2, 1, 2], [3, 4, 3, 4]]
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7966,7 +8768,9 @@ If \"sorted\" is 0, order of returned 'Values' and 'Indices' are undefined.
 Given two equivalent values, this operator uses the indices along the axis as
  a tiebreaker. That is, the element with the lower index will appear first.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8000,7 +8804,9 @@ Transpose the input tensor similar to numpy.transpose. For example, when
 perm=(1, 0, 2), given an input tensor of shape (1, 2, 3), the output shape
 will be (2, 1, 3).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8036,7 +8842,9 @@ Tree Ensemble classifier.  Returns the top class for each of N inputs.<br>
     One and only one of classlabels_strings or classlabels_int64s
     will be defined. The class_ids are indices into this list.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8090,7 +8898,9 @@ Tree Ensemble regressor.  Returns the regressed values for each input in N.<br>
     All trees must have their node ids start at 0 and increment by 1.<br>
     Mode enum is BRANCH_LEQ, BRANCH_LT, BRANCH_GTE, BRANCH_GT, BRANCH_EQ, BRANCH_NEQ, LEAF
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8145,7 +8955,9 @@ A negative k value retains the main diagonal and |k| diagonals below it.
 If upper is set to false, a positive k retains the lower triangular matrix including the main diagonal and k diagonals above it.
 A negative k value excludes the main diagonal and (|k|-1) diagonals below it.
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8248,7 +9060,9 @@ Example 4:
 
   output_counts = [2 1 1]
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8291,7 +9105,9 @@ Each value in `axes` should be within the (inclusive) range [-output_rank , outp
 The order of values in `axes` does not matter and can come in any order.
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8325,7 +9141,9 @@ Each value in `axes` should be within the (inclusive) range [-output_rank , outp
 The order of values in `axes` does not matter and can come in any order.
 
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8355,7 +9173,9 @@ Upsample the input tensor.
 Each dimension value of the output tensor is:
   output_dimension = floor(input_dimension * scale).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8386,7 +9206,9 @@ Upsample the input tensor.
 Each dimension value of the output tensor is:
   output_dimension = floor(input_dimension * scale).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8409,37 +9231,6 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
-### `onnx.UpsampleV9` (::mlir::ONNXUpsampleV9Op)
-
-ONNX Upsample operation
-
-Upsample the input tensor.
-Each dimension value of the output tensor is:
-  output_dimension = floor(input_dimension * scale).
-
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
-
-Effects: MemoryEffects::Effect{}
-
-#### Attributes:
-
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `mode` | ::mlir::StringAttr | string attribute
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
-| `scales` | tensor of 32-bit float values
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
-
 ### `onnx.Where` (::mlir::ONNXWhereOp)
 
 ONNX Where operation
@@ -8454,7 +9245,9 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 **History**
 - Version 16 adds bfloat16 to the types allowed (for the second and third parameter).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8481,7 +9274,9 @@ elementwise on the input tensors `A` and `B` (with Numpy-style broadcasting supp
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8507,7 +9302,9 @@ Creates a map from the input and the attributes.<br>
     Must provide keys in either classlabels_strings or classlabels_int64s (but not both).<br>
     The columns of the tensor correspond one-by-one to the keys specified by the attributes. There must be as many columns as keys.<br>
 
-Interfaces: Pure (MemoryEffectOpInterface), ShapeInference
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
