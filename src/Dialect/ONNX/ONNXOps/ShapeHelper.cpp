@@ -138,7 +138,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeFromOperand(Value operand, int n) {
 
 // Reuse the same type for each of the outputs.
 LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
-    Type elementType, mlir::Attribute encoding) {
+    Type elementType, Attribute encoding) {
   // Invoke virtual compute shape.
   if (failed(computeShape()))
     return op->emitError("Failed to scan parameters successfully");
