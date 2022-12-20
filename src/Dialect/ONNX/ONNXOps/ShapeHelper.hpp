@@ -119,6 +119,7 @@ struct ONNXOpShapeHelper {
       mlir::ArrayRef<mlir::Attribute> encodingList = {});
 
   // Get/set output dims for the N-th output dimension as Index Expressions.
+  // Scalar may have a DimsExpr that is empty.
   DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }
   void setOutputDims(const DimsExpr &inferredDims, int n = 0);
 
@@ -595,6 +596,7 @@ using ONNXClipOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
 using ONNXCompressOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
 using ONNXConcatOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
 using ONNXConcatShapeTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
+using ONNXConstantOfShapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConstantOfShapeOp>;
 using ONNXDFTOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDFTOp>;
 using ONNXDepthToSpaceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
 using ONNXDropoutOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDropoutOp>;
@@ -614,7 +616,7 @@ using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
 // clang-format on
 
-// Pattern to use: 
+// Pattern to use:
 // using ShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::>;
 
 //===----------------------------------------------------------------------===//

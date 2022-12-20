@@ -19,6 +19,34 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXConstantOfShapeOpShapeHelper::computeShape() {
+  ONNXConstantOfShapeOpAdaptor operandAdaptor(operands);
+  Value input = operandAdaptor.input();
+  DimsExpr outputDims;
+
+  auto inputShape = input.getType().cast<RankedTensorType>().getShape();
+  if (inputShape[0] == 0) {
+    // If 'input' is an empty tensor, the output would be a scalar.
+    // Represent this by an empty outputDims.
+    outputDims.clear();
+  } else {
+    // Calculate output dimensions.
+    createIE->getIntFromArrayAsDims(input, outputDims);
+  }
+
+  setOutputDims(outputDims);
+  return success();
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -63,7 +91,30 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
 
 LogicalResult ONNXConstantOfShapeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+#if 1
+  Type elementType;
 
+  // 'value' attribute is a one-element tensor whose value and datatype are
+  // used to set the output tensor value and datatype.
+  if (value().has_value()) {
+    elementType =
+        valueAttr().cast<DenseElementsAttr>().getType().getElementType();
+  } else {
+    // If 'value' attribute is not specified, it defaults to a tensor of
+    // value 0 and datatype float32.
+    elementType = FloatType::getF32(getContext());
+
+    llvm::SmallVector<int64_t, 2> dims(1, 1);
+    auto tensorType = RankedTensorType::get(dims, elementType);
+
+    llvm::SmallVector<float, 1> values(1, 0.);
+    valueAttr(DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values)));
+  }
+
+  ONNXConstantOfShapeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+
+#else
   Type elementType;
 
   // 'value' attribute is a one-element tensor whose value and datatype are
@@ -108,4 +159,13 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
 
   updateType(getResult(), outputDims, elementType);
   return success();
+#endif
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXConstantOfShapeOp>;
+} // namespace onnx_mlir
