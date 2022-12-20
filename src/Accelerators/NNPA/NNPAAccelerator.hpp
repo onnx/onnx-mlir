@@ -68,6 +68,12 @@ public:
       mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const final;
   virtual int64_t getDefaultAllocAlignment(
       const mlir::TensorType tensorType) const final;
+  virtual mlir::Value convertToHostType(mlir::PatternRewriter &rewriter,
+      mlir::Location loc, mlir::TensorType tensorType,
+      mlir::Value scalarValue) const final;
+  virtual mlir::Value convertToAcceleratorType(mlir::PatternRewriter &rewriter,
+      mlir::Location loc, mlir::TensorType tensorType,
+      mlir::Value scalarValue) const final;
   //===--------------------------------------------------------------------===//
   // Hooks for krnl-to-llvm pass
   //===--------------------------------------------------------------------===//

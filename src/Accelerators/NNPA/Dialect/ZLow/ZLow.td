@@ -31,7 +31,8 @@ def ZLow_Dialect : Dialect {
 class ZLow_Op<string mnemonic, list<Trait> traits = []> :
     Op<ZLow_Dialect, mnemonic, traits>;
 
-// F16 is used as a container for DLFloat16 that is not supported in MLIR.
+// DLFloat16 is not natively supported in MLIR.
+// F16 is used instead as a container.
 def DLF16 : Type<CPred<"$_self.isF16()">, "dlfloat16 type">,
                  BuildableType<"$_builder.getF16Type()">;
 

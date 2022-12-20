@@ -756,4 +756,34 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
   return alignment;
 }
 
+Value KrnlTypeConverter::convertToHostType(mlir::PatternRewriter &rewriter,
+    Location loc, TensorType tensorType, Value scalarValue) {
+  // By default, there is no conversion.
+  Value res = scalarValue;
+  // Accelerators may have special types.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    // The accelerator knows whether `tensorType` is its target or not to
+    // decide whether a value needs a conversion or not.
+    // -1 means the accelerator does not have a specific alignment.
+    res = accel->convertToHostType(rewriter, loc, tensorType, scalarValue);
+  }
+  return res;
+}
+
+Value KrnlTypeConverter::convertToAcceleratorType(
+    mlir::PatternRewriter &rewriter, Location loc, TensorType tensorType,
+    Value scalarValue) {
+  // By default, there is no conversion.
+  Value res = scalarValue;
+  // Accelerators may have special types.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    // The accelerator knows whether `tensorType` is its target or not to
+    // decide whether a value needs a conversion or not.
+    // -1 means the accelerator does not have a specific alignment.
+    res =
+        accel->convertToAcceleratorType(rewriter, loc, tensorType, scalarValue);
+  }
+  return res;
+}
+
 } // namespace onnx_mlir

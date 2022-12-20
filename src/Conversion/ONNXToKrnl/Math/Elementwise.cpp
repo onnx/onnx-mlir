@@ -841,13 +841,14 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     }
 
     // Convert the output type to MemRefType.
-    Type outputTensorType = *op->result_type_begin();
+    auto outputTensorType = (*op->result_type_begin()).cast<TensorType>();
     Type convertedType = typeConverter->convertType(outputTensorType);
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    Type outputElementType = outputMemRefType.getElementType();
 
     // Shape helper.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
@@ -856,27 +857,44 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.getOutputDims(), alignment);
+    Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
+        loc, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      ValueRange loopDef = create.krnl.defineLoops(memRefType.getRank());
-      SmallVector<IndexExpr, 4> lbs(memRefType.getRank(), LiteralIndexExpr(0));
+      ValueRange loopDef = create.krnl.defineLoops(outputMemRefType.getRank());
+      SmallVector<IndexExpr, 4> lbs(
+          outputMemRefType.getRank(), LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-            Value loadedVal = createKrnl.load(X, loopInd);
-            auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-                rewriter, loc, op, memRefType.getElementType(), {loadedVal});
+            Value inputVal = createKrnl.load(X, loopInd);
+            Value convertedVal = KrnlTypeConverter::convertToHostType(
+                rewriter, loc, outputTensorType, inputVal);
+            // If the value is converted succesfully, use the new type as
+            // element type.
+            if (convertedVal.getType() != inputVal.getType())
+              outputElementType = convertedVal.getType();
+            Value loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
+                rewriter, loc, op, outputElementType, {convertedVal});
+            loweredOpResult = KrnlTypeConverter::convertToAcceleratorType(
+                rewriter, loc, outputTensorType, loweredOpResult);
             // Store result in the resulting array.
             createKrnl.store(loweredOpResult, alloc, loopInd);
           });
     } else {
-      Value loadedVal = create.krnl.load(X);
-      auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-          rewriter, loc, op, memRefType.getElementType(), {loadedVal});
+      Value inputVal = create.krnl.load(X);
+      Value convertedVal = KrnlTypeConverter::convertToHostType(
+          rewriter, loc, outputTensorType, inputVal);
+      // If the value is converted succesfully, use the new type as element
+      // type.
+      if (convertedVal.getType() != inputVal.getType())
+        outputElementType = convertedVal.getType();
+      Value loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
+          rewriter, loc, op, outputElementType, {convertedVal});
+      loweredOpResult = KrnlTypeConverter::convertToAcceleratorType(
+          rewriter, loc, outputTensorType, loweredOpResult);
       // Store result in the resulting array.
       create.krnl.store(loweredOpResult, alloc);
     }

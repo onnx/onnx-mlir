@@ -122,6 +122,21 @@ public:
     return -1;
   }
 
+  // Convert a scalar value from a custom type defined for the accelerator into
+  // a type supported by host.
+  // This allows ONNX operations work directly on the custom type, for example,
+  // doing broacating addition.
+  virtual mlir::Value convertToHostType(mlir::PatternRewriter &rewriter,
+      mlir::Location loc, mlir::TensorType tensorType,
+      mlir::Value scalarValue) const = 0;
+
+  // Convert back a scalar value from a type on host to a custom type defined
+  // for the accelerator. This allows ONNX operations work directly on the
+  // custom type, for example, doing broacating addition.
+  virtual mlir::Value convertToAcceleratorType(mlir::PatternRewriter &rewriter,
+      mlir::Location loc, mlir::TensorType tensorType,
+      mlir::Value scalarValue) const = 0;
+
   /// Define conversion target to be used with ONNXToKrnl.
   virtual void conversionTargetONNXToKrnl(
       mlir::ConversionTarget &target) const = 0;

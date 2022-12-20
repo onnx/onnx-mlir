@@ -33,6 +33,8 @@
 
 extern llvm::cl::OptionCategory OMNNPAPassOptions;
 
+using namespace mlir;
+
 namespace onnx_mlir {
 namespace accel {
 
@@ -127,6 +129,22 @@ int64_t NNPAAccelerator::getDefaultAllocAlignment(
           .dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>())
     return gAlignment;
   return -1;
+}
+
+Value NNPAAccelerator::convertToHostType(PatternRewriter &rewriter,
+    Location loc, TensorType tensorType, Value scalarValue) const {
+  Type scalarType = scalarValue.getType();
+  // TODO: assert fromType is f16.
+  // Use F32 as a counterpart on host.
+  return rewriter.create<zlow::ZLowConvertDLF16ToF32Op>(loc, scalarValue);
+}
+
+Value NNPAAccelerator::convertToAcceleratorType(PatternRewriter &rewriter,
+    Location loc, TensorType tensorType, Value scalarValue) const {
+  Type scalarType = scalarValue.getType();
+  // TODO: assert fromType is f32.
+  // Use DLF16 as a counterpart on NNPA.
+  return rewriter.create<zlow::ZLowConvertF32ToDLF16Op>(loc, scalarValue);
 }
 
 void NNPAAccelerator::conversionTargetONNXToKrnl(
