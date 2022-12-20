@@ -18,23 +18,38 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXRangeOpShapeHelper::computeShape() {
+  ONNXRangeOpAdaptor operandAdaptor(operands);
+
+  // Get values.
+  IndexExpr start = createIE->getIntFromArrayAsDim(operandAdaptor.start(), 0);
+  IndexExpr limit = createIE->getIntFromArrayAsDim(operandAdaptor.limit(), 0);
+  IndexExpr delta = createIE->getIntFromArrayAsDim(operandAdaptor.delta(), 0);
+  // Dim = max(ceil((limit-start)/delta), 0).
+  IndexExpr num = limit - start;
+  num.ceilDiv(delta);
+  IndexExpr res = IndexExpr::max(num, 0);
+  DimsExpr outputDims(1, res);
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+
+} // namespace onnx_mlir
+
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
-//===----------------------------------------------------------------------===//
-// Shape Inference
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXRangeOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
+LogicalResult ONNXRangeOp::verify() {
   // All inputs must be valid ranked tensors.
   if (!start().getType().isa<RankedTensorType>())
     return success();
-
   if (!limit().getType().isa<RankedTensorType>())
     return success();
-
   if (!delta().getType().isa<RankedTensorType>())
     return success();
 
@@ -74,6 +89,44 @@ LogicalResult ONNXRangeOp::inferShapes(
       startTensorTy.getElementType() != deltaTensorTy.getElementType())
     return emitError("all inputs must have the exact same input type");
 
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Shape Inference
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXRangeOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  // All inputs must be valid ranked tensors.
+
+#if 1
+  if (!hasShapeAndRank(start()))
+    return success();
+  if (!hasShapeAndRank(limit()))
+    return success();
+  if (!hasShapeAndRank(delta()))
+    return success();
+
+  Type elementType =
+      start().getType().cast<RankedTensorType>().getElementType();
+  ONNXRangeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+
+#else
+  if (!start().getType().isa<RankedTensorType>())
+    return success();
+
+  if (!limit().getType().isa<RankedTensorType>())
+    return success();
+
+  if (!delta().getType().isa<RankedTensorType>())
+    return success();
+
+  auto startTensorTy = start().getType().cast<RankedTensorType>();
+  auto limitTensorTy = limit().getType().cast<RankedTensorType>();
+  auto deltaTensorTy = delta().getType().cast<RankedTensorType>();
+
   // Number of elements, default is unknown so -1:
   int64_t number_of_elements = -1;
 
@@ -100,4 +153,13 @@ LogicalResult ONNXRangeOp::inferShapes(
   SmallVector<int64_t, 1> dims(1, number_of_elements);
   updateType(getResult(), dims, startTensorTy.getElementType());
   return success();
+#endif
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXRangeOp>;
+} // namespace onnx_mlir
