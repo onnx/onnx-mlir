@@ -1,0 +1,63 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// string_data.json is an onnx model that outputs a constant tensor with string data type
+
+// json is generated with utils/testing/string_data.py
+{
+  "irVersion": "8",
+  "graph": {
+    "node": [
+      {
+        "output": [
+          "output"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "2"
+              ],
+              "dataType": 8,
+              "stringData": [
+                "aGVsbG8=",
+                "d29ybGQ="
+              ],
+              "name": "tensor"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      }
+    ],
+    "name": "string_data",
+    "output": [
+      {
+        "name": "output",
+        "type": {
+          "tensorType": {
+            "elemType": 8,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "2"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "version": "17"
+    }
+  ]
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   () -> tensor<2x!onnx.String> attributes {input_names = [], output_names = ["output"]} {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<["hello", "world"]> : tensor<2x!onnx.String>
+// CHECK:           return %0 : tensor<2x!onnx.String>
+// CHECK:         }

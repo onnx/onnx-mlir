@@ -54,5 +54,8 @@ mlir::StringAttr getZTensorLayoutAttr(
 mlir::Value getMinusBcastConst(mlir::OpBuilder &builder, mlir::Location loc,
     mlir::FloatAttr floatAttr, mlir::Value input);
 
+/// True if at least one of the types is NHWC layout.
+bool oneIsOfNHWCLayout(mlir::Type t1, mlir::Type t2);
+
 } // namespace zhigh
 } // namespace onnx_mlir
