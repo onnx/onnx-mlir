@@ -100,7 +100,6 @@ LogicalResult ONNXRangeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // All inputs must be valid ranked tensors.
 
-#if 1
   if (!hasShapeAndRank(start()))
     return success();
   if (!hasShapeAndRank(limit()))
@@ -112,48 +111,6 @@ LogicalResult ONNXRangeOp::inferShapes(
       start().getType().cast<RankedTensorType>().getElementType();
   ONNXRangeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-
-#else
-  if (!start().getType().isa<RankedTensorType>())
-    return success();
-
-  if (!limit().getType().isa<RankedTensorType>())
-    return success();
-
-  if (!delta().getType().isa<RankedTensorType>())
-    return success();
-
-  auto startTensorTy = start().getType().cast<RankedTensorType>();
-  auto limitTensorTy = limit().getType().cast<RankedTensorType>();
-  auto deltaTensorTy = delta().getType().cast<RankedTensorType>();
-
-  // Number of elements, default is unknown so -1:
-  int64_t number_of_elements = -1;
-
-  // Check if input is constant. All inputs must be
-  // constant for this path to be used.
-  auto constantStart = getONNXConstantOp(start());
-  auto constantLimit = getONNXConstantOp(limit());
-  auto constantDelta = getONNXConstantOp(delta());
-  if (constantStart && constantLimit && constantDelta) {
-    // Get all inputs:
-    double start = getScalarValue<double>(constantStart, startTensorTy);
-    double limit = getScalarValue<double>(constantLimit, limitTensorTy);
-    double delta = getScalarValue<double>(constantDelta, deltaTensorTy);
-
-    // Compute size:
-    number_of_elements = (int64_t)ceil((limit - start) / delta);
-
-    // When no elements are present create a dynamic tensor.
-    // TODO: represent an empty tensor for this case.
-    if (number_of_elements <= 0)
-      number_of_elements = -1;
-  }
-
-  SmallVector<int64_t, 1> dims(1, number_of_elements);
-  updateType(getResult(), dims, startTensorTy.getElementType());
-  return success();
-#endif
 }
 
 //===----------------------------------------------------------------------===//

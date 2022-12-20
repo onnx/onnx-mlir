@@ -45,7 +45,6 @@ LogicalResult ONNXEyeLikeOpShapeHelper::computeShape() {
 
 LogicalResult ONNXEyeLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-#if 1
   if (!hasShapeAndRank(input()))
     return success();
 
@@ -61,23 +60,6 @@ LogicalResult ONNXEyeLikeOp::inferShapes(
 
   ONNXEyeLikeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-#else
-  auto builder = OpBuilder(getContext());
-  if (!hasShapeAndRank(input())) {
-    return success();
-  }
-  RankedTensorType inputType = input().getType().cast<RankedTensorType>();
-  Type elementType;
-  if (dtypeAttr()) {
-    elementType = convertONNXTypeToMLIRType(builder,
-        (onnx::TensorProto_DataType)dtypeAttr().getValue().getSExtValue());
-  } else {
-    elementType = inputType.getElementType();
-  }
-
-  updateType(getResult(), inputType.getShape(), elementType);
-  return success();
-#endif
 }
 
 //===----------------------------------------------------------------------===//

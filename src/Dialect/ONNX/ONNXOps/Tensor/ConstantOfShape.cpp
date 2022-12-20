@@ -91,7 +91,6 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
 
 LogicalResult ONNXConstantOfShapeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-#if 1
   Type elementType;
 
   // 'value' attribute is a one-element tensor whose value and datatype are
@@ -113,53 +112,6 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
 
   ONNXConstantOfShapeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-
-#else
-  Type elementType;
-
-  // 'value' attribute is a one-element tensor whose value and datatype are
-  // used to set the output tensor value and datatype.
-  if (value().has_value()) {
-    elementType =
-        valueAttr().cast<DenseElementsAttr>().getType().getElementType();
-  } else {
-    // If 'value' attribute is not specified, it defaults to a tensor of
-    // value 0 and datatype float32.
-    elementType = FloatType::getF32(getContext());
-
-    llvm::SmallVector<int64_t, 2> dims(1, 1);
-    auto tensorType = RankedTensorType::get(dims, elementType);
-
-    llvm::SmallVector<float, 1> values(1, 0.);
-    valueAttr(DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values)));
-  }
-
-  // 'input' must be a 1D tensor.
-  auto inputShape = input().getType().cast<RankedTensorType>().getShape();
-  if (inputShape[0] == 0) {
-    // If 'input' is an empty tensor, the output would be a scalar.
-    getResult().setType(RankedTensorType::get({}, elementType));
-    return success();
-  }
-
-  // Calculate output dimensions.
-  SmallVector<int64_t, 4> outputDims(inputShape[0], -1);
-  // If 'input' is a constant, check whether its values are valid or not.
-  // If the values are valid, it is possible to infer shape.
-  if (auto constantOp = getONNXConstantOp(input())) {
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    // Get repeat values from valueAttribute.
-    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
-    for (int i = 0; i < inputShape[0]; ++i) {
-      auto dim = (*valueIt++).cast<IntegerAttr>().getInt();
-      outputDims[i] = dim;
-    }
-  }
-
-  updateType(getResult(), outputDims, elementType);
-  return success();
-#endif
 }
 
 //===----------------------------------------------------------------------===//
