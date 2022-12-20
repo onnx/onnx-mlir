@@ -93,6 +93,9 @@ uint64_t IndexExprBuilder::getShapedTypeRank(Value value) {
 
 // Size from 1D attribute array.
 uint64_t IndexExprBuilder::getArraySize(ArrayAttr attrArray) {
+  // Assume that if we have no array, a good value to return is 0.
+  if (!attrArray)
+    return 0;
   return attrArray.size();
 }
 

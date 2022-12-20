@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------ZHighShapeHelper.hpp - help for shapes ---------------===//
+//===----------------ShapeHelper.hpp - shape helpers for ZHigh ------------===//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -19,9 +19,12 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Value.h"
 
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 namespace onnx_mlir {
 namespace zhigh {
