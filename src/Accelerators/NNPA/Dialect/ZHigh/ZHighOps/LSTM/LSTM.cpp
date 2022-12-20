@@ -19,6 +19,76 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 namespace zhigh {
 
+//===----------------------------------------------------------------------===//
+// ShapeHelper
+//===----------------------------------------------------------------------===//
+
+LogicalResult ZHighLSTMOpShapeHelper::computeShape() {
+  ZHighLSTMOp lstmOp = llvm::dyn_cast<ZHighLSTMOp>(op);
+  ZHighLSTMOp::Adaptor operandAdaptor(operands);
+  // Get operands.
+  // X: [S, B, I]
+  Value X = operandAdaptor.input();
+  // R: [D, H, H]
+  Value R = operandAdaptor.hidden_weights();
+
+  // Return all timesteps or only the final step;
+  bool isAllTimesteps = (lstmOp.return_all_steps() == -1) ? true : false;
+
+  // Get bounds
+  SmallVector<IndexExpr, 4> XDims, RDims;
+  createIE->getShapeAsDims(X, XDims);
+  createIE->getShapeAsDims(R, RDims);
+  IndexExpr S = XDims[0];
+  IndexExpr B = XDims[1];
+  IndexExpr I = XDims[2];
+  IndexExpr D = RDims[0];
+  IndexExpr H = RDims[1];
+
+  // Shape for hn_ouput : [S, D, B, H] if return all  timesteps. [1, D, B, H] if
+  // return the final step only.
+  DimsExpr hnOutputDims;
+  if (isAllTimesteps)
+    hnOutputDims.emplace_back(S);
+  else
+    hnOutputDims.emplace_back(LiteralIndexExpr(1));
+  hnOutputDims.emplace_back(D);
+  hnOutputDims.emplace_back(B);
+  hnOutputDims.emplace_back(H);
+
+  // Shape for cf_ouput : [1, D, B, H]
+  DimsExpr cfOutputDims;
+  cfOutputDims.emplace_back(LiteralIndexExpr(1));
+  cfOutputDims.emplace_back(D);
+  cfOutputDims.emplace_back(B);
+  cfOutputDims.emplace_back(H);
+
+  // Shape for optional values.
+  // Initialized value: [D, B, H]
+  hc0Shape.emplace_back(D);
+  hc0Shape.emplace_back(B);
+  hc0Shape.emplace_back(H);
+  // Bias value: [D, 4*H]
+  biasShape.emplace_back(D);
+  biasShape.emplace_back(H * 4);
+
+  // Keep all original dimensions.
+  allOriginalDims.emplace_back(D);
+  allOriginalDims.emplace_back(S);
+  allOriginalDims.emplace_back(B);
+  allOriginalDims.emplace_back(I);
+  allOriginalDims.emplace_back(H);
+
+  // Save the final results.
+  setOutputDims(hnOutputDims, 0);
+  setOutputDims(cfOutputDims, 1);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Verifier
+//===----------------------------------------------------------------------===//
+
 LogicalResult ZHighLSTMOp::verify() {
   ZHighLSTMOpAdaptor operandAdaptor(*this);
   // Get operands.
@@ -64,21 +134,22 @@ LogicalResult ZHighLSTMOp::verify() {
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// Shape inference
+//===----------------------------------------------------------------------===//
+
 LogicalResult ZHighLSTMOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!hasRankedType(input()) || !hasRankedType(hidden_weights()))
     return success();
 
-  Builder builder(getContext());
-  ZHighLSTMOpAdaptor operandAdaptor(*this);
-  ZHighLSTMOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return emitError("Failed to scan ZHigh LSTM parameters successfully");
+  ZHighLSTMOpShapeHelper shapeHelper(getOperation());
+  shapeHelper.computeShapeAndAssertOnFailure();
 
   // Output type is 4DS.
   SmallVector<int64_t, 4> hnOutputDims, cfOutputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(0), hnOutputDims);
-  IndexExpr::getShape(shapeHelper.dimsForOutput(1), cfOutputDims);
+  IndexExpr::getShape(shapeHelper.getOutputDims(0), hnOutputDims);
+  IndexExpr::getShape(shapeHelper.getOutputDims(1), cfOutputDims);
   Type elementType = input().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);

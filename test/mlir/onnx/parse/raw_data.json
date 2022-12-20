@@ -249,7 +249,7 @@
         ]
       }
     ],
-    "name": "rawdata",
+    "name": "raw_data",
     "output": [
       {
         "name": "output0",

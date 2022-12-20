@@ -54,6 +54,47 @@ void ZHighUnstickOp::build(
 }
 
 //===----------------------------------------------------------------------===//
+// ShapeHelper
+//===----------------------------------------------------------------------===//
+
+LogicalResult ZHighUnstickOpShapeHelper::computeShape() {
+  ZHighUnstickOp::Adaptor operandAdaptor(operands);
+  Value input = operandAdaptor.In();
+
+  // Output dims of result.
+  DimsExpr outputDims;
+
+  // Get layout attribute. Do not get it from the input in OpAdaptor since
+  // that input is the converted type, i.e. MemRefType. Get directly from
+  // Operation instead where the type is TensorType that has the layout
+  // encoding attribute.
+  OpBuilder b(op);
+  StringAttr layout = getZTensorLayoutAttr(b, op->getOperand(0).getType());
+
+  // Get operands and bounds.
+  SmallVector<IndexExpr, 4> inputDims;
+  createIE->getShapeAsDims(input, inputDims);
+  int64_t rank = inputDims.size();
+
+  for (int64_t i = 0; i < rank; ++i)
+    outputDims.emplace_back(inputDims[i]);
+
+  // Direct unstickify from NHWC to NCHW.
+  if (isNHWCLayout(layout)) {
+    assert((rank == 4) && "Unstickify input must have rank 4");
+    // NHWC -> NCHW
+    outputDims[0] = inputDims[0];
+    outputDims[1] = inputDims[3];
+    outputDims[2] = inputDims[1];
+    outputDims[3] = inputDims[2];
+  }
+
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Shape inference
 //===----------------------------------------------------------------------===//
 
@@ -62,20 +103,9 @@ LogicalResult ZHighUnstickOp::inferShapes(
   if (!hasRankedType(In()))
     return success();
 
-  OpBuilder b(this->getContext());
-
-  StringAttr layout =
-      convertZTensorDataLayoutToStringAttr(b, getZTensorLayout(In().getType()));
-
-  ZHighUnstickOpAdaptor operandAdaptor(*this);
-  ZHighUnstickOpShapeHelper shapeHelper(this, layout);
-  if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return emitError("Failed to scan ZHigh Unstick parameters successfully");
-
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
-  updateType(getResult(), outputDims, getElementType(In().getType()));
-  return success();
+  ZHighUnstickOpShapeHelper shapeHelper(getOperation());
+  Type elementType = getElementType(In().getType());
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
