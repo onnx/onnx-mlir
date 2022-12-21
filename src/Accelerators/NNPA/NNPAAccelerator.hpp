@@ -82,6 +82,9 @@ public:
   virtual void rewritePatternKrnlToLLVM(mlir::RewritePatternSet &patterns,
       mlir::LLVMTypeConverter &typeConverter,
       mlir::MLIRContext *ctx) const final;
+
+private:
+  bool isTargetTensorType(mlir::TensorType tensorType) const;
 };
 
 } // namespace accel

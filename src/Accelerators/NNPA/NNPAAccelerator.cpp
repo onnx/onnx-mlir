@@ -111,9 +111,7 @@ void NNPAAccelerator::initPasses(int optLevel) const {
 mlir::MemRefType NNPAAccelerator::convertTensorTypeToMemRefType(
     const mlir::TensorType tensorType) const {
   assert(tensorType.hasRank() && "expected only ranked shapes");
-  if (tensorType.cast<mlir::RankedTensorType>()
-          .getEncoding()
-          .dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>()) {
+  if (isTargetTensorType(tensorType)) {
     onnx_mlir::zhigh::ZMemRefType zMemRefType =
         onnx_mlir::zhigh::convertZTensorToMemRefType(tensorType);
     return zMemRefType.value;
@@ -124,16 +122,15 @@ mlir::MemRefType NNPAAccelerator::convertTensorTypeToMemRefType(
 int64_t NNPAAccelerator::getDefaultAllocAlignment(
     const mlir::TensorType tensorType) const {
   assert(tensorType.hasRank() && "expected only ranked shapes");
-  if (tensorType.cast<mlir::RankedTensorType>()
-          .getEncoding()
-          .dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>())
+  if (isTargetTensorType(tensorType))
     return gAlignment;
   return -1;
 }
 
 Value NNPAAccelerator::convertToHostType(PatternRewriter &rewriter,
     Location loc, TensorType tensorType, Value scalarValue) const {
-  Type scalarType = scalarValue.getType();
+  if (!isTargetTensorType(tensorType))
+    return scalarValue;
   // TODO: assert fromType is f16.
   // Use F32 as a counterpart on host.
   return rewriter.create<zlow::ZLowConvertDLF16ToF32Op>(loc, scalarValue);
@@ -141,7 +138,8 @@ Value NNPAAccelerator::convertToHostType(PatternRewriter &rewriter,
 
 Value NNPAAccelerator::convertToAcceleratorType(PatternRewriter &rewriter,
     Location loc, TensorType tensorType, Value scalarValue) const {
-  Type scalarType = scalarValue.getType();
+  if (!isTargetTensorType(tensorType))
+    return scalarValue;
   // TODO: assert fromType is f32.
   // Use DLF16 as a counterpart on NNPA.
   return rewriter.create<zlow::ZLowConvertF32ToDLF16Op>(loc, scalarValue);
@@ -167,6 +165,13 @@ void NNPAAccelerator::rewritePatternKrnlToLLVM(
     mlir::MLIRContext *ctx) const {
   onnx_mlir::zlow::populateZLowToLLVMConversionPattern(
       patterns, typeConverter, ctx);
+}
+
+bool NNPAAccelerator::isTargetTensorType(TensorType tensorType) const {
+  return tensorType.isa<RankedTensorType>() &&
+         tensorType.cast<RankedTensorType>()
+             .getEncoding()
+             .dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>();
 }
 
 } // namespace accel
