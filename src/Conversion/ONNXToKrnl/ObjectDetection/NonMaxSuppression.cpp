@@ -15,7 +15,6 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
-#include "src/Runtime/OMSort.h"
 
 using namespace mlir;
 
@@ -285,7 +284,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // Sort scores in the descending order.
     Value order = emitArgSort(rewriter, loc, scores, /*axis=*/2,
-        /*ascending=*/false, /*algorithm=*/OMSORT_QUICKSORT);
+        /*ascending=*/false);
 
     // Bounding boxes may contain a mix of flipped and non-flipped boxes. Try to
     // unflip the flipped boxes.

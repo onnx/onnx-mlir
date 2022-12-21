@@ -180,8 +180,8 @@ mlir::Value emitMemRefReinterpretCastOp(
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
 mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Value input, int64_t axis, bool ascending = false,
-    int64_t algorithm = 0);
+    mlir::Location loc, mlir::Value input, int64_t axis,
+    bool ascending = false);
 
 /// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
 /// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr

@@ -13,7 +13,6 @@
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "onnx-mlir/Runtime/OnnxDataType.h"
-#include "src/Runtime/OMSort.h"
 #ifdef __cplusplus
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
@@ -140,181 +139,6 @@ declare_compare_function(Double, double, Descending, <)
     (b) = tmp;                                                                 \
   } while (0)
 
-//
-// Bubble sort
-//
-#ifdef __APPLE__
-void bubble_sort(void *base, size_t dataNum, size_t dataSize, void *dataPtr,
-    compareFunctionType compFunc)
-#else
-void bubble_sort(void *base, size_t dataNum, size_t dataSize,
-    compareFunctionType compFunc, void *dataPtr)
-#endif
-{
-  uint64_t *idx = (uint64_t *)base;
-  for (uint64_t i = 0; i < dataNum; i++) {
-    for (uint64_t j = 0; j < dataNum - 1; j++) {
-#if defined(__APPLE__)
-      if (compFunc(dataPtr, idx + j, idx + j + 1) > 0)
-#elif defined(_MSC_VER)
-      if (compFunc(dataPtr, idx + j, idx + j + 1))
-#else
-      if (compFunc(idx + j, idx + j + 1, dataPtr))
-#endif
-      {
-        SWAP_INDEX(idx[j], idx[j + 1]);
-      }
-    }
-  }
-}
-
-//
-// Comb sort
-//
-#ifdef __APPLE__
-void comb_sort(void *base, size_t dataNum, size_t dataSize, void *dataPtr,
-    compareFunctionType compFunc)
-#else
-void comb_sort(void *base, size_t dataNum, size_t dataSize,
-    compareFunctionType compFunc, void *dataPtr)
-#endif
-{
-  uint64_t *idx = (uint64_t *)base;
-  size_t gap = dataNum;
-  int swap = TRUE;
-  while ((gap != 1) || swap) {
-    gap = gap / 1.3;
-    gap = (gap < 1) ? 1 : gap;
-    swap = FALSE;
-    for (uint64_t i = 0; i < dataNum - gap; i++) {
-#if defined(__APPLE__)
-      if (compFunc(dataPtr, idx + i, idx + i + gap) > 0)
-#elif defined(_MSC_VER)
-      if (compFunc(dataPtr, idx + i, idx + i + gap))
-#else
-      if (compFunc(idx + i, idx + i + gap, dataPtr))
-#endif
-      {
-        SWAP_INDEX(idx[i], idx[i + gap]);
-      }
-    }
-  }
-}
-
-//
-// Quick sort
-//
-// stack for index (uint64_t)
-typedef struct indexStack {
-  uint64_t *stackData;
-  int64_t stackSize;
-  int64_t stackTop;
-} indexStack;
-
-#define STACK_INIT(stack, stackSize)                                           \
-  do {                                                                         \
-    assert(stackSize > 0);                                                     \
-    stack.stackData = (uint64_t *)alloca(stackSize * sizeof(uint64_t));        \
-    assert(stack.stackData != NULL);                                           \
-    stack.stackSize = stackSize;                                               \
-    stack.stackTop = 0;                                                        \
-  } while (0)
-#define STACK_ISEMPTY(stack) (stack.stackTop == 0)
-#define STACK_PUSH(stack, begin, end)                                          \
-  do {                                                                         \
-    assert(stack.stackTop <= stack.stackSize - 2);                             \
-    stack.stackData[(stack.stackTop)++] = begin;                               \
-    stack.stackData[(stack.stackTop)++] = end;                                 \
-  } while (0)
-#define STACK_POP(stack, begin, end)                                           \
-  do {                                                                         \
-    assert(stack.stackTop >= 2);                                               \
-    end = stack.stackData[--(stack.stackTop)];                                 \
-    begin = stack.stackData[--(stack.stackTop)];                               \
-  } while (0)
-#define STACK_PRINT(stack)                                                     \
-  do {                                                                         \
-    assert(stack.stackTop >= 0);                                               \
-    fprintf(stderr, "Stack: [");                                               \
-    for (int64_t i = 0; (i + 1) < stack.stackTop; i += 2) {                    \
-      fprintf(                                                                 \
-          stderr, "<%ld:%ld>, ", stack.stackData[i], stack.stackData[i + 1]);  \
-    }                                                                          \
-    fprintf(                                                                   \
-        stderr, "] (Top=%ld,Size=%ld)\n", stack.stackTop, stack.stackSize);    \
-    fflush(stderr);                                                            \
-  } while (0)
-
-static int64_t log2u(uint64_t n) {
-  assert(n > 0);
-  int64_t b = 0;
-  for (; n > 0; b++)
-    n = n >> 2;
-  return b;
-}
-
-// Quick sort patition function
-static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
-    compareFunctionType compFunc, int64_t begin, int64_t end) {
-  int64_t i = begin;
-  for (int64_t j = begin; j < end; j++) {
-#if defined(__APPLE__)
-    if (compFunc(dataPtr, idx + j, idx + end) <= 0)
-#elif defined(_MSC_VER)
-    if (!compFunc(dataPtr, idx + j, idx + end))
-#else
-    if (!compFunc(idx + j, idx + end, dataPtr))
-#endif
-    {
-      SWAP_INDEX(idx[i], idx[j]);
-      i++;
-    }
-  }
-  SWAP_INDEX(idx[end], idx[i]);
-  return i;
-}
-
-// Quick sort main function (custom version)
-#ifdef __APPLE__
-void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
-    void *dataPtr, compareFunctionType compFunc) {
-#else
-void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
-    compareFunctionType compFunc, void *dataPtr) {
-#endif
-  uint64_t *idx = (uint64_t *)base;
-  // Calculate the theoritical maximum stack size for index
-  int64_t stackSize = (log2u(dataNum + 1) + 2) * 2;
-  indexStack stack;
-  STACK_INIT(stack, stackSize);
-  int64_t begin = 0;
-  int64_t end = dataNum - 1;
-
-  // push current job to the stack
-  STACK_PUSH(stack, begin, end);
-
-  while (!STACK_ISEMPTY(stack)) {
-    // pop current job from the stack
-    STACK_POP(stack, begin, end);
-    if (begin < end) {
-      int64_t pivotIdx =
-          quick_sort_partition(dataPtr, idx, compFunc, begin, end);
-      // To limit the stack size, push larger partion at first
-      if ((pivotIdx - begin) > (end - pivotIdx)) {
-        if (begin < pivotIdx - 1)
-          STACK_PUSH(stack, begin, pivotIdx - 1);
-        if (pivotIdx + 1 < end)
-          STACK_PUSH(stack, pivotIdx + 1, end);
-      } else {
-        if (pivotIdx + 1 < end)
-          STACK_PUSH(stack, pivotIdx + 1, end);
-        if (begin < pivotIdx - 1)
-          STACK_PUSH(stack, begin, pivotIdx - 1);
-      }
-    }
-  }
-}
-
 compareFunctionType *getCompareFunction(
     uint64_t ascending, OM_DATA_TYPE dataType) {
   compareFunctionType *compFunc;
@@ -371,7 +195,7 @@ compareFunctionType *getCompareFunction(
 }
 
 void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
-    uint64_t axis, uint64_t ascending, uint64_t algorithm) {
+    uint64_t axis, uint64_t ascending) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const uint64_t rank = omTensorGetRank(inputTensor);
   assert(rank <= 6 && "omTensorSort assumes rank <= 6");
@@ -392,40 +216,19 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
       getCompareFunction(ascending, dataType);
   uint64_t datasize = OM_DATA_TYPE_SIZE[dataType];
 
-  // Choose the sorting function
-  sortFunctionType *sortFunc = bubble_sort;
-  switch (algorithm) {
-  case OMSORT_BUBBLESORT:
-    sortFunc = bubble_sort;
-    break;
-  case OMSORT_COMBSORT:
-    sortFunc = comb_sort;
-    break;
-  case OMSORT_QUICKSORT:
 #if defined(__APPLE__)
-    // MacOS supports qsort_r in different API
-    sortFunc = qsort_r;
+  // MacOS supports qsort_r in different API
+  sortFunctionType *sortFunc = qsort_r;
 #elif defined(_MSC_VER)
 #pragma warning(push, 3)
 #pragma warning(disable : 4028)
-    // Windows supports qsort_s
-    sortFunc = qsort_s;
+  // Windows supports qsort_s
+  sortFunctionType *sortFunc = qsort_s;
 #pragma warning(pop)
-#elif defined(__linux) || defined(__linux__) || defined(linux)
-    // Use standard quick sort in libc
-    sortFunc = qsort_r;
 #else
-    // Use standard quick sort in libc
-    sortFunc = qsort_r;
+  // Use standard quick sort in libc
+  sortFunctionType *sortFunc = qsort_r;
 #endif
-    break;
-  case OMSORT_QUICKSORT_CUSTOM:
-    sortFunc = quick_sort_custom; // custum quick sort
-    break;
-  default:
-    assert("invalid sorting algorithm");
-    break;
-  }
   // To support input Tensor with various ranks in a uniform way.
   // If the input rank < 6, upgrade the rank to 6 virtually without changing
   // the physical memory layout by inserting length=1 ranks at lower ranks.

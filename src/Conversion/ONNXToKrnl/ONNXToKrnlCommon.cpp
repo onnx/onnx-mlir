@@ -499,7 +499,7 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
 /// Output MemRef has the same shape as the input MemRef but is of IndexType.
 /// By default, sort values in the descending order.
 Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
-    Value input, int64_t axis, bool ascending, int64_t algorithm) {
+    Value input, int64_t axis, bool ascending) {
   KrnlBuilder createKrnl(rewriter, loc);
   IndexExprScope scope(createKrnl);
 
@@ -526,16 +526,13 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
       });
 
   // Do sorting in the specifed order of input and return their indices.
-  // If algorithm is set, use the specified sort algorithm.
-  if ((algorithm != 0) && (rank <= 6) && (axis == (rank - 1))) {
+  if ((rank <= 6) && (axis == (rank - 1))) {
     // Emit krnl.Call to call omTensorSort API
     MultiDialectBuilder<MathBuilder> create(rewriter, loc);
     Type intType = rewriter.getIntegerType(64);
     Value valAxis = create.math.constant(intType, axis);
     Value valAscending = create.math.constant(intType, (int64_t)ascending);
-    Value valAlgorithm = create.math.constant(intType, algorithm);
-    SmallVector<Value, 4> operands = {
-        input, valAxis, valAscending, valAlgorithm};
+    SmallVector<Value, 4> operands = {input, valAxis, valAscending};
     rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, operands);
     return order;
   }
