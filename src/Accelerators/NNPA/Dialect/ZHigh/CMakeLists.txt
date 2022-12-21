@@ -7,7 +7,6 @@ add_onnx_mlir_library(OMZHighOps
   # Top files for ZHigh dialect.
   ZHighOps.cpp
   ZHighOps/OpHelper.cpp
-  ZHighOps/ShapeHelper.cpp
 
   # Support for shape inference, verifier, and canonicalization.
   # Please list in the alphabetical order.

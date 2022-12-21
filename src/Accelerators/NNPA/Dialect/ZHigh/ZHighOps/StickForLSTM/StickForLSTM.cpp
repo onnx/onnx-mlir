@@ -19,25 +19,48 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 namespace zhigh {
 
+//===----------------------------------------------------------------------===//
+// ShapeHelper
+//===----------------------------------------------------------------------===//
+
+LogicalResult ZHighStickForLSTMOpShapeHelper::computeShape() {
+  ZHighStickForLSTMOp::Adaptor operandAdaptor(operands);
+  Value fGate = operandAdaptor.f_gate();
+
+  // Output dims of result.
+  DimsExpr outputDims;
+
+  // Get operands and bounds.
+  SmallVector<IndexExpr, 4> fGateDims;
+  createIE->getShapeAsDims(fGate, fGateDims);
+  int64_t rank = fGateDims.size();
+
+  for (int64_t i = 0; i < rank - 1; ++i)
+    outputDims.emplace_back(fGateDims[i]);
+  IndexExpr lastDim = fGateDims[rank - 1] * LiteralIndexExpr(4);
+  outputDims.emplace_back(lastDim);
+
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Shape inference
+//===----------------------------------------------------------------------===//
+
 LogicalResult ZHighStickForLSTMOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!hasRankedType(f_gate()) && !hasRankedType(i_gate()) &&
       !hasRankedType(c_gate()) && !hasRankedType(o_gate()))
     return success();
 
-  ZHighStickForLSTMOpAdaptor operandAdaptor(*this);
-  ZHighStickForLSTMOpShapeHelper shapeHelper(this);
-  if (failed(shapeHelper.computeShape(operandAdaptor)))
-    return emitError(
-        "Failed to scan ZHigh StickForLSTM parameters successfully");
-
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::FICO);
-  updateType(getResult(), outputDims, elementType, encoding);
-  return success();
+
+  ZHighStickForLSTMOpShapeHelper shapeHelper(getOperation());
+  return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
 }
 
 } // namespace zhigh
