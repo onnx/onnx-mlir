@@ -43,7 +43,6 @@ func.func @test_onnx_add_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataL
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, tensor<?x3x5x1xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
   return %0 : tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
 
-// mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0, s1] -> (s1, s0)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2) -> (d2)>
@@ -61,12 +60,15 @@ func.func @test_onnx_add_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataL
 // CHECK-DAG:         [[VAR_2_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
 // CHECK-DAG:         [[VAR_3_:%.+]] = arith.cmpi sgt, [[VAR_dim_]], [[CST_1_]] : index
 // CHECK:             [[VAR_4_:%.+]] = arith.select [[VAR_3_]], [[VAR_2_]]#0, [[CST_0_]] : index
-// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_4_]], [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<?x3x5x7xf16, #map>
-// CHECK-DAG:         [[VAR_6_:%.+]] = arith.cmpi sgt, [[VAR_dim_0_]], [[CST_1_]] : index
-// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_6_]], [[VAR_2_]]#0, [[CST_0_]] : index
-// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_7_]], [[VAR_2_]]#1, [[VAR_2_]]#2, [[CST_0_]]{{.}} : memref<?x3x5x1xf16, #map>
-// CHECK:             [[VAR_9_:%.+]] = arith.addf [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f16
-// CHECK:             krnl.store [[VAR_9_]], [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<?x3x5x7xf16, #map>
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_4_]], [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<?x3x5x7xf16, #map>
+// CHECK-DAG:         [[VAR_6_:%.+]] = "zlow.dlf16_to_f32"([[LOAD_PARAM_0_MEM_]]) : (f16) -> f32
+// CHECK-DAG:         [[VAR_7_:%.+]] = arith.cmpi sgt, [[VAR_dim_0_]], [[CST_1_]] : index
+// CHECK:             [[VAR_8_:%.+]] = arith.select [[VAR_7_]], [[VAR_2_]]#0, [[CST_0_]] : index
+// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_8_]], [[VAR_2_]]#1, [[VAR_2_]]#2, [[CST_0_]]{{.}} : memref<?x3x5x1xf16, #map>
+// CHECK:             [[VAR_10_:%.+]] = "zlow.dlf16_to_f32"([[LOAD_PARAM_1_MEM_]]) : (f16) -> f32
+// CHECK:             [[VAR_11_:%.+]] = arith.addf [[VAR_6_]], [[VAR_10_]] : f32
+// CHECK:             [[VAR_12_:%.+]] = "zlow.f32_to_dlf16"([[VAR_11_]]) : (f32) -> f16
+// CHECK:             krnl.store [[VAR_12_]], [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<?x3x5x7xf16, #map>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x3x5x7xf16, #map>
 // CHECK:         }
