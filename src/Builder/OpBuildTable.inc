@@ -23,6 +23,10 @@ op_dialect_version_map_["BatchNormalization"] = {15};
 op_dialect_version_map_["Bernoulli"] = {15};
 op_dialect_version_map_["Binarizer"] = {1};
 op_dialect_version_map_["BitShift"] = {11};
+op_dialect_version_map_["BitwiseAnd"] = {18};
+op_dialect_version_map_["BitwiseNot"] = {18};
+op_dialect_version_map_["BitwiseOr"] = {18};
+op_dialect_version_map_["BitwiseXor"] = {18};
 op_dialect_version_map_["BlackmanWindow"] = {17};
 op_dialect_version_map_["Cast"] = {13};
 op_dialect_version_map_["CastLike"] = {15};
@@ -30,6 +34,7 @@ op_dialect_version_map_["CastMap"] = {1};
 op_dialect_version_map_["CategoryMapper"] = {1};
 op_dialect_version_map_["Ceil"] = {13};
 op_dialect_version_map_["Celu"] = {12};
+op_dialect_version_map_["CenterCropPad"] = {18};
 op_dialect_version_map_["Clip"] = {13, 12, 11, 6};
 op_dialect_version_map_["Compress"] = {11};
 op_dialect_version_map_["Concat"] = {13};
@@ -41,6 +46,7 @@ op_dialect_version_map_["ConvInteger"] = {10};
 op_dialect_version_map_["ConvTranspose"] = {11};
 op_dialect_version_map_["Cos"] = {7};
 op_dialect_version_map_["Cosh"] = {9};
+op_dialect_version_map_["Col2Im"] = {18};
 op_dialect_version_map_["CumSum"] = {14};
 op_dialect_version_map_["DepthToSpace"] = {13};
 op_dialect_version_map_["DequantizeLinear"] = {13};
@@ -72,6 +78,7 @@ op_dialect_version_map_["Gradient"] = {1};
 op_dialect_version_map_["Greater"] = {13};
 op_dialect_version_map_["GreaterOrEqual"] = {16};
 op_dialect_version_map_["GridSample"] = {16};
+op_dialect_version_map_["GroupNormalization"] = {18};
 op_dialect_version_map_["HammingWindow"] = {17};
 op_dialect_version_map_["HannWindow"] = {17};
 op_dialect_version_map_["HardSigmoid"] = {6};
@@ -107,6 +114,7 @@ op_dialect_version_map_["Mean"] = {13};
 op_dialect_version_map_["MeanVarianceNormalization"] = {13};
 op_dialect_version_map_["MelWeightMatrix"] = {17};
 op_dialect_version_map_["Min"] = {13};
+op_dialect_version_map_["Mish"] = {18};
 op_dialect_version_map_["Mod"] = {13};
 op_dialect_version_map_["Momentum"] = {1};
 op_dialect_version_map_["Mul"] = {14};
@@ -234,6 +242,14 @@ import_handler_map_["Bernoulli"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBernoulliOp>;
 import_handler_map_["BitShift"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitShiftOp>;
+import_handler_map_["BitwiseAnd"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitwiseAndOp>;
+import_handler_map_["BitwiseNot"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitwiseNotOp>;
+import_handler_map_["BitwiseOr"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitwiseOrOp>;
+import_handler_map_["BitwiseXor"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitwiseXorOp>;
 import_handler_map_["BlackmanWindow"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBlackmanWindowOp>;
 import_handler_map_["Cast"] = 
@@ -244,6 +260,8 @@ import_handler_map_["Ceil"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeilOp>;
 import_handler_map_["Celu"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeluOp>;
+import_handler_map_["CenterCropPad"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCenterCropPadOp>;
 import_handler_map_["Clip"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipOp>;
 import_handler_map_["ClipV12"] = 
@@ -252,6 +270,8 @@ import_handler_map_["ClipV11"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipV11Op>;
 import_handler_map_["ClipV6"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipV6Op>;
+import_handler_map_["Col2Im"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCol2ImOp>;
 import_handler_map_["Compress"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCompressOp>;
 import_handler_map_["Concat"] = 
@@ -328,6 +348,8 @@ import_handler_map_["GreaterOrEqual"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOrEqualOp>;
 import_handler_map_["GridSample"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGridSampleOp>;
+import_handler_map_["GroupNormalization"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGroupNormalizationOp>;
 import_handler_map_["HammingWindow"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHammingWindowOp>;
 import_handler_map_["HannWindow"] = 
@@ -390,6 +412,8 @@ import_handler_map_["MelWeightMatrix"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMelWeightMatrixOp>;
 import_handler_map_["Min"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMinOp>;
+import_handler_map_["Mish"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMishOp>;
 import_handler_map_["Mod"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXModOp>;
 import_handler_map_["Mul"] = 
@@ -645,12 +669,18 @@ op_dialect_top_version_map_["AveragePool"] = 11;
 op_dialect_top_version_map_["BatchNormalization"] = 15;
 op_dialect_top_version_map_["Bernoulli"] = 15;
 op_dialect_top_version_map_["BitShift"] = 11;
+op_dialect_top_version_map_["BitwiseAnd"] = 18;
+op_dialect_top_version_map_["BitwiseNot"] = 18;
+op_dialect_top_version_map_["BitwiseOr"] = 18;
+op_dialect_top_version_map_["BitwiseXor"] = 18;
 op_dialect_top_version_map_["BlackmanWindow"] = 17;
 op_dialect_top_version_map_["Cast"] = 13;
 op_dialect_top_version_map_["CastLike"] = 15;
 op_dialect_top_version_map_["Ceil"] = 13;
 op_dialect_top_version_map_["Celu"] = 12;
+op_dialect_top_version_map_["CenterCropPad"] = 18;
 op_dialect_top_version_map_["Clip"] = 6;
+op_dialect_top_version_map_["Col2Im"] = 18;
 op_dialect_top_version_map_["Compress"] = 11;
 op_dialect_top_version_map_["Concat"] = 13;
 op_dialect_top_version_map_["ConcatFromSequence"] = 11;
@@ -689,6 +719,7 @@ op_dialect_top_version_map_["GlobalMaxPool"] = 1;
 op_dialect_top_version_map_["Greater"] = 13;
 op_dialect_top_version_map_["GreaterOrEqual"] = 16;
 op_dialect_top_version_map_["GridSample"] = 16;
+op_dialect_top_version_map_["GroupNormalization"] = 18;
 op_dialect_top_version_map_["HammingWindow"] = 17;
 op_dialect_top_version_map_["HannWindow"] = 17;
 op_dialect_top_version_map_["HardSigmoid"] = 6;
@@ -720,6 +751,7 @@ op_dialect_top_version_map_["Mean"] = 13;
 op_dialect_top_version_map_["MeanVarianceNormalization"] = 13;
 op_dialect_top_version_map_["MelWeightMatrix"] = 17;
 op_dialect_top_version_map_["Min"] = 13;
+op_dialect_top_version_map_["Mish"] = 18;
 op_dialect_top_version_map_["Mod"] = 13;
 op_dialect_top_version_map_["Mul"] = 14;
 op_dialect_top_version_map_["Multinomial"] = 7;
