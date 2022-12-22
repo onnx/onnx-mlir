@@ -308,7 +308,7 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
         h = b.getAffineDimExpr(e1).floorDiv(constExpr64);
         w = constExpr0;
         c = constExpr0;
-        res32 = constExpr31;
+        res32 = constExpr0;
         res64 = b.getAffineDimExpr(e1) % constExpr64;
       } else if (layout == ZTensorEncodingAttr::DataLayout::_3DS) {
         // (e4, e2, e1) -> (e4, 1, e2, e1)
