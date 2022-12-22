@@ -47,7 +47,7 @@ func.func @test_allocs_not_lowered(%arg0: memref<10x10xf32>, %arg1: memref<10x10
     return %0 : memref<10x10xf32>
 }
 
-// CHECK: [[MAP:#.+]] = affine_map<(d0, d1)
+// CHECK: [[MAP:#.+]] = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)
 // CHECK: test_allocs_not_lowered
 
 /// AllocOps with alignment attributes are preserved.
@@ -137,5 +137,5 @@ func.func @test_return_cast(%arg0: memref<2x1xf32>) -> memref<1x2xf32> {
 
   // CHECK-LABEL: func @test_return_cast
   // CHECK: [[VAR_0_:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<2x1xf32>
-  // CHECK-NOT: memref.dealloc [[VAR_0_]]
+  // CHECK-NOT: memref.dealloc [[VAR_0_]] :
 }

@@ -14,6 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include <src/Dialect/ONNX/ONNXOps.hpp>
 
 using namespace mlir;
 
@@ -120,7 +121,15 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
       });
 }
 
-static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
+template <typename T>
+void emitInstForSoftmax(ConversionPatternRewriter &rewriter, Location loc,
+    Value alloc, Value input, Value sumOp, Value maxOp, Value zero,
+    Value negInfinity, int64_t axis) = delete;
+
+// For Softmax opset < 13, `axis` is the coerced point. All dimensions
+// after `axis` will be logically coerced into a single dimension.
+template <>
+void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
     Location loc, Value alloc, Value input, Value sumOp, Value maxOp,
     Value zero, Value negInfinity, int64_t axis) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
@@ -179,7 +188,11 @@ static void emitInstForSoftmaxBeforeV13(ConversionPatternRewriter &rewriter,
   }
 }
 
-static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
+// For Softmax opset 13, `axis` attribute indicates the dimension along
+// which Softmax will be performed. No need to coerce the dimensions after
+// `axis`.
+template <>
+void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
     Location loc, Value alloc, Value input, Value sumOp, Value maxOp,
     Value zero, Value negInfinity, int64_t axis) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
@@ -188,10 +201,6 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
   IndexExprScope ieScope(createKrnl);
   MemRefBoundsIndexCapture inputBounds(input);
   LiteralIndexExpr zeroIE(0);
-
-  // In opset version 13, The "axis" attribute indicates the dimension along
-  // which Softmax will be performed. No need to coerce the dimensions after
-  // "axis".
 
   // Outer loops iterate over all dimensions except axis.
   ValueRange outerLoops = createKrnl.defineLoops(rank - 1);
@@ -221,10 +230,12 @@ static void emitInstForSoftmaxV13(ConversionPatternRewriter &rewriter,
       });
 }
 
-struct ONNXSoftmaxOpLowering : public ConversionPattern {
-  ONNXSoftmaxOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+template <typename SoftmaxOp>
+struct ONNXSoftmaxLowering : public ConversionPattern {
+  ONNXSoftmaxLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, mlir::ONNXSoftmaxOp::getOperationName(), 1, ctx) {}
+            typeConverter, SoftmaxOp::getOperationName(), 1, ctx) {}
+  using OpAdaptor = typename SoftmaxOp::Adaptor;
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // softmax(x) = let max_x = max(x) in
@@ -239,22 +250,15 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     int64_t rank = memRefType.getRank();
-    int64_t axis = llvm::dyn_cast<ONNXSoftmaxOp>(op).axis();
+    int64_t axis = llvm::dyn_cast<SoftmaxOp>(op).axis();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
 
-    // Get opset number. Default is opset 11.
-    int64_t opset = 11;
-    IntegerAttr opsetAttr = op->getAttrOfType<::mlir::Attribute>("onnx_opset")
-                                .dyn_cast_or_null<IntegerAttr>();
-    if (opsetAttr)
-      opset = opsetAttr.getValue().getSExtValue();
-
-    auto loc = op->getLoc();
-    ONNXSoftmaxOpAdaptor operandAdaptor(operands);
+    Location loc = op->getLoc();
+    OpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
     // Insert an allocation and deallocation for the result of this operation.
-    auto elementType = memRefType.getElementType();
+    Type elementType = memRefType.getElementType();
 
     bool insertDealloc = checkInsertDealloc(op);
     Value alloc =
@@ -273,17 +277,8 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     Value negInfinity = create.math.constant(
         elementType, -std::numeric_limits<float>::infinity());
 
-    if (opset < 13)
-      // For Softmax opset < 13, `axis` is the coerced point. All dimensions
-      // after `axis` will be logically coerced into a single dimension.
-      emitInstForSoftmaxBeforeV13(
-          rewriter, loc, alloc, input, sumOp, maxOp, zero, negInfinity, axis);
-    else
-      // For Softmax opset 13, `axis` attribute indicates the dimension along
-      // which Softmax will be performed. No need to coerce the dimensions after
-      // `axis`.
-      emitInstForSoftmaxV13(
-          rewriter, loc, alloc, input, sumOp, maxOp, zero, negInfinity, axis);
+    emitInstForSoftmax<SoftmaxOp>(
+        rewriter, loc, alloc, input, sumOp, maxOp, zero, negInfinity, axis);
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -292,7 +287,8 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
 
 void populateLoweringONNXSoftmaxOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXSoftmaxOpLowering>(typeConverter, ctx);
+  patterns.insert<ONNXSoftmaxLowering<ONNXSoftmaxOp>,
+      ONNXSoftmaxLowering<ONNXSoftmaxV11Op>>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir

@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -96,7 +96,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else if (fromScale) {
       for (decltype(rank) i = 0; i < rank; i++) {
-        if (memRefType.getShape()[i] != -1) {
+        if (!memRefType.isDynamicDim(i)) {
           outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
         } else {
           Value inputDim = dataBounds.getDim(i).getValue();
@@ -113,7 +113,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     } else {
       // Output is determined by sizes()
       for (decltype(rank) i = 0; i < rank; i++) {
-        if (memRefType.getShape()[i] != -1) {
+        if (!memRefType.isDynamicDim(i)) {
           outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
         } else {
           Value indexValue = create.math.constantIndex(i);
@@ -137,8 +137,6 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // the default value and does appear in the Attribute dictionry.
     // ToFix: Handle attributes for general case
     if (resizeOp.mode() != "nearest") {
-      assert(op->getAttrs().size() == 1 &&
-             "ResizeOp: runtime lib is not supported for this case");
       if (!isFromNone(resizeOp.scales())) {
         rewriter.create<KrnlCallOp>(
             loc, "Resize_Scales", alloc, op, operands, true);

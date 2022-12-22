@@ -14,7 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "depth_to_space_onnx_to_krnl"
@@ -30,31 +30,29 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto spaceToDepthOp = dyn_cast_or_null<ONNXDepthToSpaceOp>(op);
-    assert(spaceToDepthOp && "Expecting op to have type ONNXDepthToSpaceOp");
-
-    // Ensure we can compute the operator output shape.
-    ONNXDepthToSpaceOpShapeHelper shapeHelper(&spaceToDepthOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
+    auto spaceToDepthOp = llvm::cast<ONNXDepthToSpaceOp>(op);
+    // assert(spaceToDepthOp && "Expecting op to have type ONNXDepthToSpaceOp");
     ONNXDepthToSpaceOpAdaptor operandAdaptor(operands);
-    LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
-    (void)shapeComputed;
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
-
-    Location loc = spaceToDepthOp.getLoc();
     Value input = operandAdaptor.input();
+    Location loc = op->getLoc();
+    MultiDialectBuilder<IndexExprBuilderForKrnl, OnnxToKrnlBuilder> create(
+        rewriter, loc);
+
+    // Get shape.
+    ONNXDepthToSpaceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
     int64_t bs = spaceToDepthOp.blocksize();
     StringRef mode = spaceToDepthOp.mode();
+    assert(create.krnlIE.getShapedTypeRank(input) == 4 &&
+           "Input tensor should have rank equal to 4");
 
     // Compute the new dimensions.
-    MemRefBoundsIndexCapture bounds(input);
-    assert(bounds.getRank() == 4 && "Input tensor should have rank equal to 4");
 
-    DimIndexExpr B(bounds.getDim(0));
-    DimIndexExpr C(bounds.getDim(1));
-    DimIndexExpr H(bounds.getDim(2));
-    DimIndexExpr W(bounds.getDim(3));
+    DimIndexExpr B(create.krnlIE.getShapeAsDim(input, 0));
+    DimIndexExpr C(create.krnlIE.getShapeAsDim(input, 1));
+    DimIndexExpr H(create.krnlIE.getShapeAsDim(input, 2));
+    DimIndexExpr W(create.krnlIE.getShapeAsDim(input, 3));
     DimIndexExpr newC = C.floorDiv(bs * bs);
     DimIndexExpr newH = H * bs;
     DimIndexExpr newW = W * bs;
@@ -73,22 +71,23 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
       perm = {0, 1, 4, 2, 5, 3};
     }
 
-    OnnxToKrnlBuilder create(rewriter, loc);
+    // OnnxToKrnlBuilder create(rewriter, loc);
 
     // Reshape input tensor to shape:
     //   [B, bs, bs, C/(bs*bs), H, W] when mode=DCR
     //   [B, C/(bs*bs), bs, bs, H, W] when mode=CRD
-    Value reshapeRes1 = create.reshape(input, outputDims1);
+    Value reshapeRes1 = create.krnlOnnx.reshape(input, outputDims1);
     LLVM_DEBUG(llvm::dbgs() << "reshapeRes1: " << reshapeRes1 << "\n");
 
     // Transpose the reshape result into shape [B, C/(bs*bs), H, bs, W, bs].
     SmallVector<DimIndexExpr> outputDims2({B, newC, H, bsLit, W, bsLit});
-    Value transposeRes = create.transpose(reshapeRes1, perm, outputDims2);
+    Value transposeRes =
+        create.krnlOnnx.transpose(reshapeRes1, perm, outputDims2);
     LLVM_DEBUG(llvm::dbgs() << "transposeRes: " << transposeRes << "\n");
 
     // Reshape the transpose result into shape [B, C/(bs*bs), H*bs, W*bs].
     SmallVector<DimIndexExpr> outputDims3({B, newC, newH, newW});
-    Value reshapeRes2 = create.reshape(transposeRes, outputDims3);
+    Value reshapeRes2 = create.krnlOnnx.reshape(transposeRes, outputDims3);
     LLVM_DEBUG(llvm::dbgs() << "reshapeRes2: " << reshapeRes2 << "\n");
 
     rewriter.replaceOp(op, reshapeRes2);

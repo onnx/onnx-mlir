@@ -27,7 +27,7 @@ class RuntimeAPIRegistry;
 /// \class RuntimeAPI
 /// Represents a Runtime API callable by the compiler.
 /// Instances of this class can only be created by the RuntimeAPIRegistry
-/// singleton class.
+/// class.
 class RuntimeAPI final {
   friend class RuntimeAPIRegistry;
 
@@ -77,11 +77,11 @@ private:
 
 /// \class RuntimeAPIRegistry
 /// Holds the registry for the Runtime APIs the compiler can use.
-/// There is a single instance of this class in the program (singleton pattern).
 class RuntimeAPIRegistry final {
 public:
   using ApiRegistry = std::map<RuntimeAPI::API, RuntimeAPI>;
 
+  RuntimeAPIRegistry(mlir::ModuleOp &module, mlir::OpBuilder &builder);
   ~RuntimeAPIRegistry();
 
   static const RuntimeAPIRegistry build(
@@ -94,9 +94,5 @@ public:
   }
 
 private:
-  RuntimeAPIRegistry(mlir::ModuleOp &module, mlir::OpBuilder &builder);
-
-  static RuntimeAPIRegistry *instance;
-
   ApiRegistry registry;
 };

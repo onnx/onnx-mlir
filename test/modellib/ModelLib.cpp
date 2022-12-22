@@ -185,12 +185,12 @@ ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
       ArrayAttr());
 }
 
-bool ModelLibBuilder::areCloseFloat(
-    const OMTensor *res, const OMTensor *ref) const {
+bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref,
+    float defaultRtol, float defaultAtol) const {
   if (!res || !ref)
     return false;
-  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
-  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
+  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : defaultRtol;
+  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : defaultAtol;
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }
 
@@ -270,6 +270,14 @@ void ModelLibBuilder::printTensor(
   if (asNumpy)
     printf(")\n");
 }
+
+RNNModelLibBuilder::RNNModelLibBuilder(
+    const std::string &sharedLibBaseName, int64_t layout)
+    : ModelLibBuilder(sharedLibBaseName), layout(layout) {
+  assert(0 <= layout && layout <= 1 && "layout must be 0 or 1");
+}
+
+RNNModelLibBuilder::~RNNModelLibBuilder() {}
 
 } // namespace test
 } // namespace onnx_mlir

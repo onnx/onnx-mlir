@@ -25,6 +25,7 @@ def call() {
     options {
       skipDefaultCheckout()
       buildDiscarder(logRotator(numToKeepStr:'1000'))
+      ansiColor('xterm')
     }
 
     agent {
@@ -89,7 +90,7 @@ def call() {
       MODELZOO_REPORTDIR    = 'modelzoo_report'
       MODELZOO_HTML         = 'modelzoo.html'
       MODELZOO_STDOUT       = 'modelzoo.stdout'
-      MODELZOO_PUBLISH      = "${JENKINS_HOME}/jobs/${JOB_NAME}/htmlreports/Model_20Zoo_20Report"
+      MODELZOO_PUBLISHDIR   = "${JENKINS_HOME}/jobs/${JOB_NAME}/htmlreports/Model_20Zoo_20Report"
 
       /* External stage build scripts */
       JENKINS_SCRIPT_DIR="${JENKINS_WORKSPACE_AT}/.buildbot"
@@ -97,6 +98,7 @@ def call() {
       JENKINS_STOP_PREVIOUS_BUILD="${JENKINS_SCRIPT_DIR}/jenkins-stop-previous-build.py"
       JENKINS_BUILD_LLVM_PROJECT="${JENKINS_SCRIPT_DIR}/jenkins-build-llvm-project.py"
       JENKINS_BUILD_PROJECT="${JENKINS_SCRIPT_DIR}/jenkins-build-project.py"
+      JENKINS_VERIFY_USER_IMAGE="${JENKINS_SCRIPT_DIR}/jenkins-verify-user-image.py"
       JENKINS_PUBLISH_DOCKER_IMAGES="${JENKINS_SCRIPT_DIR}/jenkins-publish-docker-images.py"
       JENKINS_CHECK_MODEL_ZOO="${JENKINS_SCRIPT_DIR}/jenkins-check-model-zoo.py"
       JENKINS_CLEANUP_BUILD_STATES="${JENKINS_SCRIPT_DIR}/jenkins-cleanup-build-states.py"
@@ -159,7 +161,7 @@ def call() {
           echo "MODELZOO_REPORTDIR       = ${MODELZOO_REPORTDIR}"
           echo "MODELZOO_HTML            = ${MODELZOO_HTML}"
           echo "MODELZOO_STDOUT          = ${MODELZOO_STDOUT}"
-          echo "MODELZOO_PUBLISH         = ${MODELZOO_PUBLISH}"
+          echo "MODELZOO_PUBLISHDIR      = ${MODELZOO_PUBLISHDIR}"
 
           checkout_pr_source("${GITHUB_PR_REPO_URL}",
                              "${GITHUB_PR_REMOTE}",
@@ -199,6 +201,14 @@ def call() {
                      value: 'closed' } }
         steps {
           sh "${JENKINS_BUILD_PROJECT}"
+        }
+      }
+
+      stage('Verify user image') {
+        when { not { environment name: 'GITHUB_PR_ACTION',
+                     value: 'closed' } }
+        steps {
+          sh "${JENKINS_VERIFY_USER_IMAGE}"
         }
       }
 
@@ -358,8 +368,13 @@ def publish_modelzoo_report(badge) {
     lock(resource: 'modelzoo-publish-lock') {
         try {
             /* For regular PRs not running the model zoo test, or for merging PR
-             * failing to run the model zoo test, the report is copied from the
-             * already published report and then published again.
+             * failing to run the model zoo test (including being aborted by
+             * another merging PR), the report is copied from the already published
+             * report and then published again.
+             *
+             * Note that if a merging PR was aborted, its model zoo check won't
+             * appear in the history regardless of whether the check actually
+             * has finished or not before it was aborted.
              */
             if ("${GITHUB_PR_PHRASE}" != 'push' &&
                 "${GITHUB_PR_PHRASE}" != 'publish' ||
@@ -368,7 +383,7 @@ def publish_modelzoo_report(badge) {
                 sh (script: """#!/bin/bash +x
                     mkdir -p ${WORKSPACE}/${MODELZOO_WORKDIR}
                     mkdir -p ${WORKSPACE}/${MODELZOO_REPORTDIR}
-                    rsync -a ${MODELZOO_PUBLISH}/ ${WORKSPACE}/${MODELZOO_REPORTDIR}/ || true""")
+                    rsync -a ${MODELZOO_PUBLISHDIR}/ ${WORKSPACE}/${MODELZOO_REPORTDIR}/ || true""")
             }
 
             /* Publish the copied/generated report */

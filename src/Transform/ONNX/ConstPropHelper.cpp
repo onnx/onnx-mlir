@@ -18,11 +18,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir;
+
+namespace onnx_mlir {
 
 /// Get the size of a tensor from its ranked type in bytes, using the largest
 /// precision.
@@ -299,3 +300,5 @@ template void copyAndCastArr<int64_t, float>(
     char *srcRawArr, char *destRawArr, int64_t size);
 template void copyAndCastArr<int64_t, double>(
     char *srcRawArr, char *destRawArr, int64_t size);
+
+} // namespace onnx_mlir

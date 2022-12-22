@@ -4,7 +4,7 @@
 
 //===---------------- Elementwise.cpp - Elementwise Ops -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2022
 //
 // =============================================================================
 //
@@ -12,9 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir-hlo/utils/broadcast_utils.h"
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "stablehlo/dialect/BroadcastUtils.h"
 
 using namespace mlir;
 
@@ -46,11 +47,6 @@ struct MhloDialectOp<ONNXCosOp> {
 };
 
 template <>
-struct MhloDialectOp<ONNXSubOp> {
-  using Op = mhlo::SubtractOp;
-};
-
-template <>
 struct MhloDialectOp<ONNXDivOp> {
   using Op = mhlo::DivOp;
 };
@@ -61,8 +57,28 @@ struct MhloDialectOp<ONNXExpOp> {
 };
 
 template <>
+struct MhloDialectOp<ONNXMulOp> {
+  using Op = mhlo::MulOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXPowOp> {
+  using Op = mhlo::PowOp;
+};
+
+template <>
 struct MhloDialectOp<ONNXSigmoidOp> {
   using Op = mhlo::LogisticOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXSqrtOp> {
+  using Op = mhlo::SqrtOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXSubOp> {
+  using Op = mhlo::SubtractOp;
 };
 
 namespace {
@@ -106,34 +122,6 @@ void createCompareOp<ONNXLessOrEqualOp>(Value &op,
       loc, lhs, rhs, mhlo::ComparisonDirection::LE);
 }
 
-llvm::SmallVector<Value, 4> getBroadcastedOperands(Operation *op,
-    ConversionPatternRewriter &rewriter, Location loc, int64_t outputRank) {
-  llvm::SmallVector<Value, 4> broadcastedOperands;
-  Type outputType = *op->result_type_begin();
-  assert(outputType.isa<ShapedType>() && "output type is not shaped");
-  ShapedType outputShapedType = outputType.cast<ShapedType>();
-  Type elementType =
-      op->getOperands()[0].getType().dyn_cast<ShapedType>().getElementType();
-  RankedTensorType broadcastedOutputType =
-      RankedTensorType::get(outputShapedType.getShape(), elementType);
-
-  Value resultExtents =
-      mlir::hlo::computeNaryElementwiseBroadcastingResultExtents(
-          loc, op->getOperands(), rewriter);
-  for (Value operand : op->getOperands()) {
-    RankedTensorType operandType =
-        operand.getType().dyn_cast<RankedTensorType>();
-    assert(operandType != nullptr && "operand type is not ranked");
-    SmallVector<int64_t, 4> broadcastDimensions = llvm::to_vector<4>(
-        llvm::seq<int64_t>(outputRank - operandType.getRank(), outputRank));
-    Value broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(loc,
-        broadcastedOutputType, operand, resultExtents,
-        rewriter.getI64TensorAttr(broadcastDimensions));
-    broadcastedOperands.push_back(broadcast);
-  }
-  return broadcastedOperands;
-}
-
 // Element-wise unary ops lowering to Mhlo dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -142,9 +130,7 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo : public ConversionPattern {
       : ConversionPattern(ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
-                                    ElementwiseUnaryOp::getOperationName()),
-        op->getLoc());
+    Location loc = op->getLoc();
     Value mhloOp = rewriter.create<MhloOp<ElementwiseUnaryOp>>(
         loc, op->getResultTypes(), op->getOperands());
     rewriter.replaceOp(op, mhloOp);
@@ -152,6 +138,7 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo : public ConversionPattern {
   }
 };
 
+// ONNXReluOp(x) is implemented using MHLO Max(x, 0)
 template <>
 struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>
     : public ConversionPattern {
@@ -159,17 +146,14 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>
       : ConversionPattern(ONNXReluOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = NameLoc::get(
-        StringAttr::get(op->getContext(), ONNXReluOp::getOperationName()),
-        op->getLoc());
+    Location loc = op->getLoc();
     ONNXReluOpAdaptor adaptor(operands, op->getAttrDictionary());
     Value inp = adaptor.X();
     ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
     if (inpType == nullptr)
       return failure();
     Type resultType = *op->result_type_begin();
-    Value broadcastedZero =
-        getShapedZero(loc, rewriter, inpType, inp, resultType);
+    Value broadcastedZero = getShapedZero(loc, rewriter, inp);
     Value resultOp =
         rewriter.create<mhlo::MaxOp>(loc, resultType, inp, broadcastedZero);
     rewriter.replaceOp(op, resultOp);
@@ -184,9 +168,7 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCastOp>
       : ConversionPattern(ONNXCastOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = NameLoc::get(
-        StringAttr::get(op->getContext(), ONNXCastOp::getOperationName()),
-        op->getLoc());
+    Location loc = op->getLoc();
     ONNXCastOpAdaptor adaptor(operands, op->getAttrDictionary());
     Value inp = adaptor.input();
     Type elementToType = adaptor.to();
@@ -199,22 +181,23 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCastOp>
   }
 };
 
-// Element-wise binary ops lowering to Mhlo dialect.
+// Element-wise compare binary ops lowering to Mhlo dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseBinaryOp>
-struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
-  ONNXElementwiseBinaryOpLoweringToMhlo(MLIRContext *ctx)
+struct ONNXElementwiseCompareBinaryOpLoweringToMhlo : public ConversionPattern {
+  ONNXElementwiseCompareBinaryOpLoweringToMhlo(MLIRContext *ctx)
       : ConversionPattern(ElementwiseBinaryOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
-                                    ElementwiseBinaryOp::getOperationName()),
-        op->getLoc());
+    Location loc = op->getLoc();
 
-    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op);
-    DimsExpr empty;
-    LogicalResult shapecomputed = shapeHelper.computeShape(operands, empty);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Prior code here used the "analysis" version that did not generate code.
+    // Since code is actually not needed here at this time, one could use
+    // IndexExprBuilderForAnalysis createIE(loc) instead.
+    IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
+    ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
     int64_t outputRank = shapeHelper.outputRank;
     llvm::SmallVector<Value, 4> broadcastedOperands =
         getBroadcastedOperands(op, rewriter, loc, outputRank);
@@ -228,6 +211,35 @@ struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
   }
 };
 
+// Element-wise compare binary ops lowering to Mhlo dialect.
+//===----------------------------------------------------------------------===//
+template <typename ElementwiseBinaryOp>
+struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
+  ONNXElementwiseBinaryOpLoweringToMhlo(MLIRContext *ctx)
+      : ConversionPattern(ElementwiseBinaryOp::getOperationName(), 1, ctx) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+
+    // Prior code here used the "analysis" version that did not generate code.
+    // Since code is actually not needed here at this time, one could use
+    // IndexExprBuilderForAnalysis createIE(loc) instead.
+    IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
+    ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
+    int64_t outputRank = shapeHelper.outputRank;
+    llvm::SmallVector<Value, 4> broadcastedOperands =
+        getBroadcastedOperands(op, rewriter, loc, outputRank);
+    Value broadcastedLHS = broadcastedOperands[0];
+    Value broadcastedRHS = broadcastedOperands[1];
+    Value mhloOp = rewriter.create<MhloOp<ElementwiseBinaryOp>>(
+        loc, *op->result_type_begin(), broadcastedLHS, broadcastedRHS);
+    rewriter.replaceOp(op, mhloOp);
+    return success();
+  }
+};
+
 // Element-wise variadic ops lowering to Mhlo dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseVariadicOp>
@@ -236,14 +248,14 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
       : ConversionPattern(ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
-                                    ElementwiseVariadicOp::getOperationName()),
-        op->getLoc());
+    Location loc = op->getLoc();
 
-    ONNXGenericOpBroadcastedShapeHelper shapeHelper(op);
-    DimsExpr empty;
-    LogicalResult shapecomputed = shapeHelper.computeShape(operands, empty);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Prior code here used the "analysis" version that did not generate code.
+    // Since code is actually not needed here at this time, one could use
+    // IndexExprBuilderForAnalysis createIE(loc) instead.
+    IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
+    ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     int64_t outputRank = shapeHelper.outputRank;
     llvm::SmallVector<Value, 4> broadcastedOperands =
@@ -260,21 +272,24 @@ struct ONNXElementwiseVariadicOpLoweringToMhlo : public ConversionPattern {
 void populateLoweringONNXElementwiseOpToMhloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXElementwiseUnaryOpLoweringToMhlo<ONNXAbsOp>,
-      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAddOp>,
-      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAndOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCastOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCeilOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCosOp>,
-      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXDivOp>,
-      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXEqualOp>,
-      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXGreaterOp>,
-      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXGreaterOrEqualOp>,
-      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXLessOp>,
-      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXLessOrEqualOp>,
-      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXSubOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXExpOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSigmoidOp>,
-      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>>(ctx);
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSqrtOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>,
+      ONNXElementwiseCompareBinaryOpLoweringToMhlo<ONNXEqualOp>,
+      ONNXElementwiseCompareBinaryOpLoweringToMhlo<ONNXGreaterOp>,
+      ONNXElementwiseCompareBinaryOpLoweringToMhlo<ONNXGreaterOrEqualOp>,
+      ONNXElementwiseCompareBinaryOpLoweringToMhlo<ONNXLessOp>,
+      ONNXElementwiseCompareBinaryOpLoweringToMhlo<ONNXLessOrEqualOp>,
+      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXPowOp>,
+      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAddOp>,
+      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAndOp>,
+      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXDivOp>,
+      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXMulOp>,
+      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXSubOp>>(ctx);
 }
 
 } // namespace onnx_mlir

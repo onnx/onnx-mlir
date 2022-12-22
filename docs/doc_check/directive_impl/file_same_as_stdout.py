@@ -45,9 +45,9 @@ def handle(config, ctx):
 
     # If diff is non-trivial, raise error and display diff.
     if len(diff):
-        print("The folloing diff is detected:")
+        print("The following diff is detected:")
         sys.stdout.writelines(diff)
         raise ValueError("Check file-same-as-stdout failed")
 
 
-ext_to_patterns = {'.dc': 'file-same-as-stdout\\(([^)]*)\\)'}
+ext_to_patterns = {'.dc': 'file-same-as-stdout\\((.*)\\)'}

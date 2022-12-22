@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -77,7 +77,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXNonZeroOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
 
     // Builder helper.
     IndexExprScope outerScope(&rewriter, loc);

@@ -41,7 +41,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     auto *context = op->getContext();
     KrnlMemcpyOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.

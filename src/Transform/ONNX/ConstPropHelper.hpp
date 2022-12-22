@@ -26,7 +26,7 @@
 
 #include <math.h>
 
-using namespace mlir;
+namespace onnx_mlir {
 
 /// Get the size of a tensor from its ranked type in bytes, using the largest
 /// precision.
@@ -61,15 +61,17 @@ void copyAndCastArr(char *srcRawArr, char *destRawArr, int64_t size);
 /// element type is the one of 'outType' (smaller precision). It does not
 /// support converting from floating point to integer and vise versa.
 void convertDoubleInt64ToExactType(
-    Type destType, char *srcRawArr, char *destRawArr);
+    mlir::Type destType, char *srcRawArr, char *destRawArr);
 
 /// Constant propagation for split.
-void ConstPropSplitImpl(Type elementType, char *constArray,
+void ConstPropSplitImpl(mlir::Type elementType, char *constArray,
     llvm::ArrayRef<int64_t> constShape, uint64_t splitAxis,
     llvm::ArrayRef<int64_t> splitOffsets,
     llvm::ArrayRef<mlir::Type> replacingTypes, std::vector<char *> &resBuffers);
 
 /// Constant propagation for transpose.
-void ConstPropTransposeImpl(Type elementType, char *constArray,
+void ConstPropTransposeImpl(mlir::Type elementType, char *constArray,
     llvm::ArrayRef<int64_t> constShape, llvm::ArrayRef<uint64_t> perm,
     llvm::ArrayRef<int64_t> resShape, char *resArray);
+
+} // namespace onnx_mlir

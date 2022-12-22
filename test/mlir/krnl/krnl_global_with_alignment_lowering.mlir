@@ -5,7 +5,7 @@ func.func @test_krnl_global_constant_alignment() -> memref<3xf32> {
   %0 = "krnl.global"() {name = "constant", alignment = 1024 : i64, shape = [3], value = dense<[0.0, 0.1, 0.2]> : tensor<3xf32>} : () -> memref<3xf32>
   return %0 : memref<3xf32>
 
-// CHECK:         llvm.mlir.global internal constant @constant(dense<[0.000000e+00, 1.000000e-01, 2.000000e-01]> : tensor<3xf32>) {alignment = 1024 : i64} : !llvm.array<3 x f32>
+// CHECK:         llvm.mlir.global internal constant @constant(dense<[0.000000e+00, 1.000000e-01, 2.000000e-01]> : tensor<3xf32>) {addr_space = 0 : i32, alignment = 1024 : i64} : !llvm.array<3 x f32>
 // CHECK-LABEL:   llvm.func @test_krnl_global_constant_alignment() -> !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)> attributes {llvm.emit_c_interface} {
 // CHECK:           [[VAR_0_:%.+]] = llvm.mlir.addressof @constant : !llvm.ptr<array<3 x f32>>
 // CHECK-DAG:       [[VAR_1_:%.+]] = llvm.bitcast [[VAR_0_]] : !llvm.ptr<array<3 x f32>> to !llvm.ptr<f32>
@@ -31,7 +31,7 @@ func.func @test_krnl_global_constant_no_alignment() -> memref<2xi64> {
   %0 = "krnl.global"() {name = "constant", shape = [2], value = dense<[0, 1]> : tensor<2xi64>} : () -> memref<2xi64>
   return %0 : memref<2xi64>
 
-// CHECK:         llvm.mlir.global internal constant @constant(dense<[0, 1]> : tensor<2xi64>) {alignment = 16 : i64} : !llvm.array<2 x i64>
+// CHECK:         llvm.mlir.global internal constant @constant(dense<[0, 1]> : tensor<2xi64>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<2 x i64>
 // CHECK-LABEL:   llvm.func @test_krnl_global_constant_no_alignment() -> !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<1 x i64>, array<1 x i64>)> attributes {llvm.emit_c_interface} {
 // CHECK:           [[VAR_0_:%.+]] = llvm.mlir.addressof @constant : !llvm.ptr<array<2 x i64>>
 // CHECK-DAG:       [[VAR_1_:%.+]] = llvm.bitcast [[VAR_0_]] : !llvm.ptr<array<2 x i64>> to !llvm.ptr<i64>

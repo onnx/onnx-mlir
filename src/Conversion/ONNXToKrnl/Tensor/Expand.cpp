@@ -14,7 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -29,14 +29,11 @@ struct ONNXExpandOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // Get shape.
     ONNXExpandOpAdaptor operandAdaptor(operands);
-    ONNXExpandOp expandOp = llvm::dyn_cast<ONNXExpandOp>(op);
     Value input = operandAdaptor.input();
     Location loc = op->getLoc();
-    ONNXExpandOpShapeHelper shapeHelper(&expandOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Failed to compute shape");
+    IndexExprBuilderForKrnl createIE(rewriter, loc);
+    ONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -47,7 +44,7 @@ struct ONNXExpandOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Iterate over the output values.
     KrnlBuilder createKrnl(rewriter, loc);
@@ -55,12 +52,12 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     LiteralIndexExpr zeroIE(0);
     SmallVector<IndexExpr, 4> lbs(outputRank, zeroIE);
     createKrnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
-        shapeHelper.dimsForOutput(),
+        shapeHelper.getOutputDims(),
         [&](KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
-          IndexExprScope outputScope(createKrnl, shapeHelper.scope);
+          IndexExprScope outputScope(createKrnl, shapeHelper.getScope());
           SmallVector<IndexExpr, 4> outputLoopIndices, lhsAccessExprs;
           getIndexExprList<DimIndexExpr>(outputLoopInd, outputLoopIndices);
-          LogicalResult res = shapeHelper.GetAccessExprs(
+          LogicalResult res = shapeHelper.getAccessExprs(
               input, 0, outputLoopIndices, lhsAccessExprs);
           assert(succeeded(res) && "Could not compute access indices");
           Value val = createKrnl.loadIE(input, lhsAccessExprs);

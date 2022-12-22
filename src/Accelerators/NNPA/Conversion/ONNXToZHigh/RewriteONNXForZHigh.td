@@ -88,6 +88,12 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
 // 
 //===----------------------------------------------------------------------===//
 
+
+// Create an ONNX Shape Op with type
+def CreateShapeOp: NativeCodeCall<
+  "$_builder.create<mlir::ONNXShapeOp>($_loc, $0, $1, IntegerAttr(), 0)"
+>;
+
 // Get a type for a tensor that stores the shape of another tensor.
 def GetShapeTypeOf: NativeCodeCall<
   "RankedTensorType::get({$0.getType().cast<ShapedType>().getRank()}, $_builder.getIntegerType(64))"
@@ -112,7 +118,7 @@ def expandConstantOperandForAddOp1: Pat<
 def expandConstantOperandForAddOp2: Pat<
   (ONNXAddOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXAddOp $x, (ONNXExpandOp $c,
-                               (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                               (CreateShapeOp (GetShapeTypeOf $x), $x),
                                (returnType $x))),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
@@ -124,7 +130,7 @@ def expandConstantOperandForAddOp2: Pat<
 def expandConstantOperandForDivOp1: Pat<
   (ONNXDivOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXDivOp $x, (ONNXExpandOp $c,
-                               (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                               (CreateShapeOp (GetShapeTypeOf $x), $x),
                                (returnType $x))),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
@@ -132,7 +138,7 @@ def expandConstantOperandForDivOp1: Pat<
 def expandConstantOperandForDivOp2: Pat<
   (ONNXDivOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   (ONNXDivOp (ONNXExpandOp $c,
-                           (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                           (CreateShapeOp (GetShapeTypeOf $x), $x),
                            (returnType $x)),
              $x),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
@@ -151,7 +157,7 @@ def expandConstantOperandForMulOp1: Pat<
 def expandConstantOperandForMulOp2: Pat<
   (ONNXMulOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXMulOp $x, (ONNXExpandOp $c,
-                               (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                               (CreateShapeOp (GetShapeTypeOf $x), $x),
                                (returnType $x))),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
@@ -163,7 +169,7 @@ def expandConstantOperandForMulOp2: Pat<
 def expandConstantOperandForSubOp1: Pat<
   (ONNXSubOp $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
   (ONNXSubOp $x, (ONNXExpandOp $c,
-                               (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                               (CreateShapeOp (GetShapeTypeOf $x), $x),
                                (returnType $x))),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
 >;
@@ -171,7 +177,7 @@ def expandConstantOperandForSubOp1: Pat<
 def expandConstantOperandForSubOp2: Pat<
   (ONNXSubOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   (ONNXSubOp (ONNXExpandOp $c,
-                           (ONNXShapeOp $x, (returnType (GetShapeTypeOf $x))),
+                           (CreateShapeOp (GetShapeTypeOf $x), $x),
                            (returnType $x)),
              $x),
   [(IsUniBroadcastingFromFirstToSecond $c, $x)]
@@ -224,6 +230,96 @@ def rewriteMatMulNDto3D_Broadcast_2: Pat<
                  (GetMatMulResultShape $a, $b),
                  (GetZeroI64Attr)),
   [(HasRankOf<2> $a), (HasRankGT<3> $b)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Rules to turn ONNXSoftmaxOp with N-D inputs into the one with 2-D inputs.
+//===----------------------------------------------------------------------===//
+
+def SoftmaxAxisMinusOne: NativeCodeCall<
+ "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, -1, /*isSigned=*/true))">;
+
+def GetShapeResultType: NativeCodeCall<
+ "RankedTensorType::get({getRank($0.getType())}, $_builder.getI64Type())">;
+
+def rewriteSoftmaxNDto3D: Pat<
+  (ONNXSoftmaxOp:$c $input, $axis),
+  (ONNXReshapeOp (ONNXSoftmaxOp
+                    (ReshapeTo3D:$r $input),
+                    (SoftmaxAxisMinusOne),
+                    (returnType $r)),
+                 (CreateShapeOp (GetShapeResultType $input), $input),
+                 (GetZeroI64Attr)),
+  [(HasRankGT<3> $input)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Rules to conver ONNXConvOp with pads to ONNXConvOp with no pads
+//===----------------------------------------------------------------------===//
+
+// Get pads for padding to enable conv op on NNPA
+def GetPadsForNNPAConv:
+  NativeCodeCall<"getPadsForNNPAConv($_builder, $0)">;
+
+// This function is used for padding attribute in Conv.
+class insertZerosForNonPaddedDims<int extensionLength>:
+  NativeCodeCall<"insertZerosForNonPaddedDims($_builder, $0,"
+                                              # extensionLength # ")">;
+
+// Create a StringAttr from a string.
+class StringAttrOfValue<string val>:
+  NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
+
+// Create an ArrayAttr of IntergerAttr(s) of zero values.
+// This function is used for padding attribute in Conv.
+def createArrayAttrOfZerosFrom:
+  NativeCodeCall<"createArrayAttrOfZeros($_builder, $0)">;
+
+// Create a DenseElementsAttr from an interger value.
+// It seems Table-gen does not support `float` type, so we can not pass a float value.
+class FloatAttrOfValue<int val>:
+  NativeCodeCall<"createDenseFloatAttrOfValue($_builder, $0, " # val # ")">;
+
+// Check that a StrAttr does not contain a specific value.
+class IsNotStringAttrOfValue<string val>:
+  Constraint<CPred<"$0.cast<StringAttr>().getValue() != \"" # val # "\"">>;
+
+// Check the a convolution operation is NOT leagal for zDNN
+def IsConvNotLegalForZDNN: Constraint<
+  CPred<"!isSuitableForZDNN<ONNXConvOp>(" #
+        "dyn_cast_or_null<ONNXConvOp>($_self.getDefiningOp()))">,
+  "Conv is not legal for zDNN"
+>;
+
+// Check if pads can be inferenced for ONNX Conv op
+def CanInferencePadsForNNPAConv: Constraint<
+  CPred<"canInferencePadsForNNPAConv(" #
+        "dyn_cast<ONNXConvOp>($_self.getDefiningOp()))">,
+  "pads can be estimated for ONNX Conv op"
+>;
+
+def ConvOpPaddingPattern: Pattern<
+  (ONNXConvOp:$res
+     $x,
+     $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
+     $pads,
+     $strides),
+  [
+   (GetPadsForNNPAConv:$nnpapads $res),
+
+   (ONNXConvOp
+
+     (ONNXPadOp $x,
+        (ONNXConstantOpFromDenseAttr (insertZerosForNonPaddedDims<2> $nnpapads)),
+        (ONNXConstantOpFromDenseAttr (FloatAttrOfValue<0> $res)),
+        (StringAttrOfValue<"constant">),
+        (returnType (NativeCodeCall<"CreatePaddedXType($0, $1)"> $x, $nnpapads))),
+
+     $w, $b, (StringAttrOfValue<"VALID">), $dilation, $group, $kernel_shape,
+     (createArrayAttrOfZerosFrom $nnpapads),
+     $strides)
+  ],
+  [(IsConvNotLegalForZDNN:$res), (CanInferencePadsForNNPAConv:$res)]
 >;
 
 #endif // REWRITE_ONNX_FOR_ZHIGH

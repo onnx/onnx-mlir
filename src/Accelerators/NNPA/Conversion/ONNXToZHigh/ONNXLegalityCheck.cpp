@@ -16,54 +16,39 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
 
 /// A function to check whether a value's element type is valid for zAIU or not.
 /// zAIU supports only F16, F32 and BFLOAT. Since MLIR does not support BFLOAT,
-/// we check F16 and F32 here only.
-bool isValidElementType(Value val) {
+/// we check F16 and F32 here only. zAIU only supports rank in range of (0, 4].
+bool isValidElementTypeAndRank(Value val) {
   if (val.getType().isa<NoneType>())
     return true;
-  ShapedType valueType = val.getType().dyn_cast_or_null<ShapedType>();
-  Type elementType = (valueType) ? valueType.getElementType() : val.getType();
-  if (elementType.isa<FloatType>() &&
-      (elementType.cast<FloatType>().getWidth() == 16 ||
-          elementType.cast<FloatType>().getWidth() == 32))
-    return true;
+  if (auto valueType = val.getType().dyn_cast_or_null<ShapedType>()) {
+    Type elementType = (valueType) ? valueType.getElementType() : val.getType();
+    // Element type must be in 16 or F32.
+    if (elementType.isa<FloatType>() &&
+        (elementType.cast<FloatType>().getWidth() == 16 ||
+            elementType.cast<FloatType>().getWidth() == 32)) {
+      // Rank must be in range of (0, 4].
+      if (!valueType.hasRank())
+        return false;
+      int64_t rank = valueType.getRank();
+      return ((rank > 0) && (rank <= 4));
+    }
+  }
   return false;
 }
 
-/// A function to check whether two tensors have the same shape or not.
-/// In case where they have the same rank but unknown dimensions, we cannot
-/// detect whether the shapes are exactly the same or not. Hence, return false.
-/// Also, check the ranks of two tensors, they must be in range of (0, 4].
-bool haveSameStaticShape(Value value1, Value value2) {
-  ShapedType valueType1 = value1.getType().cast<ShapedType>();
-  ShapedType valueType2 = value2.getType().cast<ShapedType>();
-  if (!valueType1.hasRank() || !valueType2.hasRank())
-    return false;
-  // Different rank, return false.
-  if (valueType1.getRank() != valueType2.getRank())
-    return false;
-  // Rank must be in range of (0, 4].
-  if (valueType1.getRank() == 0 || valueType1.getRank() > 4)
-    return false;
-  // Only check when both tensors have static dimensions.
-  if (valueType1.hasStaticShape() && valueType2.hasStaticShape())
-    return (valueType1.getShape() == valueType2.getShape());
-  return false;
-}
-
-/// Common legality check for pooling ops
+/// Common legality check for pooling ops.
 template <typename POOLOP, typename POOLOPAdaptor, typename POOLOPShapeHelper>
 bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
-  POOLOPAdaptor operandAdaptor = POOLOPAdaptor(op);
-  POOLOPShapeHelper shapeHelper(&op);
-  assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
-         "Failed to scan POOLOP parameters successfully");
+  POOLOPShapeHelper shapeHelper(op.getOperation(), {});
+  shapeHelper.computeShapeAndAssertOnFailure();
   Value X = op.X();
   int64_t ceilMode = op.ceil_mode();
   ShapedType inputType = X.getType().cast<ShapedType>();
@@ -130,10 +115,9 @@ bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
 /// `SAME_PADDING`, `VALID_PADDING`, or empty.
 template <typename OP, typename OPAdaptor, typename OPShapeHelper>
 StringRef getStrPaddingType(OP op) {
-  OPAdaptor operandAdaptor = OPAdaptor(op);
-  OPShapeHelper shapeHelper(&op);
-  assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
-         "Failed to scan OP parameters successfully");
+  IndexExprBuilderForAnalysis createIE(op.getLoc());
+  OPShapeHelper shapeHelper(op.getOperation(), {}, &createIE);
+  shapeHelper.computeShapeAndAssertOnFailure();
 
   auto autoPad = op.auto_pad();
   if (autoPad == "SAME_UPPER")
@@ -173,14 +157,13 @@ StringRef getStrPaddingType(OP op) {
       // pad_right = pad_along_width - pad_left
 
       // Input height and width.
-      MemRefBoundsIndexCapture XBounds(op.X());
-      IndexExpr hi = XBounds.getDim(2);
-      IndexExpr wi = XBounds.getDim(3);
+      IndexExpr hi = createIE.getShapeAsDim(op.X(), 2);
+      IndexExpr wi = createIE.getShapeAsDim(op.X(), 3);
       if (!hi.isLiteral() || !wi.isLiteral())
         return StringRef();
       // Output height and width.
-      IndexExpr ho = shapeHelper.dimsForOutput()[2];
-      IndexExpr wo = shapeHelper.dimsForOutput()[3];
+      IndexExpr ho = shapeHelper.getOutputDims()[2];
+      IndexExpr wo = shapeHelper.getOutputDims()[3];
       if (!ho.isLiteral() || !wo.isLiteral())
         return StringRef();
 
@@ -206,7 +189,6 @@ StringRef getStrPaddingType(OP op) {
       IndexExpr pHBottom = pH - pHTop;
       IndexExpr pWLeft = pW.floorDiv(twoIE);
       IndexExpr pWRight = pW - pWLeft;
-
       // Compare ONNX pads and zDNN pads.
       if (pHTop.getLiteral() == shapeHelper.pads[0].getLiteral() &&
           pWLeft.getLiteral() == shapeHelper.pads[1].getLiteral() &&
@@ -259,66 +241,71 @@ bool meetPoolParamRestrictions(int64_t inputShape, int64_t kernelShape,
 
 /// Default legality check.
 template <typename OP_TYPE>
-bool isSuitableForZDNN(OP_TYPE op) {
+bool isSuitableForZDNN(OP_TYPE op, const DimAnalysis *dimAnalysis) {
   return false;
 }
 
 /// Check legality for ONNXAdd.
 // zDNN Add, Sub, Mul, Div do not support broadcasting.
 template <>
-bool isSuitableForZDNN<ONNXAddOp>(ONNXAddOp op) {
-  if (!isValidElementType(op.A()))
+bool isSuitableForZDNN<ONNXAddOp>(
+    ONNXAddOp op, const DimAnalysis *dimAnalysis) {
+  if (!isValidElementTypeAndRank(op.A()))
     return false;
-  if (!isValidElementType(op.B()))
+  if (!isValidElementTypeAndRank(op.B()))
     return false;
-  return haveSameStaticShape(op.A(), op.B());
+  return dimAnalysis->sameShape(op.A(), op.B());
 }
 
 /// Check legality for ONNXSub.
 template <>
-bool isSuitableForZDNN<ONNXSubOp>(ONNXSubOp op) {
-  if (!isValidElementType(op.A()))
+bool isSuitableForZDNN<ONNXSubOp>(
+    ONNXSubOp op, const DimAnalysis *dimAnalysis) {
+  if (!isValidElementTypeAndRank(op.A()))
     return false;
-  if (!isValidElementType(op.B()))
+  if (!isValidElementTypeAndRank(op.B()))
     return false;
-  return haveSameStaticShape(op.A(), op.B());
+  return dimAnalysis->sameShape(op.A(), op.B());
 }
 
 /// Check legality for ONNXMul.
 template <>
-bool isSuitableForZDNN<ONNXMulOp>(ONNXMulOp op) {
-  if (!isValidElementType(op.A()))
+bool isSuitableForZDNN<ONNXMulOp>(
+    ONNXMulOp op, const DimAnalysis *dimAnalysis) {
+  if (!isValidElementTypeAndRank(op.A()))
     return false;
-  if (!isValidElementType(op.B()))
+  if (!isValidElementTypeAndRank(op.B()))
     return false;
-  return haveSameStaticShape(op.A(), op.B());
+  return dimAnalysis->sameShape(op.A(), op.B());
 }
 
 /// Check legality for ONNXDiv.
 template <>
-bool isSuitableForZDNN<ONNXDivOp>(ONNXDivOp op) {
-  if (!isValidElementType(op.A()))
+bool isSuitableForZDNN<ONNXDivOp>(
+    ONNXDivOp op, const DimAnalysis *dimAnalysis) {
+  if (!isValidElementTypeAndRank(op.A()))
     return false;
-  if (!isValidElementType(op.B()))
+  if (!isValidElementTypeAndRank(op.B()))
     return false;
-  return haveSameStaticShape(op.A(), op.B());
+  return dimAnalysis->sameShape(op.A(), op.B());
 }
 
 /// Check legality for ONNXSum.
 template <>
-bool isSuitableForZDNN<ONNXSumOp>(ONNXSumOp op) {
+bool isSuitableForZDNN<ONNXSumOp>(
+    ONNXSumOp op, const DimAnalysis *dimAnalysis) {
   // Do not support a single input.
   if (op.data_0().size() < 2)
     return false;
   // Check data type.
-  if (!isValidElementType(op.data_0()[0]))
+  if (!isValidElementTypeAndRank(op.data_0()[0]))
     return false;
   // All inputs must have the same static shape.
   for (unsigned int i = 1; i < op.data_0().size(); ++i) {
     // Check data type.
-    if (!isValidElementType(op.data_0()[i]))
+    if (!isValidElementTypeAndRank(op.data_0()[i]))
       return false;
-    if (!haveSameStaticShape(op.data_0()[0], op.data_0()[i]))
+    if (!dimAnalysis->sameShape(op.data_0()[0], op.data_0()[i]))
       return false;
   }
   return true;
@@ -327,50 +314,56 @@ bool isSuitableForZDNN<ONNXSumOp>(ONNXSumOp op) {
 /// Check legality for ONNXMin.
 /// zDNN Min/Max do not support boradcasting, and getNumOperands != 2.
 template <>
-bool isSuitableForZDNN<ONNXMinOp>(ONNXMinOp op) {
+bool isSuitableForZDNN<ONNXMinOp>(
+    ONNXMinOp op, const DimAnalysis *dimAnalysis) {
   int64_t opnum = op.getNumOperands();
   if (opnum != 2) {
     return false;
   }
-  if (!isValidElementType(op.getOperand(0)))
+  if (!isValidElementTypeAndRank(op.getOperand(0)))
     return false;
-  if (!isValidElementType(op.getOperand(1)))
+  if (!isValidElementTypeAndRank(op.getOperand(1)))
     return false;
-  return haveSameStaticShape(op.getOperand(0), op.getOperand(1));
+  return dimAnalysis->sameShape(op.getOperand(0), op.getOperand(1));
 }
 
 /// Check legality for ONNXMax.
 /// zDNN Min/Max do not support boradcasting, and getNumOperands != 2.
 template <>
-bool isSuitableForZDNN<ONNXMaxOp>(ONNXMaxOp op) {
+bool isSuitableForZDNN<ONNXMaxOp>(
+    ONNXMaxOp op, const DimAnalysis *dimAnalysis) {
   int64_t opnum = op.getNumOperands();
   if (opnum != 2) {
     return false;
   }
-  if (!isValidElementType(op.getOperand(0)))
+  if (!isValidElementTypeAndRank(op.getOperand(0)))
     return false;
-  if (!isValidElementType(op.getOperand(1)))
+  if (!isValidElementTypeAndRank(op.getOperand(1)))
     return false;
-  return haveSameStaticShape(op.getOperand(0), op.getOperand(1));
+  return dimAnalysis->sameShape(op.getOperand(0), op.getOperand(1));
 }
 
 /// Check legality for ONNXSoftmax.
-/// zDNN softmax only supports axis = 1 (or -1 when rank = 2). If axis is not
-/// 1 (or -1 when rank = 2), keep ONNXSoftmax unchanged.
-/// TODO: support rank != 2.
+/// zDNN softmax only supports axis = rank-1 (or -1) when rank = 2 or 3). If
+/// axis is not rank-1 (or -1) when rank = 2/3), keep ONNXSoftmax unchanged.
 template <>
-bool isSuitableForZDNN<ONNXSoftmaxOp>(ONNXSoftmaxOp op) {
-  if (!isValidElementType(op.input()))
+bool isSuitableForZDNN<ONNXSoftmaxOp>(
+    ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
+  if (!isValidElementTypeAndRank(op.input()))
     return false;
   ShapedType inputType = op.getType().cast<ShapedType>();
-  return (op.axis() == 1 || op.axis() == -1) && inputType.hasRank() &&
-         (inputType.getRank() == 2);
+  if (!inputType.hasRank())
+    return false;
+  int64_t rank = inputType.getRank();
+  return (((rank == 2) || (rank == 3)) &&
+          ((op.axis() == rank - 1) || (op.axis() == -1)));
 }
 
 /// Check legality for ONNXRelu.
 template <>
-bool isSuitableForZDNN<ONNXReluOp>(ONNXReluOp op) {
-  if (!isValidElementType(op.X()))
+bool isSuitableForZDNN<ONNXReluOp>(
+    ONNXReluOp op, const DimAnalysis *dimAnalysis) {
+  if (!isValidElementTypeAndRank(op.X()))
     return false;
   ShapedType xType = op.X().getType().cast<ShapedType>();
   return xType.hasRank() && (xType.getRank() <= 4);
@@ -378,8 +371,9 @@ bool isSuitableForZDNN<ONNXReluOp>(ONNXReluOp op) {
 
 /// Check legality for ONNXTanh.
 template <>
-bool isSuitableForZDNN<ONNXTanhOp>(ONNXTanhOp op) {
-  if (!isValidElementType(op.input()))
+bool isSuitableForZDNN<ONNXTanhOp>(
+    ONNXTanhOp op, const DimAnalysis *dimAnalysis) {
+  if (!isValidElementTypeAndRank(op.input()))
     return false;
   ShapedType inputType = op.getType().cast<ShapedType>();
   return inputType.hasRank() && (inputType.getRank() <= 4);
@@ -387,8 +381,9 @@ bool isSuitableForZDNN<ONNXTanhOp>(ONNXTanhOp op) {
 
 /// Check legality for ONNXSigmoid.
 template <>
-bool isSuitableForZDNN<ONNXSigmoidOp>(ONNXSigmoidOp op) {
-  if (!isValidElementType(op.X()))
+bool isSuitableForZDNN<ONNXSigmoidOp>(
+    ONNXSigmoidOp op, const DimAnalysis *dimAnalysis) {
+  if (!isValidElementTypeAndRank(op.X()))
     return false;
   ShapedType xType = op.X().getType().cast<ShapedType>();
   return xType.hasRank() && (xType.getRank() <= 4);
@@ -396,8 +391,9 @@ bool isSuitableForZDNN<ONNXSigmoidOp>(ONNXSigmoidOp op) {
 
 /// Check legality for ONNXLog.
 template <>
-bool isSuitableForZDNN<ONNXLogOp>(ONNXLogOp op) {
-  if (!isValidElementType(op.input()))
+bool isSuitableForZDNN<ONNXLogOp>(
+    ONNXLogOp op, const DimAnalysis *dimAnalysis) {
+  if (!isValidElementTypeAndRank(op.input()))
     return false;
   ShapedType inputType = op.input().getType().cast<ShapedType>();
   return inputType.hasRank() && (inputType.getRank() <= 4);
@@ -405,8 +401,9 @@ bool isSuitableForZDNN<ONNXLogOp>(ONNXLogOp op) {
 
 /// Check legality for ONNXExp.
 template <>
-bool isSuitableForZDNN<ONNXExpOp>(ONNXExpOp op) {
-  if (!isValidElementType(op.input()))
+bool isSuitableForZDNN<ONNXExpOp>(
+    ONNXExpOp op, const DimAnalysis *dimAnalysis) {
+  if (!isValidElementTypeAndRank(op.input()))
     return false;
   ShapedType inputType = op.input().getType().cast<ShapedType>();
   return inputType.hasRank() && (inputType.getRank() <= 4);
@@ -414,14 +411,15 @@ bool isSuitableForZDNN<ONNXExpOp>(ONNXExpOp op) {
 
 /// Check legality for ONNXMatMul.
 template <>
-bool isSuitableForZDNN<ONNXMatMulOp>(ONNXMatMulOp op) {
+bool isSuitableForZDNN<ONNXMatMulOp>(
+    ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
   int64_t opnum = op.getNumOperands();
   if (opnum != 2) {
     return false;
   }
-  if (!isValidElementType(op.getOperand(0)))
+  if (!isValidElementTypeAndRank(op.getOperand(0)))
     return false;
-  if (!isValidElementType(op.getOperand(1)))
+  if (!isValidElementTypeAndRank(op.getOperand(1)))
     return false;
   ShapedType aType = op.getOperand(0).getType().cast<ShapedType>();
   ShapedType bType = op.getOperand(1).getType().cast<ShapedType>();
@@ -463,17 +461,18 @@ bool isSuitableForZDNN<ONNXMatMulOp>(ONNXMatMulOp op) {
 
 /// Check legality for ONNXGemm.
 template <>
-bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
+bool isSuitableForZDNN<ONNXGemmOp>(
+    ONNXGemmOp op, const DimAnalysis *dimAnalysis) {
   Value A = op.A();
   Value B = op.B();
   Value C = op.C();
 
   // Check data type.
-  if (!isValidElementType(A))
+  if (!isValidElementTypeAndRank(A))
     return false;
-  if (!isValidElementType(B))
+  if (!isValidElementTypeAndRank(B))
     return false;
-  if (!isValidElementType(C))
+  if (!isValidElementTypeAndRank(C))
     return false;
 
   ShapedType aType = A.getType().cast<ShapedType>();
@@ -508,7 +507,7 @@ bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
   // (A(m, n) * B(n, p) + C(p))
   if (hasC && cShape.size() == 1) {
     // Cannot check broadcasting at compile time.
-    if (cShape[0] == -1)
+    if (ShapedType::isDynamic(cShape[0]))
       return false;
     if (cShape[0] != bShape1)
       return false;
@@ -518,9 +517,10 @@ bool isSuitableForZDNN<ONNXGemmOp>(ONNXGemmOp op) {
 
 /// Check legality for ONNXReduceMean.
 template <>
-bool isSuitableForZDNN<ONNXReduceMeanOp>(ONNXReduceMeanOp op) {
+bool isSuitableForZDNN<ONNXReduceMeanOp>(
+    ONNXReduceMeanOp op, const DimAnalysis *dimAnalysis) {
   // Check data type.
-  if (!isValidElementType(op.data()))
+  if (!isValidElementTypeAndRank(op.data()))
     return false;
 
   llvm::Optional<mlir::ArrayAttr> axes = op.axes();
@@ -552,7 +552,8 @@ bool isSuitableForZDNN<ONNXReduceMeanOp>(ONNXReduceMeanOp op) {
 /// Check legality for ONNXLSTM.
 /// TODO: current ONNX-to-zhigh conversion does not support bi-direction
 template <>
-bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
+bool isSuitableForZDNN<ONNXLSTMOp>(
+    ONNXLSTMOp op, const DimAnalysis *dimAnalysis) {
   StringRef direction = op.direction();
   Value W = op.W();
   Value R = op.R();
@@ -564,11 +565,11 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
     return false;
 
   // Check data type.
-  if (!isValidElementType(W))
+  if (!isValidElementTypeAndRank(W))
     return false;
-  if (!isValidElementType(R))
+  if (!isValidElementTypeAndRank(R))
     return false;
-  if (!isValidElementType(B))
+  if (!isValidElementTypeAndRank(B))
     return false;
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
@@ -625,7 +626,8 @@ bool isSuitableForZDNN<ONNXLSTMOp>(ONNXLSTMOp op) {
 /// Check legality for ONNXGRU.
 /// TODO: current ONNX-to-zhigh conversion does not support bi-direction
 template <>
-bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
+bool isSuitableForZDNN<ONNXGRUOp>(
+    ONNXGRUOp op, const DimAnalysis *dimAnalysis) {
   StringRef direction = op.direction();
   Value W = op.W();
   Value R = op.R();
@@ -637,11 +639,11 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
     return false;
 
   // Check data type.
-  if (!isValidElementType(W))
+  if (!isValidElementTypeAndRank(W))
     return false;
-  if (!isValidElementType(R))
+  if (!isValidElementTypeAndRank(R))
     return false;
-  if (!isValidElementType(B))
+  if (!isValidElementTypeAndRank(B))
     return false;
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
@@ -693,18 +695,16 @@ bool isSuitableForZDNN<ONNXGRUOp>(ONNXGRUOp op) {
   return true;
 }
 
-/// Check legality for ONNXMaxpool.
+/// Check legality for ONNXMaxPool.
 template <>
-bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(ONNXMaxPoolSingleOutOp op) {
+bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
+    ONNXMaxPoolSingleOutOp op, const DimAnalysis *dimAnalysis) {
   // Check data type.
-  if (!isValidElementType(op.X()))
+  if (!isValidElementTypeAndRank(op.X()))
     return false;
 
-  ONNXMaxPoolSingleOutOpAdaptor operandAdaptor =
-      ONNXMaxPoolSingleOutOpAdaptor(op);
-  ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(&op);
-  assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
-         "Failed to scan ONNXMaxPoolSingleOutOp parameters successfully");
+  ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(op.getOperation(), {});
+  shapeHelper.computeShapeAndAssertOnFailure();
 
   if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
           ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
@@ -720,9 +720,10 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(ONNXMaxPoolSingleOutOp op) {
 
 /// Check legality for ONNXAveragePool.
 template <>
-bool isSuitableForZDNN<ONNXAveragePoolOp>(ONNXAveragePoolOp op) {
+bool isSuitableForZDNN<ONNXAveragePoolOp>(
+    ONNXAveragePoolOp op, const DimAnalysis *dimAnalysis) {
   // Check data type.
-  if (!isValidElementType(op.X()))
+  if (!isValidElementTypeAndRank(op.X()))
     return false;
 
   // count_include_pad not supported.
@@ -776,37 +777,39 @@ static bool checkConv2DParamRestrictions(int64_t inputDim, int64_t kernelDim,
 
 /// Check legality for ONNXConvOp.
 template <>
-bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
+bool isSuitableForZDNN<ONNXConvOp>(
+    ONNXConvOp op, const DimAnalysis *dimAnalysis) {
   // Check data type.
-  if (!isValidElementType(op.X()))
+  if (!isValidElementTypeAndRank(op.X()))
     return false;
-  if (!isValidElementType(op.W()))
+  if (!isValidElementTypeAndRank(op.W()))
     return false;
-  if (!isValidElementType(op.B()))
+  if (!isValidElementTypeAndRank(op.B()))
     return false;
 
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
-  ONNXConvOpShapeHelper shapeHelper(&op);
-  assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
-         "Failed to scan Conv parameters successfully");
+  ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
+  shapeHelper.computeShapeAndAssertOnFailure();
 
   ShapedType inputType = op.X().getType().cast<ShapedType>();
   ShapedType outputType = op.Y().getType().cast<ShapedType>();
   ArrayRef<int64_t> shapeInput = inputType.getShape();
   ArrayRef<int64_t> shapeOutput = outputType.getShape();
 
+  // 4D tensors(N x C x H x W) are supported as input and output.
+  if (shapeInput.size() != 4 || shapeOutput.size() != 4)
+    return false;
+
   // Do not support dynamic height and weight dimensions since we can not check
   // them at compile time.
-  if (shapeInput[2] == -1 || shapeInput[3] == -1 || shapeOutput[2] == -1 ||
-      shapeOutput[3] == -1)
+  if (ShapedType::isDynamic(shapeInput[2]) ||
+      ShapedType::isDynamic(shapeInput[3]) ||
+      ShapedType::isDynamic(shapeOutput[2]) ||
+      ShapedType::isDynamic(shapeOutput[3]))
     return false;
 
   // Do not support group.
   if (operandAdaptor.group() != 1)
-    return false;
-
-  // 4D tensors(N x C x H x W) are supported as input and output.
-  if (shapeInput.size() != 4 || shapeOutput.size() != 4)
     return false;
 
   // Do not support non-default dilations.
@@ -852,7 +855,7 @@ bool isSuitableForZDNN<ONNXConvOp>(ONNXConvOp op) {
 /// Check legality for ONNXBatchNormOp.
 template <>
 bool isSuitableForZDNN<ONNXBatchNormalizationInferenceModeOp>(
-    ONNXBatchNormalizationInferenceModeOp op) {
+    ONNXBatchNormalizationInferenceModeOp op, const DimAnalysis *dimAnalysis) {
   ShapedType inputType = op.X().getType().cast<ShapedType>();
   ShapedType outputType = op.o_Y().getType().cast<ShapedType>();
   ArrayRef<int64_t> shapeInput = inputType.getShape();

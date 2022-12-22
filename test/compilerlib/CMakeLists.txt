@@ -9,5 +9,5 @@ add_onnx_mlir_executable(CompilerLibTest
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PRIVATE
-  OnnxMlirCompiler
+  OMCompiler
   )

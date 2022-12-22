@@ -1,5 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
+add_onnx_mlir_library(PerfLib
+  PerfHelper.cpp
+  EXCLUDE_FROM_OM_LIBS
+
+  LINK_LIBS PUBLIC
+  benchmark 
+  LLVMSupport
+  )
+
 add_custom_target(perf)
 set_target_properties(perf PROPERTIES FOLDER "Perf")
 
@@ -35,9 +44,7 @@ function(add_perf_unittest test_name)
   set_tests_properties(${test_name} PROPERTIES LABELS perf)
 endfunction()
 
-# The CompilerUtils ExecutionSession are also included in ModelLib,
-# but it did not compile when I removed these two. TODO, figure out why.
-set(TEST_LINK_LIBS ModelLib CompilerUtils benchmark)
+set(TEST_LINK_LIBS ModelLib PerfLib)
 
 add_perf_unittest(PerfGemm
   PerfGemm.cpp

@@ -14,7 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -28,19 +28,18 @@ struct ONNXPrintSignatureLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
     ONNXPrintSignatureOp printSignatureOp =
         llvm::dyn_cast<ONNXPrintSignatureOp>(op);
     ONNXPrintSignatureOpAdaptor operandAdaptor(operands);
 
     std::string opName(printSignatureOp.op_name().data());
-    std::string msg = opName;
-    create.krnl.printf(msg);
-    for (Value oper : operandAdaptor.input()) {
-      msg = "%t ";
-      create.krnl.printTensor(msg, oper);
-    }
+    create.krnl.printf(opName);
+    std::string msg = "%t ";
+    for (Value oper : operandAdaptor.input())
+      if (!oper.getType().isa<NoneType>())
+        create.krnl.printTensor(msg, oper);
     Value noneValue;
     rewriter.replaceOpWithNewOp<KrnlPrintOp>(op, "\n", noneValue);
     return success();

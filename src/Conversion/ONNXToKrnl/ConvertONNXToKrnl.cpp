@@ -178,6 +178,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
 
   // Frontend operation lowering.
   // ControlFlow
+  populateLoweringONNXIfOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLoopOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
@@ -199,7 +200,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // ObjectDetection
   populateLoweringONNXNonMaxSuppressionOpPattern(patterns, typeConverter, ctx);
   // Tensor
-  populateLoweringONNXArgMaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReshapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPadOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
@@ -212,6 +214,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXConcatShapeTransposeOpPattern(
+      patterns, typeConverter, ctx);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx);
@@ -233,6 +237,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
+  populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx);
+
   // Neural network
   populateLoweringONNXConvOpPattern(
       patterns, typeConverter, ctx, enableParallel);
@@ -279,12 +285,12 @@ struct FrontendToKrnlLoweringPass
     // Option<bool>.
     this->emitDealloc = emitDealloc;
     this->enableTiling = enableTiling;
-    // this->enableParallel = enableParallel;
+    this->enableParallel = enableParallel;
   }
-  FrontendToKrnlLoweringPass(int optLevel)
+  FrontendToKrnlLoweringPass(int optLevel, bool enableParallel)
       : FrontendToKrnlLoweringPass(
             /*emitDealloc=*/false, /*enableTiling=*/optLevel >= 3,
-            /*enableParallel*/ false) {}
+            enableParallel) {}
 
   void runOnOperation() final;
 
@@ -310,6 +316,8 @@ public:
   Option<bool> enableTiling{*this, "enable-tiling",
       llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
       llvm::cl::init(false)};
+  Option<bool> enableParallel{*this, "enable-parallel",
+      llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
 };
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
@@ -324,7 +332,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<KrnlDialect, AffineDialect, arith::ArithmeticDialect,
+  target.addLegalDialect<KrnlDialect, AffineDialect, arith::ArithDialect,
       func::FuncDialect, linalg::LinalgDialect, math::MathDialect,
       memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
@@ -345,8 +353,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
   // at this level. Will use MLIR buffer-deallocation for this purpose instead.
-  if (!emitDealloc)
-    target.addIllegalOp<mlir::memref::DeallocOp>();
+  // However, since the SequenceErase needs to emit memref dealloc, the previous
+  // the following statement is commented out (Chentong)
+  // if (!emitDealloc) target.addIllegalOp<mlir::memref::DeallocOp>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
@@ -415,8 +424,8 @@ std::unique_ptr<Pass> createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
 
-std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel) {
-  return std::make_unique<FrontendToKrnlLoweringPass>(optLevel);
+std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel, bool enableParallel) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(optLevel, enableParallel);
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass(

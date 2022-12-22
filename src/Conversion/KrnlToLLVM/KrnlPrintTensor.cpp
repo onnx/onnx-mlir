@@ -46,7 +46,7 @@ public:
            "expecting LLVMStructType");
 
     ModuleOp module = printTensorOp->getParentOfType<ModuleOp>();
-    const auto &apiRegistry = RuntimeAPIRegistry::build(module, rewriter);
+    const auto &apiRegistry = RuntimeAPIRegistry(module, rewriter);
 
     // Get a symbol reference to the runtime function to use, creating one if
     // necessary.

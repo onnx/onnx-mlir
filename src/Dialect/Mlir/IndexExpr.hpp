@@ -165,7 +165,7 @@ constant, it will result in a literal. Otherwise it will result in a new Symbol
 variable.
 
     // Get a dimension from a memref.
-    MemRefBoundIndexCapture dataBounds(data);
+    MemRefBoundsIndexCapture dataBounds(data);
     DimIndexExpr dimInput(dataBounds.getDim(ii));
 
 In the code above, we first capture the (hopefully constant) bounds of hte
@@ -248,17 +248,26 @@ compile time sizes, -1 for runtime sizes).
    ArrayValueIndexCapture allows us to read 1D arrays and generate symbols out
 of them expressions that are either literals or runtime values (symbols).
 
-   MemRefBoundIndexCapture allows us to read memref or tensor 1D descriptors and
-generate out of them expressions that are either literals or runtime values
+   MemRefBoundsIndexCapture allows us to read memref or tensor 1D descriptors
+and generate out of them expressions that are either literals or runtime values
 (dims).
 
 Note that in both case, runtime values may be "question marks" during the shape
 inference part as no code may be generated during such phases.
 */
 
+/* Dialect use in Index Expression stack (when generating ops)
+   IndexExpr.cpp:
+     Arithmetic: cmp, add, sub, mul, floor/ceil div, rem, and, or, select
+     Affine: affine min/max
+   IndexExprImpl.cpp:
+     Arithmetic: constant, constant index, index cast.
+     Affine: affine apply
+*/
+
 #pragma once
 
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/AffineExpr.h"
@@ -322,9 +331,9 @@ public:
   // null if we cannot generate code at this time) and location.
   IndexExprScope(mlir::OpBuilder *rewriter, mlir::Location loc);
   IndexExprScope(DialectBuilder &db);
-  // Constructor for subsequent nested scopes. Providing enclosing scope is not
-  // necessary; it is provided for convenience if a user prefer to name the
-  // enclosing scope explicitly.
+  // Constructor for subsequent nested scopes. Providing enclosing scope is
+  // technically not necessary (nullptr can be passed); it is used to allow a
+  // user to explicitly name the enclosing scope.
   IndexExprScope(mlir::OpBuilder *rewriter, IndexExprScope *enclosingScope);
   IndexExprScope(DialectBuilder &db, IndexExprScope *enclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
@@ -373,10 +382,10 @@ private:
   llvm::SmallVector<mlir::Value, 4> symbols;
   // Rewriter, null when during shape inference; otherwise used to create ops.
   mlir::OpBuilder *rewriter;
-  // Location for ops rewriting.
-  mlir::Location loc;
   // Parent scope (used when creating a child scope).
   IndexExprScope *parentScope;
+  // Location for ops rewriting.
+  mlir::Location loc;
   // Container of all index expr implementation records, to simplify
   // live range analysis. ALl will be deleted upon scope destruction.
   llvm::SmallVector<IndexExprImpl *, 20> container;
@@ -408,7 +417,7 @@ public:
   IndexExpr(IndexExpr &&obj) noexcept : indexExprObj(obj.indexExprObj) {
     obj.indexExprObj = nullptr;
   }
-  virtual ~IndexExpr() {}
+  virtual ~IndexExpr() = default;
   IndexExpr &operator=(const IndexExpr &) = default;
   IndexExpr &operator=(IndexExpr &&) = default;
 
@@ -448,6 +457,7 @@ public:
   mlir::OpBuilder &getRewriter() const { return getScope().getRewriter(); }
   mlir::Location getLoc() const { return getScope().getLoc(); }
   int64_t getLiteral() const;
+  int64_t getQuestionmark() const;
   mlir::AffineExpr getAffineExpr() const;
   void getAffineMapAndOperands(
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands) const;
@@ -457,7 +467,8 @@ public:
   // the (list of) Shape/Value/OpFoldResult corresponding to the original (list
   // of) IndexExpr.
   static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
-      llvm::SmallVectorImpl<int64_t> &intDimList);
+      llvm::SmallVectorImpl<int64_t> &intDimList,
+      bool uniqueQuestionMark = false);
   static void getValues(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::Value> &valueList);
   static void getOpOrFoldResults(
@@ -555,8 +566,11 @@ protected:
   using F3 = std::function<IndexExpr(
       IndexExpr const, IndexExpr const, IndexExpr const)>;
   // Support for operations: common handling for multiple operations.
+  // When hasNeutralA, if a==*this is neutral literal value, then result is b.
+  // When hasNeutralB, if b is neutral literal value, then result is a.
   IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB,
-      bool affineExprCompatible, F2 fInteger, F2 fAffine, F2 fValue) const;
+      bool affineExprCompatible, bool hasNeutralA, bool hasNeutralB,
+      int64_t neutralVal, F2 fInteger, F2 fAffine, F2 fValue) const;
   IndexExpr compareOp(
       mlir::arith::CmpIPredicate comparePred, IndexExpr const b) const;
   static IndexExpr reductionOp(llvm::SmallVectorImpl<IndexExpr> &vals,
@@ -574,6 +588,7 @@ protected:
 class UndefinedIndexExpr : public IndexExpr {
 public:
   UndefinedIndexExpr();
+  virtual ~UndefinedIndexExpr() = default;
 };
 
 // Subclass to explicitly create affine literal IndexExpr. For predicate literal
@@ -593,7 +608,7 @@ public:
   LiteralIndexExpr(SymbolIndexExpr const &o);
 
   LiteralIndexExpr(LiteralIndexExpr &&) = delete;
-  ~LiteralIndexExpr() = default;
+  virtual ~LiteralIndexExpr() = default;
   LiteralIndexExpr &operator=(const LiteralIndexExpr &) = delete;
   LiteralIndexExpr &operator=(LiteralIndexExpr &&) = delete;
 
@@ -617,7 +632,7 @@ public:
   NonAffineIndexExpr(SymbolIndexExpr const &o);
 
   NonAffineIndexExpr(NonAffineIndexExpr &&) = delete;
-  ~NonAffineIndexExpr() = default;
+  virtual ~NonAffineIndexExpr() = default;
   NonAffineIndexExpr &operator=(const NonAffineIndexExpr &) = delete;
   NonAffineIndexExpr &operator=(NonAffineIndexExpr &&) = delete;
 
@@ -629,6 +644,11 @@ private:
 class QuestionmarkIndexExpr : public IndexExpr {
 public:
   QuestionmarkIndexExpr();
+  // Construct a question mark for an unknown dimension in a Tensor/Memref.
+  // This constructor is needed for symbolic shape analysis where each
+  // question mark is assigned to a unique value hashed from the given
+  // tensorOrMemref and dimension index.
+  QuestionmarkIndexExpr(mlir::Value tensorOrMemref, int64_t index);
   QuestionmarkIndexExpr(IndexExpr const &o);
   QuestionmarkIndexExpr(UndefinedIndexExpr const &o);
   QuestionmarkIndexExpr(LiteralIndexExpr const &o);
@@ -640,9 +660,20 @@ public:
   QuestionmarkIndexExpr(SymbolIndexExpr const &o);
 
   QuestionmarkIndexExpr(QuestionmarkIndexExpr &&) = delete;
-  ~QuestionmarkIndexExpr() = default;
+  virtual ~QuestionmarkIndexExpr() = default;
   QuestionmarkIndexExpr &operator=(const QuestionmarkIndexExpr &) = delete;
   QuestionmarkIndexExpr &operator=(QuestionmarkIndexExpr &&) = delete;
+
+  // Query functions.
+  // Check if the question mark is specific so that it can be distinguished from
+  // other question marks.
+  bool specificQuestionmark() const;
+  // Check if two question marks are the same or not. Two question marks are the
+  // same if they are specific and have the same value.
+  bool sameQuestionmark(IndexExpr const &o) const;
+
+private:
+  QuestionmarkIndexExpr(IndexExprImpl *otherObjPtr);
 };
 
 // Subclass to explicitly create Predicate IndexExpr.
@@ -662,7 +693,7 @@ public:
   PredicateIndexExpr(SymbolIndexExpr const &o);
 
   PredicateIndexExpr(PredicateIndexExpr &&) = delete;
-  ~PredicateIndexExpr() = default;
+  virtual ~PredicateIndexExpr() = default;
   PredicateIndexExpr &operator=(const PredicateIndexExpr &) = delete;
   PredicateIndexExpr &operator=(PredicateIndexExpr &&) = delete;
 
@@ -686,7 +717,7 @@ public:
   AffineIndexExpr(SymbolIndexExpr const &o);
 
   AffineIndexExpr(AffineIndexExpr &&) = delete;
-  ~AffineIndexExpr() = default;
+  virtual ~AffineIndexExpr() = default;
   AffineIndexExpr &operator=(const AffineIndexExpr &) = delete;
   AffineIndexExpr &operator=(AffineIndexExpr &&) = delete;
 
@@ -710,7 +741,7 @@ public:
   DimIndexExpr(SymbolIndexExpr const &o);
 
   DimIndexExpr(DimIndexExpr &&) = default;
-  ~DimIndexExpr() = default;
+  virtual ~DimIndexExpr() = default;
   DimIndexExpr &operator=(const DimIndexExpr &) = default;
   DimIndexExpr &operator=(DimIndexExpr &&) = default;
 
@@ -734,7 +765,7 @@ public:
   SymbolIndexExpr(SymbolIndexExpr const &o);
 
   SymbolIndexExpr(SymbolIndexExpr &&) = default;
-  ~SymbolIndexExpr() = default;
+  virtual ~SymbolIndexExpr() = default;
   SymbolIndexExpr &operator=(const SymbolIndexExpr &) = delete;
   SymbolIndexExpr &operator=(SymbolIndexExpr &&) = delete;
 
@@ -757,20 +788,22 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr &b) {
 }
 
 //===----------------------------------------------------------------------===//
-// Capturing Index Expressions
+// TO BE DEPRECATED: Capturing Index Expressions
 //===----------------------------------------------------------------------===//
 
-// Capture array of values given by an operand. Will find its definitition and
-// use it locate its constant values, or load dynamically if they are not
-// constant.
+// TO BE DEPRECATED: Capture array of values given by an operand. Will find its
+// definitition and use it locate its constant values, or load dynamically if
+// they are not constant.
 class ArrayValueIndexCapture {
 public:
   // Lambda functions to extract/generate info. No code is provided in order to
   // keep the IndexExpr and their support operations generic.
 
-  // GetDenseVal locate a DenseElementAttr by looking at the definition of the
-  // array value. Return null if this definition is not generating a dense
-  // array.
+  // If ArrayValueIndexCapture constructor's array is defined by a constant,
+  // the the function below will locate it and return its DenseElementsAttr.
+  // GetDenseVal attempts to locate a DenseElementAttr by looking at the
+  // definition of the array value. Return null if this definition is not
+  // generating a dense array.
   using GetDenseVal = std::function<mlir::DenseElementsAttr(mlir::Value array)>;
   // LoadVal will load the value at array[i] where array is a single dimensional
   // array.
@@ -801,7 +834,7 @@ private:
   LoadVal fLoadVallFromArrayAtIndex;
 };
 
-// Capture array of values given by attributes.
+// TO BE DEPRECATED: Capture array of values given by attributes.
 class ArrayAttributeIndexCapture {
 public:
   ArrayAttributeIndexCapture(mlir::ArrayAttr array);
@@ -818,9 +851,9 @@ private:
   bool hasDefault;
 };
 
-// Capture memory bounds give by a tensor or memref. Locate its shape, return
-// constant values when available or generate the appropriate dim operation when
-// they are not constant at compile time.
+// TO BE DEPRECATED: Capture memory bounds give by a tensor or memref. Locate
+// its shape, return constant values when available or generate the appropriate
+// dim operation when they are not constant at compile time.
 class MemRefBoundsIndexCapture {
 public:
   MemRefBoundsIndexCapture();
@@ -851,6 +884,7 @@ private:
 // Make IndexExpressions of a given type from provided input list/range
 //===----------------------------------------------------------------------===//
 
+// Create a list of IndexExpr of kind INDEXEXPR from an ArrayRef of block args.
 template <class INDEXEXPR>
 void getIndexExprList(mlir::ArrayRef<mlir::BlockArgument> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -859,6 +893,8 @@ void getIndexExprList(mlir::ArrayRef<mlir::BlockArgument> inputList,
     outputList.emplace_back(INDEXEXPR(item));
 }
 
+// Create a list of IndexExpr of kind INDEXEXPR from a value range (list of
+// values).
 template <class INDEXEXPR>
 void getIndexExprList(
     mlir::ValueRange range, llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -867,6 +903,7 @@ void getIndexExprList(
     outputList.emplace_back(INDEXEXPR(item));
 }
 
+// Create a list of IndexExpr of kind INDEXEXPR from another list of IndexExpr.
 template <class INDEXEXPR>
 void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -874,5 +911,14 @@ void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
   for (auto item : inputList)
     outputList.emplace_back(INDEXEXPR(item));
 }
+
+// Create a list of IndexExpr of kind LiteralIndexExpr from a list of integers.
+void getIndexExprListFromInt(llvm::SmallVectorImpl<int64_t> &inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList);
+
+// Create a list of IndexExpr of kind LiteralIndexExpr/Questionmark from a
+// shape. Negative values are translated to Questionmarks.
+void getIndexExprListFromShape(llvm::SmallVectorImpl<int64_t> &inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList);
 
 } // namespace onnx_mlir

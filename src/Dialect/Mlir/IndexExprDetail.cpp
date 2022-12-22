@@ -24,6 +24,8 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include <mutex>
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -48,13 +50,31 @@ void IndexExprImpl::initAsUndefined() {
 }
 
 void IndexExprImpl::initAsQuestionmark() {
-  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark, 0,
+  // Question mark has value of -1 by default.
+  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark, -1,
       AffineExpr(nullptr), Value(nullptr));
+}
+
+void IndexExprImpl::initAsQuestionmark(int64_t const val) {
+  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark, val,
+      AffineExpr(nullptr), Value(nullptr));
+}
+
+void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
+  // Each question mark is assigned a unique integer that is obtained
+  // by hashing the tensor/memref value and the target dimension index.
+  // According to `llvm/ADT/hashing.h`, a hash value is per execution of the
+  // program. Thus, it should not be trusted to be stable or predictable across
+  // processes or executions.
+  llvm::hash_code questionValue = llvm::hash_combine(
+      mlir::hash_value(tensorOrMemref), llvm::hash_value(index));
+  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark,
+      questionValue, AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
   assert((kind != IndexExprKind::Questionmark) &&
-         "litterals are either affine or predicate");
+         "literals are either affine or predicate");
   init(/*isDefined*/ true, /*literal*/ true, kind, val, AffineExpr(nullptr),
       Value(nullptr));
 }
@@ -66,7 +86,7 @@ static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
       intLit = constantOp.getValue().cast<IntegerAttr>().getInt();
     return true;
   }
-  // Since ConsantIndexOp is a subclass of ConstantOp, not sure if this one is
+  // Since ConstantIndexOp is a subclass of ConstantOp, not sure if this one is
   // useful.
   if (auto constantOp = value.getDefiningOp<arith::ConstantIndexOp>()) {
     if (constantOp.getType().isa<IndexType>())
@@ -165,17 +185,17 @@ void IndexExprImpl::copy(IndexExprImpl const *other) {
 bool IndexExprImpl::isDefined() const { return defined; }
 
 bool IndexExprImpl::isLiteral() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   return literal;
 }
 
 bool IndexExprImpl::isQuestionmark() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   return kind == IndexExprKind::Questionmark;
 }
 
 bool IndexExprImpl::isAffine() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   // To catch predicate that are literals as affine.
   if (isLiteral())
     return true;
@@ -184,17 +204,17 @@ bool IndexExprImpl::isAffine() const {
 }
 
 bool IndexExprImpl::isSymbol() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   return kind == IndexExprKind::Symbol;
 }
 
 bool IndexExprImpl::isDim() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   return kind == IndexExprKind::Dim;
 }
 
 bool IndexExprImpl::isPredType() const {
-  assert(isDefined());
+  assert(isDefined() && "index expression must be defined");
   return kind == IndexExprKind::Predicate;
 }
 
@@ -243,8 +263,13 @@ int64_t IndexExprImpl::getLiteral() const {
   return intLit;
 }
 
+int64_t IndexExprImpl::getQuestionmark() const {
+  assert(isQuestionmark() && "expected a question mark index expression");
+  return intLit;
+}
+
 //===----------------------------------------------------------------------===//
-// IndexExprExpr transformative getters.
+// IndexExprExpr transformational getters.
 //===----------------------------------------------------------------------===//
 
 AffineExpr IndexExprImpl::getAffineExpr() {

@@ -17,8 +17,11 @@
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 bool ONNXToKrnl_gEmitDealloc = false;
+
+using namespace mlir;
 
 namespace onnx_mlir {
 
@@ -28,7 +31,8 @@ Value OnnxToKrnlBuilder::reshape(
 
   ShapedType inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  MultiDialectBuilder<OnnxBuilder> create(b, loc);
+  MultiDialectBuilder<OnnxBuilder, MemRefBuilder, KrnlBuilder, MathBuilder>
+      create(b(), loc());
 
   // If the output dimensions are all literals the 'onnx/Reshape' operation
   // can take the new shape via an 'onnx.Constant'.
@@ -38,8 +42,8 @@ Value OnnxToKrnlBuilder::reshape(
     for (const IndexExpr &dim : shapeDims)
       shape.push_back(dim.getLiteral());
 
-    auto constantOp =
-        createONNXConstantOpWithDenseAttr(b, loc, b.getI64TensorAttr(shape));
+    auto constantOp = createONNXConstantOpWithDenseAttr(
+        b(), loc(), b().getI64TensorAttr(shape));
 
     Value reshapeRes = create.onnx.reshape(
         MemRefType::get(shape, elementType), input, constantOp);
@@ -47,22 +51,18 @@ Value OnnxToKrnlBuilder::reshape(
     return reshapeRes;
   }
 
-  MemRefBuilder memRefBuilder(b, loc);
-  KrnlBuilder krnlBuilder(memRefBuilder);
-  MathBuilder createMath(b, loc);
-
   // When the output dimensions aren't all literals we need to generate code
-  // to compute the shape. Allocate a buffer and store the putput dimension
+  // to compute the shape. Allocate a buffer and store the output dimension
   // into it.
-  IndexType indexTy = b.getIndexType();
+  IndexType indexTy = b().getIndexType();
   int64_t length = shapeDims.size();
   memref::AllocOp alloc =
-      memRefBuilder.alignedAlloc(MemRefType::get({length}, indexTy), 16);
+      create.mem.alignedAlloc(MemRefType::get({length}, indexTy), 16);
 
   for (int64_t i = 0; i < length; ++i) {
-    Value index = createMath.constant(indexTy, i);
+    Value index = create.math.constant(indexTy, i);
     Value data = shapeDims[i].getValue();
-    krnlBuilder.store(data, alloc, index);
+    create.krnl.store(data, alloc, index);
   }
 
   // Now create the 'onnx.Reshape' operation. Because the shape is not a
@@ -77,7 +77,7 @@ Value OnnxToKrnlBuilder::reshape(
   for (const IndexExpr &dim : shapeDims)
     castOutputShape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
 
-  Value castRes = memRefBuilder.cast(create.onnx.toMemref(reshapeRes),
+  Value castRes = create.mem.cast(create.onnx.toMemref(reshapeRes),
       MemRefType::get(castOutputShape, elementType));
 
   return castRes;
@@ -89,7 +89,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   assert(!outputDims.empty() && "Output dimensions should not be empty");
   assert(!perm.empty() && perm.size() == outputDims.size() &&
          "Expecting valid permutation array");
-  MultiDialectBuilder<OnnxBuilder> create(b, loc);
+  MultiDialectBuilder<OnnxBuilder> create(b(), loc());
 
   // Compute the shape of the 'onnx.Transpose' result.
   SmallVector<int64_t, 6> shape;
@@ -100,7 +100,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   ShapedType inputType = input.getType().cast<ShapedType>();
   Value transposeRes =
       create.onnx.transpose(MemRefType::get(shape, inputType.getElementType()),
-          input, b.getI64ArrayAttr(perm));
+          input, b().getI64ArrayAttr(perm));
 
   return transposeRes;
 }
@@ -176,7 +176,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   if (hasAllConstantDimensions(type))
     return insertAllocAndDealloc(
         type, loc, rewriter, insertDealloc, nullptr, alignment);
-  // Otherwise, take the unkown operands from the output dim IndexExpressions
+  // Otherwise, take the unknown operands from the output dim IndexExpressions
   SmallVector<Value, 2> allocOperands;
   auto memRefShape = type.getShape();
   auto rank = memRefShape.size();
@@ -483,9 +483,16 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
 /// The new view is created using the given 'outputDims'.
 Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
-    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims) {
+    Location loc, Value data, SmallVectorImpl<IndexExpr> &outputDims,
+    Type outputType) {
   MemRefBuilder createMemRef(rewriter, loc);
-  return createMemRef.reinterpretCast(data, outputDims);
+  Value newView = createMemRef.reinterpretCast(data, outputDims);
+  // Set type to the output type to avoid unrealized_conversion_cast.
+  // It's because the output type is sometimes better than the inferred type,
+  // e.g. the output type has a static dim (e.g. set by users) that can be
+  // dynamic in the inferred type.
+  newView.setType(outputType);
+  return newView;
 }
 
 /// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
@@ -518,6 +525,17 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
         createKrnl.store(loopInd[axis], order, loopInd);
       });
 
+  // Do sorting in the specifed order of input and return their indices.
+  if ((rank <= 6) && (axis == (rank - 1))) {
+    // Emit krnl.Call to call omTensorSort API
+    MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+    Type intType = rewriter.getIntegerType(64);
+    Value valAxis = create.math.constant(intType, axis);
+    Value valAscending = create.math.constant(intType, (int64_t)ascending);
+    SmallVector<Value, 4> operands = {input, valAxis, valAscending};
+    rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, operands);
+    return order;
+  }
   // Do sorting in the descending order of input and return their indices.
   // Using bubble sort.
   SmallVector<IndexExpr, 4> outerUbs(ubs);
@@ -594,6 +612,78 @@ Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
 }
 
 //===----------------------------------------------------------------------===//
+// Support functions for help with custom layout.
+//===----------------------------------------------------------------------===//
+
+MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(Type type) {
+  // Get tensor rank, shape, and element type.
+  RankedTensorType tensorType = type.dyn_cast<RankedTensorType>();
+  assert(tensorType && "expected only ranked shapes");
+  ArrayRef<int64_t> shape = tensorType.getShape();
+  int64_t rank = shape.size();
+  Type elementType = tensorType.getElementType();
+  // Get encoding.
+  mlir::ONNXTensorEncodingAttr encoding = getONNXTensorEncoding(type);
+  assert(encoding && "expected ONNX tensor encoding");
+  // Process encoding to generate an vector of affine expressions (dimExpr)
+  // corresponding to the data layout.
+  SmallVector<AffineExpr, 6> dimExpr;
+  OpBuilder b(type.getContext());
+  MLIRContext *context = b.getContext();
+  if (encoding.getDataLayout() == ONNXTensorEncodingAttr::DataLayout::NCHWxC) {
+    // perform the map for (N, C, H, W) -> (N, C/x, H, W, C%x) with C=Cin tiled
+    // by x.
+    int64_t N(0), C(1), H(2), W(3); // Indices for dims in affine expressions.
+    int64_t xVal(encoding.getXFactor());
+    assert(xVal > 0 && "expected strictly positive X factor");
+    AffineExpr x = getAffineConstantExpr(xVal, context);
+    AffineExpr newN = b.getAffineDimExpr(N);
+    AffineExpr newC = b.getAffineDimExpr(C).floorDiv(x);
+    AffineExpr newH = b.getAffineDimExpr(H);
+    AffineExpr newW = b.getAffineDimExpr(W);
+    AffineExpr newXC = b.getAffineDimExpr(C) % x;
+    dimExpr.emplace_back(newN);
+    dimExpr.emplace_back(newC);
+    dimExpr.emplace_back(newH);
+    dimExpr.emplace_back(newW);
+    dimExpr.emplace_back(newXC);
+  } else if (encoding.getDataLayout() ==
+             ONNXTensorEncodingAttr::DataLayout::KCNMxCyK) {
+    // perform the map for (K, C, N, M) -> (K/y, C/x, M, N, C%x, K%y) with C=Cin
+    // and K=Cout tiled by x and y.
+    int64_t K(0), C(1), N(2), M(3); // Indices for dims in affine expressions.
+    int64_t xVal(encoding.getXFactor());
+    int64_t yVal(encoding.getYFactor());
+    assert(xVal > 0 && yVal > 0 && "expected strictly positive X & Y factors");
+    AffineExpr x = getAffineConstantExpr(xVal, context);
+    AffineExpr y = getAffineConstantExpr(yVal, context);
+    AffineExpr newK = b.getAffineDimExpr(K).floorDiv(y);
+    AffineExpr newC = b.getAffineDimExpr(C).floorDiv(x);
+    AffineExpr newN = b.getAffineDimExpr(N);
+    AffineExpr newM = b.getAffineDimExpr(M);
+    AffineExpr newXC = b.getAffineDimExpr(C) % x;
+    AffineExpr newYK = b.getAffineDimExpr(K) % y;
+    dimExpr.emplace_back(newK);
+    dimExpr.emplace_back(newC);
+    dimExpr.emplace_back(newN);
+    dimExpr.emplace_back(newM);
+    dimExpr.emplace_back(newXC);
+    dimExpr.emplace_back(newYK);
+  } else if (encoding.getDataLayout() ==
+             ONNXTensorEncodingAttr::DataLayout::STANDARD) {
+    llvm_unreachable(
+        "should not have an ONNX tensor encoding for standard data layout");
+  } else {
+    llvm_unreachable("unknown ONNX tensor encoding");
+  }
+  // Have our new dims affine expressions.
+  AffineMap map =
+      AffineMap::get(/*dims*/ rank, /*symbols*/ 0, dimExpr, context);
+  MemRefType outType = MemRefType::get(shape, elementType);
+  return MemRefType::Builder(outType).setLayout(AffineMapAttr::get(map));
+}
+
+//===----------------------------------------------------------------------===//
 // Type conversion from Onnx types to Krnl types.
 //===----------------------------------------------------------------------===//
 
@@ -611,13 +701,15 @@ KrnlTypeConverter::KrnlTypeConverter() {
       Type elementType = krnl::StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
     }
-    // Acccelators may have special versions of TensorType. Call the conversions
-    // of accelerators.
+    // Accelerators may have special versions of TensorType. Call the
+    // conversions of accelerators.
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
       MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
       if (memRefType)
         return memRefType;
     }
+    if (hasCustomONNXTensorDataLayout(tensorType))
+      return convertTypeWithCustomONNXDataLayoutToMemRef(tensorType);
     return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
   });
 
@@ -656,6 +748,23 @@ KrnlTypeConverter::KrnlTypeConverter() {
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });
+}
+
+int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
+  int64_t alignment = -1;
+  if (auto tensorType = type.dyn_cast<TensorType>()) {
+    // Accelerators may have special versions of TensorType. Call the
+    // conversions of accelerators.
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+      // The accelerator knows whether `tensorType` is its target or not to
+      // decide the aligment.
+      // -1 means the accelerator does not have a specific alignment.
+      alignment = accel->getDefaultAllocAlignment(tensorType);
+      if (alignment != -1)
+        break;
+    }
+  }
+  return alignment;
 }
 
 } // namespace onnx_mlir

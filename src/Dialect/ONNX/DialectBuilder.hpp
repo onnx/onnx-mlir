@@ -4,7 +4,7 @@
 
 //===----------- DialectBuilder.hpp - Builder for ONNX dialects -----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,20 +12,25 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/Location.h"
 #include "mlir/IR/Value.h"
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 
 namespace onnx_mlir {
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
-struct OnnxBuilder : onnx_mlir::DialectBuilder {
+struct OnnxBuilder : DialectBuilder {
+  OnnxBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   OnnxBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   OnnxBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-
+  virtual ~OnnxBuilder(){};
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
@@ -36,15 +41,22 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   mlir::Value ceil(mlir::Value input) const;
 
   // ONNXConcatOp
-  mlir::Value concat(mlir::Type outputType, mlir::ValueRange inputs,
-      mlir::IntegerAttr axis) const;
+  mlir::Value concat(
+      mlir::Type outputType, mlir::ValueRange inputs, int64_t axis) const;
 
   // ONNXConstantOp
   mlir::Value constant(mlir::Attribute denseAttr) const;
+  mlir::Value constantInt64(const mlir::ArrayRef<int64_t> intVals) const;
   mlir::Value constantFromRawBuffer(mlir::Type resultType, char *buf) const;
 
   // ONNXDivOp
   mlir::Value div(mlir::Value A, mlir::Value B) const;
+
+  // ONNXDimOp
+  mlir::Value dim(mlir::Value input, int axis) const;
+
+  // ONNXDimGroupOp
+  void dimGroup(mlir::Value input, int axis, int groupID) const;
 
   // ONNXMatMulOp or ONNXGemmOp
   mlir::Value matmul(
@@ -55,15 +67,22 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
 
   // ONNXMulOp
   mlir::Value mul(mlir::Value A, mlir::Value B) const;
+  mlir::Value mul(mlir::Type resultType, mlir::Value A, mlir::Value B) const;
 
   // ONNXReduceSumOp
   mlir::Value reduceSum(mlir::Type outputType, mlir::Value data,
-      mlir::Value axes, bool keepdims = true,
+      mlir::Value axes, bool keepDims = true,
       bool noop_with_empty_axes = false) const;
 
   // ONNXReshapeOp
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+  // Reshape input val to a N-dimensional shape; when collapseMostSignificant is
+  // true, we collapse the most significant dimensions (and preserve the N-1
+  // least significant dims); otherwise we collapse the least significant
+  // dimensions (and preserve the N-1 most significant dims).
+  mlir::Value reshapeToNDim(
+      mlir::Value val, int64_t N, bool collapseMostSignificant) const;
 
   // ONNXShapeOp
   mlir::Value shape(mlir::Type outputType, mlir::Value input) const;
@@ -72,6 +91,8 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
   mlir::Value slice(mlir::Type outputType, mlir::Value input,
       mlir::Value starts, mlir::Value ends, mlir::Value axes,
       mlir::Value steps) const;
+  mlir::Value slice(mlir::Type outputType, mlir::Value input, int64_t start,
+      int64_t end, int64_t step = 1) const; // 1D slice
 
   // ONNXSqueezeOp
   mlir::Value squeeze(
@@ -109,6 +130,30 @@ struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), onnx(db) {}
   OnnxBuilder onnx;
+};
+
+// =============================================================================
+// IndexExpr Builder for Analysis
+// =============================================================================
+
+// This class is not meant to work with the MultiDialectBuilder as it is not
+// used for building, only for analysis. We force OpBuilder to be null as
+// missing builder is used within IndexExpr as a sign that we are in shape
+// inference analysis. Be mindful not to expect builder to then be passed to
+// other builders.
+
+struct IndexExprBuilderForAnalysis : IndexExprBuilder {
+  IndexExprBuilderForAnalysis(mlir::Location loc) : IndexExprBuilder(loc) {}
+  IndexExprBuilderForAnalysis(mlir::OpBuilder &b, mlir::Location loc)
+      : IndexExprBuilder(loc) {} // Builder omitted during analysis.
+  IndexExprBuilderForAnalysis(const DialectBuilder &db)
+      : IndexExprBuilder(db.getLoc()) {} // Builder omitted during analysis.
+  virtual ~IndexExprBuilderForAnalysis() {}
+
+protected:
+  mlir::DenseElementsAttr getConst(mlir::Value value) final;
+  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
+  mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
 
 } // namespace onnx_mlir

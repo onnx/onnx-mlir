@@ -14,7 +14,7 @@
 
 //#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -28,12 +28,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
         enableParallel(enableParallel) {}
   bool enableParallel;
 
-  void convUnoptimized(ConversionPatternRewriter &rewriter,
-      IndexExprScope *topScope, ONNXConvOp &convOp,
+  void convUnoptimized(ConversionPatternRewriter &rewriter, ONNXConvOp &convOp,
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc) const {
-    auto loc = convOp.getLoc();
-    MultiDialectBuilder<KrnlBuilder, SCFBuilder, MathBuilder, MemRefBuilder>
+    Location loc = convOp.getLoc();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, SCFBuilder,
+        MathBuilder, MemRefBuilder>
         create(rewriter, loc);
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
@@ -50,23 +50,21 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // where N is Batch Size,
     // where CO (or M) is Channel Out (multiple of group num)
     // and where HO & WO are spacial dimensions of the output.
-    int outputRank = shapeHelper.dimsForOutput().size();
-    IndexExpr N = shapeHelper.dimsForOutput()[0];
-    IndexExpr CO = shapeHelper.dimsForOutput()[1];
+    int outputRank = shapeHelper.getOutputDims().size();
+    IndexExpr N = shapeHelper.getOutputDims()[0];
+    IndexExpr CO = shapeHelper.getOutputDims()[1];
     IndexExpr COPerGroup = CO.ceilDiv(G);
 
     // Bounds for input image X: [N x CI x HI x WI]:
     // where N is Batch Size,
     // where CI (or C) is Channel In (multiple of group num),
     // and where HI & WI are spacial dimensions of the input image.
-    MemRefBoundsIndexCapture inputBounds(inputOperand);
 
     // Bounds for kernel/filter W: [CO x CIPerGroup x KH x KW]:
     // where CO (or M) is Channel Out,
     // where CIPerGroup (or C/G) is number of channel in per group,
     // and where KH x KW are the kernel / filter size (e.g. 3x3, 1x1).
-    MemRefBoundsIndexCapture filterBounds(filterOperand);
-    IndexExpr CIPerGroup = filterBounds.getSymbol(1);
+    IndexExpr CIPerGroup = create.krnlIE.getShapeAsSymbol(filterOperand, 1);
 
     // Determine the bounds for the loops over batch & channel out.
     IndexExpr iZero = LiteralIndexExpr(0);
@@ -108,20 +106,23 @@ struct ONNXConvOpLowering : public ConversionPattern {
       for (int i = spatialStartIndex; i < outputRank; ++i) {
         outputSpacialLbs.emplace_back(iZero);
         outputSpacialUbs.emplace_back(
-            SymbolIndexExpr(shapeHelper.dimsForOutput()[i]));
+            SymbolIndexExpr(shapeHelper.getOutputDims()[i]));
       }
       // Spacial loops.
       // for ho = 0 .. HO:
       //    for wo = 0 .. WO:
       create.krnl.iterateIE(outputSpacialLoops, outputSpacialLoops,
           outputSpacialLbs, outputSpacialUbs,
-          [&](KrnlBuilder &create, ValueRange outputSpatialIndices) {
-            IndexExprScope outputSpacialScope(create);
+          [&](KrnlBuilder &createKrnl, ValueRange outputSpatialIndices) {
+            IndexExprScope outputSpacialScope(createKrnl);
+            MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+                MathBuilder>
+                create(createKrnl);
             // Reset reduction value to zero.
-            create.store(fZero, reductionVal);
+            create.krnl.store(fZero, reductionVal);
 
             // Bounds for reduction loops.
-            ValueRange redLoops = create.defineLoops(spacialRank + 1);
+            ValueRange redLoops = create.krnl.defineLoops(spacialRank + 1);
             SmallVector<IndexExpr, 4> redLbs, redUbs, pMinOS;
             // First: loop over channel in per group.
             redLbs.emplace_back(iZero);
@@ -130,9 +131,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
             for (int i = 0; i < spacialRank; ++i) {
               // Get data for dis spacial dimension.
               DimIndexExpr o(outputSpatialIndices[i]);
-              SymbolIndexExpr I(inputBounds.getSymbol(spatialStartIndex + i));
-              SymbolIndexExpr K(filterBounds.getSymbol(spatialStartIndex + i));
-              SymbolIndexExpr p(shapeHelper.pads[i]); // Begining/left/top pad.
+              SymbolIndexExpr I(create.krnlIE.getShapeAsSymbol(
+                  inputOperand, spatialStartIndex + i));
+              SymbolIndexExpr K(create.krnlIE.getShapeAsSymbol(
+                  filterOperand, spatialStartIndex + i));
+              SymbolIndexExpr p(shapeHelper.pads[i]); // Beginning/left/top pad.
               LiteralIndexExpr s(shapeHelper.strides[i]);
               LiteralIndexExpr d(shapeHelper.dilations[i]);
               // lb = ceil((p - o * s) / d)
@@ -151,10 +154,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
             // for ciPerGroup = 0 .. CIPerGroup:
             //   for kh in lb .. ub:
             //     for kw in lb .. ub:
-            create.iterateIE(redLoops, redLoops, redLbs, redUbs,
-                [&](KrnlBuilder &create, ValueRange redIndices) {
-                  IndexExprScope redScope(create);
-                  MathBuilder createMath(create);
+            create.krnl.iterateIE(redLoops, redLoops, redLbs, redUbs,
+                [&](KrnlBuilder &createKrnl, ValueRange redIndices) {
+                  IndexExprScope redScope(createKrnl);
+                  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+                      MathBuilder>
+                      create(createKrnl);
                   // Create access function for input image:
                   // [n, ci, ho * sh + kh * dh - ph, wo * sw + kw * dw -
                   // pw].
@@ -174,7 +179,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
                     IndexExpr t = (k * d) - pos;
                     inputAccessFct.emplace_back(t);
                   }
-                  Value image = create.loadIE(inputOperand, inputAccessFct);
+                  Value image =
+                      create.krnl.loadIE(inputOperand, inputAccessFct);
                   // Create access fct for filter: [co, ciPerG, kh, kw].
                   SmallVector<IndexExpr, 4> filterAccessFct;
                   filterAccessFct.emplace_back(DimIndexExpr(co));
@@ -184,33 +190,33 @@ struct ONNXConvOpLowering : public ConversionPattern {
                     DimIndexExpr k(redIndices[1 + i]);
                     filterAccessFct.emplace_back(k);
                   }
-                  Value filter = create.loadIE(filterOperand, filterAccessFct);
-                  Value oldRed = create.load(reductionVal);
-                  Value mul = createMath.mul(image, filter);
-                  Value newRed = createMath.add(oldRed, mul);
-                  create.store(newRed, reductionVal);
+                  Value filter =
+                      create.krnl.loadIE(filterOperand, filterAccessFct);
+                  Value oldRed = create.krnl.load(reductionVal);
+                  Value mul = create.math.mul(image, filter);
+                  Value newRed = create.math.add(oldRed, mul);
+                  create.krnl.store(newRed, reductionVal);
                 }); // Reduction loops.
                     // Finish the reduction and store in result array.
-            Value result = create.load(reductionVal);
+            Value result = create.krnl.load(reductionVal);
             // Store the result. Optionally add bias.
             SymbolIndexExpr coInOutputSpacial(co);
             if (hasBias) {
-              MathBuilder createMath(create);
-              Value bias = create.loadIE(biasOperand, {coInOutputSpacial});
-              result = createMath.add(result, bias);
+              Value bias = create.krnl.loadIE(biasOperand, {coInOutputSpacial});
+              result = create.math.add(result, bias);
             }
             SmallVector<IndexExpr, 4> resAccessFunc;
             resAccessFunc.emplace_back(SymbolIndexExpr(outerIndices[0]));
             resAccessFunc.emplace_back(coInOutputSpacial);
             for (Value o : outputSpatialIndices)
               resAccessFunc.emplace_back(DimIndexExpr(o));
-            create.storeIE(result, alloc, resAccessFunc);
+            create.krnl.storeIE(result, alloc, resAccessFunc);
           }); // Output spacial loops.
     };
 
     if (enableParallel) {
       create.scf.parallelLoop(parLbs, parUbs, steps,
-          [&](DialectBuilder &create, ValueRange outerIndices) {
+          [&](SCFBuilder &create, ValueRange outerIndices) {
             bodyFunction(outerIndices);
           });
     } else {
@@ -224,16 +230,14 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     ONNXConvOpAdaptor operandAdaptor(operands);
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
     // Get shape.
-    ONNXConvOpShapeHelper shapeHelper(&convOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createIE(rewriter, loc);
+    ONNXConvOpShapeHelper shapeHelper(op, operands, &createIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -243,10 +247,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
-    convUnoptimized(rewriter, shapeHelper.scope, convOp, operandAdaptor,
-        shapeHelper, memRefType, alloc);
+    convUnoptimized(
+        rewriter, convOp, operandAdaptor, shapeHelper, memRefType, alloc);
 
     rewriter.replaceOp(op, alloc);
     return success();

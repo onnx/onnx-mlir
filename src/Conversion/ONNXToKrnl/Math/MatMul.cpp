@@ -19,7 +19,7 @@
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #define DEBUG_TYPE "matmul"
 static constexpr int32_t DISABLE_MAT_VEC_PRODUCT = 0;
@@ -43,14 +43,14 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Define loops and bounds.
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
-    int outerLoopNum = shapeHelper.dimsForOutput().size();
+    int outerLoopNum = shapeHelper.getOutputDims().size();
     int totLoopNum = outerLoopNum + 1; // Add reduction inner loop.
     ValueRange loopDef = create.krnl.defineLoops(totLoopNum);
     SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LiteralIndexExpr(0));
-    SmallVector<IndexExpr, 4> loopUbs; // All dimsForOutputs, plus reduction.
+    SmallVector<IndexExpr, 4> loopUbs; // All getOutputDimss, plus reduction.
     SmallVector<Value, 4> outerLoops;  // All but the last loop def.
     for (int i = 0; i < outerLoopNum; ++i) {
-      loopUbs.emplace_back(shapeHelper.dimsForOutput()[i]);
+      loopUbs.emplace_back(shapeHelper.getOutputDims()[i]);
       outerLoops.emplace_back(loopDef[i]);
     }
     int aRank = shapeHelper.aDims.size();
@@ -395,11 +395,12 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOpAdaptor operandAdaptor(operands);
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
-    ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder> create(
+        rewriter, loc);
+
+    // Get shape.
+    ONNXMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -410,11 +411,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Get the constants: zero.
-    MathBuilder createMath(rewriter, loc);
-    Value zero = createMath.constant(elementType, 0);
+    Value zero = create.math.constant(elementType, 0);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
     int aRank = A.getType().cast<MemRefType>().getShape().size();

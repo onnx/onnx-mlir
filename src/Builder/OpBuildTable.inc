@@ -19,10 +19,13 @@ op_dialect_version_map_["Asinh"] = {9};
 op_dialect_version_map_["Atan"] = {7};
 op_dialect_version_map_["Atanh"] = {9};
 op_dialect_version_map_["AveragePool"] = {11};
-op_dialect_version_map_["BatchNormalization"] = {14};
+op_dialect_version_map_["BatchNormalization"] = {15};
+op_dialect_version_map_["Bernoulli"] = {15};
 op_dialect_version_map_["Binarizer"] = {1};
 op_dialect_version_map_["BitShift"] = {11};
+op_dialect_version_map_["BlackmanWindow"] = {17};
 op_dialect_version_map_["Cast"] = {13};
+op_dialect_version_map_["CastLike"] = {15};
 op_dialect_version_map_["CastMap"] = {1};
 op_dialect_version_map_["CategoryMapper"] = {1};
 op_dialect_version_map_["Ceil"] = {13};
@@ -42,6 +45,7 @@ op_dialect_version_map_["CumSum"] = {14};
 op_dialect_version_map_["DepthToSpace"] = {13};
 op_dialect_version_map_["DequantizeLinear"] = {13};
 op_dialect_version_map_["Det"] = {11};
+op_dialect_version_map_["DFT"] = {17};
 op_dialect_version_map_["DictVectorizer"] = {1};
 op_dialect_version_map_["Div"] = {14};
 op_dialect_version_map_["Dropout"] = {13};
@@ -67,6 +71,9 @@ op_dialect_version_map_["GlobalMaxPool"] = {1};
 op_dialect_version_map_["Gradient"] = {1};
 op_dialect_version_map_["Greater"] = {13};
 op_dialect_version_map_["GreaterOrEqual"] = {16};
+op_dialect_version_map_["GridSample"] = {16};
+op_dialect_version_map_["HammingWindow"] = {17};
+op_dialect_version_map_["HannWindow"] = {17};
 op_dialect_version_map_["HardSigmoid"] = {6};
 op_dialect_version_map_["Hardmax"] = {13};
 op_dialect_version_map_["HardSwish"] = {14};
@@ -76,6 +83,7 @@ op_dialect_version_map_["Imputer"] = {1};
 op_dialect_version_map_["InstanceNormalization"] = {6};
 op_dialect_version_map_["IsInf"] = {10};
 op_dialect_version_map_["IsNaN"] = {13};
+op_dialect_version_map_["LayerNormalization"] = {17};
 op_dialect_version_map_["LRN"] = {13};
 op_dialect_version_map_["LSTM"] = {14};
 op_dialect_version_map_["LabelEncoder"] = {2};
@@ -97,6 +105,7 @@ op_dialect_version_map_["MaxRoiPool"] = {1};
 op_dialect_version_map_["MaxUnpool"] = {11};
 op_dialect_version_map_["Mean"] = {13};
 op_dialect_version_map_["MeanVarianceNormalization"] = {13};
+op_dialect_version_map_["MelWeightMatrix"] = {17};
 op_dialect_version_map_["Min"] = {13};
 op_dialect_version_map_["Mod"] = {13};
 op_dialect_version_map_["Momentum"] = {1};
@@ -141,14 +150,14 @@ op_dialect_version_map_["Relu"] = {14};
 op_dialect_version_map_["Reshape"] = {14};
 op_dialect_version_map_["Resize"] = {13, 11, 10};
 op_dialect_version_map_["ReverseSequence"] = {10};
-op_dialect_version_map_["RoiAlign"] = {10};
+op_dialect_version_map_["RoiAlign"] = {16};
 op_dialect_version_map_["Round"] = {11};
 op_dialect_version_map_["SVMClassifier"] = {1};
 op_dialect_version_map_["SVMRegressor"] = {1};
 op_dialect_version_map_["Scaler"] = {1};
 op_dialect_version_map_["Scan"] = {16};
 op_dialect_version_map_["Scatter"] = {11};
-op_dialect_version_map_["ScatterElements"] = {13};
+op_dialect_version_map_["ScatterElements"] = {16};
 op_dialect_version_map_["ScatterND"] = {16};
 op_dialect_version_map_["Selu"] = {6};
 op_dialect_version_map_["SequenceAt"] = {11};
@@ -157,7 +166,8 @@ op_dialect_version_map_["SequenceEmpty"] = {11};
 op_dialect_version_map_["SequenceErase"] = {11};
 op_dialect_version_map_["SequenceInsert"] = {11};
 op_dialect_version_map_["SequenceLength"] = {11};
-op_dialect_version_map_["Shape"] = {13};
+op_dialect_version_map_["SequenceMap"] = {17};
+op_dialect_version_map_["Shape"] = {15};
 op_dialect_version_map_["Shrink"] = {9};
 op_dialect_version_map_["Sigmoid"] = {13};
 op_dialect_version_map_["Sign"] = {13};
@@ -165,7 +175,7 @@ op_dialect_version_map_["Sin"] = {7};
 op_dialect_version_map_["Sinh"] = {9};
 op_dialect_version_map_["Size"] = {13};
 op_dialect_version_map_["Slice"] = {13};
-op_dialect_version_map_["Softmax"] = {13};
+op_dialect_version_map_["Softmax"] = {13, 11};
 op_dialect_version_map_["SoftmaxCrossEntropyLoss"] = {13};
 op_dialect_version_map_["Softplus"] = {1};
 op_dialect_version_map_["Softsign"] = {1};
@@ -175,6 +185,7 @@ op_dialect_version_map_["SplitToSequence"] = {11};
 op_dialect_version_map_["Sqrt"] = {13};
 op_dialect_version_map_["Squeeze"] = {13, 11};
 op_dialect_version_map_["StringNormalizer"] = {10};
+op_dialect_version_map_["STFT"] = {17};
 op_dialect_version_map_["Sub"] = {14};
 op_dialect_version_map_["Sum"] = {13};
 op_dialect_version_map_["Tan"] = {7};
@@ -189,7 +200,7 @@ op_dialect_version_map_["TreeEnsembleClassifier"] = {1};
 op_dialect_version_map_["TreeEnsembleRegressor"] = {1};
 op_dialect_version_map_["Unique"] = {11};
 op_dialect_version_map_["Unsqueeze"] = {13, 11};
-op_dialect_version_map_["Upsample"] = {10, 9, 7};
+op_dialect_version_map_["Upsample"] = {9, 7};
 op_dialect_version_map_["Where"] = {16};
 op_dialect_version_map_["Xor"] = {7};
 op_dialect_version_map_["ZipMap"] = {1};
@@ -219,10 +230,16 @@ import_handler_map_["AveragePool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAveragePoolOp>;
 import_handler_map_["BatchNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeBatchNormalization;
+import_handler_map_["Bernoulli"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBernoulliOp>;
 import_handler_map_["BitShift"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitShiftOp>;
+import_handler_map_["BlackmanWindow"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBlackmanWindowOp>;
 import_handler_map_["Cast"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeCast;
+import_handler_map_["CastLike"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCastLikeOp>;
 import_handler_map_["Ceil"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeilOp>;
 import_handler_map_["Celu"] = 
@@ -257,6 +274,8 @@ import_handler_map_["Cosh"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCoshOp>;
 import_handler_map_["CumSum"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCumSumOp>;
+import_handler_map_["DFT"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDFTOp>;
 import_handler_map_["DepthToSpace"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDepthToSpaceOp>;
 import_handler_map_["DequantizeLinear"] = 
@@ -307,6 +326,12 @@ import_handler_map_["Greater"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOp>;
 import_handler_map_["GreaterOrEqual"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOrEqualOp>;
+import_handler_map_["GridSample"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGridSampleOp>;
+import_handler_map_["HammingWindow"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHammingWindowOp>;
+import_handler_map_["HannWindow"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHannWindowOp>;
 import_handler_map_["HardSigmoid"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHardSigmoidOp>;
 import_handler_map_["HardSwish"] = 
@@ -327,6 +352,8 @@ import_handler_map_["LRN"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLRNOp>;
 import_handler_map_["LSTM"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLSTMOp>;
+import_handler_map_["LayerNormalization"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLayerNormalizationOp>;
 import_handler_map_["LeakyRelu"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLeakyReluOp>;
 import_handler_map_["Less"] = 
@@ -359,6 +386,8 @@ import_handler_map_["Mean"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMeanOp>;
 import_handler_map_["MeanVarianceNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMeanVarianceNormalizationOp>;
+import_handler_map_["MelWeightMatrix"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMelWeightMatrixOp>;
 import_handler_map_["Min"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMinOp>;
 import_handler_map_["Mod"] = 
@@ -455,6 +484,8 @@ import_handler_map_["RoiAlign"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRoiAlignOp>;
 import_handler_map_["Round"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRoundOp>;
+import_handler_map_["STFT"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSTFTOp>;
 import_handler_map_["Scan"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXScanOp>;
 import_handler_map_["Scatter"] = 
@@ -477,6 +508,8 @@ import_handler_map_["SequenceInsert"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSequenceInsertOp>;
 import_handler_map_["SequenceLength"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSequenceLengthOp>;
+import_handler_map_["SequenceMap"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSequenceMapOp>;
 import_handler_map_["Shape"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXShapeOp>;
 import_handler_map_["Shrink"] = 
@@ -494,7 +527,9 @@ import_handler_map_["Size"] =
 import_handler_map_["Slice"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeSlice;
 import_handler_map_["Softmax"] = 
-   &onnx_mlir::detail::FrontendGenImpl::ImportNodeSoftmax;
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxOp>;
+import_handler_map_["SoftmaxV11"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxV11Op>;
 import_handler_map_["SoftmaxCrossEntropyLoss"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxCrossEntropyLossOp>;
 import_handler_map_["Softplus"] = 
@@ -545,8 +580,6 @@ import_handler_map_["UnsqueezeV11"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUnsqueezeV11Op>;
 import_handler_map_["Upsample"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleOp>;
-import_handler_map_["UpsampleV9"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleV9Op>;
 import_handler_map_["UpsampleV7"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleV7Op>;
 import_handler_map_["Where"] = 
@@ -609,9 +642,12 @@ op_dialect_top_version_map_["Asinh"] = 9;
 op_dialect_top_version_map_["Atan"] = 7;
 op_dialect_top_version_map_["Atanh"] = 9;
 op_dialect_top_version_map_["AveragePool"] = 11;
-op_dialect_top_version_map_["BatchNormalization"] = 14;
+op_dialect_top_version_map_["BatchNormalization"] = 15;
+op_dialect_top_version_map_["Bernoulli"] = 15;
 op_dialect_top_version_map_["BitShift"] = 11;
+op_dialect_top_version_map_["BlackmanWindow"] = 17;
 op_dialect_top_version_map_["Cast"] = 13;
+op_dialect_top_version_map_["CastLike"] = 15;
 op_dialect_top_version_map_["Ceil"] = 13;
 op_dialect_top_version_map_["Celu"] = 12;
 op_dialect_top_version_map_["Clip"] = 6;
@@ -626,6 +662,7 @@ op_dialect_top_version_map_["ConvTranspose"] = 11;
 op_dialect_top_version_map_["Cos"] = 7;
 op_dialect_top_version_map_["Cosh"] = 9;
 op_dialect_top_version_map_["CumSum"] = 14;
+op_dialect_top_version_map_["DFT"] = 17;
 op_dialect_top_version_map_["DepthToSpace"] = 13;
 op_dialect_top_version_map_["DequantizeLinear"] = 13;
 op_dialect_top_version_map_["Det"] = 11;
@@ -651,6 +688,9 @@ op_dialect_top_version_map_["GlobalLpPool"] = 2;
 op_dialect_top_version_map_["GlobalMaxPool"] = 1;
 op_dialect_top_version_map_["Greater"] = 13;
 op_dialect_top_version_map_["GreaterOrEqual"] = 16;
+op_dialect_top_version_map_["GridSample"] = 16;
+op_dialect_top_version_map_["HammingWindow"] = 17;
+op_dialect_top_version_map_["HannWindow"] = 17;
 op_dialect_top_version_map_["HardSigmoid"] = 6;
 op_dialect_top_version_map_["HardSwish"] = 14;
 op_dialect_top_version_map_["Hardmax"] = 13;
@@ -661,6 +701,7 @@ op_dialect_top_version_map_["IsInf"] = 10;
 op_dialect_top_version_map_["IsNaN"] = 13;
 op_dialect_top_version_map_["LRN"] = 13;
 op_dialect_top_version_map_["LSTM"] = 14;
+op_dialect_top_version_map_["LayerNormalization"] = 17;
 op_dialect_top_version_map_["LeakyRelu"] = 16;
 op_dialect_top_version_map_["Less"] = 13;
 op_dialect_top_version_map_["LessOrEqual"] = 16;
@@ -677,6 +718,7 @@ op_dialect_top_version_map_["MaxRoiPool"] = 1;
 op_dialect_top_version_map_["MaxUnpool"] = 11;
 op_dialect_top_version_map_["Mean"] = 13;
 op_dialect_top_version_map_["MeanVarianceNormalization"] = 13;
+op_dialect_top_version_map_["MelWeightMatrix"] = 17;
 op_dialect_top_version_map_["Min"] = 13;
 op_dialect_top_version_map_["Mod"] = 13;
 op_dialect_top_version_map_["Mul"] = 14;
@@ -718,11 +760,12 @@ op_dialect_top_version_map_["Relu"] = 14;
 op_dialect_top_version_map_["Reshape"] = 14;
 op_dialect_top_version_map_["Resize"] = 10;
 op_dialect_top_version_map_["ReverseSequence"] = 10;
-op_dialect_top_version_map_["RoiAlign"] = 10;
+op_dialect_top_version_map_["RoiAlign"] = 16;
 op_dialect_top_version_map_["Round"] = 11;
+op_dialect_top_version_map_["STFT"] = 17;
 op_dialect_top_version_map_["Scan"] = 16;
 op_dialect_top_version_map_["Scatter"] = 11;
-op_dialect_top_version_map_["ScatterElements"] = 13;
+op_dialect_top_version_map_["ScatterElements"] = 16;
 op_dialect_top_version_map_["ScatterND"] = 16;
 op_dialect_top_version_map_["Selu"] = 6;
 op_dialect_top_version_map_["SequenceAt"] = 11;
@@ -731,7 +774,8 @@ op_dialect_top_version_map_["SequenceEmpty"] = 11;
 op_dialect_top_version_map_["SequenceErase"] = 11;
 op_dialect_top_version_map_["SequenceInsert"] = 11;
 op_dialect_top_version_map_["SequenceLength"] = 11;
-op_dialect_top_version_map_["Shape"] = 13;
+op_dialect_top_version_map_["SequenceMap"] = 17;
+op_dialect_top_version_map_["Shape"] = 15;
 op_dialect_top_version_map_["Shrink"] = 9;
 op_dialect_top_version_map_["Sigmoid"] = 13;
 op_dialect_top_version_map_["Sign"] = 13;
@@ -739,7 +783,7 @@ op_dialect_top_version_map_["Sin"] = 7;
 op_dialect_top_version_map_["Sinh"] = 9;
 op_dialect_top_version_map_["Size"] = 13;
 op_dialect_top_version_map_["Slice"] = 13;
-op_dialect_top_version_map_["Softmax"] = 13;
+op_dialect_top_version_map_["Softmax"] = 11;
 op_dialect_top_version_map_["SoftmaxCrossEntropyLoss"] = 13;
 op_dialect_top_version_map_["Softplus"] = 1;
 op_dialect_top_version_map_["Softsign"] = 1;

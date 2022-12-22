@@ -315,7 +315,7 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
 
   int64_t batchSize = dimAt(X, 1);
   int64_t inputSize = dimAt(X, 2);
-  auto elementType = X.getType().cast<ShapedType>().getElementType();
+  Type elementType = X.getType().cast<ShapedType>().getElementType();
   MemRefType sliceXType = MemRefType::get({batchSize, inputSize}, elementType);
 
   // Allocate a buffer

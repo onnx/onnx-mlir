@@ -14,18 +14,19 @@ WORKDIR ${WORK_DIR}
 COPY . onnx-mlir
 
 # Setup onnx
-# Install into lib instead of lib64 since everything else is in lib
+# Onnx commit 9fdb3bbd7b8c99b7b6e356069193ba7150405fce switched from
+# hardcoded lib to CMAKE_INSTALL_LIBDIR. On RHEL ubi8 (and variants)
+# it fails to find protobuf because CMAKE_INSTALL_LIBDIR resolves to
+# lib64 but protobuf is installed under /usr/local/lib. So we force
+# CMAKE_INSTALL_LIBDIR to be lib.
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
-    && INSTALL_LIB=$(python3 -c "import re; import site; \
-         print(list(filter(lambda site: not re.search('lib64', site), \
-                           site.getsitepackages()))[0])") \
     && cd ${ONNX_ROOT} \
-    && python3 setup.py -q install --install-lib=${INSTALL_LIB} \
-    && rm -rf .eggs .setuptools-cmake-build build dist onnx.egg-info
+    && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install .
 
 ARG NPROC=4
 ARG ACCEL=NNPA
 ARG TEST_MCPU
+ARG KEEPSRC
 
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
@@ -53,16 +54,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
             CTEST_PARALLEL_LEVEL=${NPROC} \
             TEST_MCPU=${TEST_MCPU} \
             TEST_ARGS="${TEST_ARGS}" \
-            -j${NPROC} -f CMakeFiles/Makefile2 \
-            check-onnx-backend \
-            check-onnx-backend-dynamic \
-            check-onnx-backend-constant \
-            check-onnx-backend-signature \
-            check-onnx-backend-jni \
-            check-onnx-backend-dynamic-jni \
-            check-onnx-backend-constant-jni \
-            check-onnx-backend-input-verification\
-            check-onnx-numerical \
+            -j${NPROC} \
+            check-onnx-backend-numerical \
     && make check-docs \
     && make -j${NPROC} install \
     && echo -e "/usr/local/lib" > \
@@ -83,7 +76,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
               git libtool make python39 && \
           rm -rf /var/cache/dnf/* /usr/local/bin/ninja; \
        fi \
-    && rm -rf /tmp/* /usr/bin/python llvm-project onnx-mlir
+    && rm -rf /tmp/* /usr/bin/python \
+    && ([ "${KEEPSRC}" = "yes" ] || rm -rf llvm-project onnx-mlir)
 
 # Copy from onnx-mlir-test to squash removed source layer and
 # remove dependency on base image (onnx-mlir-llvm-shared)

@@ -51,9 +51,9 @@ After training is complete, an onnx model named `mnist.onnx` should appear.
 If you are interested in knowing how to export a pytorch model, here's the relevant code snippet:
 ```python
   model = Net()
-  # ...
-  # Train...
-  # ...
+#...
+#Train...
+#...
   input_names = ["image"]
   output_names = ["prediction"]
   dummy_input = torch.randn(1, 1, 28, 28)
@@ -74,37 +74,89 @@ Upon inspection, it should look like:
 Now we are ready to compile the model! To make it easier to invoke commands and include header files, I updated my environment variables as such:
 
 ```bash
-# ONNX_MLIR_ROOT points to the root of the onnx-mlir, 
-# under which the include and the build directory lies.
+#ONNX_MLIR_ROOT points to the root of the onnx-mlir,
+#under which the include and the build directory lies.
 export ONNX_MLIR_ROOT=$(pwd)/../..
-# Define the include directory where onnx-mlir runtime include files resides.
-# Change only if you have a non-standard install.
-export ONNX_MLIR_INCLUDE=$ONNX_MLIR_ROOT/include
-# Define the bin directory where onnx-mlir binary resides. Change only if you
-# have a non-standard install.
+#Define the bin directory where onnx-mlir binary resides.Change only if you
+#have a non - standard install.
 export ONNX_MLIR_BIN=$ONNX_MLIR_ROOT/build/Debug/bin
+#Define the include directory where onnx-mlir runtime include files resides.
+#Change only if you have a non - standard install.
+export ONNX_MLIR_INCLUDE=$ONNX_MLIR_ROOT/include
 
-# Include ONNX-MLIR executable directories part of $PATH.
+#Include ONNX-MLIR executable directories part of $PATH.
 export PATH=$ONNX_MLIR_ROOT/build/Debug/bin:$PATH
+
+#Compiler needs to know where to find its                                      \
+    runtime.Set ONNX_MLIR_RUNTIME_DIR to proper path.
+export ONNX_MLIR_RUNTIME_DIR=../../build/Debug/lib
 ```
 
-Run these commands directly in the docs/docs/mnist_example and everything should work fine. You may also simply execute `. update_env.sh`
+You may also simply execute `chmod +x update_env.sh` and `./update_env.sh` for the above commands directly in the docs/docs/mnist_example and everything should work fine.
 
 ## Compile Model
 
-To compile the model into a shared library that can be used with C/C++ and Python drivers, we invoke `onnx-mlir` with the `--EmitLib` option (it can be omitted since it's the default):
+To compile the model into a shared library that can be used with C/C++ and Python drivers, we invoke `onnx-mlir` with the `-EmitLib` option (it can be omitted since it's the default):
 ```bash
-onnx-mlir -O3 [--EmitLib] mnist.onnx
+onnx-mlir -O3 [-EmitLib] mnist.onnx
 ```
 
-A `mnist.so` should appear, which corresponds to the compiled model object file.
+A `mnist.so` should appear, which corresponds to the compiled model object file. An example to compile the model via Python interface is also provided. You could also run `python3 mnist-compile.py` and you will see a `mnist.so` appears as well.
 
-To compile the model into a jar archive that can be used with Java drivers, we invoke `onnx-mlir` with the `--EmitJNI` option:
+To compile the model into a jar archive that can be used with Java drivers, we invoke `onnx-mlir` with the `-EmitJNI` option:
 ```bash
-onnx-mlir -O3 --EmitJNI mnist.onnx
+onnx-mlir -O3 -EmitJNI mnist.onnx
 ```
 
 A `mnist.jar` should appear, which corresponds to the compiled model object file along with Java API classes.
+
+## Multi-threading
+
+onnx-mlir provides a multi-thread safe parallel compilation mode. Whether each thread is given a name or not by the user, onnx-mlir is multi-threaded safe. If you would like to give a name to a thread, use the `-customEnvFlags` keyword and an example can be found as follows.
+
+```bash
+export MNIST_WITH_O3="-O3"
+onnx-mlir -O3 -customEnvFlags=MNIST_WITH_O3 [--EmitLib] mnist.onnx -o mnist03
+```
+
+A multi-threaded experiment from command line written in Python is provided.
+
+```python
+import datetime
+import os
+import threading
+ 
+def execCmd(cmd):
+    try:
+        print("command " + cmd + " starts at " + str(datetime.datetime.now()))
+        os.system(cmd)
+        print("command " + cmd + " is finished at " + str(datetime.datetime.now()))
+    except:
+        print("command " + cmd + " meets errors")
+ 
+if __name__ == '__main__':
+
+#define 2 different commands
+    cmds = ['onnx-mlir -O3 mnist.onnx -o mnist03','onnx-mlir -O1 mnist.onnx -o mnist01']
+
+    threads = []
+    
+    print("program starts at " + str(datetime.datetime.now()))
+
+#run the commands
+    for cmd in cmds:
+        th = threading.Thread(target=execCmd, args=(cmd,))
+        th.start()
+        threads.append(th)
+
+#wait for all the commands finish
+    for th in threads:
+        th.join()
+
+    print("program is finished at " + str(datetime.datetime.now()))
+```
+
+You can execute `python3 multi-threading-test.py` under the current directory to test.
 
 ## Write a C Driver Code
 
@@ -119,7 +171,7 @@ The signature of the model inference function for all models is:
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
 ```
 
-I.e., all models ingests an `OMTensorList*`, and returns an `OMTensorList*`. Documentation of the APIs are found [here](https//onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html), with the C interface for Tensor [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
+I.e., all models ingests an `OMTensorList*`, and returns an `OMTensorList*`. Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir/doxygen_html/OnnxMlirRuntime/index.html), with the C interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
 
 ### Feeding Inputs and Retrieving Results
 
@@ -196,29 +248,30 @@ The full code is available [here](mnist.cpp).
 
 ## Write a Python Driver Code
 
-You will find most of the details of they Python driver interface described [here](https//onnx.ai/onnx-mlir/UsingPyRuntime.html). We summarize here quickly how to execute mnist in python.
+You will find most of the details of the Python driver interface described [here](https://onnx.ai/onnx-mlir/UsingPyRuntime.html). We summarize here quickly how to execute mnist in python.
 
 First, we include the necessary Python runtime library. The library path can be set by using the PYTHONPATH or simply creating a soft link in the current directory to the Python shared library (typically: `build/Debug/lib/PyRuntime.cpython-<target>.so`).
 
 ``` Python
 import numpy as np
-from PyRuntime import ExecutionSession
+from PyRuntime import OMExecutionSession
 ```
 
-The runtime use an `ExecutionSession` object to hold a specific model and entry point. On this object, we can perform in inference using the `run(input)` call where `input` is a list of numpy arrays. The signature of the input and output model can be extracted using, respectively, the `input_signature()` and `output_signature()` formatted as JSON strings. The code is shown below.
+The runtime use an `OMExecutionSession` object to hold a specific model and entry point. On this object, we can perform in inference using the `run(input)` call where `input` is a list of numpy arrays. The signature of the input and output model can be extracted using, respectively, the `input_signature()` and `output_signature()` formatted as JSON strings. The code is shown below.
 
 ``` Python
-# Load the model mnist.so compiled with onnx-mlir.
+#Load the model mnist.so compiled with onnx-mlir.
 model = 'mnist.so'
-session = ExecutionSession(model)
-# Print the models input/output signature, for display.
-# If there are problems with the signature functions, they can be simply commented out.
+session = OMExecutionSession(model)
+#Print the models input / output signature, for display.
+#If there are problems with the signature functions,                           \
+    they can be simply commented out.
 print("input signature in json", session.input_signature())
 print("output signature in json", session.output_signature())
-# Create an input arbitrarily filled of 1.0 values (file has the actual values).
+#Create an input arbitrarily filled of 1.0 values(file has the actual values).
 input = np.full((1, 1, 28, 28), 1, np.dtype(np.float32))
-# Run the model. It is best to always use the [] around the inputs as the inputs
-# are an vector of numpy arrays.
+#Run the model.It is best to always use the[] around the inputs as the inputs
+#are an vector of numpy arrays.
 outputs = session.run([input])
 ```
 The outputs can then be analyzed by inspecting the values inside the `output` list of numpy arrays.
@@ -248,7 +301,7 @@ The digit is 0
 
 ## Write a Java Driver Code
 
-Inference APIs and data structures for Java closely mirror those for C/C++. Documentation of the APIs are found [here](https//onnx.ai/onnx-mlir/doxygen_html/OMModel_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_model.html), with the Java interface for Tensor [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensor_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html) and TensorList [here](https//onnx.ai/onnx-mlir/doxygen_html/OMTensorList_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor_list.html).
+Inference APIs and data structures for Java closely mirror those for C/C++. Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir/doxygen_html/OMModel_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_model.html), with the Java interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_java/classcom_1_1ibm_1_1onnxmlir_1_1_o_m_tensor_list.html).
 
 An example Java driver for the mnist model is given below.
 
@@ -258,37 +311,38 @@ import com.ibm.onnxmlir.OMTensor;
 import com.ibm.onnxmlir.OMTensorList;
 
 public class Mnist {
+  static float[] img_data = {...};
 
-    static float[] img_data = {...};
+public
+  static void main(String[] args) {
+    // Create an input tensor list of 1 tensor.
+    // The first input is of tensor<1x1x28x28xf32>.
+    OMTensor tensor = new OMTensor(img_data, new long[]{1, 1, 28, 28});
+    OMTensor[] inputTensors = new OMTensor[]{tensor};
+    // Create a tensor list
+    OMTensorList tensorListIn = new OMTensorList(inputTensors);
 
-    public static void main(String[] args) {
-	// Create an input tensor list of 1 tensor.
-        // The first input is of tensor<1x1x28x28xf32>.
-        OMTensor tensor = new OMTensor(img_data, new long[]{1, 1, 28, 28});
-        OMTensor[] inputTensors = new OMTensor[]{ tensor };
-	// Create a tensor list
-        OMTensorList tensorListIn = new OMTensorList(inputTensors);
+    // Compute outputs.
+    OMTensorList tensorListOut = OMModel.mainGraph(tensorListIn);
 
-        // Compute outputs.
-        OMTensorList tensorListOut = OMModel.mainGraph(tensorListIn);
+    // Extract the output. The model defines one output of type
+    // tensor<1x10xf32>.
+    OMTensor y = tensorListOut.getOmtByIndex(0);
+    float[] prediction = y.getFloatData();
 
-        // Extract the output. The model defines one output of type tensor<1x10xf32>.
-	OMTensor y = tensorListOut.getOmtByIndex(0);
-	float[] prediction = y.getFloatData();
-
-        // Analyze the output.
-	int digit = -1;
-	float prob = 0.f;
-	for (int i = 0; i < prediction.length; i++) {
-	    System.out.println("prediction[" + i +"] = " + prediction[i]);
-	    if (prediction[i] > prob) {
-		digit = i;
-		prob = prediction[i];
-	    }
-	}
-
-	System.out.println("The digit is " + digit);
+    // Analyze the output.
+    int digit = -1;
+    float prob = 0.f;
+    for (int i = 0; i < prediction.length; i++) {
+      System.out.println("prediction[" + i + "] = " + prediction[i]);
+      if (prediction[i] > prob) {
+        digit = i;
+        prob = prediction[i];
+      }
     }
+
+    System.out.println("The digit is " + digit);
+  }
 }
 ```
 
