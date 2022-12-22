@@ -387,9 +387,10 @@ struct ZHighLayoutPropagationPass
   }
 
   void runOnOperation() override {
-    auto function = getOperation();
-    ConversionTarget target(getContext());
-    RewritePatternSet patterns(&getContext());
+    func::FuncOp function = getOperation();
+    MLIRContext *ctx = &getContext();
+    ConversionTarget target(*ctx);
+    RewritePatternSet patterns(ctx);
 
     // Layout propagation for ZHigh Ops.
     populateWithGenerated(patterns);
@@ -399,26 +400,25 @@ struct ZHighLayoutPropagationPass
     // only data movement operators like Concat.
 
     // Add
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXAddOp>>(&getContext());
+    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXAddOp>>(ctx);
     // Div
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXDivOp>>(&getContext());
+    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXDivOp>>(ctx);
     // Mul
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXMulOp>>(&getContext());
+    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXMulOp>>(ctx);
     // Sub
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXSubOp>>(&getContext());
+    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXSubOp>>(ctx);
     // Reciprocal
-    patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReciprocalOp>>(
-        &getContext());
+    patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReciprocalOp>>(ctx);
     // Sqrt
-    patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(&getContext());
+    patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(ctx);
 
     // Concat
-    patterns.insert<ONNXConcatLayoutPropagatePattern>(&getContext());
+    patterns.insert<ONNXConcatLayoutPropagatePattern>(ctx);
 
     // We want to canonicalize stick/unstick ops during this pass to simplify
     // rules in this pass.
-    ZHighStickOp::getCanonicalizationPatterns(patterns, &getContext());
-    ZHighUnstickOp::getCanonicalizationPatterns(patterns, &getContext());
+    ZHighStickOp::getCanonicalizationPatterns(patterns, ctx);
+    ZHighUnstickOp::getCanonicalizationPatterns(patterns, ctx);
     (void)applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
 };
