@@ -1591,6 +1591,7 @@ public:
     Type llvmF16Ty = rewriter.getF16Type();
     Type llvmF32Ty = rewriter.getF32Type();
     Type llvmI16PtrTy = LLVM::LLVMPointerType::get(llvmI16Ty);
+    Type llvmF16PtrTy = LLVM::LLVMPointerType::get(llvmF16Ty);
     Type llvmF32PtrTy = LLVM::LLVMPointerType::get(llvmF32Ty);
 
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
@@ -1612,9 +1613,8 @@ public:
     Value outputPtr = create.llvm._alloca(llvmI16PtrTy, one, /*alignment=*/0);
     callApi(rewriter, loc, module, apiRegistry, API::F32_TO_DLF16,
         {inputPtr, outputPtr, one});
-    Value outputI16 = create.llvm.load(outputPtr);
-    // Bitcast i16 output back to dlf16.
-    Value output = create.llvm.bitcast(llvmF16Ty, outputI16);
+    Value outputF16Ptr = create.llvm.bitcast(llvmF16PtrTy, outputPtr);
+    Value output = create.llvm.load(outputF16Ptr);
     rewriter.replaceOp(op, {output});
     return success();
   }

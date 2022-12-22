@@ -286,7 +286,7 @@ def generate_random_input(input_signature, input_shapes):
         # Set a range for random values.
         lb = ub = 0
         if (np.issubdtype(np_elem_type, np.floating)):
-            lb = -1.0
+            lb = 0.0
             ub = 1.0
         elif (np.issubdtype(np_elem_type, np.integer)):
             lb = -10
