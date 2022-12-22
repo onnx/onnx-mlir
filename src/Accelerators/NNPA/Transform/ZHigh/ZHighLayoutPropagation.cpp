@@ -114,6 +114,10 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNX_OP unaryOp, PatternRewriter &rewriter) const override {
+    using DataLayout = ZTensorEncodingAttr::DataLayout;
+    DataLayout LAYOUT_1D = ZTensorEncodingAttr::DataLayout::_1D;
+    DataLayout LAYOUT_2DS = ZTensorEncodingAttr::DataLayout::_2DS;
+
     Operation *genericOp = unaryOp.getOperation();
     Location loc = genericOp->getLoc();
 
@@ -129,9 +133,16 @@ public:
     if (!unstickOp)
       return failure();
 
-    // Input is unstickified from a zTensor. Do computation directly on the
-    // zTensor.
+    // Input is unstickified from a zTensor.
     Value zTensor = unstickOp.In();
+
+    // Do not support layout 1D and 2DS since their access index functions are
+    // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
+    DataLayout layout = getZTensorLayout(zTensor.getType());
+    if ((layout == LAYOUT_1D) || (layout == LAYOUT_2DS))
+      return failure();
+
+    // Do computation directly on the zTensor.
     Value zOutput = rewriter.create<ONNX_OP>(loc, zTensor.getType(), zTensor);
     Value replacedValue =
         rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
@@ -190,6 +201,8 @@ public:
       ONNX_OP binaryOp, PatternRewriter &rewriter) const override {
     using DataLayout = ZTensorEncodingAttr::DataLayout;
     DataLayout NO_LAYOUT = ZTensorEncodingAttr::DataLayout::UNDEFINED;
+    DataLayout LAYOUT_1D = ZTensorEncodingAttr::DataLayout::_1D;
+    DataLayout LAYOUT_2DS = ZTensorEncodingAttr::DataLayout::_2DS;
 
     Operation *genericOp = binaryOp.getOperation();
     Location loc = genericOp->getLoc();
@@ -230,6 +243,11 @@ public:
     DataLayout BLayout = getZTensorLayout(newB.getType());
     // Both new inputs are a CPU or unranked tensor, do nothing.
     if ((ALayout == NO_LAYOUT) && (BLayout == NO_LAYOUT))
+      return failure();
+    // Do not support layout 1D and 2DS since their access index functions are
+    // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
+    if ((ALayout == LAYOUT_1D) || (ALayout == LAYOUT_2DS) ||
+        (BLayout == LAYOUT_1D) || (BLayout == LAYOUT_2DS))
       return failure();
     // Only support f32 in the normal tensor.
     if (ALayout == NO_LAYOUT) {
