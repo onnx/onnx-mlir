@@ -283,7 +283,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     Value MOPC = create.krnl.load(maxOutputPerClass, {});
 
     // Sort scores in the descending order.
-    Value order = emitArgSort(rewriter, loc, scores, /*axis=*/2);
+    Value order = emitArgSort(rewriter, loc, scores, /*axis=*/2,
+        /*ascending=*/false);
 
     // Bounding boxes may contain a mix of flipped and non-flipped boxes. Try to
     // unflip the flipped boxes.
