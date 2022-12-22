@@ -109,8 +109,7 @@ void NNPAAccelerator::initPasses(int optLevel) const {
 }
 
 mlir::MemRefType NNPAAccelerator::convertTensorTypeToMemRefType(
-    const mlir::TensorType tensorType) const {
-  assert(tensorType.hasRank() && "expected only ranked shapes");
+    const mlir::RankedTensorType tensorType) const {
   if (isTargetTensorType(tensorType)) {
     onnx_mlir::zhigh::ZMemRefType zMemRefType =
         onnx_mlir::zhigh::convertZTensorToMemRefType(tensorType);
@@ -120,15 +119,14 @@ mlir::MemRefType NNPAAccelerator::convertTensorTypeToMemRefType(
 }
 
 int64_t NNPAAccelerator::getDefaultAllocAlignment(
-    const mlir::TensorType tensorType) const {
-  assert(tensorType.hasRank() && "expected only ranked shapes");
+    const mlir::RankedTensorType tensorType) const {
   if (isTargetTensorType(tensorType))
     return gAlignment;
   return -1;
 }
 
 Value NNPAAccelerator::convertToHostType(PatternRewriter &rewriter,
-    Location loc, TensorType tensorType, Value scalarValue) const {
+    Location loc, RankedTensorType tensorType, Value scalarValue) const {
   if (!isTargetTensorType(tensorType))
     return scalarValue;
   // TODO: assert fromType is f16.
@@ -137,7 +135,7 @@ Value NNPAAccelerator::convertToHostType(PatternRewriter &rewriter,
 }
 
 Value NNPAAccelerator::convertToAcceleratorType(PatternRewriter &rewriter,
-    Location loc, TensorType tensorType, Value scalarValue) const {
+    Location loc, RankedTensorType tensorType, Value scalarValue) const {
   if (!isTargetTensorType(tensorType))
     return scalarValue;
   // TODO: assert fromType is f32.
@@ -167,11 +165,10 @@ void NNPAAccelerator::rewritePatternKrnlToLLVM(
       patterns, typeConverter, ctx);
 }
 
-bool NNPAAccelerator::isTargetTensorType(TensorType tensorType) const {
-  return tensorType.isa<RankedTensorType>() &&
-         tensorType.cast<RankedTensorType>()
-             .getEncoding()
-             .dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>();
+bool NNPAAccelerator::isTargetTensorType(RankedTensorType tensorType) const {
+  return (
+      tensorType.getEncoding() &&
+      tensorType.getEncoding().isa<onnx_mlir::zhigh::ZTensorEncodingAttr>());
 }
 
 } // namespace accel

@@ -112,13 +112,14 @@ public:
   /// Acccelators may have special versions of TensorType. If not, override this
   /// method and return nullptr.
   virtual mlir::MemRefType convertTensorTypeToMemRefType(
-      const mlir::TensorType tensorType) const = 0;
+      const mlir::RankedTensorType tensorType) const = 0;
 
   // Return the default alignment value used when allocating a MemRef buffer for
   // the given type. E.g. some special types for accelerators requires
   // 4K-aligned buffers.
   // Return -1 if there is no specific alignment.
-  virtual int64_t getDefaultAllocAlignment(const mlir::TensorType type) const {
+  virtual int64_t getDefaultAllocAlignment(
+      const mlir::RankedTensorType type) const {
     return -1;
   }
 
@@ -127,14 +128,14 @@ public:
   // This allows ONNX operations work directly on the custom type, for example,
   // doing broacating addition.
   virtual mlir::Value convertToHostType(mlir::PatternRewriter &rewriter,
-      mlir::Location loc, mlir::TensorType tensorType,
+      mlir::Location loc, mlir::RankedTensorType tensorType,
       mlir::Value scalarValue) const = 0;
 
   // Convert back a scalar value from a type on host to a custom type defined
   // for the accelerator. This allows ONNX operations work directly on the
   // custom type, for example, doing broacating addition.
   virtual mlir::Value convertToAcceleratorType(mlir::PatternRewriter &rewriter,
-      mlir::Location loc, mlir::TensorType tensorType,
+      mlir::Location loc, mlir::RankedTensorType tensorType,
       mlir::Value scalarValue) const = 0;
 
   /// Define conversion target to be used with ONNXToKrnl.

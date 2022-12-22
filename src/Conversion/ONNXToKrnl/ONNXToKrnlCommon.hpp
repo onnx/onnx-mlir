@@ -269,10 +269,12 @@ public:
   // supported types so that CPU operations can work with the values.
   // Accelerators relies on `tensorType` to know if the type is its type or not.
   static mlir::Value convertToHostType(mlir::PatternRewriter &rewriter,
-      mlir::Location loc, mlir::TensorType tensorType, mlir::Value scalarValue);
+      mlir::Location loc, mlir::Type tensorOrMemRefType,
+      mlir::Value scalarValue);
   // Convert a value in a supported type into an unsupport type.
   static mlir::Value convertToAcceleratorType(mlir::PatternRewriter &rewriter,
-      mlir::Location loc, mlir::TensorType tensorType, mlir::Value scalarValue);
+      mlir::Location loc, mlir::Type tensorOrMemRefType,
+      mlir::Value scalarValue);
 };
 
 //===----------------------------------------------------------------------===//

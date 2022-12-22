@@ -169,33 +169,33 @@ func.func @relu_layout_propagate_nhwc(%arg0: tensor<1x56x56x256xf32, #zhigh.layo
 
 // -----
 
-func.func @onnx_concat_layout_propagation_nhwc(%arg0: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "NHWC"}>> {
+func.func @onnx_concat_layout_propagation_nhwc(%arg0: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x384x4x4xf32> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x192x4x4xf32>
   %1 = "zhigh.Unstick"(%arg1) : (tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x192x4x4xf32>
   %2 = "onnx.Concat"(%0, %1) {axis = 1 : si64} : (tensor<?x192x4x4xf32>, tensor<?x192x4x4xf32>) -> tensor<?x384x4x4xf32>
-  %3 = "zhigh.Stick"(%2) {layout = "NHWC"} : (tensor<?x384x4x4xf32>) -> tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
-  return %3 : tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
+  return %2 : tensor<?x384x4x4xf32>
 
 // CHECK-LABEL:  func.func @onnx_concat_layout_propagation_nhwc
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, [[PARAM_1_:%.+]]: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "NHWC"}>> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, [[PARAM_1_:%.+]]: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x384x4x4xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_1_]]) {axis = 3 : si64} : (tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
-// CHECK:           return [[VAR_0_]] : tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Unstick"([[VAR_0_]]) : (tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x384x4x4xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?x384x4x4xf32>
 // CHECK:         }
 }
 
 // -----
 
-func.func @onnx_concat_layout_propagation_4d(%arg0: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>, %arg1: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "4D"}>> {
+func.func @onnx_concat_layout_propagation_4d(%arg0: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>, %arg1: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x4x4x384xf32> {
   %0 = "zhigh.Unstick"(%arg0) : (tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x4x4x192xf32>
   %1 = "zhigh.Unstick"(%arg1) : (tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x4x4x192xf32>
   %2 = "onnx.Concat"(%0, %1) {axis = 3 : si64} : (tensor<?x4x4x192xf32>, tensor<?x4x4x192xf32>) -> tensor<?x4x4x384xf32>
-  %3 = "zhigh.Stick"(%2) {layout = "4D"} : (tensor<?x4x4x384xf32>) -> tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "4D"}>>
-  return %3 : tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "4D"}>>
+  return %2 : tensor<?x4x4x384xf32>
 
 // CHECK-LABEL:  func.func @onnx_concat_layout_propagation_4d
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>, [[PARAM_1_:%.+]]: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "4D"}>> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>, [[PARAM_1_:%.+]]: tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x4x4x384xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_1_]]) {axis = 3 : si64} : (tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>, tensor<?x4x4x192xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "4D"}>>
-// CHECK:           return [[VAR_0_]] : tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "4D"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Unstick"([[VAR_0_]]) : (tensor<?x4x4x384xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x4x4x384xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?x4x4x384xf32>
 // CHECK:         }
 }
 
@@ -204,27 +204,64 @@ func.func @onnx_concat_layout_propagation_4d(%arg0: tensor<?x4x4x192xf32, #zhigh
 // TODO: enable this once DLFLOAT16-based calculation is supported.
 // Data layout propagation for ONNX operations.
 // Take ONNXSqrtOp as the representative of unary element-wise ops.
-// COM: func.func @test_onnx_sqrt_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>> {
-// COM:   %0 = "zhigh.Unstick"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
-// COM:   %1 = "onnx.Sqrt"(%0) : (tensor<?x3x5x7xf32>) -> tensor<?x3x5x7xf32>
-// COM:   %2 = "zhigh.Stick"(%1) {layout = "4D"} : (tensor<?x3x5x7xf32>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
-// COM:   return %2 : tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
-// COM: 
-// COM: // CHECK-LABEL:  func.func @test_onnx_sqrt_ztensor
-// COM: // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>> {
-// COM: // CHECK:           [[VAR_0_:%.+]] = "onnx.Sqrt"([[PARAM_0_]]) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
-// COM: // CHECK:           return [[VAR_0_]] : tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
-// COM: // CHECK:         }
-// COM: }
-// COM: 
-// COM: // -----
-// COM: 
-// COM: // Data layout propagation for ONNX operations.
-// COM: // Take ONNXAddOp as the representative of binary element-wise ops.
-// COM: func.func @test_onnx_add_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, %arg1: tensor<?x3x5x1xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>> {
-// COM:   %0 = "zhigh.Unstick"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
-// COM:   %1 = "zhigh.Unstick"(%arg1) : (tensor<?x3x5x1xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x1xf32>
-// COM:   %2 = "onnx.Add"(%0, %1) : (tensor<?x3x5x7xf32>, tensor<?x3x5x1xf32>) -> tensor<?x3x5x7xf32>
-// COM:   %3 = "zhigh.Stick"(%2) {layout = "4D"} : (tensor<?x3x5x7xf32>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
-// COM:   return %3 : tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
-// COM: }
+func.func @test_onnx_sqrt_ztensor(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32> {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+  %1 = "onnx.Sqrt"(%0) : (tensor<?x3x5x7xf32>) -> tensor<?x3x5x7xf32>
+  return %1 : tensor<?x3x5x7xf32>
+
+// CHECK-LABEL:  func.func @test_onnx_sqrt_ztensor
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Sqrt"([[PARAM_0_]]) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Unstick"([[VAR_0_]]) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?x3x5x7xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Data layout propagation for ONNX operations.
+// Take ONNXAddOp as the representative of binary element-wise ops.
+func.func @test_onnx_add_ztensor_same_layout(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, %arg1: tensor<?x3x5x1xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32> {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+  %1 = "zhigh.Unstick"(%arg1) : (tensor<?x3x5x1xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x1xf32>
+  %2 = "onnx.Add"(%0, %1) : (tensor<?x3x5x7xf32>, tensor<?x3x5x1xf32>) -> tensor<?x3x5x7xf32>
+  return %2 : tensor<?x3x5x7xf32>
+
+// CHECK-LABEL:  func.func @test_onnx_add_ztensor_same_layout
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, [[PARAM_1_:%.+]]: tensor<?x3x5x1xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, tensor<?x3x5x1xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Unstick"([[VAR_0_]]) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?x3x5x7xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_onnx_add_ztensor_different_layout(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, %arg1: tensor<3x5x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<?x3x5x7xf32> {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+  %1 = "zhigh.Unstick"(%arg1) : (tensor<3x5x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<3x5x1xf32>
+  %2 = "onnx.Add"(%0, %1) : (tensor<?x3x5x7xf32>, tensor<3x5x1xf32>) -> tensor<?x3x5x7xf32>
+  return %2 : tensor<?x3x5x7xf32>
+
+// CHECK-LABEL:  func.func @test_onnx_add_ztensor_different_layout
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, [[PARAM_1_:%.+]]: tensor<3x5x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<?x3x5x7xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, tensor<3x5x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Unstick"([[VAR_0_]]) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?x3x5x7xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_onnx_add_ztensor_and_normal_tensor(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, %arg1: tensor<3x5x1xf32>) -> tensor<?x3x5x7xf32> {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+  %1 = "onnx.Add"(%0, %arg1) : (tensor<?x3x5x7xf32>, tensor<3x5x1xf32>) -> tensor<?x3x5x7xf32>
+  return %1 : tensor<?x3x5x7xf32>
+
+// CHECK-LABEL:  func.func @test_onnx_add_ztensor_and_normal_tensor
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, [[PARAM_1_:%.+]]: tensor<3x5x1xf32>) -> tensor<?x3x5x7xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, tensor<3x5x1xf32>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Unstick"([[VAR_0_]]) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?x3x5x7xf32>
+// CHECK:         }
+}

@@ -24,6 +24,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -144,19 +145,39 @@ public:
 //
 // ONNX binary operations, such as Add and Div, do not depend on a specific
 // layout. Thus, it is possible to use the layout of the previous zTensor. In
-// other words, propagate the existing layout down to the unary operation, so
-// that other rules can be applied to remove unstick-stick pairs.For example,
-// This sequence of operations:
+// other words, propagate the existing layout down to the binary operation, so
+// that other rules can be applied to remove unstick-stick pairs.
+//
+// For example, this sequence of operations:
 //   X -> Unstick (NHWC) -> onnx.Add
 //                              ^
-//   Y -> Unstick (NHWC) -------|
+//                              |
+//   Y -> Unstick (NHWC) --------
 //
 // will become:
 //   X -> onnx.Add -> Unstick (NHWC)
 //          ^
-//   Y -----|
+//          |
+//   Y ------
 //
 // then, canonicalization of unstick/stick will remove the unstick-stick pairs.
+//
+// If X and Y has different layouts/ranks, e.g. onnx.Add is broadcasting. For
+// example, X is a zTensor of layout 4D, Y is a normal tensor of rank 2:
+//   X -> Unstick (4D) -> onnx.Add
+//                              ^
+//                              |
+//              Y (2D) ----------
+// will become:
+//   X -> onnx.Add -> Unstick (4D)
+//          ^
+//          |
+//   Y ------
+// where the output of onnx.Add uses its rank to set layout, e.g. 1D for rank 1,
+// 2D for rank 2, 3D for rank 3, and 4D for rank 4.
+//
+// Note: in case that one of the inputs is a normal tensor, only f32 is
+// supported because dlfloat16 is converted to f32 while doing calculation.
 //
 //===----------------------------------------------------------------------===//
 
@@ -167,6 +188,9 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNX_OP binaryOp, PatternRewriter &rewriter) const override {
+    using DataLayout = ZTensorEncodingAttr::DataLayout;
+    DataLayout NO_LAYOUT = ZTensorEncodingAttr::DataLayout::UNDEFINED;
+
     Operation *genericOp = binaryOp.getOperation();
     Location loc = genericOp->getLoc();
 
@@ -174,38 +198,48 @@ public:
     Value B = binaryOp.B();
     Value output = binaryOp.C();
 
-    // Input is a block argument, do nothing.
-    if (A.dyn_cast<BlockArgument>() || B.dyn_cast<BlockArgument>())
+    // If A or B is zTensor, this op is legal and there is no need to rewrite.
+    DataLayout ALayout = getZTensorLayout(A.getType());
+    DataLayout BLayout = getZTensorLayout(B.getType());
+    if ((ALayout != NO_LAYOUT) || (BLayout != NO_LAYOUT))
       return failure();
 
-    // Input is a CPU tensor, do nothing.
-    auto unstickAOp = dyn_cast<ZHighUnstickOp>(A.getDefiningOp());
-    auto unstickBOp = dyn_cast<ZHighUnstickOp>(B.getDefiningOp());
-    if (!unstickAOp || !unstickBOp)
-      return failure();
+    // New inputs: at least one is a zTensor.
+    Value newA, newB;
+    if (A.dyn_cast<BlockArgument>())
+      newA = A;
+    else {
+      auto unstickAOp = dyn_cast<ZHighUnstickOp>(A.getDefiningOp());
+      newA = (unstickAOp) ? unstickAOp.In() : A;
+    }
+    if (B.dyn_cast<BlockArgument>())
+      newB = B;
+    else {
+      auto unstickBOp = dyn_cast<ZHighUnstickOp>(B.getDefiningOp());
+      newB = (unstickBOp) ? unstickBOp.In() : B;
+    }
 
-    // Input is unstickified from a zTensor. Do computation directly on the
-    // zTensor.
-    Value zTensorA = unstickAOp.In();
-    Value zTensorB = unstickBOp.In();
-    Type zTensorAType = zTensorA.getType();
-    Type zTensorBType = zTensorB.getType();
-    ZTensorEncodingAttr::DataLayout ALayout = getZTensorLayout(zTensorAType);
-    ZTensorEncodingAttr::DataLayout BLayout = getZTensorLayout(zTensorBType);
-
-    // Support same layout for zTensor A & B in the current implementation.
-    // TODO: Support arbitrary layout in the future. In such a case, what should
-    // be the output layout?
-    if ((ALayout != ZTensorEncodingAttr::DataLayout::UNDEFINED) &&
-        (ALayout != BLayout))
+    // Get layout for the output zTensor.
+    DataLayout outputLayout;
+    ALayout = getZTensorLayout(newA.getType());
+    BLayout = getZTensorLayout(newB.getType());
+    // Both inputs are a CPU tensor, do nothing.
+    if ((ALayout == NO_LAYOUT) && (BLayout == NO_LAYOUT))
       return failure();
+    // If A and B have the same layout, use that layout for the output.
+    // Otherwise, use the rank of the output to set a layout.
+    if ((ALayout == BLayout) && (ALayout != NO_LAYOUT))
+      outputLayout = ALayout;
+    else {
+      int64_t rank = getRank(output.getType());
+      outputLayout = getZTensorDataLayoutByRank(rank);
+    }
 
     // Construct the zTensor type from the output CPU tensor.
     Type zOutputType = getZTensorType(rewriter, loc, output,
-        convertZTensorDataLayoutToStringAttr(rewriter, ALayout));
+        convertZTensorDataLayoutToStringAttr(rewriter, outputLayout));
 
-    Value zOutput =
-        rewriter.create<ONNX_OP>(loc, zOutputType, zTensorA, zTensorB);
+    Value zOutput = rewriter.create<ONNX_OP>(loc, zOutputType, newA, newB);
     Value replacedValue =
         rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
     rewriter.replaceOp(genericOp, replacedValue);

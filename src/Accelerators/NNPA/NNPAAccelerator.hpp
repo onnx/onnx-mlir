@@ -61,18 +61,18 @@ public:
   // Hooks for onnx-to-krnl pass
   //===--------------------------------------------------------------------===//
   virtual mlir::MemRefType convertTensorTypeToMemRefType(
-      const mlir::TensorType tensorType) const final;
+      const mlir::RankedTensorType tensorType) const final;
   virtual void conversionTargetONNXToKrnl(
       mlir::ConversionTarget &target) const final;
   virtual void rewritePatternONNXToKrnl(mlir::RewritePatternSet &patterns,
       mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const final;
   virtual int64_t getDefaultAllocAlignment(
-      const mlir::TensorType tensorType) const final;
+      const mlir::RankedTensorType tensorType) const final;
   virtual mlir::Value convertToHostType(mlir::PatternRewriter &rewriter,
-      mlir::Location loc, mlir::TensorType tensorType,
+      mlir::Location loc, mlir::RankedTensorType tensorType,
       mlir::Value scalarValue) const final;
   virtual mlir::Value convertToAcceleratorType(mlir::PatternRewriter &rewriter,
-      mlir::Location loc, mlir::TensorType tensorType,
+      mlir::Location loc, mlir::RankedTensorType tensorType,
       mlir::Value scalarValue) const final;
   //===--------------------------------------------------------------------===//
   // Hooks for krnl-to-llvm pass
@@ -84,7 +84,7 @@ public:
       mlir::MLIRContext *ctx) const final;
 
 private:
-  bool isTargetTensorType(mlir::TensorType tensorType) const;
+  bool isTargetTensorType(mlir::RankedTensorType tensorType) const;
 };
 
 } // namespace accel
