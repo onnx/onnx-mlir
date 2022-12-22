@@ -265,3 +265,31 @@ func.func @test_onnx_add_ztensor_and_normal_tensor(%arg0: tensor<?x3x5x7xf32, #z
 // CHECK:           return [[VAR_1_]] : tensor<?x3x5x7xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_onnx_add_ztensor_and_unranked_tensor(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, %arg1: tensor<*xf32>) -> tensor<?x3x5x7xf32> {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+  %1 = "onnx.Add"(%0, %arg1) : (tensor<?x3x5x7xf32>, tensor<*xf32>) -> tensor<?x3x5x7xf32>
+  return %1 : tensor<?x3x5x7xf32>
+
+// CHECK-LABEL:  func.func @test_onnx_add_ztensor_and_unranked_tensor
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, [[PARAM_1_:%.+]]: tensor<*xf32>) -> tensor<?x3x5x7xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, tensor<*xf32>) -> tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Unstick"([[VAR_0_]]) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?x3x5x7xf32>
+}
+
+// -----
+
+// There is no support for normal tensors whose element type is not f32.
+func.func @test_onnx_add_ztensor_and_f64_tensor(%arg0: tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>, %arg1: tensor<*xf64>) -> tensor<?x3x5x7xf32> {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x3x5x7xf32, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<?x3x5x7xf32>
+  %1 = "onnx.Add"(%0, %arg1) : (tensor<?x3x5x7xf32>, tensor<*xf64>) -> tensor<?x3x5x7xf32>
+  return %1 : tensor<?x3x5x7xf32>
+
+// CHECK-LABEL:  func.func @test_onnx_add_ztensor_and_f64_tensor
+// CHECK-NEXT: "zhigh.Unstick"
+// CHECK-NEXT: "onnx.Add"
+}
+

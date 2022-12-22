@@ -223,9 +223,30 @@ public:
     DataLayout outputLayout;
     ALayout = getZTensorLayout(newA.getType());
     BLayout = getZTensorLayout(newB.getType());
-    // Both inputs are a CPU tensor, do nothing.
+    // Both inputs are a CPU or unranked tensor, do nothing.
     if ((ALayout == NO_LAYOUT) && (BLayout == NO_LAYOUT))
       return failure();
+    // Only support f32 in the normal tensor.
+    if (ALayout == NO_LAYOUT) {
+      if (auto tensorType = llvm::dyn_cast<TensorType>(newA.getType())) {
+        Type elementType = tensorType.getElementType();
+        if (auto floatType = llvm::dyn_cast<FloatType>(elementType)) {
+          if (floatType.getWidth() != 32)
+            return failure();
+        } else
+          return failure();
+      }
+    }
+    if (BLayout == NO_LAYOUT) {
+      if (auto tensorType = llvm::dyn_cast<TensorType>(newB.getType())) {
+        Type elementType = tensorType.getElementType();
+        if (auto floatType = llvm::dyn_cast<FloatType>(elementType)) {
+          if (floatType.getWidth() != 32)
+            return failure();
+        } else
+          return failure();
+      }
+    }
     // If A and B have the same layout, use that layout for the output.
     // Otherwise, use the rank of the output to set a layout.
     if ((ALayout == BLayout) && (ALayout != NO_LAYOUT))
