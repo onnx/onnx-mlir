@@ -198,32 +198,37 @@ public:
     Value B = binaryOp.B();
     Value output = binaryOp.C();
 
-    // If A or B is zTensor, this op is legal and there is no need to rewrite.
-    DataLayout ALayout = getZTensorLayout(A.getType());
-    DataLayout BLayout = getZTensorLayout(B.getType());
-    if ((ALayout != NO_LAYOUT) || (BLayout != NO_LAYOUT))
-      return failure();
-
-    // New inputs: at least one is a zTensor.
+    // New inputs: at least one normal tensor comes from a zTensor.
+    bool shouldRewrite = false;
     Value newA, newB;
-    if (A.dyn_cast<BlockArgument>())
+    if (A.dyn_cast<BlockArgument>()) {
       newA = A;
-    else {
-      auto unstickAOp = dyn_cast<ZHighUnstickOp>(A.getDefiningOp());
-      newA = (unstickAOp) ? unstickAOp.In() : A;
+    } else {
+      if (auto unstickAOp = dyn_cast<ZHighUnstickOp>(A.getDefiningOp())) {
+        newA = unstickAOp.In();
+        shouldRewrite = true;
+      } else {
+        newA = A;
+      }
     }
-    if (B.dyn_cast<BlockArgument>())
+    if (B.dyn_cast<BlockArgument>()) {
       newB = B;
-    else {
-      auto unstickBOp = dyn_cast<ZHighUnstickOp>(B.getDefiningOp());
-      newB = (unstickBOp) ? unstickBOp.In() : B;
+    } else {
+      if (auto unstickBOp = dyn_cast<ZHighUnstickOp>(B.getDefiningOp())) {
+        newB = unstickBOp.In();
+        shouldRewrite = true;
+      } else {
+        newB = B;
+      }
     }
+    if (!shouldRewrite)
+      return failure();
 
     // Get layout for the output zTensor.
     DataLayout outputLayout;
-    ALayout = getZTensorLayout(newA.getType());
-    BLayout = getZTensorLayout(newB.getType());
-    // Both inputs are a CPU or unranked tensor, do nothing.
+    DataLayout ALayout = getZTensorLayout(newA.getType());
+    DataLayout BLayout = getZTensorLayout(newB.getType());
+    // Both new inputs are a CPU or unranked tensor, do nothing.
     if ((ALayout == NO_LAYOUT) && (BLayout == NO_LAYOUT))
       return failure();
     // Only support f32 in the normal tensor.
@@ -247,6 +252,10 @@ public:
           return failure();
       }
     }
+    // TODO: Only support static dimensions in zTensor because access index in
+    // case of broadcasting is not affine and memref normalization seems not
+    // working well.
+    //
     // If A and B have the same layout, use that layout for the output.
     // Otherwise, use the rank of the output to set a layout.
     if ((ALayout == BLayout) && (ALayout != NO_LAYOUT))
