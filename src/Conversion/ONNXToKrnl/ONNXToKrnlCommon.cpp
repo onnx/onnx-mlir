@@ -525,6 +525,17 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
         createKrnl.store(loopInd[axis], order, loopInd);
       });
 
+  // Do sorting in the specifed order of input and return their indices.
+  if ((rank <= 6) && (axis == (rank - 1))) {
+    // Emit krnl.Call to call omTensorSort API
+    MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+    Type intType = rewriter.getIntegerType(64);
+    Value valAxis = create.math.constant(intType, axis);
+    Value valAscending = create.math.constant(intType, (int64_t)ascending);
+    SmallVector<Value, 4> operands = {input, valAxis, valAscending};
+    rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, operands);
+    return order;
+  }
   // Do sorting in the descending order of input and return their indices.
   // Using bubble sort.
   SmallVector<IndexExpr, 4> outerUbs(ubs);
