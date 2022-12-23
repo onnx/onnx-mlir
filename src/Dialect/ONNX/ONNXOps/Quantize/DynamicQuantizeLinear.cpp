@@ -20,6 +20,32 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXDynamicQuantizeLinearOpShapeHelper::computeShape() {
+  ONNXDynamicQuantizeLinearOpAdaptor operandAdaptor(
+      operands, op->getAttrDictionary());
+
+  // Dim of y are the same as x.
+  DimsExpr outputDims;
+  createIE->getShapeAsDims(operandAdaptor.x(), outputDims);
+  setOutputDims(outputDims, 0);
+
+  // y_scale and y_zero_point are scalar outputs...
+  outputDims.clear();
+  setOutputDims(outputDims, 1);
+  setOutputDims(outputDims, 2);
+
+  return success();
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -30,34 +56,14 @@ using namespace onnx_mlir;
 LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();
-  if (!inTy) {
+  if (!inTy)
     return success();
-  }
-
-  auto yTy = y().getType().cast<ShapedType>();
-  auto yScaleTy = y_scale().getType().cast<ShapedType>();
-  auto yZPTy = y_zero_point().getType().cast<ShapedType>();
 
   IntegerType ui8Type =
       IntegerType::get(getContext(), 8, IntegerType::Unsigned);
   FloatType f32Type = FloatType::getF32(getContext());
 
-  RankedTensorType scalarType = RankedTensorType::get({}, f32Type);
-  RankedTensorType y_zero_point_type = RankedTensorType::get({}, ui8Type);
-
-  // Set the types for the scalars
-  if (!yScaleTy.hasStaticShape()) {
-    y_scale().setType(scalarType);
-  }
-
-  if (!yZPTy.hasStaticShape()) {
-    y_zero_point().setType(y_zero_point_type);
-  }
-
-  if (!yTy.hasStaticShape()) {
-    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), ui8Type);
-    y().setType(outType);
-  }
-
-  return success();
+  ONNXDynamicQuantizeLinearOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateTypes(
+      {/*y*/ ui8Type, /*scale*/ f32Type, /*zero point*/ ui8Type});
 }
