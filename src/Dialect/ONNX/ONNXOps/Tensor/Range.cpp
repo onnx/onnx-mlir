@@ -18,23 +18,38 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXRangeOpShapeHelper::computeShape() {
+  ONNXRangeOpAdaptor operandAdaptor(operands);
+
+  // Get values.
+  IndexExpr start = createIE->getIntFromArrayAsDim(operandAdaptor.start(), 0);
+  IndexExpr limit = createIE->getIntFromArrayAsDim(operandAdaptor.limit(), 0);
+  IndexExpr delta = createIE->getIntFromArrayAsDim(operandAdaptor.delta(), 0);
+  // Dim = max(ceil((limit-start)/delta), 0).
+  IndexExpr num = limit - start;
+  num.ceilDiv(delta);
+  IndexExpr res = IndexExpr::max(num, 0);
+  DimsExpr outputDims(1, res);
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+
+} // namespace onnx_mlir
+
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
-//===----------------------------------------------------------------------===//
-// Shape Inference
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXRangeOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
+LogicalResult ONNXRangeOp::verify() {
   // All inputs must be valid ranked tensors.
   if (!start().getType().isa<RankedTensorType>())
     return success();
-
   if (!limit().getType().isa<RankedTensorType>())
     return success();
-
   if (!delta().getType().isa<RankedTensorType>())
     return success();
 
@@ -74,30 +89,34 @@ LogicalResult ONNXRangeOp::inferShapes(
       startTensorTy.getElementType() != deltaTensorTy.getElementType())
     return emitError("all inputs must have the exact same input type");
 
-  // Number of elements, default is unknown so -1:
-  int64_t number_of_elements = -1;
-
-  // Check if input is constant. All inputs must be
-  // constant for this path to be used.
-  auto constantStart = getONNXConstantOp(start());
-  auto constantLimit = getONNXConstantOp(limit());
-  auto constantDelta = getONNXConstantOp(delta());
-  if (constantStart && constantLimit && constantDelta) {
-    // Get all inputs:
-    double start = getScalarValue<double>(constantStart, startTensorTy);
-    double limit = getScalarValue<double>(constantLimit, limitTensorTy);
-    double delta = getScalarValue<double>(constantDelta, deltaTensorTy);
-
-    // Compute size:
-    number_of_elements = (int64_t)ceil((limit - start) / delta);
-
-    // When no elements are present create a dynamic tensor.
-    // TODO: represent an empty tensor for this case.
-    if (number_of_elements <= 0)
-      number_of_elements = -1;
-  }
-
-  SmallVector<int64_t, 1> dims(1, number_of_elements);
-  updateType(getResult(), dims, startTensorTy.getElementType());
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// Shape Inference
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXRangeOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  // All inputs must be valid ranked tensors.
+
+  if (!hasShapeAndRank(start()))
+    return success();
+  if (!hasShapeAndRank(limit()))
+    return success();
+  if (!hasShapeAndRank(delta()))
+    return success();
+
+  Type elementType =
+      start().getType().cast<RankedTensorType>().getElementType();
+  ONNXRangeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+}
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXRangeOp>;
+} // namespace onnx_mlir
