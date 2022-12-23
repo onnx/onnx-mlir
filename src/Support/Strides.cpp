@@ -177,21 +177,19 @@ namespace {
 
 // Uses the same algorithm as transformAndRestrideTwoWideArrays but is
 // sufficiently different to be reimplemented here without code reuse.
-//
-// TODO: simplify, only support row-major dst of type MutableArrayRef<T>
 template <typename T>
 void restrideArrayImpl(ArrayRef<int64_t> shape, Strided<ArrayRef<T>> src,
-    Strided<MutableArrayRef<T>> dst) {
+    MutableArrayRef<T> dstData) {
+  auto dstStrides = getDefaultStrides(shape);
   size_t rank = shape.size();
   assert(src.strides.size() == rank && "src strides must match rank");
-  assert(dst.strides.size() == rank && "dst strides must match rank");
   auto traverse = [=](size_t axis, size_t srcPos, size_t dstPos,
                       const auto &recurse) -> void {
     if (axis == rank) {
-      dst.data[dstPos] = src.data[srcPos];
+      dstData[dstPos] = src.data[srcPos];
     } else {
       size_t srcStride = src.strides[axis];
-      size_t dstStride = dst.strides[axis];
+      size_t dstStride = dstStrides[axis];
       size_t dimSize = shape[axis];
       for (size_t i = 0; i < dimSize; ++i) {
         recurse(axis + 1, srcPos, dstPos, recurse);
@@ -234,25 +232,17 @@ auto dispatchByBytewidth(unsigned bytewidth, Action &&act, Args &&... args) {
   // clang-format on
 }
 
-void restrideArray(unsigned bytewidth, ArrayRef<int64_t> shape,
-    Strided<ArrayRef<char>> src, Strided<MutableArrayRef<char>> dst) {
-  auto expandedSrcStrides = expandStrides(src.strides, shape);
-  dispatchByBytewidth(bytewidth, [&](auto staticBytewidth) {
-    using T = BitcastType<staticBytewidth>;
-    Strided<ArrayRef<T>> srcT{expandedSrcStrides, castArrayRef<T>(src.data)};
-    Strided<MutableArrayRef<T>> dstT{
-        dst.strides, castMutableArrayRef<T>(dst.data)};
-    restrideArrayImpl<T>(shape, srcT, dstT);
-  });
-}
-
 } // namespace
 
-void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
-    Strided<llvm::ArrayRef<char>> src, llvm::MutableArrayRef<char> dstData) {
-  auto dstStrides = getDefaultStrides(shape);
-  Strided<llvm::MutableArrayRef<char>> dst{dstStrides, dstData};
-  return restrideArray(elementBytewidth, shape, src, dst);
+void restrideArray(unsigned elementBytewidth, ArrayRef<int64_t> shape,
+    Strided<ArrayRef<char>> src, MutableArrayRef<char> dstData) {
+  auto expandedSrcStrides = expandStrides(src.strides, shape);
+  dispatchByBytewidth(elementBytewidth, [&](auto staticBytewidth) {
+    using T = BitcastType<staticBytewidth>;
+    Strided<ArrayRef<T>> srcT{expandedSrcStrides, castArrayRef<T>(src.data)};
+    MutableArrayRef<T> dstDataT = castMutableArrayRef<T>(dstData);
+    restrideArrayImpl<T>(shape, srcT, dstDataT);
+  });
 }
 
 } // namespace onnx_mlir

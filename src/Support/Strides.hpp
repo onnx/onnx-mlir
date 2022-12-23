@@ -94,23 +94,22 @@ void restrideArray(llvm::ArrayRef<int64_t> shape,
       castMutableArrayRef<char>(dstData));
 }
 
-// TODO: simplify, only support row-major dst of type MutableArrayRef<WideNum>
 template <typename BinaryFunction = std::function<WideNum(WideNum, WideNum)>>
 inline void transformAndRestrideTwoWideArrays(llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<WideNum>> lhs, Strided<llvm::ArrayRef<WideNum>> rhs,
-    Strided<llvm::MutableArrayRef<WideNum>> dst, BinaryFunction fun) {
+    llvm::MutableArrayRef<WideNum> dstData, BinaryFunction fun) {
+  auto dstStrides = getDefaultStrides(shape);
   assert(lhs.strides.size() == shape.size() && "lhs strides must be expanded");
   assert(rhs.strides.size() == shape.size() && "rhs strides must be expanded");
-  assert(dst.strides.size() == shape.size() && "dst strides must be full rank");
   size_t rank = shape.size();
   auto traverse = [=](size_t axis, size_t lhsPos, size_t rhsPos, size_t dstPos,
                       const auto &recurse) -> void {
     if (axis == rank) {
-      dst.data[dstPos] = fun(lhs.data[lhsPos], rhs.data[rhsPos]);
+      dstData[dstPos] = fun(lhs.data[lhsPos], rhs.data[rhsPos]);
     } else {
       size_t lhsStride = lhs.strides[axis];
       size_t rhsStride = rhs.strides[axis];
-      size_t dstStride = dst.strides[axis];
+      size_t dstStride = dstStrides[axis];
       size_t dimSize = shape[axis];
       for (size_t i = 0; i < dimSize; ++i) {
         recurse(axis + 1, lhsPos, rhsPos, dstPos, recurse);

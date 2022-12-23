@@ -52,9 +52,7 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::combine(
   Strided<llvm::ArrayRef<WideNum>> rhsStrided{rhsStrides, rhsNums.get()};
   return fromWideNums(
       combinedType, [&](llvm::MutableArrayRef<WideNum> dstNums) {
-        auto dstStrides = getDefaultStrides(shape);
-        Strided<llvm::MutableArrayRef<WideNum>> dstStrided{dstStrides, dstNums};
         transformAndRestrideTwoWideArrays(
-            shape, lhsStrided, rhsStrided, dstStrided, combiner);
+            shape, lhsStrided, rhsStrided, dstNums, combiner);
       });
 }
