@@ -18,7 +18,9 @@ namespace onnx_mlir {
 
 size_t getStridesPosition(
     ArrayRef<int64_t> indices, ArrayRef<int64_t> strides) {
-  assert(indices.size() == strides.size());
+  // Assert is commented out because this function is "on the fast path" called
+  // for every element when iterating over DisposableElementsAttr values.
+  // assert(indices.size() == strides.size());
   size_t pos = 0;
   for (int a = indices.size() - 1, s = strides.size() - 1; s >= 0; --a, --s)
     pos += indices[a] * strides[s];
@@ -175,6 +177,8 @@ namespace {
 
 // Uses the same algorithm as transformAndRestrideTwoWideArrays but is
 // sufficiently different to be reimplemented here without code reuse.
+//
+// TODO: simplify, only support row-major dst of type MutableArrayRef<T>
 template <typename T>
 void restrideArrayImpl(ArrayRef<int64_t> shape, Strided<ArrayRef<T>> src,
     Strided<MutableArrayRef<T>> dst) {
@@ -209,6 +213,8 @@ using BitcastType =
     void>>>>;
 // clang-format on
 
+// When BytewidthToken<N>{} is passed to a generic/polymorphic lambda argument
+// then the argument acts like a constexpr unsigned in the lambda body.
 template <unsigned Bytewidth>
 struct BytewidthToken {
   constexpr BytewidthToken() {}
@@ -228,8 +234,6 @@ auto dispatchByBytewidth(unsigned bytewidth, Action &&act, Args &&... args) {
   // clang-format on
 }
 
-} // namespace
-
 void restrideArray(unsigned bytewidth, ArrayRef<int64_t> shape,
     Strided<ArrayRef<char>> src, Strided<MutableArrayRef<char>> dst) {
   auto expandedSrcStrides = expandStrides(src.strides, shape);
@@ -241,6 +245,8 @@ void restrideArray(unsigned bytewidth, ArrayRef<int64_t> shape,
     restrideArrayImpl<T>(shape, srcT, dstT);
   });
 }
+
+} // namespace
 
 void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<char>> src, llvm::MutableArrayRef<char> dstData) {

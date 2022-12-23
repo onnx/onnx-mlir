@@ -32,6 +32,8 @@
 
 namespace onnx_mlir {
 
+// Returns the position in the linear array described by the strides
+// which correpond to the given indices.
 size_t getStridesPosition(
     llvm::ArrayRef<int64_t> indices, llvm::ArrayRef<int64_t> strides);
 
@@ -44,6 +46,7 @@ inline bool areStridesSplat(llvm::ArrayRef<int64_t> strides) {
 bool areStridesContiguous(
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides);
 
+// Returns row-major order strides for the given shape.
 llvm::SmallVector<int64_t, 4> getDefaultStrides(llvm::ArrayRef<int64_t> shape);
 
 // Returns the strides that can map the underlying data to reshapedShape
@@ -52,6 +55,8 @@ llvm::Optional<llvm::SmallVector<int64_t, 4>> reshapeStrides(
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
     llvm::ArrayRef<int64_t> reshapedShape);
 
+// Returns strides that broadcast to the expandedShape under the assumption
+// that the given strides represent a shape that broadcasts to expandedShape.
 llvm::SmallVector<int64_t, 4> expandStrides(
     llvm::ArrayRef<int64_t> strides, llvm::ArrayRef<int64_t> expandedShape);
 
@@ -68,28 +73,19 @@ llvm::SmallVector<int64_t, 4> untransposeDims(
 llvm::SmallVector<int64_t, 4> unflattenIndex(
     llvm::ArrayRef<int64_t> shape, int64_t flatIndex);
 
+// A linear array together with strides.
+// Tensor indices can be mapped to array positions with getStridesPosition().
 template <typename T>
 struct Strided {
   llvm::ArrayRef<int64_t> strides;
   T data;
 };
 
-void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
-    Strided<llvm::ArrayRef<char>> src,
-    Strided<llvm::MutableArrayRef<char>> dst);
-
-template <typename T>
-void restrideArray(llvm::ArrayRef<int64_t> shape,
-    Strided<llvm::ArrayRef<T>> src, Strided<llvm::MutableArrayRef<T>> dst) {
-  return restrideArray(sizeof(T), shape,
-      {src.strides, castArrayRef<char>(src.data)},
-      {dst.strides, castMutableArrayRef<char>(dst.data)});
-}
-
-// Strides dstData by shape's default strides.
+// Unpacks src into row-major order in dstData.
 void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<char>> src, llvm::MutableArrayRef<char> dstData);
 
+// Unpacks src into row-major order in dstData.
 template <typename T>
 void restrideArray(llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<T>> src, llvm::MutableArrayRef<T> dstData) {
@@ -98,6 +94,7 @@ void restrideArray(llvm::ArrayRef<int64_t> shape,
       castMutableArrayRef<char>(dstData));
 }
 
+// TODO: simplify, only support row-major dst of type MutableArrayRef<WideNum>
 template <typename BinaryFunction = std::function<WideNum(WideNum, WideNum)>>
 inline void transformAndRestrideTwoWideArrays(llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<WideNum>> lhs, Strided<llvm::ArrayRef<WideNum>> rhs,
