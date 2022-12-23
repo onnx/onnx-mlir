@@ -62,12 +62,11 @@ LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
       a += r;
     if (!outputDims[a].isLiteral()) {
       outputDims[a] = LiteralIndexExpr(d);
-    } else {
-      // Checked in verify.
-      assert(outputDims[a].getLiteral() == d &&
-             "x_scale and x_zero_point 1-D tensor length must match the input "
-             "axis dim size");
     }
+    // Checked in verify.
+    assert(outputDims[a].getLiteral() == d &&
+           "x_scale and x_zero_point 1-D tensor length must match the input "
+           "axis dim size");
   }
 
   // Get values.
