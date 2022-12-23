@@ -1515,6 +1515,19 @@ private:
   ApiRegistry apiRegistry;
 };
 
+FlatSymbolRefAttr getOrInsertMalloc(
+    PatternRewriter &rewriter, ModuleOp module) {
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
+  // Insert the malloc/aligned_alloc declaration if it is not already present.
+  LLVMTypeConverter converter(rewriter.getContext());
+  SmallVector<Type, 2> callArgTypes = {converter.getIndexType()};
+  // aligned_alloc(size_t alignment, size_t size)
+  Type voidPtrType = LLVM::LLVMPointerType::get(
+      IntegerType::get(&converter.getContext(), 8));
+  return create.llvm.getOrInsertSymbolRef(
+      module, StringRef("malloc"), voidPtrType, callArgTypes);
+}
+
 class ZLowDLF16ToF32Lowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowDLF16ToF32Lowering(MLIRContext *context,
@@ -1532,9 +1545,11 @@ public:
     Location loc = op->getLoc();
     ZLowConvertDLF16ToF32Op::Adaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
+    Type llvmI8Ty = rewriter.getI8Type();
     Type llvmI16Ty = rewriter.getI16Type();
     Type llvmI64Ty = rewriter.getI64Type();
     Type llvmF32Ty = rewriter.getF32Type();
+    Type llvmI8PtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
     Type llvmI16PtrTy = LLVM::LLVMPointerType::get(llvmI16Ty);
     Type llvmF32PtrTy = LLVM::LLVMPointerType::get(llvmF32Ty);
 
@@ -1550,13 +1565,23 @@ public:
       inputPtr = create.llvm.bitcast(llvmI16PtrTy, memrefPtr);
     } else {
       // Alloca a temp buffer for i16 inputs
-      inputPtr = create.llvm._alloca(llvmI16PtrTy, one, /*alignment=*/0);
+      // inputPtr = create.llvm._alloca(llvmI16PtrTy, one, /*alignment=*/0);
+      // TODO: free the buffer.
+      auto mallocSym = getOrInsertMalloc(rewriter, module);
+      Value two = create.llvm.constant(llvmI64Ty, (int64_t)2);
+      inputPtr = create.llvm.call(llvmI8PtrTy, mallocSym, ArrayRef<Value>(two));
+      inputPtr = create.llvm.bitcast(llvmI16PtrTy, inputPtr);
       Value inputI16 = create.llvm.bitcast(llvmI16Ty, input);
       create.llvm.store(inputI16, inputPtr);
     }
 
     // Alloca a temp buffer for f32 output.
-    Value outputPtr = create.llvm._alloca(llvmF32PtrTy, one, /*alignment=*/0);
+    // Value outputPtr = create.llvm._alloca(llvmF32PtrTy, one, /*alignment=*/0);
+    // TODO: free the buffer.
+    auto mallocSym = getOrInsertMalloc(rewriter, module);
+    Value four = create.llvm.constant(llvmI64Ty, (int64_t)4);
+    Value outputPtr = create.llvm.call(llvmI8PtrTy, mallocSym, ArrayRef<Value>(four));
+    outputPtr = create.llvm.bitcast(llvmF32PtrTy, outputPtr);
     callApi(rewriter, loc, module, apiRegistry, API::DLF16_TO_F32,
         {inputPtr, outputPtr, one});
     Value output = create.llvm.load(outputPtr);
@@ -1586,10 +1611,12 @@ public:
 
     ZLowConvertF32ToDLF16Op::Adaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
+    Type llvmI8Ty = rewriter.getI8Type();
     Type llvmI16Ty = rewriter.getI16Type();
     Type llvmI64Ty = rewriter.getI64Type();
     Type llvmF16Ty = rewriter.getF16Type();
     Type llvmF32Ty = rewriter.getF32Type();
+    Type llvmI8PtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
     Type llvmI16PtrTy = LLVM::LLVMPointerType::get(llvmI16Ty);
     Type llvmF16PtrTy = LLVM::LLVMPointerType::get(llvmF16Ty);
     Type llvmF32PtrTy = LLVM::LLVMPointerType::get(llvmF32Ty);
@@ -1604,13 +1631,23 @@ public:
       inputPtr = input.getDefiningOp()->getOperand(0);
     } else {
       // Alloca a temp buffer for f32 input.
-      inputPtr = create.llvm._alloca(llvmF32PtrTy, one, /*alignment=*/0);
+      // TODO: free the buffer.
+      auto mallocSym = getOrInsertMalloc(rewriter, module);
+      Value four = create.llvm.constant(llvmI64Ty, (int64_t)4);
+      inputPtr = create.llvm.call(llvmI8PtrTy, mallocSym, ArrayRef<Value>(four));
+      inputPtr = create.llvm.bitcast(llvmF32PtrTy, inputPtr);
+      // inputPtr = create.llvm._alloca(llvmF32PtrTy, one, /*alignment=*/0);
       create.llvm.store(input, inputPtr);
     }
 
     // Alloca a temp buffer for i16 output.
     // I16 is used as a container for DLF16.
-    Value outputPtr = create.llvm._alloca(llvmI16PtrTy, one, /*alignment=*/0);
+    // Value outputPtr = create.llvm._alloca(llvmI16PtrTy, one, /*alignment=*/0);
+    // TODO: free the buffer.
+    auto mallocSym = getOrInsertMalloc(rewriter, module);
+    Value two = create.llvm.constant(llvmI64Ty, (int64_t)2);
+    Value outputPtr = create.llvm.call(llvmI8PtrTy, mallocSym, ArrayRef<Value>(two));
+    outputPtr = create.llvm.bitcast(llvmI16PtrTy, outputPtr);
     callApi(rewriter, loc, module, apiRegistry, API::F32_TO_DLF16,
         {inputPtr, outputPtr, one});
     Value outputF16Ptr = create.llvm.bitcast(llvmF16PtrTy, outputPtr);
