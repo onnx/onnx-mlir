@@ -67,3 +67,13 @@ LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes(
   return shapeHelper.computeShapeAndUpdateTypes(
       {/*y*/ ui8Type, /*scale*/ f32Type, /*zero point*/ ui8Type});
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation; keep at the end of the file.
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template struct ONNXNonSpecificOpShapeHelper<ONNXDynamicQuantizeLinearOp>;
+
+} // namespace onnx_mlir
