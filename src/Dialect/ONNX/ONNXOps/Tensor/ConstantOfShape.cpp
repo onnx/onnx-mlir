@@ -66,8 +66,7 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
   // If 'input' is a constant, check whether its values are valid or not.
   // If the values are valid, it is possible to infer shape.
   if (auto constantOp = getONNXConstantOp(input)) {
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    ElementsAttr valueAttribute = constantOp.valueAttr().cast<ElementsAttr>();
     // Get repeat values from valueAttribute.
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
     for (int i = 0; i < inputShape[0]; ++i) {
