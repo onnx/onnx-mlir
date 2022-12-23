@@ -6,20 +6,21 @@
 This project (https://onnx.ai/onnx-mlir/) provides compiler technology to transform a valid Open Neural Network Exchange (ONNX) graph into code that implements the graph with minimum runtime support.
 It implements the [ONNX standard](https://github.com/onnx/onnx#readme) and is based on the underlying [LLVM/MLIR](https://mlir.llvm.org) compiler technology.
 
-| System        | Build Status | Model Zoo Status |
-|---------------|--------------|------------------|
+| System        | Build Status                                                                                                                                                                                                                                               | Model Zoo Status                                                                                                                                                                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | s390x-Linux   | [![Build Status](https://www.onnxmlir.xyz/jenkins/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=main%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkins/job/ONNX-MLIR-Pipeline-Docker-Build/) | [![Model Zoo Status](https://www.onnxmlir.xyz/jenkins/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=main%7D&config=modelzoo)](https://www.onnxmlir.xyz/jenkins/job/ONNX-MLIR-Pipeline-Docker-Build/Model_20Zoo_20Report/) |
 | ppc64le-Linux | [![Build Status](https://www.onnxmlir.xyz/jenkinp/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=main%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkinp/job/ONNX-MLIR-Pipeline-Docker-Build/) | [![Model Zoo Status](https://www.onnxmlir.xyz/jenkinp/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=main%7D&config=modelzoo)](https://www.onnxmlir.xyz/jenkinp/job/ONNX-MLIR-Pipeline-Docker-Build/Model_20Zoo_20Report/) |
 | amd64-Linux   | [![Build Status](https://www.onnxmlir.xyz/jenkinx/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=main%7D&subject=Jenkins%20CI)](https://www.onnxmlir.xyz/jenkinx/job/ONNX-MLIR-Pipeline-Docker-Build/) | [![Model Zoo Status](https://www.onnxmlir.xyz/jenkinx/buildStatus/icon?job=ONNX-MLIR-Pipeline-Docker-Build&build=last:%24%7Bparams.GITHUB_PR_NUMBER_PUSH=main%7D&config=modelzoo)](https://www.onnxmlir.xyz/jenkinx/job/ONNX-MLIR-Pipeline-Docker-Build/Model_20Zoo_20Report/) |
-| amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=main)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=main) | |
-| amd64-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/actions/workflows/macos-amd64-build.yml/badge.svg)](https://github.com/onnx/onnx-mlir/actions/workflows/macos-amd64-build.yml) |
-| | [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5549/badge)](https://bestpractices.coreinfrastructure.org/projects/5549) |
+| amd64-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=main)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=main)                                                    |                                                                                                                                                                                                                                                                                |
+| amd64-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/actions/workflows/macos-amd64-build.yml/badge.svg)](https://github.com/onnx/onnx-mlir/actions/workflows/macos-amd64-build.yml)                                                                          |
+|               | [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5549/badge)](https://bestpractices.coreinfrastructure.org/projects/5549)                                                                                                      |
 
 This project contributes:
-* an ONNX Dialect that can be integrated in other projects,
-* a compiler interfaces that lower ONNX graphs into MLIR files/LLVM bytecodes/C & Java libraries,
-* an `onnx-mlir` driver to perform these lowering,
-* and a python/C/C++/Java runtime environment.
+
+- an ONNX Dialect that can be integrated in other projects,
+- a compiler interfaces that lower ONNX graphs into MLIR files/LLVM bytecodes/C & Java libraries,
+- an `onnx-mlir` driver to perform these lowering,
+- and a python/C/C++/Java runtime environment.
 
 Current levels of support for the code generation of ONNX operations are listed here for
 [a generic CPU](docs/SupportedONNXOps-cpu.md) and
@@ -31,7 +32,7 @@ For ongoing discussions, we use an [`#onnx-mlir-discussion`](https://lfaifoundat
 We use GitHub Issues for request for comments, questions, or bug reports.
 Security-related issues are reported using the channels listed in the [SECURITY](SECURITY.md) page.
 
-We hold informal weekly meetings on Tuesdays, 8-9pm EST where we discuss  current issues and progress. Meeting uses [WebEx](https://ibm.webex.com/meet/alexe) and everyone is welcome to attend. Please email alexe@us.ibm.com to be added to the meeting invite or to request a 15-30 min time slot to discuss a specific topic of interest.
+We hold informal weekly meetings on Tuesdays, 8-9pm EST where we discuss current issues and progress. Meeting uses [WebEx](https://ibm.webex.com/meet/alexe) and everyone is welcome to attend. Please email alexe@us.ibm.com to be added to the meeting invite or to request a 15-30 min time slot to discuss a specific topic of interest.
 
 ## Setting up ONNX-MLIR using Prebuilt Containers
 
@@ -47,10 +48,11 @@ Detailed instructions are provided below.
 ### Prerequisites
 
 <!-- Keep list below in sync with docs/Prerequisite.md. -->
+
 ```
 python >= 3.8
 gcc >= 6.4
-protobuf >= 3.18.3
+protobuf >= 3.21.7
 cmake >= 3.13.4
 make >= 4.2.1 or ninja >= 1.10.2
 java >= 1.11 (optional)
@@ -66,13 +68,13 @@ When updating ONNX-MLIR, it is good practice to check that the commit string of 
 ### Build
 
 Directions to install MLIR and ONNX-MLIR are dependent on your OS.
-* [Linux or OSX](docs/BuildOnLinuxOSX.md).
-* [Windows](docs/BuildOnWindows.md).
+
+- [Linux or OSX](docs/BuildOnLinuxOSX.md).
+- [Windows](docs/BuildOnWindows.md).
 
 After installation, an `onnx-mlir` executable should appear in the `build/Debug/bin` or `build/Release/bin` directory.
 
 If you have difficulties building, rebuilding, or testing `onnx-mlir`, check this [page](docs/TestingHighLevel.md) for helpful hints.
-
 
 ## Using ONNX-MLIR
 
@@ -120,10 +122,13 @@ Options are also read from the `ONNX_MLIR_FLAGS` environment variable. For examp
 ### Simple Example
 
 For example, use the following command to lower an ONNX model (e.g., add.onnx) to ONNX dialect:
+
 ```shell
 ./onnx-mlir --EmitONNXIR add.onnx
 ```
+
 The output should look like:
+
 ```mlir
 module {
   func.func @main_graph(%arg0: tensor<10x10x10xf32>, %arg1: tensor<10x10x10xf32>) -> tensor<10x10x10xf32> {
@@ -159,4 +164,4 @@ The ONNX-MLIR code of conduct is described at https://onnx.ai/codeofconduct.html
 
 ## Projects related/using onnx-mlir
 
-* The [onnx-mlir-serving](https://github.com/IBM/onnx-mlir-serving) project implements a GRPC server written with C++ to serve onnx-mlir compiled models. Benefiting from C++ implementation, ONNX Serving has very low latency overhead and high throughput.
+- The [onnx-mlir-serving](https://github.com/IBM/onnx-mlir-serving) project implements a GRPC server written with C++ to serve onnx-mlir compiled models. Benefiting from C++ implementation, ONNX Serving has very low latency overhead and high throughput.
