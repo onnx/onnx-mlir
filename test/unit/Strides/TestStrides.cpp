@@ -22,17 +22,6 @@ namespace {
 
 class Test {
 public:
-  int test_getStridesNumElements() {
-    std::cout << "test_getStridesNumElements:" << std::endl;
-
-    SmallVector<int64_t, 4> shape{2, 3, 5};
-    auto strides = getDefaultStrides(shape);
-    assert(ShapedType::getNumElements(shape) ==
-           getStridesNumElements(shape, strides));
-
-    return 0;
-  }
-
   int test_reshapeStrides_success() {
     std::cout << "test_reshapeStrides_success:" << std::endl;
 
@@ -41,8 +30,7 @@ public:
 
     SmallVector<int64_t, 4> reshapedShape{5, 2};
     auto reshapedStrides = reshapeStrides(shape, strides, reshapedShape);
-    assert(getStridesNumElements(shape, strides) ==
-           getStridesNumElements(reshapedShape, *reshapedStrides));
+    assert(reshapedStrides == getDefaultStrides(reshapedShape));
 
     return 0;
   }
@@ -71,7 +59,6 @@ public:
 int main(int argc, char *argv[]) {
   Test test;
   int failures = 0;
-  failures += test.test_getStridesNumElements();
   failures += test.test_reshapeStrides_success();
   failures += test.test_reshapeStrides_failure();
   if (failures != 0) {

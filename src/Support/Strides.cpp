@@ -16,20 +16,9 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-int64_t getStridesNumElements(
-    ArrayRef<int64_t> shape, ArrayRef<int64_t> strides) {
-  if (ShapedType::getNumElements(shape) == 0)
-    return 0;
-  assert(shape.size() >= strides.size());
-  int64_t last = 0;
-  for (int a = shape.size() - 1, s = strides.size() - 1; s >= 0; --a, --s)
-    last += (shape[a] - 1) * strides[s];
-  return last + 1;
-}
-
 size_t getStridesPosition(
     ArrayRef<int64_t> indices, ArrayRef<int64_t> strides) {
-  // assert(indices.size() == strides.size());
+  assert(indices.size() == strides.size());
   size_t pos = 0;
   for (int a = indices.size() - 1, s = strides.size() - 1; s >= 0; --a, --s)
     pos += indices[a] * strides[s];

@@ -6,6 +6,20 @@
 //
 // Strides helper functions.
 //
+// Strides are the same concept as in PyTorch and NumPy.
+// A tensor's strides are an int64_t array with length == the tensor's rank
+// and describe the layout of elements in a linear array. They can express
+// things like row-major or column-major order, and they can express that the
+// linear array is smaller than the tensor size and elements from the linear
+// array should be broadcast to populate the tensor. In the extreme, the
+// linear array can be a "splat" singleton broadcast to every tensor element.
+//
+// Given a strided tensor (described by a linear array and strides) it can
+// always be transposed by just transposing the strides and can always be
+// broadcast to a larger shape by just expanding the strides.
+// On the other hand, reshaping a strided tensor sometimes requires reordering
+// the elements in the linear array in contrast to, e.g.,
+// DenseElementsAttr::reshape() which always reuses its linear array.
 //===----------------------------------------------------------------------===//
 
 #pragma once
@@ -17,9 +31,6 @@
 #include "llvm/ADT/SmallVector.h"
 
 namespace onnx_mlir {
-
-int64_t getStridesNumElements(
-    llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides);
 
 size_t getStridesPosition(
     llvm::ArrayRef<int64_t> indices, llvm::ArrayRef<int64_t> strides);
