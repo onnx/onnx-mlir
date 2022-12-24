@@ -22,8 +22,8 @@ size_t getStridesPosition(
   // for every element when iterating over DisposableElementsAttr values.
   // assert(indices.size() == strides.size());
   size_t pos = 0;
-  for (int a = indices.size() - 1, s = strides.size() - 1; s >= 0; --a, --s)
-    pos += indices[a] * strides[s];
+  for (size_t axis = 0; axis < indices.size(); ++axis)
+    pos += indices[axis] * strides[axis];
   return pos;
 }
 

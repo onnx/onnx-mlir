@@ -14,7 +14,19 @@
 // array should be broadcast to populate the tensor. In the extreme, the
 // linear array can be a "splat" singleton broadcast to every tensor element.
 //
-// Given a strided tensor (described by a linear array and strides) it can
+// getStridesPosition(indices, strides) maps tensor indices to the position
+// in the linear array by computing the dot product of indices and strides.
+//
+// A linear array and strides can represent a tensor with a given shape if
+// getStridesPosition() maps the tensor indices onto the array positions,
+// which happens when the last tensor indices map to the last array position:
+//
+//   getStridesPosition([shape[0]-1,...,shape[rank-1]-1], strides)
+//   == array.size() - 1
+//
+// when shape is non-empty.
+//
+// Given a strided tensor (represented by a linear array and strides) it can
 // always be transposed by just transposing the strides and can always be
 // broadcast to a larger shape by just expanding the strides.
 // On the other hand, reshaping a strided tensor sometimes requires reordering
