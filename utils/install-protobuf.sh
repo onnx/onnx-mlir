@@ -1,5 +1,5 @@
-# Check out protobuf v3.20.2
-PROTOBUF_VERSION=3.20.2
+# Check out protobuf v3.21.12
+PROTOBUF_VERSION=3.21.12
 git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/google/protobuf.git
 
 cd protobuf
