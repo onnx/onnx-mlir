@@ -201,48 +201,29 @@ void restrideArrayImpl(ArrayRef<int64_t> shape, Strided<ArrayRef<T>> src,
   traverse(0, 0, 0, traverse);
 }
 
-// clang-format off
-template <unsigned Bytewidth>
-using BitcastType =
-    std::conditional_t<Bytewidth == 1, std::uint8_t,
-    std::conditional_t<Bytewidth == 2, std::uint16_t,
-    std::conditional_t<Bytewidth == 4, std::uint32_t,
-    std::conditional_t<Bytewidth == 8, std::uint64_t,
-    void>>>>;
-// clang-format on
-
-// When BytewidthToken<N>{} is passed to a generic/polymorphic lambda argument
-// then the argument acts like a constexpr unsigned in the lambda body.
-template <unsigned Bytewidth>
-struct BytewidthToken {
-  constexpr BytewidthToken() {}
-  constexpr operator unsigned() const { return Bytewidth; }
-};
-
-template <typename Action, typename... Args>
-auto dispatchByBytewidth(unsigned bytewidth, Action &&act, Args &&... args) {
-  // clang-format off
-  switch (bytewidth) {
-  case 1: return act(BytewidthToken<1>{}, std::forward<Args>(args)...);
-  case 2: return act(BytewidthToken<2>{}, std::forward<Args>(args)...);
-  case 4: return act(BytewidthToken<4>{}, std::forward<Args>(args)...);
-  case 8: return act(BytewidthToken<8>{}, std::forward<Args>(args)...);
-  default: llvm_unreachable("unsupported bytewidth");
-  }
-  // clang-format on
+template <typename T>
+void restrideArrayImpl(unsigned elementBytewidth, ArrayRef<int64_t> shape,
+    Strided<ArrayRef<char>> src, MutableArrayRef<char> dstData) {
+  assert(sizeof(T) == elementBytewidth && "dispatch sanity check");
+  auto expandedSrcStrides = expandStrides(src.strides, shape);
+  Strided<ArrayRef<T>> srcT{expandedSrcStrides, castArrayRef<T>(src.data)};
+  MutableArrayRef<T> dstDataT = castMutableArrayRef<T>(dstData);
+  restrideArrayImpl<T>(shape, srcT, dstDataT);
 }
 
 } // namespace
 
 void restrideArray(unsigned elementBytewidth, ArrayRef<int64_t> shape,
     Strided<ArrayRef<char>> src, MutableArrayRef<char> dstData) {
-  auto expandedSrcStrides = expandStrides(src.strides, shape);
-  dispatchByBytewidth(elementBytewidth, [&](auto staticBytewidth) {
-    using T = BitcastType<staticBytewidth>;
-    Strided<ArrayRef<T>> srcT{expandedSrcStrides, castArrayRef<T>(src.data)};
-    MutableArrayRef<T> dstDataT = castMutableArrayRef<T>(dstData);
-    restrideArrayImpl<T>(shape, srcT, dstDataT);
-  });
+  // clang-format off
+  switch (elementBytewidth) {
+  case 1: return restrideArrayImpl<uint8_t> (1, shape, src, dstData);
+  case 2: return restrideArrayImpl<uint16_t>(2, shape, src, dstData);
+  case 4: return restrideArrayImpl<uint32_t>(4, shape, src, dstData);
+  case 8: return restrideArrayImpl<uint64_t>(8, shape, src, dstData);
+  default: llvm_unreachable("unsupported elementBytewidth");
+  }
+  // clang-format on
 }
 
 } // namespace onnx_mlir
