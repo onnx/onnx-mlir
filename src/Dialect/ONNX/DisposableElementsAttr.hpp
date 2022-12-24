@@ -23,6 +23,8 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/Support/MemoryBuffer.h"
 
+#include <array>
+#include <functional>
 #include <memory>
 
 namespace onnx_mlir {
@@ -89,6 +91,8 @@ class DisposableElementsAttr
   // TODO: change reader to take ArrayRef<char> as first parameter
   using Reader = std::function<void(StringRef, MutableArrayRef<WideNum>)>;
 
+  static const std::array<Reader, onnx_mlir::kNumBTypes> identityReaders;
+
   //===----------------------------------------------------------------------===//
   // Instantiation:
   //
@@ -139,9 +143,9 @@ private:
 
   const Buffer &getBuffer() const;
 
-  Reader getReader() const;
+  const Reader &getReader() const;
 
-  Reader getReaderOrNull() const;
+  const Reader &getReaderOrNull() const;
 
   bool isContiguous() const;
 

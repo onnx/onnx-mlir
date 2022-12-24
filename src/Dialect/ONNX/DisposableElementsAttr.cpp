@@ -16,6 +16,8 @@
 
 #include "llvm/ADT/StringExtras.h"
 
+#include <utility>
+
 using namespace onnx_mlir;
 
 MLIR_DEFINE_EXPLICIT_TYPE_ID(::mlir::DisposableElementsAttr)
@@ -37,17 +39,29 @@ void narrowArray(
 // Copies s to dst while widening from the BTYPE datatype.
 template <BType BTYPE>
 void identityReader(StringRef s, MutableArrayRef<WideNum> dst) {
-  using W = WideBType<BTYPE>;
-  auto src = asArrayRef<typename W::narrowtype>(s);
-  std::transform(src.begin(), src.end(), dst.begin(), W::widen);
+  if constexpr (BTypeTrait<BTYPE>::isIntOrFloat) {
+    using W = WideBType<BTYPE>;
+    auto src = asArrayRef<typename W::narrowtype>(s);
+    std::transform(src.begin(), src.end(), dst.begin(), W::widen);
+  } else {
+    llvm_unreachable("can only read int or float data types");
+  }
 }
 
-auto getIdentityReader(BType btype) {
-  return dispatchByBType(
-      btype, [](auto staticBType) { return identityReader<staticBType>; });
+using IdentityReader = std::function<void(StringRef, MutableArrayRef<WideNum>)>;
+
+template <std::size_t... Idx>
+std::array<IdentityReader, kNumBTypes> identityReadersSequence(
+    std::index_sequence<Idx...>) {
+  return {identityReader<static_cast<BType>(Idx)>...};
 }
 
 } // namespace
+
+/*static*/
+const std::array<DisposableElementsAttr::Reader, kNumBTypes>
+    DisposableElementsAttr::identityReaders =
+        identityReadersSequence(std::make_index_sequence<kNumBTypes>{});
 
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::get(ShapedType type, size_t id,
@@ -104,15 +118,13 @@ auto DisposableElementsAttr::getBuffer() const -> const Buffer & {
   return getImpl()->buffer;
 }
 
-// TODO: For better efficiency fix getIdentityReader() to return a const& in a
-//       static const table so we don't need to create the identity reader here
-//       and can return const& from getReader().
-auto DisposableElementsAttr::getReader() const -> Reader {
-  const auto &reader = getReaderOrNull();
-  return reader ? reader : getIdentityReader(getBufferBType());
+auto DisposableElementsAttr::getReader() const -> const Reader & {
+  if (const Reader &reader = getReaderOrNull())
+    return reader;
+  return identityReaders[static_cast<int8_t>(getBufferBType())];
 }
 
-auto DisposableElementsAttr::getReaderOrNull() const -> Reader {
+auto DisposableElementsAttr::getReaderOrNull() const -> const Reader & {
   assert(!isDisposed());
   return getImpl()->reader;
 }
