@@ -4611,6 +4611,7 @@ def ONNXRangeOp:ONNX_Op<"Range",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
@@ -5084,6 +5085,7 @@ def ONNXResizeOp:ONNX_Op<"Resize",
       return {20};
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXResizeV11Op:ONNX_Op<"ResizeV11",
