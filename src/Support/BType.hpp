@@ -76,6 +76,15 @@ constexpr BType btypeOfOnnxDataType(int onnxDataType) {
 }
 
 namespace detail {
+template <typename CPPTY>
+constexpr unsigned bytewidthOf() {
+  return sizeof(CPPTY);
+}
+template <>
+constexpr unsigned bytewidthOf<void>() {
+  return 0; // sizeof(void) is illegal with MSVC
+}
+
 template <BType BTYPE, typename CPPTY>
 struct BTypeTraitBase {
   static constexpr BType btype = BTYPE;
@@ -86,9 +95,9 @@ struct BTypeTraitBase {
       std::is_integral_v<CPPTY> && std::is_signed_v<CPPTY>;
   static constexpr bool isUnsignedInt =
       std::is_integral_v<CPPTY> && !std::is_signed_v<CPPTY>;
+  static constexpr unsigned bytewidth = bytewidthOf<CPPTY>();
   static constexpr unsigned bitwidth =
-      std::is_same_v<CPPTY, bool> ? 1 : (8 * sizeof(CPPTY));
-  static constexpr unsigned bytewidth = (bitwidth + 7) / 8;
+      std::is_same_v<CPPTY, bool> ? 1 : (CHAR_BIT * bytewidth);
   using cpptype = CPPTY;
   using widetype = std::conditional_t<isFloat, double,
       std::conditional_t<isSignedInt, int64_t, uint64_t>>;
