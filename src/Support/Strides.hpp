@@ -110,28 +110,27 @@ template <typename BinaryFunction = std::function<WideNum(WideNum, WideNum)>>
 inline void transformAndRestrideTwoWideArrays(llvm::ArrayRef<int64_t> shape,
     Strided<llvm::ArrayRef<WideNum>> lhs, Strided<llvm::ArrayRef<WideNum>> rhs,
     llvm::MutableArrayRef<WideNum> dstData, BinaryFunction fun) {
-  auto dstStrides = getDefaultStrides(shape);
   assert(lhs.strides.size() == shape.size() && "lhs strides must be expanded");
   assert(rhs.strides.size() == shape.size() && "rhs strides must be expanded");
   size_t rank = shape.size();
-  auto traverse = [=](size_t axis, size_t lhsPos, size_t rhsPos, size_t dstPos,
-                      const auto &recurse) -> void {
+  auto traverse = [=](size_t axis, size_t lhsPos, size_t rhsPos, WideNum *dst,
+                      const auto &recurse) -> WideNum * {
     if (axis == rank) {
-      dstData[dstPos] = fun(lhs.data[lhsPos], rhs.data[rhsPos]);
+      *dst = fun(lhs.data[lhsPos], rhs.data[rhsPos]);
+      return dst + 1;
     } else {
       size_t lhsStride = lhs.strides[axis];
       size_t rhsStride = rhs.strides[axis];
-      size_t dstStride = dstStrides[axis];
       size_t dimSize = shape[axis];
       for (size_t i = 0; i < dimSize; ++i) {
-        recurse(axis + 1, lhsPos, rhsPos, dstPos, recurse);
+        dst = recurse(axis + 1, lhsPos, rhsPos, dst, recurse);
         lhsPos += lhsStride;
         rhsPos += rhsStride;
-        dstPos += dstStride;
       }
+      return dst;
     }
   };
-  traverse(0, 0, 0, 0, traverse);
+  traverse(0, 0, 0, dstData.begin(), traverse);
 }
 
 } // namespace onnx_mlir

@@ -180,25 +180,24 @@ namespace {
 template <typename T>
 void restrideArrayImpl(ArrayRef<int64_t> shape, Strided<ArrayRef<T>> src,
     MutableArrayRef<T> dstData) {
-  auto dstStrides = getDefaultStrides(shape);
   size_t rank = shape.size();
   assert(src.strides.size() == rank && "src strides must match rank");
-  auto traverse = [=](size_t axis, size_t srcPos, size_t dstPos,
-                      const auto &recurse) -> void {
+  auto traverse = [=](size_t axis, size_t srcPos, T *dst,
+                      const auto &recurse) -> T * {
     if (axis == rank) {
-      dstData[dstPos] = src.data[srcPos];
+      *dst = src.data[srcPos];
+      return dst + 1;
     } else {
       size_t srcStride = src.strides[axis];
-      size_t dstStride = dstStrides[axis];
       size_t dimSize = shape[axis];
       for (size_t i = 0; i < dimSize; ++i) {
-        recurse(axis + 1, srcPos, dstPos, recurse);
+        dst = recurse(axis + 1, srcPos, dst, recurse);
         srcPos += srcStride;
-        dstPos += dstStride;
       }
+      return dst;
     }
   };
-  traverse(0, 0, 0, traverse);
+  traverse(0, 0, dstData.begin(), traverse);
 }
 
 template <typename T>
