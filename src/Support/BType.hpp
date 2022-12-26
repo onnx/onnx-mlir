@@ -197,6 +197,26 @@ BType wideBTypeOfBType(BType btype);
 template <BType BTYPE>
 using BTypeConstant = std::integral_constant<BType, BTYPE>;
 
+// If expr is a BType runtime expression, e.g. disposableElementsAttr.getBType()
+// and stmnt(btype) is a statement that uses btype as a constexpr
+// then dispatchByBType(expr, [&](auto btype) -> void { stmnt(btype); })
+// is shorthand for
+//
+//   switch (expr) {
+//   case BType::BOOL: { constexpr BType btype = BType::BOOL; stmnt(btype); }
+//   case BType::INT8: { constexpr BType btype = BType::INT8; stmnt(btype); }
+//   // etc for all the int or float Btype values
+//   default: llvm_unreachable("not a supported datatype");
+//   }
+//
+// The generic lambda can also return another type than void and then
+// dispatchByBType returns the invoked lambda's return value. Example:
+//
+//   unsigned sizeofBType(BType d) {
+//     return dispatchByBType(
+//         d, [](auto btype) { return sizeof(CppType<btype>); });
+//   }
+//
 template <typename Action>
 auto dispatchByBType(BType btype, Action &&act) {
 #define ACT(BTYPE) act(BTypeConstant<BTYPE>{})
@@ -219,11 +239,6 @@ auto dispatchByBType(BType btype, Action &&act) {
   }
   // clang-format on
 #undef ACT
-}
-
-template <typename Action>
-auto dispatchByMlirType(mlir::Type type, Action &&act) {
-  return dispatchByBType(btypeOfMlirType(type), std::forward<Action>(act));
 }
 
 } // namespace onnx_mlir

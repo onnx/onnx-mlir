@@ -28,8 +28,8 @@ namespace {
 
 // Copies wideData to bytes while narrowing to the elementType datatype.
 void narrowArray(
-    Type elementType, ArrayRef<WideNum> wideData, MutableArrayRef<char> bytes) {
-  dispatchByMlirType(elementType, [wideData, bytes](auto btype) {
+    BType bt, ArrayRef<WideNum> wideData, MutableArrayRef<char> bytes) {
+  dispatchByBType(bt, [wideData, bytes](auto btype) {
     using W = WideBType<btype>;
     auto dst = castMutableArrayRef<typename W::narrowtype>(bytes);
     std::transform(wideData.begin(), wideData.end(), dst.begin(), W::narrow);
@@ -227,26 +227,27 @@ ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
 }
 
 void DisposableElementsAttr::readRawBytes(MutableArrayRef<char> dst) const {
-  unsigned attrBytewidth = bytewidthOfBType(getBType());
+  BType btype = getBType();
+  unsigned elemBytewidth = bytewidthOfBType(btype);
   if (!isTransformedOrCast()) {
     auto src = getBufferBytes();
-    restrideArray(attrBytewidth, getShape(), {getStrides(), src}, dst);
-  } else if (attrBytewidth == sizeof(WideNum)) {
+    restrideArray(elemBytewidth, getShape(), {getStrides(), src}, dst);
+  } else if (elemBytewidth == sizeof(WideNum)) {
     readWideNums(castMutableArrayRef<WideNum>(dst));
   } else {
     SmallVector<WideNum, 1> wideData;
     wideData.resize_for_overwrite(getNumElements());
     readWideNums(wideData);
-    narrowArray(getElementType(), wideData, dst);
+    narrowArray(btype, wideData, dst);
   }
 }
 
 ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
   if (!isTransformedOrCast() && isContiguous())
     return getBufferBytes();
-  unsigned attrBytewidth = bytewidthOfBType(getBType());
+  unsigned elemBytewidth = bytewidthOfBType(getBType());
   ArrayBuffer<char>::Vector vec;
-  vec.resize_for_overwrite(getNumElements() * attrBytewidth);
+  vec.resize_for_overwrite(getNumElements() * elemBytewidth);
   readRawBytes(vec);
   return std::move(vec);
 }

@@ -282,8 +282,8 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
 
 template <typename OP>
 ElementsAttrBuilder::Transformer transformElementWiseUnaryOp(Type elemType) {
-  return dispatchByMlirType(
-      elemType, [](auto btype) -> ElementsAttrBuilder::Transformer {
+  return dispatchByBType(btypeOfMlirType(elemType),
+      [](auto btype) -> ElementsAttrBuilder::Transformer {
         using W = WideBType<btype>;
         using OpImpl = ElementWiseUnaryOpImpl<OP, typename W::type>;
         return ElementsAttrBuilder::functionTransformer(
