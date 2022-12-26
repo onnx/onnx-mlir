@@ -16,6 +16,8 @@
 #include "mlir/IR/Types.h"
 #include "llvm/Support/ErrorHandling.h"
 
+#include <type_traits>
+
 namespace onnx_mlir {
 
 // Numerical representation of basic data types.
@@ -193,14 +195,11 @@ unsigned bytewidthOfBType(BType);
 BType wideBTypeOfBType(BType btype);
 
 template <BType BTYPE>
-struct BTypeToken {
-  constexpr BTypeToken() {}
-  constexpr operator BType() const { return BTYPE; }
-};
+using BTypeConstant = std::integral_constant<BType, BTYPE>;
 
 template <typename Action>
 auto dispatchByBType(BType btype, Action &&act) {
-#define ACT(BTYPE) act(BTypeToken<BTYPE>{})
+#define ACT(BTYPE) act(BTypeConstant<BTYPE>{})
   // clang-format off
   switch (btype) {
   case BType::BOOL     : return ACT(BType::BOOL);
