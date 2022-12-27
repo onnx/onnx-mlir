@@ -108,7 +108,7 @@ private:
       mlir::DisposableElementsAttr elms, mlir::ShapedType resultType,
       Transformer transformer) {
     auto transformed =
-        transform(elms, resultType.getElementType(), transformer);
+        transform(elms, resultType.getElementType(), std::move(transformer));
     return expand(transformed, resultType.getShape());
   }
 

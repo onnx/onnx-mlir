@@ -101,13 +101,16 @@ DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
 }
 
 namespace {
-auto composeReadTransform(
-    const std::function<void(StringRef, MutableArrayRef<WideNum>)> &reader,
-    ElementsAttrBuilder::Transformer transformer) {
-  return [read = reader, transform = std::move(transformer)](
-             StringRef s, MutableArrayRef<WideNum> dst) {
-    read(s, dst);
-    transform(dst);
+ElementsAttrBuilder::Transformer composeTransforms(
+    ElementsAttrBuilder::Transformer first,
+    ElementsAttrBuilder::Transformer second) {
+  if (first == nullptr)
+    return second;
+
+  return [fst = std::move(first), snd = std::move(second)](
+             MutableArrayRef<WideNum> dst) {
+    fst(dst);
+    snd(dst);
   };
 }
 } // namespace
@@ -118,7 +121,7 @@ DisposableElementsAttr ElementsAttrBuilder::transform(
   ShapedType transformedType = elms.getType().clone(transformedElementType);
   return create(transformedType, elms.getBuffer(), elms.getStrides(),
       btypeOfMlirType(transformedElementType),
-      composeReadTransform(elms.getReader(), std::move(transformer)));
+      composeTransforms(elms.getTransformer(), std::move(transformer)));
 }
 
 namespace {
@@ -154,12 +157,12 @@ DisposableElementsAttr ElementsAttrBuilder::castElementType(
   BType newWideType = wideBTypeOfBType(newBType);
   BType oldWideType = wideBTypeOfBType(elms.getBType());
 
-  auto reader = oldWideType == newWideType
-                    ? elms.getReaderOrNull()
-                    : composeReadTransform(elms.getReader(),
-                          wideCaster(oldWideType, newWideType));
+  auto transformer = oldWideType == newWideType
+                         ? elms.getTransformer()
+                         : composeTransforms(elms.getTransformer(),
+                               wideCaster(oldWideType, newWideType));
   return create(newType, elms.getBuffer(), elms.getStrides(),
-      elms.getBufferBType(), std::move(reader));
+      elms.getBufferBType(), std::move(transformer));
 }
 
 namespace {
@@ -182,7 +185,7 @@ DisposableElementsAttr ElementsAttrBuilder::transpose(
   auto transposedStrides = transposeDims(elms.getStrides(), perm);
   return create(transposedType, elms.getBuffer(),
       makeArrayRef(transposedStrides), elms.getBufferBType(),
-      elms.getReaderOrNull());
+      elms.getTransformer());
 }
 
 DisposableElementsAttr ElementsAttrBuilder::reshape(
@@ -195,7 +198,7 @@ DisposableElementsAttr ElementsAttrBuilder::reshape(
           reshapeStrides(elms.getShape(), elms.getStrides(), reshapedShape)) {
     return create(reshapedType, elms.getBuffer(),
         makeArrayRef(*reshapedStrides), elms.getBufferBType(),
-        elms.getReaderOrNull());
+        elms.getTransformer());
   }
 
   if (!elms.isTransformed()) { // Skip WideNums absent element-wise transform.
@@ -220,7 +223,7 @@ DisposableElementsAttr ElementsAttrBuilder::expand(
   ShapedType expandedType = elms.getType().clone(expandedShape);
   auto expandedStrides = expandStrides(elms.getStrides(), expandedShape);
   return create(expandedType, elms.getBuffer(), makeArrayRef(expandedStrides),
-      elms.getBufferBType(), elms.getReaderOrNull());
+      elms.getBufferBType(), elms.getTransformer());
 }
 
 mlir::DisposableElementsAttr ElementsAttrBuilder::fromSplat(ShapedType type,

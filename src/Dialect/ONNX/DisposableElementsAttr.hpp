@@ -88,10 +88,7 @@ class DisposableElementsAttr
 
   using Strides = ArrayRef<int64_t>;
   using Buffer = std::shared_ptr<llvm::MemoryBuffer>;
-  // TODO: change reader to take ArrayRef<char> as first parameter
-  using Reader = std::function<void(StringRef, MutableArrayRef<WideNum>)>;
-
-  static const std::array<Reader, onnx_mlir::kNumBTypes> identityReaders;
+  using Transformer = std::function<void(llvm::MutableArrayRef<WideNum>)>;
 
   //===----------------------------------------------------------------------===//
   // Instantiation:
@@ -111,12 +108,12 @@ private:
 
   static DisposableElementsAttr get(ShapedType type, size_t id,
       const Buffer &buffer, Optional<Strides> optionalStrides,
-      BType bufferBType, Reader reader = nullptr);
+      BType bufferBType, Transformer transformer = nullptr);
 
   // Internal method called by get(..) methods.
   static DisposableElementsAttr create(ShapedType type, size_t id,
       const Buffer &buffer, Strides strides, BType bufferBType,
-      Reader reader /*= nullptr*/);
+      Transformer transformer);
 
   // Clear the buffer payload shared_ptr which decreases the reference count
   // and, if it reaches zero, frees or closes the underlying MemoryBuffer's
@@ -143,9 +140,7 @@ private:
 
   const Buffer &getBuffer() const;
 
-  const Reader &getReader() const;
-
-  const Reader &getReaderOrNull() const;
+  const Transformer &getTransformer() const;
 
   bool isContiguous() const;
 
@@ -182,7 +177,7 @@ public:
   // the elements, where X can be any scalar cpp type, or APFloat (if element
   // type is floating point) or APInt (if element type is integer).
   //
-  // Note that iteration is slow because it invokes getReader() for every
+  // Note that iteration is slow because it invokes getTransformer() for every
   // element and, furthermore, performs a slow calculation from flat index to
   // buffer position if the underlying buffer is not contiguous, namely when its
   // strides are not the default strides for the type shape. It's more efficient
@@ -223,11 +218,13 @@ public:
   // Other access to the elements:
   //===----------------------------------------------------------------------===//
 private:
-  StringRef getBufferString() const;
-
   ArrayRef<char> getBufferBytes() const;
 
-  // Warning: this is somewhat inefficient because it invokes getReader().
+  void readBytesAsWideNums(
+      ArrayRef<char> bytes, llvm::MutableArrayRef<WideNum>) const;
+
+  // Warning: this is somewhat inefficient because it invokes getTransformer()
+  // on a single element.
   // It's more efficient to copy out data in bulk with readWideNums().
   WideNum readBufferPos(size_t pos) const;
 

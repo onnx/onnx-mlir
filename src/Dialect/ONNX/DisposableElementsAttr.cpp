@@ -26,42 +26,29 @@ namespace mlir {
 
 namespace {
 
-// Copies wideData to bytes while narrowing to the elementType datatype.
+// Copies src to dstBytes while narrowing to the given datatype.
 void narrowArray(
-    BType bt, ArrayRef<WideNum> wideData, MutableArrayRef<char> bytes) {
-  dispatchByBType(bt, [wideData, bytes](auto btype) {
+    BType bt, ArrayRef<WideNum> src, MutableArrayRef<char> dstBytes) {
+  dispatchByBType(bt, [src, dstBytes](auto btype) {
     using W = WideBType<btype>;
-    auto dst = castMutableArrayRef<typename W::narrowtype>(bytes);
-    std::transform(wideData.begin(), wideData.end(), dst.begin(), W::narrow);
+    auto dst = castMutableArrayRef<typename W::narrowtype>(dstBytes);
+    assert(src.size() == dst.size() && "narrowArray size mismatch");
+    std::transform(src.begin(), src.end(), dst.begin(), W::narrow);
   });
 }
 
-// Copies s to dst while widening from the BTYPE datatype.
-template <BType BTYPE>
-void identityReader(StringRef s, MutableArrayRef<WideNum> dst) {
-  if constexpr (BTypeTrait<BTYPE>::isIntOrFloat) {
-    using W = WideBType<BTYPE>;
-    auto src = asArrayRef<typename W::narrowtype>(s);
+// Copies srcBytes to dst while widening from the given datatype.
+void widenArray(
+    BType bt, ArrayRef<char> srcBytes, MutableArrayRef<WideNum> dst) {
+  dispatchByBType(bt, [srcBytes, dst](auto btype) {
+    using W = WideBType<btype>;
+    auto src = castArrayRef<typename W::narrowtype>(srcBytes);
+    assert(src.size() == dst.size() && "widenArray size mismatch");
     std::transform(src.begin(), src.end(), dst.begin(), W::widen);
-  } else {
-    llvm_unreachable("can only read int or float data types");
-  }
-}
-
-using IdentityReader = std::function<void(StringRef, MutableArrayRef<WideNum>)>;
-
-template <std::size_t... Idx>
-std::array<IdentityReader, kNumBTypes> identityReadersSequence(
-    std::index_sequence<Idx...>) {
-  return {identityReader<static_cast<BType>(Idx)>...};
+  });
 }
 
 } // namespace
-
-/*static*/
-const std::array<DisposableElementsAttr::Reader, kNumBTypes>
-    DisposableElementsAttr::identityReaders =
-        identityReadersSequence(std::make_index_sequence<kNumBTypes>{});
 
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::get(ShapedType type, size_t id,
@@ -73,36 +60,36 @@ DisposableElementsAttr DisposableElementsAttr::get(ShapedType type, size_t id,
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::get(ShapedType type, size_t id,
     const Buffer &buffer, Optional<Strides> optionalStrides, BType bufferBType,
-    Reader reader) {
+    Transformer transformer) {
   SmallVector<int64_t, 4> strides;
   if (optionalStrides.has_value()) {
     strides.assign(optionalStrides->begin(), optionalStrides->end());
   } else {
     strides = getDefaultStrides(type.getShape());
   }
-  return create(type, id, buffer, strides, bufferBType, std::move(reader));
+  return create(type, id, buffer, strides, bufferBType, std::move(transformer));
 }
 
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
     size_t id, const Buffer &buffer, Strides strides, BType bufferBType,
-    Reader reader) {
+    Transformer transformer) {
   BType btype = btypeOfMlirType(type.getElementType());
-  assert((reader != nullptr ||
+  assert((transformer != nullptr ||
              wideBTypeOfBType(bufferBType) == wideBTypeOfBType(btype)) &&
-         "buffer wide type mismatch requires transforming reader");
+         "buffer wide type mismatch requires transformer");
   bool isContiguous = areStridesContiguous(type.getShape(), strides);
   DisposableElementsAttr a = Base::get(
       type.getContext(), type, strides, bufferBType, btype, isContiguous, id);
   DisposableElementsAttributeStorage &s = *a.getImpl();
   s.buffer = buffer;
-  s.reader = std::move(reader);
+  s.transformer = std::move(transformer);
   return a;
 }
 
 void DisposableElementsAttr::dispose() {
   getImpl()->buffer.reset();
-  getImpl()->reader = nullptr;
+  getImpl()->transformer = nullptr;
 }
 
 bool DisposableElementsAttr::isDisposed() const { return !getImpl()->buffer; }
@@ -118,15 +105,9 @@ auto DisposableElementsAttr::getBuffer() const -> const Buffer & {
   return getImpl()->buffer;
 }
 
-auto DisposableElementsAttr::getReader() const -> const Reader & {
-  if (const Reader &reader = getReaderOrNull())
-    return reader;
-  return identityReaders[static_cast<int8_t>(getBufferBType())];
-}
-
-auto DisposableElementsAttr::getReaderOrNull() const -> const Reader & {
+auto DisposableElementsAttr::getTransformer() const -> const Transformer & {
   assert(!isDisposed());
-  return getImpl()->reader;
+  return getImpl()->transformer;
 }
 
 bool DisposableElementsAttr::isContiguous() const {
@@ -134,7 +115,7 @@ bool DisposableElementsAttr::isContiguous() const {
 }
 
 bool DisposableElementsAttr::isTransformed() const {
-  return getImpl()->reader != nullptr;
+  return getImpl()->transformer != nullptr;
 }
 
 bool DisposableElementsAttr::isTransformedOrCast() const {
@@ -153,12 +134,8 @@ int64_t DisposableElementsAttr::getNumBufferElements() const {
   return getBuffer()->getBufferSize() / getBufferElementBytewidth();
 }
 
-StringRef DisposableElementsAttr::getBufferString() const {
-  return getBuffer()->getBuffer();
-}
-
 ArrayRef<char> DisposableElementsAttr::getBufferBytes() const {
-  return asArrayRef(getBufferString());
+  return asArrayRef(getBuffer()->getBuffer());
 }
 
 bool DisposableElementsAttr::isSplat() const {
@@ -169,12 +146,19 @@ BType DisposableElementsAttr::getBType() const { return getImpl()->btype; }
 
 ShapedType DisposableElementsAttr::getType() const { return getImpl()->type; }
 
+void DisposableElementsAttr::readBytesAsWideNums(
+    ArrayRef<char> srcBytes, llvm::MutableArrayRef<WideNum> dst) const {
+  widenArray(getBufferBType(), srcBytes, dst);
+  if (const Transformer &transformer = getTransformer())
+    transformer(dst);
+}
+
 WideNum DisposableElementsAttr::readBufferPos(size_t pos) const {
-  StringRef s = getBufferString();
   unsigned bufBytewidth = getBufferElementBytewidth();
-  StringRef bytes = s.substr(pos * bufBytewidth, bufBytewidth);
+  ArrayRef<char> bytes =
+      getBufferBytes().slice(pos * bufBytewidth, bufBytewidth);
   WideNum n;
-  getReader()(bytes, llvm::makeMutableArrayRef(n));
+  readBytesAsWideNums(bytes, llvm::makeMutableArrayRef(n));
   return n;
 }
 
@@ -193,12 +177,12 @@ size_t DisposableElementsAttr::flatIndexToBufferPos(size_t flatIndex) const {
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getBufferAsWideNums() const {
   if (!isTransformed() && getBufferElementBytewidth() == sizeof(WideNum)) {
-    return asArrayRef<WideNum>(getBufferString());
+    return castArrayRef<WideNum>(getBufferBytes());
   }
-  ArrayBuffer<WideNum>::Vector wideBufferData;
-  wideBufferData.resize_for_overwrite(getNumBufferElements());
-  getReader()(getBufferString(), wideBufferData);
-  return std::move(wideBufferData);
+  ArrayBuffer<WideNum>::Vector dst;
+  dst.resize_for_overwrite(getNumBufferElements());
+  readBytesAsWideNums(getBufferBytes(), dst);
+  return std::move(dst);
 }
 
 auto DisposableElementsAttr::getSplatWideNum() const -> WideNum {
@@ -208,7 +192,7 @@ auto DisposableElementsAttr::getSplatWideNum() const -> WideNum {
 
 void DisposableElementsAttr::readWideNums(MutableArrayRef<WideNum> dst) const {
   if (isContiguous()) {
-    getReader()(getBufferString(), dst);
+    readBytesAsWideNums(getBufferBytes(), dst);
     return;
   }
   ArrayBuffer<WideNum> src = getBufferAsWideNums();
@@ -216,29 +200,30 @@ void DisposableElementsAttr::readWideNums(MutableArrayRef<WideNum> dst) const {
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
-  if (!isTransformed() && isContiguous() &&
-      getBufferElementBytewidth() == sizeof(WideNum)) {
-    return asArrayRef<WideNum>(getBufferString());
+  if (isContiguous()) {
+    return getBufferAsWideNums();
   }
-  ArrayBuffer<WideNum>::Vector wideData;
-  wideData.resize_for_overwrite(getNumElements());
-  readWideNums(wideData);
-  return std::move(wideData);
+  ArrayBuffer<WideNum>::Vector dst;
+  dst.resize_for_overwrite(getNumElements());
+  readWideNums(dst);
+  return std::move(dst);
 }
 
-void DisposableElementsAttr::readRawBytes(MutableArrayRef<char> dst) const {
+void DisposableElementsAttr::readRawBytes(
+    MutableArrayRef<char> dstBytes) const {
   BType btype = getBType();
   unsigned elemBytewidth = bytewidthOfBType(btype);
   if (!isTransformedOrCast()) {
-    auto src = getBufferBytes();
-    restrideArray(elemBytewidth, getShape(), {getStrides(), src}, dst);
+    auto srcBytes = getBufferBytes();
+    restrideArray(
+        elemBytewidth, getShape(), {getStrides(), srcBytes}, dstBytes);
   } else if (elemBytewidth == sizeof(WideNum)) {
-    readWideNums(castMutableArrayRef<WideNum>(dst));
+    readWideNums(castMutableArrayRef<WideNum>(dstBytes));
   } else {
-    SmallVector<WideNum, 1> wideData;
-    wideData.resize_for_overwrite(getNumElements());
-    readWideNums(wideData);
-    narrowArray(btype, wideData, dst);
+    SmallVector<WideNum, 1> dst;
+    dst.resize_for_overwrite(getNumElements());
+    readWideNums(dst);
+    narrowArray(btype, dst, dstBytes);
   }
 }
 
@@ -246,10 +231,10 @@ ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
   if (!isTransformedOrCast() && isContiguous())
     return getBufferBytes();
   unsigned elemBytewidth = bytewidthOfBType(getBType());
-  ArrayBuffer<char>::Vector vec;
-  vec.resize_for_overwrite(getNumElements() * elemBytewidth);
-  readRawBytes(vec);
-  return std::move(vec);
+  ArrayBuffer<char>::Vector dstBytes;
+  dstBytes.resize_for_overwrite(getNumElements() * elemBytewidth);
+  readRawBytes(dstBytes);
+  return std::move(dstBytes);
 }
 
 DenseElementsAttr DisposableElementsAttr::toDenseElementsAttr() const {

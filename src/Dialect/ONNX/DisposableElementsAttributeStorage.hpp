@@ -22,7 +22,7 @@ namespace mlir {
 struct DisposableElementsAttributeStorage : public AttributeStorage {
   using Strides = ArrayRef<int64_t>;
   using Buffer = std::shared_ptr<llvm::MemoryBuffer>;
-  using Reader = std::function<void(StringRef, MutableArrayRef<WideNum>)>;
+  using Transformer = std::function<void(llvm::MutableArrayRef<WideNum>)>;
   using KeyTy = std::tuple<ShapedType, Strides, onnx_mlir::BType,
       onnx_mlir::BType, bool, size_t>;
   static constexpr int TYPE = 0;
@@ -33,7 +33,7 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   static constexpr int ID = 5;
 
   // Constructs only type and strides and properties while the caller sets
-  // buffer and reader after construction to minimize copying.
+  // buffer and transformer after construction to minimize copying.
   DisposableElementsAttributeStorage(ShapedType type, Strides strides,
       onnx_mlir::BType bufferBType, onnx_mlir::BType btype, bool isContiguous,
       size_t id)
@@ -41,10 +41,10 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
         isContiguous(isContiguous), id(id) {}
 
   // Equality and hashKey are engineered to defeat the storage uniquer.
-  // We don't want uniqueing because we can't compare readers for equality
+  // We don't want uniqueing because we can't compare transformers for equality
   // and we could be in a sitation later where we have the same data or the
   // same buffer address but there is an undetectable mismatch because the
-  // buffer and reader were disposed by garbage collection.
+  // buffer and transformer were disposed by garbage collection.
   bool operator==(const KeyTy &key) const { return id == std::get<ID>(key); }
   static llvm::hash_code hashKey(const KeyTy &key) { return std::get<ID>(key); }
 
@@ -63,7 +63,7 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
 
   // The tensor shape and element type that this object represents.
   // The underlying data in buffer may not directly match the type's element
-  // type or number of elements, depending on strides and reader.
+  // type or number of elements, depending on strides and transformer.
   ShapedType type;
 
   // Specifies how to map positions expressed in type's shape to the flat
@@ -110,9 +110,9 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   // to the same double/i64/u64 widetype
   // (both are float, or both are signed ints, or both are unsigned ints).
   //
-  // Garbage collection clears the reader when the DisposableElementsAttr is
-  // disposed.
-  Reader reader;
+  // Garbage collection clears the transformer when the DisposableElementsAttr
+  // is disposed.
+  Transformer transformer;
 };
 
 } // namespace mlir
