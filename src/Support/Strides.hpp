@@ -130,7 +130,8 @@ inline void transformAndRestrideTwoWideArrays(llvm::ArrayRef<int64_t> shape,
       return dst;
     }
   };
-  traverse(0, 0, 0, dstData.begin(), traverse);
+  WideNum *end = traverse(0, 0, 0, dstData.begin(), traverse);
+  assert(end == dstData.end() && "traversal should end at the end of dstData");
 }
 
 } // namespace onnx_mlir

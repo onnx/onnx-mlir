@@ -197,7 +197,8 @@ void restrideArrayImpl(ArrayRef<int64_t> shape, Strided<ArrayRef<T>> src,
       return dst;
     }
   };
-  traverse(0, 0, dstData.begin(), traverse);
+  T *end = traverse(0, 0, dstData.begin(), traverse);
+  assert(end == dstData.end() && "traversal should end at the end of dstData");
 }
 
 template <typename T>
