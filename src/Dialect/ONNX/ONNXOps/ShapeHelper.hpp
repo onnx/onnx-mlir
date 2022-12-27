@@ -119,6 +119,7 @@ struct ONNXOpShapeHelper {
       mlir::ArrayRef<mlir::Attribute> encodingList = {});
 
   // Get/set output dims for the N-th output dimension as Index Expressions.
+  // Scalar may have a DimsExpr that is empty.
   DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }
   void setOutputDims(const DimsExpr &inferredDims, int n = 0);
 
@@ -302,6 +303,10 @@ struct ONNXGenericPoolOpShapeHelper : public ONNXOpShapeHelper {
 using ONNXAveragePoolOpShapeHelper =
     ONNXGenericPoolOpShapeHelper<mlir::ONNXAveragePoolOp>;
 using ONNXConvOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXConvOp>;
+using ONNXConvIntegerOpShapeHelper =
+    ONNXGenericPoolOpShapeHelper<mlir::ONNXConvIntegerOp>;
+using ONNXQLinearConvOpShapeHelper =
+    ONNXGenericPoolOpShapeHelper<mlir::ONNXQLinearConvOp>;
 using ONNXMaxPoolSingleOutOpShapeHelper =
     ONNXGenericPoolOpShapeHelper<mlir::ONNXMaxPoolSingleOutOp>;
 
@@ -591,9 +596,12 @@ using ONNXClipOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
 using ONNXCompressOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
 using ONNXConcatOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
 using ONNXConcatShapeTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
+using ONNXConstantOfShapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConstantOfShapeOp>;
 using ONNXDFTOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDFTOp>;
 using ONNXDepthToSpaceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
+using ONNXDropoutOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDropoutOp>;
 using ONNXEinsumOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXEinsumOp>;
+using ONNXEyeLikeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXEyeLikeOp>;
 using ONNXFlattenOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXFlattenOp>;
 using ONNXGatherElementsOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherElementsOp>;
 using ONNXGatherNDOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherNDOp>;
@@ -606,10 +614,13 @@ using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpa
 using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
+using ONNXRangeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRangeOp>;
+using ONNXResizeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXResizeOp>;
+using ONNXDequantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDequantizeLinearOp>;
 // clang-format on
 
-// Pattern to use: replace "_" by operation's name.
-// using ONNXOp_ShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNX_Op>;
+// Pattern to use:
+// using ShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::>;
 
 //===----------------------------------------------------------------------===//
 // Setting a new constant or attribute value.
