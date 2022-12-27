@@ -19,6 +19,23 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXEyeLikeOpShapeHelper::computeShape() {
+  ONNXEyeLikeOpAdaptor operandAdaptor(operands);
+  DimsExpr outputDims;
+  createIE->getShapeAsDims(operandAdaptor.input(), outputDims);
+  setOutputDims(outputDims);
+  return success();
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -28,19 +45,27 @@ using namespace onnx_mlir;
 
 LogicalResult ONNXEyeLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto builder = OpBuilder(getContext());
-  if (!hasShapeAndRank(input())) {
+  if (!hasShapeAndRank(input()))
     return success();
-  }
+
   RankedTensorType inputType = input().getType().cast<RankedTensorType>();
   Type elementType;
   if (dtypeAttr()) {
+    auto builder = OpBuilder(getContext());
     elementType = convertONNXTypeToMLIRType(builder,
         (onnx::TensorProto_DataType)dtypeAttr().getValue().getSExtValue());
   } else {
     elementType = inputType.getElementType();
   }
 
-  updateType(getResult(), inputType.getShape(), elementType);
-  return success();
+  ONNXEyeLikeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXEyeLikeOp>;
+} // namespace onnx_mlir

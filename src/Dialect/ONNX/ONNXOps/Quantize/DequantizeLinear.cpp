@@ -34,6 +34,49 @@ int64_t nonScalar1DLen(ShapedType ty) {
 
 } // namespace
 
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
+  ONNXDequantizeLinearOpAdaptor operandAdaptor(
+      operands, op->getAttrDictionary());
+  RankedTensorType xTy =
+      operandAdaptor.x().getType().dyn_cast<RankedTensorType>();
+  DimsExpr outputDims;
+  createIE->getShapeAsDims(operandAdaptor.x(), outputDims);
+
+  // Get d.
+  int64_t d =
+      nonScalar1DLen(operandAdaptor.x_scale().getType().cast<ShapedType>());
+  if (d == -1 && !isFromNone(operandAdaptor.x_zero_point())) {
+    d = nonScalar1DLen(
+        operandAdaptor.x_zero_point().getType().cast<ShapedType>());
+  }
+
+  if (d != -1) {
+    int64_t r = xTy.getRank();
+    int64_t a = operandAdaptor.axis();
+    // Checked in verify:
+    assert(-r <= a && a < r && "axis out of range");
+    if (a < 0)
+      a += r;
+    if (!outputDims[a].isLiteral()) {
+      outputDims[a] = LiteralIndexExpr(d);
+    }
+    // Checked in verify.
+    assert(outputDims[a].getLiteral() == d &&
+           "x_scale and x_zero_point 1-D tensor length must match the input "
+           "axis dim size");
+  }
+
+  // Get values.
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+
+} // namespace onnx_mlir
+
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
@@ -114,31 +157,17 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
 
 LogicalResult ONNXDequantizeLinearOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-
-  if (auto xTy = x().getType().dyn_cast<RankedTensorType>()) {
-    auto xShape = xTy.getShape();
-    SmallVector<int64_t, 4> yShape(xShape.begin(), xShape.end());
-    int64_t d = nonScalar1DLen(x_scale().getType().cast<ShapedType>());
-    if (d == -1 && !isFromNone(x_zero_point())) {
-      d = nonScalar1DLen(x_zero_point().getType().cast<ShapedType>());
-    }
-    if (d != -1) {
-      int64_t r = xTy.getRank();
-      int64_t a = axis();
-      // Checked in verify:
-      assert(-r <= a && a < r && "axis out of range");
-      if (a < 0)
-        a += r;
-      if (yShape[a] == -1) {
-        yShape[a] = d;
-      } else {
-        // Checked in verify:
-        assert(yShape[a] == d && "x_scale and x_zero_point 1-D tensor length "
-                                 "must match the input axis dim size");
-      }
-    }
-    updateType(y(), yShape);
-  }
-
-  return success();
+  if (!x().getType().dyn_cast<RankedTensorType>())
+    return success();
+  Type elementType = y().getType().cast<ShapedType>().getElementType();
+  ONNXDequantizeLinearOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXDequantizeLinearOp>;
+} // namespace onnx_mlir
