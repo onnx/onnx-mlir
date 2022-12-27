@@ -153,17 +153,14 @@ void DisposableElementsAttr::readBytesAsWideNums(
     transformer(dst);
 }
 
-WideNum DisposableElementsAttr::readBufferPos(size_t pos) const {
+WideNum DisposableElementsAttr::readFlatIndex(size_t flatIndex) const {
+  size_t pos = flatIndexToBufferPos(flatIndex);
   unsigned bufBytewidth = getBufferElementBytewidth();
   ArrayRef<char> bytes =
       getBufferBytes().slice(pos * bufBytewidth, bufBytewidth);
   WideNum n;
   readBytesAsWideNums(bytes, llvm::makeMutableArrayRef(n));
   return n;
-}
-
-WideNum DisposableElementsAttr::readFlatIndex(size_t flatIndex) const {
-  return readBufferPos(flatIndexToBufferPos(flatIndex));
 }
 
 size_t DisposableElementsAttr::flatIndexToBufferPos(size_t flatIndex) const {
@@ -187,7 +184,7 @@ ArrayBuffer<WideNum> DisposableElementsAttr::getBufferAsWideNums() const {
 
 auto DisposableElementsAttr::getSplatWideNum() const -> WideNum {
   assert(isSplat() && "expected the attribute to be a splat");
-  return readBufferPos(0);
+  return readFlatIndex(0);
 }
 
 void DisposableElementsAttr::readWideNums(MutableArrayRef<WideNum> dst) const {

@@ -223,15 +223,14 @@ private:
   void readBytesAsWideNums(
       ArrayRef<char> bytes, llvm::MutableArrayRef<WideNum>) const;
 
-  // Warning: this is somewhat inefficient because it invokes getTransformer()
-  // on a single element.
-  // It's more efficient to copy out data in bulk with readWideNums().
-  WideNum readBufferPos(size_t pos) const;
-
-  // Warning: this is inefficient unless isContiguous() or isSplat().
+  // Warning: This is inefficient. First, it calculates and the buffer position
+  // from strides with divisions and modulo, unless isContiguous() or isSplat().
+  // Second, it widens the buffer data type and computes any transformation for
+  // a single element without the fast inner loop of readWideNums() which reads
+  // out all elements in bulk with faster amortized speed per element.
   WideNum readFlatIndex(size_t flatIndex) const;
 
-  // Warning: this is inefficient because it calls unflattenIndex on flatIndex.
+  // Warning: This is inefficient because it calls unflattenIndex on flatIndex.
   size_t flatIndexToBufferPos(size_t flatIndex) const;
 
   onnx_mlir::ArrayBuffer<WideNum> getBufferAsWideNums() const;
