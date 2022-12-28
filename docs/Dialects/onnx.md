@@ -5586,8 +5586,9 @@ Effects: MemoryEffects::Effect{}
 
 ONNX OptionalGetElement operation
 
-Outputs the element in the optional-type input. It is an error if the input value does not have an element
-and the behavior is undefined in this case.
+If the input is a tensor or sequence type, it returns the input.
+If the input is an optional type, it outputs the element in the input.
+It is an error if the input is an empty optional-type (i.e. does not have an element) and the behavior is undefined in this case.
 
 Traits: AlwaysSpeculatableImplTrait
 
@@ -5599,7 +5600,7 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values
+| `input` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values
 
 #### Results:
 
@@ -5611,7 +5612,9 @@ Effects: MemoryEffects::Effect{}
 
 ONNX OptionalHasElement operation
 
-Returns true if the optional-type input contains an element. If it is an empty optional-type, this op returns false.
+Returns true if (1) the input is an optional-type and contains an element,
+or, (2) the input is a tensor or sequence type.
+If the input is not provided or is an empty optional-type, this op returns false.
 
 Traits: AlwaysSpeculatableImplTrait
 
@@ -5623,7 +5626,7 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values
+| `input` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or none type
 
 #### Results:
 
@@ -7538,11 +7541,13 @@ rank r >= 1 and an optional attribute axis that identifies an axis of `data`
 is produced by creating a copy of the input `data`, and then updating its value
 to values specified by `updates` at specific index positions specified by
 `indices`. Its output shape is the same as the shape of `data`.
+
 For each entry in `updates`, the target index in `data` is obtained by combining
 the corresponding entry in `indices` with the index of the entry itself: the
 index-value for dimension = axis is obtained from the value of the corresponding
 entry in `indices` and the index-value for dimension != axis is obtained from the
 index of the entry itself.
+
 `reduction` allows specification of an optional reduction operation, which is applied to all values in `updates`
 tensor into `output` at the specified `indices`.
 In cases where `reduction` is set to \"none\", indices should not have duplicate entries: that is, if idx1 != idx2,
@@ -7552,17 +7557,18 @@ corresponding to the [i][j] entry is performed as below:
   output[indices[i][j]][j] = updates[i][j] if axis = 0,
   output[i][indices[i][j]] = updates[i][j] if axis = 1,
 ```
-When `reduction` is set to \"add\", the update corresponding to the [i][j] entry is performed as below:
+When `reduction` is set to some reduction function `f`, the update corresponding to the [i][j] entry is performed as below:
 ```
-  output[indices[i][j]][j] += updates[i][j] if axis = 0,
-  output[i][indices[i][j]] += updates[i][j] if axis = 1,
+  output[indices[i][j]][j] += f(output[indices[i][j]][j], updates[i][j]) if axis = 0,
+  output[i][indices[i][j]] += f(output[i][indices[i][j]], updates[i][j]) if axis = 1,
 ```
-When `reduction` is set to \"mul\", the update corresponding to the [i][j] entry is performed as below:
-```
-  output[indices[i][j]][j] *= updates[i][j] if axis = 0,
-  output[i][indices[i][j]] *= updates[i][j] if axis = 1,
-```
+where the `f` is +/*/max/min as specified.
+
+
 This operator is the inverse of GatherElements. It is similar to Torch's Scatter operation.
+
+(Opset 18 change): Adds max/min to the set of allowed reduction ops.
+
 Example 1:
 ```
   data = [
@@ -7646,10 +7652,12 @@ must equal indices.shape[0:q-1] ++ data.shape[k:r-1], where ++ denotes the conca
 of shapes.
 
 The `output` is calculated via the following equation:
+
     output = np.copy(data)
     update_indices = indices.shape[:-1]
     for idx in np.ndindex(update_indices):
         output[indices[idx]] = updates[idx]
+
 The order of iteration in the above loop is not specified.
 In particular, indices should not have duplicate entries: that is, if idx1 != idx2, then indices[idx1] != indices[idx2].
 This ensures that the output value does not depend on the iteration order.
@@ -7658,17 +7666,19 @@ This ensures that the output value does not depend on the iteration order.
 tensor into `output` at the specified `indices`.
 In cases where `reduction` is set to \"none\", indices should not have duplicate entries: that is, if idx1 != idx2,
 then indices[idx1] != indices[idx2]. This ensures that the output value does not depend on the iteration order.
-When `reduction` is set to \"add\", `output` is calculated as follows:
+When `reduction` is set to some reduction function `f`, `output` is calculated as follows:
+
     output = np.copy(data)
     update_indices = indices.shape[:-1]
     for idx in np.ndindex(update_indices):
-        output[indices[idx]] += updates[idx]
-When `reduction` is set to \"mul\", `output` is calculated as follows:
-    output = np.copy(data)
-    update_indices = indices.shape[:-1]
-    for idx in np.ndindex(update_indices):
-        output[indices[idx]] *= updates[idx]
+        output[indices[idx]] = f(output[indices[idx]], updates[idx])
+
+where the `f` is +/*/max/min as specified.
+
 This operator is the inverse of GatherND.
+
+(Opset 18 change): Adds max/min to the set of allowed reduction ops.
+
 Example 1:
 ```
   data    = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -7676,6 +7686,7 @@ Example 1:
   updates = [9, 10, 11, 12]
   output  = [1, 11, 3, 10, 9, 6, 7, 12]
 ```
+
 Example 2:
 ```
   data    = [[[1, 2, 3, 4], [5, 6, 7, 8], [8, 7, 6, 5], [4, 3, 2, 1]],
