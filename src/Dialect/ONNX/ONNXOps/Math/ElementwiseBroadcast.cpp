@@ -90,6 +90,45 @@ LogicalResult ONNXAndOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// BitwiseAndOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXBitwiseAndOp::verify() {
+  return verifyShapeForBroadcastingOps(getOperation());
+}
+
+LogicalResult ONNXBitwiseAndOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForBroadcastingOps<ONNXBitwiseAndOp>(*this);
+}
+
+//===----------------------------------------------------------------------===//
+// BitwiseAndOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXBitwiseOrOp::verify() {
+  return verifyShapeForBroadcastingOps(getOperation());
+}
+
+LogicalResult ONNXBitwiseOrOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForBroadcastingOps<ONNXBitwiseOrOp>(*this);
+}
+
+//===----------------------------------------------------------------------===//
+// BitwiseAndOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXBitwiseXorOp::verify() {
+  return verifyShapeForBroadcastingOps(getOperation());
+}
+
+LogicalResult ONNXBitwiseXorOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForBroadcastingOps<ONNXBitwiseXorOp>(*this);
+}
+
+//===----------------------------------------------------------------------===//
 // BitShiftOp
 //===----------------------------------------------------------------------===//
 
