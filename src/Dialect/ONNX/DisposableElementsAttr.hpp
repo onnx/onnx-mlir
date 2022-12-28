@@ -23,7 +23,6 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/Support/MemoryBuffer.h"
 
-#include <array>
 #include <functional>
 #include <memory>
 

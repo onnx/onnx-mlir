@@ -16,7 +16,7 @@
 
 #include "llvm/ADT/StringExtras.h"
 
-#include <utility>
+#include <algorithm>
 
 using namespace onnx_mlir;
 

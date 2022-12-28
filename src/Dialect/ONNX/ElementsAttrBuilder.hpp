@@ -16,6 +16,8 @@
 #include "src/Support/WideNum.hpp"
 
 #include <atomic>
+#include <functional>
+#include <memory>
 
 namespace onnx_mlir {
 
