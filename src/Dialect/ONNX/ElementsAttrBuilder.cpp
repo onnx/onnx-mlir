@@ -66,7 +66,6 @@ DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
   if (auto dense = elements.dyn_cast<DenseElementsAttr>()) {
     ShapedType type = dense.getType();
     BType btype = btypeOfMlirType(type.getElementType());
-    std::unique_ptr<llvm::MemoryBuffer> buffer;
     if (btype == BType::BOOL) {
       // Don't use dense.rawData() which is bit packed, whereas
       // DisposableElementsAttr represents bools with one byte per bool value.
@@ -245,26 +244,25 @@ DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
   return createWithDefaultStrides(type, bufferBType, std::move(writeBuffer));
 }
 
-DisposableElementsAttr ElementsAttrBuilder::create(ShapedType type,
-    BType bufferBType, ArrayRef<int64_t> strides,
-    const std::shared_ptr<llvm::MemoryBuffer> &buffer,
-    Transformer transformer) {
-  return disposablePool.createDisposableElementsAttr(
-      type, bufferBType, strides, buffer, std::move(transformer));
-}
-
 DisposableElementsAttr ElementsAttrBuilder::createWithDefaultStrides(
     ShapedType type, BType bufferBType,
-    const std::shared_ptr<llvm::MemoryBuffer> &buffer,
-    Transformer transformer) {
+    std::unique_ptr<llvm::MemoryBuffer> membuf) {
   auto strides = getDefaultStrides(type.getShape());
-  return create(type, bufferBType, strides, buffer, std::move(transformer));
+  return create(type, bufferBType, strides, std::move(membuf));
 }
 
 mlir::DisposableElementsAttr ElementsAttrBuilder::createSplat(ShapedType type,
     BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
   return create(type, bufferBType, zerosStrides, std::move(membuf));
+}
+
+DisposableElementsAttr ElementsAttrBuilder::create(ShapedType type,
+    BType bufferBType, ArrayRef<int64_t> strides,
+    const std::shared_ptr<llvm::MemoryBuffer> &buffer,
+    Transformer transformer) {
+  return disposablePool.createDisposableElementsAttr(
+      type, bufferBType, strides, buffer, std::move(transformer));
 }
 
 } // namespace onnx_mlir

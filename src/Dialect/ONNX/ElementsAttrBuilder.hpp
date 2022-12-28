@@ -110,18 +110,17 @@ private:
     return expand(transformed, resultType.getShape());
   }
 
+  mlir::DisposableElementsAttr createWithDefaultStrides(mlir::ShapedType type,
+      BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf);
+
+  mlir::DisposableElementsAttr createSplat(mlir::ShapedType type,
+      BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf);
+
   // Create a DisposableElementsAttr and put it in disposablePool.
   mlir::DisposableElementsAttr create(mlir::ShapedType type, BType bufferBType,
       llvm::ArrayRef<int64_t> strides,
       const std::shared_ptr<llvm::MemoryBuffer> &buffer,
       Transformer transformer = nullptr);
-
-  mlir::DisposableElementsAttr createWithDefaultStrides(mlir::ShapedType type,
-      BType bufferBType, const std::shared_ptr<llvm::MemoryBuffer> &buffer,
-      Transformer transformer = nullptr);
-
-  mlir::DisposableElementsAttr createSplat(mlir::ShapedType type,
-      BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf);
 
   DisposablePool &disposablePool;
 };
