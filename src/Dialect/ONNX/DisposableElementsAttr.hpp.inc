@@ -8,11 +8,9 @@ namespace detail {
 // True for the types T in DisposableElementsAttr::NonContiguousIterableTypesT.
 template <typename T>
 constexpr bool isIterableType =
-    std::is_same_v<T, Attribute> || std::is_same_v<T, IntegerAttr> ||
-    std::is_same_v<T, FloatAttr> || std::is_same_v<T, APInt> ||
-    std::is_same_v<T, APFloat> || std::is_same_v<T, onnx_mlir::WideNum> ||
-    (onnx_mlir::CppTypeTrait<T>::btype != onnx_mlir::BType::UNDEFINED &&
-        onnx_mlir::CppTypeTrait<T>::isIntOrFloat);
+    llvm::is_one_of<T, Attribute, IntegerAttr, FloatAttr, APInt, APFloat,
+        onnx_mlir::WideNum>::value ||
+    onnx_mlir::CppTypeTrait<T>::isIntOrFloat;
 
 // Supports all the types T in NonContiguousIterableTypesT.
 template <typename T>
