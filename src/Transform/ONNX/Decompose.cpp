@@ -173,7 +173,7 @@ struct SoftmaxPattern : public ConversionPattern {
     ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axisValue});
     RankedTensorType resultType =
         createResultType(inputType, axisValue, /*keepDims=*/true);
-    Value maxInput = rewriter.create<ONNXReduceMaxOp>(
+    Value maxInput = rewriter.create<ONNXReduceMaxV13Op>(
         odsLoc, resultType, input, axisAttr, keepDimsAttr);
     Value subValue =
         rewriter.create<ONNXSubOp>(odsLoc, inputType, input, maxInput);

@@ -327,12 +327,12 @@ def replaceONNXLogSoftmaxPattern : Pattern<
 >;
 
 //===----------------------------------------------------------------------===//
-// ONNXReduceMeanOp %X = (ZHighUnstickOp
+// ONNXReduceMeanV13Op %X = (ZHighUnstickOp
 //                          (ZHighMeanReduce2DOp
 //                             (ZHighStickOp %X))))
 //===----------------------------------------------------------------------===//
-def replaceONNXReduceMeanPattern : Pat<
-  (ONNXReduceMeanOp:$res $x, $_, $_),
+def replaceONNXReduceMeanV13Pattern : Pat<
+  (ONNXReduceMeanV13Op:$res $x, $_, $_),
   (ZHighUnstickOp (ZHighMeanReduce2DOp (ZHighStickOp $x, (NHWCLayoutAttr))))
 >;
 
