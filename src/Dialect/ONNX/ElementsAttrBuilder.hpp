@@ -102,14 +102,6 @@ private:
   mlir::DisposableElementsAttr fromRawBytes(mlir::ShapedType type,
       BType bufferBType, const Filler<char> &bytesFiller);
 
-  mlir::DisposableElementsAttr transformAndExpand(
-      mlir::DisposableElementsAttr elms, mlir::ShapedType resultType,
-      Transformer transformer) {
-    auto transformed =
-        transform(elms, resultType.getElementType(), std::move(transformer));
-    return expand(transformed, resultType.getShape());
-  }
-
   mlir::DisposableElementsAttr createWithDefaultStrides(mlir::ShapedType type,
       BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf);
 

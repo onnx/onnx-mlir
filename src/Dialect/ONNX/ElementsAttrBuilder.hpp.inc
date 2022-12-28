@@ -17,8 +17,7 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromArray(
 template <typename UnaryFunction>
 ElementsAttrBuilder::Transformer ElementsAttrBuilder::functionTransformer(
     UnaryFunction fun) {
-  return [fun = std::forward<UnaryFunction>(fun)](
-             llvm::MutableArrayRef<WideNum> data) -> void {
+  return [fun = std::move(fun)](llvm::MutableArrayRef<WideNum> data) -> void {
     for (WideNum &n : data)
       n = fun(n);
   };
@@ -28,31 +27,30 @@ template <typename BinaryCombiner>
 mlir::DisposableElementsAttr ElementsAttrBuilder::combine(
     mlir::DisposableElementsAttr lhs, mlir::DisposableElementsAttr rhs,
     mlir::ShapedType combinedType, BinaryCombiner combiner) {
+  auto combinedShape = combinedType.getShape();
   if (lhs.isSplat()) {
     WideNum lhsNum = lhs.getSplatWideNum();
-    return transformAndExpand(rhs, combinedType,
-        functionTransformer(
-            [lhsNum, combiner = std::forward<BinaryCombiner>(combiner)](
-                WideNum n) { return combiner(lhsNum, n); }));
+    auto transformed = transform(rhs, combinedType.getElementType(),
+        functionTransformer([lhsNum, combiner = std::move(combiner)](
+                                WideNum n) { return combiner(lhsNum, n); }));
+    return expand(transformed, combinedShape);
   }
   if (rhs.isSplat()) {
     WideNum rhsNum = rhs.getSplatWideNum();
-    return transformAndExpand(lhs, combinedType,
-        functionTransformer(
-            [rhsNum, combiner = std::forward<BinaryCombiner>(combiner)](
-                WideNum n) { return combiner(n, rhsNum); }));
+    auto transformed = transform(lhs, combinedType.getElementType(),
+        functionTransformer([rhsNum, combiner = std::move(combiner)](
+                                WideNum n) { return combiner(n, rhsNum); }));
+    return expand(transformed, combinedShape);
   }
-
-  auto shape = combinedType.getShape();
-  auto lhsStrides = expandStrides(lhs.getStrides(), shape);
+  auto lhsStrides = expandStrides(lhs.getStrides(), combinedShape);
   ArrayBuffer<WideNum> lhsNums = lhs.getBufferAsWideNums();
   Strided<llvm::ArrayRef<WideNum>> lhsStrided{lhsStrides, lhsNums.get()};
-  auto rhsStrides = expandStrides(rhs.getStrides(), shape);
+  auto rhsStrides = expandStrides(rhs.getStrides(), combinedShape);
   ArrayBuffer<WideNum> rhsNums = rhs.getBufferAsWideNums();
   Strided<llvm::ArrayRef<WideNum>> rhsStrided{rhsStrides, rhsNums.get()};
   return fromWideNums(
       combinedType, [&](llvm::MutableArrayRef<WideNum> dstNums) {
         transformAndRestrideTwoWideArrays(
-            shape, lhsStrided, rhsStrided, dstNums, combiner);
+            combinedShape, lhsStrided, rhsStrided, dstNums, combiner);
       });
 }
