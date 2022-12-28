@@ -86,7 +86,6 @@ class DisposableElementsAttr
   using BType = onnx_mlir::BType;
   using WideNum = onnx_mlir::WideNum;
 
-  using Strides = ArrayRef<int64_t>;
   using Buffer = std::shared_ptr<llvm::MemoryBuffer>;
   using Transformer = std::function<void(llvm::MutableArrayRef<WideNum>)>;
 
@@ -103,16 +102,10 @@ public:
   friend class onnx_mlir::ElementsAttrBuilder;
 
 private:
-  static DisposableElementsAttr get(ShapedType type, size_t id,
-      const Buffer &buffer, Optional<Strides> optionalStrides = None);
-
-  static DisposableElementsAttr get(ShapedType type, size_t id,
-      const Buffer &buffer, Optional<Strides> optionalStrides,
-      BType bufferBType, Transformer transformer = nullptr);
-
-  // Internal method called by get(..) methods.
+  // Called from ElementsAttrBuilder who calls with a unique id and records the
+  // created instance in DisposablePool.
   static DisposableElementsAttr create(ShapedType type, size_t id,
-      const Buffer &buffer, Strides strides, BType bufferBType,
+      BType bufferBType, ArrayRef<int64_t> strides, const Buffer &buffer,
       Transformer transformer);
 
   // Clear the buffer payload shared_ptr which decreases the reference count
@@ -136,7 +129,7 @@ private:
 
   size_t getId() const;
 
-  Strides getStrides() const;
+  ArrayRef<int64_t> getStrides() const;
 
   const Buffer &getBuffer() const;
 

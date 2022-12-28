@@ -51,29 +51,9 @@ void widenArray(
 } // namespace
 
 /*static*/
-DisposableElementsAttr DisposableElementsAttr::get(ShapedType type, size_t id,
-    const Buffer &buffer, Optional<Strides> optionalStrides) {
-  BType btype = btypeOfMlirType(type.getElementType());
-  return get(type, id, buffer, optionalStrides, btype);
-}
-
-/*static*/
-DisposableElementsAttr DisposableElementsAttr::get(ShapedType type, size_t id,
-    const Buffer &buffer, Optional<Strides> optionalStrides, BType bufferBType,
-    Transformer transformer) {
-  SmallVector<int64_t, 4> strides;
-  if (optionalStrides.has_value()) {
-    strides.assign(optionalStrides->begin(), optionalStrides->end());
-  } else {
-    strides = getDefaultStrides(type.getShape());
-  }
-  return create(type, id, buffer, strides, bufferBType, std::move(transformer));
-}
-
-/*static*/
 DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
-    size_t id, const Buffer &buffer, Strides strides, BType bufferBType,
-    Transformer transformer) {
+    size_t id, BType bufferBType, ArrayRef<int64_t> strides,
+    const Buffer &buffer, Transformer transformer) {
   BType btype = btypeOfMlirType(type.getElementType());
   assert((transformer != nullptr ||
              wideBTypeOfBType(bufferBType) == wideBTypeOfBType(btype)) &&
@@ -96,7 +76,7 @@ bool DisposableElementsAttr::isDisposed() const { return !getImpl()->buffer; }
 
 size_t DisposableElementsAttr::getId() const { return getImpl()->id; }
 
-auto DisposableElementsAttr::getStrides() const -> Strides {
+ArrayRef<int64_t> DisposableElementsAttr::getStrides() const {
   return getImpl()->strides;
 }
 

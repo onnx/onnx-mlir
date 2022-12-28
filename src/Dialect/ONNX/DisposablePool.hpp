@@ -28,7 +28,6 @@
 namespace onnx_mlir {
 
 class DisposablePool : public mlir::DialectInterface::Base<DisposablePool> {
-  friend class ElementsAttrBuilder; // allow access to insert()
 public:
   static DisposablePool &create(mlir::MLIRContext *context);
 
@@ -41,6 +40,12 @@ public:
 
   DisposablePool(mlir::Dialect *dialect, mlir::MLIRContext *context);
   ~DisposablePool();
+
+  // Create a DisposableElementsAttr and put it in the DisposablePool.
+  mlir::DisposableElementsAttr createDisposableElementsAttr(
+      mlir::ShapedType type, BType bufferBType, llvm::ArrayRef<int64_t> strides,
+      const mlir::DisposableElementsAttr::Buffer &buffer,
+      mlir::DisposableElementsAttr::Transformer transformer);
 
   // Disposes every DisposableElementsAttr in the pool which is unreachable
   // (doesn't appear in moduleOp).
@@ -62,8 +67,7 @@ private:
   using Pool = std::unordered_map<size_t, mlir::DisposableElementsAttr>;
   using Scrubbed = std::unordered_map<size_t, mlir::DenseElementsAttr>;
 
-  // Called from ElementsAttrBuilder to record all instances of
-  // DisposableElementsAttr as they are created.
+  // Record all instances of DisposableElementsAttr as they are created.
   void insert(mlir::DisposableElementsAttr disposable);
 
   template <typename CONST_OP>

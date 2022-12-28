@@ -15,7 +15,6 @@
 #include "src/Support/Strides.hpp"
 #include "src/Support/WideNum.hpp"
 
-#include <atomic>
 #include <functional>
 #include <memory>
 
@@ -97,9 +96,6 @@ public:
       mlir::DisposableElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape);
 
 private:
-  mlir::DisposableElementsAttr fromSplat(mlir::ShapedType type,
-      std::unique_ptr<llvm::MemoryBuffer> membuf, BType bufferBType);
-
   mlir::DisposableElementsAttr fromRawBytes(
       mlir::ShapedType type, BType bufferBType, llvm::ArrayRef<char> bytes);
 
@@ -115,10 +111,17 @@ private:
   }
 
   // Create a DisposableElementsAttr and put it in disposablePool.
-  template <typename... Args>
-  mlir::DisposableElementsAttr create(mlir::ShapedType type, Args &&... args);
+  mlir::DisposableElementsAttr create(mlir::ShapedType type, BType bufferBType,
+      llvm::ArrayRef<int64_t> strides,
+      const std::shared_ptr<llvm::MemoryBuffer> &buffer,
+      Transformer transformer = nullptr);
 
-  static std::atomic<size_t> counter;
+  mlir::DisposableElementsAttr createWithDefaultStrides(mlir::ShapedType type,
+      BType bufferBType, const std::shared_ptr<llvm::MemoryBuffer> &buffer,
+      Transformer transformer = nullptr);
+
+  mlir::DisposableElementsAttr createSplat(mlir::ShapedType type,
+      BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf);
 
   DisposablePool &disposablePool;
 };

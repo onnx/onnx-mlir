@@ -55,7 +55,8 @@ ElementsAttrBuilder::ElementsAttrBuilder(MLIRContext *context)
 
 DisposableElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
     ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {
-  return create(type, std::move(membuf));
+  BType btype = btypeOfMlirType(type.getElementType());
+  return createWithDefaultStrides(type, btype, std::move(membuf));
 }
 
 DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
@@ -83,8 +84,9 @@ DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
       std::unique_ptr<llvm::MemoryBuffer> membuf =
           llvm::MemoryBuffer::getMemBuffer(
               s, /*BufferName=*/"", /*RequiresNullTerminator=*/false);
-      return dense.isSplat() ? fromSplat(type, std::move(membuf), btype)
-                             : create(type, std::move(membuf), None, btype);
+      return dense.isSplat()
+                 ? createSplat(type, btype, std::move(membuf))
+                 : createWithDefaultStrides(type, btype, std::move(membuf));
     }
   }
   // TODO: consider supporting more ElementsAttr types
@@ -119,8 +121,8 @@ DisposableElementsAttr ElementsAttrBuilder::transform(
     DisposableElementsAttr elms, Type transformedElementType,
     Transformer transformer) {
   ShapedType transformedType = elms.getType().clone(transformedElementType);
-  return create(transformedType, elms.getBuffer(), elms.getStrides(),
-      btypeOfMlirType(transformedElementType),
+  return create(transformedType, btypeOfMlirType(transformedElementType),
+      elms.getStrides(), elms.getBuffer(),
       composeTransforms(elms.getTransformer(), std::move(transformer)));
 }
 
@@ -161,8 +163,8 @@ DisposableElementsAttr ElementsAttrBuilder::castElementType(
                          ? elms.getTransformer()
                          : composeTransforms(elms.getTransformer(),
                                wideCaster(oldWideType, newWideType));
-  return create(newType, elms.getBuffer(), elms.getStrides(),
-      elms.getBufferBType(), std::move(transformer));
+  return create(newType, elms.getBufferBType(), elms.getStrides(),
+      elms.getBuffer(), std::move(transformer));
 }
 
 namespace {
@@ -183,9 +185,8 @@ DisposableElementsAttr ElementsAttrBuilder::transpose(
   auto transposedShape = transposeDims(elms.getShape(), perm);
   ShapedType transposedType = elms.getType().clone(transposedShape);
   auto transposedStrides = transposeDims(elms.getStrides(), perm);
-  return create(transposedType, elms.getBuffer(),
-      makeArrayRef(transposedStrides), elms.getBufferBType(),
-      elms.getTransformer());
+  return create(transposedType, elms.getBufferBType(), transposedStrides,
+      elms.getBuffer(), elms.getTransformer());
 }
 
 DisposableElementsAttr ElementsAttrBuilder::reshape(
@@ -196,9 +197,8 @@ DisposableElementsAttr ElementsAttrBuilder::reshape(
   ShapedType reshapedType = elms.getType().clone(reshapedShape);
   if (auto reshapedStrides =
           reshapeStrides(elms.getShape(), elms.getStrides(), reshapedShape)) {
-    return create(reshapedType, elms.getBuffer(),
-        makeArrayRef(*reshapedStrides), elms.getBufferBType(),
-        elms.getTransformer());
+    return create(reshapedType, elms.getBufferBType(), *reshapedStrides,
+        elms.getBuffer(), elms.getTransformer());
   }
 
   if (!elms.isTransformed()) { // Skip WideNums absent element-wise transform.
@@ -222,15 +222,8 @@ DisposableElementsAttr ElementsAttrBuilder::expand(
 
   ShapedType expandedType = elms.getType().clone(expandedShape);
   auto expandedStrides = expandStrides(elms.getStrides(), expandedShape);
-  return create(expandedType, elms.getBuffer(), makeArrayRef(expandedStrides),
-      elms.getBufferBType(), elms.getTransformer());
-}
-
-mlir::DisposableElementsAttr ElementsAttrBuilder::fromSplat(ShapedType type,
-    std::unique_ptr<llvm::MemoryBuffer> membuf, BType bufferBType) {
-  SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
-  return create(
-      type, std::move(membuf), makeArrayRef(zerosStrides), bufferBType);
+  return create(expandedType, elms.getBufferBType(), expandedStrides,
+      elms.getBuffer(), elms.getTransformer());
 }
 
 DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
@@ -238,8 +231,8 @@ DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
   std::unique_ptr<llvm::MemoryBuffer> membuf =
       llvm::MemoryBuffer::getMemBufferCopy(asStringRef(bytes));
   return testRawBytesValidityAndSplatness(type, bufferBType, bytes)
-             ? fromSplat(type, std::move(membuf), bufferBType)
-             : create(type, std::move(membuf), None, bufferBType);
+             ? createSplat(type, bufferBType, std::move(membuf))
+             : createWithDefaultStrides(type, bufferBType, std::move(membuf));
 }
 
 DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
@@ -249,18 +242,29 @@ DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
       llvm::WritableMemoryBuffer::getNewUninitMemBuffer(size);
   bytesFiller(writeBuffer->getBuffer());
   // We trust bytesFiller and skip testRawBytesValidityAndSplatness()
-  return create(type, std::move(writeBuffer), None, bufferBType);
+  return createWithDefaultStrides(type, bufferBType, std::move(writeBuffer));
 }
 
-template <typename... Args>
-DisposableElementsAttr ElementsAttrBuilder::create(
-    ShapedType type, Args &&... args) {
-  size_t id = ++counter;
-  auto d = DisposableElementsAttr::get(type, id, std::forward<Args>(args)...);
-  disposablePool.insert(d);
-  return d;
+DisposableElementsAttr ElementsAttrBuilder::create(ShapedType type,
+    BType bufferBType, ArrayRef<int64_t> strides,
+    const std::shared_ptr<llvm::MemoryBuffer> &buffer,
+    Transformer transformer) {
+  return disposablePool.createDisposableElementsAttr(
+      type, bufferBType, strides, buffer, std::move(transformer));
 }
 
-std::atomic<size_t> ElementsAttrBuilder::counter{0};
+DisposableElementsAttr ElementsAttrBuilder::createWithDefaultStrides(
+    ShapedType type, BType bufferBType,
+    const std::shared_ptr<llvm::MemoryBuffer> &buffer,
+    Transformer transformer) {
+  auto strides = getDefaultStrides(type.getShape());
+  return create(type, bufferBType, strides, buffer, std::move(transformer));
+}
+
+mlir::DisposableElementsAttr ElementsAttrBuilder::createSplat(ShapedType type,
+    BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
+  SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
+  return create(type, bufferBType, zerosStrides, std::move(membuf));
+}
 
 } // namespace onnx_mlir

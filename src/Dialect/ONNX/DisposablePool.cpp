@@ -13,6 +13,8 @@
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
+#include <atomic>
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -32,6 +34,18 @@ DisposablePool *DisposablePool::get(MLIRContext *context) {
 DisposablePool::DisposablePool(Dialect *dialect, MLIRContext *context)
     : Base(dialect), pool() {}
 DisposablePool::~DisposablePool() {}
+
+DisposableElementsAttr DisposablePool::createDisposableElementsAttr(
+    ShapedType type, BType bufferBType, ArrayRef<int64_t> strides,
+    const mlir::DisposableElementsAttr::Buffer &buffer,
+    DisposableElementsAttr::Transformer transformer) {
+  static std::atomic<size_t> counter{0};
+  size_t id = ++counter;
+  auto d = DisposableElementsAttr::create(
+      type, id, bufferBType, strides, buffer, std::move(transformer));
+  insert(d);
+  return d;
+}
 
 void DisposablePool::insert(DisposableElementsAttr disposable) {
   // TODO: make this thread safe
