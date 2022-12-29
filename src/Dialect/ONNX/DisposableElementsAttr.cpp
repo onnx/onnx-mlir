@@ -72,6 +72,14 @@ void DisposableElementsAttr::dispose() {
   getImpl()->transformer = nullptr;
 }
 
+bool DisposableElementsAttr::isSplat() const {
+  return areStridesSplat(getStrides()) && getBuffer()->getBufferSize() != 0;
+}
+
+BType DisposableElementsAttr::getBType() const { return getImpl()->btype; }
+
+ShapedType DisposableElementsAttr::getType() const { return getImpl()->type; }
+
 bool DisposableElementsAttr::isDisposed() const { return !getImpl()->buffer; }
 
 size_t DisposableElementsAttr::getId() const { return getImpl()->id; }
@@ -112,54 +120,6 @@ unsigned DisposableElementsAttr::getBufferElementBytewidth() const {
 
 int64_t DisposableElementsAttr::getNumBufferElements() const {
   return getBuffer()->getBufferSize() / getBufferElementBytewidth();
-}
-
-ArrayRef<char> DisposableElementsAttr::getBufferBytes() const {
-  return asArrayRef(getBuffer()->getBuffer());
-}
-
-bool DisposableElementsAttr::isSplat() const {
-  return areStridesSplat(getStrides()) && getBuffer()->getBufferSize() != 0;
-}
-
-BType DisposableElementsAttr::getBType() const { return getImpl()->btype; }
-
-ShapedType DisposableElementsAttr::getType() const { return getImpl()->type; }
-
-void DisposableElementsAttr::readBytesAsWideNums(
-    ArrayRef<char> srcBytes, llvm::MutableArrayRef<WideNum> dst) const {
-  widenArray(getBufferBType(), srcBytes, dst);
-  if (const Transformer &transformer = getTransformer())
-    transformer(dst);
-}
-
-WideNum DisposableElementsAttr::atFlatIndex(size_t flatIndex) const {
-  size_t pos = flatIndexToBufferPos(flatIndex);
-  unsigned bufBytewidth = getBufferElementBytewidth();
-  ArrayRef<char> bytes =
-      getBufferBytes().slice(pos * bufBytewidth, bufBytewidth);
-  WideNum n;
-  readBytesAsWideNums(bytes, llvm::makeMutableArrayRef(n));
-  return n;
-}
-
-size_t DisposableElementsAttr::flatIndexToBufferPos(size_t flatIndex) const {
-  if (flatIndex == 0 || isContiguous())
-    return flatIndex;
-  if (isSplat())
-    return 0;
-  auto indices = unflattenIndex(getShape(), flatIndex);
-  return getStridesPosition(indices, getStrides());
-}
-
-ArrayBuffer<WideNum> DisposableElementsAttr::getBufferAsWideNums() const {
-  if (!isTransformed() && getBufferElementBytewidth() == sizeof(WideNum)) {
-    return castArrayRef<WideNum>(getBufferBytes());
-  }
-  ArrayBuffer<WideNum>::Vector dst;
-  dst.resize_for_overwrite(getNumBufferElements());
-  readBytesAsWideNums(getBufferBytes(), dst);
-  return std::move(dst);
 }
 
 void DisposableElementsAttr::readWideNums(MutableArrayRef<WideNum> dst) const {
@@ -235,6 +195,46 @@ void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
     printer << "__elided__";
   }
   printer << ">";
+}
+
+void DisposableElementsAttr::readBytesAsWideNums(
+    ArrayRef<char> srcBytes, llvm::MutableArrayRef<WideNum> dst) const {
+  widenArray(getBufferBType(), srcBytes, dst);
+  if (const Transformer &transformer = getTransformer())
+    transformer(dst);
+}
+
+ArrayRef<char> DisposableElementsAttr::getBufferBytes() const {
+  return asArrayRef(getBuffer()->getBuffer());
+}
+
+ArrayBuffer<WideNum> DisposableElementsAttr::getBufferAsWideNums() const {
+  if (!isTransformed() && getBufferElementBytewidth() == sizeof(WideNum)) {
+    return castArrayRef<WideNum>(getBufferBytes());
+  }
+  ArrayBuffer<WideNum>::Vector dst;
+  dst.resize_for_overwrite(getNumBufferElements());
+  readBytesAsWideNums(getBufferBytes(), dst);
+  return std::move(dst);
+}
+
+WideNum DisposableElementsAttr::atFlatIndex(size_t flatIndex) const {
+  size_t pos = flatIndexToBufferPos(flatIndex);
+  unsigned bufBytewidth = getBufferElementBytewidth();
+  ArrayRef<char> bytes =
+      getBufferBytes().slice(pos * bufBytewidth, bufBytewidth);
+  WideNum n;
+  readBytesAsWideNums(bytes, llvm::makeMutableArrayRef(n));
+  return n;
+}
+
+size_t DisposableElementsAttr::flatIndexToBufferPos(size_t flatIndex) const {
+  if (flatIndex == 0 || isContiguous())
+    return flatIndex;
+  if (isSplat())
+    return 0;
+  auto indices = unflattenIndex(getShape(), flatIndex);
+  return getStridesPosition(indices, getStrides());
 }
 
 } // namespace mlir

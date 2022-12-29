@@ -39,12 +39,6 @@ T getNumber(Type elementType, onnx_mlir::BType tag, onnx_mlir::WideNum n) {
 } // namespace detail
 
 template <typename X>
-inline X DisposableElementsAttr::getSplatValue() const {
-  assert(isSplat());
-  return detail::getNumber<X>(getElementType(), getBType(), atFlatIndex(0));
-}
-
-template <typename X>
 inline auto DisposableElementsAttr::try_value_begin_impl(OverloadToken<X>) const
     -> FailureOr<iterator<X>> {
   if constexpr (detail::isIterableType<X>) {
@@ -68,6 +62,12 @@ inline auto DisposableElementsAttr::try_value_begin_impl(OverloadToken<X>) const
   } else {
     return failure();
   }
+}
+
+template <typename X>
+inline X DisposableElementsAttr::getSplatValue() const {
+  assert(isSplat());
+  return detail::getNumber<X>(getElementType(), getBType(), atFlatIndex(0));
 }
 
 template <typename X>

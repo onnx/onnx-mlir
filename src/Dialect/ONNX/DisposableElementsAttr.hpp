@@ -246,10 +246,10 @@ public:
   void printWithoutType(AsmPrinter &printer) const;
 
 private:
-  ArrayRef<char> getBufferBytes() const;
-
   void readBytesAsWideNums(
       ArrayRef<char> bytes, llvm::MutableArrayRef<WideNum>) const;
+
+  ArrayRef<char> getBufferBytes() const;
 
   onnx_mlir::ArrayBuffer<WideNum> getBufferAsWideNums() const;
 
