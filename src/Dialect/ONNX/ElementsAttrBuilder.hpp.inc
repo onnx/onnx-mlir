@@ -29,14 +29,14 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::combine(
     mlir::ShapedType combinedType, BinaryCombiner combiner) {
   auto combinedShape = combinedType.getShape();
   if (lhs.isSplat()) {
-    WideNum lhsNum = lhs.getSplatWideNum();
+    WideNum lhsNum = lhs.atFlatIndex(0);
     auto transformed = transform(rhs, combinedType.getElementType(),
         functionTransformer([lhsNum, combiner = std::move(combiner)](
                                 WideNum n) { return combiner(lhsNum, n); }));
     return expand(transformed, combinedShape);
   }
   if (rhs.isSplat()) {
-    WideNum rhsNum = rhs.getSplatWideNum();
+    WideNum rhsNum = rhs.atFlatIndex(0);
     auto transformed = transform(lhs, combinedType.getElementType(),
         functionTransformer([rhsNum, combiner = std::move(combiner)](
                                 WideNum n) { return combiner(n, rhsNum); }));

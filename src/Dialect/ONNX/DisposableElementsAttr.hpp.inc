@@ -40,7 +40,8 @@ T getNumber(Type elementType, onnx_mlir::BType tag, onnx_mlir::WideNum n) {
 
 template <typename X>
 inline X DisposableElementsAttr::getSplatValue() const {
-  return detail::getNumber<X>(getElementType(), getBType(), getSplatWideNum());
+  assert(isSplat());
+  return detail::getNumber<X>(getElementType(), getBType(), atFlatIndex(0));
 }
 
 template <typename X>
@@ -61,7 +62,7 @@ inline auto DisposableElementsAttr::try_value_begin_impl(OverloadToken<X>) const
     DisposableElementsAttr attr = *this;
     auto range = llvm::seq<size_t>(0, getNumElements());
     return iterator<X>(range.begin(), [btype, attr](size_t flatIndex) -> X {
-      WideNum n = attr.readFlatIndex(flatIndex);
+      WideNum n = attr.atFlatIndex(flatIndex);
       return detail::getNumber<X>(attr.getElementType(), btype, n);
     });
   } else {
@@ -71,11 +72,14 @@ inline auto DisposableElementsAttr::try_value_begin_impl(OverloadToken<X>) const
 
 template <typename X>
 inline onnx_mlir::ArrayBuffer<X> DisposableElementsAttr::getArray() const {
-  assert(onnx_mlir::toBType<X> == getBType());
+  assert(onnx_mlir::toBType<X> == getBType() && "X must match element type");
+  // The implementation is almost the same as getRawBytes() but it is
+  // reimplemented here without code reuse because we cannot cast between
+  // ArrayBuffer<char> and ArrayBuffer<X>.
   if (!isTransformedOrCast() && isContiguous())
     return onnx_mlir::castArrayRef<X>(getBufferBytes());
-  typename onnx_mlir::ArrayBuffer<X>::Vector vec;
-  vec.resize_for_overwrite(getNumElements());
-  readRawBytes(onnx_mlir::castMutableArrayRef<char>(makeMutableArrayRef(vec)));
-  return std::move(vec);
+  typename onnx_mlir::ArrayBuffer<X>::Vector dst;
+  dst.resize_for_overwrite(getNumElements());
+  readRawBytes(onnx_mlir::castMutableArrayRef<char>(makeMutableArrayRef(dst)));
+  return std::move(dst);
 }

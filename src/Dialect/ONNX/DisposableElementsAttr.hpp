@@ -61,10 +61,14 @@ struct DisposableElementsAttributeStorage;
 // same as DenseElementsAttr so we can switch between them without changing
 // lit tests.
 //
-// DiposablePool tracks all DisposableElementsAttr instances and garbage
-// collects unreachable instances between compiler passes.
-// DisposableElementsAttr instances can only be constructed with
-// ElementsAttrBuilder which inserts all new instances in DisposablePool.
+// DisposableElementsAttr instances can only be constructed with DiposablePool
+// which tracks all instances and garbage collects unreachable instances
+// between compiler passes.
+//
+// NOTE: DisposablePool bypasses the storage uniquer and creates a unique
+//       underlying DisposableElementsAttributeStorage every time it constructs
+//       a DisposableElementsAttr instance.
+//       See the explanation in DisposableElementsAttributeStorage.hpp.
 //
 // NOTE: DenseResourceElementsAttr is an alternative for heap allocated memory
 //       (but without garbage collection or the other features listed above).
@@ -89,31 +93,18 @@ class DisposableElementsAttr
   using Buffer = std::shared_ptr<llvm::MemoryBuffer>;
   using Transformer = std::function<void(llvm::MutableArrayRef<WideNum>)>;
 
-  //===----------------------------------------------------------------------===//
-  // Instantiation:
-  //
-  // The get methods are private and are only accessed from ElementsAttrBuilder.
-  //
-  // DisposablePool needs access to the private dispose() and getId() methods
-  // to track and dispose instances.
-  //===----------------------------------------------------------------------===//
 public:
+  // DisposablePool needs access to the private create(), getId(), and dispose()
+  // methods to create, track, and dispose instances.
   friend class onnx_mlir::DisposablePool;
+
+  // ElementsAttrBuilder needs access to buffer, transformer, and metadata to
+  // construct new instances with new metadata around the same underlying data.
   friend class onnx_mlir::ElementsAttrBuilder;
 
-private:
-  // Called from ElementsAttrBuilder who calls with a unique id and records the
-  // created instance in DisposablePool.
-  static DisposableElementsAttr create(ShapedType type, size_t id,
-      BType bufferBType, ArrayRef<int64_t> strides, const Buffer &buffer,
-      Transformer transformer);
-
-  // Clear the buffer payload shared_ptr which decreases the reference count
-  // and, if it reaches zero, frees or closes the underlying MemoryBuffer's
-  // heap allocation or file.
-  void dispose();
-
-public:
+  //===----------------------------------------------------------------------===//
+  // Instantiation:
+  //===----------------------------------------------------------------------===//
   DisposableElementsAttr(std::nullptr_t) {}
 
   // Allow implicit conversion to ElementsAttr.
@@ -121,9 +112,38 @@ public:
     return *this ? cast<ElementsAttr>() : nullptr;
   }
 
+private:
+  // Called from DisposablePool who calls with a unique id and records the
+  // created instance.
+  static DisposableElementsAttr create(ShapedType type, size_t id,
+      BType bufferBType, ArrayRef<int64_t> strides, const Buffer &buffer,
+      Transformer transformer);
+
+  // Clears the buffer payload shared_ptr which decreases the reference count
+  // and, if it reaches zero, frees or closes the underlying MemoryBuffer's
+  // heap allocation or file. Called from DisposablePool.
+  void dispose();
+
+public:
   //===----------------------------------------------------------------------===//
   // Instance properties:
   //===----------------------------------------------------------------------===//
+
+  // isSplat() is true if all elements are known to be the same
+  // (and are represented as a single number with all-zeros strides).
+  // Can return false even if all elements are identical.
+  bool isSplat() const;
+
+  // Same as btypeOfMlirType(getElementType()).
+  BType getBType() const;
+
+  ShapedType getType() const;
+
+  Type getElementType() const { return getType().getElementType(); }
+  ArrayRef<int64_t> getShape() const { return getType().getShape(); }
+  int64_t getRank() const { return getType().getRank(); }
+  int64_t getNumElements() const { return getType().getNumElements(); }
+
 private:
   bool isDisposed() const;
 
@@ -148,21 +168,6 @@ private:
   int64_t getNumBufferElements() const;
 
 public:
-  // isSplat() is true if all elements are known to be the same
-  // (and are represented as a single number with all-zeros strides).
-  // Can return false even if all elements are identical.
-  bool isSplat() const;
-
-  // Same as btypeOfMlirType(getElementType()).
-  BType getBType() const;
-
-  ShapedType getType() const;
-
-  Type getElementType() const { return getType().getElementType(); }
-  ArrayRef<int64_t> getShape() const { return getType().getShape(); }
-  int64_t getRank() const { return getType().getRank(); }
-  int64_t getNumElements() const { return getType().getNumElements(); }
-
   //===----------------------------------------------------------------------===//
   // Iteration:
   //
@@ -176,13 +181,7 @@ public:
   // strides are not the default strides for the type shape. It's more efficient
   // to copy out data in bulk with readWideNums().
   //===----------------------------------------------------------------------===//
-private:
-  using IndexIterator = llvm::iota_range<size_t>::const_iterator;
 
-  template <typename X>
-  using IndexToX = std::function<X(size_t)>;
-
-public:
   // All the iterable types are listed as NonContiguous here as no type
   // is guaranteed to be represented contiguously in the underlying buffer
   // because of strides and the possibility that bufferBType != btype.
@@ -191,8 +190,13 @@ public:
           bool, int8_t, uint8_t, int16_t, int8_t, int32_t, uint32_t, int64_t,
           uint64_t, onnx_mlir::float_16, onnx_mlir::bfloat_16, float, double>;
 
+  // An underlying iota_range sequence iterator returns size_t flat indices
+  // which are mapped to elements of type X by a function<X(size_t)>.
+  // (Same construction as in mlir::SparseElementsAttr.)
   template <typename X>
-  using iterator = llvm::mapped_iterator<IndexIterator, IndexToX<X>>;
+  using iterator =
+      llvm::mapped_iterator<llvm::iota_range<size_t>::const_iterator,
+          std::function<X(size_t)>>;
 
   template <typename X>
   using iterator_range = llvm::iterator_range<iterator<X>>;
@@ -210,27 +214,6 @@ public:
   //===----------------------------------------------------------------------===//
   // Other access to the elements:
   //===----------------------------------------------------------------------===//
-private:
-  ArrayRef<char> getBufferBytes() const;
-
-  void readBytesAsWideNums(
-      ArrayRef<char> bytes, llvm::MutableArrayRef<WideNum>) const;
-
-  // Warning: This is inefficient. First, it calculates and the buffer position
-  // from strides with divisions and modulo, unless isContiguous() or isSplat().
-  // Second, it widens the buffer data type and computes any transformation for
-  // a single element without the fast inner loop of readWideNums() which reads
-  // out all elements in bulk with faster amortized speed per element.
-  WideNum readFlatIndex(size_t flatIndex) const;
-
-  // Warning: This is inefficient because it calls unflattenIndex on flatIndex.
-  size_t flatIndexToBufferPos(size_t flatIndex) const;
-
-  onnx_mlir::ArrayBuffer<WideNum> getBufferAsWideNums() const;
-
-public:
-  WideNum getSplatWideNum() const;
-
   template <typename X>
   X getSplatValue() const;
 
@@ -252,6 +235,8 @@ public:
   // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
   onnx_mlir::ArrayBuffer<char> getRawBytes() const;
 
+  // Similar to getRawBytes() but returns a typed array.
+  // Precondition: X must correspond to getElementType().
   template <typename X>
   onnx_mlir::ArrayBuffer<X> getArray() const;
 
@@ -259,6 +244,24 @@ public:
   DenseElementsAttr toDenseElementsAttr() const;
 
   void printWithoutType(AsmPrinter &printer) const;
+
+private:
+  ArrayRef<char> getBufferBytes() const;
+
+  void readBytesAsWideNums(
+      ArrayRef<char> bytes, llvm::MutableArrayRef<WideNum>) const;
+
+  onnx_mlir::ArrayBuffer<WideNum> getBufferAsWideNums() const;
+
+  // Warning: This is inefficient. First, it calculates the buffer position from
+  // strides with divisions and modulo, unless isContiguous() or isSplat().
+  // Second, it widens the buffer data type and computes any transformation for
+  // a single element without the fast inner loop of readWideNums(), which reads
+  // out all elements in bulk with faster amortized speed per element.
+  WideNum atFlatIndex(size_t flatIndex) const;
+
+  // Warning: This is inefficient because it calls unflattenIndex on flatIndex.
+  size_t flatIndexToBufferPos(size_t flatIndex) const;
 
 }; // class DisposableElementsAttr
 

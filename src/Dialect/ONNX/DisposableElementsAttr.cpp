@@ -133,7 +133,7 @@ void DisposableElementsAttr::readBytesAsWideNums(
     transformer(dst);
 }
 
-WideNum DisposableElementsAttr::readFlatIndex(size_t flatIndex) const {
+WideNum DisposableElementsAttr::atFlatIndex(size_t flatIndex) const {
   size_t pos = flatIndexToBufferPos(flatIndex);
   unsigned bufBytewidth = getBufferElementBytewidth();
   ArrayRef<char> bytes =
@@ -160,11 +160,6 @@ ArrayBuffer<WideNum> DisposableElementsAttr::getBufferAsWideNums() const {
   dst.resize_for_overwrite(getNumBufferElements());
   readBytesAsWideNums(getBufferBytes(), dst);
   return std::move(dst);
-}
-
-auto DisposableElementsAttr::getSplatWideNum() const -> WideNum {
-  assert(isSplat() && "expected the attribute to be a splat");
-  return readFlatIndex(0);
 }
 
 void DisposableElementsAttr::readWideNums(MutableArrayRef<WideNum> dst) const {

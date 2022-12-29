@@ -6,8 +6,8 @@
 //
 // Storage for DisposableElementsAttr. For information hiding purposes this
 // should not be included by users of DisposableElementsAttr. It is needed for
-// the implementation DisposableElementsAttr itself, DisposablePool needs it to
-// garbage collect instances, and ONNXDialect needs it for dialect registration.
+// the implementation DisposableElementsAttr itself and ONNXDialect needs it for
+// dialect registration.
 //
 //===----------------------------------------------------------------------===//
 
@@ -20,10 +20,9 @@ using namespace onnx_mlir;
 namespace mlir {
 
 struct DisposableElementsAttributeStorage : public AttributeStorage {
-  using Strides = ArrayRef<int64_t>;
   using Buffer = std::shared_ptr<llvm::MemoryBuffer>;
   using Transformer = std::function<void(llvm::MutableArrayRef<WideNum>)>;
-  using KeyTy = std::tuple<ShapedType, Strides, onnx_mlir::BType,
+  using KeyTy = std::tuple<ShapedType, ArrayRef<int64_t>, onnx_mlir::BType,
       onnx_mlir::BType, bool, size_t>;
   static constexpr int TYPE = 0;
   static constexpr int STRIDES = 1;
@@ -34,7 +33,7 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
 
   // Constructs only type and strides and properties while the caller sets
   // buffer and transformer after construction to minimize copying.
-  DisposableElementsAttributeStorage(ShapedType type, Strides strides,
+  DisposableElementsAttributeStorage(ShapedType type, ArrayRef<int64_t> strides,
       onnx_mlir::BType bufferBType, onnx_mlir::BType btype, bool isContiguous,
       size_t id)
       : type(type), strides(strides), bufferBType(bufferBType), btype(btype),
@@ -51,7 +50,7 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   static DisposableElementsAttributeStorage *construct(
       AttributeStorageAllocator &allocator, const KeyTy &key) {
     ShapedType type = std::get<TYPE>(key);
-    Strides strides = std::get<STRIDES>(key);
+    ArrayRef<int64_t> strides = std::get<STRIDES>(key);
     onnx_mlir::BType bufferBType = std::get<BUFFER_BTYPE>(key);
     onnx_mlir::BType btype = std::get<BTYPE>(key);
     bool isContiguous = std::get<IS_CONTIGUOUS>(key);
@@ -61,9 +60,9 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
             bufferBType, btype, isContiguous, id);
   }
 
-  // The tensor shape and element type that this object represents.
-  // The underlying data in buffer may not directly match the type's element
-  // type or number of elements, depending on strides and transformer.
+  // The tensor shape and element type that this object represents. The
+  // underlying data in buffer may not directly match the type's element type
+  // or number of elements, depending on bufferBType, transformer, and strides.
   ShapedType type;
 
   // Specifies how to map positions expressed in type's shape to the flat
@@ -71,7 +70,7 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   // row-major order (maybe as a result of a transpose) or requires broadcast
   // to fill in type's shape. A special case is when the buffer holds a single
   // splat value that broadcasts to shape's size with all-zero strides.
-  Strides strides;
+  ArrayRef<int64_t> strides;
 
   // Data type of the elements in buffer before transform.
   onnx_mlir::BType bufferBType;
