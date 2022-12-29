@@ -20,7 +20,6 @@
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -29,18 +28,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 namespace krnl {
-
-namespace {
-ArrayBuffer<char> getElementsRawBuffer(ElementsAttr elementsAttr) {
-  if (auto denseRsrc = elementsAttr.dyn_cast<DenseResourceElementsAttr>())
-    return denseRsrc.getRawHandle().getBlob()->getData();
-  if (auto disposable = elementsAttr.dyn_cast<DisposableElementsAttr>())
-    return disposable.getRawBytes();
-  if (auto dense = elementsAttr.dyn_cast<DenseElementsAttr>())
-    return dense.getRawData();
-  llvm_unreachable("unsupported ElementsAttr for global");
-}
-} // namespace
 
 class KrnlGlobalOpLowering : public ConvertToLLVMPattern {
 public:
@@ -78,7 +65,11 @@ public:
     auto value = krnlGlobalOp.value().value();
     LLVM::GlobalOp global;
     TypeSwitch<Attribute>(value)
-        .Case<ElementsAttr>([&](ElementsAttr attr) {
+        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
+          global =
+              lowerDenseResourceConstant(krnlGlobalOp, globalType, rewriter);
+        })
+        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
           global = lowerDenseConstant(krnlGlobalOp, globalType, rewriter);
         })
         .Default([&](Attribute attr) {
@@ -106,12 +97,12 @@ private:
     return (a.getValue()[i]).cast<IntegerAttr>().getInt();
   }
 
-  LLVM::GlobalOp lowerDenseConstant(KrnlGlobalOp &krnlGlobalOp, Type globalType,
-      ConversionPatternRewriter &rewriter) const {
+  LLVM::GlobalOp lowerDenseResourceConstant(KrnlGlobalOp &krnlGlobalOp,
+      Type globalType, ConversionPatternRewriter &rewriter) const {
     assert(krnlGlobalOp.value().has_value() &&
            "Expecting KrnlGlobalOp with a valid value");
-    assert(krnlGlobalOp.value().value().isa<ElementsAttr>() &&
-           "Expecting a global with an elements attribute");
+    assert(krnlGlobalOp.value().value().isa<DenseResourceElementsAttr>() &&
+           "Expecting a global with an dense resource elements attribute");
 
     MLIRContext *context = krnlGlobalOp.getContext();
     Location loc = krnlGlobalOp.getLoc();
@@ -121,21 +112,52 @@ private:
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
 
-    ElementsAttr elementsAttr =
-        krnlGlobalOp.value().value().cast<ElementsAttr>();
+    auto blob = krnlGlobalOp.value()
+                    .value()
+                    .cast<DenseResourceElementsAttr>()
+                    .getRawHandle()
+                    .getBlob();
+    assert(blob && "Expecting dense resource with a valid blob");
+    ArrayRef<char> rawData = blob->getData();
+
+    // Check data size.
+    int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
+    assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
+
+    StringRef data(rawData.data(), rawData.size());
+    StringAttr llvmStringAttr = StringAttr::get(context, data);
+    auto llvmArrayI8Ty =
+        LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
+    LLVM::GlobalOp global = create.llvm.globalOp(llvmArrayI8Ty,
+        /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
+        llvmStringAttr);
+
+    LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
+    return global;
+  }
+
+  LLVM::GlobalOp lowerDenseConstant(KrnlGlobalOp &krnlGlobalOp, Type globalType,
+      ConversionPatternRewriter &rewriter) const {
+    assert(krnlGlobalOp.value().has_value() &&
+           "Expecting KrnlGlobalOp with a valid value");
+    assert(krnlGlobalOp.value().value().isa<DenseElementsAttr>() &&
+           "Expecting a global with an dense elements attribute");
+
+    MLIRContext *context = krnlGlobalOp.getContext();
+    Location loc = krnlGlobalOp.getLoc();
+    ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+
+    OpBuilder::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+
+    DenseElementsAttr denseAttr =
+        krnlGlobalOp.value().value().cast<DenseElementsAttr>();
 
     int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     LLVM::GlobalOp global;
-    if (elementsAttr.getElementType().isa<StringType>()) {
-      global = lowerStringLiteral(krnlGlobalOp, globalType, rewriter);
-    } else if (elementsAttr.isa<DenseElementsAttr>() &&
-               (elementsAttr.isSplat() || sizeInBytes <= 1024)) {
-      global = create.llvm.globalOp(globalType,
-          /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
-          krnlGlobalOp.value().value());
-    } else {
-      ArrayBuffer<char> rawBuffer = getElementsRawBuffer(elementsAttr);
-      ArrayRef<char> rawData = rawBuffer.get();
+    if ((!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
+      ArrayRef<char> rawData = denseAttr.getRawData();
       assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
       StringRef data(rawData.data(), rawData.size());
@@ -145,6 +167,13 @@ private:
       global = create.llvm.globalOp(llvmArrayI8Ty,
           /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
           llvmStringAttr);
+    } else {
+      if (denseAttr.getElementType().isa<StringType>())
+        global = lowerStringLiteral(krnlGlobalOp, globalType, rewriter);
+      else
+        global = create.llvm.globalOp(globalType,
+            /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
+            krnlGlobalOp.value().value());
     }
 
     LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
