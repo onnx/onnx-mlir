@@ -122,15 +122,6 @@ int64_t DisposableElementsAttr::getNumBufferElements() const {
   return getBuffer()->getBufferSize() / getBufferElementBytewidth();
 }
 
-void DisposableElementsAttr::readWideNums(MutableArrayRef<WideNum> dst) const {
-  if (isContiguous()) {
-    readBytesAsWideNums(getBufferBytes(), dst);
-    return;
-  }
-  ArrayBuffer<WideNum> src = getBufferAsWideNums();
-  restrideArray<WideNum>(getShape(), {getStrides(), src.get()}, dst);
-}
-
 ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
   if (isContiguous()) {
     return getBufferAsWideNums();
@@ -141,32 +132,13 @@ ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
   return std::move(dst);
 }
 
-void DisposableElementsAttr::readRawBytes(
-    MutableArrayRef<char> dstBytes) const {
-  BType btype = getBType();
-  unsigned elemBytewidth = bytewidthOfBType(btype);
-  if (!isTransformedOrCast()) {
-    auto srcBytes = getBufferBytes();
-    restrideArray(
-        elemBytewidth, getShape(), {getStrides(), srcBytes}, dstBytes);
-  } else if (elemBytewidth == sizeof(WideNum)) {
-    readWideNums(castMutableArrayRef<WideNum>(dstBytes));
-  } else {
-    SmallVector<WideNum, 1> dst;
-    dst.resize_for_overwrite(getNumElements());
-    readWideNums(dst);
-    narrowArray(btype, dst, dstBytes);
+void DisposableElementsAttr::readWideNums(MutableArrayRef<WideNum> dst) const {
+  if (isContiguous()) {
+    readBytesAsWideNums(getBufferBytes(), dst);
+    return;
   }
-}
-
-ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
-  if (!isTransformedOrCast() && isContiguous())
-    return getBufferBytes();
-  unsigned elemBytewidth = bytewidthOfBType(getBType());
-  ArrayBuffer<char>::Vector dstBytes;
-  dstBytes.resize_for_overwrite(getNumElements() * elemBytewidth);
-  readRawBytes(dstBytes);
-  return std::move(dstBytes);
+  ArrayBuffer<WideNum> src = getBufferAsWideNums();
+  restrideArray<WideNum>(getShape(), {getStrides(), src.get()}, dst);
 }
 
 DenseElementsAttr DisposableElementsAttr::toDenseElementsAttr() const {
@@ -235,6 +207,34 @@ size_t DisposableElementsAttr::flatIndexToBufferPos(size_t flatIndex) const {
     return 0;
   auto indices = unflattenIndex(getShape(), flatIndex);
   return getStridesPosition(indices, getStrides());
+}
+
+void DisposableElementsAttr::readRawBytes(
+    MutableArrayRef<char> dstBytes) const {
+  BType btype = getBType();
+  unsigned elemBytewidth = bytewidthOfBType(btype);
+  if (!isTransformedOrCast()) {
+    auto srcBytes = getBufferBytes();
+    restrideArray(
+        elemBytewidth, getShape(), {getStrides(), srcBytes}, dstBytes);
+  } else if (elemBytewidth == sizeof(WideNum)) {
+    readWideNums(castMutableArrayRef<WideNum>(dstBytes));
+  } else {
+    SmallVector<WideNum, 1> dst;
+    dst.resize_for_overwrite(getNumElements());
+    readWideNums(dst);
+    narrowArray(btype, dst, dstBytes);
+  }
+}
+
+ArrayBuffer<char> DisposableElementsAttr::getRawBytes() const {
+  if (!isTransformedOrCast() && isContiguous())
+    return getBufferBytes();
+  unsigned elemBytewidth = bytewidthOfBType(getBType());
+  ArrayBuffer<char>::Vector dstBytes;
+  dstBytes.resize_for_overwrite(getNumElements() * elemBytewidth);
+  readRawBytes(dstBytes);
+  return std::move(dstBytes);
 }
 
 } // namespace mlir

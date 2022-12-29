@@ -83,3 +83,9 @@ inline onnx_mlir::ArrayBuffer<X> DisposableElementsAttr::getArray() const {
   readRawBytes(onnx_mlir::castMutableArrayRef<char>(makeMutableArrayRef(dst)));
   return std::move(dst);
 }
+
+template <typename X>
+inline void DisposableElementsAttr::readArray(MutableArrayRef<X> dst) const {
+  assert(onnx_mlir::toBType<X> == getBType() && "X must match element type");
+  readRawBytes(onnx_mlir::castArrayRef<X>(dst));
+}

@@ -102,9 +102,9 @@ public:
   // construct new instances with new metadata around the same underlying data.
   friend class onnx_mlir::ElementsAttrBuilder;
 
-  //===----------------------------------------------------------------------===//
+  //===--------------------------------------------------------------------===//
   // Instantiation:
-  //===----------------------------------------------------------------------===//
+  //===--------------------------------------------------------------------===//
   DisposableElementsAttr(std::nullptr_t) {}
 
   // Allow implicit conversion to ElementsAttr.
@@ -125,9 +125,9 @@ private:
   void dispose();
 
 public:
-  //===----------------------------------------------------------------------===//
+  //===--------------------------------------------------------------------===//
   // Instance properties:
-  //===----------------------------------------------------------------------===//
+  //===--------------------------------------------------------------------===//
 
   // isSplat() is true if all elements are known to be the same
   // (and are represented as a single number with all-zeros strides).
@@ -168,7 +168,7 @@ private:
   int64_t getNumBufferElements() const;
 
 public:
-  //===----------------------------------------------------------------------===//
+  //===--------------------------------------------------------------------===//
   // Iteration:
   //
   // Use value_begin<X>(), value_end(), or getValues<X>() to iterate over the
@@ -179,8 +179,8 @@ public:
   // element and, furthermore, performs a slow calculation from flat index to
   // buffer position if the underlying buffer is not contiguous, namely when its
   // strides are not the default strides for the type shape. It's more efficient
-  // to copy out data in bulk with readWideNums().
-  //===----------------------------------------------------------------------===//
+  // to copy out data in bulk with getArray/WideNums() and readArray/WideNums().
+  //===--------------------------------------------------------------------===//
 
   // All the iterable types are listed as NonContiguous here as no type
   // is guaranteed to be represented contiguously in the underlying buffer
@@ -211,34 +211,56 @@ public:
     return getValues<X>().end();
   }
 
-  //===----------------------------------------------------------------------===//
+  //===--------------------------------------------------------------------===//
   // Other access to the elements:
-  //===----------------------------------------------------------------------===//
+  //
+  // getArray<X>() and getWideNums() return the elements as their C++ type X
+  // or "widened" (promoted) to type WideNum, as an ArrayBuffer which either has
+  // an array reference to the underlying data, if it happens to be of that type
+  // and contiguous and not transformed, or owns a copy of the contiguous and
+  // transformed data. The caller can call the ref() method on the ArrayBuffer
+  // to access the data as an ArrayRef while it is in scope.
+  //
+  // readArray<X>(dst) and readWideNums(dst) copy the elements into the dst
+  // array.
+  //
+  // For example, if data, indices, and updates are of type
+  // DisposableElementsAttr then ScatterNDElementsAttr(data, indices, updates)
+  // can be implemented with:
+  //
+  //   return ElementsAttrBuilder(ctx).fromWideNums(data.getType(),
+  //     [&](MutableArrayRef<WideNum> dst) {
+  //       data.readWideNums(dst);
+  //       ArrayBuffer<WideNum> indicesData = indices.getWideNums();
+  //       ArrayBuffer<WideNum> updatesData = updates.getWideNums();
+  //
+  //       // Write updatesData.get() into dst according to indicesData.get()...
+  //
+  //       // ArrayBuffers end of lexical scope: any data copies are freed.
+  //     });
+  //===--------------------------------------------------------------------===//
   template <typename X>
   X getSplatValue() const;
 
-  // Copies out the elements in a flat array in row-major order.
-  void readWideNums(MutableArrayRef<WideNum> dst) const;
-
-  // Returns a pointer to the underlying data, if everything aligns,
-  // otherwise makes and returns a copy.
-  onnx_mlir::ArrayBuffer<WideNum> getWideNums() const;
-
-  // Copies out the elements in a flat array in row-major order.
-  // If the element type is bool the data holds one byte (with value 0 or 1) per
-  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
-  void readRawBytes(MutableArrayRef<char> dst) const;
-
-  // Returns a pointer to the underlying data, if everything aligns,
-  // otherwise makes and returns a copy.
-  // If the element type is bool the data holds one byte (with value 0 or 1) per
-  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
-  onnx_mlir::ArrayBuffer<char> getRawBytes() const;
-
-  // Similar to getRawBytes() but returns a typed array.
+  // Returns a pointer to the underlying data as a flat aray, if
+  // everything aligns, otherwise makes and returns a copy.
+  // Presents the same view of the data as GetValues() but as a
+  // contiguous array and only for the type X matching the element type.
   // Precondition: X must correspond to getElementType().
   template <typename X>
   onnx_mlir::ArrayBuffer<X> getArray() const;
+
+  // Copies out the elements in a flat array in row-major order.
+  // Precondition: X must correspond to getElementType().
+  template <typename X>
+  void readArray(MutableArrayRef<X> dst) const;
+
+  // Returns a pointer to the underlying data as a flat WideNum array, if
+  // everything aligns, otherwise makes and returns a copy.
+  onnx_mlir::ArrayBuffer<WideNum> getWideNums() const;
+
+  // Copies out the elements in a flat WideNum array in row-major order.
+  void readWideNums(MutableArrayRef<WideNum> dst) const;
 
   // Makes deep copy.
   DenseElementsAttr toDenseElementsAttr() const;
@@ -246,9 +268,15 @@ public:
   void printWithoutType(AsmPrinter &printer) const;
 
 private:
+  // Widens and transforms bytes into WideNums in accordance with
+  // bufferDType and transformer.
   void readBytesAsWideNums(
       ArrayRef<char> bytes, llvm::MutableArrayRef<WideNum>) const;
 
+  // Similar to DenseElementsAttr::getRawData() in that it returns the
+  // underlying raw data, but the data representation can be further removed
+  // from the view presented by getValues() and getArray() because of
+  // strides, bufferDType cast, and transformer.
   ArrayRef<char> getBufferBytes() const;
 
   onnx_mlir::ArrayBuffer<WideNum> getBufferAsWideNums() const;
@@ -256,12 +284,25 @@ private:
   // Warning: This is inefficient. First, it calculates the buffer position from
   // strides with divisions and modulo, unless isContiguous() or isSplat().
   // Second, it widens the buffer data type and computes any transformation for
-  // a single element without the fast inner loop of readWideNums(), which reads
-  // out all elements in bulk with faster amortized speed per element.
+  // a single element without the fast inner loop of getArray/WideNums() and
+  // readArray/WideNums(),
+  // which read out all elements in bulk with faster amortized speed per
+  // element.
   WideNum atFlatIndex(size_t flatIndex) const;
 
   // Warning: This is inefficient because it calls unflattenIndex on flatIndex.
   size_t flatIndexToBufferPos(size_t flatIndex) const;
+
+  // Copies out the elements in a flat array in row-major order.
+  // If the element type is bool the data holds one byte (with value 0 or 1) per
+  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
+  void readRawBytes(MutableArrayRef<char> dst) const;
+
+  // Returns a pointer to the underlying data as a flat byte array, if
+  // everything aligns, otherwise makes and returns a copy.
+  // If the element type is bool the data holds one byte (with value 0 or 1) per
+  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
+  onnx_mlir::ArrayBuffer<char> getRawBytes() const;
 
 }; // class DisposableElementsAttr
 
