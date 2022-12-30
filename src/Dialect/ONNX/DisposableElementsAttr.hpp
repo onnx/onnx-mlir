@@ -276,7 +276,8 @@ private:
   // Similar to DenseElementsAttr::getRawData() in that it returns the
   // underlying raw data, but the data representation can be further removed
   // from the view presented by getValues() and getArray() because of
-  // strides, bufferDType cast, and transformer.
+  // strides, bufferDType cast, and transformer. Another difference is that for
+  // element type bool the data holds one byte (with value 0 or 1) per bool.
   ArrayRef<char> getBufferBytes() const;
 
   onnx_mlir::ArrayBuffer<WideNum> getBufferAsWideNums() const;
