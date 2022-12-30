@@ -172,12 +172,13 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
            "ONNXConstantOp value cannot be sparse");
     if (elements.getType() == resultType) {
       odsPrinter << ' ';
-      // Print DisposableELementsAttr as a DenseElementsAttr, because
+      // Print DisposableElementsAttr as a DenseElementsAttr, because
       // DisposableElementsAttr is an internal representation, so we hide it
       // in this way.
       // NOTE: A downside of this is that the contents is copied into a
-      // DenseElementsAttr which is never garbage collected, defeating the
-      // purpose of DisposableELementsAttr, depending on when the printing
+      // DenseElementsAttr which is never garbage collected. This is not only
+      // slow but also defeats the garbage collection benefits of
+      // DisposableElementsAttr, depending on when the printing
       // takes place (the print at the end of onnx-mlir-opt in lit tests is ok
       // but the print in ONNXOpTransformPass::createTagForIR() is bad).
       if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
