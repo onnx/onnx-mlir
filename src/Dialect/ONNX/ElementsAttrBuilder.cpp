@@ -107,12 +107,12 @@ ElementsAttrBuilder::Transformer composeTransforms(
     ElementsAttrBuilder::Transformer second) {
   if (first == nullptr)
     return second;
-
-  return [fst = std::move(first), snd = std::move(second)](
-             MutableArrayRef<WideNum> dst) {
-    fst(dst);
-    snd(dst);
-  };
+  else
+    return [fst = std::move(first), snd = std::move(second)](
+               MutableArrayRef<WideNum> dst) {
+      fst(dst);
+      snd(dst);
+    };
 }
 } // namespace
 
@@ -120,8 +120,8 @@ DisposableElementsAttr ElementsAttrBuilder::transform(
     DisposableElementsAttr elms, Type transformedElementType,
     Transformer transformer) {
   ShapedType transformedType = elms.getType().clone(transformedElementType);
-  return create(transformedType, btypeOfMlirType(transformedElementType),
-      elms.getStrides(), elms.getBuffer(),
+  return create(transformedType, elms.getBufferBType(), elms.getStrides(),
+      elms.getBuffer(),
       composeTransforms(elms.getTransformer(), std::move(transformer)));
 }
 
