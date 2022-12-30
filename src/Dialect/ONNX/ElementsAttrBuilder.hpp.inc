@@ -28,29 +28,47 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::combine(
     mlir::DisposableElementsAttr lhs, mlir::DisposableElementsAttr rhs,
     mlir::ShapedType combinedType, BinaryCombiner combiner) {
   auto combinedShape = combinedType.getShape();
+  auto lhsStrides = expandStrides(lhs.getStrides(), combinedShape);
+  auto rhsStrides = expandStrides(rhs.getStrides(), combinedShape);
+
+  using Transformer = ElementsAttrBuilder::Transformer;
+  auto composeTransformerFunction = [](Transformer transformer,
+                                        auto fun) -> Transformer {
+    return [transformer = std::move(transformer), fun = std::move(fun)](
+               llvm::MutableArrayRef<WideNum> data) -> void {
+      if (transformer != nullptr)
+        transformer(data);
+      for (WideNum &n : data)
+        n = fun(n);
+    };
+  };
+
   if (lhs.isSplat()) {
     WideNum lhsNum = lhs.atFlatIndex(0);
-    auto transformed = transform(rhs, combinedType.getElementType(),
-        functionTransformer([lhsNum, combiner = std::move(combiner)](
-                                WideNum n) { return combiner(lhsNum, n); }));
-    return expand(transformed, combinedShape);
+    return create(combinedType, rhs.getBufferBType(), rhsStrides,
+        rhs.getBuffer(),
+        composeTransformerFunction(rhs.getTransformer(),
+            [lhsNum, combiner = std::move(combiner)](
+                WideNum n) { return combiner(lhsNum, n); }));
   }
+
   if (rhs.isSplat()) {
     WideNum rhsNum = rhs.atFlatIndex(0);
-    auto transformed = transform(lhs, combinedType.getElementType(),
-        functionTransformer([rhsNum, combiner = std::move(combiner)](
-                                WideNum n) { return combiner(n, rhsNum); }));
-    return expand(transformed, combinedShape);
+    return create(combinedType, lhs.getBufferBType(), lhsStrides,
+        lhs.getBuffer(),
+        composeTransformerFunction(lhs.getTransformer(),
+            [rhsNum, combiner = std::move(combiner)](
+                WideNum n) { return combiner(n, rhsNum); }));
   }
-  auto lhsStrides = expandStrides(lhs.getStrides(), combinedShape);
+
   ArrayBuffer<WideNum> lhsNums = lhs.getBufferAsWideNums();
-  Strided<llvm::ArrayRef<WideNum>> lhsStrided{lhsStrides, lhsNums.get()};
-  auto rhsStrides = expandStrides(rhs.getStrides(), combinedShape);
   ArrayBuffer<WideNum> rhsNums = rhs.getBufferAsWideNums();
-  Strided<llvm::ArrayRef<WideNum>> rhsStrided{rhsStrides, rhsNums.get()};
   return fromWideNums(
       combinedType, [&](llvm::MutableArrayRef<WideNum> dstNums) {
-        transformAndRestrideTwoWideArrays(
-            combinedShape, lhsStrided, rhsStrided, dstNums, combiner);
+        traverseStrides<2>(combinedShape, {lhsStrides, rhsStrides},
+            [&](uint64_t index, std::array<uint64_t, 2> positions) {
+              dstNums[index] = combiner(
+                  lhsNums.get()[positions[0]], rhsNums.get()[positions[1]]);
+            });
       });
 }

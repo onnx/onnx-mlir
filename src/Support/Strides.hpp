@@ -40,7 +40,10 @@
 #include "src/Support/WideNum.hpp"
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallVector.h"
+
+#include <array>
 
 namespace onnx_mlir {
 
@@ -99,40 +102,16 @@ void restrideArray(llvm::ArrayRef<int64_t> shape,
       castMutableArrayRef<char>(dst));
 }
 
-// A linear array together with strides.
-// Tensor indices can be mapped to array positions with getStridesPosition().
-template <typename T>
-struct Strided {
-  llvm::ArrayRef<int64_t> strides;
-  T data;
-};
+template <size_t N = 1>
+using StridesTraversalAction =
+    llvm::function_ref<void(uint64_t, std::array<uint64_t, N>)>;
 
-template <typename BinaryFunction = std::function<WideNum(WideNum, WideNum)>>
-inline void transformAndRestrideTwoWideArrays(llvm::ArrayRef<int64_t> shape,
-    Strided<llvm::ArrayRef<WideNum>> lhs, Strided<llvm::ArrayRef<WideNum>> rhs,
-    llvm::MutableArrayRef<WideNum> dstData, BinaryFunction fun) {
-  assert(lhs.strides.size() == shape.size() && "lhs strides must be expanded");
-  assert(rhs.strides.size() == shape.size() && "rhs strides must be expanded");
-  size_t rank = shape.size();
-  auto traverse = [=](size_t axis, size_t lhsPos, size_t rhsPos, WideNum *dst,
-                      const auto &recurse) -> WideNum * {
-    if (axis == rank) {
-      *dst = fun(lhs.data[lhsPos], rhs.data[rhsPos]);
-      return dst + 1;
-    } else {
-      size_t lhsStride = lhs.strides[axis];
-      size_t rhsStride = rhs.strides[axis];
-      size_t dimSize = shape[axis];
-      for (size_t i = 0; i < dimSize; ++i) {
-        dst = recurse(axis + 1, lhsPos, rhsPos, dst, recurse);
-        lhsPos += lhsStride;
-        rhsPos += rhsStride;
-      }
-      return dst;
-    }
-  };
-  WideNum *end = traverse(0, 0, 0, dstData.begin(), traverse);
-  assert(end == dstData.end() && "traversal should end at the end of dstData");
-}
+template <size_t N = 1>
+void traverseStrides(llvm::ArrayRef<int64_t> shape,
+    const std::array<llvm::ArrayRef<int64_t>, N> &strides,
+    StridesTraversalAction<N> act);
+
+// Include template implementations.
+#include "Strides.hpp.inc"
 
 } // namespace onnx_mlir
