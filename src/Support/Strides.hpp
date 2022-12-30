@@ -102,14 +102,10 @@ void restrideArray(llvm::ArrayRef<int64_t> shape,
       castMutableArrayRef<char>(dst));
 }
 
-template <size_t N = 1>
-using StridesTraversalAction =
-    llvm::function_ref<void(uint64_t, std::array<uint64_t, N>)>;
-
-template <size_t N = 1>
+template <size_t N = 1, typename Action = llvm::function_ref<void(
+                            uint64_t, std::array<uint64_t, N>)>>
 void traverseStrides(llvm::ArrayRef<int64_t> shape,
-    const std::array<llvm::ArrayRef<int64_t>, N> &strides,
-    StridesTraversalAction<N> act);
+    const std::array<llvm::ArrayRef<int64_t>, N> &strides, Action &&act);
 
 // Include template implementations.
 #include "Strides.hpp.inc"
