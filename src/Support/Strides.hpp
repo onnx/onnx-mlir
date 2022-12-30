@@ -85,6 +85,20 @@ llvm::SmallVector<int64_t, 4> untransposeDims(
 llvm::SmallVector<int64_t, 4> unflattenIndex(
     llvm::ArrayRef<int64_t> shape, int64_t flatIndex);
 
+// Unpacks src into row-major order in dstData.
+void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
+    llvm::ArrayRef<int64_t> srcStrides, llvm::ArrayRef<char> src,
+    llvm::MutableArrayRef<char> dst);
+
+// Unpacks src into row-major order in dstData.
+template <typename T>
+void restrideArray(llvm::ArrayRef<int64_t> shape,
+    llvm::ArrayRef<int64_t> srcStrides, llvm::ArrayRef<T> src,
+    llvm::MutableArrayRef<T> dst) {
+  return restrideArray(sizeof(T), shape, srcStrides, castArrayRef<char>(src),
+      castMutableArrayRef<char>(dst));
+}
+
 // A linear array together with strides.
 // Tensor indices can be mapped to array positions with getStridesPosition().
 template <typename T>
@@ -92,19 +106,6 @@ struct Strided {
   llvm::ArrayRef<int64_t> strides;
   T data;
 };
-
-// Unpacks src into row-major order in dstData.
-void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
-    Strided<llvm::ArrayRef<char>> src, llvm::MutableArrayRef<char> dstData);
-
-// Unpacks src into row-major order in dstData.
-template <typename T>
-void restrideArray(llvm::ArrayRef<int64_t> shape,
-    Strided<llvm::ArrayRef<T>> src, llvm::MutableArrayRef<T> dstData) {
-  return restrideArray(sizeof(T), shape,
-      {src.strides, castArrayRef<char>(src.data)},
-      castMutableArrayRef<char>(dstData));
-}
 
 template <typename BinaryFunction = std::function<WideNum(WideNum, WideNum)>>
 inline void transformAndRestrideTwoWideArrays(llvm::ArrayRef<int64_t> shape,

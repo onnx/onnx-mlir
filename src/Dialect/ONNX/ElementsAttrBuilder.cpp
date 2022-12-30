@@ -205,7 +205,7 @@ DisposableElementsAttr ElementsAttrBuilder::reshape(
         reshapedType, elms.getBufferBType(), [elms](MutableArrayRef<char> dst) {
           auto src = elms.getBufferBytes();
           restrideArray(elms.getBufferElementBytewidth(), elms.getShape(),
-              {elms.getStrides(), src}, dst);
+              elms.getStrides(), src, dst);
         });
   }
 

@@ -138,7 +138,7 @@ void DisposableElementsAttr::readWideNums(MutableArrayRef<WideNum> dst) const {
     return;
   }
   ArrayBuffer<WideNum> src = getBufferAsWideNums();
-  restrideArray<WideNum>(getShape(), {getStrides(), src.get()}, dst);
+  restrideArray<WideNum>(getShape(), getStrides(), src.get(), dst);
 }
 
 DenseElementsAttr DisposableElementsAttr::toDenseElementsAttr() const {
@@ -215,8 +215,7 @@ void DisposableElementsAttr::readRawBytes(
   unsigned elemBytewidth = bytewidthOfBType(btype);
   if (!isTransformedOrCast()) {
     auto srcBytes = getBufferBytes();
-    restrideArray(
-        elemBytewidth, getShape(), {getStrides(), srcBytes}, dstBytes);
+    restrideArray(elemBytewidth, getShape(), getStrides(), srcBytes, dstBytes);
   } else if (elemBytewidth == sizeof(WideNum)) {
     readWideNums(castMutableArrayRef<WideNum>(dstBytes));
   } else {

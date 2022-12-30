@@ -178,17 +178,17 @@ namespace {
 // Uses the same algorithm as transformAndRestrideTwoWideArrays but is
 // sufficiently different to be reimplemented here without code reuse.
 template <typename T>
-void restrideArrayImpl(ArrayRef<int64_t> shape, Strided<ArrayRef<T>> src,
-    MutableArrayRef<T> dstData) {
+void restrideArrayImpl(ArrayRef<int64_t> shape, ArrayRef<int64_t> srcStrides,
+    ArrayRef<T> src, MutableArrayRef<T> dst) {
   size_t rank = shape.size();
-  assert(src.strides.size() == rank && "src strides must match rank");
+  assert(srcStrides.size() == rank && "src strides must match rank");
   auto traverse = [=](size_t axis, size_t srcPos, T *dst,
                       const auto &recurse) -> T * {
     if (axis == rank) {
-      *dst = src.data[srcPos];
+      *dst = src[srcPos];
       return dst + 1;
     } else {
-      size_t srcStride = src.strides[axis];
+      size_t srcStride = srcStrides[axis];
       size_t dimSize = shape[axis];
       for (size_t i = 0; i < dimSize; ++i) {
         dst = recurse(axis + 1, srcPos, dst, recurse);
@@ -197,30 +197,32 @@ void restrideArrayImpl(ArrayRef<int64_t> shape, Strided<ArrayRef<T>> src,
       return dst;
     }
   };
-  T *end = traverse(0, 0, dstData.begin(), traverse);
-  assert(end == dstData.end() && "traversal should end at the end of dstData");
+  T *end = traverse(0, 0, dst.begin(), traverse);
+  assert(end == dst.end() && "traversal should end at the end of dst");
 }
 
 template <typename T>
 void restrideArrayImpl(unsigned elementBytewidth, ArrayRef<int64_t> shape,
-    Strided<ArrayRef<char>> src, MutableArrayRef<char> dstData) {
+    ArrayRef<int64_t> srcStrides, ArrayRef<char> src,
+    MutableArrayRef<char> dst) {
   assert(sizeof(T) == elementBytewidth && "dispatch sanity check");
-  auto expandedSrcStrides = expandStrides(src.strides, shape);
-  Strided<ArrayRef<T>> srcT{expandedSrcStrides, castArrayRef<T>(src.data)};
-  MutableArrayRef<T> dstDataT = castMutableArrayRef<T>(dstData);
-  restrideArrayImpl<T>(shape, srcT, dstDataT);
+  auto expandedSrcStrides = expandStrides(srcStrides, shape);
+  ArrayRef<T> srcT = castArrayRef<T>(src);
+  MutableArrayRef<T> dstT = castMutableArrayRef<T>(dst);
+  restrideArrayImpl<T>(shape, expandedSrcStrides, srcT, dstT);
 }
 
 } // namespace
 
 void restrideArray(unsigned elementBytewidth, ArrayRef<int64_t> shape,
-    Strided<ArrayRef<char>> src, MutableArrayRef<char> dstData) {
+    ArrayRef<int64_t> srcStrides, ArrayRef<char> src,
+    MutableArrayRef<char> dst) {
   // clang-format off
   switch (elementBytewidth) {
-  case 1: return restrideArrayImpl<uint8_t> (1, shape, src, dstData);
-  case 2: return restrideArrayImpl<uint16_t>(2, shape, src, dstData);
-  case 4: return restrideArrayImpl<uint32_t>(4, shape, src, dstData);
-  case 8: return restrideArrayImpl<uint64_t>(8, shape, src, dstData);
+  case 1: return restrideArrayImpl<uint8_t> (1, shape, srcStrides, src, dst);
+  case 2: return restrideArrayImpl<uint16_t>(2, shape, srcStrides, src, dst);
+  case 4: return restrideArrayImpl<uint32_t>(4, shape, srcStrides, src, dst);
+  case 8: return restrideArrayImpl<uint64_t>(8, shape, srcStrides, src, dst);
   default: llvm_unreachable("unsupported elementBytewidth");
   }
   // clang-format on
