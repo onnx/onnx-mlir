@@ -197,24 +197,25 @@ BType wideBTypeOfBType(BType btype);
 template <BType BTYPE>
 using BTypeConstant = std::integral_constant<BType, BTYPE>;
 
-// If expr is a BType runtime expression, e.g. disposableElementsAttr.getBType()
-// and stmnt(btype) is a statement that uses btype as a constexpr
-// then dispatchByBType(expr, [&](auto btype) -> void { stmnt(btype); })
-// is shorthand for
+// If a is a BType runtime value and expr(btype) is an expression that
+// uses btype as a constexpr, e.g. expr(btype) = sizeof(CppType<btype>), then
 //
-//   switch (expr) {
-//   case BType::BOOL: { constexpr BType btype = BType::BOOL; stmnt(btype); }
-//   case BType::INT8: { constexpr BType btype = BType::INT8; stmnt(btype); }
-//   // etc for all the int or float Btype values
+//   r = dispatchByBType(a, [&](auto btype) -> void { return expr(btype); })
+//
+// is shorthand for:
+//
+//   switch (a) {
+//   case BType::BOOL: { constexpr BType btype = BType::BOOL; r = expr(btype); }
+//   case BType::INT8: { constexpr BType btype = BType::INT8; r = expr(btype); }
+//   // etc for all the other int and float BType values
 //   default: llvm_unreachable("not a supported datatype");
 //   }
 //
-// The generic lambda can also return another type than void and then
-// dispatchByBType returns the invoked lambda's return value. Example:
+// So we can write:
 //
-//   unsigned sizeofBType(BType d) {
+//   unsigned sizeofBType(BType a) {
 //     return dispatchByBType(
-//         d, [](auto btype) { return sizeof(CppType<btype>); });
+//         a, [](auto btype) { return sizeof(CppType<btype>); });
 //   }
 //
 template <typename Action>
