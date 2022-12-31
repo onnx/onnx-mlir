@@ -4,37 +4,29 @@
 // Strides template implementations
 //===----------------------------------------------------------------------===//
 
-namespace detail {
-template <size_t N, typename Action>
-struct StridesTraversal {
-  const llvm::ArrayRef<int64_t> shape;
-  const std::array<llvm::ArrayRef<int64_t>, N> &strides;
-  Action &&act;
-  StridesTraversal(llvm::ArrayRef<int64_t> shape,
-      const std::array<llvm::ArrayRef<int64_t>, N> &strides, Action &&act)
-      : shape(shape), strides(strides), act(std::forward<Action>(act)) {}
-  size_t traverse() const { return doTraverse(0, 0, {}); }
-  size_t doTraverse(
-      unsigned axis, uint64_t index, std::array<uint64_t, N> positions) const {
-    unsigned rank = shape.size();
-    if (axis == rank) {
-      act(index, positions);
-      index++;
+template <typename Iterator, typename... Args, typename Action>
+Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator begin,
+    StridedArrayRef<Args>... src, Action &&act) {
+  auto traverse = [=](const auto &recurse, unsigned axis, Iterator it,
+                      const Args *... elms) -> Iterator {
+    if (axis == shape.size()) {
+      act(it, *elms...);
+      it++;
     } else {
       for (int64_t i = 0; i < shape[axis]; ++i) {
-        index = doTraverse(axis + 1, index, positions);
-        for (size_t j = 0; j < N; ++j)
-          positions[j] += strides[j][axis];
+        it = recurse(recurse, axis + 1, it, elms...);
+        ((elms += src.strides[axis]), ...);
       }
     }
-    return index;
-  }
-};
-} // namespace detail
+    return it;
+  };
+  return traverse(traverse, /*axis=*/0, begin, src.begin()...);
+}
 
-template <size_t N, typename Action>
-void traverseStrides(llvm::ArrayRef<int64_t> shape,
-    const std::array<llvm::ArrayRef<int64_t>, N> &strides, Action &&act) {
-  detail::StridesTraversal<2, Action>(shape, strides, std::forward<Action>(act))
-      .traverse();
+template <typename Res, typename... Args, typename Action>
+void mapStrides(llvm::ArrayRef<int64_t> shape, llvm::MutableArrayRef<Res> dst,
+    StridedArrayRef<Args>... src, Action &&act) {
+  Res *end = traverseStrides<Res *, Args...>(shape, dst.begin(), src...,
+      [&act](Res *res, Args... args) { *res = act(args...); });
+  assert(end == dst.end() && "traverses every dst element");
 }

@@ -98,14 +98,33 @@ template <typename T>
 void restrideArray(llvm::ArrayRef<int64_t> shape,
     llvm::ArrayRef<int64_t> srcStrides, llvm::ArrayRef<T> src,
     llvm::MutableArrayRef<T> dst) {
+  // To reduce code size restrideArray() is only implemented once for each type
+  // size so, e.g., int32_t, uint32_t, float all use the same implementation.
   return restrideArray(sizeof(T), shape, srcStrides, castArrayRef<char>(src),
       castMutableArrayRef<char>(dst));
 }
 
-template <size_t N = 1, typename Action = llvm::function_ref<void(
-                            uint64_t, std::array<uint64_t, N>)>>
-void traverseStrides(llvm::ArrayRef<int64_t> shape,
-    const std::array<llvm::ArrayRef<int64_t>, N> &strides, Action &&act);
+// A linear array together with strides.
+// Derives behavior including iterators from ArrayRef<T>.
+// Tensor indices can be mapped to array positions with getStridesPosition().
+template <typename T>
+struct StridedArrayRef : public llvm::ArrayRef<T> {
+  using Base = llvm::ArrayRef<T>;
+
+  llvm::ArrayRef<int64_t> strides;
+  StridedArrayRef(llvm::ArrayRef<T> array, llvm::ArrayRef<int64_t> strides)
+      : Base(array), strides(strides) {}
+};
+
+template <typename Iterator, typename... Args,
+    typename Action = llvm::function_ref<void(Iterator, Args...)>>
+Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator begin,
+    StridedArrayRef<Args>... src, Action &&act);
+
+template <typename Res, typename... Args,
+    typename Action = llvm::function_ref<Res(Args...)>>
+void mapStrides(llvm::ArrayRef<int64_t> shape, llvm::MutableArrayRef<Res> dst,
+    StridedArrayRef<Args>... src, Action &&act);
 
 // Include template implementations.
 #include "Strides.hpp.inc"

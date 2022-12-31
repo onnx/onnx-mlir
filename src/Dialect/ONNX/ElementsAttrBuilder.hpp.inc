@@ -63,12 +63,11 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::combine(
 
   ArrayBuffer<WideNum> lhsNums = lhs.getBufferAsWideNums();
   ArrayBuffer<WideNum> rhsNums = rhs.getBufferAsWideNums();
+  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), lhsStrides);
+  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), rhsStrides);
   return fromWideNums(
       combinedType, [&](llvm::MutableArrayRef<WideNum> dstNums) {
-        traverseStrides<2>(combinedShape, {lhsStrides, rhsStrides},
-            [&](uint64_t index, std::array<uint64_t, 2> positions) {
-              dstNums[index] = combiner(
-                  lhsNums.get()[positions[0]], rhsNums.get()[positions[1]]);
-            });
+        mapStrides<WideNum, WideNum, WideNum>(
+            combinedShape, dstNums, stridedLhs, stridedRhs, combiner);
       });
 }
