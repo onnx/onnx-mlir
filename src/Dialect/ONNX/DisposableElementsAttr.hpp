@@ -267,6 +267,8 @@ public:
 
   void printWithoutType(AsmPrinter &printer) const;
 
+  void printAsDenseElementsAttr(AsmPrinter &printer) const;
+
 private:
   // Widens and transforms bytes into WideNums in accordance with
   // bufferDType and transformer.

@@ -169,6 +169,26 @@ void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
   printer << ">";
 }
 
+void DisposableElementsAttr::printAsDenseElementsAttr(
+    AsmPrinter &printer) const {
+  static OpPrintingFlags printerFlags{};
+  if (isSplat() || !printerFlags.shouldElideElementsAttr(*this)) {
+    // Take shortcut by first converting to DenseElementsAttr.
+    // NOTE: This creates a copy which is never garbage collected. This is not
+    // only slow but also defeats the garbage collection benefits of
+    // DisposableElementsAttr, depending on when the printing
+    // takes place (the print at the end of onnx-mlir-opt in lit tests is ok
+    // but the print in ONNXOpTransformPass::createTagForIR() is bad).
+    printer.printAttribute(toDenseElementsAttr());
+    // TODO: Do the work to print without constructing DenseElementsAttr.
+  } else {
+    // This special case is easy and by avoiding conversion to DenseElementsAttr
+    // we save a lot of time in ONNXOpTransformPass::createTagForIR() if we set:
+    // --mlir-elide-elementsattrs-if-larger=1
+    printer << "dense<__elided__> : " << getType();
+  }
+}
+
 void DisposableElementsAttr::readBytesAsWideNums(
     ArrayRef<char> srcBytes, llvm::MutableArrayRef<WideNum> dst) const {
   widenArray(getBufferBType(), srcBytes, dst);
