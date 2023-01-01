@@ -143,16 +143,17 @@ bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
 
 //===----------------------------------------------------------------------===//
 // Helpers to support DisposableElementsAttr constant propagation.
-//
-// TODO: Migrate all constant propagation to DisposableElementsAttr and remove
-//       all "buffer_id" buffer pool helpers above and in ConstPropHelper.
 //===----------------------------------------------------------------------===//
+
+ElementsAttr getConstValueElements(Value constValue) {
+  ONNXConstantOp constOp = getONNXConstantOp(constValue);
+  return constOp.valueAttr().cast<ElementsAttr>();
+}
 
 DisposableElementsAttr getConstValueAsDisposableElements(
     ElementsAttrBuilder &elementsBuilder, Value constValue) {
-  ONNXConstantOp constOp = getONNXConstantOp(constValue);
   return elementsBuilder.toDisposableElementsAttr(
-      constOp.valueAttr().cast<ElementsAttr>());
+      getConstValueElements(constValue));
 }
 
 // Creates ONNXConstantOp with the location and result type from replacingValue.
@@ -179,9 +180,8 @@ SmallVector<T, 4> createIntVectorFromArrayAttr(ArrayAttr a) {
 
 ElementsAttr ConstPropReshapeImpl(PatternRewriter &rewriter,
     Value replacingValue, Value constValue, ArrayRef<int64_t> reshapedShape) {
+  ElementsAttr constElements = getConstValueElements(constValue);
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  DisposableElementsAttr constElements =
-      getConstValueAsDisposableElements(elementsBuilder, constValue);
   return elementsBuilder.reshape(constElements, reshapedShape);
 }
 
@@ -219,16 +219,17 @@ struct ElementWiseBinaryOpImpl<ONNXDivOp, T, EnableNotBool<T>> {
 };
 
 template <typename ElementwiseBinaryOp>
-auto combinerOfElementwiseBinaryOp(BType operandsBType) {
+auto combinerOfElementwiseBinaryOp(Type operandsElemType) {
   using Combiner = std::function<WideNum(WideNum, WideNum)>;
-  return dispatchByBType(operandsBType, [](auto btype) -> Combiner {
-    using W = WideBType<btype>;
-    using OpImpl =
-        ElementWiseBinaryOpImpl<ElementwiseBinaryOp, typename W::type>;
-    return [](WideNum lhs, WideNum rhs) -> WideNum {
-      return W::pack(OpImpl::impl(W::unpack(lhs), W::unpack(rhs)));
-    };
-  });
+  return dispatchByBType(
+      btypeOfMlirType(operandsElemType), [](auto btype) -> Combiner {
+        using W = WideBType<btype>;
+        using OpImpl =
+            ElementWiseBinaryOpImpl<ElementwiseBinaryOp, typename W::type>;
+        return [](WideNum lhs, WideNum rhs) -> WideNum {
+          return W::pack(OpImpl::impl(W::unpack(lhs), W::unpack(rhs)));
+        };
+      });
 }
 
 /// Do element-wise binary calculation of 'lhs' and 'rhs' values and create an
@@ -239,15 +240,14 @@ Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
   ConstPropCounters::count("ElementwiseBinary", {lhsValue, rhsValue});
   Type replacingType = replacingValue.getType().cast<ShapedType>();
 
+  ElementsAttr lhs = getConstValueElements(lhsValue);
+  ElementsAttr rhs = getConstValueElements(rhsValue);
+  Type operandsElemType = lhs.getElementType();
+  assert(operandsElemType == rhs.getElementType() &&
+         "all element-wise binary ops have matching operands element types");
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  DisposableElementsAttr lhs =
-      getConstValueAsDisposableElements(elementsBuilder, lhsValue);
-  DisposableElementsAttr rhs =
-      getConstValueAsDisposableElements(elementsBuilder, rhsValue);
-  BType operandsBType = lhs.getBType();
-  assert(operandsBType == rhs.getBType());
   ElementsAttr resultElements = elementsBuilder.combine(lhs, rhs, replacingType,
-      combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsBType));
+      combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsElemType));
   return createReplacingConstantOp(rewriter, replacingValue, resultElements)
       .getResult();
 }
@@ -302,11 +302,10 @@ Value ConstPropElementwiseUnary(
   Type replacingElemType =
       replacingValue.getType().cast<ShapedType>().getElementType();
 
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  DisposableElementsAttr constElements =
-      getConstValueAsDisposableElements(elementsBuilder, constValue);
+  ElementsAttr constElements = getConstValueElements(constValue);
   assert(replacingElemType == constElements.getElementType() &&
-         "all element wise unary ops preserve element type");
+         "all element-wise unary ops preserve element type");
+  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr transposedElements =
       elementsBuilder.transform(constElements, replacingElemType,
           transformElementWiseUnaryOp<ElementwiseUnaryOp>(replacingElemType));
@@ -327,9 +326,8 @@ Value ConstPropTranspose(
   SmallVector<uint64_t, 4> perm =
       createIntVectorFromArrayAttr<uint64_t>(permAttr);
 
+  ElementsAttr constElements = getConstValueElements(constValue);
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  DisposableElementsAttr constElements =
-      getConstValueAsDisposableElements(elementsBuilder, constValue);
   ElementsAttr transposedElements =
       elementsBuilder.transpose(constElements, perm);
   return createReplacingConstantOp(rewriter, replacingValue, transposedElements)
@@ -415,20 +413,28 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
   size_t stride = ShapedType::getNumElements(inputShape.drop_front(splitAxis));
   size_t substride = stride / splitAxisSize;
   size_t offset = 0;
-  std::vector<Value> resValues;
+  std::vector<ElementsAttr> resElements;
+  resElements.reserve(numResults);
   for (unsigned int i = 0; i < numResults; ++i) {
-    Value replacingValue = splitOp.getResults()[i];
+    Type replacingType = splitOp.getResult(i).getType();
     size_t len = splitSizes[i] * substride;
     ElementsAttr splitElements = elementsBuilder.fromWideNums(
-        replacingValue.getType(), [&](MutableArrayRef<WideNum> outputData) {
+        replacingType, [&](MutableArrayRef<WideNum> outputData) {
           SplitImpl(inputData.get(), offset, len, stride, outputData);
         });
-    resValues.push_back(
-        createReplacingConstantOp(rewriter, replacingValue, splitElements)
-            .getResult());
+    resElements.push_back(splitElements);
     offset += len;
   }
 
+  std::vector<Value> resValues;
+  resValues.reserve(numResults);
+  for (unsigned int i = 0; i < numResults; ++i) {
+    Value replacingValue = splitOp.getResult(i);
+    ElementsAttr splitElements = resElements[i];
+    resValues.push_back(
+        createReplacingConstantOp(rewriter, replacingValue, splitElements)
+            .getResult());
+  }
   rewriter.replaceOp(splitOp, resValues);
   return success();
 }
@@ -557,9 +563,8 @@ Value ConstPropCast(
   Type replacingElemType =
       replacingValue.getType().cast<ShapedType>().getElementType();
 
+  ElementsAttr constElements = getConstValueElements(constValue);
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  DisposableElementsAttr constElements =
-      getConstValueAsDisposableElements(elementsBuilder, constValue);
   ElementsAttr castElements =
       elementsBuilder.castElementType(constElements, replacingElemType);
   return createReplacingConstantOp(rewriter, replacingValue, castElements)
@@ -685,9 +690,8 @@ Value ConstPropExpand(
   ConstPropCounters::count("Expand", {constValue});
   ArrayRef<int64_t> expandedShape = getShape(replacingValue.getType());
 
+  ElementsAttr constElements = getConstValueElements(constValue);
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  DisposableElementsAttr constElements =
-      getConstValueAsDisposableElements(elementsBuilder, constValue);
   ElementsAttr expandedElements =
       elementsBuilder.expand(constElements, expandedShape);
   return createReplacingConstantOp(rewriter, replacingValue, expandedElements)
