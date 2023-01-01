@@ -24,9 +24,14 @@ ElementsAttrBuilder::Transformer ElementsAttrBuilder::functionTransformer(
 }
 
 template <typename BinaryCombiner>
-mlir::DisposableElementsAttr ElementsAttrBuilder::combine(
-    mlir::DisposableElementsAttr lhs, mlir::DisposableElementsAttr rhs,
-    mlir::ShapedType combinedType, BinaryCombiner combiner) {
+mlir::ElementsAttr ElementsAttrBuilder::combine(mlir::ElementsAttr lhsElms,
+    mlir::ElementsAttr rhsElms, mlir::ShapedType combinedType,
+    BinaryCombiner combiner) {
+  // TODO: Use getElementsProperties to avoid the construction of a
+  //       DisposableElementsAttr if lhs or rhs is a DenseElementsAttr.
+  mlir::DisposableElementsAttr lhs = toDisposableElementsAttr(lhsElms);
+  mlir::DisposableElementsAttr rhs = toDisposableElementsAttr(rhsElms);
+
   auto combinedShape = combinedType.getShape();
   auto lhsStrides = expandStrides(lhs.getStrides(), combinedShape);
   auto rhsStrides = expandStrides(rhs.getStrides(), combinedShape);
