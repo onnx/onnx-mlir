@@ -191,16 +191,19 @@ bool isIdentityPermutation(ArrayRef<uint64_t> perm) {
 }
 } // namespace
 
-DisposableElementsAttr ElementsAttrBuilder::transpose(
-    DisposableElementsAttr elms, ArrayRef<uint64_t> perm) {
+ElementsAttr ElementsAttrBuilder::transpose(
+    ElementsAttr elms, ArrayRef<uint64_t> perm) {
   if (isIdentityPermutation(perm))
     return elms;
 
-  auto transposedShape = transposeDims(elms.getShape(), perm);
-  ShapedType transposedType = elms.getType().clone(transposedShape);
-  auto transposedStrides = transposeDims(elms.getStrides(), perm);
-  return create(transposedType, elms.getBufferBType(), transposedStrides,
-      elms.getBuffer(), elms.getTransformer());
+  ElementsProperties props = getElementsProperties(elms);
+
+  ShapedType type = elms.getType();
+  auto transposedShape = transposeDims(type.getShape(), perm);
+  ShapedType transposedType = type.clone(transposedShape);
+  auto transposedStrides = transposeDims(props.strides, perm);
+  return create(transposedType, props.bufferBType, transposedStrides,
+      props.buffer, props.transformer);
 }
 
 ElementsAttr ElementsAttrBuilder::reshape(

@@ -84,9 +84,9 @@ public:
   mlir::DisposableElementsAttr castElementType(
       mlir::DisposableElementsAttr elms, mlir::Type newElementType);
 
-  // Returns a transposed DisposableElementsAttr.
-  mlir::DisposableElementsAttr transpose(
-      mlir::DisposableElementsAttr elms, llvm::ArrayRef<uint64_t> perm);
+  // Returns a transposed ElementsAttr.
+  mlir::ElementsAttr transpose(
+      mlir::ElementsAttr elms, llvm::ArrayRef<uint64_t> perm);
 
   // Returns a reshaped ElementsAttr.
   mlir::ElementsAttr reshape(
