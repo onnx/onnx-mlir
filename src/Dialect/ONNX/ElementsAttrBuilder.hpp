@@ -97,6 +97,10 @@ public:
       mlir::DisposableElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape);
 
 private:
+  struct ElementsProperties;
+
+  ElementsProperties getElementsProperties(mlir::ElementsAttr elements) const;
+
   mlir::DisposableElementsAttr fromRawBytes(
       mlir::ShapedType type, BType bufferBType, llvm::ArrayRef<char> bytes);
 

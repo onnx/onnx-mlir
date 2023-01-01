@@ -48,7 +48,42 @@ bool testRawBytesValidityAndSplatness(
   return isSplat;
 }
 
+std::unique_ptr<llvm::MemoryBuffer> getMemoryBuffer(DenseElementsAttr dense) {
+  ShapedType type = dense.getType();
+  if (type.isInteger(1)) {
+    // Don't use dense.rawData() which is bit packed, whereas
+    // DisposableElementsAttr represents bools with one byte per bool value.
+    if (dense.isSplat()) {
+      char b = dense.getSplatValue<bool>();
+      StringRef s(&b, 1);
+      return llvm::MemoryBuffer::getMemBufferCopy(s);
+    } else {
+      std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
+          llvm::WritableMemoryBuffer::getNewUninitMemBuffer(dense.size());
+      std::copy_n(dense.value_begin<bool>(), dense.size(),
+          writeBuffer->getBuffer().begin());
+      return std::move(writeBuffer);
+    }
+  } else {
+    StringRef s = asStringRef(dense.getRawData());
+    int64_t size = s.size();
+    if (dense.isSplat())
+      assert(size == getEltSizeInBytes(type) && "size mismatch");
+    else
+      assert(size == getSizeInBytes(type) && "size mismatch");
+    return llvm::MemoryBuffer::getMemBuffer(
+        s, /*BufferName=*/"", /*RequiresNullTerminator=*/false);
+  }
+}
+
 } // namespace
+
+struct ElementsAttrBuilder::ElementsProperties {
+  BType bufferBType;
+  llvm::SmallVector<int64_t, 4> strides;
+  std::shared_ptr<llvm::MemoryBuffer> buffer;
+  const Transformer &transformer;
+};
 
 ElementsAttrBuilder::ElementsAttrBuilder(MLIRContext *context)
     : disposablePool(*DisposablePool::get(context)) {}
@@ -64,29 +99,9 @@ DisposableElementsAttr ElementsAttrBuilder::toDisposableElementsAttr(
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
     return disposable;
   if (auto dense = elements.dyn_cast<DenseElementsAttr>()) {
-    ShapedType type = dense.getType();
-    BType btype = btypeOfMlirType(type.getElementType());
-    if (btype == BType::BOOL) {
-      // Don't use dense.rawData() which is bit packed, whereas
-      // DisposableElementsAttr represents bools with one byte per bool value.
-      if (dense.isSplat()) {
-        char b = dense.getSplatValue<bool>();
-        return fromRawBytes(type, btype, llvm::makeArrayRef(b));
-      } else {
-        return fromRawBytes(type, btype, [dense](MutableArrayRef<char> dst) {
-          std::copy_n(
-              dense.value_begin<bool>(), dense.getNumElements(), dst.begin());
-        });
-      }
-    } else {
-      StringRef s = asStringRef(dense.getRawData());
-      std::unique_ptr<llvm::MemoryBuffer> membuf =
-          llvm::MemoryBuffer::getMemBuffer(
-              s, /*BufferName=*/"", /*RequiresNullTerminator=*/false);
-      return dense.isSplat()
-                 ? createSplat(type, btype, std::move(membuf))
-                 : createWithDefaultStrides(type, btype, std::move(membuf));
-    }
+    ElementsProperties props = getElementsProperties(dense);
+    return create(dense.getType(), props.bufferBType, props.strides,
+        props.buffer, props.transformer);
   }
   // TODO: consider supporting more ElementsAttr types
   llvm_unreachable("unexpected ElementsAttr instance");
@@ -221,6 +236,32 @@ DisposableElementsAttr ElementsAttrBuilder::expand(
   auto expandedStrides = expandStrides(elms.getStrides(), expandedShape);
   return create(expandedType, elms.getBufferBType(), expandedStrides,
       elms.getBuffer(), elms.getTransformer());
+}
+
+auto ElementsAttrBuilder::getElementsProperties(
+    mlir::ElementsAttr elements) const -> ElementsProperties {
+  static Transformer nullTransformer = nullptr;
+  if (auto disposable = elements.dyn_cast<mlir::DisposableElementsAttr>()) {
+    llvm::ArrayRef<int64_t> strides = disposable.getStrides();
+    return {.bufferBType = disposable.getBufferBType(),
+        .strides{strides.begin(), strides.end()},
+        .buffer = disposable.getBuffer(),
+        .transformer = disposable.getTransformer()};
+  } else if (auto dense = elements.dyn_cast<mlir::DenseElementsAttr>()) {
+    ShapedType type = dense.getType();
+    llvm::SmallVector<int64_t, 4> strides;
+    if (dense.isSplat()) {
+      strides.assign(type.getRank(), 0);
+    } else {
+      strides = getDefaultStrides(type.getShape());
+    }
+    return {.bufferBType = btypeOfMlirType(type.getElementType()),
+        .strides{strides.begin(), strides.end()},
+        .buffer = getMemoryBuffer(dense),
+        .transformer = nullTransformer};
+  }
+  // TODO: consider supporting more ElementsAttr types
+  llvm_unreachable("unexpected ElementsAttr instance");
 }
 
 DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
