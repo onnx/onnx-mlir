@@ -93,8 +93,8 @@ public:
       mlir::ElementsAttr elms, llvm::ArrayRef<int64_t> reshapedShape);
 
   // Broadcasts like the ONNX Expand op.
-  mlir::DisposableElementsAttr expand(
-      mlir::DisposableElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape);
+  mlir::ElementsAttr expand(
+      mlir::ElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape);
 
 private:
   struct ElementsProperties;

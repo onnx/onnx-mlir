@@ -238,15 +238,18 @@ ElementsAttr ElementsAttrBuilder::reshape(
   });
 }
 
-DisposableElementsAttr ElementsAttrBuilder::expand(
-    DisposableElementsAttr elms, ArrayRef<int64_t> expandedShape) {
-  if (expandedShape == elms.getShape())
+ElementsAttr ElementsAttrBuilder::expand(
+    ElementsAttr elms, ArrayRef<int64_t> expandedShape) {
+  ShapedType type = elms.getType();
+  if (expandedShape == type.getShape())
     return elms;
 
-  ShapedType expandedType = elms.getType().clone(expandedShape);
-  auto expandedStrides = expandStrides(elms.getStrides(), expandedShape);
-  return create(expandedType, elms.getBufferBType(), expandedStrides,
-      elms.getBuffer(), elms.getTransformer());
+  ElementsProperties props = getElementsProperties(elms);
+
+  ShapedType expandedType = type.clone(expandedShape);
+  auto expandedStrides = expandStrides(props.strides, expandedShape);
+  return create(expandedType, props.bufferBType, expandedStrides, props.buffer,
+      props.transformer);
 }
 
 auto ElementsAttrBuilder::getElementsProperties(
