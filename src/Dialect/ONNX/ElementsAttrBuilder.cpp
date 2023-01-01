@@ -195,19 +195,17 @@ DisposableElementsAttr ElementsAttrBuilder::reshape(
 
   ShapedType reshapedType = elms.getType().clone(reshapedShape);
   if (auto reshapedStrides =
-          reshapeStrides(elms.getShape(), elms.getStrides(), reshapedShape)) {
+          reshapeStrides(elms.getShape(), elms.getStrides(), reshapedShape))
     return create(reshapedType, elms.getBufferBType(), *reshapedStrides,
         elms.getBuffer(), elms.getTransformer());
-  }
 
-  if (!elms.isTransformed()) { // Skip WideNums absent element-wise transform.
+  if (!elms.isTransformed()) // Skip WideNums absent element-wise transform.
     return fromRawBytes(
         reshapedType, elms.getBufferBType(), [elms](MutableArrayRef<char> dst) {
           auto src = elms.getBufferBytes();
           restrideArray(elms.getBufferElementBytewidth(), elms.getShape(),
               elms.getStrides(), src, dst);
         });
-  }
 
   return fromWideNums(reshapedType, [elms](MutableArrayRef<WideNum> wideData) {
     elms.readWideNums(wideData);
