@@ -35,19 +35,18 @@ BType btypeOfMlirType(Type type) {
 }
 
 Type mlirTypeOfBType(BType btype, MLIRContext *ctx) {
-  constexpr bool isUnsigned = false;
   Builder b(ctx);
   // clang-format off
   switch (btype) {
     case BType::BOOL     : return b.getI1Type();
     case BType::INT8     : return b.getIntegerType(8);
-    case BType::UINT8    : return b.getIntegerType(8, isUnsigned);
+    case BType::UINT8    : return b.getIntegerType(8, false);
     case BType::INT16    : return b.getIntegerType(16);
-    case BType::UINT16   : return b.getIntegerType(16, isUnsigned);
+    case BType::UINT16   : return b.getIntegerType(16, false);
     case BType::INT32    : return b.getIntegerType(32);
-    case BType::UINT32   : return b.getIntegerType(32, isUnsigned);
+    case BType::UINT32   : return b.getIntegerType(32, false);
     case BType::INT64    : return b.getIntegerType(64);
-    case BType::UINT64   : return b.getIntegerType(64, isUnsigned);
+    case BType::UINT64   : return b.getIntegerType(64, false);
     case BType::DOUBLE   : return b.getF64Type();
     case BType::FLOAT    : return b.getF32Type();
     case BType::FLOAT16  : return b.getF16Type();
