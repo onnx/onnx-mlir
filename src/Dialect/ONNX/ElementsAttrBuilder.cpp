@@ -59,7 +59,7 @@ DisposableElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
   return createWithDefaultStrides(type, btype, std::move(membuf));
 }
 
-DisposableElementsAttr ElementsAttrBuilder::fromElementsAttr(
+DisposableElementsAttr ElementsAttrBuilder::toDisposableElementsAttr(
     ElementsAttr elements) {
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
     return disposable;

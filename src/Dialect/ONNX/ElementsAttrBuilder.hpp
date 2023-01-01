@@ -41,7 +41,8 @@ public:
   // points into elements' raw data, except if the element type is bool, then
   // a deep copy is made that unpacks the bits because DisposableElementsAttr
   // doesn't bit pack bools.
-  mlir::DisposableElementsAttr fromElementsAttr(mlir::ElementsAttr elements);
+  mlir::DisposableElementsAttr toDisposableElementsAttr(
+      mlir::ElementsAttr elements);
 
   template <typename T>
   using Filler = std::function<void(llvm::MutableArrayRef<T>)>;

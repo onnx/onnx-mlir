@@ -100,8 +100,8 @@ public:
         Type elementType = mlirTypeOfBType(btype, ctx);
         ShapedType type = RankedTensorType::get({2, 1}, elementType);
         cpptype one(1);
-        Attribute a =
-            elmsBuilder.fromElementsAttr(DenseElementsAttr::get(type, one));
+        Attribute a = elmsBuilder.toDisposableElementsAttr(
+            DenseElementsAttr::get(type, one));
         ElementsAttr e = a.cast<ElementsAttr>();
         assert(e.isSplat());
         DisposableElementsAttr i = e.cast<DisposableElementsAttr>();

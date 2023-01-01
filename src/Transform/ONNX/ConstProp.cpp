@@ -151,7 +151,7 @@ bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
 DisposableElementsAttr getConstValueAsDisposableElements(
     ElementsAttrBuilder &elementsBuilder, Value constValue) {
   ONNXConstantOp constOp = getONNXConstantOp(constValue);
-  return elementsBuilder.fromElementsAttr(
+  return elementsBuilder.toDisposableElementsAttr(
       constOp.valueAttr().cast<ElementsAttr>());
 }
 
