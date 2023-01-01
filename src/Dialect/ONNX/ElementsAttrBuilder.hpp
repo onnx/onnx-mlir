@@ -79,10 +79,9 @@ public:
       mlir::DisposableElementsAttr rhs, mlir::ShapedType combinedType,
       BinaryCombiner combiner);
 
-  // Returns a DisposableElementsAttr with the elements cast to the given
-  // newElementType.
-  mlir::DisposableElementsAttr castElementType(
-      mlir::DisposableElementsAttr elms, mlir::Type newElementType);
+  // Returns an ElementsAttr with the elements cast to the given newElementType.
+  mlir::ElementsAttr castElementType(
+      mlir::ElementsAttr elms, mlir::Type newElementType);
 
   // Returns a transposed ElementsAttr.
   mlir::ElementsAttr transpose(

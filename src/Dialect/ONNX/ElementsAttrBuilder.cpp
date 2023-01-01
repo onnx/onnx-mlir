@@ -163,22 +163,26 @@ ElementsAttrBuilder::Transformer wideCaster(BType src, BType dst) {
 }
 } // namespace
 
-DisposableElementsAttr ElementsAttrBuilder::castElementType(
-    DisposableElementsAttr elms, Type newElementType) {
-  if (newElementType == elms.getElementType())
+ElementsAttr ElementsAttrBuilder::castElementType(
+    ElementsAttr elms, Type newElementType) {
+  Type oldElementType = elms.getElementType();
+  if (newElementType == oldElementType)
     return elms;
+
+  ElementsProperties props = getElementsProperties(elms);
 
   ShapedType newType = elms.getType().clone(newElementType);
   BType newBType = btypeOfMlirType(newElementType);
+  BType oldBType = btypeOfMlirType(oldElementType);
   BType newWideType = wideBTypeOfBType(newBType);
-  BType oldWideType = wideBTypeOfBType(elms.getBType());
+  BType oldWideType = wideBTypeOfBType(oldBType);
 
   auto transformer = oldWideType == newWideType
-                         ? elms.getTransformer()
-                         : composeTransforms(elms.getTransformer(),
+                         ? props.transformer
+                         : composeTransforms(props.transformer,
                                wideCaster(oldWideType, newWideType));
-  return create(newType, elms.getBufferBType(), elms.getStrides(),
-      elms.getBuffer(), std::move(transformer));
+  return create(newType, props.bufferBType, props.strides, props.buffer,
+      std::move(transformer));
 }
 
 namespace {
