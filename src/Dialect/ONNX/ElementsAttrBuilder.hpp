@@ -88,9 +88,9 @@ public:
   mlir::DisposableElementsAttr transpose(
       mlir::DisposableElementsAttr elms, llvm::ArrayRef<uint64_t> perm);
 
-  // Returns a reshaped DisposableElementsAttr.
-  mlir::DisposableElementsAttr reshape(
-      mlir::DisposableElementsAttr elms, llvm::ArrayRef<int64_t> reshapedShape);
+  // Returns a reshaped ElementsAttr.
+  mlir::ElementsAttr reshape(
+      mlir::ElementsAttr elms, llvm::ArrayRef<int64_t> reshapedShape);
 
   // Broadcasts like the ONNX Expand op.
   mlir::DisposableElementsAttr expand(

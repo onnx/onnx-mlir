@@ -203,27 +203,38 @@ DisposableElementsAttr ElementsAttrBuilder::transpose(
       elms.getBuffer(), elms.getTransformer());
 }
 
-DisposableElementsAttr ElementsAttrBuilder::reshape(
-    DisposableElementsAttr elms, ArrayRef<int64_t> reshapedShape) {
-  if (reshapedShape == elms.getShape())
+ElementsAttr ElementsAttrBuilder::reshape(
+    ElementsAttr elms, ArrayRef<int64_t> reshapedShape) {
+  ShapedType type = elms.getType();
+  auto shape = type.getShape();
+  if (reshapedShape == shape)
     return elms;
 
-  ShapedType reshapedType = elms.getType().clone(reshapedShape);
-  if (auto reshapedStrides =
-          reshapeStrides(elms.getShape(), elms.getStrides(), reshapedShape))
-    return create(reshapedType, elms.getBufferBType(), *reshapedStrides,
-        elms.getBuffer(), elms.getTransformer());
+  ElementsProperties props = getElementsProperties(elms);
 
-  if (!elms.isTransformed()) // Skip WideNums absent element-wise transform.
+  ShapedType reshapedType = type.clone(reshapedShape);
+  if (auto reshapedStrides =
+          reshapeStrides(shape, props.strides, reshapedShape)) {
+    return create(reshapedType, props.bufferBType, *reshapedStrides,
+        props.buffer, props.transformer);
+  } else {
+    assert(!elms.isa<DenseElementsAttr>() &&
+           "reshapeStrides() always succeeds for DenseElementsAttr default or "
+           "splat strides");
+  }
+
+  auto disp = elms.cast<DisposableElementsAttr>();
+
+  if (!disp.isTransformed()) // Skip WideNums absent element-wise transform.
     return fromRawBytes(
-        reshapedType, elms.getBufferBType(), [elms](MutableArrayRef<char> dst) {
-          auto src = elms.getBufferBytes();
-          restrideArray(elms.getBufferElementBytewidth(), elms.getShape(),
-              elms.getStrides(), src, dst);
+        reshapedType, disp.getBufferBType(), [disp](MutableArrayRef<char> dst) {
+          auto src = disp.getBufferBytes();
+          restrideArray(disp.getBufferElementBytewidth(), disp.getShape(),
+              disp.getStrides(), src, dst);
         });
 
-  return fromWideNums(reshapedType, [elms](MutableArrayRef<WideNum> wideData) {
-    elms.readWideNums(wideData);
+  return fromWideNums(reshapedType, [disp](MutableArrayRef<WideNum> wideData) {
+    disp.readWideNums(wideData);
   });
 }
 
