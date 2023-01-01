@@ -66,9 +66,9 @@ public:
   template <typename UnaryFunction = std::function<WideNum(WideNum)>>
   static Transformer functionTransformer(UnaryFunction fun);
 
-  // Returns a DisposableElementsAttr where each element is transformed
+  // Returns an ElementsAttr where each element is transformed
   // by running the given transformer on all the elements.
-  mlir::DisposableElementsAttr transform(mlir::DisposableElementsAttr elms,
+  mlir::ElementsAttr transform(mlir::ElementsAttr elms,
       mlir::Type transformedElementType, Transformer transformer);
 
   // Returns a DisposableElementsAttr that is the result of applying

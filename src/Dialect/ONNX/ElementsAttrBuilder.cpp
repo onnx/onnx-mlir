@@ -131,13 +131,14 @@ ElementsAttrBuilder::Transformer composeTransforms(
 }
 } // namespace
 
-DisposableElementsAttr ElementsAttrBuilder::transform(
-    DisposableElementsAttr elms, Type transformedElementType,
-    Transformer transformer) {
+ElementsAttr ElementsAttrBuilder::transform(
+    ElementsAttr elms, Type transformedElementType, Transformer transformer) {
   ShapedType transformedType = elms.getType().clone(transformedElementType);
-  return create(transformedType, elms.getBufferBType(), elms.getStrides(),
-      elms.getBuffer(),
-      composeTransforms(elms.getTransformer(), std::move(transformer)));
+
+  ElementsProperties props = getElementsProperties(elms);
+
+  return create(transformedType, props.bufferBType, props.strides, props.buffer,
+      composeTransforms(props.transformer, std::move(transformer)));
 }
 
 namespace {
