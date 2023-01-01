@@ -195,7 +195,7 @@ ElementsAttr ConstPropReshapeImpl(PatternRewriter &rewriter,
 
 template <typename OP, typename T, class Enable = void>
 struct ElementWiseBinaryOpImpl {
-  static T impl(T lhs, T rhs) { llvm_unreachable("unknown operation"); }
+  static T impl(T lhs, T rhs); // Every template specialization implements this.
 };
 
 template <typename T>
