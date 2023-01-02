@@ -71,12 +71,12 @@ public:
   mlir::ElementsAttr transform(mlir::ElementsAttr elms,
       mlir::Type transformedElementType, Transformer transformer);
 
-  // Returns an ElementsAttr that is the result of applying
-  // a binary function pairwise on the elements lhs and rhs after broadcast
-  // to combinedType.
-  template <typename BinaryCombiner = std::function<WideNum(WideNum, WideNum)>>
+  // Returns an ElementsAttr that is the result of applying a binary function
+  // pairwise on the elements lhs and rhs after broadcast to combinedType.
+  // Note that combiner is a plain function pointer to make it cheap and easy
+  // to copy it into a transformer lambda in the returned ElementsAttr.
   mlir::ElementsAttr combine(mlir::ElementsAttr lhs, mlir::ElementsAttr rhs,
-      mlir::ShapedType combinedType, BinaryCombiner combiner);
+      mlir::ShapedType combinedType, WideNum (*combiner)(WideNum, WideNum));
 
   // Returns an ElementsAttr with the elements cast to the given newElementType.
   mlir::ElementsAttr castElementType(

@@ -218,17 +218,21 @@ struct ElementWiseBinaryOpImpl<ONNXDivOp, T, EnableNotBool<T>> {
   static T impl(T lhs, T rhs) { return lhs / rhs; }
 };
 
+template <typename ElementwiseBinaryOp, typename T>
+WideNum combine(WideNum lhs, WideNum rhs) {
+  using W = WideBType<toBType<T>>;
+  static_assert(std::is_same_v<T, typename W::type>, "T must be a wide type");
+  using OpImpl = ElementWiseBinaryOpImpl<ElementwiseBinaryOp, T>;
+  return W::pack(OpImpl::impl(W::unpack(lhs), W::unpack(rhs)));
+}
+
 template <typename ElementwiseBinaryOp>
 auto combinerOfElementwiseBinaryOp(Type operandsElemType) {
-  using Combiner = std::function<WideNum(WideNum, WideNum)>;
+  // TODO: change Combiner to plain function pointer
+  typedef WideNum (*Combiner)(WideNum, WideNum);
   return dispatchByBType(
       btypeOfMlirType(operandsElemType), [](auto btype) -> Combiner {
-        using W = WideBType<btype>;
-        using OpImpl =
-            ElementWiseBinaryOpImpl<ElementwiseBinaryOp, typename W::type>;
-        return [](WideNum lhs, WideNum rhs) -> WideNum {
-          return W::pack(OpImpl::impl(W::unpack(lhs), W::unpack(rhs)));
-        };
+        return combine<ElementwiseBinaryOp, WideType<btype>>;
       });
 }
 

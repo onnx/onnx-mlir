@@ -138,6 +138,10 @@ DEFINE_BTypeCppTypeTraits(BType::BFLOAT16, bfloat_16);
 template <BType BTYPE>
 using CppType = typename BTypeTrait<BTYPE>::cpptype;
 
+// Compile time mapping from BType to wide type.
+template <BType BTYPE>
+using WideType = typename BTypeTrait<BTYPE>::widetype;
+
 // Compile time mapping from cpp type to BType. It is "compile time" because
 // it's a constexpr which can be used in template arguments like
 //

@@ -80,7 +80,7 @@ std::unique_ptr<llvm::MemoryBuffer> getMemoryBuffer(DenseElementsAttr dense) {
 
 struct ElementsAttrBuilder::ElementsProperties {
   BType bufferBType;
-  llvm::SmallVector<int64_t, 4> strides;
+  SmallVector<int64_t, 4> strides;
   std::shared_ptr<llvm::MemoryBuffer> buffer;
   const Transformer &transformer;
 };
@@ -111,7 +111,7 @@ DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
     ShapedType type, const Filler<WideNum> &wideDataFiller) {
   BType bufferBType = wideBTypeOfBType(btypeOfMlirType(type.getElementType()));
   return fromRawBytes(
-      type, bufferBType, [&wideDataFiller](llvm::MutableArrayRef<char> bytes) {
+      type, bufferBType, [&wideDataFiller](MutableArrayRef<char> bytes) {
         wideDataFiller(castMutableArrayRef<WideNum>(bytes));
       });
 }
@@ -260,18 +260,18 @@ ElementsAttr ElementsAttrBuilder::expand(
       props.transformer);
 }
 
-auto ElementsAttrBuilder::getElementsProperties(
-    mlir::ElementsAttr elements) const -> ElementsProperties {
+auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
+    -> ElementsProperties {
   static Transformer nullTransformer = nullptr;
-  if (auto disposable = elements.dyn_cast<mlir::DisposableElementsAttr>()) {
-    llvm::ArrayRef<int64_t> strides = disposable.getStrides();
+  if (auto disposable = elements.dyn_cast<DisposableElementsAttr>()) {
+    ArrayRef<int64_t> strides = disposable.getStrides();
     return {.bufferBType = disposable.getBufferBType(),
         .strides{strides.begin(), strides.end()},
         .buffer = disposable.getBuffer(),
         .transformer = disposable.getTransformer()};
-  } else if (auto dense = elements.dyn_cast<mlir::DenseElementsAttr>()) {
+  } else if (auto dense = elements.dyn_cast<DenseElementsAttr>()) {
     ShapedType type = dense.getType();
-    llvm::SmallVector<int64_t, 4> strides;
+    SmallVector<int64_t, 4> strides;
     if (dense.isSplat()) {
       strides.assign(type.getRank(), 0);
     } else {
@@ -312,7 +312,7 @@ DisposableElementsAttr ElementsAttrBuilder::createWithDefaultStrides(
   return create(type, bufferBType, strides, std::move(membuf));
 }
 
-mlir::DisposableElementsAttr ElementsAttrBuilder::createSplat(ShapedType type,
+DisposableElementsAttr ElementsAttrBuilder::createSplat(ShapedType type,
     BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
   return create(type, bufferBType, zerosStrides, std::move(membuf));
@@ -324,6 +324,56 @@ DisposableElementsAttr ElementsAttrBuilder::create(ShapedType type,
     Transformer transformer) {
   return disposablePool.createDisposableElementsAttr(
       type, bufferBType, strides, buffer, std::move(transformer));
+}
+
+ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhsElms,
+    ElementsAttr rhsElms, ShapedType combinedType,
+    WideNum (*combiner)(WideNum, WideNum)) {
+  // TODO: Use getElementsProperties to avoid the construction of a
+  //       DisposableElementsAttr if lhs or rhs is a DenseElementsAttr.
+  DisposableElementsAttr lhs = toDisposableElementsAttr(lhsElms);
+  DisposableElementsAttr rhs = toDisposableElementsAttr(rhsElms);
+
+  auto combinedShape = combinedType.getShape();
+  auto lhsStrides = expandStrides(lhs.getStrides(), combinedShape);
+  auto rhsStrides = expandStrides(rhs.getStrides(), combinedShape);
+
+  using Transformer = ElementsAttrBuilder::Transformer;
+  auto composeTransformerFunction = [](Transformer transformer,
+                                        auto fun) -> Transformer {
+    return [transformer = std::move(transformer), fun = std::move(fun)](
+               MutableArrayRef<WideNum> data) -> void {
+      if (transformer != nullptr)
+        transformer(data);
+      for (WideNum &n : data)
+        n = fun(n);
+    };
+  };
+
+  if (lhs.isSplat()) {
+    WideNum lhsNum = lhs.atFlatIndex(0);
+    return create(combinedType, rhs.getBufferBType(), rhsStrides,
+        rhs.getBuffer(),
+        composeTransformerFunction(rhs.getTransformer(),
+            [lhsNum, combiner](WideNum n) { return combiner(lhsNum, n); }));
+  }
+
+  if (rhs.isSplat()) {
+    WideNum rhsNum = rhs.atFlatIndex(0);
+    return create(combinedType, lhs.getBufferBType(), lhsStrides,
+        lhs.getBuffer(),
+        composeTransformerFunction(lhs.getTransformer(),
+            [rhsNum, combiner](WideNum n) { return combiner(n, rhsNum); }));
+  }
+
+  ArrayBuffer<WideNum> lhsNums = lhs.getBufferAsWideNums();
+  ArrayBuffer<WideNum> rhsNums = rhs.getBufferAsWideNums();
+  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), lhsStrides);
+  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), rhsStrides);
+  return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
+    mapStrides<WideNum, WideNum, WideNum>(
+        combinedShape, dstNums, stridedLhs, stridedRhs, combiner);
+  });
 }
 
 } // namespace onnx_mlir
