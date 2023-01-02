@@ -12,13 +12,3 @@ mlir::DisposableElementsAttr ElementsAttrBuilder::fromArray(
         arrayFiller(castMutableArrayRef<T>(bytes));
       });
 }
-
-/*static*/
-template <typename UnaryFunction>
-ElementsAttrBuilder::Transformer ElementsAttrBuilder::functionTransformer(
-    UnaryFunction fun) {
-  return [fun = std::move(fun)](llvm::MutableArrayRef<WideNum> data) -> void {
-    for (WideNum &n : data)
-      n = fun(n);
-  };
-}

@@ -63,8 +63,7 @@ public:
 
   // Constructs a transformer that changes every element to the result of
   // applying the given function to the element.
-  template <typename UnaryFunction = std::function<WideNum(WideNum)>>
-  static Transformer functionTransformer(UnaryFunction fun);
+  static Transformer functionTransformer(WideNum (*fun)(WideNum));
 
   // Returns an ElementsAttr where each element is transformed
   // by running the given transformer on all the elements.

@@ -280,17 +280,20 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
   }
 };
 
-template <typename OP>
+template <typename ElementwiseUnaryOp, typename T>
+WideNum unaryFunction(WideNum n) {
+  using W = WideBType<toBType<T>>;
+  static_assert(std::is_same_v<T, typename W::type>, "T must be a wide type");
+  using OpImpl = ElementWiseUnaryOpImpl<ElementwiseUnaryOp, T>;
+  return W::pack(OpImpl::impl(W::unpack(n)));
+}
+
+template <typename ElementwiseUnaryOp>
 ElementsAttrBuilder::Transformer transformElementWiseUnaryOp(Type elemType) {
-  return dispatchByBType(btypeOfMlirType(elemType),
-      [](auto btype) -> ElementsAttrBuilder::Transformer {
-        using W = WideBType<btype>;
-        using OpImpl = ElementWiseUnaryOpImpl<OP, typename W::type>;
-        return ElementsAttrBuilder::functionTransformer(
-            [](WideNum n) -> WideNum {
-              return W::pack(OpImpl::impl(W::unpack(n)));
-            });
-      });
+  return ElementsAttrBuilder::functionTransformer(
+      dispatchByBType(btypeOfMlirType(elemType), [](auto btype) {
+        return unaryFunction<ElementwiseUnaryOp, WideType<btype>>;
+      }));
 }
 
 /// Do element-wise unary calculation of 'input' value and create an
