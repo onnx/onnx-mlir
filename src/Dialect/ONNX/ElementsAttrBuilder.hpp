@@ -56,7 +56,12 @@ public:
   // its memory buffer.
   template <typename T>
   mlir::DisposableElementsAttr fromArray(
-      mlir::ShapedType type, const Filler<T> &arrayFiller);
+      mlir::ShapedType type, const Filler<T> &arrayFiller) {
+    return fromRawBytes(
+        type, toBType<T>, [&arrayFiller](llvm::MutableArrayRef<char> bytes) {
+          arrayFiller(castMutableArrayRef<T>(bytes));
+        });
+  }
 
   // A transformer mutates elements.
   using Transformer = std::function<void(llvm::MutableArrayRef<WideNum>)>;
@@ -118,8 +123,5 @@ private:
 
   DisposablePool &disposablePool;
 };
-
-// Include template implementations.
-#include "ElementsAttrBuilder.hpp.inc"
 
 } // namespace onnx_mlir
