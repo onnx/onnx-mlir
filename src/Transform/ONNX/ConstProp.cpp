@@ -228,12 +228,8 @@ WideNum combine(WideNum lhs, WideNum rhs) {
 
 template <typename ElementwiseBinaryOp>
 auto combinerOfElementwiseBinaryOp(Type operandsElemType) {
-  // TODO: change Combiner to plain function pointer
-  typedef WideNum (*Combiner)(WideNum, WideNum);
-  return dispatchByBType(
-      btypeOfMlirType(operandsElemType), [](auto btype) -> Combiner {
-        return combine<ElementwiseBinaryOp, WideType<btype>>;
-      });
+  return dispatchByBType(btypeOfMlirType(operandsElemType),
+      [](auto btype) { return combine<ElementwiseBinaryOp, WideType<btype>>; });
 }
 
 /// Do element-wise binary calculation of 'lhs' and 'rhs' values and create an
