@@ -10,16 +10,11 @@
 
 #include "src/Support/WideNum.hpp"
 
-#include "src/Support/Arrays.hpp"
-
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
-#include "llvm/ADT/ArrayRef.h"
 
 using llvm::APFloat;
 using llvm::APInt;
-using llvm::ArrayRef;
-using llvm::MutableArrayRef;
 
 namespace onnx_mlir {
 
@@ -61,23 +56,6 @@ WideNum WideNum::fromAPInt(BType tag, APInt x) {
   if (isUnsignedIntBType(tag))
     return WideNum(x.getZExtValue()); // .u64
   llvm_unreachable("BType must be an integer");
-}
-
-void WideNum::store(BType dtag, MutableArrayRef<char> memory) const {
-  dispatchByBType(dtag, [memory, this](auto btype) {
-    using X = CppType<btype>;
-    assert(memory.size() == sizeof(X));
-    *castMutableArrayRef<X>(memory).begin() = this->to<X>(btype);
-  });
-}
-
-/*static*/
-WideNum WideNum::load(BType dtag, ArrayRef<char> memory) {
-  return dispatchByBType(dtag, [memory](auto btype) {
-    using X = CppType<btype>;
-    assert(memory.size() == sizeof(X));
-    return from<X>(btype, *castArrayRef<X>(memory).begin());
-  });
 }
 
 } // namespace onnx_mlir

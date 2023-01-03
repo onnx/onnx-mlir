@@ -32,9 +32,9 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/BType.hpp"
 #include "src/Support/Common.hpp"
 #include "src/Support/TypeUtilities.hpp"
+#include "src/Support/WideNum.hpp"
 #include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 #include <math.h>
@@ -195,41 +195,33 @@ ElementsAttr ConstPropReshapeImpl(PatternRewriter &rewriter,
 
 template <typename OP, typename T, class Enable = void>
 struct ElementWiseBinaryOpImpl {
-  static T impl(T lhs, T rhs); // Every template specialization implements this.
+  static T eval(T lhs, T rhs) { llvm_unreachable("unsupported op or type"); }
 };
 
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXAddOp, T, EnableNotBool<T>> {
-  static T impl(T lhs, T rhs) { return lhs + rhs; }
+  static T eval(T lhs, T rhs) { return lhs + rhs; }
 };
 
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXSubOp, T, EnableNotBool<T>> {
-  static T impl(T lhs, T rhs) { return lhs - rhs; }
+  static T eval(T lhs, T rhs) { return lhs - rhs; }
 };
 
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXMulOp, T, EnableNotBool<T>> {
-  static T impl(T lhs, T rhs) { return lhs * rhs; }
+  static T eval(T lhs, T rhs) { return lhs * rhs; }
 };
 
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXDivOp, T, EnableNotBool<T>> {
-  static T impl(T lhs, T rhs) { return lhs / rhs; }
+  static T eval(T lhs, T rhs) { return lhs / rhs; }
 };
 
-template <typename ElementwiseBinaryOp, typename T>
-WideNum combine(WideNum lhs, WideNum rhs) {
-  using W = WideBType<toBType<T>>;
-  static_assert(std::is_same_v<T, typename W::type>, "T must be a wide type");
-  using OpImpl = ElementWiseBinaryOpImpl<ElementwiseBinaryOp, T>;
-  return W::pack(OpImpl::impl(W::unpack(lhs), W::unpack(rhs)));
-}
-
 template <typename ElementwiseBinaryOp>
-auto combinerOfElementwiseBinaryOp(Type operandsElemType) {
-  return dispatchByBType(btypeOfMlirType(operandsElemType),
-      [](auto btype) { return combine<ElementwiseBinaryOp, WideType<btype>>; });
+constexpr auto combinerOfElementwiseBinaryOp(Type elemType) {
+  return WideNum::wrappedTemplateFunction<ElementWiseBinaryOpImpl,
+      ElementwiseBinaryOp>(elemType);
 }
 
 /// Do element-wise binary calculation of 'lhs' and 'rhs' values and create an
@@ -258,42 +250,29 @@ Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
 
 template <typename OP, typename T, class Enable = void>
 struct ElementWiseUnaryOpImpl {
-  static T impl(T val) { llvm_unreachable("unknown operation"); }
+  static T eval(T val) { llvm_unreachable("unsupported op or type"); }
 };
 
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXNegOp, T, EnableNotBool<T>> {
-  static T impl(T val) { return (-val); }
+  static T eval(T val) { return -val; }
 };
 
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXSqrtOp, T, EnableFloat<T>> {
-  static T impl(T val) { return sqrt(val); }
+  static T eval(T val) { return sqrt(val); }
 };
 
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
-  static T impl(T val) {
-    if (val < 0)
-      return 0;
-    return val;
-  }
+  static T eval(T val) { return (val < 0) ? 0 : val; }
 };
-
-template <typename ElementwiseUnaryOp, typename T>
-WideNum unaryFunction(WideNum n) {
-  using W = WideBType<toBType<T>>;
-  static_assert(std::is_same_v<T, typename W::type>, "T must be a wide type");
-  using OpImpl = ElementWiseUnaryOpImpl<ElementwiseUnaryOp, T>;
-  return W::pack(OpImpl::impl(W::unpack(n)));
-}
 
 template <typename ElementwiseUnaryOp>
 ElementsAttrBuilder::Transformer transformElementWiseUnaryOp(Type elemType) {
   return ElementsAttrBuilder::functionTransformer(
-      dispatchByBType(btypeOfMlirType(elemType), [](auto btype) {
-        return unaryFunction<ElementwiseUnaryOp, WideType<btype>>;
-      }));
+      WideNum::wrappedTemplateFunction<ElementWiseUnaryOpImpl,
+          ElementwiseUnaryOp>(elemType));
 }
 
 /// Do element-wise unary calculation of 'input' value and create an
