@@ -123,6 +123,15 @@ LogicalResult ONNXAtanhOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// BitwiseNot
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXBitwiseNotOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
 // Cast
 //===----------------------------------------------------------------------===//
 
