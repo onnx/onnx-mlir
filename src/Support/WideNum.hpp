@@ -96,6 +96,59 @@ union WideNum {
 
   static WideNum load(BType dtag, llvm::ArrayRef<char> memory);
 
+  // "Narrows" the WideNum to the TAG's cpp type.
+  template <BType TAG>
+  constexpr CppType<TAG> narrow() const {
+    return to<CppType<TAG>>(TAG);
+  }
+
+  // "Widens" (or "promotes") a value of the TAG's cpp type to a WideNum.
+  template <BType TAG>
+  static constexpr WideNum widen(CppType<TAG> x) {
+    return from<CppType<TAG>>(TAG, x);
+  }
+
+private:
+  // unpack<X>(n) is a type safe expression of reinterpret_cast<X>(n) .
+  template <typename X>
+  constexpr X unpack() const {
+    static_assert(sizeof(X) == sizeof(WideNum));
+    return narrow<toBType<X>>(); // == to<X>(toBType<X>);
+  }
+
+  // pack<X>(x) is a type safe expression of reinterpret_cast<WideNum>(x) .
+  template <typename X>
+  static constexpr WideNum pack(X x) {
+    static_assert(sizeof(X) == sizeof(WideNum));
+    return widen<toBType<X>>(x); // == from<X>(toBType<X>, x);
+  }
+
+  template <typename FunctionType, class Function>
+  struct FunctionWrapper;
+
+  template <class Function, typename Res, typename... Args>
+  struct FunctionWrapper<Res(Args...), Function> {
+    template <typename T>
+    using Packed = WideNum;
+
+    static WideNum eval(Packed<Args>... args) {
+      return WideNum::pack<Res>(Function::eval(args.unpack<Args>()...));
+    }
+  };
+
+public:
+  // Given a class Function with a static method
+  //
+  //   static ResType eval(ArgType...)
+  //
+  // constructs a class WrappedFunction<Function> with a static method
+  //
+  //   static WideNum eval(WideNum...)
+  //
+  // which unpacks the args, calls Function::eval, and packs the result.
+  template <class Function>
+  using WrappedFunction = FunctionWrapper<decltype(Function::eval), Function>;
+
 private:
   // TODO: With C++20 eliminate these constructors and replace all uses
   //       with designated initializers {.u64 = ..}, {.i64 = ..}, etc.

@@ -201,23 +201,26 @@ ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhsElms,
 }
 
 namespace {
-template <BType SRC_TAG, BType DST_TAG>
+template <typename SrcT, typename DstT>
+struct Caster {
+  static inline constexpr DstT eval(SrcT src) { return static_cast<DstT>(src); }
+};
+
+template <typename SrcT, typename DstT>
 void wideCaster(MutableArrayRef<WideNum> nums) {
-  using S = WideBType<SRC_TAG>;
-  using D = WideBType<DST_TAG>;
   for (WideNum &n : nums)
-    n = D::pack(static_cast<typename D::type>(S::unpack(n)));
+    n = WideNum::WrappedFunction<Caster<SrcT, DstT>>::eval(n);
 }
 
 ElementsAttrBuilder::Transformer wideCaster(BType src, BType dst) {
   constexpr BType DBL = BType::DOUBLE, I64 = BType::INT64, U64 = BType::UINT64;
   // clang-format off
-  if (src == DBL && dst == I64) return wideCaster<DBL, I64>;
-  if (src == DBL && dst == U64) return wideCaster<DBL, U64>;
-  if (src == I64 && dst == DBL) return wideCaster<I64, DBL>;
-  if (src == I64 && dst == U64) return wideCaster<I64, U64>;
-  if (src == U64 && dst == DBL) return wideCaster<U64, DBL>;
-  if (src == U64 && dst == I64) return wideCaster<U64, I64>;
+  if (src == DBL && dst == I64) return wideCaster<double, int64_t>;
+  if (src == DBL && dst == U64) return wideCaster<double, uint64_t>;
+  if (src == I64 && dst == DBL) return wideCaster<int64_t, double>;
+  if (src == I64 && dst == U64) return wideCaster<int64_t, uint64_t>;
+  if (src == U64 && dst == DBL) return wideCaster<uint64_t, double>;
+  if (src == U64 && dst == I64) return wideCaster<uint64_t, int64_t>;
   // clang-format on
   llvm_unreachable("wideCaster must be called with 2 different wide types");
 }
@@ -324,10 +327,10 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
   static Transformer nullTransformer = nullptr;
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>()) {
     ArrayRef<int64_t> strides = disposable.getStrides();
-    return {.bufferBType = disposable.getBufferBType(),
-        .strides{strides.begin(), strides.end()},
-        .buffer = disposable.getBuffer(),
-        .transformer = disposable.getTransformer()};
+    return {/*.bufferBType=*/disposable.getBufferBType(),
+        /*.strides=*/{strides.begin(), strides.end()},
+        /*.buffer=*/disposable.getBuffer(),
+        /*.transformer=*/disposable.getTransformer()};
   } else if (auto dense = elements.dyn_cast<DenseElementsAttr>()) {
     ShapedType type = dense.getType();
     SmallVector<int64_t, 4> strides;
@@ -336,10 +339,10 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
     } else {
       strides = getDefaultStrides(type.getShape());
     }
-    return {.bufferBType = btypeOfMlirType(type.getElementType()),
-        .strides{strides.begin(), strides.end()},
-        .buffer = getMemoryBuffer(dense),
-        .transformer = nullTransformer};
+    return {/*.bufferBType=*/btypeOfMlirType(type.getElementType()),
+        /*.strides=*/{strides.begin(), strides.end()},
+        /*.buffer=*/getMemoryBuffer(dense),
+        /*.transformer=*/nullTransformer};
   }
   // TODO: consider supporting more ElementsAttr types
   llvm_unreachable("unexpected ElementsAttr instance");
