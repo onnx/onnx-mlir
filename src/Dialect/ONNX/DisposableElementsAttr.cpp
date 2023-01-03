@@ -26,14 +26,18 @@ namespace mlir {
 
 namespace {
 
+template <BType BTYPE>
+inline constexpr CppType<BTYPE> narrow(WideNum n) {
+  return n.narrow<BTYPE>();
+}
+
 // Copies src to dstBytes while narrowing to the given datatype.
 void narrowArray(
     BType bt, ArrayRef<WideNum> src, MutableArrayRef<char> dstBytes) {
   dispatchByBType(bt, [src, dstBytes](auto btype) {
-    using W = WideBType<btype>;
-    auto dst = castMutableArrayRef<typename W::narrowtype>(dstBytes);
+    auto dst = castMutableArrayRef<CppType<btype>>(dstBytes);
     assert(src.size() == dst.size() && "narrowArray size mismatch");
-    std::transform(src.begin(), src.end(), dst.begin(), W::narrow);
+    std::transform(src.begin(), src.end(), dst.begin(), narrow<btype>);
   });
 }
 
@@ -41,10 +45,9 @@ void narrowArray(
 void widenArray(
     BType bt, ArrayRef<char> srcBytes, MutableArrayRef<WideNum> dst) {
   dispatchByBType(bt, [srcBytes, dst](auto btype) {
-    using W = WideBType<btype>;
-    auto src = castArrayRef<typename W::narrowtype>(srcBytes);
+    auto src = castArrayRef<CppType<btype>>(srcBytes);
     assert(src.size() == dst.size() && "widenArray size mismatch");
-    std::transform(src.begin(), src.end(), dst.begin(), W::widen);
+    std::transform(src.begin(), src.end(), dst.begin(), WideNum::widen<btype>);
   });
 }
 
