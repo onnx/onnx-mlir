@@ -105,10 +105,12 @@ union WideNum {
     return from<CppType<TAG>>(TAG, x);
   }
 
+private:
   // WrappedFunction helper.
   template <typename FunctionType, class Function>
   struct FunctionWrapper;
 
+public:
   // Given a class Function with a static method
   //
   //   static ResType eval(ArgType...)
