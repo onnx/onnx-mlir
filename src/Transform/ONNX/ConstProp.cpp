@@ -220,7 +220,7 @@ struct ElementWiseBinaryOpImpl<ONNXDivOp, T, EnableNotBool<T>> {
 
 template <typename ElementwiseBinaryOp>
 constexpr auto combinerOfElementwiseBinaryOp(Type elemType) {
-  return WideNum::wrappedTemplateFunction<ElementWiseBinaryOpImpl,
+  return getWideNumWrappedTemplateFunction<ElementWiseBinaryOpImpl,
       ElementwiseBinaryOp>(elemType);
 }
 
@@ -271,7 +271,7 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
 template <typename ElementwiseUnaryOp>
 ElementsAttrBuilder::Transformer transformElementWiseUnaryOp(Type elemType) {
   return ElementsAttrBuilder::functionTransformer(
-      WideNum::wrappedTemplateFunction<ElementWiseUnaryOpImpl,
+      getWideNumWrappedTemplateFunction<ElementWiseUnaryOpImpl,
           ElementwiseUnaryOp>(elemType));
 }
 

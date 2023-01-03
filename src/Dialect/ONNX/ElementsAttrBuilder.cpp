@@ -209,7 +209,7 @@ struct Caster {
 template <typename SrcT, typename DstT>
 void wideCaster(MutableArrayRef<WideNum> nums) {
   for (WideNum &n : nums)
-    n = WideNum::WrappedFunction<Caster<SrcT, DstT>>::eval(n);
+    n = WideNumWrappedFunction<Caster<SrcT, DstT>>::eval(n);
 }
 
 ElementsAttrBuilder::Transformer wideCaster(BType src, BType dst) {
