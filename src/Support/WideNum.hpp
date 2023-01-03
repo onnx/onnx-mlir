@@ -109,14 +109,14 @@ union WideNum {
   }
 
 private:
-  // unpack<X>(n) is a type safe expression of reinterpret_cast<X>(n) .
+  // unpack<X>(n) is a type safe expression of reinterpret_cast<X>(n).
   template <typename X>
-  constexpr X unpack() const {
+  constexpr static X unpack(WideNum n) {
     static_assert(sizeof(X) == sizeof(WideNum));
-    return narrow<toBType<X>>(); // == to<X>(toBType<X>);
+    return n.narrow<toBType<X>>(); // == to<X>(toBType<X>);
   }
 
-  // pack<X>(x) is a type safe expression of reinterpret_cast<WideNum>(x) .
+  // pack<X>(x) is a type safe expression of reinterpret_cast<WideNum>(x).
   template <typename X>
   static constexpr WideNum pack(X x) {
     static_assert(sizeof(X) == sizeof(WideNum));
@@ -132,7 +132,7 @@ private:
     using Packed = WideNum;
 
     static WideNum eval(Packed<Args>... args) {
-      return WideNum::pack<Res>(Function::eval(args.unpack<Args>()...));
+      return WideNum::pack<Res>(Function::eval(unpack<Args>(args)...));
     }
   };
 
