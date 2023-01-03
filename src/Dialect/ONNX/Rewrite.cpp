@@ -525,6 +525,7 @@ public:
           rewriter.getIntegerAttr(
               rewriter.getIntegerType(64, /*isSigned=*/true), 0));
       // Update the output shape.
+      resetTypesShapeToQuestionmarks(onnxOp);
       inferShapes(onnxOp);
     });
     // Transpose the Y and Y_h outputs by inserting an ONNXTransposeOp

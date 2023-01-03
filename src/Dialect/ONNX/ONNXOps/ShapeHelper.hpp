@@ -118,9 +118,11 @@ struct ONNXOpShapeHelper {
       mlir::TypeRange elementTypeRange,
       mlir::ArrayRef<mlir::Attribute> encodingList = {});
 
-  // Get/set output dims for the N-th output dimension as Index Expressions.
+  // Get output dims for the N-th output dimension as Index Expressions.
   // Scalar may have a DimsExpr that is empty.
   DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }
+  // Set output dims, merging the dims associated with the  current type with
+  // inferred dims provided here, as appropriate.
   void setOutputDims(const DimsExpr &inferredDims, int n = 0);
 
   // Obtain the n-th output result as value.
@@ -153,6 +155,16 @@ private:
 void updateType(mlir::Value val, llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType = nullptr, mlir::Attribute encoding = nullptr,
     bool refineShape = true);
+
+// When we perform shape inference, we always assume that the type's shape in
+// onnx is correct. There are rare instance where we transform an existing op
+// (see RNN's handling of layout in RNNOpRewriteLayoutPattern) and then seek to
+// perform shape inference on it. As the operation has changed, then we must
+// first "erase" its constant shape's for the output type as they are not
+// correct anymore. It might be wiser to not reuse an existing op, but since we
+// currently have this pattern, this function must be called prior to infer
+// shapes of existing but modified operations.
+void resetTypesShapeToQuestionmarks(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // Unary Ops
@@ -583,7 +595,7 @@ struct ONNXGenericRNNShapeHelper : public ONNXOpShapeHelper {
   llvm::SmallVector<bool, 4> isReductionAxis;
 };
 
-using ONNXGRUOpShapeHelper = ONNXGenericRNNShapeHelper < mlir::ONNXGRUOp>;
+using ONNXGRUOpShapeHelper = ONNXGenericRNNShapeHelper<mlir::ONNXGRUOp>;
 using ONNXLSTMOpShapeHelper = ONNXGenericRNNShapeHelper<mlir::ONNXLSTMOp>;
 using ONNXRNNOpShapeHelper = ONNXGenericRNNShapeHelper<mlir::ONNXRNNOp>;
 

@@ -122,8 +122,8 @@ void ONNXOpShapeHelper::computeShapeAndAssertOnFailure() {
 }
 
 void ONNXOpShapeHelper::setOutputDims(const DimsExpr &inferredDims, int n) {
-  Value output = getOutput(n);
   privateOutputsDims[n] = inferredDims;
+  Value output = getOutput(n);
   refineDims(privateOutputsDims[n], output);
 }
 
@@ -382,6 +382,33 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     resType = RankedTensorType::get(inferredShape, elementType);
 
   val.setType(resType);
+}
+
+static void resetTypeShapeToQuestionmarks(Value val) {
+  // Only deal with ranked tensor types here.
+  RankedTensorType valType = val.getType().dyn_cast<RankedTensorType>();
+  if (!valType)
+    return;
+  // Get info from ranked type.
+  ArrayRef<int64_t> shape = valType.getShape();
+  Type elementType = getElementType(valType);
+  Attribute encoding = valType.getEncoding();
+  // Reset any compile time literal to unknown (aka question marks).
+  SmallVector<int64_t, 4> newShape(shape.size(), -1);
+  // Build result type.
+  RankedTensorType resType;
+  if (encoding)
+    resType = RankedTensorType::get(newShape, elementType, encoding);
+  else
+    resType = RankedTensorType::get(newShape, elementType);
+  // Reset type
+  val.setType(resType);
+}
+
+void resetTypesShapeToQuestionmarks(Operation *op) {
+  int numRes = op->getNumResults();
+  for (int i = 0; i < numRes; ++i)
+    resetTypeShapeToQuestionmarks(op->getResult(i));
 }
 
 //===----------------------------------------------------------------------===//
