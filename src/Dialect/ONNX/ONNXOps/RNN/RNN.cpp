@@ -18,23 +18,27 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
+#define AEE_NEW 0
+
 //===----------------------------------------------------------------------===//
 // Support
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
 
+#if AEE_NEW
 template <typename OP_TYPE>
 LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
     int gates) {
   OP_TYPE rnnOp = llvm::cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
 
-#if 1
+  fprintf(stderr, "hi alex, start of generic rnn\n");
   Value X = operandAdaptor.X();
   Value W = operandAdaptor.W();
   Value R = operandAdaptor.R();
   bool batchwiseLayout = operandAdaptor.layout() == 1;
+  fprintf(stderr, "hi alex, batchwise %d\n", (int)batchwiseLayout);
 
   // xShape :: [batch_size, seq_length, input_size] if batchwiseLayout
   // xShape :: [seq_length, batch_size, input_size] otherwise
@@ -108,8 +112,10 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
     } else {
       yOutputDims = {seqLength, numDir, batchSize, hiddenSize};
     }
+    fprintf(stderr, "hi alex, set0 of generic rnn\n");
+    setOutputDims(yOutputDims, 0);
+    fprintf(stderr, "hi alex, set0 end of generic rnn\n");
   }
-  setOutputDims(yOutputDims, 0);
 
   // Y_h :: [batch_size, num_dir, hidden_size] if batchwiseLayout
   // Y_h :: [num_dir, batch_size, hidden_size] otherwise
@@ -121,8 +127,10 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
     } else {
       yHOutputDims = {numDir, batchSize, hiddenSize};
     }
+    fprintf(stderr, "hi alex, set1 of generic rnn\n");
+    setOutputDims(yHOutputDims, 1);
+    fprintf(stderr, "hi alex, set1 end of generic rnn\n");
   }
-  setOutputDims(yHOutputDims, 1);
 
   if (op->getNumResults() == 3) {
     // Y_c :: [batch_size, num_dir, hidden_size] if batchwiseLayout
@@ -136,11 +144,18 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
         yCOutputDims = {numDir, batchSize, hiddenSize};
       }
     }
+    fprintf(stderr, "hi alex, set2 of generic rnn\n");
     setOutputDims(yCOutputDims, 2);
+    fprintf(stderr, "hi alex, set2 end of generic rnn\n");
   }
+  fprintf(stderr, "hi alex, end of generic rnn\n");
+
   return success();
+}
+
 #else
   bool batchwiseLayout = op->layout() == 1;
+  fprintf(stderr, "hi alex, batchwise %d\n", (int)batchwiseLayout);
 
   Value X = op->X();
   Value W = op->W();
@@ -255,8 +270,8 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
     }
   }
   return success();
-#endif
 }
+#endif
 
 template <>
 mlir::LogicalResult ONNXGRUOpShapeHelper::computeShape() {
@@ -284,7 +299,7 @@ mlir::LogicalResult ONNXRNNOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGRUOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-#if 1
+#if AEE_NEW
   if (!X().getType().isa<RankedTensorType>() ||
       !W().getType().isa<RankedTensorType>() ||
       !R().getType().isa<RankedTensorType>()) {
@@ -305,7 +320,7 @@ LogicalResult ONNXGRUOp::inferShapes(
 
 LogicalResult ONNXLSTMOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-#if 1
+#if AEE_NEW
   if (!X().getType().isa<RankedTensorType>() ||
       !W().getType().isa<RankedTensorType>() ||
       !R().getType().isa<RankedTensorType>()) {
@@ -326,7 +341,7 @@ LogicalResult ONNXLSTMOp::inferShapes(
 
 LogicalResult ONNXRNNOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-#if 1
+#if AEE_NEW
   if (!X().getType().isa<RankedTensorType>() ||
       !W().getType().isa<RankedTensorType>() ||
       !R().getType().isa<RankedTensorType>()) {

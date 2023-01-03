@@ -68,8 +68,8 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
     if (inferredDims[i].isLiteral() &&
         (existingDims[i] != inferredDims[i].getLiteral())) {
       // Warning for users.
-      llvm::outs() << "Warning: [Shape inference] the inferred dim ("
-                   << inferredDims[i].getLiteral()
+      llvm::outs() << "Warning: [Shape inference, dim " << i
+                   << "] the inferred dim (" << inferredDims[i].getLiteral()
                    << ") is different from the existing dim ("
                    << existingDims[i] << "). Use the existing dim instead.\n";
       inferredDims[i] = LiteralIndexExpr(existingDims[i]);
