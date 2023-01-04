@@ -56,28 +56,27 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     assert(outputRank == dataRank && "Output rank not equal to data rank");
 
     // Insert an allocation and deallocation for the result of this operation.
-    KrnlBuilder createKrnl(rewriter, loc);
-    IndexExprScope indexScope(createKrnl);
-    MemRefBoundsIndexCapture dataBounds(data);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
+    IndexExprScope indexScope(create.krnl);
     DimsExpr dataDims;
-    dataBounds.getDimList(dataDims);
+    create.krnlIE.getShapeAsDims(data, dataDims);
     Value output = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, dataDims);
 
     // Step1: copy the data array into the output array.
     Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, data);
-    createKrnl.memcpy(output, data, sizeInBytes);
+    create.krnl.memcpy(output, data, sizeInBytes);
 
     // Step2: scatter the updates array into the output array.
     //   index = indices[i][j]...[n]
     //   val = updates[i][j]...[n]
     //   output[i][j]..[index]..[n] = val (index used at position axis)
     //
-    ValueRange loopDef = createKrnl.defineLoops(updatesRank);
+    ValueRange loopDef = create.krnl.defineLoops(updatesRank);
     DimsExpr lbs(updatesRank, LiteralIndexExpr(0)), ubs;
-    MemRefBoundsIndexCapture updatesBounds(updates);
-    updatesBounds.getDimList(ubs);
-    createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnlIE.getShapeAsDims(updates, ubs);
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
@@ -107,7 +106,6 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
         });
 
     rewriter.replaceOp(op, output);
-
     return success();
   }
 };
