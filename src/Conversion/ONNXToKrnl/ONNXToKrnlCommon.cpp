@@ -250,7 +250,7 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
         // current op.
         if (operand == result)
           insertDealloc = false;
-        // Determin if the result value of reinterpret_cast op whose operand
+        // Determine if the result value of reinterpret_cast op whose operand
         // is the result value of current op
         for (const auto &castOpResult : castOpResults)
           if (operand == castOpResult)
@@ -500,8 +500,9 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
 /// By default, sort values in the descending order.
 Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Value input, int64_t axis, bool ascending) {
-  KrnlBuilder createKrnl(rewriter, loc);
-  IndexExprScope scope(createKrnl);
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
+      rewriter, loc);
+  IndexExprScope scope(create.krnl);
 
   MemRefType inputMemRefType = input.getType().cast<MemRefType>();
   Type indexType = rewriter.getIndexType();
@@ -509,17 +510,16 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   assert(axis >= 0 && axis < rank && "axis is out of bound");
   LiteralIndexExpr zeroIE(0), oneIE(1);
 
-  MemRefBoundsIndexCapture inputBounds(input);
   SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
   SmallVector<IndexExpr, 4> ubs;
-  inputBounds.getDimList(ubs);
+  create.krnlIE.getShapeAsDims(input, ubs);
 
   // Create and initialize the result.
   Value order = insertAllocAndDeallocSimple(rewriter, nullptr,
       MemRefType::get(inputMemRefType.getShape(), indexType), loc, ubs,
       /*insertDealloc=*/true);
-  ValueRange initLoopDef = createKrnl.defineLoops(rank);
-  createKrnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
+  ValueRange initLoopDef = create.krnl.defineLoops(rank);
+  create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
       [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
         // order[axis_0, axis_1, ..., axis_k-1, k, axis_k+1, ....] = k
         createKrnl.store(loopInd[axis], order, loopInd);
@@ -528,7 +528,6 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   // Do sorting in the specifed order of input and return their indices.
   if ((rank <= 6) && (axis == (rank - 1))) {
     // Emit krnl.Call to call omTensorSort API
-    MultiDialectBuilder<MathBuilder> create(rewriter, loc);
     Type intType = rewriter.getIntegerType(64);
     Value valAxis = create.math.constant(intType, axis);
     Value valAscending = create.math.constant(intType, (int64_t)ascending);
@@ -540,15 +539,15 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   // Using bubble sort.
   SmallVector<IndexExpr, 4> outerUbs(ubs);
   outerUbs[axis] = ubs[axis] - oneIE;
-  ValueRange loopDef = createKrnl.defineLoops(rank);
-  createKrnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
+  ValueRange loopDef = create.krnl.defineLoops(rank);
+  create.krnl.iterateIE(loopDef, loopDef, lbs, outerUbs,
       [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
         IndexExpr i1 = DimIndexExpr(iLoopInd[axis]) + oneIE;
         ValueRange swapLoopDef = createKrnl.defineLoops(1);
         createKrnl.iterateIE(swapLoopDef, swapLoopDef, {i1}, {ubs[axis]},
-            [&](KrnlBuilder &createKrnl, ValueRange swapLoopInd) {
+            [&](KrnlBuilder &ck, ValueRange swapLoopInd) {
               MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
-                  createKrnl);
+                  ck);
               SmallVector<Value> kLoopInd(iLoopInd);
               kLoopInd[axis] = swapLoopInd[0];
               // Load current indices.
@@ -757,7 +756,7 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
     // conversions of accelerators.
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
       // The accelerator knows whether `tensorType` is its target or not to
-      // decide the aligment.
+      // decide the alignment.
       // -1 means the accelerator does not have a specific alignment.
       alignment = accel->getDefaultAllocAlignment(tensorType);
       if (alignment != -1)
