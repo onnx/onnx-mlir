@@ -20,7 +20,7 @@ jobs:
         brew install automake ninja pybind11
     - name: install protobuf
       run: |
-        brew install protobuf@3
+        python3 -m pip3 uninstall -y protobuf && python3 -m pip3 install protobuf==3.20.3
     - name: cache MLIR directory
       id: cache-mlir
       uses: actions/cache@v2
