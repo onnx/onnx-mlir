@@ -4,7 +4,7 @@
 
 //===-------------- CumSum.cpp - Lowering CumSum Ops ----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -61,7 +61,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
       : ConversionPattern(
             typeConverter, ONNXCumSumOp::getOperationName(), 1, ctx) {}
 
-  /// We use a paralel algorithm for cumsum [1] as follows:
+  /// We use a parallel algorithm for cumsum [1] as follows:
   /// Assume that input is x whose shape in [n,m], and axis for cumsum is 0.
   /// We double-buffer the output to avoid intermediate result being overwritten
   /// by multiple threads.
@@ -77,7 +77,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
   ///   buf = y
   /// ```
   ///
-  /// Blelloch algorithm [2] is more work-efficent. However, it is not
+  /// Blelloch algorithm [2] is more work-efficient. However, it is not
   /// affine-friendly, because the inner bounds depend on the outer bounds.
   ///
   /// [1] Hillis, W. Daniel, and Guy L. Steele, Jr. 1986. "Data Parallel
@@ -94,8 +94,9 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
 
     // Builder helper.
     IndexExprScope mainScope(&rewriter, loc);
-    KrnlBuilder createKrnl(rewriter, loc);
-    MathBuilder createMath(createKrnl);
+
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, IndexExprBuilderForKrnl>
+        create(rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -114,15 +115,18 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     bool exclusive = csOp.exclusive() == 1;
     bool reverse = csOp.reverse() == 1;
 
-    MemRefBoundsIndexCapture xBounds(X);
-    uint64_t rank = xBounds.getRank();
+    // aee MemRefBoundsIndexCapture xBounds(X);
+    DimsExpr xDims;
+    uint64_t rank = create.krnlIE.getShapedTypeRank(X);
+    create.krnlIE.getShapeAsDims(X, xDims);
     LiteralIndexExpr zeroIE(0);
 
     // Read axis.
-    ArrayValueIndexCapture axisCapture(axis,
-        getDenseElementAttributeFromConstantValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    IndexExpr axisIE(axisCapture.getSymbol(0));
+    // aee ArrayValueIndexCapture axisCapture(axis,
+    //    getDenseElementAttributeFromConstantValue,
+    //    krnl::loadDenseElementArrayValueAtIndex);
+    //IndexExpr axisIE(axisCapture.getSymbol(0));
+    IndexExpr axisIE = create.krnlIE.getIntFromArrayAsSymbol(axis, 0);
     if (axisIE.isUndefined())
       return op->emitError("axis parameter could not be processed");
     axisIE = axisIE.selectOrSelf(axisIE < 0, axisIE + LiteralIndexExpr(rank));
@@ -143,20 +147,20 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     // Get the size of dimension 'axis'.
     IndexExpr axisSize = LiteralIndexExpr(-1);
     for (uint64_t i = 0; i < rank; ++i)
-      axisSize = IndexExpr::select(axisIE == i, xBounds.getDim(i), axisSize);
+      axisSize = IndexExpr::select(axisIE == i, xDims[i], axisSize);
 
     // Compute log2(n), the number of steps.
     IndexExpr numberOfStep;
     if (axisSize.isLiteral()) {
       int64_t n = axisSize.getLiteral();
-      int64_t logn = (int64_t)std::ceil(std::log2(n));
-      numberOfStep = LiteralIndexExpr(logn);
+      int64_t logN = (int64_t)std::ceil(std::log2(n));
+      numberOfStep = LiteralIndexExpr(logN);
     } else {
-      Value nos = createMath.cast(f32Ty, axisSize.getValue());
+      Value nos = create.math.cast(f32Ty, axisSize.getValue());
       // Use this when math::CeilOp is available in MLIR.
-      // nos = createMath.ceil(createMath.log2(nos));
-      nos = createMath.log2(nos);
-      nos = createMath.cast(i64Ty, nos);
+      // nos = create.math.ceil(create.math.log2(nos));
+      nos = create.math.log2(nos);
+      nos = create.math.cast(i64Ty, nos);
       // Use this when math::CeilOp is available in MLIR.
       // numberOfStep = SymbolIndexExpr(nos);
       numberOfStep = SymbolIndexExpr(nos) + LiteralIndexExpr(1);
@@ -165,11 +169,12 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     // Input and output have the same shape, so they share the bounds.
     SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
     SmallVector<IndexExpr, 4> ubs;
-    xBounds.getDimList(ubs);
+    create.krnlIE.getShapeAsDims(X, ubs);
+    // aee xBounds.getDimList(ubs);
 
     // Initialize the temporary buffer: copy values from the input.
-    ValueRange initLoopDef = createKrnl.defineLoops(rank);
-    createKrnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
+    ValueRange initLoopDef = create.krnl.defineLoops(rank);
+    create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange initLoopInd) {
           if (!exclusive) {
             Value x = createKrnl.load(X, initLoopInd);
@@ -201,8 +206,8 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
         });
 
     // Outer loop iterates over the number of steps.
-    ValueRange stepLoopDef = createKrnl.defineLoops(1);
-    createKrnl.iterateIE(stepLoopDef, stepLoopDef, {zeroIE}, {numberOfStep},
+    ValueRange stepLoopDef = create.krnl.defineLoops(1);
+    create.krnl.iterateIE(stepLoopDef, stepLoopDef, {zeroIE}, {numberOfStep},
         [&](KrnlBuilder &createKrnl, ValueRange stepLoopInd) {
           MathBuilder createMath(createKrnl);
 
