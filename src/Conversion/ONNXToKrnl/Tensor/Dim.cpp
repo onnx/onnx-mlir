@@ -31,7 +31,8 @@ struct ONNXDimOpLowering : public ConversionPattern {
     ONNXDimOpAdaptor operandAdaptor(operands);
     Value data = operandAdaptor.data();
     int64_t axis = dimOp.axis();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+        create(rewriter, loc);
     IndexExprScope scope(&rewriter, loc);
 
     // Convert the output type to MemRefType.
@@ -47,7 +48,6 @@ struct ONNXDimOpLowering : public ConversionPattern {
         rewriter, op, outputMemRefType, loc, outputDims);
 
     // Write the dimension at axis to the output.
-    //MemRefBoundsIndexCapture dataBounds(data);
     Value dimValue = create.krnlIE.getShapeAsDim(data, axis).getValue();
     dimValue = create.math.cast(elementType, dimValue);
     Value index = create.math.constantIndex(0);
