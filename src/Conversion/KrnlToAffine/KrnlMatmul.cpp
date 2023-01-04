@@ -103,7 +103,6 @@ public:
     create.krnlIE.getShapeAsSymbols(A, aBounds);
     create.krnlIE.getShapeAsSymbols(B, bBounds);
     create.krnlIE.getShapeAsSymbols(C, cBounds);
-    // aee MemRefBoundsIndexCapture aBounds(A), bBounds(B), cBounds(C);
     int64_t aRank(aBounds.size()), bRank(bBounds.size()), cRank(cBounds.size());
     // Tile sizes for A/B/C are determined by their memref unless explicitly
     // specified by an optional argument. That allows A/B/C memrefs to be
@@ -138,8 +137,6 @@ public:
         create.krnlIE.getIntFromArrayAsLiterals(
         matmulOp.computeTileSizeAttr(), computeTileSizeFromAttr);
 
-    //ArrayAttributeIndexCapture computeSizeCapture(
-    // aee    matmulOp.computeTileSizeAttr());
     if (computeTileSizeFromAttr.size()) {
       iComputeTileSize = computeTileSizeFromAttr[0];
       jComputeTileSize = computeTileSizeFromAttr[1];
