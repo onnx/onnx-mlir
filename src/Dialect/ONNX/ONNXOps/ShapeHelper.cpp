@@ -138,12 +138,15 @@ LogicalResult ONNXOpShapeHelper::computeShapeFromOperand(Value operand, int n) {
 
 // Reuse the same type for each of the outputs.
 LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
-    Type elementType, mlir::Attribute encoding) {
+    Type elementType, Attribute encoding) {
   // Invoke virtual compute shape.
   if (failed(computeShape()))
     return op->emitError("Failed to scan parameters successfully");
   uint64_t resNum = op->getNumResults();
   for (uint64_t i = 0; i < resNum; ++i) {
+    // If we have an optional type, leave it as is.
+    if (op->getResults()[i].getType().isa<NoneType>())
+      continue;
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
     updateType(op->getResults()[i], shapeVect, elementType, encoding);
@@ -165,6 +168,9 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
     return op->emitError("Failed to scan " + op->getName().getStringRef() +
                          " parameters successfully");
   for (uint64_t i = 0; i < resNum; ++i) {
+    // If we have an optional type, leave it as is.
+    if (op->getResults()[i].getType().isa<NoneType>())
+      continue;
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
     Type currElementType = elementTypeRange[i];
