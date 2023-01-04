@@ -107,7 +107,6 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
     } else {
       yOutputDims = {seqLength, numDir, batchSize, hiddenSize};
     }
-    IndexExpr::debugPrint("set0", yOutputDims);
     setOutputDims(yOutputDims, 0);
   }
 
@@ -121,7 +120,6 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
     } else {
       yHOutputDims = {numDir, batchSize, hiddenSize};
     }
-    IndexExpr::debugPrint("set1", yHOutputDims);
     setOutputDims(yHOutputDims, 1);
   }
 
@@ -137,7 +135,6 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
         yCOutputDims = {numDir, batchSize, hiddenSize};
       }
     }
-    IndexExpr::debugPrint("set2", yCOutputDims);
     setOutputDims(yCOutputDims, 2);
   }
 
