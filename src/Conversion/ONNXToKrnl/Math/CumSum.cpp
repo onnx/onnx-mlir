@@ -115,17 +115,12 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     bool exclusive = csOp.exclusive() == 1;
     bool reverse = csOp.reverse() == 1;
 
-    // aee MemRefBoundsIndexCapture xBounds(X);
     DimsExpr xDims;
     uint64_t rank = create.krnlIE.getShapedTypeRank(X);
     create.krnlIE.getShapeAsDims(X, xDims);
     LiteralIndexExpr zeroIE(0);
 
     // Read axis.
-    // aee ArrayValueIndexCapture axisCapture(axis,
-    //    getDenseElementAttributeFromConstantValue,
-    //    krnl::loadDenseElementArrayValueAtIndex);
-    //IndexExpr axisIE(axisCapture.getSymbol(0));
     IndexExpr axisIE = create.krnlIE.getIntFromArrayAsSymbol(axis, 0);
     if (axisIE.isUndefined())
       return op->emitError("axis parameter could not be processed");
@@ -170,15 +165,15 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(X, ubs);
-    // aee xBounds.getDimList(ubs);
 
     // Initialize the temporary buffer: copy values from the input.
     ValueRange initLoopDef = create.krnl.defineLoops(rank);
     create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange initLoopInd) {
+        [&](KrnlBuilder &ck, ValueRange initLoopInd) {
+          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
           if (!exclusive) {
-            Value x = createKrnl.load(X, initLoopInd);
-            createKrnl.store(x, bufMemRef, initLoopInd);
+            Value x = create.krnl.load(X, initLoopInd);
+            create.krnl.store(x, bufMemRef, initLoopInd);
           } else {
             // Exclusive mode is equivalent to shifting all elements right (left
             // if reversed) and set the first element (the last element if
@@ -190,32 +185,31 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
             //   new_input = [0, 2, 3]
             // or
             //   new_input = [3, 4, 0] if reversed.
-            MathBuilder createMath(createKrnl);
             Value axis = axisIE.getValue();
 
             // Load input[i - 1,k] or get zero.
             SmallVector<Value, 4> loopInd;
-            Value offsetOne = createMath.constant(indexTy, 1);
-            Value shiftOrSet0 = getLoopIndexByAxisAndOffset(createMath, loopInd,
-                initLoopInd, ubs, axis, offsetOne, reverse);
-            Value res = createKrnl.load(X, loopInd);
-            Value zeroVal = createMath.constant(elementType, 0);
-            res = createMath.select(shiftOrSet0, res, zeroVal);
-            createKrnl.store(res, bufMemRef, initLoopInd);
+            Value offsetOne = create.math.constant(indexTy, 1);
+            Value shiftOrSet0 = getLoopIndexByAxisAndOffset(create.math,
+                loopInd, initLoopInd, ubs, axis, offsetOne, reverse);
+            Value res = create.krnl.load(X, loopInd);
+            Value zeroVal = create.math.constant(elementType, 0);
+            res = create.math.select(shiftOrSet0, res, zeroVal);
+            create.krnl.store(res, bufMemRef, initLoopInd);
           }
         });
 
     // Outer loop iterates over the number of steps.
     ValueRange stepLoopDef = create.krnl.defineLoops(1);
     create.krnl.iterateIE(stepLoopDef, stepLoopDef, {zeroIE}, {numberOfStep},
-        [&](KrnlBuilder &createKrnl, ValueRange stepLoopInd) {
-          MathBuilder createMath(createKrnl);
+        [&](KrnlBuilder &ck, ValueRange stepLoopInd) {
+          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
 
           // Compute index offset: offset = 2^step.
           Value step = stepLoopInd[0];
-          step = createMath.cast(f32Ty, step);
-          Value offset = createMath.exp2(step);
-          offset = createMath.castToIndex(offset);
+          step = create.math.cast(f32Ty, step);
+          Value offset = create.math.exp2(step);
+          offset = create.math.castToIndex(offset);
 
           // Inner loop iterates over the output to compute sums.
           //   for i range(n):
@@ -224,29 +218,29 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
           //         y[i,k] = buf[i - 2^step,k] + buf[i,k]
           //       else:
           //         y[i,k] = buf[i,k]
-          ValueRange sumLoopDef = createKrnl.defineLoops(rank);
-          createKrnl.iterateIE(sumLoopDef, sumLoopDef, lbs, ubs,
-              [&](KrnlBuilder &createKrnl, ValueRange sumLoopInd) {
-                IndexExprScope ieScope(createKrnl);
-                MathBuilder createMath(createKrnl);
+          ValueRange sumLoopDef = create.krnl.defineLoops(rank);
+          create.krnl.iterateIE(sumLoopDef, sumLoopDef, lbs, ubs,
+              [&](KrnlBuilder &ck, ValueRange sumLoopInd) {
+                IndexExprScope ieScope(ck);
+                MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
                 Value axis = axisIE.getValue();
                 // Load buf[i,k].
-                Value b1 = createKrnl.load(bufMemRef, sumLoopInd);
+                Value b1 = create.krnl.load(bufMemRef, sumLoopInd);
                 // Load buf[i - 2^step,k].
                 SmallVector<Value, 4> loopInd;
-                Value shouldUpdate = getLoopIndexByAxisAndOffset(createMath,
+                Value shouldUpdate = getLoopIndexByAxisAndOffset(create.math,
                     loopInd, sumLoopInd, ubs, axis, offset, reverse);
-                Value b2 = createKrnl.load(bufMemRef, loopInd);
-                Value zeroVal = createMath.constant(elementType, 0);
-                Value addOrZero = createMath.select(shouldUpdate, b2, zeroVal);
-                Value res = createMath.add(b1, addOrZero);
-                createKrnl.store(res, resMemRef, sumLoopInd);
+                Value b2 = create.krnl.load(bufMemRef, loopInd);
+                Value zeroVal = create.math.constant(elementType, 0);
+                Value addOrZero = create.math.select(shouldUpdate, b2, zeroVal);
+                Value res = create.math.add(b1, addOrZero);
+                create.krnl.store(res, resMemRef, sumLoopInd);
               });
 
           // Reset the temporary buffer to the latest output.
           // buf = y
-          ValueRange bufLoopDef = createKrnl.defineLoops(rank);
-          createKrnl.iterateIE(bufLoopDef, bufLoopDef, lbs, ubs,
+          ValueRange bufLoopDef = create.krnl.defineLoops(rank);
+          create.krnl.iterateIE(bufLoopDef, bufLoopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange bufLoopInd) {
                 Value x = createKrnl.load(resMemRef, bufLoopInd);
                 createKrnl.store(x, bufMemRef, bufLoopInd);
