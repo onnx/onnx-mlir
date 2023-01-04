@@ -296,7 +296,7 @@
         ]
       }
     ],
-    "name": "rawdata",
+    "name": "nonraw_data",
     "output": [
       {
         "name": "output0",

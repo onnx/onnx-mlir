@@ -100,13 +100,12 @@ func.func @matmul_unknown_dims(%arg0: tensor<4x8xf32, #zhigh.layout<{dataLayout 
 // CHECK-DAG:       [[VAR_c4_i64_:%.+]] = arith.constant 4 : i64
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_1_]], [[VAR_c1_]] : memref<8x?xf16, #map>
-// CHECK-DAG:       [[VAR_1_:%.+]] = memref.dim [[PARAM_1_]], [[VAR_c1_]] : memref<8x?xf16, #map>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_0_]]) {{.*}}: memref<4x?xf16, #map>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
 // CHECK:           krnl.store [[VAR_c4_i64_]], [[RES_1_]]{{.}}[[VAR_c0_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c8_i64_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<3xi64>
-// CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[VAR_1_]] : index to i64
+// CHECK:           [[VAR_4_:%.+]] = arith.index_cast [[VAR_0_]] : index to i64
 // CHECK:           krnl.store [[VAR_4_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
 // CHECK:           "zlow.matmul"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[RES_1_]], [[RES_]]) {is_bcast = 0 : si64, is_stacked = 0 : si64} : (memref<4x8xf16, #map>, memref<8x?xf16, #map>, memref<?xf16, #map1>, memref<3xi64>, memref<4x?xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<4x?xf16, #map>
