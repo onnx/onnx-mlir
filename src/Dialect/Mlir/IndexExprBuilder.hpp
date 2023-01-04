@@ -105,6 +105,11 @@ struct IndexExprBuilder : DialectBuilder {
   // the whole list. Assert when `len` exceed the array bounds.
   void getIntFromArrayAsLiterals(
       mlir::ArrayAttr intAttrArray, IndexExprList &list, int64_t len = -1);
+  // Same as above, but get a list of len values, filling in with outOfBoundVal
+  // if the actual attribute array does not have sufficient number of values.
+  // Expects an actual (i.e.  nonnegative) length.
+  void getIntFromArrayAsLiterals(mlir::ArrayAttr intAttrArray,
+      int64_t outOfBoundVal, IndexExprList &list, int64_t len);
 
   //===--------------------------------------------------------------------===//
   // Get symbol/dim index expressions from a scalar or 1D array value. When

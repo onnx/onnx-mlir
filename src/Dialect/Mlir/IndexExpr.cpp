@@ -1512,6 +1512,7 @@ SymbolIndexExpr::SymbolIndexExpr(DimIndexExpr const &o)
 SymbolIndexExpr::SymbolIndexExpr(SymbolIndexExpr const &o)
     : SymbolIndexExpr(o.getObjPtr()) {}
 
+#if 0
 //===----------------------------------------------------------------------===//
 // Capturing Index Expressions: Array of values
 //===----------------------------------------------------------------------===//
@@ -1620,6 +1621,7 @@ IndexExpr ArrayAttributeIndexCapture::getLiteral(uint64_t i) {
     return LiteralIndexExpr(defaultLiteral);
   return UndefinedIndexExpr();
 }
+#endif
 
 //===----------------------------------------------------------------------===//
 // Capturing Index Expressions: MemRef Bounds

@@ -791,10 +791,11 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr &b) {
 // TO BE DEPRECATED: Capturing Index Expressions
 //===----------------------------------------------------------------------===//
 
+#if 0
 // TO BE DEPRECATED: Capture array of values given by an operand. Will find its
 // definitition and use it locate its constant values, or load dynamically if
 // they are not constant.
-class ArrayValueIndexCapture {
+class ArrayValueIndexCapture { // hi alex, removed
 public:
   // Lambda functions to extract/generate info. No code is provided in order to
   // keep the IndexExpr and their support operations generic.
@@ -850,6 +851,7 @@ private:
   int64_t defaultLiteral;
   bool hasDefault;
 };
+#endif
 
 // TO BE DEPRECATED: Capture memory bounds give by a tensor or memref. Locate
 // its shape, return constant values when available or generate the appropriate

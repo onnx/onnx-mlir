@@ -90,33 +90,42 @@ public:
     bool simdize = matmulOp.simdize();
     // Init scope and emit constants.
     Location loc = matmulOp.getLoc();
-    AffineBuilderKrnlMem createAffine(rewriter, loc);
-    IndexExprScope indexScope(createAffine);
+    MultiDialectBuilder<AffineBuilderKrnlMem, VectorBuilder,
+        IndexExprBuilderForKrnl>
+        create(rewriter, loc);
+    IndexExprScope indexScope(create.affineKMem);
 
     // Gather A, B, C tile sizes.
     SmallVector<IndexExpr, 2> aTileSize, bTileSize, cTileSize;
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-    MemRefBoundsIndexCapture aBounds(A), bBounds(B), cBounds(C);
-    int64_t aRank(aBounds.getRank()), bRank(bBounds.getRank()),
-        cRank(cBounds.getRank());
+    SmallVector<IndexExpr, 4> aBounds, bBounds, cBounds, aTileSizeFromAttr, bTileSizeFromAttr,
+        cTileSizeFromAttr, computeTileSizeFromAttr;
+    create.krnlIE.getShapeAsSymbols(A, aBounds);
+    create.krnlIE.getShapeAsSymbols(B, bBounds);
+    create.krnlIE.getShapeAsSymbols(C, cBounds);
+    // aee MemRefBoundsIndexCapture aBounds(A), bBounds(B), cBounds(C);
+    int64_t aRank(aBounds.size()), bRank(bBounds.size()), cRank(cBounds.size());
     // Tile sizes for A/B/C are determined by their memref unless explicitly
     // specified by an optional argument. That allows A/B/C memrefs to be
     // padded if needed for SIMD/unroll and jam, for example.
-    ArrayAttributeIndexCapture aSizeCapture(matmulOp.aTileSizeAttr());
-    if (aSizeCapture.size())
-      aTileSize = {aSizeCapture.getLiteral(0), aSizeCapture.getLiteral(1)};
+    create.krnlIE.getIntFromArrayAsLiterals(
+        matmulOp.aTileSizeAttr(), aTileSizeFromAttr);
+    if (aTileSizeFromAttr.size())
+      aTileSize = {aTileSizeFromAttr[0], aTileSizeFromAttr[1]};
     else
-      aTileSize = {aBounds.getSymbol(aRank - 2), aBounds.getSymbol(aRank - 1)};
-    ArrayAttributeIndexCapture bSizeCapture(matmulOp.bTileSizeAttr());
-    if (bSizeCapture.size())
-      bTileSize = {bSizeCapture.getLiteral(0), bSizeCapture.getLiteral(1)};
+      aTileSize = {aBounds[aRank - 2], aBounds[aRank - 1]};
+    create.krnlIE.getIntFromArrayAsLiterals(
+        matmulOp.bTileSizeAttr(), bTileSizeFromAttr);
+    if (bTileSizeFromAttr.size())
+      bTileSize = {bTileSizeFromAttr[0], bTileSizeFromAttr[1]};
     else
-      bTileSize = {bBounds.getSymbol(bRank - 2), bBounds.getSymbol(bRank - 1)};
-    ArrayAttributeIndexCapture cSizeCapture(matmulOp.cTileSizeAttr());
-    if (cSizeCapture.size())
-      cTileSize = {cSizeCapture.getLiteral(0), cSizeCapture.getLiteral(1)};
+      bTileSize = {bBounds[bRank - 2], bBounds[bRank - 1]};
+    create.krnlIE.getIntFromArrayAsLiterals(
+        matmulOp.cTileSizeAttr(), cTileSizeFromAttr);
+    if (cTileSizeFromAttr.size())
+      cTileSize = {cTileSizeFromAttr[0], cTileSizeFromAttr[1]};
     else
-      cTileSize = {cBounds.getSymbol(cRank - 2), cBounds.getSymbol(cRank - 1)};
+      cTileSize = {cBounds[cRank - 2], cBounds[cRank - 1]};
 
     // Gather N, M, K compute tile size. This is the size of the computations,
     // if the tile is full. Because computation in the buffers could be further
@@ -126,12 +135,15 @@ public:
     IndexExpr iComputeTileSize = cTileSize[0];
     IndexExpr jComputeTileSize = cTileSize[1];
     IndexExpr kComputeTileSize = aTileSize[1];
-    ArrayAttributeIndexCapture computeSizeCapture(
-        matmulOp.computeTileSizeAttr());
-    if (computeSizeCapture.size()) {
-      iComputeTileSize = computeSizeCapture.getLiteral(0);
-      jComputeTileSize = computeSizeCapture.getLiteral(1);
-      kComputeTileSize = computeSizeCapture.getLiteral(2);
+        create.krnlIE.getIntFromArrayAsLiterals(
+        matmulOp.computeTileSizeAttr(), computeTileSizeFromAttr);
+
+    //ArrayAttributeIndexCapture computeSizeCapture(
+    // aee    matmulOp.computeTileSizeAttr());
+    if (computeTileSizeFromAttr.size()) {
+      iComputeTileSize = computeTileSizeFromAttr[0];
+      jComputeTileSize = computeTileSizeFromAttr[1];
+      kComputeTileSize = computeTileSizeFromAttr[2];
     }
     // Get the global upper bound of the original computations.
     SymbolIndexExpr iGlobalUB(operandAdaptor.iGlobalUB()),
@@ -152,8 +164,7 @@ public:
         if (iComputeTileSize.isLiteral() && kComputeTileSize.isLiteral()) {
           uint64_t i = iComputeTileSize.getLiteral();
           uint64_t k = kComputeTileSize.getLiteral();
-          VectorBuilder createVect(createAffine);
-          uint64_t mVL = createVect.getMachineVectorLength(elementType);
+          uint64_t mVL = create.vec.getMachineVectorLength(elementType);
           if (i % mVL == 0 && k % mVL == 0) {
             // Right now, vector length must be mVL.
             vectorLen = LiteralIndexExpr(mVL);
@@ -247,7 +258,7 @@ public:
       // SIMD code generator.
       if (matVectorProduct) {
         // clang-format off
-        createAffine.ifThenElse(indexScope, allFullTiles,
+        create.affineKMem.ifThenElse(indexScope, allFullTiles,
           /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
           genSimdMatVect(createAffine, matmulOp, elementType, aStart, bStart,
             cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
@@ -259,7 +270,7 @@ public:
         // clang-format on
       } else {
         // clang-format off
-        createAffine.ifThenElse(indexScope, allFullTiles,
+        create.affineKMem.ifThenElse(indexScope, allFullTiles,
           /* then full tiles */ [&](AffineBuilderKrnlMem &createAffine) {
           genSimdMatMat(createAffine, matmulOp, elementType, aStart, bStart,
              cStart, iComputeTileSize, jComputeTileSize, kComputeTileSize,
@@ -289,7 +300,7 @@ public:
     } else {
       // Scalar code generator.
       // clang-format off
-      createAffine.ifThenElse(indexScope, allFullTiles,
+      create.affineKMem.ifThenElse(indexScope, allFullTiles,
         /* then full */ [&](AffineBuilderKrnlMem &createAffine) {
         genScalar(createAffine, matmulOp, elementType, aStart, bStart, cStart,
           iComputeTileSize, jComputeTileSize, kComputeTileSize,
