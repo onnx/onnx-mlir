@@ -182,9 +182,8 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
       llvm::SmallVector<IndexExpr, 4> ubs;
       if (!mlir::ShapedType::isDynamic(sequenceDimSize))
         ubs.emplace_back(LiteralIndexExpr(sequenceDimSize));
-      else {
+      else
         ubs.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
-      }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, mlir::ValueRange loopInd) {
             MathBuilder createMath(createKrnl);
@@ -208,10 +207,8 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
       llvm::SmallVector<IndexExpr, 4> ubs;
       if (!mlir::ShapedType::isDynamic(sequenceDimSize))
         ubs.emplace_back(LiteralIndexExpr(sequenceDimSize));
-      else {
-        // MemRefBoundsIndexCapture bounds(X);
+      else
         ubs.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
-      }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &ck, mlir::ValueRange loopInd) {
             MultiDialectBuilder<MemRefBuilder, MathBuilder> create(ck);

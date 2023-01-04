@@ -42,8 +42,9 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     ArrayRef<int64_t> outputShape = memRefType.getShape();
     size_t rank = outputShape.size();
 
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
+        create(rewriter, loc);
 
     // Allocate memory for the output.
     Value alloc;
@@ -84,21 +85,20 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     } else
       llvm_unreachable("unsupported element type");
 
-    KrnlBuilder createKrnl(rewriter, loc);
     // Create a Krnl iterate if the output is not a scalar tensor.
     if (!hasAllScalarValues({alloc})) {
       IndexExprScope childScope(&rewriter, loc);
-      ValueRange loopDef = createKrnl.defineLoops(rank);
+      ValueRange loopDef = create.krnl.defineLoops(rank);
       SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
-      MemRefBoundsIndexCapture allocBounds(alloc);
+      // MemRefBoundsIndexCapture allocBounds(alloc);
       SmallVector<IndexExpr, 4> ubs;
-      allocBounds.getDimList(ubs);
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      create.krnlIE.getShapeAsDims(alloc, ubs);
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             createKrnl.store(constantVal, alloc, loopInd);
           });
     } else
-      createKrnl.store(constantVal, alloc);
+      create.krnl.store(constantVal, alloc);
 
     // Replace this operation with the generated alloc.
     rewriter.replaceOp(op, alloc);
