@@ -21,7 +21,7 @@ jobs:
     - name: install protobuf
       run: |
         cd ~/work
-        brew install protobuf@3.20.3
+        brew install protobuf@3
     - name: cache MLIR directory
       id: cache-mlir
       uses: actions/cache@v2
