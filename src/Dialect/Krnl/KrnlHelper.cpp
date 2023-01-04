@@ -167,6 +167,7 @@ DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
   return nullptr;
 }
 
+#if 0
 // This function satisfies the ArrayValueIndexCapture::LoadVal lambda
 // type, using Krnl operations.
 Value loadDenseElementArrayValueAtIndex(
@@ -179,6 +180,7 @@ Value loadDenseElementArrayValueAtIndex(
   Value indexVal = create.math.constantIndex(index);
   return create.krnl.load(array, {indexVal});
 }
+#endif
 
 //====---------------- Support for simple transpose -------------------===//
 

@@ -1627,6 +1627,7 @@ IndexExpr ArrayAttributeIndexCapture::getLiteral(uint64_t i) {
 // Capturing Index Expressions: MemRef Bounds
 //===----------------------------------------------------------------------===//
 
+#if 0
 MemRefBoundsIndexCapture::MemRefBoundsIndexCapture()
     : tensorOrMemref(nullptr), memRank(0) {}
 
@@ -1737,6 +1738,7 @@ void MemRefBoundsIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   for (unsigned int i = 0; i < memRank; ++i)
     list.emplace_back(get<INDEX>(i));
 }
+#endif
 
 void getIndexExprListFromInt(llvm::SmallVectorImpl<int64_t> &inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {

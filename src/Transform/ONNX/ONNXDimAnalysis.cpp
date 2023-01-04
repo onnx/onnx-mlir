@@ -74,7 +74,6 @@ static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
     if (onnx_mlir::isFromNone(v))
       continue;
     int64_t rank = onnx_mlir::getRank(v.getType());
-    // onnx_mlir::MemRefBoundsIndexCapture vDims(v);
     onnx_mlir::DimsExpr vDims;
     createIE.getShapeAsDims(v, vDims);
     for (int64_t i = 0; i < rank; ++i) {

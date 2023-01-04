@@ -29,6 +29,8 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     ONNXScatterElementsOpAdaptor operandAdaptor(operands);
     ONNXScatterElementsOp scatterElements = cast<ONNXScatterElementsOp>(op);
     Location loc = op->getLoc();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
 
     // Operands and attributes.
     Value data = operandAdaptor.data();
@@ -56,8 +58,6 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     assert(outputRank == dataRank && "Output rank not equal to data rank");
 
     // Insert an allocation and deallocation for the result of this operation.
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
     IndexExprScope indexScope(create.krnl);
     DimsExpr dataDims;
     create.krnlIE.getShapeAsDims(data, dataDims);

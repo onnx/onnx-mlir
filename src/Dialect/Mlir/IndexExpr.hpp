@@ -135,6 +135,7 @@ Note that the current scope is kept in a thread private variable and does not
 need to be explicitly passed. It will be retrieved from the environment. Which
 also means that one can only generate code in one index scope at a time.
 
+TODO: REMOVE DEPRECATED EXAMPLES
 
 3) Code Sample
 ==============
@@ -852,7 +853,7 @@ private:
   bool hasDefault;
 };
 #endif
-
+#if 0
 // TO BE DEPRECATED: Capture memory bounds give by a tensor or memref. Locate
 // its shape, return constant values when available or generate the appropriate
 // dim operation when they are not constant at compile time.
@@ -881,6 +882,7 @@ private:
   mlir::Value tensorOrMemref;
   uint64_t memRank;
 };
+#endif
 
 //===----------------------------------------------------------------------===//
 // Make IndexExpressions of a given type from provided input list/range

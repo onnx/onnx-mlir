@@ -225,8 +225,8 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
 
   // Check if the result value of `currentOp` is an operand of
   // `ReinterpretCastOp`, and store the result value of `ReinterpretCastOp`.
-  // Reshape, Squeeze, and Unsqueeze ops are checked because they are lowered to
-  // `ReinterpretCastOp`.
+  // Reshape, Squeeze, and Unsqueeze ops are checked because they are lowered
+  // to `ReinterpretCastOp`.
   SmallVector<Value, 32> castOpResults;
   if (currentOp->getNumResults() > 0) {
     parentBlock->walk([currentOp, resultIndex, &castOpResults](Operation *op) {
@@ -353,8 +353,8 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
   }
 }
 
-/// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const propagation,
-/// and return a constant.
+/// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const
+/// propagation, and return a constant.
 Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
@@ -438,8 +438,8 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
   return resVals;
 }
 
-/// Emit an ONNXTransposeOp. If the input is constant, do const propagation, and
-/// return a constant.
+/// Emit an ONNXTransposeOp. If the input is constant, do const propagation,
+/// and return a constant.
 Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, ArrayAttr permAttr) {
   auto inputType = input.getType().cast<ShapedType>();
@@ -578,6 +578,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   return order;
 }
 
+#if 0
 /// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
 /// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
 /// lambda type, using ONNX and Krnl operations.
@@ -593,10 +594,11 @@ DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value) {
   }
   return nullptr;
 }
+#endif
 
 /// This function returns a scalar of type 'dtype' from an optional value.
-/// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>. Default
-/// value is used in case of NoneType.
+/// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>.
+/// Default value is used in case of NoneType.
 Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
     Value optionalScalar, Type elementType, double defaultValue) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
@@ -630,8 +632,8 @@ MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(Type type) {
   OpBuilder b(type.getContext());
   MLIRContext *context = b.getContext();
   if (encoding.getDataLayout() == ONNXTensorEncodingAttr::DataLayout::NCHWxC) {
-    // perform the map for (N, C, H, W) -> (N, C/x, H, W, C%x) with C=Cin tiled
-    // by x.
+    // perform the map for (N, C, H, W) -> (N, C/x, H, W, C%x) with C=Cin
+    // tiled by x.
     int64_t N(0), C(1), H(2), W(3); // Indices for dims in affine expressions.
     int64_t xVal(encoding.getXFactor());
     assert(xVal > 0 && "expected strictly positive X factor");
@@ -648,8 +650,8 @@ MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(Type type) {
     dimExpr.emplace_back(newXC);
   } else if (encoding.getDataLayout() ==
              ONNXTensorEncodingAttr::DataLayout::KCNMxCyK) {
-    // perform the map for (K, C, N, M) -> (K/y, C/x, M, N, C%x, K%y) with C=Cin
-    // and K=Cout tiled by x and y.
+    // perform the map for (K, C, N, M) -> (K/y, C/x, M, N, C%x, K%y) with
+    // C=Cin and K=Cout tiled by x and y.
     int64_t K(0), C(1), N(2), M(3); // Indices for dims in affine expressions.
     int64_t xVal(encoding.getXFactor());
     int64_t yVal(encoding.getYFactor());
