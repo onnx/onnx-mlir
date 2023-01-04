@@ -30,6 +30,22 @@
 namespace onnx_mlir {
 namespace tosa {
 
+// Get a vector of indexExpr and extract the Int64 values
+llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
+    llvm::ArrayRef<IndexExpr> indexVector);
+
+// Transpose a given TOSA Tensor
+mlir::Value createTosaTransposedTensor(mlir::PatternRewriter &rewriter,
+    mlir::Operation *op, mlir::Value &value, llvm::ArrayRef<int64_t> perm);
+
+// Templated function to create a constant op for given type and shape.
+// T: storage C type.
+// Default template creates a constant tensor in T.
+// To create INT48 TOSA constant, need to pass in llvm::APInt instead.
+template <typename T>
+llvm::Optional<mlir::Value> getConstTensor(mlir::PatternRewriter &rewriter,
+    mlir::Operation *op, llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape);
+
 // Creates a TOSA operation and performs shape inference on the individual
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>
