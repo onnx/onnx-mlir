@@ -68,8 +68,8 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
     if (inferredDims[i].isLiteral() &&
         (existingDims[i] != inferredDims[i].getLiteral())) {
       // Warning for users.
-      llvm::outs() << "Warning: [Shape inference] the inferred dim ("
-                   << inferredDims[i].getLiteral()
+      llvm::outs() << "Warning: [Shape inference, dim " << i
+                   << "] the inferred dim (" << inferredDims[i].getLiteral()
                    << ") is different from the existing dim ("
                    << existingDims[i] << "). Use the existing dim instead.\n";
       inferredDims[i] = LiteralIndexExpr(existingDims[i]);
@@ -122,8 +122,8 @@ void ONNXOpShapeHelper::computeShapeAndAssertOnFailure() {
 }
 
 void ONNXOpShapeHelper::setOutputDims(const DimsExpr &inferredDims, int n) {
-  Value output = getOutput(n);
   privateOutputsDims[n] = inferredDims;
+  Value output = getOutput(n);
   refineDims(privateOutputsDims[n], output);
 }
 
@@ -380,8 +380,26 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     resType = RankedTensorType::get(inferredShape, elementType, encoding);
   else
     resType = RankedTensorType::get(inferredShape, elementType);
-
+  // Reset type
   val.setType(resType);
+}
+
+static void resetTypeShapeToQuestionmarks(Value val) {
+  // Only deal with ranked tensor types here.
+  RankedTensorType valType = val.getType().dyn_cast<RankedTensorType>();
+  if (!valType)
+    return;
+  // Reset any compile time literal to unknown (aka question marks).
+  SmallVector<int64_t, 4> newShape(valType.getRank(), -1);
+  auto resType = RankedTensorType::Builder(valType).setShape(newShape);
+  // Reset type
+  val.setType(resType);
+}
+
+void resetTypesShapeToQuestionmarks(Operation *op) {
+  int numRes = op->getNumResults();
+  for (int i = 0; i < numRes; ++i)
+    resetTypeShapeToQuestionmarks(op->getResult(i));
 }
 
 //===----------------------------------------------------------------------===//
