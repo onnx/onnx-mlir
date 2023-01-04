@@ -794,8 +794,6 @@ LogicalResult KrnlCopyToBufferOp::verify() {
   KrnlCopyToBufferOpAdaptor opAdaptor = KrnlCopyToBufferOpAdaptor(*this);
   IndexExprBuilderForAnalysis createIE(getLoc());
   SmallVector<IndexExpr, 4> buff, source;
-  // MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
-  // MemRefBoundsIndexCapture srcCapture(opAdaptor.source());
   int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.buffer());
   int64_t srcRank = createIE.getShapedTypeRank(opAdaptor.source());
   int64_t startRank = opAdaptor.starts().size();
@@ -850,7 +848,6 @@ void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
 LogicalResult KrnlCopyFromBufferOp::verify() {
   KrnlCopyFromBufferOpAdaptor opAdaptor = KrnlCopyFromBufferOpAdaptor(*this);
   IndexExprBuilderForAnalysis createIE(getLoc());
-  //MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
   int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.buffer()); 
   int64_t destRank =
       opAdaptor.dest().getType().cast<MemRefType>().getShape().size();
