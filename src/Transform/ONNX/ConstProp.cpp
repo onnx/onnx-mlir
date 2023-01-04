@@ -165,9 +165,6 @@ ONNXConstantOp createReplacingConstantOp(
 }
 
 template <typename T>
-using EnableFloat = std::enable_if_t<CppTypeTrait<T>::isFloat>;
-
-template <typename T>
 using EnableNotBool = std::enable_if_t<!std::is_same_v<T, bool>>;
 
 template <typename T>
@@ -258,9 +255,9 @@ struct ElementWiseUnaryOpImpl<ONNXNegOp, T, EnableNotBool<T>> {
   static T eval(T val) { return -val; }
 };
 
-template <typename T>
-struct ElementWiseUnaryOpImpl<ONNXSqrtOp, T, EnableFloat<T>> {
-  static T eval(T val) { return sqrt(val); }
+template <>
+struct ElementWiseUnaryOpImpl<ONNXSqrtOp, double> {
+  static double eval(double val) { return sqrt(val); }
 };
 
 template <typename T>
