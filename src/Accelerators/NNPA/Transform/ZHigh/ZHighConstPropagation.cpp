@@ -35,17 +35,17 @@ namespace zhigh {
 
 /// A helper function to check whether a value is produced by a dense
 /// ONNXConstantOp.
+///
+/// TODO: Reuse ONNX/ConstProp.cpp implementation.
 bool isFromDenseONNXConstantOp(Value result) {
   Operation *op = result.getDefiningOp();
 
-  ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
-  // Not a constant.
-  if (!constOp)
+  // Must be a constant.
+  if (!isa_and_nonnull<ONNXConstantOp>(op))
     return false;
 
   // The dense attribute must be available.
-  if (!(op->getAttrOfType<::mlir::Attribute>("value") &&
-          op->getAttrOfType<::mlir::Attribute>("value").cast<ElementsAttr>()))
+  if (!(op->getAttrOfType<::mlir::Attribute>("value")))
     return false;
   // The other attributes must be null.
   if (op->getAttrOfType<::mlir::Attribute>("sparse_value"))

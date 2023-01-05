@@ -55,17 +55,13 @@ def AttributeIsNull :
   "Attribute is null">;
 
 def IsFromDenseONNXConstantOp:
-    Constraint<CPred<"isFromDenseONNXConstantOp($_self, false)">,
+    Constraint<CPred<"isFromDenseONNXConstantOp($_self)">,
   "Value is produced by a dense ONNXConstantOp that can be linked with "
   "a buffer during constant propagation">;
 
-def IsFromTrueDenseONNXConstantOp:
-    Constraint<CPred<"isFromDenseONNXConstantOp($_self, true)">,
-  "Value is produced by a true dense ONNXConstantOp">;
-
-def IsFromTrueDenseONNXConstantOpOrNone:
+def IsFromDenseONNXConstantOpOrNone:
   Constraint<
-    CPred<"isFromDenseONNXConstantOp($_self, false) || ($_self.getType().isa<NoneType>())">,
+    CPred<"isFromDenseONNXConstantOp($_self) || ($_self.getType().isa<NoneType>())">,
     "Value is none or produced by a true dense ONNXConstantOp"
   >;
 
@@ -394,9 +390,9 @@ def SliceofConst :  Pat<
                         $starts, $ends, $axes, $steps),
     // To c' where c' is the sliced value.
     (CreateSliceOfConst $resOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsFromTrueDenseONNXConstantOp:$starts),
-     (IsFromTrueDenseONNXConstantOp:$ends), (IsFromTrueDenseONNXConstantOpOrNone:$axes),
-     (IsFromTrueDenseONNXConstantOpOrNone:$steps)]>;
+    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$starts),
+     (IsFromDenseONNXConstantOp:$ends), (IsFromDenseONNXConstantOpOrNone:$axes),
+     (IsFromDenseONNXConstantOpOrNone:$steps)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Concat operations.
