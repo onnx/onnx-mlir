@@ -3,7 +3,6 @@
 # Getting the prerequisite software
 
 <!-- Keep list below in sync with README.md. -->
-
 ```
 python >= 3.8
 gcc >= 6.4
@@ -12,7 +11,6 @@ cmake >= 3.13.4
 make >= 4.2.1 or ninja >= 1.10.2
 java >= 1.11 (optional)
 ```
-
 Onnx-mlir is tested to work with python 3.8 and 3.9 but not yet fully tested with 3.10+. It may work with older 3.x python versions but not recommended since those either have already reached or are close to reach their EOL. To check the python version, run `python --version`.
 
 GCC can be installed with distro specific package manager on Linux such as yum on RHEL/Fedora, apt on Debian/Ubuntu, or brew on MacOS. If you prefer to compile gcc yourself, instructions can be found [here](https://gcc.gnu.org/install/). To check the gcc version, run `gcc --version`.
