@@ -43,9 +43,6 @@ int64_t getLinearAccessIndex(
 std::vector<int64_t> getAccessIndex(
     int64_t linearIndex, llvm::ArrayRef<int64_t> strides);
 
-/// A helper function to contruct a RankedTensorType from a ShapedType.
-mlir::RankedTensorType constructRankedTensorType(mlir::ShapedType type);
-
 /// Allocate a buffer whose size is getting from a given Value's type.
 char *allocateBufferFor(mlir::Type type, bool useMaxSize = false);
 

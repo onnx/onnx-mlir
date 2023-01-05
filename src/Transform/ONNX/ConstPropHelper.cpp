@@ -147,12 +147,6 @@ void convertDoubleInt64ToExactType(
     llvm_unreachable("Unknown data type");
 }
 
-/// A helper function to contruct a RankedTensorType from a ShapedType.
-RankedTensorType constructRankedTensorType(ShapedType type) {
-  assert(type.hasRank() && "Not a ranked type");
-  return RankedTensorType::get(type.getShape(), type.getElementType());
-}
-
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for split.
 //===----------------------------------------------------------------------===//

@@ -92,12 +92,6 @@ struct ConstPropCounters {
 
 std::unordered_map<std::string, ConstPropCounters> ConstPropCounters::map;
 
-/// A helper function to construct a RankedTensorType from a ShapedType.
-ATTRIBUTE(unused) RankedTensorType constructRankedTensorType(ShapedType type) {
-  assert(type.hasRank() && "Not a ranked type");
-  return RankedTensorType::get(type.getShape(), type.getElementType());
-}
-
 /// A helper function to check whether a value is produced by a dense
 /// ONNXConstantOp.
 ///
