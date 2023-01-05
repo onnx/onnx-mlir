@@ -17,6 +17,7 @@
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 bool ONNXToKrnl_gEmitDealloc = false;
@@ -447,31 +448,21 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
 /// and return a constant.
 Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, ArrayAttr permAttr) {
-  auto inputType = input.getType().cast<ShapedType>();
-  auto inputShape = inputType.getShape();
-  auto resultShape = resultType.cast<ShapedType>().getShape();
-  Type elementType = inputType.getElementType();
-
-  // Get perm attribute.
-  SmallVector<uint64_t, 4> perm;
-  for (auto permVal : permAttr.getValue())
-    perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
-
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   if (DenseElementsAttr inputElements = getDenseElementAttrFromValue(input)) {
-    char *inputBuffer = createArrayFromDenseElementsAttr(inputElements);
+    SmallVector<uint64_t, 4> perm;
+    for (auto permVal : permAttr.getValue())
+      perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
-    char *resBuffer = allocateBufferFor(resultType, /*useMaxSize=*/true);
-    ConstPropTransposeImpl(
-        elementType, inputBuffer, inputShape, perm, resultShape, resBuffer);
-    char *outputBuffer = allocateBufferFor(resultType, /*useMaxSize=*/false);
-    convertDoubleInt64ToExactType(resultType, resBuffer, outputBuffer);
-    Value constVal =
-        create.onnx.constantFromRawBuffer(resultType, outputBuffer);
+    ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    ElementsAttr transposedElements =
+        elementsBuilder.transpose(inputElements, perm);
+    // Make sure we don't get a DisposableElementsAttr which we don't support
+    // during conversion.
+    DenseElementsAttr denseTransposedElements =
+        elementsBuilder.toDenseElementsAttr(transposedElements);
 
-    free(outputBuffer);
-    free(resBuffer);
-    free(inputBuffer);
+    Value constVal = create.onnx.constant(denseTransposedElements);
     return create.onnx.toMemref(constVal);
   } else {
     return create.onnx.toMemref(

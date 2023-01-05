@@ -219,55 +219,6 @@ void ConstPropSplitImpl(Type elementType, char *constArray,
     llvm_unreachable("Unknown data type");
 }
 
-//===----------------------------------------------------------------------===//
-// Code to perform constant propagation for transpose.
-//===----------------------------------------------------------------------===//
-
-template <typename T>
-void IterateConstPropTranspose(char *constArray, ArrayRef<int64_t> constShape,
-    ArrayRef<uint64_t> perm, ArrayRef<int64_t> resShape, char *resArray) {
-  // Data pointers.
-  T *constArrayT = reinterpret_cast<T *>(constArray);
-  T *resArrayT = reinterpret_cast<T *>(resArray);
-
-  // Get a reversed perm.
-  SmallVector<uint64_t, 4> reversedPerm(perm.size(), 0);
-  for (unsigned int i = 0; i < perm.size(); ++i)
-    reversedPerm[perm[i]] = i;
-
-  // Strides info.
-  std::vector<int64_t> constStrides = getStrides(constShape);
-  std::vector<int64_t> resStrides = getStrides(resShape);
-
-  // Calculate transpose result.
-  for (int64_t i = 0; i < ShapedType::getNumElements(resShape); ++i) {
-    // Indices.
-    std::vector<int64_t> resIndices = getAccessIndex(i, resStrides);
-    SmallVector<int64_t, 4> constIndices(perm.size(), 0);
-    for (unsigned int j = 0; j < constIndices.size(); ++j)
-      constIndices[j] = resIndices[reversedPerm[j]];
-    // Transpose.
-    int64_t constOffset = getLinearAccessIndex(constIndices, constStrides);
-    int64_t resOffset = getLinearAccessIndex(resIndices, resStrides);
-    *(resArrayT + resOffset) = *(constArrayT + constOffset);
-  }
-}
-
-void ConstPropTransposeImpl(Type elementType, char *constArray,
-    llvm::ArrayRef<int64_t> constShape, llvm::ArrayRef<uint64_t> perm,
-    llvm::ArrayRef<int64_t> resShape, char *resArray) {
-  if (elementType.isa<FloatType>()) {
-    // Use double to avoid the precision loss during computation.
-    IterateConstPropTranspose<double>(
-        constArray, constShape, perm, resShape, resArray);
-  } else if (elementType.isa<IntegerType>()) {
-    // Use int64_t to avoid the precision loss during computation.
-    IterateConstPropTranspose<int64_t>(
-        constArray, constShape, perm, resShape, resArray);
-  } else
-    llvm_unreachable("Unknown data type");
-}
-
 /// Explicit instantiation of all templated API functions.
 template void copyAndCastArr<double, bool>(
     char *srcRawArr, char *destRawArr, int64_t size);

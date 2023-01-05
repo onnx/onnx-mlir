@@ -66,9 +66,4 @@ void ConstPropSplitImpl(mlir::Type elementType, char *constArray,
     llvm::ArrayRef<int64_t> splitOffsets,
     llvm::ArrayRef<mlir::Type> replacingTypes, std::vector<char *> &resBuffers);
 
-/// Constant propagation for transpose.
-void ConstPropTransposeImpl(mlir::Type elementType, char *constArray,
-    llvm::ArrayRef<int64_t> constShape, llvm::ArrayRef<uint64_t> perm,
-    llvm::ArrayRef<int64_t> resShape, char *resArray);
-
 } // namespace onnx_mlir

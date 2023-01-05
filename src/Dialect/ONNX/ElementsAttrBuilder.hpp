@@ -45,6 +45,10 @@ public:
   mlir::DisposableElementsAttr toDisposableElementsAttr(
       mlir::ElementsAttr elements);
 
+  // Converts elements to DenseElementsAttr if it's DisposableElementsAttr,
+  // otherwise returns elements if it's already DenseElementsAttr.
+  mlir::DenseElementsAttr toDenseElementsAttr(mlir::ElementsAttr elements);
+
   template <typename T>
   using Filler = std::function<void(llvm::MutableArrayRef<T>)>;
 

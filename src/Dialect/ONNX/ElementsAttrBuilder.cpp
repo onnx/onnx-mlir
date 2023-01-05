@@ -117,6 +117,16 @@ DisposableElementsAttr ElementsAttrBuilder::toDisposableElementsAttr(
   llvm_unreachable("unexpected ElementsAttr instance");
 }
 
+DenseElementsAttr ElementsAttrBuilder::toDenseElementsAttr(
+    ElementsAttr elements) {
+  if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
+    return disposable.toDenseElementsAttr();
+  if (auto dense = elements.dyn_cast<DenseElementsAttr>())
+    return dense;
+  // TODO: consider supporting more ElementsAttr types
+  llvm_unreachable("unexpected ElementsAttr instance");
+}
+
 ElementsAttr ElementsAttrBuilder::fromWideNums(
     ShapedType type, const Filler<WideNum> &wideDataFiller) {
   BType bufferBType = wideBTypeOfBType(btypeOfMlirType(type.getElementType()));
