@@ -155,8 +155,6 @@ void KrnlIterateOperandPack::pushIndexExprsBound(
   pushAffineMapBound(map, list);
 }
 
-// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
-// lambda type, using ONNX and Krnl operations.
 DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
   KrnlGlobalOp globalOp =
       dyn_cast_or_null<mlir::KrnlGlobalOp>(value.getDefiningOp());

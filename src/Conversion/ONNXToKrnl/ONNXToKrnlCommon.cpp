@@ -578,24 +578,6 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   return order;
 }
 
-#if 0
-/// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
-/// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
-/// lambda type, using ONNX and Krnl operations.
-DenseElementsAttr getDenseElementAttributeFromConstantValue(Value value) {
-  auto definingOp = value.getDefiningOp();
-  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
-    if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  } else if (auto globalOp =
-                 dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
-    if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  }
-  return nullptr;
-}
-#endif
-
 /// This function returns a scalar of type 'dtype' from an optional value.
 /// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>.
 /// Default value is used in case of NoneType.
