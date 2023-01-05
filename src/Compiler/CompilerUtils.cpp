@@ -32,6 +32,7 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
 
 #define DEBUG_TYPE "compiler_utils"
@@ -43,7 +44,16 @@ const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
 namespace onnx_mlir {
 
-static llvm::Optional<std::string> getEnvVar(std::string name) {
+// Return the vendor name if specified during make processing or the default.
+std::string getVendorName() {
+#if defined(ONNX_MLIR_VENDOR)
+  return ONNX_MLIR_VENDOR;
+#else
+  return "ONNX-MLIR";
+#endif
+}
+
+llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
   return llvm::None;
@@ -94,10 +104,10 @@ static std::string getExecPath() {
   return execPath;
 }
 
-// Runtime directory contains all the libraries, jars, etc. that are
-// necessary for running onnx-mlir. It's resolved in the following order:
+// Directory contains all the libraries, jars, etc. that are necessary for
+// running onnx-mlir. It's resolved in the following order:
 //
-//   - if ONNX_MLIR_RUNTIME_DIR is set, use it, otherwise
+//   - if ONNX_MLIR_LIBRARY_PATH is set, use it, otherwise
 //   - get path from where onnx-mlir is run, if it's of the form
 //     /foo/bar/bin/onnx-mlir,
 //     the runtime directory is /foo/bar/lib (note that when onnx-mlir is
@@ -108,8 +118,8 @@ static std::string getExecPath() {
 //
 // We now explicitly set CMAKE_INSTALL_LIBDIR to lib so we don't have
 // to deal with lib64 anymore.
-static std::string getRuntimeDir() {
-  const auto &envDir = getEnvVar("ONNX_MLIR_RUNTIME_DIR");
+static std::string getLibraryPath() {
+  const auto &envDir = getEnvVar("ONNX_MLIR_LIBRARY_PATH");
   if (envDir && llvm::sys::fs::exists(envDir.value()))
     return envDir.value();
 
@@ -142,7 +152,8 @@ static std::string getRuntimeDir() {
 // installed system wide but to different places and their sources have been
 // removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
 // llvm-project.
-std::string getToolPath(std::string tool) {
+std::string getToolPath(
+    const std::string &tool, const std::string &systemToolPath) {
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   llvm::SmallString<8> toolPath(execDir);
   llvm::sys::path::append(toolPath, tool);
@@ -150,7 +161,7 @@ std::string getToolPath(std::string tool) {
   if (llvm::sys::fs::can_execute(p))
     return p;
   else
-    return std::string();
+    return systemToolPath;
 }
 
 // Append a single string argument.
@@ -162,8 +173,8 @@ Command &Command::appendStr(const std::string &arg) {
 
 // Append a single optional string argument.
 Command &Command::appendStrOpt(const llvm::Optional<std::string> &arg) {
-  if (arg.hasValue())
-    _args.emplace_back(arg.getValue());
+  if (arg.has_value())
+    _args.emplace_back(arg.value());
   return *this;
 }
 
@@ -273,7 +284,7 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   llvm::NamedMDNode *identMetadata =
       llvmModule.getOrInsertNamedMetadata("llvm.ident");
   llvm::Metadata *identNode[] = {
-      llvm::MDString::get(ctx, getOnnxMlirFullVersion())};
+      llvm::MDString::get(ctx, getOnnxMlirCommitVersion())};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
 #ifdef PRODUCT_VERSION_MAJOR
@@ -410,8 +421,8 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
-  std::string optPath = getToolPath("opt");
-  Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
+  std::string optPath = getToolPath("opt", kOptPath);
+  Command optBitcode(/*exePath=*/optPath);
   int rc = optBitcode.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
@@ -429,8 +440,8 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
 static int genModelObject(
     std::string bitcodeNameWithExt, std::string &modelObjNameWithExt) {
 
-  std::string llcPath = getToolPath("llc");
-  Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
+  std::string llcPath = getToolPath("llc", kLlcPath);
+  Command llvmToObj(/*exePath=*/llcPath);
   int rc = llvmToObj.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
@@ -499,9 +510,9 @@ static int genSharedLib(std::string sharedLibNameWithExt,
 // Return 0 on success, error code on failure.
 static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
     std::string modelSharedLibPath, std::string modelJniJarPath) {
-  llvm::SmallString<8> runtimeDir(getRuntimeDir());
-  llvm::sys::path::append(runtimeDir, "javaruntime.jar");
-  std::string javaRuntimeJarPath = llvm::StringRef(runtimeDir).str();
+  llvm::SmallString<8> libraryPath(getLibraryPath());
+  llvm::sys::path::append(libraryPath, "javaruntime.jar");
+  std::string javaRuntimeJarPath = llvm::StringRef(libraryPath).str();
 
   // Copy javaruntime.jar to model jar.
   llvm::sys::fs::copy_file(javaRuntimeJarPath, modelJniJarPath);
@@ -543,7 +554,7 @@ static int compileModuleToSharedLibrary(
       modelObjNameWithExt, !keepFiles(KeepFilesOfType::Object));
   libNameWithExt = getTargetFilename(outputNameNoExt, EmitLib);
   return genSharedLib(libNameWithExt, {}, {modelObjNameWithExt},
-      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getRuntimeDir()});
+      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getLibraryPath()});
 }
 
 // Return 0 on success, error code on failure
@@ -560,7 +571,7 @@ static int compileModuleToJniJar(
   if (outputDir.empty())
     outputDir = StringRef(".");
 
-  std::string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
+  std::string jniSharedLibPath = getLibraryPath() + "/libjniruntime.a";
 
   llvm::SmallString<8> jniObjDir(outputDir);
   llvm::sys::path::append(jniObjDir, "jnidummy.c.o");
@@ -586,7 +597,7 @@ static int compileModuleToJniJar(
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
   rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
       {modelObjNameWithExt, jniObjPath}, getCompilerConfig(CCM_SHARED_LIB_DEPS),
-      {getRuntimeDir()});
+      {getLibraryPath()});
   if (rc != CompilerSuccess)
     return rc;
   llvm::FileRemover modelSharedLibRemover(
@@ -610,32 +621,42 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::KrnlDialect>();
 }
 
-// Return 0 on success, error number on failure.
-int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
-  // Decide if the input file is an ONNX model or a model specified
-  // in MLIR. The extension of the file is the decider.
-  std::string extension =
-      inputFilename.substr(inputFilename.find_last_of(".") + 1);
-  bool inputIsONNX = (extension == "onnx");
-  bool inputIsMLIR = (extension == "mlir");
+namespace {
+std::string dirName(StringRef inputFilename) {
+  llvm::SmallVector<char> path(inputFilename.begin(), inputFilename.end());
+  llvm::sys::path::remove_filename(path);
+  return std::string(path.data(), path.size());
+}
+} // namespace
 
-  if (!inputIsONNX && !inputIsMLIR) {
-    *errorMessage = "Invalid input file '" + inputFilename +
-                    "': Either an ONNX model (.onnx), or an MLIR file (.mlir) "
+// Return 0 on success, error number on failure.
+int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
+    mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
+  // Decide if the input file is an ONNX model (either ONNX protobuf or JSON) or
+  // a model specified in MLIR. The extension of the file is the decider.
+  bool inputIsONNX = inputFilename.endswith(".onnx");
+  bool inputIsJSON = inputFilename.endswith(".json");
+  bool inputIsMLIR = inputFilename.endswith(".mlir");
+
+  if (!inputIsONNX && !inputIsJSON && !inputIsMLIR) {
+    *errorMessage = "Invalid input file '" + inputFilename.str() +
+                    "': Either an ONNX model (.onnx or .json or '-'), or an "
+                    "MLIR file (.mlir) "
                     "needs to be provided.";
     return InvalidInputFile;
   }
 
-  if (inputIsONNX) {
+  if (inputIsONNX || inputIsJSON) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
+    options.allowSorting = allowSorting;
+    options.externalDataDir = dirName(inputFilename);
     return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
-    loadMLIR(inputFilename, context, module);
+    loadMLIR(inputFilename.str(), context, module);
   return CompilerSuccess;
 }
 
@@ -646,6 +667,7 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
   ImportOptions options;
   options.useOnnxModelTypes = useOnnxModelTypes;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
+  options.allowSorting = allowSorting;
   options.shapeInformation = shapeInformation;
   return ImportFrontendModelArray(
       onnxBuffer, bufferSize, context, module, errorMessage, options);
@@ -797,8 +819,9 @@ static std::string getDataLayout(const Location &loc) {
   const std::string targetCpu = getTargetCpu();
   const llvm::Target &LLVMTarget = *getLLVMTarget(targetTriple, loc);
   llvm::TargetOptions ops;
-  llvm::TargetMachine *targetMachine = LLVMTarget.createTargetMachine(
-      targetTriple, targetCpu, "" /*features*/, ops, None);
+  auto targetMachine =
+      std::unique_ptr<llvm::TargetMachine>{LLVMTarget.createTargetMachine(
+          targetTriple, targetCpu, "" /*features*/, ops, None)};
   if (!targetMachine) {
     emitError(loc, "failed to create target machine");
     return nullptr;

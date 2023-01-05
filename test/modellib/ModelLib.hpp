@@ -128,7 +128,8 @@ protected:
   mlir::ONNXConstantOp buildONNXConstantOp(
       const OMTensor *omt, const mlir::RankedTensorType resultType);
   // Compare results as float.
-  bool areCloseFloat(const OMTensor *res, const OMTensor *ref) const;
+  bool areCloseFloat(const OMTensor *res, const OMTensor *ref,
+      float defaultRtol = 1e-5, float defaultAtol = 1e-5) const;
   // Print indices rank and values, for debugging.
   void printIndices(
       const std::string message, const std::vector<int64_t> &indices) const;
@@ -392,7 +393,7 @@ public:
       const bool isDynamicB, const bool isNoneH = false,
       const bool isNoneC = false, const bool isNoneP = false,
       const int layout = 0);
-  ~LSTMLibBuilder();
+  virtual ~LSTMLibBuilder();
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRangeLB, float dataRangeUB);
@@ -414,7 +415,7 @@ public:
   GRULibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const int linearBeforeReset,
       const bool isDynamicS, const bool isDynamicB, const int layout = 0);
-  ~GRULibBuilder();
+  virtual ~GRULibBuilder();
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRangeLB, float dataRangeUB);
@@ -435,7 +436,7 @@ public:
   RNNLibBuilder(const std::string &modelName, const int direction, const int S,
       const int B, const int I, const int H, const bool isDynamicS,
       const bool isDynamicB, const int layout = 0);
-  ~RNNLibBuilder();
+  virtual ~RNNLibBuilder();
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRangeLB, float dataRangeUB);

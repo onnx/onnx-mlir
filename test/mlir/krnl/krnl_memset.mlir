@@ -15,7 +15,7 @@ func.func @lowering_krnl_memset(%arg0: memref<1xi64>, %arg1: memref<1xi64>) -> (
   krnl.memset %2, %cst_f1 {delayed = false} : memref<?x?xf16, #map_2ds>
   return %2 : memref<?x?xf16, #map_2ds>
 
-// CHECK-DAG: #map = affine_map<()[s0] -> (s0 ceildiv 64)>
+// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 ceildiv 64)>
 // CHECK-LABEL:  func.func @lowering_krnl_memset
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1xi64>, [[PARAM_1_:%.+]]: memref<1xi64>) -> memref<?x?x1x1x32x?xf16> attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant 0.000000e+00 : f16
@@ -25,11 +25,11 @@ func.func @lowering_krnl_memset(%arg0: memref<1xi64>, %arg1: memref<1xi64>) -> (
 // CHECK-DAG:       [[VAR_1_:%.+]] = arith.index_cast [[LOAD_PARAM_0_MEM_]] : i64 to index
 // CHECK-DAG:       [[LOAD_PARAM_1_MEM_:%.+]] = affine.load [[PARAM_1_]][0] : memref<1xi64>
 // CHECK:           [[VAR_3_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
-// CHECK:           [[VAR_4_:%.+]] = affine.apply #map(){{.}}[[VAR_3_]]{{.}}
+// CHECK:           [[VAR_4_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_3_]]{{.}}
 // CHECK:           [[RES_:%.+]] = memref.alloc([[VAR_1_]], [[VAR_4_]]) {{.*}}: memref<?x?x1x1x32x64xf16>
 // CHECK:           [[VAR_6_:%.+]] = memref.cast [[RES_]] : memref<?x?x1x1x32x64xf16> to memref<?x?x1x1x32x?xf16>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to [[VAR_1_]] {
-// CHECK:             affine.for [[I_1_:%.+]] = 0 to #map(){{.}}[[VAR_3_]]{{.}} {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to [[MAP_0_]](){{.}}[[VAR_3_]]{{.}} {
 // CHECK:               affine.for [[I_2_:%.+]] = 0 to 1 {
 // CHECK:                 affine.for [[I_3_:%.+]] = 0 to 1 {
 // CHECK:                   affine.for [[I_4_:%.+]] = 0 to 32 {

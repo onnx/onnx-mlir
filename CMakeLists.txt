@@ -7,6 +7,7 @@ project(onnx-mlir)
 
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
 option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
+option(ONNX_MLIR_ENABLE_MHLO "Enable MHLO support." ON)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 
@@ -16,7 +17,7 @@ set(CMAKE_CXX_STANDARD 17)
 # etc.), by default some components (e.g., cmake) install into lib while
 # others (e.g., python) install into lib64.
 # This causes trouble when we try to figure out the runtime directory in
-# CompilerUtils.cpp::getRuntimeDir(). So we explicitly set CMAKE_INSTALL_LIBDIR
+# CompilerUtils.cpp::getLibraryPath(). So we explicitly set CMAKE_INSTALL_LIBDIR
 # to install into lib on all systems so we don't have to deal with lib64.
 set(CMAKE_INSTALL_LIBDIR lib)
 
@@ -116,23 +117,30 @@ else()
   message(WARNING "Java Development component or JNI not found, JNI targets will not work")
 endif()
 
-# Use the new MSVC preprocessor to improve standard conformance.
-if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC") 
+if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  # Use the new MSVC preprocessor to improve standard conformance.
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Zc:preprocessor")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:preprocessor")
+
+  # Disable warning for non-standard usages of std::complex template which was
+  # introduced in MSVC 14.34.
+  # More details at https://github.com/microsoft/STL/pull/2759.
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING")
 endif()
 
 # Suppress warnings in third party code if requested.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
+  set(LLVM_ENABLE_WERROR OFF)
   set(CMAKE_C_FLAGS_COPY ${CMAKE_C_FLAGS})
   set(CMAKE_CXX_FLAGS_COPY ${CMAKE_CXX_FLAGS})
   if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
-  elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC") 
+  elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     # MSVC complains when overriding existing warning levels flags, so remove them.
-    STRING(REGEX REPLACE "/W[0-4x]" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
-    STRING(REGEX REPLACE "/W[0-4x]" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    STRING(REGEX REPLACE "/W[0-4xX]" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+    STRING(REGEX REPLACE "/W[0-4xX]" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS")
   endif()
@@ -146,7 +154,14 @@ set(pybind11_FIND_QUIETLY ON)
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)
-add_subdirectory(third_party/mlir-hlo EXCLUDE_FROM_ALL)
+
+if (ONNX_MLIR_ENABLE_MHLO)
+  add_subdirectory(third_party/mlir-hlo EXCLUDE_FROM_ALL)
+
+  # mlir-hlo depends on these paths being visible, but does not propagate them.
+  include_directories(${ONNX_MLIR_SRC_ROOT}/third_party/mlir-hlo)
+  include_directories(${ONNX_MLIR_BIN_ROOT}/third_party/mlir-hlo)
+endif()
 
 if (NOT TARGET benchmark)
   set(BENCHMARK_USE_BUNDLED_GTEST OFF)
@@ -166,15 +181,26 @@ llvm_update_compile_flags(benchmark)
 llvm_update_compile_flags(benchmark_main)
 llvm_update_compile_flags(rapidcheck)
 
+if (ONNX_MLIR_ENABLE_MHLO)
+  llvm_update_compile_flags(stablehlo-opt)
+  llvm_update_compile_flags(stablehlo-interpreter)
+  llvm_update_compile_flags(mlir-hlo-opt)
+endif()
+
 # Increase the log level for onnx-mlir
 set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
 
 # Ensure warnings are reported for onnx-mlir code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
+  set(LLVM_ENABLE_WERROR ${ONNX_MLIR_ENABLE_WERROR})
   set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_COPY})
   set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS_COPY})
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
+endif()
+
+if (ONNX_MLIR_ENABLE_MHLO)
+  add_compile_definitions(ONNX_MLIR_ENABLE_MHLO)
 endif()
 
 add_subdirectory(utils)

@@ -24,8 +24,8 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -351,7 +351,7 @@ void IterateConstPropElementwiseBinary(char *lhs, char *rhs,
 /// Do element-wise binary calculation of 'lhs' and 'rhs' values and create an
 /// ONNXConstantOp for the result.
 template <typename ElementwiseBinaryOp>
-ONNXConstantOp ConstPropElementwiseBinary(
+Value ConstPropElementwiseBinary(
     PatternRewriter &rewriter, Value replacingValue, Value lhs, Value rhs) {
   Type elementType =
       replacingValue.getType().cast<ShapedType>().getElementType();
@@ -383,7 +383,7 @@ ONNXConstantOp ConstPropElementwiseBinary(
   ONNXConstantOp res =
       createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  return res;
+  return res.getResult();
 }
 
 //===----------------------------------------------------------------------===//
@@ -436,7 +436,7 @@ void IterateConstPropElementwiseUnary(
 /// Do element-wise unary calculation of 'input' value and create an
 /// ONNXConstantOp for the result.
 template <typename ElementwiseUnaryOp>
-ONNXConstantOp ConstPropElementwiseUnary(
+Value ConstPropElementwiseUnary(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
   ShapedType replacingType = replacingValue.getType().cast<ShapedType>();
   ArrayRef<int64_t> replacingShape = replacingType.getShape();
@@ -465,14 +465,14 @@ ONNXConstantOp ConstPropElementwiseUnary(
   ONNXConstantOp res =
       createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  return res;
+  return res.getResult();
 }
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for transpose.
 //===----------------------------------------------------------------------===//
 
-ONNXConstantOp ConstPropTranspose(
+Value ConstPropTranspose(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
   ArrayRef<int64_t> replacingShape =
       replacingValue.getType().cast<ShapedType>().getShape();
@@ -504,14 +504,14 @@ ONNXConstantOp ConstPropTranspose(
   ONNXConstantOp res =
       createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  return res;
+  return res.getResult();
 }
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for unsqueeze.
 //===----------------------------------------------------------------------===//
 
-ONNXConstantOp ConstPropUnsqueeze(
+Value ConstPropUnsqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
   Operation *inputOp = input.getDefiningOp();
 
@@ -521,14 +521,14 @@ ONNXConstantOp ConstPropUnsqueeze(
   ONNXConstantOp res =
       createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  return res;
+  return res.getResult();
 }
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for Squeeze.
 //===----------------------------------------------------------------------===//
 
-ONNXConstantOp ConstPropSqueeze(
+Value ConstPropSqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
   Operation *inputOp = input.getDefiningOp();
 
@@ -538,7 +538,7 @@ ONNXConstantOp ConstPropSqueeze(
   ONNXConstantOp res =
       createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  return res;
+  return res.getResult();
 }
 
 //===----------------------------------------------------------------------===//
@@ -761,7 +761,7 @@ public:
 // Code to perform constant propagation for CastOp.
 //===----------------------------------------------------------------------===//
 
-ONNXConstantOp ConstPropCast(
+Value ConstPropCast(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
   // Get the const value using the maximum precision e.g. double, int64_t.
   char *constArray =
@@ -796,14 +796,14 @@ ONNXConstantOp ConstPropCast(
   ONNXConstantOp res =
       createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  return res;
+  return res.getResult();
 }
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for SliceOp.
 //===----------------------------------------------------------------------===//
 
-ONNXConstantOp ConstPropSlice(
+Value ConstPropSlice(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
   Operation *op = replacingValue.getDefiningOp();
   ONNXSliceOp sliceOp = cast<ONNXSliceOp>(op);
@@ -822,9 +822,8 @@ ONNXConstantOp ConstPropSlice(
       allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
 
   // Get starts, ends, axes and steps via ShapeHelper.
-  ONNXSliceOpShapeHelper shapeHelper(&sliceOp);
-  ONNXSliceOpAdaptor operandAdaptor(sliceOp);
-  if (failed(shapeHelper.computeShape(operandAdaptor))) {
+  ONNXSliceOpShapeHelper shapeHelper(op, {});
+  if (failed(shapeHelper.computeShape())) {
     sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
                       " parameters successfully");
     return nullptr;
@@ -852,14 +851,14 @@ ONNXConstantOp ConstPropSlice(
   ONNXConstantOp res =
       createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  return res;
+  return res.getResult();
 }
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for ConcatOp.
 //===----------------------------------------------------------------------===//
 
-ONNXConstantOp ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
+Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
     ValueRange operands, IntegerAttr axisAttr) {
   // Get the const values using the maximum precision e.g. double, int64_t.
   SmallVector<char *, 4> inputArrays;
@@ -910,14 +909,14 @@ ONNXConstantOp ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
   ONNXConstantOp res =
       createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  return res;
+  return res.getResult();
 }
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for ExpandOp.
 //===----------------------------------------------------------------------===//
 
-ONNXConstantOp ConstPropExpand(
+Value ConstPropExpand(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
   // Get the const value using the maximum precision e.g. double, int64_t.
   char *inputArray =
@@ -964,14 +963,14 @@ ONNXConstantOp ConstPropExpand(
   ONNXConstantOp res =
       createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  return res;
+  return res.getResult();
 }
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for GatherOp.
 //===----------------------------------------------------------------------===//
 
-ONNXConstantOp ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
+Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
     Value inputValue, Value indicesValue) {
   Operation *op = replacingValue.getDefiningOp();
   ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
@@ -1037,9 +1036,24 @@ ONNXConstantOp ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
   ONNXConstantOp res =
       createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  return res;
+  return res.getResult();
 }
 
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ReshapeOp.
+//===----------------------------------------------------------------------===//
+
+Value ConstPropReshape(
+    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  Operation *inputOp = constValue.getDefiningOp();
+  char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
+
+  // Construct a new ONNXConstantOp.
+  ONNXConstantOp res =
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+
+  return res.getResult();
+}
 //===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//

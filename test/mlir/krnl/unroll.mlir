@@ -62,11 +62,11 @@ func.func @unroll_with_block_get_iv(%arg0 : memref<8xf32>) {
   }
   return
 
-  // CHECK-DAG: #map = affine_map<(d0) -> (d0 + 1)>
+  // CHECK-DAG: [[MAP:#.+]] = affine_map<(d0) -> (d0 + 1)>
   // CHECK-LABEL: unroll_with_block_get_iv
   // CHECK:       affine.for [[IV:%.+]] = 0 to 8 step 2 {
   // CHECK-NEXT:    [[FOO_UNROLL_0:%.+]] = arith.addi [[IV]], [[IV]] : index
-  // CHECK-NEXT:    [[IV_PLUS_1:%.+]] = affine.apply #map([[IV]])
+  // CHECK-NEXT:    [[IV_PLUS_1:%.+]] = affine.apply [[MAP]]([[IV]])
   // CHECK-NEXT:    [[FOO_UNROLL_1:%.+]] = arith.addi [[IV]], [[IV_PLUS_1]] : index
   // CHECK-NEXT:  }
 }
@@ -89,7 +89,7 @@ func.func @unroll_with_block_and_permute() {
   }
   return
 
-  // CHECK-DAG: #map0 = affine_map<(d0) -> (d0)>
+  // CHECK-DAG: #map = affine_map<(d0) -> (d0)>
   // CHECK-DAG: #map1 = affine_map<(d0) -> (d0 + 5)>
   // CHECK-DAG: #map2 = affine_map<(d0) -> (d0 + 1)>
   // CHECK-DAG: #map3 = affine_map<(d0) -> (d0 + 2)>
@@ -97,7 +97,7 @@ func.func @unroll_with_block_and_permute() {
   // CHECK-LABEL:  unroll_with_block_and_permute
   // CHECK:        affine.for [[I_0_:%.+]] = 0 to 10 step 5 {
   // CHECK:          affine.for [[I_1_:%.+]] = 0 to 20 step 4 {
-  // CHECK:            affine.for [[I_2_:%.+]] = #map0([[I_0_]]) to #map1([[I_0_]]) {
+  // CHECK:            affine.for [[I_2_:%.+]] = #map([[I_0_]]) to #map1([[I_0_]]) {
   // CHECK-NEXT:         [[VAR_0_:%.+]] = arith.addi [[I_2_]], [[I_1_]] : index
   // CHECK-NEXT:         [[VAR_1_:%.+]] = arith.addi [[I_0_]], [[I_1_]] : index
   // CHECK-NEXT:         [[VAR_2_:%.+]] = affine.apply #map2([[I_1_]])

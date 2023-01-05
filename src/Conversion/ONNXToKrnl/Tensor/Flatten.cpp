@@ -32,7 +32,7 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
 
   SmallVector<Value, 2> allocOperands;
   // Compute size for the first dimension when not constant
-  if (memRefType.getShape()[0] == -1) {
+  if (memRefType.isDynamicDim(0)) {
     Value dimVal = create.math.constantIndex(1);
     for (int64_t i = 0; i < axisValue; i++)
       dimVal = create.math.mul(dimVal, create.mem.dim(input, i));
@@ -40,7 +40,7 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
   }
 
   // Compute size for the second dimension when not constant
-  if (memRefType.getShape()[1] == -1) {
+  if (memRefType.isDynamicDim(1)) {
     Value dimVal = create.math.constantIndex(1);
     for (int64_t i = axisValue; i < inputRank; i++)
       dimVal = create.math.mul(dimVal, create.mem.dim(input, i));

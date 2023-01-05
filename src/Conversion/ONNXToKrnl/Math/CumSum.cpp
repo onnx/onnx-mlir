@@ -4,7 +4,7 @@
 
 //===-------------- CumSum.cpp - Lowering CumSum Ops ----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,7 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -61,7 +61,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
       : ConversionPattern(
             typeConverter, ONNXCumSumOp::getOperationName(), 1, ctx) {}
 
-  /// We use a paralel algorithm for cumsum [1] as follows:
+  /// We use a parallel algorithm for cumsum [1] as follows:
   /// Assume that input is x whose shape in [n,m], and axis for cumsum is 0.
   /// We double-buffer the output to avoid intermediate result being overwritten
   /// by multiple threads.
@@ -77,7 +77,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
   ///   buf = y
   /// ```
   ///
-  /// Blelloch algorithm [2] is more work-efficent. However, it is not
+  /// Blelloch algorithm [2] is more work-efficient. However, it is not
   /// affine-friendly, because the inner bounds depend on the outer bounds.
   ///
   /// [1] Hillis, W. Daniel, and Guy L. Steele, Jr. 1986. "Data Parallel
@@ -94,8 +94,9 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
 
     // Builder helper.
     IndexExprScope mainScope(&rewriter, loc);
-    KrnlBuilder createKrnl(rewriter, loc);
-    MathBuilder createMath(createKrnl);
+
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, IndexExprBuilderForKrnl>
+        create(rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -114,15 +115,13 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     bool exclusive = csOp.exclusive() == 1;
     bool reverse = csOp.reverse() == 1;
 
-    MemRefBoundsIndexCapture xBounds(X);
-    uint64_t rank = xBounds.getRank();
+    DimsExpr xDims;
+    uint64_t rank = create.krnlIE.getShapedTypeRank(X);
+    create.krnlIE.getShapeAsDims(X, xDims);
     LiteralIndexExpr zeroIE(0);
 
     // Read axis.
-    ArrayValueIndexCapture axisCapture(axis,
-        getDenseElementAttributeFromConstantValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    IndexExpr axisIE(axisCapture.getSymbol(0));
+    IndexExpr axisIE = create.krnlIE.getIntFromArrayAsSymbol(axis, 0);
     if (axisIE.isUndefined())
       return op->emitError("axis parameter could not be processed");
     axisIE = axisIE.selectOrSelf(axisIE < 0, axisIE + LiteralIndexExpr(rank));
@@ -143,20 +142,20 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     // Get the size of dimension 'axis'.
     IndexExpr axisSize = LiteralIndexExpr(-1);
     for (uint64_t i = 0; i < rank; ++i)
-      axisSize = IndexExpr::select(axisIE == i, xBounds.getDim(i), axisSize);
+      axisSize = IndexExpr::select(axisIE == i, xDims[i], axisSize);
 
     // Compute log2(n), the number of steps.
     IndexExpr numberOfStep;
     if (axisSize.isLiteral()) {
       int64_t n = axisSize.getLiteral();
-      int64_t logn = (int64_t)std::ceil(std::log2(n));
-      numberOfStep = LiteralIndexExpr(logn);
+      int64_t logN = (int64_t)std::ceil(std::log2(n));
+      numberOfStep = LiteralIndexExpr(logN);
     } else {
-      Value nos = createMath.cast(f32Ty, axisSize.getValue());
+      Value nos = create.math.cast(f32Ty, axisSize.getValue());
       // Use this when math::CeilOp is available in MLIR.
-      // nos = createMath.ceil(createMath.log2(nos));
-      nos = createMath.log2(nos);
-      nos = createMath.cast(i64Ty, nos);
+      // nos = create.math.ceil(create.math.log2(nos));
+      nos = create.math.log2(nos);
+      nos = create.math.cast(i64Ty, nos);
       // Use this when math::CeilOp is available in MLIR.
       // numberOfStep = SymbolIndexExpr(nos);
       numberOfStep = SymbolIndexExpr(nos) + LiteralIndexExpr(1);
@@ -165,15 +164,16 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     // Input and output have the same shape, so they share the bounds.
     SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
     SmallVector<IndexExpr, 4> ubs;
-    xBounds.getDimList(ubs);
+    create.krnlIE.getShapeAsDims(X, ubs);
 
     // Initialize the temporary buffer: copy values from the input.
-    ValueRange initLoopDef = createKrnl.defineLoops(rank);
-    createKrnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange initLoopInd) {
+    ValueRange initLoopDef = create.krnl.defineLoops(rank);
+    create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
+        [&](KrnlBuilder &ck, ValueRange initLoopInd) {
+          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
           if (!exclusive) {
-            Value x = createKrnl.load(X, initLoopInd);
-            createKrnl.store(x, bufMemRef, initLoopInd);
+            Value x = create.krnl.load(X, initLoopInd);
+            create.krnl.store(x, bufMemRef, initLoopInd);
           } else {
             // Exclusive mode is equivalent to shifting all elements right (left
             // if reversed) and set the first element (the last element if
@@ -185,32 +185,31 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
             //   new_input = [0, 2, 3]
             // or
             //   new_input = [3, 4, 0] if reversed.
-            MathBuilder createMath(createKrnl);
             Value axis = axisIE.getValue();
 
             // Load input[i - 1,k] or get zero.
             SmallVector<Value, 4> loopInd;
-            Value offsetOne = createMath.constant(indexTy, 1);
-            Value shiftOrSet0 = getLoopIndexByAxisAndOffset(createMath, loopInd,
-                initLoopInd, ubs, axis, offsetOne, reverse);
-            Value res = createKrnl.load(X, loopInd);
-            Value zeroVal = createMath.constant(elementType, 0);
-            res = createMath.select(shiftOrSet0, res, zeroVal);
-            createKrnl.store(res, bufMemRef, initLoopInd);
+            Value offsetOne = create.math.constant(indexTy, 1);
+            Value shiftOrSet0 = getLoopIndexByAxisAndOffset(create.math,
+                loopInd, initLoopInd, ubs, axis, offsetOne, reverse);
+            Value res = create.krnl.load(X, loopInd);
+            Value zeroVal = create.math.constant(elementType, 0);
+            res = create.math.select(shiftOrSet0, res, zeroVal);
+            create.krnl.store(res, bufMemRef, initLoopInd);
           }
         });
 
     // Outer loop iterates over the number of steps.
-    ValueRange stepLoopDef = createKrnl.defineLoops(1);
-    createKrnl.iterateIE(stepLoopDef, stepLoopDef, {zeroIE}, {numberOfStep},
-        [&](KrnlBuilder &createKrnl, ValueRange stepLoopInd) {
-          MathBuilder createMath(createKrnl);
+    ValueRange stepLoopDef = create.krnl.defineLoops(1);
+    create.krnl.iterateIE(stepLoopDef, stepLoopDef, {zeroIE}, {numberOfStep},
+        [&](KrnlBuilder &ck, ValueRange stepLoopInd) {
+          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
 
           // Compute index offset: offset = 2^step.
           Value step = stepLoopInd[0];
-          step = createMath.cast(f32Ty, step);
-          Value offset = createMath.exp2(step);
-          offset = createMath.castToIndex(offset);
+          step = create.math.cast(f32Ty, step);
+          Value offset = create.math.exp2(step);
+          offset = create.math.castToIndex(offset);
 
           // Inner loop iterates over the output to compute sums.
           //   for i range(n):
@@ -219,29 +218,29 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
           //         y[i,k] = buf[i - 2^step,k] + buf[i,k]
           //       else:
           //         y[i,k] = buf[i,k]
-          ValueRange sumLoopDef = createKrnl.defineLoops(rank);
-          createKrnl.iterateIE(sumLoopDef, sumLoopDef, lbs, ubs,
-              [&](KrnlBuilder &createKrnl, ValueRange sumLoopInd) {
-                IndexExprScope ieScope(createKrnl);
-                MathBuilder createMath(createKrnl);
+          ValueRange sumLoopDef = create.krnl.defineLoops(rank);
+          create.krnl.iterateIE(sumLoopDef, sumLoopDef, lbs, ubs,
+              [&](KrnlBuilder &ck, ValueRange sumLoopInd) {
+                IndexExprScope ieScope(ck);
+                MultiDialectBuilder<KrnlBuilder, MathBuilder> create(ck);
                 Value axis = axisIE.getValue();
                 // Load buf[i,k].
-                Value b1 = createKrnl.load(bufMemRef, sumLoopInd);
+                Value b1 = create.krnl.load(bufMemRef, sumLoopInd);
                 // Load buf[i - 2^step,k].
                 SmallVector<Value, 4> loopInd;
-                Value shouldUpdate = getLoopIndexByAxisAndOffset(createMath,
+                Value shouldUpdate = getLoopIndexByAxisAndOffset(create.math,
                     loopInd, sumLoopInd, ubs, axis, offset, reverse);
-                Value b2 = createKrnl.load(bufMemRef, loopInd);
-                Value zeroVal = createMath.constant(elementType, 0);
-                Value addOrZero = createMath.select(shouldUpdate, b2, zeroVal);
-                Value res = createMath.add(b1, addOrZero);
-                createKrnl.store(res, resMemRef, sumLoopInd);
+                Value b2 = create.krnl.load(bufMemRef, loopInd);
+                Value zeroVal = create.math.constant(elementType, 0);
+                Value addOrZero = create.math.select(shouldUpdate, b2, zeroVal);
+                Value res = create.math.add(b1, addOrZero);
+                create.krnl.store(res, resMemRef, sumLoopInd);
               });
 
           // Reset the temporary buffer to the latest output.
           // buf = y
-          ValueRange bufLoopDef = createKrnl.defineLoops(rank);
-          createKrnl.iterateIE(bufLoopDef, bufLoopDef, lbs, ubs,
+          ValueRange bufLoopDef = create.krnl.defineLoops(rank);
+          create.krnl.iterateIE(bufLoopDef, bufLoopDef, lbs, ubs,
               [&](KrnlBuilder &createKrnl, ValueRange bufLoopInd) {
                 Value x = createKrnl.load(resMemRef, bufLoopInd);
                 createKrnl.store(x, bufMemRef, bufLoopInd);

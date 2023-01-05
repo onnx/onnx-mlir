@@ -13,11 +13,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -506,16 +511,11 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
 void KrnlInstrumentOp::build(mlir::OpBuilder &builder, OperationState &state,
     Operation *op, int tag = 0) {
   const char *opName = op->getName().getStringRef().data();
-  int64_t opID = 0;
-  // getName() result is "onnx.opName"
-  // Put only the opName part in the opID within its size
-  strncpy((char *)&opID, opName + 5, sizeof(decltype(opID)) - 1);
-  IntegerAttr attr = builder.getI64IntegerAttr(opID);
-  auto tagAttr = builder.getI64IntegerAttr(tag);
-  StringAttr nameAttr = builder.getStringAttr(StringRef(opName));
-  state.addAttribute("opName", nameAttr);
-  state.addAttribute("opID", attr);
-  state.addAttribute("tag", tagAttr);
+  StringAttr opNameAttr = builder.getStringAttr(StringRef(opName));
+  IntegerAttr tagAttr = builder.getI64IntegerAttr(tag);
+  StringAttr nodeNameAttr =
+      op->getAttrOfType<::mlir::StringAttr>("onnx_node_name");
+  build(builder, state, opNameAttr, tagAttr, nodeNameAttr);
 }
 
 //===----------------------------------------------------------------------===//
@@ -792,12 +792,12 @@ void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
 
 LogicalResult KrnlCopyToBufferOp::verify() {
   KrnlCopyToBufferOpAdaptor opAdaptor = KrnlCopyToBufferOpAdaptor(*this);
-  MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
-  MemRefBoundsIndexCapture srcCapture(opAdaptor.source());
-  int64_t bufferRank = buffCapture.getRank();
-  int64_t srcRank = srcCapture.getRank();
+  IndexExprBuilderForAnalysis createIE(getLoc());
+  SmallVector<IndexExpr, 4> buff, source;
+  int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.buffer());
+  int64_t srcRank = createIE.getShapedTypeRank(opAdaptor.source());
   int64_t startRank = opAdaptor.starts().size();
-  if (!buffCapture.areAllLiteral())
+  if (!createIE.isLiteralShape(opAdaptor.buffer()))
     return emitOpError("buffer expect constant dimensions");
   if (srcRank < bufferRank)
     return emitOpError("Rank of memref cannot be smaller than buffer");
@@ -847,12 +847,12 @@ void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
 
 LogicalResult KrnlCopyFromBufferOp::verify() {
   KrnlCopyFromBufferOpAdaptor opAdaptor = KrnlCopyFromBufferOpAdaptor(*this);
-  MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
-  int64_t bufferRank = buffCapture.getRank();
+  IndexExprBuilderForAnalysis createIE(getLoc());
+  int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.buffer());
   int64_t destRank =
       opAdaptor.dest().getType().cast<MemRefType>().getShape().size();
   int64_t startRank = opAdaptor.starts().size();
-  if (!buffCapture.areAllLiteral())
+  if (!createIE.isLiteralShape(opAdaptor.buffer()))
     return emitOpError("buffer expect constant dimensions");
   if (destRank < bufferRank)
     return emitOpError("Rank of memref cannot be smaller than buffer");
@@ -879,12 +879,37 @@ void KrnlSeqExtractOp::getEffects(
 
 Optional<Operation *> KrnlSeqExtractOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
-  auto loc = alloc.getLoc();
+  Location loc = alloc.getLoc();
   MultiDialectBuilder<MemRefBuilder> create(builder, loc);
   return create.mem.dealloc(alloc).getOperation();
 }
 
 Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
+  return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
+      .getResult();
+}
+
+void KrnlSeqAllocOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  for (auto v : length()) {
+    effects.emplace_back(
+        MemoryEffects::Read::get(), v, SideEffects::DefaultResource::get());
+  }
+  effects.emplace_back(MemoryEffects::Write::get(), output(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Allocate::get(), output(),
+      SideEffects::DefaultResource::get());
+}
+
+Optional<Operation *> KrnlSeqAllocOp::buildDealloc(
+    OpBuilder &builder, Value alloc) {
+  Location loc = alloc.getLoc();
+  // MultiDialectBuilder<KrnlBuilder> create(builder, loc);
+  return builder.create<KrnlSeqDeallocOp>(loc, alloc).getOperation();
+}
+
+Optional<Value> KrnlSeqAllocOp::buildClone(OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }

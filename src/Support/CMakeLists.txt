@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_onnx_mlir_library(Diagnostic
+add_onnx_mlir_library(OMDiagnostic
   Diagnostic.cpp
 
   INCLUDE_DIRS PUBLIC
@@ -21,6 +21,7 @@ add_onnx_mlir_library(OMSupport
   )
 
 add_onnx_mlir_library(OMMlirUtilities
+  FloatingPoint16.cpp
   TypeUtilities.cpp
   # Expect to have other utilities for Attribute and Value in the future.
   # AttributeUtilities.cpp

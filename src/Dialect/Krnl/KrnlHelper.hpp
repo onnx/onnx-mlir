@@ -85,15 +85,8 @@ private:
   mlir::Builder &builder;
 };
 
-// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr lambda
-// type, using ONNX and Krnl operations.
 mlir::DenseElementsAttr getDenseElementAttributeFromKrnlValue(
     mlir::Value value);
-
-// This function satisfies the ArrayValueIndexCapture::LoadVal lambda
-// type, using Krnl operations.
-mlir::Value loadDenseElementArrayValueAtIndex(mlir::OpBuilder &rewriter,
-    mlir::Location loc, mlir::Value array, int64_t index);
 
 //====---------------- Support for simple transpose ----------------------===//
 

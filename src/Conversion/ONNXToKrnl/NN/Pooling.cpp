@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -205,15 +205,13 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     PoolOpAdaptor operandAdaptor(operands);
     Location loc = op->getLoc();
     PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
+        create(rewriter, loc);
 
     // Get shape.
-    PoolOpShapeHelper shapeHelper(&poolOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    PoolOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Read ceil_mode attribute
     auto ceilMode = poolOp.ceil_mode();
@@ -243,7 +241,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
     // input = Pool(output)
     //
@@ -309,7 +307,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //         postProcessPoolingWindow(...)
     //
     // Helper functions:
-    //   getIdentityValue(): to return the indentity value
+    //   getIdentityValue(): to return the identity value
     //     - negative infinity for MaxPool
     //     - 0 for AveragePool
     //   emitScalarOpFor(): to do primitive computation for Pooling, e.g.
@@ -335,14 +333,16 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //   for c in range(C):
     //     for ho in range(HO):
     //       for wo in range(WO):
-    KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange calcLoopDef = createKrnl.defineLoops(outputShape.size());
+    ValueRange calcLoopDef = create.krnl.defineLoops(outputShape.size());
     SmallVector<IndexExpr, 4> lbs(outputShape.size(), LiteralIndexExpr(0));
-    MemRefBoundsIndexCapture allocBounds(alloc);
     SmallVector<IndexExpr, 4> ubs;
-    allocBounds.getDimList(ubs);
-    createKrnl.iterateIE(calcLoopDef, calcLoopDef, lbs, ubs,
+    create.krnlIE.getShapeAsDims(alloc, ubs);
+    create.krnl.iterateIE(calcLoopDef, calcLoopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+              MemRefBuilder, MathBuilder>
+              create(createKrnl);
+
           // 2. Emit the body of the output loop nest, which applies a pooling
           // window to a region in the input, producing one output pixel.
           SmallVector<IndexExpr, 4> outputIndices;
@@ -350,7 +350,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             outputIndices.emplace_back(DimIndexExpr(loopInd[i]));
 
           // 2.1 Emit: output[n][c][ho][wo] = identity
-          createKrnl.store(identity, reductionVal);
+          create.krnl.store(identity, reductionVal);
 
           // 2.2 Emit affine maps which express the lower and upper bounds for
           // the pooling window's dimensions. The pooling window can be
@@ -364,25 +364,22 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
           // Prepare induction variables.
           SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
-          {
-            MemRefBoundsIndexCapture inputBounds(inputOperand);
-            for (int i = 0; i < kernelShapeSize; ++i) {
-              int j = i + kernelOffset;
-              SmallVector<IndexExpr, 4> ic;
-              // d0, output
-              ic.emplace_back(outputIndices[j]);
-              // s0, input dim
-              ic.emplace_back(inputBounds.getDim(j));
-              // s1, kernel dim
-              ic.emplace_back(SymbolIndexExpr(shapeHelper.kernelShape[i]));
-              // s2, pad dim
-              ic.emplace_back(SymbolIndexExpr(shapeHelper.pads[i]));
-              // s3, stride dim
-              ic.emplace_back(LiteralIndexExpr(shapeHelper.strides[i]));
-              // s4, dilation dim
-              ic.emplace_back(LiteralIndexExpr(shapeHelper.dilations[i]));
-              IVExprs.emplace_back(ic);
-            }
+          for (int i = 0; i < kernelShapeSize; ++i) {
+            int j = i + kernelOffset;
+            SmallVector<IndexExpr, 4> ic;
+            // d0, output
+            ic.emplace_back(outputIndices[j]);
+            // s0, input dim
+            ic.emplace_back(create.krnlIE.getShapeAsDim(inputOperand, j));
+            // s1, kernel dim
+            ic.emplace_back(SymbolIndexExpr(shapeHelper.kernelShape[i]));
+            // s2, pad dim
+            ic.emplace_back(SymbolIndexExpr(shapeHelper.pads[i]));
+            // s3, stride dim
+            ic.emplace_back(LiteralIndexExpr(shapeHelper.strides[i]));
+            // s4, dilation dim
+            ic.emplace_back(LiteralIndexExpr(shapeHelper.dilations[i]));
+            IVExprs.emplace_back(ic);
           }
 
           // Compute the start and end position of the conv window.
@@ -429,6 +426,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
           //      output[n][c][ho][wo] =
           //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi,
           //        wi]);
+
+          // Old style krnl loop generation, do not reuse this pattern.
           std::vector<Value> poolingLoops;
           defineLoops(rewriter, loc, poolingLoops, kernelShapeSize);
           krnl::KrnlIterateOperandPack pack(rewriter, poolingLoops);
@@ -444,7 +443,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             pack.pushConstantBound(0);
             pack.pushAffineMapBound(windowSizeMap, operands);
           }
-          KrnlIterateOp iterateOp = createKrnl.iterate(pack);
+          KrnlIterateOp iterateOp = create.krnl.iterate(pack);
           auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
           Block &iterationBlock = iterateOp.bodyRegion().front();
           rewriter.setInsertionPointToStart(&iterationBlock);
@@ -478,15 +477,15 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             //      output[n][c][ho][wo] =
             //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi,
             //        wi]);
-            Value loadInput = createKrnl.loadIE(inputOperand, inputIndices);
-            Value loadPartialOutput = createKrnl.load(reductionVal);
+            Value loadInput = create.krnl.loadIE(inputOperand, inputIndices);
+            Value loadPartialOutput = create.krnl.load(reductionVal);
             Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
                 outputElementType, {loadPartialOutput, loadInput});
-            createKrnl.store(output, reductionVal);
+            create.krnl.store(output, reductionVal);
           }
           rewriter.restoreInsertionPoint(ipOuterLoopRegion);
           Value output = createKrnl.load(reductionVal);
-          createKrnl.storeIE(output, alloc, outputIndices);
+          create.krnl.storeIE(output, alloc, outputIndices);
 
           // 2.5 Post-processing for the pooling window, e.g. taking average.
           SmallVector<Value, 4> outputIndicesInValue;

@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -26,12 +26,12 @@ struct ONNXTopKOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ONNXTopKOp topkOp = llvm::dyn_cast<ONNXTopKOp>(op);
-    ONNXTopKOpAdaptor operandAdaptor(operands);
+    ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     Value X = operandAdaptor.X();
 
     // Builders.
-    KrnlBuilder createKrnl(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -44,23 +44,20 @@ struct ONNXTopKOpLowering : public ConversionPattern {
 
     // Op's Attributes.
     int64_t rank = resMemRefType.getRank();
-    int64_t axis = topkOp.axis();
+    int64_t axis = operandAdaptor.axis();
     axis = axis < 0 ? axis + rank : axis;
     assert(axis >= 0 && axis < rank && "axis is out of bound");
-    bool ascendingMode = topkOp.largest() != 1;
-    // Accoring to ONNX TopK: 'If "sorted" is 0, order of returned 'Values' and
+    bool ascendingMode = operandAdaptor.largest() != 1;
+    // According to ONNX TopK: 'If "sorted" is 0, order of returned 'Values' and
     // 'Indices' are undefined'.
     // In this case, we still return sorted values and indices to make them
     // deterministic. So this attribute is not used.
-    // bool sortedMode = topkOp.sorted() == 1;
+    // bool sortedMode = TopKOp.sorted() == 1;
 
     // Compute the output's dimension sizes.
-    ONNXTopKOpShapeHelper shapeHelper(&topkOp, &rewriter,
-        getDenseElementAttributeFromConstantValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapeComputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
-    auto resDims = shapeHelper.dimsForOutput();
+    ONNXTopKOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    DimsExpr resDims = shapeHelper.getOutputDims();
 
     // Insert an allocation and deallocation for the results of this operation.
     bool insertDealloc = checkInsertDealloc(op, /*resultIndex=*/0);
@@ -71,16 +68,16 @@ struct ONNXTopKOpLowering : public ConversionPattern {
         MemRefType::get(resMemRefType.getShape(), i64Type), loc, resDims,
         insertDealloc);
 
-    // Compute argsort of X along axis.
-    Value argsort =
-        emitArgSort(rewriter, loc, X, axis, /*ascending=*/ascendingMode);
+    // Compute argSort of X along axis.
+    Value argSort = emitArgSort(rewriter, loc, X, axis,
+        /*ascending=*/ascendingMode);
 
     // Produce the final result.
     SmallVector<IndexExpr> zeroDims(rank, LiteralIndexExpr(0));
-    ValueRange loopDef = createKrnl.defineLoops(rank);
-    createKrnl.iterateIE(loopDef, loopDef, zeroDims, resDims,
+    ValueRange loopDef = create.krnl.defineLoops(rank);
+    create.krnl.iterateIE(loopDef, loopDef, zeroDims, resDims,
         [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {
-          Value resInd = createKrnl.load(argsort, resLoopInd);
+          Value resInd = createKrnl.load(argSort, resLoopInd);
           SmallVector<Value> resIndexLoopInd(resLoopInd);
           resIndexLoopInd[axis] = resInd;
           // Store value.

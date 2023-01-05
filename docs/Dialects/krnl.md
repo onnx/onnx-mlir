@@ -362,9 +362,9 @@ given two arrays of int32_t values (G and V), which are used to represent a perf
 hash table for a dictionary, returns the index corresponding to the input value.
 The index returned is valid only if 'input' is in the dictionary described by G and V.
 
-Traits: MemRefsNormalizable
+Traits: AlwaysSpeculatableImplTrait, MemRefsNormalizable
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface)
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -450,9 +450,9 @@ Operation for holding global data values. A global constant can have a
 meaningful name recorded as its `name` attribute. Its content is stored
 in the `value` dense/opaque element attribute.
 
-Traits: MemRefsNormalizable
+Traits: AlwaysSpeculatableImplTrait, MemRefsNormalizable
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface)
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -484,8 +484,8 @@ May be used for gdb.
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 | `opName` | ::mlir::StringAttr | string attribute
-| `opID` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 | `tag` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+| `nodeName` | ::mlir::StringAttr | string attribute
 
 ### `krnl.isnan` (::mlir::KrnlIsNaNOp)
 
@@ -1037,18 +1037,73 @@ create a new memref inside the region and use it outside of the region.
 
 Traits: AffineScope, NoTerminator, SingleBlock
 
-### `krnl.seqextract` (::mlir::KrnlSeqExtractOp)
+### `krnl.seqalloc` (::mlir::KrnlSeqAllocOp)
 
-Krnl load from a seq
+Krnl create a sequence
 
-sequence is represented with memref<memref<>>.
-This op loads a tensor for the sequence 'seq' at position 'index',
-and return the tensor, which will be freed by Bufferization::Deallocation.
-The element in the sequence will become null.
+This op allocates a memref for a new sequence according to the input Type and length.
+The output is tagged with Allocate side effect, and a deallocation is defined for
+sequence. This deallocation will free all the elements in the sequence as well as 
+the sequence itself.
 
 Traits: MemRefsNormalizable
 
 Interfaces: AllocationOpInterface, MemoryEffectOpInterface
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `length` | index
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | memref of any type values
+
+### `krnl.seqdealloc` (::mlir::KrnlSeqDeallocOp)
+
+Krnl dealloc a sequence
+
+This op deallocate the elements in the sequence and the sequence itself
+with memref::dealloc. This Op is a deep dealloc for sequence type.
+
+Traits: MemRefsNormalizable
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input_sequence` | memref of any type values
+
+### `krnl.seqextract` (::mlir::KrnlSeqExtractOp)
+
+Krnl load from a sequence
+
+This op loads an element from the input sequence 'seq' at position 'index'.
+The loaded element is copied and then return.
+The position value is guaranteed to be positive. Negative position allowed
+by ONNX Op definition should be handled before lowered to KrnlSeqExtract.
+
+Attribute 'copy' provides an optimization for copying. 
+When the attribute 'copy' is 1 (default value): the extracted element is copied and then return. 
+When the attribute 'copy' is 0: the extracted element is directly returned
+without copy.
+
+The returned element is marked as allocated by this Op with the bufferation
+interface so that deallocation can be generated correctly through the 
+Bufferization::Deallocation pass.
+
+Traits: MemRefsNormalizable
+
+Interfaces: AllocationOpInterface, MemoryEffectOpInterface
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `copy` | ::mlir::IntegerAttr | 1-bit unsigned integer attribute
 
 #### Operands:
 
@@ -1067,12 +1122,12 @@ Interfaces: AllocationOpInterface, MemoryEffectOpInterface
 
 Krnl store into a seq
 
-sequence is represented with memref<memref<>>.
-This op will copy the tensor to be stored, and cast the type if needed.
-The motivation to introduce this Op is to help bufferization::deallocation
-The experiment showed that memref will be freed after the memref is stored.
-However, the store of memref only write out the pointer for the memref,
-and its memory cannot be freed.
+This op is similar to KrnSeqInsertOp but assumes that the input seq has
+the space for the new element and 
+only need to copy the element and store it into the sequence.
+There is no return of a new seq, different from KrnlSeqInsertOp.
+This Op is introduced to accumulate a dynamic tensor in a LoopOp with
+statically known iteration count.
 
 Traits: MemRefsNormalizable
 
@@ -1161,7 +1216,9 @@ Compute the length of a string.
 
 Krnl operation that computes the length of a string.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface)
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -1183,7 +1240,9 @@ Perform string comparison up to N bytes.
 
 Krnl operation that performs a string comparison up to N bytes.
 
-Interfaces: NoSideEffect (MemoryEffectOpInterface)
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -1277,9 +1336,9 @@ corresponding dimension for target memref type.
 %AV = vector_type_cast %A : memref<?x?xf32> to memref<?x?xvector<8xf32>>
 ```
 
-Traits: MemRefsNormalizable
+Traits: AlwaysSpeculatableImplTrait, MemRefsNormalizable
 
-Interfaces: CastOpInterface, NoSideEffect (MemoryEffectOpInterface), ViewLikeOpInterface
+Interfaces: CastOpInterface, ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ViewLikeOpInterface
 
 Effects: MemoryEffects::Effect{}
 

@@ -4,7 +4,7 @@
 
 //===----------------- Gemm.cpp - Lowering Gemm Op ------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2022
 //
 // =============================================================================
 //
@@ -15,7 +15,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -29,6 +29,7 @@ bool closeTo(float a, float b, int ulps = 2) {
          std::fabs(a - b) < std::numeric_limits<float>::min();
 }
 
+// ONNXGemmOp(A,B,C) is implemented using MHLO a * Dot(A(T), B(T)) + b * C;
 template <typename GemmOp>
 struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
   ONNXGemmOpLoweringToMhlo(MLIRContext *ctx)
@@ -132,9 +133,9 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
     ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
     ONNXGemmOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     Location loc = op->getLoc();
-    ONNXGemmOpShapeHelper shapeHelper(&gemmOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Shape helper version for analysis: does not generate code for lowering.
+    ONNXGemmOpShapeHelper shapeHelper(op, {});
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     ShapedType outpType = gemmOp.getType().dyn_cast<ShapedType>();
     if (outpType == nullptr)

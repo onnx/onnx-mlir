@@ -478,7 +478,7 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlGetRefOp firstGetRef, PatternRewriter &rewriter) const override {
-    auto loc = firstGetRef.getLoc();
+    Location loc = firstGetRef.getLoc();
     auto memRefType = firstGetRef.getResult().getType().dyn_cast<MemRefType>();
 
     // Only handle krnl.getref ops that return a constant shaped MemRef.
@@ -725,7 +725,7 @@ public:
 
   LogicalResult matchAndRewrite(
       memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
-    auto loc = allocOp.getLoc();
+    Location loc = allocOp.getLoc();
 
     auto memPoolType = allocOp.getResult().getType().dyn_cast<MemRefType>();
     auto memPoolShape = memPoolType.getShape();
@@ -784,9 +784,9 @@ public:
 
     // We need to emit a new alloc of smaller size.
     memref::AllocOp newStaticMemPool =
-        (allocOp.alignment().has_value())
+        (allocOp.getAlignment().has_value())
             ? create.mem.alignedAlloc(
-                  newStaticMemPoolType, allocOp.alignment().value())
+                  newStaticMemPoolType, allocOp.getAlignment().value())
             : create.mem.alloc(newStaticMemPoolType);
 
     newStaticMemPool.getOperation()->moveBefore(allocOp);

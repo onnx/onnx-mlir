@@ -18,9 +18,9 @@
 #include "mlir/IR/DialectResourceBlobManager.h"
 
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighShapeHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
@@ -37,22 +37,10 @@ extern bool ONNXToKrnl_gEmitDealloc;
 namespace onnx_mlir {
 namespace zhigh {
 
-/// A list of layouts associated with newly allocated MemRefs.
-/// When lowering an operation, its output Tensor (e.g.
-/// `tensor<1x3x5x7xf32, #zhigh.encoding<{dataLayout = "NHWC"}>>`) will be
-/// converted to a Memref (e.g. `memref<1x3x5x7xf16, #map>`), and we lost the
-/// layout `NHWC`. Thus, make sure to put the new MemRef and its associated
-/// layout into this map, so that we can obtain the layout for the MemRef later
-/// when lowering other ops.
-llvm::SmallMapVector<mlir::Value, mlir::StringAttr, 4> stickedLayouts;
-mlir::StringAttr readLayout(mlir::Value val) { return stickedLayouts[val]; }
-void storeLayout(mlir::Value val, mlir::StringAttr layout) {
-  stickedLayouts[val] = layout;
-}
 //===----------------------------------------------------------------------===//
 // Helper function of Zhigh to Zlow lowering
 // Insert an allocation and deallocation for the given dimensions and layout.
-// By default, set aligment to 4K.
+// By default, set alignment to 4K.
 //===----------------------------------------------------------------------===//
 
 Value insertAllocAndDeallocZMemRefByDim(ArrayRef<IndexExpr> dims,
@@ -77,7 +65,7 @@ Value insertAllocAndDeallocZMemRefByDim(ArrayRef<IndexExpr> dims,
 //===----------------------------------------------------------------------===//
 // Helper function of Zhigh to Zlow lowering
 // Insert an allocation and deallocation for the given ZMemRefType.
-// By default, set aligment to 4K.
+// By default, set alignment to 4K.
 //===----------------------------------------------------------------------===//
 
 Value insertAllocAndDeallocZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
@@ -91,8 +79,6 @@ Value insertAllocAndDeallocZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
       SmallVector<IndexExpr>(dims.begin(), dims.end()),
       /*insertDealloc*/ ONNXToKrnl_gEmitDealloc, alignment);
 
-  // Store the buffer's layout. Otherwise, we lost the layout.
-  storeLayout(alloc, zType.layout);
   return alloc;
 }
 
@@ -143,19 +129,20 @@ Value insertAllocAndDeallocZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
 ///
 /// timestep and batchsize are obtained from the LSTM/GRU input tensor.
 /// hidden_size is obtained from the LSTM/GRU initial hidden tensor.
-static Value insertAllocAndDeallocWorkAreaForRNNOps(PatternRewriter &rewriter,
-    Location loc, Value rnnInput, Value rnnHiddenWeight, unsigned numOfGates,
-    bool isDouble) {
+static Value insertAllocAndDeallocWorkAreaForRNNOps(
+    IndexExprBuilderForKrnl &createIE, PatternRewriter &rewriter, Location loc,
+    Value rnnInput, Value rnnHiddenWeight, unsigned numOfGates, bool isDouble) {
   Value alloc;
 
-  MemRefBoundsIndexCapture inputBounds(rnnInput);
-  MemRefBoundsIndexCapture hiddenWeightBounds(rnnHiddenWeight);
-  IndexExprScope scope(&rewriter, loc);
-  DimIndexExpr timestepExp(inputBounds.getDim(0));
+  SmallVector<IndexExpr, 4> inputDims, hiddenWeightDims;
+  createIE.getShapeAsDims(rnnInput, inputDims);
+  createIE.getShapeAsDims(rnnHiddenWeight, hiddenWeightDims);
+
+  IndexExpr timestepExp = inputDims[0];
   IndexExpr Lit2 = LiteralIndexExpr(2);
   IndexExpr NumOfGatesLit = LiteralIndexExpr(numOfGates);
-  DimIndexExpr dim1(hiddenWeightBounds.getDim(1));
-  DimIndexExpr dim2(inputBounds.getDim(1));
+  IndexExpr dim1 = hiddenWeightDims[1];
+  IndexExpr dim2 = inputDims[1];
   IndexExpr dim3 = LiteralIndexExpr(1);
   IndexExpr dim4 = NumOfGatesLit * timestepExp + NumOfGatesLit + Lit2;
 
@@ -198,9 +185,8 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
         RankedTensorType::get(shape, rewriter.getF32Type(),
             ZTensorEncodingAttr::get(op->getContext(), layout));
     ZMemRefType zMemRefType = convertZTensorToMemRefType(tensorType);
-    MemRefType resType =
-        normalizeMemRefType(zMemRefType.value.cast<MemRefType>(), rewriter,
-            /*numSymbolicOperands=*/0);
+    MemRefType resType = normalizeMemRefType(
+        zMemRefType.value.cast<MemRefType>(), /*numSymbolicOperands=*/0);
 
     // Create a ZHighStickifiedConstantOp.
     ZHighStickifiedConstantOp stickifiedConstant =
@@ -401,7 +387,8 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
         res64 = b.getAffineDimExpr(e1) % constExpr64;
       } else if (layout == ZTensorEncodingAttr::DataLayout::FICO) {
         // (e4, e3, e2, e1) -> (e4, 4*ceil(e1/4/64), e3, ceil(e2/32), 32, 64)
-        assert(shape[rank - 1] != -1 && (shape[rank - 1] % 4) == 0 &&
+        assert(!ShapedType::isDynamic(shape[rank - 1]) &&
+               (shape[rank - 1] % 4) == 0 &&
                "wrong concatenated dimension size");
         int64_t s = shape[rank - 1] / 4;
         // ((s + 64 - 1) / 64) * 64;
@@ -421,7 +408,7 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
           llvm_unreachable("Unsupported rank in ZDNN_FICO layout");
         }
         n = constExpr0;
-        // shape[0] is the direction dimmension for LSTM, and should be 1 or 2
+        // shape[0] is the direction dimension for LSTM, and should be 1 or 2
         assert((shape[0] == 1 || shape[0] == 2) &&
                "wrong direction dimension size");
         h = (((rank == 2) ? shape[0] : 1) *
@@ -487,11 +474,11 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
       MemRefType outType = MemRefType::get(shape, b.getF16Type());
       resZMemRefType.value =
           MemRefType::Builder(outType).setLayout(AffineMapAttr::get(smap));
-      resZMemRefType.layout = convertDataLayoutToStringAttr(b, layout);
-    } else {
+      resZMemRefType.layout = convertZTensorDataLayoutToStringAttr(b, layout);
+    } else { // Does not have tensorType.getEncoding().
       resZMemRefType.value = MemRefType::get(shape, elementType);
     }
-  } else {
+  } else { // Not type.isa<TensorType>().
     resZMemRefType.value = type.dyn_cast<MemRefType>();
   }
   return resZMemRefType;
@@ -510,13 +497,12 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
 
-    ZHighStickOp stickOp = llvm::dyn_cast<ZHighStickOp>(op);
     ZHighStickOpAdaptor operandAdaptor(operands);
     StringAttr layout = cast<ZHighStickOp>(op).layoutAttr();
 
-    ZHighStickOpShapeHelper shapeHelper(&stickOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighStickOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -524,7 +510,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Set pre-transformed layout: if NHWC, we can directly stickify from NCHW.
     if (isNHWCLayout(layout))
@@ -551,12 +537,11 @@ struct ZHighToZLowStickForLSTMOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighStickForLSTMOp stickOp = llvm::dyn_cast<ZHighStickForLSTMOp>(op);
     ZHighStickForLSTMOpAdaptor operandAdaptor(operands);
 
-    ZHighStickForLSTMOpShapeHelper shapeHelper(&stickOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighStickForLSTMOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -564,7 +549,7 @@ struct ZHighToZLowStickForLSTMOpLowering : public ConversionPattern {
 
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Emit a ZLow operation.
     rewriter.create<ZLowStickForLSTMOp>(loc, operandAdaptor.f_gate(),
@@ -589,12 +574,11 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighStickForGRUOp stickOp = llvm::dyn_cast<ZHighStickForGRUOp>(op);
     ZHighStickForGRUOpAdaptor operandAdaptor(operands);
 
-    ZHighStickForGRUOpShapeHelper shapeHelper(&stickOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighStickForGRUOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -602,7 +586,7 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
 
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Emit a ZLow operation.
     rewriter.create<ZLowStickForGRUOp>(loc, operandAdaptor.z_gate(),
@@ -626,14 +610,19 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
 
-    ZHighUnstickOp unstickOp = llvm::dyn_cast<ZHighUnstickOp>(op);
     ZHighUnstickOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.In();
-    StringAttr layout = readLayout(input);
 
-    ZHighUnstickOpShapeHelper shapeHelper(&unstickOp, &rewriter, layout);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Get layout attribute. Do not get it from the input in OpAdaptor since
+    // that input is the converted type, i.e. MemRefType. Get directly from
+    // Operation instead where the type is TensorType that has the layout
+    // encoding attribute.
+    StringAttr layout =
+        getZTensorLayoutAttr(rewriter, op->getOperand(0).getType());
+
+    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    ZHighUnstickOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -641,7 +630,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Set layout: if NHWC, we can directly unstickify to NCHW.
     if (isNHWCLayout(layout))
@@ -678,9 +667,8 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     // Normalize MemRefType to get a static shape.
     assert(zMemRefType.value.cast<MemRefType>().getNumDynamicDims() == 0 &&
            "MemRefType has dynamic dimensions");
-    MemRefType normalizedType =
-        normalizeMemRefType(zMemRefType.value.cast<MemRefType>(), rewriter,
-            /*numSymbolicOperands=*/0);
+    MemRefType normalizedType = normalizeMemRefType(
+        zMemRefType.value.cast<MemRefType>(), /*numSymbolicOperands=*/0);
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
     // Get dense resource attribute.
@@ -696,7 +684,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     int64_t memRefSizeInBytes = getMemRefEltSizeInBytes(normalizedType);
     memRefSizeInBytes *= normalizedType.getNumElements();
     assert((data.size() == (uint64_t)memRefSizeInBytes) &&
-           "The stickied tensor's buffer size and MemRef's size mismatched");
+           "The stickified tensor's buffer size and MemRef's size mismatched");
 
     // Create a KrnlGlobalOp.
     KrnlGlobalOp constantGlobal =
@@ -770,19 +758,26 @@ struct ZHighToZLowBinaryOpLowering : public ConversionPattern {
     Value inputA = operands[0];
     Value inputB = operands[1];
 
+    // Helper builders.
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
+
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
+    // Shape helper.
+    ZHighBinaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
     // Allocate a buffer for the result MemRef.
-    MemRefBoundsIndexCapture inputBounds(inputA);
-    IndexExprScope scope(&rewriter, loc);
-    SmallVector<IndexExpr, 4> dims;
-    inputBounds.getDimList(dims);
-    Value alloc = insertAllocAndDeallocZMemRef(zMemRefType, dims, op, rewriter);
+    Value alloc = insertAllocAndDeallocZMemRef(
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
+    SmallVector<IndexExpr, 4> dims;
+    create.krnlIE.getShapeAsDims(inputA, dims);
     Value shape = insertShapeMemRefI64(rewriter, loc, dims);
+
     rewriter.create<typename ZLowOpFor<OP_TYPE>::Op>(
         loc, inputA, inputB, shape, alloc, zMemRefType.layout);
     rewriter.replaceOp(op, alloc);
@@ -829,15 +824,19 @@ struct ZHighToZLowUnaryOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     Value input = operands[0];
 
+    // Helper builders.
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
+
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
+    // Shape helper.
+    ZHighUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    SmallVector<IndexExpr, 4> &dims = shapeHelper.getOutputDims();
+
     // Allocate a buffer for the result MemRef.
-    MemRefBoundsIndexCapture inputBounds(input);
-    IndexExprScope scope(&rewriter, loc);
-    SmallVector<IndexExpr, 4> dims;
-    inputBounds.getDimList(dims);
     Value alloc = insertAllocAndDeallocZMemRef(zMemRefType, dims, op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
@@ -865,15 +864,19 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
     ZHighSoftmaxOpAdaptor operandAdaptor(operands);
     Value input = operands[0];
 
+    // Helper builders.
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
+
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
+    // Shape helper.
+    ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    SmallVector<IndexExpr, 4> &dims = shapeHelper.getOutputDims();
+
     // Allocate a buffer for the result MemRef.
-    MemRefBoundsIndexCapture inputBounds(input);
-    IndexExprScope scope(&rewriter, loc);
-    SmallVector<IndexExpr, 4> dims;
-    inputBounds.getDimList(dims);
     Value alloc = insertAllocAndDeallocZMemRef(zMemRefType, dims, op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
@@ -907,23 +910,25 @@ struct ZHighToZLowMeanReduce2DOpLowering : public ConversionPattern {
     ZHighMeanReduce2DOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
 
+    // Helper builders.
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
+
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
-    // Allocate a buffer for the result MemRef.
-    MemRefBoundsIndexCapture inputBounds(input);
-    IndexExprScope scope(&rewriter, loc);
-    SmallVector<IndexExpr, 4> dims;
-    inputBounds.getDimList(dims);
+    // Compute shape.
+    ZHighMeanReduce2DOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Get the original shape before it is vanished by lower passes.
+    SmallVector<IndexExpr, 4> dims;
+    create.krnlIE.getShapeAsDims(input, dims);
     Value shape = insertShapeMemRefI64(rewriter, loc, dims);
 
-    // Input is NHWC, and H and W are reduction dimensions.
-    dims[1] = LiteralIndexExpr(1);
-    dims[2] = LiteralIndexExpr(1);
-    Value alloc = insertAllocAndDeallocZMemRef(zMemRefType, dims, op, rewriter);
+    // Allocate a buffer for the result MemRef.
+    Value alloc = insertAllocAndDeallocZMemRef(
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     rewriter.create<ZLowMeanReduce2DOp>(loc, input, shape, alloc);
     rewriter.replaceOp(op, alloc);
@@ -934,26 +939,24 @@ struct ZHighToZLowMeanReduce2DOpLowering : public ConversionPattern {
 //===----------------------------------------------------------------------===//
 // Lower ZHigh Pool2D to ZLow Pool2D
 //===----------------------------------------------------------------------===//
-template <typename ZHIGHPOOLOP, typename ZHIGHADAPTOR, typename ZLOWPOOLOP>
+template <typename ZHIGH_POOLOP, typename ZLOW_POOLOP>
 struct ZHighToZLowPool2DOpLowering : public ConversionPattern {
   ZHighToZLowPool2DOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, ZHIGHPOOLOP::getOperationName(), 1, ctx) {}
+            typeConverter, ZHIGH_POOLOP::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHIGHPOOLOP pool2dOp = llvm::dyn_cast<ZHIGHPOOLOP>(op);
-    ZHIGHADAPTOR operandAdaptor(operands);
+    auto pool2dOp = llvm::dyn_cast<ZHIGH_POOLOP>(op);
+    typename ZHIGH_POOLOP::Adaptor operandAdaptor(operands);
 
     // Helper builders.
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-    IndexExprScope scope(create.krnl);
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
 
-    // Infer shape.
-    ZHighPoolingOpShapeHelper<ZHIGHPOOLOP, ZHIGHADAPTOR> shapeHelper(
-        &pool2dOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Compute shape.
+    ZHighPoolingOpShapeHelper<ZHIGH_POOLOP> shapeHelper(
+        op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert type.
     ZMemRefType zMemRefType =
@@ -961,15 +964,15 @@ struct ZHighToZLowPool2DOpLowering : public ConversionPattern {
 
     // Allocate result buffers.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Create a buffer to store the original shape information.
     Value shapeMemRef =
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
     // Create a zLow op.
-    rewriter.create<ZLOWPOOLOP>(loc, operandAdaptor.input(), shapeMemRef, alloc,
-        pool2dOp.kernel_shapeAttr(), pool2dOp.stridesAttr(),
+    rewriter.create<ZLOW_POOLOP>(loc, operandAdaptor.input(), shapeMemRef,
+        alloc, pool2dOp.kernel_shapeAttr(), pool2dOp.stridesAttr(),
         pool2dOp.padding_typeAttr());
     rewriter.replaceOp(op, alloc);
     return success();
@@ -988,25 +991,24 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighMatMulOp matmulOp = llvm::dyn_cast<ZHighMatMulOp>(op);
     ZHighMatMulOpAdaptor operandAdaptor(operands);
 
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-    IndexExprScope scope(create.krnl);
+    // Helper builders.
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
 
-    ZHighMatMulOpShapeHelper shapeHelper(&matmulOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Compute shape.
+    ZHighMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
-    // Create a 1D MemRef containing necessary dimensions for construcing
+    // Create a 1D MemRef containing necessary dimensions for constructing
     // original shapes.
     // - In case of unstacked: X(m, n) * Y(n, p) + Bias(p)
     // shape is a 1D MemRef (memref<3xindex>) whose items are:
@@ -1027,17 +1029,17 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
     // Prepare optional bias.
     Value bias = operandAdaptor.B();
     if (bias.getType().isa<NoneType>()) {
-      MemRefBoundsIndexCapture resBounds(alloc);
-      SmallVector<IndexExpr, 2> biasDims;
+      SmallVector<IndexExpr, 4> resDims, biasDims;
+      create.krnlIE.getShapeAsDims(alloc, resDims);
       ZTensorEncodingAttr::DataLayout biasLayout;
       if (shapeHelper.isStacked) {
         // Bias type is 2DS.
-        biasDims.emplace_back(resBounds.getDim(0));
-        biasDims.emplace_back(resBounds.getDim(2));
+        biasDims.emplace_back(resDims[0]);
+        biasDims.emplace_back(resDims[2]);
         biasLayout = ZTensorEncodingAttr::DataLayout::_2DS;
       } else {
         // Bias type is 1D. Get the last dim size.
-        biasDims.emplace_back(resBounds.getDim(resBounds.getRank() - 1));
+        biasDims.emplace_back(resDims[resDims.size() - 1]);
         biasLayout = ZTensorEncodingAttr::DataLayout::_1D;
       }
       // Allocate bias.
@@ -1075,13 +1077,11 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
     ZHighLSTMOpAdaptor operandAdaptor(operands);
 
     // Helper builders.
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-    IndexExprScope scope(create.krnl);
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
 
-    // Infer shape.
-    ZHighLSTMOpShapeHelper shapeHelper(&lstmOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Compute shape.
+    ZHighLSTMOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert type.
     ZMemRefType hnZMemRefType =
@@ -1091,12 +1091,12 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
 
     // Allocate result buffers.
     Value allocHnOutput = insertAllocAndDeallocZMemRef(
-        hnZMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        hnZMemRefType, shapeHelper.getOutputDims(0), op, rewriter);
     Value allocCfOutput = insertAllocAndDeallocZMemRef(
-        cfZMemRefType, shapeHelper.dimsForOutput(1), op, rewriter);
+        cfZMemRefType, shapeHelper.getOutputDims(1), op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
-    // Create a 1D MemRef containing necessary dimensions for construcing
+    // Create a 1D MemRef containing necessary dimensions for constructing
     // original shapes.
     // shapeMemRef :: memref<5xindex>
     // - 1st item: direction
@@ -1132,8 +1132,8 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
     // Prepare work area. Double the area for the bidirectional mode.
     bool isDouble =
         lstmOp.directionAttr().getValue().equals_insensitive("bidirectional");
-    Value workArea = insertAllocAndDeallocWorkAreaForRNNOps(rewriter, loc,
-        operandAdaptor.input(), operandAdaptor.hidden_weights(),
+    Value workArea = insertAllocAndDeallocWorkAreaForRNNOps(create.krnlIE,
+        rewriter, loc, operandAdaptor.input(), operandAdaptor.hidden_weights(),
         /*numOfGates=*/4,
         /*isDouble=*/isDouble);
 
@@ -1163,13 +1163,11 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
     ZHighGRUOpAdaptor operandAdaptor(operands);
 
     // Helper builders.
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-    IndexExprScope scope(create.krnl);
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
 
-    // Infer shape.
-    ZHighGRUOpShapeHelper shapeHelper(&gruOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Compute shape.
+    ZHighGRUOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert type.
     ZMemRefType hnZMemRefType =
@@ -1177,10 +1175,10 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
 
     // Allocate result buffers.
     Value allocHnOutput = insertAllocAndDeallocZMemRef(
-        hnZMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        hnZMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
-    // Create a 1D MemRef containing necessary dimensions for construcing
+    // Create a 1D MemRef containing necessary dimensions for constructing
     // original shapes.
     // shapeMemRef :: memref<5xindex>
     // - 1st item: direction
@@ -1211,8 +1209,8 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
     // Prepare work area. Double the area for the bidirectional mode.
     bool isDouble =
         gruOp.directionAttr().getValue().equals_insensitive("bidirectional");
-    Value workArea = insertAllocAndDeallocWorkAreaForRNNOps(rewriter, loc,
-        operandAdaptor.input(), operandAdaptor.hidden_weights(),
+    Value workArea = insertAllocAndDeallocWorkAreaForRNNOps(create.krnlIE,
+        rewriter, loc, operandAdaptor.input(), operandAdaptor.hidden_weights(),
         /*numOfGates=*/3,
         /*isDouble=*/isDouble);
 
@@ -1241,13 +1239,11 @@ struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
     ZHighConv2DOpAdaptor operandAdaptor(operands);
 
     // Helper builders.
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-    IndexExprScope scope(create.krnl);
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
 
-    // Infer shape.
-    ZHighConv2DOpShapeHelper shapeHelper(&conv2dOp, &rewriter);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Compute shape.
+    ZHighConv2DOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert type.
     ZMemRefType zMemRefType =
@@ -1255,7 +1251,7 @@ struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
 
     // Allocate result buffers.
     Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(0), op, rewriter);
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Create a buffer to store the original shape information.
     Value shapeMemRef =
@@ -1292,17 +1288,20 @@ struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ZHighBatchNormOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
+
+    // Helper builders.
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
+    // Shape helper.
+    ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    SmallVector<IndexExpr, 4> &dims = shapeHelper.getOutputDims();
+
     // Allocate a buffer for the result MemRef.
-    MemRefBoundsIndexCapture inputBounds(input);
-    IndexExprScope scope(&rewriter, loc);
-    SmallVector<IndexExpr, 4> dims;
-    inputBounds.getDimList(dims);
     Value alloc = insertAllocAndDeallocZMemRef(zMemRefType, dims, op, rewriter);
 
     // Get the original shape before it is vanished by lower passes.
@@ -1310,76 +1309,6 @@ struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
 
     rewriter.create<ZLowBatchNormOp>(loc, operandAdaptor.input(),
         operandAdaptor.a(), operandAdaptor.b(), shape, alloc);
-    rewriter.replaceOp(op, alloc);
-    return success();
-  }
-};
-
-struct ZHighToZLowConcatOpLowering : public ConversionPattern {
-  ZHighToZLowConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ZHighConcatOp::getOperationName(), 1, ctx) {}
-
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-    // Gather info.
-    auto loc = op->getLoc();
-
-    ZHighConcatOpAdaptor operandAdaptor(operands);
-    ZHighConcatOp concatOp = llvm::cast<ZHighConcatOp>(op);
-    ZHighConcatOpShapeHelper shapeHelper(&concatOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    (void)shapecomputed;
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
-
-    auto axis = concatOp.axis();
-    unsigned int inputNum = operands.size();
-
-    // Convert ZTensor type to MemRefType.
-    ZMemRefType zMemRefType =
-        convertZTensorToMemRefType(*op->result_type_begin());
-
-    // Allocate a buffer for the result MemRef.
-    Value alloc = insertAllocAndDeallocZMemRef(
-        zMemRefType, shapeHelper.dimsForOutput(), op, rewriter);
-
-    unsigned int rank = zMemRefType.value.getRank();
-    MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
-
-    // Creates loops, one for each input.
-    KrnlBuilder createKrnl(rewriter, loc);
-    for (unsigned int i = 0; i < inputNum; ++i) {
-      OpBuilder::InsertionGuard insertGuard(rewriter);
-      // Create loop.
-      ValueRange loopDef = createKrnl.defineLoops(rank);
-      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
-      MemRefBoundsIndexCapture bounds(operands[i]);
-      SmallVector<IndexExpr, 4> ubs;
-      bounds.getDimList(ubs);
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-            // Indices for the read and write.
-            SmallVector<Value, 4> readIndices, writeIndices;
-            for (unsigned int r = 0; r < rank; ++r) {
-              if (r != axis || i == 0)
-                writeIndices.emplace_back(loopInd[r]);
-              else {
-                IndexExprScope IEScope(&rewriter, loc);
-                IndexExpr writeOffset = DimIndexExpr(loopInd[r]);
-                for (unsigned int j = 0; j < i; j++) {
-                  MemRefBoundsIndexCapture operandJBounds(operands[j]);
-                  writeOffset = writeOffset + operandJBounds.getDim(r);
-                }
-                writeIndices.emplace_back(writeOffset.getValue());
-              }
-            }
-            // Insert copy.
-            Value loadData = createKrnl.load(operands[i], loopInd);
-            createKrnl.store(loadData, alloc, writeIndices);
-          });
-    }
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -1411,11 +1340,12 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBatchNormOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowConv2DOpLowering>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowPool2DOpLowering<ZHighMaxPool2DOp,
-      ZHighMaxPool2DOpAdaptor, ZLowMaxPool2DOp>>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowPool2DOpLowering<ZHighAvgPool2DOp,
-      ZHighAvgPool2DOpAdaptor, ZLowAvgPool2DOp>>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowConcatOpLowering>(typeConverter, ctx);
+  patterns
+      .insert<ZHighToZLowPool2DOpLowering<ZHighMaxPool2DOp, ZLowMaxPool2DOp>>(
+          typeConverter, ctx);
+  patterns
+      .insert<ZHighToZLowPool2DOpLowering<ZHighAvgPool2DOp, ZLowAvgPool2DOp>>(
+          typeConverter, ctx);
 }
 
 } // namespace zhigh

@@ -80,10 +80,8 @@ add_onnx_mlir_executable(OMRuntimeTest
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PRIVATE
-  OnnxMlirCompiler
-  ExecutionSession
-  OMRuntimeTestModelLibrary
-  cruntime
+  OMCompiler
+  OMExecutionSession
   )
 
 
@@ -97,5 +95,5 @@ set_output_directory(OMRuntimeCppTest BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR} LIB
 add_test(NAME OMRuntimeCppTest COMMAND OMRuntimeCppTest WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 set_property(TARGET OMRuntimeCppTest PROPERTY FOLDER "Docs")
 set_tests_properties(OMRuntimeCppTest PROPERTIES LABELS doc-example)
-set_tests_properties(OMRuntimeCppTest PROPERTIES ENVIRONMENT "ONNX_MLIR_RUNTIME_DIR=${ONNX_MLIR_LIBRARY_PATH}")
+set_tests_properties(OMRuntimeCppTest PROPERTIES ENVIRONMENT "ONNX_MLIR_LIBRARY_PATH=${ONNX_MLIR_LIBRARY_PATH}")
 add_dependencies(doc-example OMRuntimeCppTest)

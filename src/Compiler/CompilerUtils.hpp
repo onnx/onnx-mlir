@@ -35,6 +35,7 @@
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -50,6 +51,10 @@
 #include "src/Version/Version.hpp"
 
 namespace onnx_mlir {
+
+std::string getVendorName();
+
+llvm::Optional<std::string> getEnvVar(std::string name);
 
 struct Command {
 
@@ -69,11 +74,12 @@ struct Command {
 
 void registerDialects(mlir::MLIRContext &context);
 
-// get Tool path
-std::string getToolPath(std::string tool);
+// Get Tool path, see comments in CompilerUtils.cpp for more details.
+std::string getToolPath(
+    const std::string &tool, const std::string &systemToolPath);
 
 // ProcessInput* return 0 on success, OnnxMlirCompilerErrorCodes on error.
-int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
+int processInputFile(llvm::StringRef inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module, std::string *errorMessage);
 int processInputArray(const void *onnxBuffer, int bufferSize,
     mlir::MLIRContext &context, mlir::OwningOpRef<mlir::ModuleOp> &module,
@@ -92,7 +98,7 @@ int outputCode(mlir::OwningOpRef<mlir::ModuleOp> &module,
 // libraries or jar files, the compiler will link in lightweight runtimes / jar
 // files. If these libraries / jar files are not in the system wide directory
 // (typically /usr/local/lib), the user can override the default location using
-// the ONNX_MLIR_RUNTIME_DIR environment variable.
+// the ONNX_MLIR_LIBRARY_PATH environment variable.
 // Returns 0 on success,OnnxMlirCompilerErrorCodes on failure.
 int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputNameNoExt,

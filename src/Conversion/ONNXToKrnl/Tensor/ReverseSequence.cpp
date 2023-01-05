@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------Gather.cpp - Lowering Gather Op----------------------=== //
+//===-------- ReverseSequence.cpp - Lowering ReverseSequence Op-----------=== //
 //
 // Copyright 2020-2022 The IBM Research Authors.
 //
@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -29,13 +29,12 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     ONNXReverseSequenceOpAdaptor operandAdaptor(operands);
     ONNXReverseSequenceOp reverseSequenceOp =
         llvm::cast<ONNXReverseSequenceOp>(op);
-    auto loc = op->getLoc();
-
-    ONNXReverseSequenceOpShapeHelper shapeHelper(&reverseSequenceOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    Location loc = op->getLoc();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+        create(rewriter, loc);
+    // Get shape.
+    ONNXReverseSequenceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -45,18 +44,17 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Save axis and rank info.
     int64_t batchAxis = reverseSequenceOp.batch_axis();
     int64_t timeAxis = reverseSequenceOp.time_axis();
 
-    MemRefBoundsIndexCapture dataBounds(operandAdaptor.input());
-    int64_t outputRank = shapeHelper.dimsForOutput().size();
+    int64_t outputRank = shapeHelper.getOutputDims().size();
     LiteralIndexExpr oneIE(1);
 
     /*
-      The semantic of Reversequence can be expressed in loop as:
+      The semantic of ReverseSequence can be expressed in loop as:
 
       for (vector of dim I on the shape of output tensor) {
         vector of dim Iinput = I;
@@ -92,12 +90,11 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     */
 
     // Define loops and iteration trip counts (equivalent to size of output)
-    KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange loopDef = createKrnl.defineLoops(outputRank);
+    ValueRange loopDef = create.krnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
-    createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
+    create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-          IndexExprScope innerLoopScope(&rewriter, shapeHelper.scope);
+          IndexExprScope innerLoopScope(&rewriter, shapeHelper.getScope());
 
           // compute the loop indices for the output
           SmallVector<IndexExpr, 4> outputAccessFct;

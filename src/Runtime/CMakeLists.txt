@@ -1,3 +1,4 @@
+
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(jni)
@@ -14,6 +15,7 @@ add_onnx_mlir_library(cruntime STATIC
   OMInstrument.c
   OMRandomNormal.c
   OMResize.c
+  OMSort.c
   OMTensor.c
   OMTensorList.c
   OnnxDataType.c
@@ -37,6 +39,7 @@ add_onnx_mlir_library(OMTensorUtils
   OMInstrument.cpp
   OMRandomNormal.cpp
   OMResize.cpp
+  OMSort.cpp
   OMTensor.cpp
   OMTensorList.cpp
   OnnxDataType.cpp
@@ -54,7 +57,7 @@ set_target_properties(OMTensorUtils
   POSITION_INDEPENDENT_CODE TRUE
   )
 
-add_onnx_mlir_library(ExecutionSession
+add_onnx_mlir_library(OMExecutionSession
   ExecutionSession.cpp
 
   EXCLUDE_FROM_OM_LIBS
@@ -63,11 +66,11 @@ add_onnx_mlir_library(ExecutionSession
   OMTensorUtils
   LLVMSupport
   )
-set_target_properties(ExecutionSession
+set_target_properties(OMExecutionSession
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
   )
-
+  
 # When running on ubi8 image, shared lib backend tests fail with
 # the following error:
 #
@@ -83,7 +86,7 @@ set_target_properties(ExecutionSession
 #   - onnx_cpp2py_export.cpython-39-s390x-linux-gnu.so
 #     (import onnx)
 #   - PyRuntime.cpython-39-s390x-linux-gnu.so
-#     (from PyRuntime import ExecutionSession)
+#     (from PyRuntime import OMExecutionSession)
 #
 # Both libs share the same libprotobuf.so when loaded by test.py.
 # However, they were both built with the same onnx-ml.pb.cc generated
@@ -97,6 +100,11 @@ set_target_properties(ExecutionSession
 # target_include_directories.
 pybind11_add_module(PyRuntime PyExecutionSession.cpp)
 add_dependencies(PyRuntime onnx_proto)
+target_compile_options(PyRuntime
+  PRIVATE
+  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
+  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
+  )
 target_compile_definitions(PyRuntime
   PRIVATE
   $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
@@ -107,10 +115,37 @@ target_include_directories(PyRuntime
   )
 target_link_libraries(PyRuntime
   PRIVATE
-  ExecutionSession
+  OMExecutionSession
   )
 llvm_update_compile_flags(PyRuntime)
 
 install(TARGETS PyRuntime
+  DESTINATION lib
+  )
+
+pybind11_add_module(PyCompileAndRuntime PyOMCompileExecutionSession.cpp)
+add_dependencies(PyCompileAndRuntime onnx_proto)
+target_compile_options(PyCompileAndRuntime
+  PRIVATE
+  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
+  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
+  )
+target_compile_definitions(PyCompileAndRuntime
+  PRIVATE
+  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
+  )
+target_include_directories(PyCompileAndRuntime
+  PRIVATE
+  ${ONNX_MLIR_SRC_ROOT}/include
+  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
+  )
+target_link_libraries(PyCompileAndRuntime
+  PRIVATE
+  OMCompiler
+  OMExecutionSession
+  )
+llvm_update_compile_flags(PyCompileAndRuntime)
+
+install(TARGETS PyCompileAndRuntime
   DESTINATION lib
   )

@@ -14,7 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Conversion/ONNXToKrnl/PerfectHash.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "llvm/ADT/SmallVector.h"
@@ -37,6 +37,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
   // When true causes injection of print stmts in the generated code.
   static const bool emitPrintStmts = false;
 
+  using LocalDialectBuilder =
+      MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>;
+
   ONNXCategoryMapperOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
             typeConverter, ONNXCategoryMapperOp::getOperationName(), 1, ctx) {}
@@ -45,16 +48,14 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     auto categoryMapperOp = cast<ONNXCategoryMapperOp>(op);
     ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
+    Location loc = op->getLoc();
+    LocalDialectBuilder create(rewriter, loc);
 
-    ONNXCategoryMapperOpShapeHelper shapeHelper(&categoryMapperOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
-    (void)shapeComputed;
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
+    // Get shape.
+    ONNXCategoryMapperOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Operands and attributes.
-    Location loc = categoryMapperOp.getLoc();
     Value X = operandAdaptor.X();
     ArrayAttr cats_int64sAttr = categoryMapperOp.cats_int64sAttr();
     ArrayAttr cats_stringsAttr = categoryMapperOp.cats_stringsAttr();
@@ -90,10 +91,7 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
-
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
-        rewriter, op->getLoc());
+        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
     // Generate a perfect hash table. The hash table will be used to lookup the
     // index of the input values.
@@ -133,11 +131,10 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
 
     // Lookup the index in the perfect hash table corresponding to
     // each input value.
-    MemRefBoundsIndexCapture inputBounds(X);
     LiteralIndexExpr zeroIE(0);
     SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
     SmallVector<IndexExpr, 4> ubs;
-    inputBounds.getDimList(ubs);
+    create.krnlIE.getShapeAsDims(X, ubs);
 
     if (emitPrintStmts)
       create.krnl.printTensor("Input tensor:\n", X);
@@ -194,7 +191,7 @@ private:
   PerfectHashTable createPerfectHashTable(DenseElementsAttr cats_int64s,
       DenseElementsAttr cats_strings, ArrayAttr cats_int64s_ArrayAttr,
       ArrayAttr cats_strings_ArrayAttr, Type elementType,
-      const MultiDialectBuilder<KrnlBuilder, MathBuilder> &create) const {
+      const LocalDialectBuilder &create) const {
     OpBuilder builder = create.krnl.getBuilder();
     PerfectHashTable res;
 
@@ -279,8 +276,7 @@ private:
   // valid or not.
   std::tuple<Value, Value> emitFindIndex(Value inputElem, Type elementType,
       const PerfectHashTable &pHash, Value constantForCatsInt64s,
-      Value constantForCatsStrings,
-      const MultiDialectBuilder<KrnlBuilder, MathBuilder> &create) const {
+      Value constantForCatsStrings, const LocalDialectBuilder &create) const {
     OpBuilder builder = create.krnl.getBuilder();
     Value index = create.krnl.findIndex(inputElem, pHash.G, pHash.V, pHash.len);
 

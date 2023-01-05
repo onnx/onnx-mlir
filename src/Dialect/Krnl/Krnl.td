@@ -30,6 +30,17 @@ def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
+  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
+  let dependentDialects = [
+    "AffineDialect",
+    "arith::ArithDialect",
+    "func::FuncDialect",
+    "linalg::LinalgDialect",
+    "math::MathDialect",
+    "memref::MemRefDialect",
+    "scf::SCFDialect",
+    "shape::ShapeDialect",
+  ];
 }
 
 def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
@@ -175,18 +186,66 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   }];
 }
 
+// ONNX sequence type (!onnx.Seq) is implemented with memref of memref.
+// When an element(tensor/memref) is stored into a sequence, it becomes
+// invisible to the bufferization analysis. When onnx-mlir invokes
+// bufferization::Deallocation pass to insert memref::dealloc, the element
+// may be freed. Therefore, element need to be copied when inserted into
+// a sequence. 'copy' here means to allocate a new memref and copy the content 
+// of the memref. The copy is a costly op to maintain the SSA requirement.
+// To reduce the overhead of copy, elements are not copied when
+// a new sequence is created from an exist sequence. However, when an element
+// is extracted from a sequence (krnl.seqextract), the element will be 
+// copied and return. This copy can be further avoided if the extraction is
+// the last reference (by extract or erase from any sequence) of this element.
+// ToDo: handle an element in multiple sequences with copy
+// ToDo: use the one-shot interface for space manangement.
+
+def KrnlSeqAllocOp : Op<Krnl_Dialect, "seqalloc", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
+  let summary = "Krnl create a sequence";
+  let description = [{
+    This op allocates a memref for a new sequence according to the input Type and length.
+    The output is tagged with Allocate side effect, and a deallocation is defined for
+    sequence. This deallocation will free all the elements in the sequence as well as 
+    the sequence itself.
+  }];
+  let arguments = (ins Variadic<Index>:$length);
+  let results = (outs AnyMemRef:$output);
+}
+
+def KrnlSeqDeallocOp : Op<Krnl_Dialect, "seqdealloc", [MemRefsNormalizable]> {
+  let summary = "Krnl dealloc a sequence";
+  let description = [{
+    This op deallocate the elements in the sequence and the sequence itself
+    with memref::dealloc. This Op is a deep dealloc for sequence type.
+  }];
+  let arguments = (ins AnyMemRef:$input_sequence);
+}
+
 def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
-  let summary = "Krnl load from a seq";
+  let summary = "Krnl load from a sequence";
   let description = [{
-    sequence is represented with memref<memref<>>.
-    This op loads a tensor for the sequence 'seq' at position 'index',
-    and return the tensor, which will be freed by Bufferization::Deallocation.
-    The element in the sequence will become null.
+    This op loads an element from the input sequence 'seq' at position 'index'.
+    The loaded element is copied and then return.
+    The position value is guaranteed to be positive. Negative position allowed
+    by ONNX Op definition should be handled before lowered to KrnlSeqExtract.
+
+    Attribute 'copy' provides an optimization for copying. 
+    When the attribute 'copy' is 1 (default value): the extracted element is copied and then return. 
+    When the attribute 'copy' is 0: the extracted element is directly returned
+    without copy.
+
+    The returned element is marked as allocated by this Op with the bufferation
+    interface so that deallocation can be generated correctly through the 
+    Bufferization::Deallocation pass.
   }];
   let arguments = (ins AnyMemRef:$seq,
-                       Index:$index);
+                       Index:$index,
+                       DefaultValuedAttr<UI1Attr, "1">:$copy);
 
   let results = (outs AnyType:$output);
 }
@@ -194,12 +253,12 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
 def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
   let summary = "Krnl store into a seq";
   let description = [{
-    sequence is represented with memref<memref<>>.
-    This op will copy the tensor to be stored, and cast the type if needed.
-    The motivation to introduce this Op is to help bufferization::deallocation
-    The experiment showed that memref will be freed after the memref is stored.
-    However, the store of memref only write out the pointer for the memref,
-    and its memory cannot be freed.
+    This op is similar to KrnSeqInsertOp but assumes that the input seq has
+    the space for the new element and 
+    only need to copy the element and store it into the sequence.
+    There is no return of a new seq, different from KrnlSeqInsertOp.
+    This Op is introduced to accumulate a dynamic tensor in a LoopOp with
+    statically known iteration count.
   }];
   let arguments = (ins AnyType:$input,
                        AnyMemRef:$seq,
@@ -269,7 +328,7 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
   let arguments = (ins AnyMemRef:$dest, AnyMemRef:$src, AnyInteger:$size);
 }
 
-def KrnlGlobalOp : Op<Krnl_Dialect, "global", [NoSideEffect, MemRefsNormalizable]> {
+def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {
   let summary = "Krnl global operation";
   let description = [{
     Operation for holding global data values. A global constant can have a
@@ -672,7 +731,7 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
 // =============================================================================
 
-def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect,
+def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [Pure,
     MemRefsNormalizable, DeclareOpInterfaceMethods<CastOpInterface>, ViewLikeOpInterface]> {
   let summary = "vector type cast operation";
   let description = [{
@@ -1081,7 +1140,9 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
     May be used for gdb.
   }];
 
-  let arguments = (ins StrAttr:$opName, I64Attr:$opID, I64Attr:$tag);
+  let arguments = (ins StrAttr:$opName,
+                       I64Attr:$tag,
+                       OptionalAttr<StrAttr>:$nodeName);
 
   let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
@@ -1120,7 +1181,7 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
   let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
 }
 
-def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [NoSideEffect]> {
+def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [Pure]> {
   let summary = "Compute the length of a string.";
   let description = [{
     Krnl operation that computes the length of a string.
@@ -1130,7 +1191,7 @@ def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [NoSideEffect]> {
   let results = (outs I64:$res);
 }
 
-def KrnlStrncmpOp : Op<Krnl_Dialect, "strncmp", [NoSideEffect]> {
+def KrnlStrncmpOp : Op<Krnl_Dialect, "strncmp", [Pure]> {
   let summary = "Perform string comparison up to N bytes.";
   let description = [{
     Krnl operation that performs a string comparison up to N bytes.
@@ -1155,7 +1216,7 @@ def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
 }
 
 def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
-    [NoSideEffect, MemRefsNormalizable]> {
+    [Pure, MemRefsNormalizable]> {
   let summary = "Retrieve an index into a perfect hash table described by G and V.";
   let description = [{
     This operation can be used to generate a call to a runtime function which, 

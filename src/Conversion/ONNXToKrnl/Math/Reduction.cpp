@@ -14,7 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -160,8 +160,9 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
 
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
+        create(rewriter, loc);
 
     // Get axes value defined by op
     // Leave empty is not defined
@@ -297,8 +298,6 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 
     // 3. Define an Krnl loop to compute mean (optional).
     rewriter.restoreInsertionPoint(ipMainRegion);
-    MemRefBoundsIndexCapture inputBounds(input);
-    MemRefBoundsIndexCapture allocBounds(alloc);
     if (computeMean) {
       Type elementType = memRefOutType.getElementType();
       // Compute the divisor that is the number of elements participated in
@@ -306,12 +305,12 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       IndexExprScope scope(&rewriter, loc);
       IndexExpr inputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < inRank; i++) {
-        DimIndexExpr dimExpr(inputBounds.getDim(i));
+        IndexExpr dimExpr = create.krnlIE.getShapeAsDim(input, i);
         inputSizeExpr = inputSizeExpr * dimExpr;
       }
       IndexExpr outputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < outRank; i++) {
-        DimIndexExpr dimExpr(allocBounds.getDim(i));
+        IndexExpr dimExpr = create.krnlIE.getShapeAsDim(alloc, i);
         outputSizeExpr = outputSizeExpr * dimExpr;
       }
       IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
@@ -327,13 +326,11 @@ struct ONNXReductionOpLowering : public ConversionPattern {
         llvm_unreachable("unsupported element type");
 
       // Compute mean
-      KrnlBuilder createKrnl(rewriter, loc);
-      ValueRange loopDef = createKrnl.defineLoops(outRank);
+      ValueRange loopDef = create.krnl.defineLoops(outRank);
       SmallVector<IndexExpr, 4> lbs(outRank, LiteralIndexExpr(0));
-      MemRefBoundsIndexCapture allocBounds(alloc);
       SmallVector<IndexExpr, 4> ubs;
-      allocBounds.getDimList(ubs);
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      create.krnlIE.getShapeAsDims(alloc, ubs);
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             Value loadData = createKrnl.load(alloc, loopInd);
             Value meanVal = create.math.div(loadData, divisor);
@@ -392,16 +389,18 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     MemRefType memRefOutType = convertedType.cast<MemRefType>();
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
 
     // KeepDims
     int64_t keepdims = reduceSumOp.keepdims();
     bool isKeepdims = (keepdims == 1);
 
-    ONNXReduceSumOpShapeHelper shapeHelper(&reduceSumOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Get axes dims
+    IndexExprScope mainScope(&rewriter, loc);
+    DimsExpr axesDims;
+    create.krnlIE.getShapeAsDims(axesVal, axesDims);
 
     // Get type information
     auto memRefOutShape = memRefOutType.getShape();
@@ -413,9 +412,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     Value trueVal = nullptr;
     Value valueOne = nullptr;
     std::map<int64_t, int64_t> outInDimMap;
-
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
-        rewriter, loc);
 
     Value axesValue = reduceSumOp.axes();
     // Dynamic axes
@@ -447,9 +443,9 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       Value initVal;
       if (axesDim == -1 && !reduceSumOp.noop_with_empty_axes()) {
         IndexExprScope axesloopContex(&rewriter, loc);
-        MemRefBoundsIndexCapture axesBounds(axesVal);
         Value zeroIndex = create.math.constantIndex(0);
-        Value cond = create.math.eq(axesBounds.getDim(0).getValue(), zeroIndex);
+        IndexExpr axesBound0 = create.krnlIE.getShapeAsDim(axesVal, 0);
+        Value cond = create.math.eq(axesBound0.getValue(), zeroIndex);
         initVal = create.math.select(cond, trueVal, falseVal);
       } else {
         // When axesDim is known, it can not be 0 due to !isFromNone
@@ -471,7 +467,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         KrnlBuilder createKrnl(rewriter, loc);
         ValueRange loopDef = createKrnl.defineLoops(1);
         SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
-        createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
+        createKrnl.iterateIE(loopDef, loopDef, lbs, axesDims,
             [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
               Value axe = createKrnl.load(axesVal, loopInd[0]);
               Value cond = create.math.slt(axe, zeroValue);
@@ -640,8 +636,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 
     // 3. Define an Krnl loop to compute mean (optional).
     rewriter.restoreInsertionPoint(ipMainRegion);
-    MemRefBoundsIndexCapture inputBounds(input);
-    MemRefBoundsIndexCapture allocBounds(alloc);
     if (computeMean) {
       Type elementType = memRefOutType.getElementType();
       // Compute the divisor that is the number of elements participated in
@@ -649,12 +643,12 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       IndexExprScope scope(&rewriter, loc);
       IndexExpr inputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < inRank; i++) {
-        DimIndexExpr dimExpr(inputBounds.getDim(i));
+        IndexExpr dimExpr = create.krnlIE.getShapeAsDim(input, i);
         inputSizeExpr = inputSizeExpr * dimExpr;
       }
       IndexExpr outputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < outRank; i++) {
-        DimIndexExpr dimExpr(allocBounds.getDim(i));
+        IndexExpr dimExpr = create.krnlIE.getShapeAsDim(alloc, i);
         outputSizeExpr = outputSizeExpr * dimExpr;
       }
       IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
@@ -669,13 +663,11 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         llvm_unreachable("unsupported element type");
 
       // Compute mean
-      KrnlBuilder createKrnl(rewriter, loc);
-      ValueRange loopDef = createKrnl.defineLoops(outRank);
+      ValueRange loopDef = create.krnl.defineLoops(outRank);
       SmallVector<IndexExpr, 4> lbs(outRank, LiteralIndexExpr(0));
-      MemRefBoundsIndexCapture allocBounds(alloc);
       SmallVector<IndexExpr, 4> ubs;
-      allocBounds.getDimList(ubs);
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      create.krnlIE.getShapeAsDims(alloc, ubs);
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             Value loadData = createKrnl.load(alloc, loopInd);
             Value meanVal = create.math.div(loadData, divisor);

@@ -13,23 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <fstream>
-#include <iostream>
-#include <set>
-
 #include "mlir/Pass/PassManager.h"
-#include "mlir/Support/FileUtilities.h"
 #include "mlir/Transforms/Passes.h"
-#include "llvm/Support/FileUtilities.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/raw_sha1_ostream.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
-
-#ifdef _WIN32
-#include <io.h>
-#endif
 
 using namespace mlir;
 
@@ -53,86 +42,46 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
       llvm::cl::init(false)};
   Option<bool> onnxOpTransformTargetCPU{*this, "onnx-op-transform-target-cpu",
       llvm::cl::desc("Target CPU op transform passes."), llvm::cl::init(true)};
+  Option<bool> onnxOpTransformEnableSimdDataLayout{*this,
+      "onnx-op-transform-simd-data-layout",
+      llvm::cl::desc("Enable SIMD data layout opt in op transform passes."),
+      llvm::cl::init(false)};
 
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass)
       : mlir::PassWrapper<ONNXOpTransformPass,
             OperationPass<mlir::ModuleOp>>() {}
-  ONNXOpTransformPass(int threshold, bool report, bool targetCPU) {
+  ONNXOpTransformPass(int threshold, bool report, bool targetCPU,
+      bool enableSimdDataLayoutOpt) {
     this->onnxOpTransformThreshold = threshold;
     this->onnxOpTransformReport = report;
     this->onnxOpTransformTargetCPU = targetCPU;
+    this->onnxOpTransformEnableSimdDataLayout = enableSimdDataLayoutOpt;
   }
 
   void runOnOperation() final;
 
 private:
-  LogicalResult outputCode(mlir::ModuleOp module, std::string filename) {
-    mlir::OpPrintingFlags flags;
-
-    std::string errorMessage;
-    auto output = mlir::openOutputFile(filename, &errorMessage);
-    if (!output) {
-      llvm::errs() << errorMessage << "\n";
-      return failure();
-    }
-
-    module->print(output->os(), flags);
-    output->keep();
-
-    // Code may be needed with flag control for debugging in future
-    // if (printIR)
-    // module->print(llvm::outs(), flags);
-    return success();
-  }
-
-  uint64_t hashFile(std::string filename) {
-    std::ifstream t(filename);
-    std::stringstream buffer;
-    buffer << t.rdbuf();
-
-    // Copied from current version of llvm Support/MD5.h
-    // return md5.MD5Hash(buffer.str());
-    llvm::MD5 Hash;
-    Hash.update(buffer.str());
-    llvm::MD5::MD5Result Result;
-    Hash.final(Result);
-    return Result.low();
-  }
-
-  LogicalResult createTagForIR(mlir::ModuleOp module, uint64_t *tag) {
-    llvm::SmallString<64> tempFile;
-    // LLVM provides functionality for securely creating randomly named files in
-    // the appropriate tmp directory (it works on any platform). Use it here
-    // rather than directly calling OS-specific methods.
-    if (auto ec =
-            llvm::sys::fs::createTemporaryFile("onnxtempdump", "", tempFile)) {
-      llvm::errs() << ec.message() << "\n";
-      return failure();
-    }
-
-    // This will remove the file when it goes out of scope.
-    llvm::FileRemover tempFileRemover(tempFile);
-
-    if (failed(outputCode(module, std::string(tempFile))))
-      return failure();
-
-    *tag = hashFile(std::string(tempFile));
-    return success();
+  uint64_t createTagForIR(mlir::ModuleOp module) {
+    // NOTE: This is slow for real models because they contain large
+    // constant tensors that are expensive to print. A workaround is to
+    // elide them from printing with --mlir-elide-elementsattrs-if-larger=1
+    //
+    // TODO: Hash without printing to speed this up, e.g. along the lines of
+    // how blocks are hashed in mlir/lib/Transforms/Utils/RegionUtils.cpp
+    llvm::raw_sha1_ostream sha1_ostream;
+    module->print(sha1_ostream, mlir::OpPrintingFlags());
+    std::array<uint8_t, 20> sha1 = sha1_ostream.sha1();
+    return *reinterpret_cast<uint64_t *>(sha1.data());
   }
 };
 
 void ONNXOpTransformPass::runOnOperation() {
   auto module = getOperation();
 
-  uint64_t currentTag;
+  uint64_t currentTag = createTagForIR(module);
   uint64_t previousTag;
-
-  if (failed(createTagForIR(module, &currentTag)))
-    return signalPassFailure();
-
   int n = onnxOpTransformThreshold;
-  bool targetCPU = onnxOpTransformTargetCPU;
   do {
     previousTag = currentTag;
     OpPassManager dynamicPM("builtin.module");
@@ -142,17 +91,17 @@ void ONNXOpTransformPass::runOnOperation() {
     dynamicPM.addPass(mlir::createCanonicalizerPass());
     dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     // Convolution Optimization currently only for CPU.
-    if (targetCPU) {
+    if (onnxOpTransformTargetCPU) {
       dynamicPM.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConvOptONNXToONNXPass());
+          onnx_mlir::createConvOptONNXToONNXPass(
+              onnxOpTransformEnableSimdDataLayout));
       dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     }
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createConstPropONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
-    if (failed(createTagForIR(module, &currentTag)))
-      return signalPassFailure();
+    currentTag = createTagForIR(module);
   } while (currentTag != previousTag && --n > 0);
   if (currentTag != previousTag) {
     module->emitWarning()
@@ -177,6 +126,7 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(
-    int threshold, bool report, bool targetCPU) {
-  return std::make_unique<ONNXOpTransformPass>(threshold, report, targetCPU);
+    int threshold, bool report, bool targetCPU, bool enableSimdDataLayoutOpt) {
+  return std::make_unique<ONNXOpTransformPass>(
+      threshold, report, targetCPU, enableSimdDataLayoutOpt);
 }

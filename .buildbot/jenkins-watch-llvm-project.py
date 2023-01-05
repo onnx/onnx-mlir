@@ -306,6 +306,20 @@ def build_watch_image(repo, commit, dockerfile, base_image, image_repo, image_ta
 
     return True
 
+# Discard builds up to the last successful build since we need to keep the
+# build link to it. This is only run after we have converged.
+def cleanup_old_builds(curr_recent):
+    jenkins_server = jenkins.Jenkins(url = jenkins_rest_api_url,
+                                     username = jenkins_rest_api_user,
+                                     password = jenkins_rest_api_token)
+    job_info = jenkins_server.get_job_info(LLVM_WATCH_JOB_NAME,
+                                           fetch_all_builds=True)
+    curr_succeeded_build = int(curr_recent['succeeded'][1])
+    logging.info('Discard all builds before %s', curr_succeeded_build)
+    for build in job_info['builds']:
+        if build['number'] < curr_succeeded_build:
+            jenkins_server.delete_build(LLVM_WATCH_JOB_NAME, build['number'])
+
 # Check if an active ONNX-MLIR build or a previous LLVM watch build is running
 def check_running_job():
     jenkins_server = jenkins.Jenkins(url = jenkins_rest_api_url,
@@ -763,6 +777,7 @@ def compute_range_build_next():
     # we try the next build and add the result to the watch state history.
     if converged:
         logging.info('Converged, nothing to do')
+        cleanup_old_builds(curr_recent)
 
         if len(watch_state['build_history'][-1]['build']) < 2:
             watch_state['build_history'][-1]['build'] += [ build_number ]
