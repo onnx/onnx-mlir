@@ -111,14 +111,6 @@ ONNXConstantOp createReplacingConstantOp(
 template <typename T>
 using EnableNotBool = std::enable_if_t<!std::is_same_v<T, bool>>;
 
-template <typename T>
-SmallVector<T, 4> createIntVectorFromArrayAttr(ArrayAttr a) {
-  SmallVector<T, 4> vec;
-  for (auto val : a.getValue())
-    vec.push_back(val.cast<IntegerAttr>().getInt());
-  return vec;
-}
-
 ElementsAttr ConstPropReshapeImpl(PatternRewriter &rewriter,
     Value replacingValue, Value constValue, ArrayRef<int64_t> reshapedShape) {
   ElementsAttr constElements = getConstValueElements(constValue);
@@ -246,8 +238,9 @@ Value ConstPropTranspose(
   // TODO: figure out if default may be omitted and what to do in that case
   ArrayAttr permAttr =
       replacingValue.getDefiningOp()->getAttr("perm").cast<ArrayAttr>();
-  SmallVector<uint64_t, 4> perm =
-      createIntVectorFromArrayAttr<uint64_t>(permAttr);
+  SmallVector<uint64_t, 4> perm;
+  for (auto permVal : permAttr.getValue())
+    perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
   ElementsAttr constElements = getConstValueElements(constValue);
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
