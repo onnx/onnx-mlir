@@ -11,12 +11,6 @@
 // This file implements a set of rewriters to constprop an ONNX operation into
 // composition of other ONNX operations.
 //
-// This pass is applied before any other pass so that there is no need to
-// implement shape inference for the constpropd operation. Hence, it is expected
-// that there is no knowledge about tensor shape at this point.
-// TODO: Edit the above statement. Seems inaccurate because some of the
-//       const prop functions rely on static result shape.
-//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/Matchers.h"
