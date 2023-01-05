@@ -952,4 +952,13 @@ def SoftmaxV11ToLatestPattern: Pat<
    [(AxisIsTheLastDim $input, $axisAttr)]
 >;
 
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXConvTransposeOp
+//===----------------------------------------------------------------------===//
+def ConvTransposeOpPattern1: Pat<
+   (ONNXConvTransposeOp $x, $w, $b, $auto_pad, $dilation, $group, $kernel_shape, $output_padding, $output_shape, $pads, $strides),
+// Dummy
+   (ONNXAddOp $x, $x)
+//   (ONNXConvOp $x, $w, $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides)
+>;
 #endif // ONNX_REWRITE

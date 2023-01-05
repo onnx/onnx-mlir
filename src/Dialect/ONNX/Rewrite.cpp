@@ -591,6 +591,12 @@ void ONNXConstantOp::getCanonicalizationPatterns(
   results.insert<ConstantOpNormalizationPattern6>(context);
 }
 
+/// on the ONNXConvTransposeOp.
+void ONNXConvTransposeOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ConvTransposeOpPattern1>(context);
+}
+
 /// on the ONNXDepthToSpaceOp.
 void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
