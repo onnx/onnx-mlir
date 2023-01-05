@@ -63,6 +63,8 @@ namespace {
 // ConstProp.td for example.
 //
 
+// Collects stats on the amount of constant propagation.
+// The onnx-mlir binary dumps the stats if run with --onnx-const-prop-report.
 struct ConstPropCounters {
   size_t invocations = 0;
   size_t input_elms = 0;
