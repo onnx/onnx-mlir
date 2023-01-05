@@ -20,8 +20,7 @@ ArrayBuffer<X> getElementsArray(mlir::ElementsAttr elms) {
   }
   // elms is not dense or element type is bool, in either case
   // read the elements from getValues<X> the hard way:
-  auto range = elms.getValues<X>();
-  return typename ArrayBuffer<X>::Vector(range.begin(), range.end());
+  return typename ArrayBuffer<X>::Vector(elms.getValues<X>());
 }
 
 // Copies out the elements in a flat array in row-major order.

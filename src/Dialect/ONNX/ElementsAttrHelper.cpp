@@ -43,12 +43,12 @@ ArrayBuffer<WideNum> getElementsWideNums(ElementsAttr elms) {
   if (isFloatBType(btype)) {
     auto range = llvm::map_range(elms.getValues<APFloat>(),
         [btype](APFloat f) { return WideNum::fromAPFloat(btype, f); });
-    return ArrayBuffer<WideNum>::Vector(range.begin(), range.end());
+    return ArrayBuffer<WideNum>::Vector(range);
   }
   if (isIntBType(btype)) {
     auto range = llvm::map_range(elms.getValues<APInt>(),
         [btype](APInt i) { return WideNum::fromAPInt(btype, i); });
-    return ArrayBuffer<WideNum>::Vector(range.begin(), range.end());
+    return ArrayBuffer<WideNum>::Vector(range);
   }
   llvm_unreachable("WideNum only supports integer and float types");
 }
