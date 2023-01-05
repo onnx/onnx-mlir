@@ -4,12 +4,20 @@
 
 //===---------------- ONNXShapeHelper.hpp - help for shapes ---------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file has the computations to compute the shapes using the new index expr
-// approach.
+// This file defines a class that enables the scanning of MLIR Values,
+// Attributes, and Type Shape to generate IndexExpr. They are the main way to
+// generate IndexExpr in onnx-mlir.
+//
+// The IndexExprBuilder class has virtual functions that needs to be
+// instantiated by specialized sub-classes, defined to work in a specific
+// dialect. There are currently 3 sub-classes, one for ONNX, KRNL, and MHLO.
+//
+// Namely: IndexExprBuilderForAnalysis, IndexExprBuilderForKrnl, and
+// IndexExprBuilderForMhlo
 //
 //===----------------------------------------------------------------------===//
 
@@ -31,7 +39,7 @@
 namespace onnx_mlir {
 
 // ===----------------------------------------------------------------------===//
-//  IndexShapeBuilder
+//  IndexExprBuilder
 // ===----------------------------------------------------------------------===/
 
 /*

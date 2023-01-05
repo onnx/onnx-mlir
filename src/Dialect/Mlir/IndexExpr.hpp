@@ -4,7 +4,7 @@
 
 //===----------------IndexExpr.hpp - Index expression---------------------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -99,6 +99,8 @@ refer to the affine MLIR dialect.
 * SymbolIndexExpr: Symbols represent runtime values that are considered as a
 constant in a given scope. See affine dialect for more info.
 
+Note that in most cases, IndexExpr are built from MLIR Values, Types, or
+Attributes. See Section 5) below for references.
 
 2) IndexExprScope
 ======================
@@ -135,47 +137,58 @@ Note that the current scope is kept in a thread private variable and does not
 need to be explicitly passed. It will be retrieved from the environment. Which
 also means that one can only generate code in one index scope at a time.
 
-TODO: REMOVE DEPRECATED EXAMPLES
 
 3) Code Sample
 ==============
 
 3a) Create a scope:
 
-    // During shape inference: no rewriter.
+During shape inference: no rewriter.
 
-    IndexExprScope scope(nullptr, getLoc());
+```
+  IndexExprScope scope(nullptr, getLoc());
+```
 
-    // During lowering.
+During lowering: rewriter/builder provided.
 
-    IndexExprScope outerLoopContext(&rewriter, sliceOp.getLoc());
+```
+  IndexExprScope outerLoopContext(&rewriter, sliceOp.getLoc());
+```
+
+Note that the presence of a rewriter/builder in the constructor is what
+indicates whether we are in "shape inference" or "code gen/lowering" mode.
 
 3b) Computations on IndexExpr (examples from processing of ONNXSliceOp)
 
-    // IN ONNXShapeHelper.cpp
+In src/Dialect/ONNX/ONNXOps/Tensor/Slice.cpp
 
+```
     // Get a value from an input operand (either a constant or a value to load).
+    SymbolIndexExpr startInput =
+        createIE->getIntFromArrayAsSymbol(operandAdaptor.starts(), i);
+    if (startInput.isUndefined())
+      return op->emitError("start input parameter could not be processed");
+```
 
-    ArrayValueIndexCapture startsCapture(genericOp, operandAdaptor.starts());
-    SymbolIndexExpr startInput(startsCapture.getSymbol(i));
+In the code above, we get a symbol index expression from the "starts" array
+(limited to 1D arrays at this time). Specifically, we create a symbol index
+expression from the captured array value at index "i". When constant, it will
+result in a literal. Otherwise it will result in a new Symbol variable.
 
-In the code above, we first capture the (hopefully compile time constant) values
-of the "starts" array (limited to 1D arrays at this time). Then we create a
-symbol index expression from the captured array value at index "i". When
-constant, it will result in a literal. Otherwise it will result in a new Symbol
-variable.
+The `createIE` is a IndexExprBuilder that is used to scan MLIR structures to
+generate index expressions. See Section 5 for references.
 
+```
     // Get a dimension from a memref.
-    MemRefBoundsIndexCapture dataBounds(data);
-    DimIndexExpr dimInput(dataBounds.getDim(ii));
+    DimIndexExpr dimInput = createIE->getShapeAsDim(data, ii);
+```
 
-In the code above, we first capture the (hopefully constant) bounds of hte
-memref. We then create a Dim index expression from the memref's "ii" dimension.
-When constant, this will result in a literal. Otherwise, it will result in a new
-Dim variable.
+In the code above, we create a Dim index expression from the memref's "ii"
+dimension. When constant, this will result in a literal. Otherwise, it will
+result in a new Dim variable.
 
+```
     // Perform calculations.
-
     // Calculation for start: start < 0 ? start + dim : start.
     IndexExpr startPos =
         IndexExpr::select(startInput < 0, startInput + dimInput, startInput);
@@ -183,21 +196,11 @@ Dim variable.
     IndexExpr neg = startPos.clamp(0, dimInput - 1);
     IndexExpr pos = startPos.clamp(0, dimInput);
     IndexExpr startFinal = IndexExpr::select(stepInput < 0, neg, pos);
+```
 
-3c) Look at Slice in ONNXOps.cpp on how to use IndexExpr for shape inferences.
+3c) Look at Slice.cpp on how to use IndexExpr for lowering.
 
-    // Extract the shape of the output.
-
-    SmallVector<int64_t, 4> outputDims;
-    IndexExpr::getShape(
-        shapeHelper.dimsForOutput(), outputDims);
-    getResult().setType(RankedTensorType::get(outputDims, elementType));
-
-In this code, we convert the IndexExpressions back to integer dims (with >=0 for
-compile time sizes, -1 for runtime sizes).
-
-3d) Look at Slice.cpp on how to use IndexExpr for lowering.
-
+```
     // Create an alloc using dimensions as indices.
 
     Value alloc = insertAllocAndDeallocSimple(
@@ -225,11 +228,13 @@ compile time sizes, -1 for runtime sizes).
       loadIndices.emplace_back((step * inductionIndex) + start);
       storeIndices.emplace_back(inductionIndex);
     }
+```
 
 4) Scopes
 
   Here is an example of how scopes work:
 
+  ```
     IndexExprScope outerScope; // outer scope
       DimIndexExpr d1(dataBounds.getDim(2); // outer scope variable
       // ...
@@ -243,18 +248,19 @@ compile time sizes, -1 for runtime sizes).
     }
 
     // Back to the outer scope
+  ```
 
 5) Additional infrastructure
 
-   ArrayValueIndexCapture allows us to read 1D arrays and generate symbols out
-of them expressions that are either literals or runtime values (symbols).
+  Look at the IndexExprBuilder on how to create index expressions from MLIR
+  Attributes and Values. There are basically 3 ways to get index expressions:
 
-   MemRefBoundsIndexCapture allows us to read memref or tensor 1D descriptors
-and generate out of them expressions that are either literals or runtime values
-(dims).
+  * From attributes, see `getIntFromArrayAsLiteral` for example.
+  * From values, see `getIntFromArrayAsSymbol` for example.
+  * From shapes, see `getShapeAsDim` for example.
 
-Note that in both case, runtime values may be "question marks" during the shape
-inference part as no code may be generated during such phases.
+  Interface is described in src/Dialect/Mlir/IndexExprBuilder.hpp
+
 */
 
 /* Dialect use in Index Expression stack (when generating ops)
