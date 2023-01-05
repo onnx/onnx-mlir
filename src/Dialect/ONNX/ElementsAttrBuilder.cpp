@@ -117,6 +117,8 @@ DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
       });
 }
 
+// TODO: Inline this implementation to help the compiler inline fun into the
+//       closure, if benchmarking demonstrates a speedup.
 /*static*/
 ElementsAttrBuilder::Transformer ElementsAttrBuilder::functionTransformer(
     WideNum (*fun)(WideNum)) {
@@ -151,6 +153,9 @@ ElementsAttr ElementsAttrBuilder::transform(
       composeTransforms(props.transformer, std::move(transformer)));
 }
 
+// TODO: Inline this implementation to help the compiler inline combiner into
+//       the closures constructed in expandAndTransform, if benchmarking
+//       demonstrates a speedup.
 ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
     ShapedType combinedType, WideNum (*combiner)(WideNum, WideNum)) {
   auto combinedShape = combinedType.getShape();
