@@ -171,24 +171,24 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
     int64_t sequenceDimSize = dimAt(rnnOp.X(), 0);
     auto direction = rnnOp.direction();
 
-    MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
-    KrnlBuilder createKrnl(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
+        create(rewriter, loc);
 
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
-      IndexExprScope childScope(&rewriter, loc);
-      mlir::ValueRange loopDef = createKrnl.defineLoops(1);
+      IndexExprScope childScope(create.krnl);
+      mlir::ValueRange loopDef = create.krnl.defineLoops(1);
       llvm::SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
       llvm::SmallVector<IndexExpr, 4> ubs;
       if (!mlir::ShapedType::isDynamic(sequenceDimSize))
         ubs.emplace_back(LiteralIndexExpr(sequenceDimSize));
-      else {
-        MemRefBoundsIndexCapture bounds(X);
-        ubs.emplace_back(bounds.getDim(0));
-      }
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      else
+        ubs.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, mlir::ValueRange loopInd) {
+            MathBuilder createMath(createKrnl);
             mlir::Value directionIV =
-                create.math.constant(rewriter.getIndexType(), 0);
+                createMath.constant(rewriter.getIndexType(), 0);
             mlir::Value sequenceIV = loopInd[0];
             // Get a slice of X at the current timestep.
             mlir::Value Xt = emitXSliceAt(rewriter, loc, X, sequenceIV);
@@ -201,18 +201,18 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
     }
 
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
-      IndexExprScope childScope(&rewriter, loc);
-      mlir::ValueRange loopDef = createKrnl.defineLoops(1);
+      IndexExprScope childScope(create.krnl);
+      mlir::ValueRange loopDef = create.krnl.defineLoops(1);
       llvm::SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
       llvm::SmallVector<IndexExpr, 4> ubs;
       if (!mlir::ShapedType::isDynamic(sequenceDimSize))
         ubs.emplace_back(LiteralIndexExpr(sequenceDimSize));
-      else {
-        MemRefBoundsIndexCapture bounds(X);
-        ubs.emplace_back(bounds.getDim(0));
-      }
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, mlir::ValueRange loopInd) {
+      else
+        ubs.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &ck, mlir::ValueRange loopInd) {
+            MultiDialectBuilder<MemRefBuilder, MathBuilder> create(ck);
+
             mlir::AffineMap reverseIVMap = mlir::AffineMap::get(1, 1,
                 rewriter.getAffineSymbolExpr(0) - rewriter.getAffineDimExpr(0) -
                     1);
