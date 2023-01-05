@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------------- ElementsAttrBuilder.hpp ----------------------===//
+//===----------------------- ElementsAttrBuilder.cpp ----------------------===//
 //
 // Builds DisposableElementsAttr instances.
 //
@@ -12,6 +12,7 @@
 
 #include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ElementsAttrHelper.hpp"
 #include "src/Support/Strides.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -150,50 +151,58 @@ ElementsAttr ElementsAttrBuilder::transform(
       composeTransforms(props.transformer, std::move(transformer)));
 }
 
-ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhsElms,
-    ElementsAttr rhsElms, ShapedType combinedType,
-    WideNum (*combiner)(WideNum, WideNum)) {
-  // TODO: Use getElementsProperties to avoid the construction of a
-  //       DisposableElementsAttr if lhs or rhs is a DenseElementsAttr.
-  DisposableElementsAttr lhs = toDisposableElementsAttr(lhsElms);
-  DisposableElementsAttr rhs = toDisposableElementsAttr(rhsElms);
-
+ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
+    ShapedType combinedType, WideNum (*combiner)(WideNum, WideNum)) {
   auto combinedShape = combinedType.getShape();
-  auto lhsStrides = expandStrides(lhs.getStrides(), combinedShape);
-  auto rhsStrides = expandStrides(rhs.getStrides(), combinedShape);
 
-  using Transformer = ElementsAttrBuilder::Transformer;
-  auto composeTransformerFunction = [](Transformer transformer,
-                                        auto fun) -> Transformer {
-    return [transformer = std::move(transformer), fun = std::move(fun)](
-               MutableArrayRef<WideNum> data) -> void {
-      if (transformer != nullptr)
-        transformer(data);
-      for (WideNum &n : data)
-        n = fun(n);
-    };
+  auto expandAndTransform = [combinedType, combinedShape, this](
+                                ElementsAttr elms, auto transformFunc) {
+    ElementsProperties props = getElementsProperties(elms);
+    auto xpStrides = expandStrides(props.strides, combinedShape);
+    return create(combinedType, props.bufferBType, xpStrides, props.buffer,
+        [transformer = props.transformer, func = std::move(transformFunc)](
+            MutableArrayRef<WideNum> data) -> void {
+          if (transformer != nullptr)
+            transformer(data);
+          for (WideNum &n : data)
+            n = func(n);
+        });
   };
 
   if (lhs.isSplat()) {
-    WideNum lhsNum = lhs.atFlatIndex(0);
-    return create(combinedType, rhs.getBufferBType(), rhsStrides,
-        rhs.getBuffer(),
-        composeTransformerFunction(rhs.getTransformer(),
-            [lhsNum, combiner](WideNum n) { return combiner(lhsNum, n); }));
+    WideNum lhsNum = getElementsSplatWideNum(lhs);
+    return expandAndTransform(
+        rhs, [lhsNum, combiner](WideNum n) { return combiner(lhsNum, n); });
   }
 
   if (rhs.isSplat()) {
-    WideNum rhsNum = rhs.atFlatIndex(0);
-    return create(combinedType, lhs.getBufferBType(), lhsStrides,
-        lhs.getBuffer(),
-        composeTransformerFunction(lhs.getTransformer(),
-            [rhsNum, combiner](WideNum n) { return combiner(n, rhsNum); }));
+    WideNum rhsNum = getElementsSplatWideNum(rhs);
+    return expandAndTransform(
+        lhs, [rhsNum, combiner](WideNum n) { return combiner(n, rhsNum); });
   }
 
-  ArrayBuffer<WideNum> lhsNums = lhs.getBufferAsWideNums();
-  ArrayBuffer<WideNum> rhsNums = rhs.getBufferAsWideNums();
-  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), lhsStrides);
-  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), rhsStrides);
+  auto getWideNumsAndStrides = [](ElementsAttr elms,
+                                   SmallVectorImpl<int64_t> &strides) {
+    if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
+      auto disposableStrides = disposable.getStrides();
+      strides.assign(disposableStrides.begin(), disposableStrides.end());
+      return disposable.getBufferAsWideNums();
+    } else {
+      strides = getDefaultStrides(elms.getType().getShape());
+      return getElementsWideNums(elms);
+    };
+  };
+
+  SmallVector<int64_t, 4> lhsStrides;
+  ArrayBuffer<WideNum> lhsNums = getWideNumsAndStrides(lhs, lhsStrides);
+  auto xpLhsStrides = expandStrides(lhsStrides, combinedShape);
+  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
+
+  SmallVector<int64_t, 4> rhsStrides;
+  ArrayBuffer<WideNum> rhsNums = getWideNumsAndStrides(rhs, rhsStrides);
+  auto xpRhsStrides = expandStrides(rhsStrides, combinedShape);
+  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
+
   return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
     mapStrides<WideNum, WideNum, WideNum>(
         combinedShape, dstNums, stridedLhs, stridedRhs, combiner);
