@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------- KrnlMatmul.cpp - Lower KrnlMatmulOp -------------------===//
+//===-------------- KrnlTerminator.cpp - Lower Terminators ----------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file lowers the KrnlMatmulOp operator.
+// This file lowers the Krnl Terminator operators.
 //
 //===----------------------------------------------------------------------===//
 
