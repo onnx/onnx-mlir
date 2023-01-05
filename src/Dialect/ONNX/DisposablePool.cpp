@@ -35,24 +35,32 @@ DisposablePool::DisposablePool(Dialect *dialect, MLIRContext *context)
     : Base(dialect), pool() {}
 DisposablePool::~DisposablePool() {}
 
-DisposableElementsAttr DisposablePool::createDisposableElementsAttr(
-    ShapedType type, BType bufferBType, ArrayRef<int64_t> strides,
+ElementsAttr DisposablePool::createElementsAttr(ShapedType type,
+    BType bufferBType, ArrayRef<int64_t> strides,
     const mlir::DisposableElementsAttr::Buffer &buffer,
     DisposableElementsAttr::Transformer transformer) {
   static std::atomic<size_t> counter{0};
   size_t id = ++counter;
-  auto d = DisposableElementsAttr::create(
+  auto disposable = DisposableElementsAttr::create(
       type, id, bufferBType, strides, buffer, std::move(transformer));
-  insert(d);
-  return d;
+  if (insert(disposable)) {
+    return disposable;
+  } else {
+    auto dense = disposable.toDenseElementsAttr();
+    disposable.dispose();
+    return dense;
+  }
 }
 
-void DisposablePool::insert(DisposableElementsAttr disposable) {
+bool DisposablePool::insert(DisposableElementsAttr disposable) {
   // TODO: make this thread safe
-  assert(isActive());
+  if (!isActive())
+    return false;
+
   auto insertion = pool.try_emplace(disposable.getId(), disposable);
   if (!insertion.second)
     llvm_unreachable("cannot insert existing DisposableElementsAttr");
+  return true;
 }
 
 /*static*/

@@ -34,14 +34,14 @@ public:
   // The created instance takes ownership of membuf and will release it when the
   // instance is disposed by garbage collection, unless it has shared membuf
   // with other DisposableElementsAttr instances that are longer lived.
-  mlir::DisposableElementsAttr fromMemoryBuffer(
+  mlir::ElementsAttr fromMemoryBuffer(
       mlir::ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf);
 
   // Wraps elements in a DisposableElementsAttr if it isn't already a
-  // DisposableElementsAttr. If elements is DenseElementsAttr the wrapper
-  // points into elements' raw data, except if the element type is bool, then
-  // a deep copy is made that unpacks the bits because DisposableElementsAttr
-  // doesn't bit pack bools.
+  // DisposableElementsAttr, provided the underlying DisposablePool is active.
+  // If elements is DenseElementsAttr the wrapper points into elements' raw
+  // data, except if the element type is bool, then a deep copy is made that
+  // unpacks the bits because DisposableElementsAttr doesn't bit pack bools.
   mlir::DisposableElementsAttr toDisposableElementsAttr(
       mlir::ElementsAttr elements);
 
@@ -50,13 +50,13 @@ public:
 
   // Constructs a DisposableElementsAttr and calls wideDataFiller to populate
   // its memory buffer.
-  mlir::DisposableElementsAttr fromWideNums(
+  mlir::ElementsAttr fromWideNums(
       mlir::ShapedType type, const Filler<WideNum> &wideDataFiller);
 
   // Constructs a DisposableElementsAttr and calls arrayFiller to populate
   // its memory buffer.
   template <typename T>
-  mlir::DisposableElementsAttr fromArray(
+  mlir::ElementsAttr fromArray(
       mlir::ShapedType type, const Filler<T> &arrayFiller) {
     return fromRawBytes(
         type, toBType<T>, [&arrayFiller](llvm::MutableArrayRef<char> bytes) {
@@ -120,20 +120,20 @@ private:
 
   ElementsProperties getElementsProperties(mlir::ElementsAttr elements) const;
 
-  mlir::DisposableElementsAttr fromRawBytes(
+  mlir::ElementsAttr fromRawBytes(
       mlir::ShapedType type, BType bufferBType, llvm::ArrayRef<char> bytes);
 
-  mlir::DisposableElementsAttr fromRawBytes(mlir::ShapedType type,
-      BType bufferBType, const Filler<char> &bytesFiller);
+  mlir::ElementsAttr fromRawBytes(mlir::ShapedType type, BType bufferBType,
+      const Filler<char> &bytesFiller);
 
-  mlir::DisposableElementsAttr createWithDefaultStrides(mlir::ShapedType type,
+  mlir::ElementsAttr createWithDefaultStrides(mlir::ShapedType type,
       BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf);
 
-  mlir::DisposableElementsAttr createSplat(mlir::ShapedType type,
-      BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf);
+  mlir::ElementsAttr createSplat(mlir::ShapedType type, BType bufferBType,
+      std::unique_ptr<llvm::MemoryBuffer> membuf);
 
   // Create a DisposableElementsAttr and put it in disposablePool.
-  mlir::DisposableElementsAttr create(mlir::ShapedType type, BType bufferBType,
+  mlir::ElementsAttr create(mlir::ShapedType type, BType bufferBType,
       llvm::ArrayRef<int64_t> strides,
       const std::shared_ptr<llvm::MemoryBuffer> &buffer,
       Transformer transformer = nullptr);

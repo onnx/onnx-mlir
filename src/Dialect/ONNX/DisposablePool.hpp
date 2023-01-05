@@ -41,9 +41,10 @@ public:
   DisposablePool(mlir::Dialect *dialect, mlir::MLIRContext *context);
   ~DisposablePool();
 
-  // Create a DisposableElementsAttr and put it in the DisposablePool.
-  mlir::DisposableElementsAttr createDisposableElementsAttr(
-      mlir::ShapedType type, BType bufferBType, llvm::ArrayRef<int64_t> strides,
+  // Create a ElementsAttr and put it in the DisposablePool if it's active,
+  // otherwise returns conversion to DenseElementsAttr.
+  mlir::ElementsAttr createElementsAttr(mlir::ShapedType type,
+      BType bufferBType, llvm::ArrayRef<int64_t> strides,
       const mlir::DisposableElementsAttr::Buffer &buffer,
       mlir::DisposableElementsAttr::Transformer transformer);
 
@@ -68,7 +69,8 @@ private:
   using Scrubbed = std::unordered_map<size_t, mlir::DenseElementsAttr>;
 
   // Record all instances of DisposableElementsAttr as they are created.
-  void insert(mlir::DisposableElementsAttr disposable);
+  // Returns true on success and false if the pool is not active.
+  bool insert(mlir::DisposableElementsAttr disposable);
 
   template <typename CONST_OP>
   static void collectReachable(mlir::ModuleOp moduleOp, Pool &reachable);

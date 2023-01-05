@@ -89,7 +89,7 @@ struct ElementsAttrBuilder::ElementsProperties {
 ElementsAttrBuilder::ElementsAttrBuilder(MLIRContext *context)
     : disposablePool(*DisposablePool::get(context)) {}
 
-DisposableElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
+ElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
     ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   BType btype = btypeOfMlirType(type.getElementType());
   return createWithDefaultStrides(type, btype, std::move(membuf));
@@ -100,15 +100,24 @@ DisposableElementsAttr ElementsAttrBuilder::toDisposableElementsAttr(
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
     return disposable;
   if (auto dense = elements.dyn_cast<DenseElementsAttr>()) {
+    if (!disposablePool.isActive())
+      return nullptr;
     ElementsProperties props = getElementsProperties(dense);
-    return create(dense.getType(), props.bufferBType, props.strides,
-        props.buffer, props.transformer);
+    ElementsAttr created = create(dense.getType(), props.bufferBType,
+        props.strides, props.buffer, props.transformer);
+    // Check for race condition where disposablePool became inactive since we
+    // checked, in which case it returns a DenseElementsAttr which we don't
+    // want.
+    if (auto disposable = created.dyn_cast<DisposableElementsAttr>())
+      return disposable;
+    else
+      return nullptr;
   }
   // TODO: consider supporting more ElementsAttr types
   llvm_unreachable("unexpected ElementsAttr instance");
 }
 
-DisposableElementsAttr ElementsAttrBuilder::fromWideNums(
+ElementsAttr ElementsAttrBuilder::fromWideNums(
     ShapedType type, const Filler<WideNum> &wideDataFiller) {
   BType bufferBType = wideBTypeOfBType(btypeOfMlirType(type.getElementType()));
   return fromRawBytes(
@@ -298,16 +307,13 @@ ElementsAttr ElementsAttrBuilder::reshape(
 
   ShapedType reshapedType = type.clone(reshapedShape);
   if (auto reshapedStrides =
-          reshapeStrides(shape, props.strides, reshapedShape)) {
+          reshapeStrides(shape, props.strides, reshapedShape))
     return create(reshapedType, props.bufferBType, *reshapedStrides,
         props.buffer, props.transformer);
-  } else {
-    assert(!elms.isa<DenseElementsAttr>() &&
-           "reshapeStrides() always succeeds for DenseElementsAttr default or "
-           "splat strides");
-  }
 
-  auto disp = elms.cast<DisposableElementsAttr>();
+  auto disp = elms.dyn_cast<DisposableElementsAttr>();
+  assert(disp && "reshapeStrides() always succeeds for non-Disposable "
+                 "ElementsAttr as strides are always default or splat");
 
   if (!disp.isTransformed()) // Skip WideNums absent element-wise transform.
     return fromRawBytes(
@@ -362,7 +368,7 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
   llvm_unreachable("unexpected ElementsAttr instance");
 }
 
-DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
+ElementsAttr ElementsAttrBuilder::fromRawBytes(
     ShapedType type, BType bufferBType, ArrayRef<char> bytes) {
   std::unique_ptr<llvm::MemoryBuffer> membuf =
       llvm::MemoryBuffer::getMemBufferCopy(asStringRef(bytes));
@@ -371,7 +377,7 @@ DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
              : createWithDefaultStrides(type, bufferBType, std::move(membuf));
 }
 
-DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
+ElementsAttr ElementsAttrBuilder::fromRawBytes(
     ShapedType type, BType bufferBType, const Filler<char> &bytesFiller) {
   size_t size = type.getNumElements() * bytewidthOfBType(bufferBType);
   std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
@@ -381,24 +387,23 @@ DisposableElementsAttr ElementsAttrBuilder::fromRawBytes(
   return createWithDefaultStrides(type, bufferBType, std::move(writeBuffer));
 }
 
-DisposableElementsAttr ElementsAttrBuilder::createWithDefaultStrides(
-    ShapedType type, BType bufferBType,
-    std::unique_ptr<llvm::MemoryBuffer> membuf) {
+ElementsAttr ElementsAttrBuilder::createWithDefaultStrides(ShapedType type,
+    BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   auto strides = getDefaultStrides(type.getShape());
   return create(type, bufferBType, strides, std::move(membuf));
 }
 
-DisposableElementsAttr ElementsAttrBuilder::createSplat(ShapedType type,
+ElementsAttr ElementsAttrBuilder::createSplat(ShapedType type,
     BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
   return create(type, bufferBType, zerosStrides, std::move(membuf));
 }
 
-DisposableElementsAttr ElementsAttrBuilder::create(ShapedType type,
-    BType bufferBType, ArrayRef<int64_t> strides,
+ElementsAttr ElementsAttrBuilder::create(ShapedType type, BType bufferBType,
+    ArrayRef<int64_t> strides,
     const std::shared_ptr<llvm::MemoryBuffer> &buffer,
     Transformer transformer) {
-  return disposablePool.createDisposableElementsAttr(
+  return disposablePool.createElementsAttr(
       type, bufferBType, strides, buffer, std::move(transformer));
 }
 
