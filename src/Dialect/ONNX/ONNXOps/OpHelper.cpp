@@ -617,13 +617,13 @@ DenseElementsAttr createDenseElementsAttrFromSize(
 bool isDenseONNXConstant(Value result) {
   Operation *op = result.getDefiningOp();
 
-  ONNXConstantOp constOp = dyn_cast_or_null<ONNXConstantOp>(op);
-  // Not a constant.
-  if (!constOp)
+  // Must be a constant.
+  if (!isa_and_nonnull<ONNXConstantOp>(op))
     return false;
 
   // The value attribute must be an ElementsAttr
-  // (which is either DenseElementsAttr or DenseResourceElementsAttr).
+  // (which is either DenseElementsAttr or DenseResourceElementsAttr
+  // or DisposableElementsAttr).
   if (!(op->getAttrOfType<ElementsAttr>("value")))
     return false;
   // The other attributes must be null.

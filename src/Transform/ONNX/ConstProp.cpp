@@ -88,43 +88,10 @@ struct ConstPropCounters {
 
 std::unordered_map<std::string, ConstPropCounters> ConstPropCounters::map;
 
-/// A helper function to check whether a value is produced by a dense
-/// ONNXConstantOp.
-bool isFromDenseONNXConstantOp(Value result) {
-  Operation *op = result.getDefiningOp();
-
-  // Must be a constant.
-  if (!isa_and_nonnull<ONNXConstantOp>(op))
-    return false;
-
-  // The dense attribute must be available.
-  if (!(op->getAttrOfType<::mlir::Attribute>("value"))) {
-    return false;
-  }
-  // The other attributes must be null.
-  if (op->getAttrOfType<::mlir::Attribute>("sparse_value"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_float"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_floats"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_int"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_ints"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_string"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_strings"))
-    return false;
-
-  return true;
-}
-
 /// A helper function to check whether a variadic value is produced by dense
 /// ONNXConstantOps.
 bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
-  return llvm::all_of(
-      operands, [](Value v) { return isFromDenseONNXConstantOp(v); });
+  return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
 }
 
 ElementsAttr getConstValueElements(Value constValue) {
@@ -337,7 +304,7 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
   // Basic info.
   unsigned numResults = splitOp.getNumResults();
   Value input = splitOp.input();
-  if (!isFromDenseONNXConstantOp(input))
+  if (!isDenseONNXConstant(input))
     return failure();
   ConstPropCounters::count("Split", {input});
   ShapedType inputType = input.getType().cast<ShapedType>();
@@ -477,13 +444,13 @@ public:
     if (!scatterNdOp.getResult().getType().isa<RankedTensorType>())
       return failure();
 
-    if (!isFromDenseONNXConstantOp(scatterNdOp.data()))
+    if (!isDenseONNXConstant(scatterNdOp.data()))
       return failure();
 
-    if (!isFromDenseONNXConstantOp(scatterNdOp.indices()))
+    if (!isDenseONNXConstant(scatterNdOp.indices()))
       return failure();
 
-    if (!isFromDenseONNXConstantOp(scatterNdOp.updates()))
+    if (!isDenseONNXConstant(scatterNdOp.updates()))
       return failure();
 
     ConstPropCounters::count("Scatter",

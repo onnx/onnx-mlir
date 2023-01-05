@@ -55,13 +55,13 @@ def AttributeIsNull :
   "Attribute is null">;
 
 def IsFromDenseONNXConstantOp:
-    Constraint<CPred<"isFromDenseONNXConstantOp($_self)">,
+    Constraint<CPred<"isDenseONNXConstant($_self)">,
   "Value is produced by a dense ONNXConstantOp that can be linked with "
   "a buffer during constant propagation">;
 
 def IsFromDenseONNXConstantOpOrNone:
   Constraint<
-    CPred<"isFromDenseONNXConstantOp($_self) || ($_self.getType().isa<NoneType>())">,
+    CPred<"isDenseONNXConstant($_self) || ($_self.getType().isa<NoneType>())">,
     "Value is none or produced by a true dense ONNXConstantOp"
   >;
 

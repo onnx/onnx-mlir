@@ -25,6 +25,7 @@
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Accelerators/NNPA/Transform/ZHigh/Stickify/Stickify.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -32,39 +33,6 @@ using namespace onnx_mlir::zhigh;
 
 namespace onnx_mlir {
 namespace zhigh {
-
-/// A helper function to check whether a value is produced by a dense
-/// ONNXConstantOp.
-///
-/// TODO: Reuse ONNX/ConstProp.cpp implementation.
-bool isFromDenseONNXConstantOp(Value result) {
-  Operation *op = result.getDefiningOp();
-
-  // Must be a constant.
-  if (!isa_and_nonnull<ONNXConstantOp>(op))
-    return false;
-
-  // The dense attribute must be available.
-  if (!(op->getAttrOfType<::mlir::Attribute>("value")))
-    return false;
-  // The other attributes must be null.
-  if (op->getAttrOfType<::mlir::Attribute>("sparse_value"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_float"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_floats"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_int"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_ints"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_string"))
-    return false;
-  if (op->getAttrOfType<::mlir::Attribute>("value_strings"))
-    return false;
-
-  return true;
-}
 
 /// Get raw data from a dense attribute.
 static void getRawData(DenseElementsAttr denseAttr, std::vector<char> &data) {
