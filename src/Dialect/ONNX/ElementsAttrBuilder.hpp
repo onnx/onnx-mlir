@@ -73,6 +73,8 @@ public:
 
   // Returns an ElementsAttr where each element is transformed
   // by running the given transformer on all the elements.
+  //
+  // Reuses elms' underlying data without a data copy.
   mlir::ElementsAttr transform(mlir::ElementsAttr elms,
       mlir::Type transformedElementType, Transformer transformer);
 
@@ -80,22 +82,36 @@ public:
   // pairwise on the elements lhs and rhs after broadcast to combinedType.
   // Note that combiner is a plain function pointer to make it cheap and easy
   // to copy it into a transformer lambda in the returned ElementsAttr.
+  //
+  // Constructs new underlying data by applying the combiner, except in the
+  // case where one of the arguments is splat, in that case reuses the other
+  // argument's underlying data and just adds the necessary transformation
+  // and broadcast.
   mlir::ElementsAttr combine(mlir::ElementsAttr lhs, mlir::ElementsAttr rhs,
       mlir::ShapedType combinedType, WideNum (*combiner)(WideNum, WideNum));
 
   // Returns an ElementsAttr with the elements cast to the given newElementType.
+  //
+  // Reuses elms' underlying data without a data copy.
   mlir::ElementsAttr castElementType(
       mlir::ElementsAttr elms, mlir::Type newElementType);
 
   // Returns a transposed ElementsAttr.
+  //
+  // Reuses elms' underlying data without a data copy.
   mlir::ElementsAttr transpose(
       mlir::ElementsAttr elms, llvm::ArrayRef<uint64_t> perm);
 
   // Returns a reshaped ElementsAttr.
+  //
+  // Reuses elms' underlying data without a data copy, unless the underlying
+  // data is transposed in a way that requires the data to be "restrided".
   mlir::ElementsAttr reshape(
       mlir::ElementsAttr elms, llvm::ArrayRef<int64_t> reshapedShape);
 
   // Broadcasts like the ONNX Expand op.
+  //
+  // Reuses elms' underlying data without a data copy.
   mlir::ElementsAttr expand(
       mlir::ElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape);
 
