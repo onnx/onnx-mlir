@@ -55,7 +55,7 @@ public:
         buffMemref.getType().cast<MemRefType>().getShape().size();
     int64_t destOffset = destRank - buffRank;
     assert(destOffset >= 0 && "offset expected non negative");
-    
+
     auto writeSizeAttr = copyFromBufferOp.tileSizeAttr();
     SmallVector<IndexExpr, 4> starts, bufferWriteUBs;
     getIndexExprList<DimIndexExpr>(startVals, starts);
@@ -65,11 +65,14 @@ public:
     for (long buffIndex = 0; buffIndex < buffRank; ++buffIndex) {
       long destIndex = destOffset + buffIndex;
       // Compute how many values to read.
-      IndexExpr destBound = create.krnlIE.getShapeAsSymbol(destMemref, destIndex); // Source memref size.
-      IndexExpr blockSize = create.krnlIE.getShapeAsSymbol(buffMemref, buffIndex); // Buffer memref size.
+      IndexExpr destBound = create.krnlIE.getShapeAsSymbol(
+          destMemref, destIndex); // Source memref size.
+      IndexExpr blockSize = create.krnlIE.getShapeAsSymbol(
+          buffMemref, buffIndex); // Buffer memref size.
       if (create.krnlIE.getArraySize(writeSizeAttr)) {
         int64_t memSize = blockSize.getLiteral();
-        blockSize = create.krnlIE.getIntFromArrayAsLiteral(writeSizeAttr, buffIndex); // Size from param.
+        blockSize = create.krnlIE.getIntFromArrayAsLiteral(
+            writeSizeAttr, buffIndex); // Size from param.
         assert(blockSize.getLiteral() <= memSize &&
                "writeTileSize cannot be larger than the buffer size");
       }

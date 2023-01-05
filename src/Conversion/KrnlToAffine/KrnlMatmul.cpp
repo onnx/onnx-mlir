@@ -98,8 +98,8 @@ public:
     // Gather A, B, C tile sizes.
     SmallVector<IndexExpr, 2> aTileSize, bTileSize, cTileSize;
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-    SmallVector<IndexExpr, 4> aBounds, bBounds, cBounds, aTileSizeFromAttr, bTileSizeFromAttr,
-        cTileSizeFromAttr, computeTileSizeFromAttr;
+    SmallVector<IndexExpr, 4> aBounds, bBounds, cBounds, aTileSizeFromAttr,
+        bTileSizeFromAttr, cTileSizeFromAttr, computeTileSizeFromAttr;
     create.krnlIE.getShapeAsSymbols(A, aBounds);
     create.krnlIE.getShapeAsSymbols(B, bBounds);
     create.krnlIE.getShapeAsSymbols(C, cBounds);
@@ -134,7 +134,7 @@ public:
     IndexExpr iComputeTileSize = cTileSize[0];
     IndexExpr jComputeTileSize = cTileSize[1];
     IndexExpr kComputeTileSize = aTileSize[1];
-        create.krnlIE.getIntFromArrayAsLiterals(
+    create.krnlIE.getIntFromArrayAsLiterals(
         matmulOp.computeTileSizeAttr(), computeTileSizeFromAttr);
 
     if (computeTileSizeFromAttr.size()) {

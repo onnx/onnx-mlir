@@ -848,7 +848,7 @@ void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
 LogicalResult KrnlCopyFromBufferOp::verify() {
   KrnlCopyFromBufferOpAdaptor opAdaptor = KrnlCopyFromBufferOpAdaptor(*this);
   IndexExprBuilderForAnalysis createIE(getLoc());
-  int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.buffer()); 
+  int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.buffer());
   int64_t destRank =
       opAdaptor.dest().getType().cast<MemRefType>().getShape().size();
   int64_t startRank = opAdaptor.starts().size();
