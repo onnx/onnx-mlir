@@ -25,9 +25,9 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
-#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/ElementsAttrHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -141,19 +141,9 @@ bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
       operands, [](Value v) { return isFromDenseONNXConstantOp(v); });
 }
 
-//===----------------------------------------------------------------------===//
-// Helpers to support DisposableElementsAttr constant propagation.
-//===----------------------------------------------------------------------===//
-
 ElementsAttr getConstValueElements(Value constValue) {
   ONNXConstantOp constOp = getONNXConstantOp(constValue);
   return constOp.valueAttr().cast<ElementsAttr>();
-}
-
-DisposableElementsAttr getConstValueAsDisposableElements(
-    ElementsAttrBuilder &elementsBuilder, Value constValue) {
-  return elementsBuilder.toDisposableElementsAttr(
-      getConstValueElements(constValue));
 }
 
 // Creates ONNXConstantOp with the location and result type from replacingValue.
@@ -164,6 +154,7 @@ ONNXConstantOp createReplacingConstantOp(
       IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
 }
 
+// Helper to restrict specialization to non-bool types.
 template <typename T>
 using EnableNotBool = std::enable_if_t<!std::is_same_v<T, bool>>;
 
@@ -386,9 +377,8 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
   }
 
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  DisposableElementsAttr inputElements =
-      getConstValueAsDisposableElements(elementsBuilder, input);
-  ArrayBuffer<WideNum> inputData = inputElements.getWideNums();
+  ElementsAttr inputElements = getConstValueElements(input);
+  ArrayBuffer<WideNum> inputData = getElementsWideNums(inputElements);
   size_t stride = ShapedType::getNumElements(inputShape.drop_front(splitAxis));
   size_t substride = stride / splitAxisSize;
   size_t offset = 0;
@@ -459,18 +449,18 @@ public:
  * for idx in np.ndindex(update_indices):
  *     output[indices[idx]] = updates[idx]
  */
-void ScatterNDImpl(DisposableElementsAttr dataElements,
-    DisposableElementsAttr indicesElements,
-    DisposableElementsAttr updatesElements, MutableArrayRef<WideNum> output) {
-  dataElements.readWideNums(output);
-  ArrayBuffer<int64_t> indicesBuffer = indicesElements.getArray<int64_t>();
+void ScatterNDImpl(ElementsAttr dataElements, ElementsAttr indicesElements,
+    ElementsAttr updatesElements, MutableArrayRef<WideNum> output) {
+  readElementsWideNums(dataElements, output);
+  ArrayBuffer<int64_t> indicesBuffer =
+      getElementsArray<int64_t>(indicesElements);
   ArrayRef<int64_t> indices = indicesBuffer.get();
-  ArrayBuffer<WideNum> updatesBuffer = updatesElements.getWideNums();
+  ArrayBuffer<WideNum> updatesBuffer = getElementsWideNums(updatesElements);
   ArrayRef<WideNum> updates = updatesBuffer.get();
 
-  auto dataShape = dataElements.getShape();
-  auto indicesShape = indicesElements.getShape();
-  auto updatesShape = updatesElements.getShape();
+  auto dataShape = dataElements.getType().getShape();
+  auto indicesShape = indicesElements.getType().getShape();
+  auto updatesShape = updatesElements.getType().getShape();
 
   int64_t indices_nd = indicesShape.back();
   auto outer = indicesShape.drop_back();
@@ -514,12 +504,9 @@ public:
         {scatterNdOp.data(), scatterNdOp.indices(), scatterNdOp.updates()});
 
     ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-    DisposableElementsAttr dataElements =
-        getConstValueAsDisposableElements(elementsBuilder, scatterNdOp.data());
-    DisposableElementsAttr indicesElements = getConstValueAsDisposableElements(
-        elementsBuilder, scatterNdOp.indices());
-    DisposableElementsAttr updatesElements = getConstValueAsDisposableElements(
-        elementsBuilder, scatterNdOp.updates());
+    ElementsAttr dataElements = getConstValueElements(scatterNdOp.data());
+    ElementsAttr indicesElements = getConstValueElements(scatterNdOp.indices());
+    ElementsAttr updatesElements = getConstValueElements(scatterNdOp.updates());
     ElementsAttr scatteredElements = elementsBuilder.fromWideNums(
         dataElements.getType(), [&](MutableArrayRef<WideNum> dst) {
           ScatterNDImpl(dataElements, indicesElements, updatesElements, dst);
@@ -555,19 +542,20 @@ Value ConstPropCast(
 //===----------------------------------------------------------------------===//
 
 void ConstPropSliceImpl(ShapedType outputType,
-    const ONNXSliceOpShapeHelper &shapeHelper,
-    DisposableElementsAttr inputElements, MutableArrayRef<WideNum> outputData) {
+    const ONNXSliceOpShapeHelper &shapeHelper, ElementsAttr inputElements,
+    MutableArrayRef<WideNum> outputData) {
   size_t rank = outputType.getRank();
   auto outputShape = outputType.getShape();
   std::vector<int64_t> outputStrides = getStrides(outputShape);
-  std::vector<int64_t> inputStrides = getStrides(inputElements.getShape());
+  std::vector<int64_t> inputStrides =
+      getStrides(inputElements.getType().getShape());
   size_t start = 0;
   SmallVector<size_t, 4> steps(rank, 0);
   for (size_t axis = 0; axis < rank; ++axis) {
     start += shapeHelper.starts[axis].getLiteral() * inputStrides[axis];
     steps[axis] = shapeHelper.steps[axis].getLiteral() * inputStrides[axis];
   }
-  ArrayBuffer<WideNum> inputBuffer = inputElements.getWideNums();
+  ArrayBuffer<WideNum> inputBuffer = getElementsWideNums(inputElements);
   ArrayRef<WideNum> inputData = inputBuffer.get();
   auto traverse = [&](size_t axis, size_t srcPos, size_t dstPos,
                       const auto &recurse) -> void {
@@ -601,8 +589,7 @@ Value ConstPropSlice(
   }
 
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  DisposableElementsAttr inputElements =
-      getConstValueAsDisposableElements(elementsBuilder, constValue);
+  ElementsAttr inputElements = getConstValueElements(constValue);
   ShapedType outputType = replacingValue.getType().cast<ShapedType>();
   ElementsAttr slicedElements = elementsBuilder.fromWideNums(
       outputType, [&](MutableArrayRef<WideNum> dst) {
@@ -617,16 +604,16 @@ Value ConstPropSlice(
 //===----------------------------------------------------------------------===//
 
 void ConstPropConcatImpl(ShapedType outputType,
-    ArrayRef<DisposableElementsAttr> inputElements, int64_t axis,
+    ArrayRef<ElementsAttr> inputElements, int64_t axis,
     MutableArrayRef<WideNum> outputData) {
   ArrayRef<int64_t> outputShape = outputType.getShape();
   size_t stride = ShapedType::getNumElements(outputShape.drop_front(axis));
   size_t start = 0;
   auto out = outputData.begin();
-  for (DisposableElementsAttr input : inputElements) {
-    ArrayRef<int64_t> inputShape = input.getShape();
+  for (ElementsAttr input : inputElements) {
+    ArrayRef<int64_t> inputShape = input.getType().getShape();
     size_t len = ShapedType::getNumElements(inputShape.drop_front(axis));
-    ArrayBuffer<WideNum> inputData = input.getWideNums();
+    ArrayBuffer<WideNum> inputData = getElementsWideNums(input);
     auto in = inputData.get().begin();
     for (size_t offset = start; offset < outputData.size(); offset += stride) {
       std::copy_n(in, len, out + offset);
@@ -646,11 +633,10 @@ Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
     axis += outputType.getRank();
 
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  SmallVector<DisposableElementsAttr, 4> inputElements;
+  SmallVector<ElementsAttr, 4> inputElements;
   inputElements.reserve(operands.size());
   for (Value input : operands)
-    inputElements.push_back(
-        getConstValueAsDisposableElements(elementsBuilder, input));
+    inputElements.push_back(getConstValueElements(input));
   ElementsAttr concatenatedElements = elementsBuilder.fromWideNums(
       outputType, [&](MutableArrayRef<WideNum> dst) {
         ConstPropConcatImpl(outputType, inputElements, axis, dst);
@@ -681,13 +667,12 @@ Value ConstPropExpand(
 // Code to perform constant propagation for GatherOp.
 //===----------------------------------------------------------------------===//
 
-void ConstPropGatherImpl(ShapedType outputType,
-    DisposableElementsAttr inputElements,
-    DisposableElementsAttr indicesElements, int64_t axis,
+void ConstPropGatherImpl(ShapedType outputType, ElementsAttr inputElements,
+    ElementsAttr indicesElements, int64_t axis,
     MutableArrayRef<WideNum> outputData) {
-  ArrayBuffer<WideNum> inputData = inputElements.getWideNums();
-  ArrayBuffer<int64_t> indicesData = indicesElements.getArray<int64_t>();
-  auto inputShape = inputElements.getShape();
+  ArrayBuffer<WideNum> inputData = getElementsWideNums(inputElements);
+  ArrayBuffer<int64_t> indicesData = getElementsArray<int64_t>(indicesElements);
+  auto inputShape = inputElements.getType().getShape();
   size_t axisSize = inputShape[axis];
   size_t inputStride = ShapedType::getNumElements(inputShape.drop_front(axis));
   size_t len = inputStride / axisSize;
@@ -719,10 +704,8 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
     axis += inputValue.getType().cast<ShapedType>().getRank();
 
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  DisposableElementsAttr inputElements =
-      getConstValueAsDisposableElements(elementsBuilder, inputValue);
-  DisposableElementsAttr indicesElements =
-      getConstValueAsDisposableElements(elementsBuilder, indicesValue);
+  ElementsAttr inputElements = getConstValueElements(inputValue);
+  ElementsAttr indicesElements = getConstValueElements(indicesValue);
   ShapedType outputType = replacingValue.getType().cast<ShapedType>();
   ElementsAttr gatheredElements = elementsBuilder.fromWideNums(
       outputType, [&](MutableArrayRef<WideNum> dst) {
