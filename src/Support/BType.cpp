@@ -61,6 +61,11 @@ bool isFloatBType(BType d) {
       d, [](auto btype) { return BTypeTrait<btype>::isFloat; });
 }
 
+bool isIntBType(BType d) {
+  return dispatchByBType(
+      d, [](auto btype) { return BTypeTrait<btype>::isInt; });
+}
+
 bool isIntOrFloatBType(BType d) {
   return dispatchByBType(
       d, [](auto btype) { return BTypeTrait<btype>::isIntOrFloat; });

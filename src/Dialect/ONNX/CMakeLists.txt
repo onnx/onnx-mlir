@@ -17,6 +17,7 @@ add_onnx_mlir_library(OMONNXOps
   DisposableElementsAttr.cpp
   DisposablePool.cpp
   ElementsAttrBuilder.cpp
+  ElementsAttrHelper.cpp
   ONNXAttributes.cpp
   ONNXDialect.cpp
   ONNXOps.cpp

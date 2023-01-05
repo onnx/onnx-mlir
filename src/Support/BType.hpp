@@ -92,11 +92,10 @@ struct BTypeTraitBase {
   static constexpr BType btype = BTYPE;
   static constexpr bool isFloat =
       std::is_floating_point_v<CPPTY> || isFP16Type<CPPTY>;
-  static constexpr bool isIntOrFloat = std::is_integral_v<CPPTY> || isFloat;
-  static constexpr bool isSignedInt =
-      std::is_integral_v<CPPTY> && std::is_signed_v<CPPTY>;
-  static constexpr bool isUnsignedInt =
-      std::is_integral_v<CPPTY> && !std::is_signed_v<CPPTY>;
+  static constexpr bool isInt = std::is_integral_v<CPPTY>;
+  static constexpr bool isIntOrFloat = isInt || isFloat;
+  static constexpr bool isSignedInt = isInt && std::is_signed_v<CPPTY>;
+  static constexpr bool isUnsignedInt = isInt && !std::is_signed_v<CPPTY>;
   static constexpr unsigned bytewidth = bytewidthOf<CPPTY>();
   static constexpr unsigned bitwidth =
       std::is_same_v<CPPTY, bool> ? 1 : (CHAR_BIT * bytewidth);
@@ -179,6 +178,9 @@ mlir::Type toMlirType(mlir::MLIRContext *ctx) {
 
 // == mlirTypeOfBType(btype, ctx).isa<FloatType>()
 bool isFloatBType(BType);
+
+// == mlirTypeOfBType(btype, ctx).isa<IntegerType>()
+bool isIntBType(BType);
 
 // == mlirTypeOfBType(btype, ctx).isIntOrFloat()
 bool isIntOrFloatBType(BType);
