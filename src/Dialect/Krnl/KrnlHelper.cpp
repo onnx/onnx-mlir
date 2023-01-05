@@ -165,21 +165,6 @@ DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
   return nullptr;
 }
 
-#if 0
-// This function satisfies the ArrayValueIndexCapture::LoadVal lambda
-// type, using Krnl operations.
-Value loadDenseElementArrayValueAtIndex(
-    OpBuilder &rewriter, Location loc, Value array, int64_t index) {
-  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-  // Scalar tensor.
-  if (array.getType().cast<ShapedType>().getShape().size() == 0)
-    return create.krnl.load(array);
-
-  Value indexVal = create.math.constantIndex(index);
-  return create.krnl.load(array, {indexVal});
-}
-#endif
-
 //====---------------- Support for simple transpose -------------------===//
 
 // create an identity

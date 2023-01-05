@@ -88,13 +88,6 @@ private:
 mlir::DenseElementsAttr getDenseElementAttributeFromKrnlValue(
     mlir::Value value);
 
-#if 0
-// This function satisfies the ArrayValueIndexCapture::LoadVal lambda
-// type, using Krnl operations.
-mlir::Value loadDenseElementArrayValueAtIndex(mlir::OpBuilder &rewriter,
-    mlir::Location loc, mlir::Value array, int64_t index);
-#endif
-
 //====---------------- Support for simple transpose ----------------------===//
 
 void generateIndexMap(
