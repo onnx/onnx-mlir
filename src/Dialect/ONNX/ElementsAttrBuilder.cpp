@@ -119,6 +119,7 @@ DisposableElementsAttr ElementsAttrBuilder::toDisposableElementsAttr(
   llvm_unreachable("unexpected ElementsAttr instance");
 }
 
+/*static*/
 DenseElementsAttr ElementsAttrBuilder::toDenseElementsAttr(
     ElementsAttr elements) {
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
