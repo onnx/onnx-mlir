@@ -69,6 +69,9 @@ void populateLoweringKrnlMemcpyOpPattern(mlir::TypeConverter &typeConverter,
 void populateLoweringKrnlPrintOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
+void populateLoweringScfParallelOpEmptyPattern(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
+
 void populateLoweringKrnlPrintTensorOpPattern(
     mlir::TypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
     mlir::MLIRContext *ctx);

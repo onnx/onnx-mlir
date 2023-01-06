@@ -33,6 +33,7 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Dialect/OpenMP/OpenMPDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -157,8 +158,10 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   vector::populateVectorContractLoweringPatterns(patterns);
   vector::populateVectorTransposeLoweringPatterns(patterns);
 
+
   populateAffineToStdConversionPatterns(patterns);
-  populateSCFToControlFlowConversionPatterns(patterns);
+  //krnl::populateLoweringScfParallelOpEmptyPattern(typeConverter, patterns, ctx);
+  //populateSCFToControlFlowConversionPatterns(patterns);
 
   populateShapeToStandardConversionPatterns(patterns);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
@@ -410,9 +413,22 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(*ctx);
+  //target.addLegalDialect<LLVM::LLVMDialect, omp::OpenMPDialect>();
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
+  /*target.addLegalOp<omp::ParallelOp>();
+  target.addLegalOp<omp::WsLoopOp>();
+  target.addLegalOp<omp::TerminatorOp>();
+  target.addLegalOp<omp::YieldOp>();*/
   target.addLegalOp<UnrealizedConversionCastOp>();
+  //target.addIllegalOp<scf::ReduceOp, scf::ReduceReturnOp, scf::ParallelOp>();
+  //target.addLegalOp<scf::ReduceOp, scf::ReduceReturnOp, scf::ParallelOp>();
+
+  ConversionTarget target2(*ctx);
+  //target.addLegalDialect<LLVM::LLVMDialect, omp::OpenMPDialect>();
+  target2.addLegalDialect<LLVM::LLVMDialect>();
+  target2.addLegalOp<ModuleOp>();
+  target2.addLegalOp<UnrealizedConversionCastOp>();
 
   // Conversion target for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -440,7 +456,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
-  RewritePatternSet patterns(ctx);
+  RewritePatternSet patterns(ctx), patterns2(ctx);
 
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
@@ -452,10 +468,25 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
+
+  //applyPartialConversion(getOperation(), target2, std::move(patterns));
+
+//  fprintf(stderr,"applied partial conversion\n");
+
+  populateAffineAndKrnlToLLVMConversion(patterns2, typeConverter, ctx,
+      outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
+      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
+
+  // Rewrite patterns for accelerators.
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
+    accel->rewritePatternKrnlToLLVM(patterns2, typeConverter, ctx);
+
   if (failed(
-          applyFullConversion(getOperation(), target, std::move(patterns)))) {
+      //applyFullConversion(getOperation(), target, std::move(patterns2)))) {
+      applyPartialConversion(getOperation(), target, std::move(patterns2)))) {
     signalPassFailure();
   }
+  fprintf(stderr,"applied full conversion\n");
 
   // Generate signature functions.
   if (entryGlobalOps.size() >= 1)

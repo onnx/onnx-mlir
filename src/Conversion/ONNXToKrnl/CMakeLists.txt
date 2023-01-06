@@ -7,6 +7,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   PerfectHash.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
+  #ParallelLowering.cpp
   Math/CumSum.cpp
   Math/Clip.cpp
   Math/Elementwise.cpp

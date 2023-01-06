@@ -55,7 +55,8 @@ enum class KeepFilesOfType { All, MLIR, LLVMIR, Bitcode, Object, None };
 
 // Value below override at compile time by effectively setting the requested
 // flags.
-static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
+//static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
+static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::All;
 
 static bool keepFiles(KeepFilesOfType preserve) {
   // When wanting to preserve all files, do it regardles of isBitcode.
@@ -438,6 +439,7 @@ static int genModelObject(
                .appendList(getXllcOption())
                .appendStr(getLLVMOption())
                .appendStr("-filetype=obj")
+               .appendStr("-print-after-all")
                .appendStr("-relocation-model=pic")
                .appendList({"-o", modelObjNameWithExt})
                .appendStr(bitcodeNameWithExt)
