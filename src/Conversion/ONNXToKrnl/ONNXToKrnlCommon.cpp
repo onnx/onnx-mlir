@@ -354,11 +354,28 @@ DenseElementsAttr getDenseElementAttrFromValue(Value input) {
 /// and return a constant.
 Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
+<<<<<<< HEAD
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   TensorType tensorType = create.onnx.toTensor(resultType);
   if (DenseElementsAttr inputElements = getDenseElementAttrFromValue(input)) {
     DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
     Value constVal = create.onnx.constant(squeezedElements);
+=======
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
+  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
+    ONNXConstantOp inputConstOp = getONNXConstantOp(input);
+    DenseElementsAttr inputElements =
+        inputConstOp.valueAttr().cast<DenseElementsAttr>();
+    ShapedType tensorType = create.onnx.toTensor(resultType).cast<ShapedType>();
+    DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
+    // TODO: Fix lit tests so we can change this to just:
+    // Value constVal = create.onnx.constant(squeezedElements);
+    // The lit tests want the constant to have memref type, so we do this:
+    Value constVal = rewriter.create<ONNXConstantOp>(loc, resultType,
+        Attribute(), squeezedElements, FloatAttr(), ArrayAttr(), IntegerAttr(),
+        ArrayAttr(), StringAttr(), ArrayAttr());
+>>>>>>> f4929223 (use DenseElementsAttr::reshape to implement foldOrEmitONNXSqueezeV11Op, foldOrEmitONNXUnsqueezeV11Op)
     return create.onnx.toMemref(constVal);
   } else {
     return create.onnx.toMemref(

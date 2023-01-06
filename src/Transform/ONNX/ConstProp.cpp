@@ -29,7 +29,6 @@
 #include "src/Support/Common.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "src/Support/WideNum.hpp"
-#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 #include <math.h>
 #include <numeric>
@@ -363,6 +362,27 @@ public:
     return ConstPropSplitPatternCommon(splitOp, rewriter, splitOp.split());
   }
 };
+
+/// Compute strides for a given shape.
+std::vector<int64_t> getStrides(ArrayRef<int64_t> shape) {
+  int rank = shape.size();
+  std::vector<int64_t> strides;
+  int64_t count = 1;
+  for (int i = rank - 1; i >= 0; i--) {
+    strides.insert(strides.begin(), count);
+    count *= shape[i];
+  }
+  return strides;
+}
+
+/// Compute the linear access index.
+int64_t getLinearAccessIndex(
+    ArrayRef<int64_t> indices, ArrayRef<int64_t> strides) {
+  int64_t index = 0;
+  for (unsigned int i = 0; i < strides.size(); ++i)
+    index += indices[i] * strides[i];
+  return index;
+}
 
 // https://github.com/onnx/onnx/blob/main/docs/Changelog.md#ScatterND-13
 /*

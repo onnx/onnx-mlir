@@ -41,7 +41,6 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
-#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 // A global variable to indicate whether this pass will emit dealloc for
 // allocated memrefs or not during the conversion of ONNX to Krnl.
