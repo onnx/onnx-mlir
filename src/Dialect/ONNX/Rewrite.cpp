@@ -20,7 +20,8 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
@@ -100,6 +101,33 @@ bool areProducedByTransposeOp(ValueRange values) {
       return false;
     return isa<ONNXTransposeOp>(v.getDefiningOp());
   });
+}
+
+// Create a DenseElementsAttr based on the shape of type.
+DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
+    Value value, int64_t start = 0, llvm::Optional<int64_t> end = llvm::None) {
+
+  auto inType = value.getType().cast<ShapedType>();
+  assert(inType.hasRank() && "inType must be ranked");
+  auto shape = inType.getShape();
+  int64_t rank = inType.getRank();
+
+  int64_t endValue = end.has_value() ? end.value() : rank;
+
+  SmallVector<int64_t, 1> dims = {endValue - start};
+  SmallVector<int64_t, 4> values(
+      shape.begin() + start, shape.begin() + endValue);
+  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
+}
+
+// Create a DenseElementsAttr from Shape Op
+DenseElementsAttr createDenseElementsAttrFromShapeOp(
+    PatternRewriter &rewriter, Operation *op) {
+  ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
+  int64_t start, end;
+  ONNXShapeOpShapeHelper::getStartEndValues(shapeOp, start, end);
+  return createDenseElementsAttrFromShape(rewriter, shapeOp.data(), start, end);
 }
 
 } // namespace onnx_mlir
@@ -430,8 +458,7 @@ ArrayAttr perm4RNN(Builder &b) { return b.getI64ArrayAttr({2, 0, 1, 3}); }
 
 class InputOutputTransposer {
 public:
-  InputOutputTransposer(mlir::OpBuilder &b, mlir::Location loc)
-      : create(b, loc) {}
+  InputOutputTransposer(OpBuilder &b, Location loc) : create(b, loc) {}
 
   void transposeInput(MutableOperandRange operand, ArrayAttr perm) {
     assert(operand.size() == 1 && "should be called with singleton range");
@@ -497,7 +524,14 @@ public:
       onnxOp->setAttr(onnxOp.layoutAttrName(),
           rewriter.getIntegerAttr(
               rewriter.getIntegerType(64, /*isSigned=*/true), 0));
-      // Update the output shape.
+      // Update the output shape. Since the onnxOp is reused, it potentially had
+      // some shape inference for its output. But since the input changed, we
+      // don't want these now-erroneous output shapes to influence the output of
+      // the revised op (as current output shape is used to potentially refine
+      // existing shape inference). Long story short, we must reset the output
+      // shapes. The call below does that. It is then safe to call shape
+      // inference with the revised inputs.
+      resetTypesShapeToQuestionmarks(onnxOp);
       inferShapes(onnxOp);
     });
     // Transpose the Y and Y_h outputs by inserting an ONNXTransposeOp
@@ -518,7 +552,16 @@ public:
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
+/// Please keep in alphabetical order.
 // =============================================================================
+
+/// on the ONNXBatchNormalizationInferenceModeOp.
+void ONNXBatchNormalizationInferenceModeOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<FuseBatchNormInferenceModeConvPattern>(context);
+  results.insert<RewriteBatchNormInferenceModeConvPattern1>(context);
+  results.insert<RewriteBatchNormInferenceModeConvPattern2>(context);
+}
 
 /// on the ONNXAddOp.
 void ONNXAddOp::getCanonicalizationPatterns(
@@ -530,11 +573,58 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseAddConvNullBiasPattern>(context);
 }
 
-/// on the ONNXMulOp.
-void ONNXMulOp::getCanonicalizationPatterns(
+/// on the ONNXCastOp.
+void ONNXCastOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<CastEliminationPattern>(context);
+  result.insert<FuseCastCastPattern>(context);
+}
+
+/// on the ONNXConstantOp.
+void ONNXConstantOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
-  results.insert<NormalizeMulPattern>(context);
-  results.insert<FuseMulConvNullBiasPattern>(context);
+  results.insert<ConstantOpNormalizationPattern1>(context);
+  results.insert<ConstantOpNormalizationPattern2>(context);
+  results.insert<ConstantOpNormalizationPattern3>(context);
+  results.insert<ConstantOpNormalizationPattern4>(context);
+  results.insert<ConstantOpNormalizationPattern5>(context);
+  results.insert<ConstantOpNormalizationPattern6>(context);
+}
+
+/// on the ONNXDepthToSpaceOp.
+void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RemoveDepthToSpaceSpaceToDepthPattern>(context);
+}
+
+/// on the ONNXDropoutOp.
+void ONNXDropoutOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<DropoutEliminationPattern>(context);
+}
+
+/// on the ONNXDimOp.
+void ONNXDimOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<DimOpToConstantPattern>(context);
+}
+
+/// on the ONNXGlobalAveragePoolOp.
+void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<GlobalAveragePoolPattern>(context);
+}
+
+/// on the ONNXGlobalMaxPoolOp.
+void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<GlobalMaxPoolPattern>(context);
+}
+
+/// on the ONNXGRUOp.
+void ONNXGRUOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RNNOpRewriteLayoutPattern<ONNXGRUOp>>(context);
 }
 
 /// on the ONNXIdentityOp.
@@ -543,10 +633,86 @@ void ONNXIdentityOp::getCanonicalizationPatterns(
   results.insert<IdentityEliminationPattern>(context);
 }
 
-/// on the ONNXCastOp.
-void ONNXCastOp::getCanonicalizationPatterns(
+/// on the ONNXLayoutTransformOp.
+void ONNXLayoutTransformOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
-  result.insert<CastEliminationPattern>(context);
+  result.insert<ONNXLayoutTransformEliminationPattern>(context);
+}
+
+/// on the ONNXLessOp.
+void ONNXLessOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<LessOpSameCastPattern>(context);
+}
+
+/// on the ONNXLoopOp.
+void ONNXLoopOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<LoopOpRewriteMaxTripCountPattern>(context);
+}
+
+/// on the ONNXLSTMOp.
+void ONNXLSTMOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RNNOpRewriteLayoutPattern<ONNXLSTMOp>>(context);
+}
+
+/// on the ONNXMulOp.
+void ONNXMulOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<NormalizeMulPattern>(context);
+  results.insert<FuseMulConvNullBiasPattern>(context);
+}
+
+/// on the ONNXReshapeOp.
+void ONNXReshapeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<FuseReshapePattern>(context);
+  result.insert<RemoveIdentityReshapePattern>(context);
+  result.insert<SwapReshapeMatMulPattern>(context);
+}
+
+/// on the ONNXRNNOp.
+void ONNXRNNOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RNNOpRewriteLayoutPattern<ONNXRNNOp>>(context);
+}
+
+/// on the ONNXShapeOp.
+void ONNXShapeOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ShapeToConstantPattern>(context);
+}
+
+/// on the ONNXSizeOp.
+void ONNXSizeOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<SizeToConstantPattern>(context);
+}
+
+/// on the ONNXSoftmaxV11Op.
+void ONNXSoftmaxV11Op::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<SoftmaxV11ToLatestPattern>(context);
+}
+
+/// on the ONNXSpaceToDepthOp.
+void ONNXSpaceToDepthOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RemoveSpaceToDepthDepthToSpacePattern>(context);
+}
+
+/// on the ONNXSqueezeOp.
+void ONNXSqueezeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<RemoveSqueezeUnsqueezePattern>(context);
+  result.insert<RemoveSqueezeCastUnsqueezePattern>(context);
+}
+
+void ONNXSqueezeV11Op::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<RemoveSqueezeV11UnsqueezeV11Pattern>(context);
+  result.insert<RemoveSqueezeV11CastUnsqueezeV11Pattern>(context);
 }
 
 /// on the ONNXTransposeOp.
@@ -590,123 +756,15 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
   result.insert<SwapTransposeConcatPattern>(context);
 }
 
-/// on the ONNXReshapeOp.
-void ONNXReshapeOp::getCanonicalizationPatterns(
-    RewritePatternSet &result, MLIRContext *context) {
-  result.insert<FuseReshapePattern>(context);
-  result.insert<RemoveIdentityReshapePattern>(context);
-  result.insert<SwapReshapeMatMulPattern>(context);
-}
-
-/// on the ONNXDropoutOp.
-void ONNXDropoutOp::getCanonicalizationPatterns(
-    RewritePatternSet &result, MLIRContext *context) {
-  result.insert<DropoutEliminationPattern>(context);
-}
-
-/// on the ONNXSqueezeOp.
-void ONNXSqueezeOp::getCanonicalizationPatterns(
-    RewritePatternSet &result, MLIRContext *context) {
-  result.insert<RemoveSqueezeUnsqueezePattern>(context);
-}
-
-void ONNXSqueezeV11Op::getCanonicalizationPatterns(
-    RewritePatternSet &result, MLIRContext *context) {
-  result.insert<RemoveSqueezeV11UnsqueezeV11Pattern>(context);
-}
-
 /// on the ONNXUnsqueezeOp.
 void ONNXUnsqueezeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeSqueezePattern>(context);
+  result.insert<RemoveUnsqueezeCastSqueezePattern>(context);
 }
 
 void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeV11SqueezeV11Pattern>(context);
-}
-
-/// on the ONNXBatchNormalizationInferenceModeOp.
-void ONNXBatchNormalizationInferenceModeOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<FuseBatchNormInferenceModeConvPattern>(context);
-  results.insert<RewriteBatchNormInferenceModeConvPattern1>(context);
-  results.insert<RewriteBatchNormInferenceModeConvPattern2>(context);
-}
-
-/// on the ONNXShapeOp.
-void ONNXShapeOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<ShapeToConstantPattern>(context);
-}
-
-/// on the ONNXSizeOp.
-void ONNXSizeOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<SizeToConstantPattern>(context);
-}
-
-/// on the ONNXSpaceToDepthOp.
-void ONNXSpaceToDepthOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<RemoveSpaceToDepthDepthToSpacePattern>(context);
-}
-
-/// on the ONNXGlobalAveragePoolOp.
-void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<GlobalAveragePoolPattern>(context);
-}
-
-/// on the ONNXGlobalMaxPoolOp.
-void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<GlobalMaxPoolPattern>(context);
-}
-
-/// on the ONNXConstantOp.
-void ONNXConstantOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<ConstantOpNormalizationPattern1>(context);
-  results.insert<ConstantOpNormalizationPattern2>(context);
-  results.insert<ConstantOpNormalizationPattern3>(context);
-  results.insert<ConstantOpNormalizationPattern4>(context);
-  results.insert<ConstantOpNormalizationPattern5>(context);
-  results.insert<ConstantOpNormalizationPattern6>(context);
-}
-
-/// on the ONNXDepthToSpaceOp.
-void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<RemoveDepthToSpaceSpaceToDepthPattern>(context);
-}
-
-/// on the ONNXLessOp.
-void ONNXLessOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<LessOpSameCastPattern>(context);
-}
-
-/// on the ONNXLoopOp.
-void ONNXLoopOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<LoopOpRewriteMaxTripCountPattern>(context);
-}
-
-/// on the ONNXGRUOp.
-void ONNXGRUOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<RNNOpRewriteLayoutPattern<ONNXGRUOp>>(context);
-}
-
-/// on the ONNXLSTMOp.
-void ONNXLSTMOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<RNNOpRewriteLayoutPattern<ONNXLSTMOp>>(context);
-}
-
-/// on the ONNXRNNOp.
-void ONNXRNNOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<RNNOpRewriteLayoutPattern<ONNXRNNOp>>(context);
+  result.insert<RemoveUnsqueezeV11CastSqueezeV11Pattern>(context);
 }

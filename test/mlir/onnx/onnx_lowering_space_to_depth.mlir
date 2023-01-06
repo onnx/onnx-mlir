@@ -7,8 +7,8 @@ func.func private @test_space_to_depth_dynamic_dims(%arg0 : tensor<1x?x8x?xf32>)
   %0 = "onnx.SpaceToDepth"(%arg0) {blocksize = 4 : si64} : (tensor<1x?x8x?xf32>) -> tensor<1x?x2x?xf32>
   "func.return"(%0) : (tensor<1x?x2x?xf32>) -> ()
 
-// CHECK-DAG: #map0 = affine_map<()[s0] -> (s0 * 16)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (s0 floordiv 4)>
+// CHECK-DAG: [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 16)>
+// CHECK-DAG: [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 floordiv 4)>
 // CHECK-LABEL:  func private @test_space_to_depth_dynamic_dims
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x?x8x?xf32>) -> memref<1x?x2x?xf32> {
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
@@ -21,8 +21,8 @@ func.func private @test_space_to_depth_dynamic_dims(%arg0 : tensor<1x?x8x?xf32>)
 // CHECK-DAG:       [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<1x?x8x?xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c3_]] : memref<1x?x8x?xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply #map0(){{.}}[[VAR_0_]]{{.}}
-// CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply #map1(){{.}}[[VAR_1_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_0_]]{{.}}
+// CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_1_]]{{.}}
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<6xindex>
 // CHECK:           krnl.store [[VAR_c1_]], [[RES_]]{{.}}[[VAR_c0_]]{{.}} : memref<6xindex>
 // CHECK:           krnl.store [[VAR_0_]], [[RES_]]{{.}}[[VAR_c1_]]{{.}} : memref<6xindex>

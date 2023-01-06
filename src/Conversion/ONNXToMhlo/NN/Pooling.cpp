@@ -4,7 +4,7 @@
 
 //===---------------- Pooling.cpp - Lowering Pooling Ops ------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2022
 //
 // =============================================================================
 //
@@ -12,8 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -28,7 +29,7 @@ void buildReduceBody(Type elementType, Region *body, OpBuilder *builder) {
   OpBuilder::InsertionGuard guard(*builder);
   Block *block = builder->createBlock(body);
   // Block arguments are scalars of the given element type.
-  Type type = RankedTensorType::get(/*shape=*/{}, elementType);
+  auto type = RankedTensorType::get(/*shape=*/{}, elementType);
   Location loc = body->getLoc();
   block->addArguments({type, type}, SmallVector<Location, 2>(2, loc));
   Value reducer =
@@ -45,6 +46,14 @@ void buildReduceBodyFor<ONNXMaxPoolSingleOutOp>(
   buildReduceBody<mhlo::MaxOp>(elementType, body, builder);
 }
 
+static DenseIntElementsAttr getDenseIntElementsAttr(
+    SmallVectorImpl<int64_t> &values, Builder *builder) {
+  return DenseIntElementsAttr::get(
+      RankedTensorType::get(
+          {static_cast<int64_t>(values.size())}, builder->getI64Type()),
+      values);
+}
+
 // Returns 1D 64-bit dense elements attribute padded with the given values.
 static DenseIntElementsAttr getKernelAttr(ArrayRef<IndexExpr> values,
     Builder *builder, int64_t spatialOffset, int64_t defaultValue = 1) {
@@ -54,7 +63,7 @@ static DenseIntElementsAttr getKernelAttr(ArrayRef<IndexExpr> values,
     assert(values[i].isLiteral() && "kernel dim is not literal");
     vectorValues.push_back(values[i].getLiteral());
   }
-  return builder->getI64VectorAttr(vectorValues);
+  return getDenseIntElementsAttr(vectorValues, builder);
 }
 
 void padVector(
@@ -77,14 +86,14 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
     PoolOp poolOp = llvm::cast<PoolOp>(op);
 
     // Get shape.
-    PoolOpShapeHelper shapeHelper(&poolOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    IndexExprBuilderForMhlo createMhloIE(rewriter, loc);
+    PoolOpShapeHelper shapeHelper(op, operands, &createMhloIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     llvm::SmallVector<IndexExpr, 2> kernelShape = shapeHelper.kernelShape;
     llvm::SmallVector<int64_t, 2> strides = shapeHelper.strides;
     llvm::SmallVector<int64_t, 2> dilations = shapeHelper.dilations;
-    DimsExpr outputDims = shapeHelper.dimsForOutput();
+    DimsExpr outputDims = shapeHelper.getOutputDims();
 
     // Type information about the input and result of this operation.
     Value inputOperand = operandAdaptor.X();
@@ -132,13 +141,13 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
     mhlo::ReduceWindowOp reduce =
         rewriter.create<mhlo::ReduceWindowOp>(loc, outputType, inputOperand,
             negInfinity, getKernelAttr(kernelShape, &rewriter, spatialOffset),
-            rewriter.getI64VectorAttr(strides),
+            getDenseIntElementsAttr(strides, &rewriter),
             /*base_dilations=*/DenseIntElementsAttr(),
-            /*window_dilations=*/rewriter.getI64VectorAttr(dilations),
+            /*window_dilations=*/getDenseIntElementsAttr(dilations, &rewriter),
             DenseIntElementsAttr::get(
                 RankedTensorType::get({rank, 2}, rewriter.getI64Type()),
                 flattenPaddings));
-    buildReduceBodyFor<PoolOp>(elemType, &reduce.body(), &rewriter);
+    buildReduceBodyFor<PoolOp>(elemType, &reduce.getBody(), &rewriter);
     rewriter.replaceOp(op, reduce->getResults());
     return success();
   }

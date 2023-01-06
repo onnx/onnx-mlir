@@ -25,6 +25,7 @@
 #include "llvm/Support/Path.h"
 
 #include "ExecutionSession.hpp"
+#include "OMTensorListHelper.hpp"
 
 namespace onnx_mlir {
 const std::string ExecutionSession::_queryEntryPointsName =
@@ -36,7 +37,7 @@ ExecutionSession::ExecutionSession(
     std::string sharedLibPath, bool defaultEntryPoint) {
 
   _sharedLibraryHandle =
-      llvm::sys::DynamicLibrary::getPermanentLibrary(sharedLibPath.c_str());
+      llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());
   if (!_sharedLibraryHandle.isValid())
     throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
 
@@ -85,6 +86,13 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   auto *wrappedInput = omTensorListCreate(&omts[0], (int64_t)omts.size());
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
+
+  // We created a wrapper for the input list, but the input list does not really
+  // own the tensor in the list, as they are coming as OMTensorUniquePtr. So we
+  // need to simply deallocate the list structure without touching the
+  // OMTensors.
+  omTensorListDestroyShallow(wrappedInput);
+
   if (!wrappedOutput)
     throw std::runtime_error(reportErrnoError());
   std::vector<OMTensorUniquePtr> outs;
@@ -93,6 +101,12 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
     outs.emplace_back(OMTensorUniquePtr(
         omTensorListGetOmtByIndex(wrappedOutput, i), omTensorDestroy));
   }
+
+  // We created a wrapper for the output list, but the output list does not
+  // really own the tensor in the list, as they are returned in a vector of
+  // OMTensorUniquePtr. So we need to simply deallocate the list structure
+  // without touching the OMTensors.
+  omTensorListDestroyShallow(wrappedOutput);
   errno = 0; // No errors.
   return outs;
 }
@@ -134,9 +148,8 @@ const std::string ExecutionSession::outputSignature() const {
 }
 
 ExecutionSession::~ExecutionSession() {
-  // Call llvm_shutdown which will take care of cleaning up our shared library
-  // handles
-  llvm::llvm_shutdown();
+  if (_sharedLibraryHandle.isValid())
+    llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);
 }
 
 std::string ExecutionSession::reportLibraryOpeningError(

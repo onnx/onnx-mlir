@@ -29,7 +29,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = ONNXLoc<ONNXLoopOp>(op);
+    Location loc = ONNXLoc<ONNXLoopOp>(op);
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     ONNXLoopOpAdaptor loopOpAdaptor(operands, op->getAttrDictionary());
 
@@ -287,13 +287,13 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           SmallVector<mlir::Value, 4> allocParams;
           SmallVector<int64_t, 4> dims;
           dims.emplace_back(output.getType().cast<MemRefType>().getShape()[0]);
-          if (output.getType().cast<MemRefType>().getShape()[0] == -1)
+          if (output.getType().cast<MemRefType>().isDynamicDim(0))
             allocParams.emplace_back(create.mem.dim(output, 0));
           for (auto i = 0;
                i < firstElement.getType().cast<MemRefType>().getRank(); i++) {
             dims.emplace_back(
                 firstElement.getType().cast<MemRefType>().getShape()[i]);
-            if (firstElement.getType().cast<MemRefType>().getShape()[i] == -1)
+            if (firstElement.getType().cast<MemRefType>().isDynamicDim(i))
               allocParams.emplace_back(create.mem.dim(firstElement, i));
           }
           ArrayRef<int64_t> shape(dims.data(), dims.size());
@@ -311,8 +311,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
                 rewriter.setInsertionPointToStart(
                     &regionOp.bodyRegion().front());
                 Value origIV = loopInd[0];
-                auto src = rewriter.create<KrnlSeqExtractOp>(
-                    loc, seqElementType, output, origIV);
+                auto src = rewriter.create<KrnlSeqExtractOp>(loc,
+                    seqElementType, output, origIV,
+                    IntegerAttr::get(rewriter.getIntegerType(1, false), 0));
                 emitCopy(rewriter, loc, src, alloc, {origIV});
               });
           newOutputs.emplace_back(alloc);
@@ -389,7 +390,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         SmallVector<mlir::Value, 4> allocParams;
 
         // Check the loop accumulation dimension
-        if (rankedScanOutTy.getShape()[0] == -1) {
+        if (rankedScanOutTy.isDynamicDim(0)) {
           // TODO(tjingrant): in general, it is not correct to expect
           // loop operation scan output to have the leading dimension extent
           // equal to the max trip count, due to the possibility of early
@@ -414,7 +415,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         // known All the related code will be marked with 'accumulation for
         // dynamic tensor'
         for (int i = 1; i < rankedScanOutTy.getRank(); i++) {
-          if (rankedScanOutTy.getShape()[i] == -1) {
+          if (rankedScanOutTy.isDynamicDim(i)) {
             isDynamic = true;
             break;
           }
@@ -424,7 +425,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // Suppose the scanout type is is <d1 , d2,... dnxT>
           // Use memref<d1xmemref<d2, ..., dnxT>>
           // seqElementType: memref<d2, ..., dnxT>
-          auto elementType = rankedScanOutTy.getElementType();
+          Type elementType = rankedScanOutTy.getElementType();
           ArrayRef<int64_t> shape1 =
               llvm::makeArrayRef(rankedScanOutTy.getShape().begin() + 1,
                   rankedScanOutTy.getShape().end());
@@ -453,16 +454,15 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     OpBuilder::InsertionGuard insertGuard(rewriter);
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV;
-    KrnlBuilder createKrnl(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
     if (srcTy.getRank() > 0) {
-      IndexExprScope childScope(&rewriter, loc);
-      ValueRange loopDef = createKrnl.defineLoops(srcTy.getRank());
+      IndexExprScope childScope(create.krnl);
+      ValueRange loopDef = create.krnl.defineLoops(srcTy.getRank());
       SmallVector<IndexExpr, 4> lbs(srcTy.getRank(), LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
-      MemRefBoundsIndexCapture bounds(src);
-      for (int i = 0; i < srcTy.getRank(); i++)
-        ubs.emplace_back(bounds.getDim(i));
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      create.krnlIE.getShapeAsDims(src, ubs);
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value, 4> writeIV(
                 writePrefix.begin(), writePrefix.end());
@@ -471,8 +471,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             createKrnl.store(val, dest, writeIV);
           });
     } else {
-      Value val = createKrnl.load(src);
-      createKrnl.store(val, dest, writePrefix);
+      Value val = create.krnl.load(src);
+      create.krnl.store(val, dest, writePrefix);
     }
   }
 
@@ -523,7 +523,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   LogicalResult rewriteWithSCFWhile(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const {
-    auto loc = ONNXLoc<ONNXLoopOp>(op);
+    Location loc = ONNXLoc<ONNXLoopOp>(op);
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
         rewriter, loc);

@@ -91,6 +91,56 @@ func.func @test_dequantize_linear_verifier_1(%arg0 : tensor<5x5x1xi32>, %arg1 : 
 
 // -----
 
+func.func @test_dequantize_linear_verifier_2(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<?xf32>, %arg2 : tensor<3xi32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.DequantizeLinear' op x_scale and x_zero_point 1-D tensor length must match the input axis dim size}}
+  %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x5x1xi32>, tensor<?xf32>, tensor<3xi32>)  -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_dequantize_linear_verifier_3(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<3xf32>, %arg2 : tensor<3xi32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.DequantizeLinear' op x_scale and x_zero_point 1-D tensor length must match the input axis dim size}}
+  %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x5x1xi32>, tensor<3xf32>, tensor<3xi32>)  -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_dequantize_linear_verifier_4(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<5xf32>, %arg2 : tensor<3xi32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.DequantizeLinear' op x_scale and x_zero_point must have the same shape}}
+  %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x5x1xi32>, tensor<5xf32>, tensor<3xi32>)  -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_dequantize_linear_verifier_5(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<5xf32>, %arg2 : tensor<1x5xi32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.DequantizeLinear' op x_zero_point must be a scalar or 1-D tensor}}
+  %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {} : (tensor<5x5x1xi32>, tensor<5xf32>, tensor<1x5xi32>)  -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_dequantize_linear_verifier_6(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<1x5xf32>) -> tensor<*xf32> {
+  // expected-error @+2 {{'onnx.DequantizeLinear' op x_scale must be a scalar or 1-D tensor}}
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %0) {} : (tensor<5x5x1xi32>, tensor<1x5xf32>, none)  -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_dequantize_linear_verifier_7(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<5xf32>) -> tensor<*xf32> {
+  // expected-error @+2 {{'onnx.DequantizeLinear' op x_zero_point must be 0 for data type int32}}
+  %0 = "onnx.Constant"(){ value = dense<1> : tensor<5xi32> } : () -> tensor<5xi32>
+  %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %0) {} : (tensor<5x5x1xi32>, tensor<5xf32>, tensor<5xi32>)  -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
 func.func @test_constantofshape_verifier_1(%arg0: tensor<2x2xi64>) -> tensor<2x2xi64> {
    // expected-error @+1 {{'onnx.ConstantOfShape' op Input tensor must be a 1D tensor}}
    %1 = "onnx.ConstantOfShape"(%arg0) : (tensor<2x2xi64>) -> tensor<2x2xi64>
@@ -343,6 +393,14 @@ func.func @test_scatterelements_verifier_2(%arg0: tensor<2x2xf32>, %arg1: tensor
 
 // -----
 
+func.func @test_shape_to_dim_positive_axis_verifier(%arg0: tensor<?x256x?xi64>) -> tensor<2xi64> {
+  // expected-error @+1 {{'onnx.Shape' op Start: 2 is after End: 0}}
+  %0 = "onnx.Shape"(%arg0) {end = 0 : si64, start = -1 : si64} : (tensor<?x256x?xi64>) -> tensor<2xi64>
+  return %0 : tensor<2xi64>
+}
+
+// -----
+
 func.func @test_logsoftmax_verifier_1(%arg0: tensor<2x2xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.LogSoftmax: 'axis' value is 3, accepted range is [-2, 1]}}
   %1 = "onnx.LogSoftmax"(%arg0) {axis = 3 : si64} : (tensor<2x2xf32>) -> tensor<*xf32>
@@ -466,6 +524,50 @@ func.func @test_splitToSequence_verifier_1(%arg0: tensor<2x2xi64>, %arg1: tensor
   // expected-error @+1 {{onnx.SplitToSequence: 'axis' value is -3, accepted range is [-2, 1]}}
   %1 = "onnx.SplitToSequence"(%arg0, %arg1) {axis = -3 : si64} : (tensor<2x2xi64>, tensor<2xi64>) -> !onnx.Seq<tensor<*xi64>>
   "func.return"(%1) : (!onnx.Seq<tensor<*xi64>>) -> ()
+}
+
+// -----
+
+func.func @test_splitToSequence_verifier_2(%arg0: tensor<2x2xf32>) -> !onnx.Seq<tensor<2xf32>> {
+  // expected-error @+2 {{onnx.SplitToSequence: 'keepdims' value is 2, accepted range is [0, 1]}}
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.SplitToSequence"(%arg0, %cst) {keepdims = 2 : si64} : (tensor<2x2xf32>, none) -> !onnx.Seq<tensor<2xf32>>
+  "func.return"(%0) : (!onnx.Seq<tensor<2xf32>>) -> ()
+}
+
+// -----
+
+func.func @test_splitToSequence_verifier_3(%arg0: tensor<2x2xf32>, %arg1: tensor<1x2xi64>) -> !onnx.Seq<tensor<*xf32>> {
+  // expected-error @+1 {{'onnx.SplitToSequence' op : split has rank 2 > 1}}
+  %0 = "onnx.SplitToSequence"(%arg0, %arg1) : (tensor<2x2xf32>, tensor<1x2xi64>) -> !onnx.Seq<tensor<*xf32>>
+  "func.return"(%0) : (!onnx.Seq<tensor<*xf32>>) -> ()
+}
+
+// -----
+
+func.func @test_splitToSequence_verifier_4(%arg0: tensor<2x2xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  // expected-error @+2 {{'onnx.SplitToSequence' op : split scalar -1 <= 0}}
+  %0 = "onnx.Constant"(){value = dense<-1> : tensor<i64>} : () -> tensor<i64>
+  %1 = "onnx.SplitToSequence"(%arg0, %0) : (tensor<2x2xf32>, tensor<i64>) -> !onnx.Seq<tensor<*xf32>>
+  "func.return"(%1) : (!onnx.Seq<tensor<*xf32>>) -> ()
+}
+
+// -----
+
+func.func @test_splitToSequence_verifier_5(%arg0: tensor<2x2xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  // expected-error @+2 {{'onnx.SplitToSequence' op : split tensor has entry -1 < 0}}
+  %0 = "onnx.Constant"(){value = dense<[-1]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %1 = "onnx.SplitToSequence"(%arg0, %0) : (tensor<2x2xf32>, tensor<1xi64>) -> !onnx.Seq<tensor<*xf32>>
+  "func.return"(%1) : (!onnx.Seq<tensor<*xf32>>) -> ()
+}
+
+// -----
+
+func.func @test_splitToSequence_verifier_6(%arg0: tensor<2x2xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  // expected-error @+2 {{'onnx.SplitToSequence' op : split tensor entries sum to 1 != axis dimension size 2}}
+  %0 = "onnx.Constant"(){value = dense<[0, 1]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.SplitToSequence"(%arg0, %0) : (tensor<2x2xf32>, tensor<2xi64>) -> !onnx.Seq<tensor<*xf32>>
+  "func.return"(%1) : (!onnx.Seq<tensor<*xf32>>) -> ()
 }
 
 // -----

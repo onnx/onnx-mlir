@@ -4,7 +4,7 @@
 
 //===----------- DialectBuilder.hpp - Builder for ONNX dialects -----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,20 +12,25 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/Location.h"
 #include "mlir/IR/Value.h"
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 
 namespace onnx_mlir {
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
-struct OnnxBuilder : onnx_mlir::DialectBuilder {
+struct OnnxBuilder : DialectBuilder {
+  OnnxBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   OnnxBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   OnnxBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-
+  virtual ~OnnxBuilder(){};
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
@@ -46,6 +51,12 @@ struct OnnxBuilder : onnx_mlir::DialectBuilder {
 
   // ONNXDivOp
   mlir::Value div(mlir::Value A, mlir::Value B) const;
+
+  // ONNXDimOp
+  mlir::Value dim(mlir::Value input, int axis) const;
+
+  // ONNXDimGroupOp
+  void dimGroup(mlir::Value input, int axis, int groupID) const;
 
   // ONNXMatMulOp or ONNXGemmOp
   mlir::Value matmul(
@@ -119,6 +130,30 @@ struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), onnx(db) {}
   OnnxBuilder onnx;
+};
+
+// =============================================================================
+// IndexExpr Builder for Analysis
+// =============================================================================
+
+// This class is not meant to work with the MultiDialectBuilder as it is not
+// used for building, only for analysis. We force OpBuilder to be null as
+// missing builder is used within IndexExpr as a sign that we are in shape
+// inference analysis. Be mindful not to expect builder to then be passed to
+// other builders.
+
+struct IndexExprBuilderForAnalysis : IndexExprBuilder {
+  IndexExprBuilderForAnalysis(mlir::Location loc) : IndexExprBuilder(loc) {}
+  IndexExprBuilderForAnalysis(mlir::OpBuilder &b, mlir::Location loc)
+      : IndexExprBuilder(loc) {} // Builder omitted during analysis.
+  IndexExprBuilderForAnalysis(const DialectBuilder &db)
+      : IndexExprBuilder(db.getLoc()) {} // Builder omitted during analysis.
+  virtual ~IndexExprBuilderForAnalysis() {}
+
+protected:
+  mlir::DenseElementsAttr getConst(mlir::Value value) final;
+  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
+  mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
 
 } // namespace onnx_mlir

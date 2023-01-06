@@ -21,9 +21,10 @@ add_onnx_mlir_library(OMKrnlToLLVM
   DummyParallel.cpp
 
   LINK_LIBS PUBLIC
-  Accelerator
+  OMAccelerator
   OMSupport
   MLIRAffineToStandard
+  MLIRArithTransforms
   MLIRFuncDialect
   MLIRFuncToLLVM
   MLIRFuncTransforms

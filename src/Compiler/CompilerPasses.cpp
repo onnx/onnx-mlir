@@ -41,7 +41,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
-    bool transformReport, bool targetCPU) {
+    bool transformReport, bool targetCPU, bool enableSimdDataLayoutOpt) {
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THENxs
   // with the static iteration.
@@ -59,7 +59,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // Convolution Optimization for CPU: enable when there are no accelerators.
   if (targetCPU) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass());
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createConvOptONNXToONNXPass(enableSimdDataLayoutOpt));
     pm.addPass(onnx_mlir::createShapeInferencePass());
   }
   // There are more opportunities for const propagation once all tensors have
@@ -68,8 +69,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
 
   if (transformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
-    pm.addPass(onnx_mlir::createONNXOpTransformPass(
-        transformThreshold, transformReport, targetCPU));
+    pm.addPass(onnx_mlir::createONNXOpTransformPass(transformThreshold,
+        transformReport, targetCPU, enableSimdDataLayoutOpt));
   } else {
     // Statically add extra passes
     for (int i = 0; i < repeatOnnxTransform; i++) {
@@ -79,6 +80,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
           onnx_mlir::createConstPropONNXToONNXPass());
     }
   }
+
+  // Simplify shape-related ops.
+  pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
@@ -102,15 +106,17 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
       // TODO: we should write the output of this pass in a file but I was not
       // able to use raw_fd_ostream of a file without it crashing.
       pm.addNestedPass<func::FuncOp>(
-          mlir::createPrintOpStatsPass(llvm::errs(), printAsJSON));
+          mlir::createPrintOpStatsPass(llvm::outs(), printAsJSON));
     } else {
       llvm::errs() << "Skip onnx-ops-stats: expected JSON or TXT format, got \""
                    << ONNXOpsStatFormat << "\"\n";
     }
   }
   // Add instrumentation for Onnx Ops
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
-      instrumentONNXOps, instrumentControlBits.getBits()));
+  if (maccel.empty() && instrumentStage == Onnx)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+        instrumentOps, instrumentControlBits.getBits()));
+
   // Print Signatures of each op at runtime if enabled. Should not run signature
   // and instrument passes at the same time.
   if (enableInstrumentONNXSignature)
@@ -142,6 +148,9 @@ void addKrnlToLLVMPasses(
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
 
+  // After affine is lowered, KrnlRegion for affine scope can be removed.
+  pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
+
   // Hoist allocations out of loop nests to avoid stack overflow.
   pm.addPass(bufferization::createBufferLoopHoistingPass());
 
@@ -157,7 +166,7 @@ void addKrnlToLLVMPasses(
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
   }
-
+  
   pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
   //pm.addPass(mlir::createAsyncParallelForPass(false, 4, 1));
   //pm.addPass(mlir::createCanonicalizerPass());
@@ -173,6 +182,8 @@ void addKrnlToLLVMPasses(
   //pm.addPass(mlir::createCanonicalizerPass());
   //pm.addPass(mlir::cf::createConvertControlFlowToLLVMPass());
   //pm.addPass(mlir::createCanonicalizerPass());
+  //pm.addPass(mlir::createConvertOpenMPToLLVMPass());
+
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors));
   if (enableParallel) {
   pm.addPass(mlir::createConvertSCFToOpenMPPass());
@@ -215,7 +226,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
     addONNXToMLIRPasses(pm, onnxOpTransformThreshold, onnxOpTransformReport,
-        /*target CPU*/ maccel.empty());
+        /*target CPU*/ maccel.empty(), enableSimdDataLayout);
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)

@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -29,12 +29,12 @@ struct ONNXGatherElementsOpLowering : public ConversionPattern {
     ONNXGatherElementsOpAdaptor operandAdaptor(operands);
     ONNXGatherElementsOp gatherElementsOp = cast<ONNXGatherElementsOp>(op);
     Location loc = op->getLoc();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
 
-    ONNXGatherElementsOpShapeHelper shapeHelper(&gatherElementsOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Get shape.
+    ONNXGatherElementsOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -44,7 +44,7 @@ struct ONNXGatherElementsOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value output = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Operands and attributes.
     Value data = operandAdaptor.data();
@@ -62,19 +62,17 @@ struct ONNXGatherElementsOpLowering : public ConversionPattern {
     // Negative value means counting dimensions from the back.
     axis = axis < 0 ? axis + dataRank : axis;
 
-    MemRefBoundsIndexCapture dataBounds(data), indicesBounds(indices);
     DimsExpr dataDims, indicesDims;
-    dataBounds.getDimList(dataDims);
-    indicesBounds.getDimList(indicesDims);
+    create.krnlIE.getShapeAsDims(data, dataDims);
+    create.krnlIE.getShapeAsDims(indices, indicesDims);
 
     // Gather elements from the 'data' tensor, store them into the output.
     //   index = indices[i][j]...[n]
     //   output[i][j]...[n] = data[i][j]..[index]..[n] (index used at axis dim.)
     //
-    KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange loopDef = createKrnl.defineLoops(indicesRank);
+    ValueRange loopDef = create.krnl.defineLoops(indicesRank);
     DimsExpr lbs(indicesRank, LiteralIndexExpr(0));
-    createKrnl.iterateIE(loopDef, loopDef, lbs, indicesDims,
+    create.krnl.iterateIE(loopDef, loopDef, lbs, indicesDims,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);

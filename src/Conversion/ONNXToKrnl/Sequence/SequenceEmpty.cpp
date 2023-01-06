@@ -13,7 +13,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -34,9 +34,9 @@ struct ONNXSequenceEmptyOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
-    bool insertDealloc = checkInsertDealloc(op);
     Value alloc =
-        insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);
+        rewriter.create<KrnlSeqAllocOp>(loc, outputMemRefType, ValueRange());
+
     rewriter.replaceOp(op, alloc);
     return success();
   }

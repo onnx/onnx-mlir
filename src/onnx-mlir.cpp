@@ -11,11 +11,12 @@
 // Implements main for onnx-mlir driver.
 //===----------------------------------------------------------------------===//
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Version/Version.hpp"
 #include <iostream>
+#include <regex>
 
-using namespace std;
 using namespace onnx_mlir;
 
 extern llvm::cl::OptionCategory onnx_mlir::OnnxMlirOptions;
@@ -55,19 +56,29 @@ int main(int argc, char *argv[]) {
   mlir::registerMLIRContextCLOptions();
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
+  mlir::registerAsmPrinterCLOptions();
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
-  // Parse options from argc/argv and default ONNX_MLIR_FLAG env var.
-  llvm::cl::ParseCommandLineOptions(argc, argv,
-      "ONNX-MLIR modular optimizer driver\n", nullptr, customEnvFlags.c_str());
+  if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
+      !llvm::cl::ParseCommandLineOptions(argc, argv,
+          getVendorName() + " - A modular optimizer driver\n", &llvm::errs(),
+          customEnvFlags.c_str())) {
+    llvm::errs() << "Failed to parse options\n";
+    return 1;
+  }
+  // Test option requirements.
+  if (!ONNXOpStats.empty() && emissionTarget <= EmitONNXIR)
+    llvm::errs()
+        << "Warning: --onnx-op-stats requires targets like --EmitMLIR, "
+           "--EmitLLVMIR, or binary-generating emit commands.\n";
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
   int rc = processInputFile(inputFilename, context, module, &errorMessage);
   if (rc != 0) {
     if (!errorMessage.empty())
-      std::cerr << errorMessage << std::endl;
+      llvm::errs() << errorMessage << "\n";
     return 1;
   }
 
@@ -80,8 +91,8 @@ int main(int argc, char *argv[]) {
            outputBaseName.substr(outputBaseName.find_last_of("/\\") + 1),
            std::regex("[\\.]*$")))) {
     if (b)
-      std::cerr << "Invalid -o option value " << outputBaseName << " ignored."
-                << std::endl;
+      llvm::errs() << "Invalid -o option value " << outputBaseName
+                   << " ignored.\n";
     outputBaseName = inputFilename.substr(0, inputFilename.find_last_of("."));
   }
 

@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
-func.func @should_lower_to_zlow(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
-  %0 = "zhigh.Exp"(%arg0) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
+func.func @should_lower_to_zlow(%arg0: tensor<3x4x5xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+  %0 = "zhigh.Exp"(%arg0) : (tensor<3x4x5xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2) -> (0, d2 floordiv 64, d0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
@@ -25,8 +25,8 @@ func.func @should_lower_to_zlow(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLa
 
 // -----
 
-func.func @should_lower_to_zlow_unknown_dims(%arg0: tensor<3x?x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
-  %0 = "zhigh.Exp"(%arg0) : (tensor<3x?x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
+func.func @should_lower_to_zlow_unknown_dims(%arg0: tensor<3x?x5xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+  %0 = "zhigh.Exp"(%arg0) : (tensor<3x?x5xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2) -> (0, d2 floordiv 64, d0, d1 floordiv 32, d1 mod 32, d2 mod 64)>

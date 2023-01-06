@@ -13,30 +13,30 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
-template <typename Adaptor, typename Op, typename ShapeHelper>
+template <typename OP_TYPE>
 LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
     ConversionPatternRewriter &rewriter, TypeConverter *typeConverter) {
   // Gather info.
   Location loc = op->getLoc();
-  Adaptor operandAdaptor(operands);
-  Op splitOp = cast<Op>(op);
-  uint64_t rank =
-      splitOp.input().getType().template cast<ShapedType>().getRank();
+  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  OP_TYPE splitOp = llvm::cast<OP_TYPE>(op);
+  IndexExprBuilderForKrnl createIE(rewriter, loc);
+
+  Value input = operandAdaptor.input();
+  uint64_t rank = createIE.getShapedTypeRank(input);
+  // splitOp.input().getType().template cast<ShapedType>().getRank();
   unsigned outputNum = splitOp.getNumResults();
   unsigned axis = splitOp.axis();
 
-  // Get a shape helper.
-  ShapeHelper shapeHelper(&splitOp, &rewriter,
-      krnl::getDenseElementAttributeFromKrnlValue,
-      krnl::loadDenseElementArrayValueAtIndex);
-  auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-  assert(succeeded(shapecomputed) && "Could not compute output shape");
+  // Get shape.
+  ONNXCommonSplitOpShapeHelper<OP_TYPE> shapeHelper(op, operands, &createIE);
+  shapeHelper.computeShapeAndAssertOnFailure();
 
   // Alloc and dealloc.
   SmallVector<Value, 4> allocs;
@@ -49,7 +49,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(i));
+        rewriter, op, memRefType, loc, shapeHelper.getOutputDims(i));
     allocs.emplace_back(alloc);
   }
 
@@ -58,17 +58,16 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
     OpBuilder::InsertionGuard insertGuard(rewriter);
 
     // Scope for krnl ops
-    IndexExprScope childScope(&rewriter, shapeHelper.scope);
+    IndexExprScope childScope(&rewriter, shapeHelper.getScope());
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
 
-    KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange loopDef = createKrnl.defineLoops(rank);
+    ValueRange loopDef = create.krnl.defineLoops(rank);
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
 
-    MemRefBoundsIndexCapture allocsBounds(allocs[i]);
     SmallVector<IndexExpr, 4> ubs;
-    allocsBounds.getDimList(ubs);
-
-    createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnlIE.getShapeAsDims(allocs[i], ubs);
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           SmallVector<IndexExpr, 4> readIndices;
           for (uint64_t r = 0; r < rank; ++r) {
@@ -76,7 +75,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
             // Compute read index for the split axis.
             if (r == axis)
               for (unsigned k = 0; k < i; ++k) {
-                SymbolIndexExpr splitDim(shapeHelper.dimsForOutput(k)[r]);
+                SymbolIndexExpr splitDim(shapeHelper.getOutputDims(k)[r]);
                 readIndex = readIndex + splitDim;
               }
 
@@ -84,8 +83,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
           }
 
           // Insert copy.
-          Value loadData =
-              createKrnl.loadIE(operandAdaptor.input(), readIndices);
+          Value loadData = createKrnl.loadIE(input, readIndices);
           createKrnl.store(loadData, allocs[i], indices);
         });
   }
@@ -102,8 +100,8 @@ struct ONNXSplitOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    return ONNXSplitOpLoweringCommon<ONNXSplitOpAdaptor, ONNXSplitOp,
-        ONNXSplitOpShapeHelper>(op, operands, rewriter, typeConverter);
+    return ONNXSplitOpLoweringCommon<ONNXSplitOp>(
+        op, operands, rewriter, typeConverter);
   }
 };
 
@@ -114,8 +112,8 @@ struct ONNXSplitV11OpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    return ONNXSplitOpLoweringCommon<ONNXSplitV11OpAdaptor, ONNXSplitV11Op,
-        ONNXSplitV11OpShapeHelper>(op, operands, rewriter, typeConverter);
+    return ONNXSplitOpLoweringCommon<ONNXSplitV11Op>(
+        op, operands, rewriter, typeConverter);
   }
 };
 

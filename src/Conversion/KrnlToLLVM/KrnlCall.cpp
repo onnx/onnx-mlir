@@ -82,7 +82,7 @@ private:
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
-    const auto &apiRegistry = RuntimeAPIRegistry::build(module, rewriter);
+    const auto &apiRegistry = RuntimeAPIRegistry(module, rewriter);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Check the original type, not after type conversion
@@ -112,7 +112,7 @@ private:
       llvm::SmallVector<Type, 4> &parameterTypeList,
       llvm::SmallVector<Value, 4> &parameterList) {
     auto *context = op->getContext();
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
 
@@ -137,7 +137,8 @@ private:
         })
         .Case<FloatAttr>([&](FloatAttr floatAttr) {
           auto f64Ty = rewriter.getF64Type();
-          Value cst = rewriter.create<LLVM::ConstantOp>(loc, f64Ty, floatAttr);
+          Value cst = rewriter.create<LLVM::ConstantOp>(loc, f64Ty,
+              rewriter.getFloatAttr(f64Ty, floatAttr.getValueAsDouble()));
           parameterTypeList.emplace_back(f64Ty);
           parameterList.emplace_back(cst);
         })
@@ -148,7 +149,7 @@ private:
           // In future, the attributes should be converted in krnl.call builder.
           // This code passed onnx-mlir-opt --convert-krnl-to-llvm test case,
           // but failed in onnx-milr for the tensor type for the attribute
-          const auto &apiRegistry = RuntimeAPIRegistry::build(module, rewriter);
+          const auto &apiRegistry = RuntimeAPIRegistry(module, rewriter);
           auto tensorTy = denseAttr.getType().cast<TensorType>();
           auto memRefTy =
               MemRefType::get(tensorTy.getShape(), tensorTy.getElementType());

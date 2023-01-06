@@ -14,7 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -30,8 +30,14 @@ struct ONNXClipOpLowering : public ConversionPattern {
             typeConverter, ONNXClipOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+    using LocalDialectBuilder =
+        MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>;
     Location loc = op->getLoc();
-    ONNXClipOp clipOp = cast<ONNXClipOp>(op);
+    LocalDialectBuilder create(rewriter, loc);
+    ONNXClipOpAdaptor operandAdaptor(operands);
+    Value input = operandAdaptor.input();
+    Value min = operandAdaptor.min();
+    Value max = operandAdaptor.max();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -39,16 +45,9 @@ struct ONNXClipOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
-    ONNXClipOpAdaptor operandAdaptor(operands);
-    ONNXClipOpShapeHelper shapeHelper(&clipOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapeComputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapeComputed) && "Could not compute output shape");
-
-    Value input = operandAdaptor.input();
-    Value min = operandAdaptor.min();
-    Value max = operandAdaptor.max();
+    // Get shape.
+    ONNXClipOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
     bool insertDealloc = checkInsertDealloc(op);
@@ -58,42 +57,39 @@ struct ONNXClipOpLowering : public ConversionPattern {
             : insertAllocAndDealloc(
                   memRefType, loc, rewriter, insertDealloc, input);
 
-    auto computeResult =
-        [&](MultiDialectBuilder<KrnlBuilder, MathBuilder> &create,
-            const ValueRange &indices) {
-          Value loadedVal = create.krnl.load(input, indices);
-          Value res = loadedVal;
-          if (!min.getType().isa<NoneType>()) {
-            Value minVal = create.krnl.load(min);
-            Value lessThanMin = create.math.slt(res, minVal);
-            res = create.math.select(lessThanMin, minVal, res);
-          }
-          if (!max.getType().isa<NoneType>()) {
-            Value maxVal = create.krnl.load(max);
-            Value lessThanMax = create.math.slt(res, maxVal);
-            res = create.math.select(lessThanMax, res, maxVal);
-          }
-          create.krnl.store(res, alloc, indices);
-        };
+    auto computeResult = [&](LocalDialectBuilder &create,
+                             const ValueRange &indices) {
+      Value loadedVal = create.krnl.load(input, indices);
+      Value res = loadedVal;
+      if (!min.getType().isa<NoneType>()) {
+        Value minVal = create.krnl.load(min);
+        Value lessThanMin = create.math.slt(res, minVal);
+        res = create.math.select(lessThanMin, minVal, res);
+      }
+      if (!max.getType().isa<NoneType>()) {
+        Value maxVal = create.krnl.load(max);
+        Value lessThanMax = create.math.slt(res, maxVal);
+        res = create.math.select(lessThanMax, res, maxVal);
+      }
+      create.krnl.store(res, alloc, indices);
+    };
 
     // Create a loop only is one of the operands is not a scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      KrnlBuilder createKrnl(rewriter, loc);
       uint64_t numLoops = memRefType.getRank();
-      ValueRange loopDef = createKrnl.defineLoops(numLoops);
+      ValueRange loopDef = create.krnl.defineLoops(numLoops);
 
       SmallVector<IndexExpr, 4> lbs(numLoops, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
       for (uint64_t i = 0; i < numLoops; ++i)
-        ubs.emplace_back(shapeHelper.dimsForOutput()[i]);
+        ubs.emplace_back(shapeHelper.getOutputDims()[i]);
 
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange indices) {
-            MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
+            LocalDialectBuilder create(createKrnl);
             computeResult(create, indices);
           });
     } else {
-      MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
       computeResult(create, {});
     }
 

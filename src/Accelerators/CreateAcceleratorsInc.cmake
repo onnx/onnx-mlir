@@ -9,6 +9,14 @@ foreach(t ${ACCELERATORS})
   file (APPEND "${INC_FILE}.tmp" "  MACRO(${t}, ## __VA_ARGS__) \\\n")
 endforeach(t)
 
+file (APPEND "${INC_FILE}.tmp" "\n")
+
+file (APPEND "${INC_FILE}.tmp" "#define APPLY_TO_NO_ACCELERATORS(MACRO) \\\n")
+
+if ("${ACCELERATORS}" STREQUAL "")
+  file (APPEND "${INC_FILE}.tmp" "  MACRO \n")
+endif()
+
 file(APPEND "${INC_FILE}.tmp" "\n")
 
 # Copy the file only if it has changed.

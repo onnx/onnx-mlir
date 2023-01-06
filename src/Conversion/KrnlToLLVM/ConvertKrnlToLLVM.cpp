@@ -15,7 +15,7 @@
 
 #include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
-#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
+#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
@@ -27,7 +27,7 @@
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -171,11 +171,11 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
   // performance.
   populateMathPolynomialApproximationPatterns(patterns);
-  arith::populateArithmeticExpandOpsPatterns(patterns);
+  arith::populateArithExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateFuncToLLVMConversionPatterns(typeConverter, patterns);
   populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
-  arith::populateArithmeticToLLVMConversionPatterns(typeConverter, patterns);
+  arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
 
   populateReconcileUnrealizedCastsPatterns(patterns);
@@ -437,22 +437,6 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // Convert types to legal types for the LLVM dialect.
   LLVMTypeConverter typeConverter(ctx, options);
   customizeTypeConverter(typeConverter);
-
-#if 0
-  typeConverter.addConversion([&](MemRefType type) -> llvm::Optional<Type> {
-    Type elementType = type.getElementType();
-    if (!elementType.isa<StringType>())
-      return llvm::None;
-
-    elementType = elementType.cast<StringType>().getLLVMType(type.getContext());
-    return typeConverter.convertType(
-        MemRefType::get(type.getShape(), elementType));
-  });
-
-  typeConverter.addConversion([&](StringType type) -> Type {
-    return typeConverter.convertType(type.getLLVMType(type.getContext()));
-  });
-#endif
 
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.

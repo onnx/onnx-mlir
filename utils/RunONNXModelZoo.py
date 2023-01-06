@@ -13,6 +13,7 @@
 
 import argparse
 import difflib
+import json
 import logging
 import os
 import shutil
@@ -78,6 +79,10 @@ def get_args():
     parser.add_argument('-c',
                         '--compile-args',
                         help="Options passing to onnx-mlir to compile a model.")
+    parser.add_argument('-C',
+                        '--compile-only',
+                        action='store_true',
+                        help="Only compile models.")
     parser.add_argument('-f',
                         '--force-clean',
                         action='store_true',
@@ -115,6 +120,10 @@ def get_args():
                         '--print-paths',
                         action='store_true',
                         help="Only print model paths in the model zoo.")
+    parser.add_argument('-q',
+                        '--historydir',
+                        default='',
+                        help="History dir for previously published results, no default.")
     parser.add_argument('-r',
                         '--reportdir',
                         default=os.getcwd(),
@@ -236,6 +245,7 @@ def clone_modelzoo_source(repo_url, work_dir):
 
     return repo_dir
 
+
 # It would have been much simpler if the ONNX_HUB_MANIFEST.json
 # has been kept up to date.
 def obtain_all_model_paths(repo_dir):
@@ -316,7 +326,10 @@ def check_model(model_path, model_name, compile_args, report_dir):
             options += ['--data-folder={}'.format(data_set)]
         if model_name in RunONNXModel_additional_options:
             options += RunONNXModel_additional_options[model_name]
-        ok, msg = execute_commands(RUN_ONNX_MODEL_CMD + [onnx_file] + options)
+        if (args.compile_only):
+            options += ['--compile-only']
+        options += ['--model={}'.format(onnx_file)]
+        ok, msg = execute_commands(RUN_ONNX_MODEL_CMD + options)
         state = TEST_PASSED if ok else TEST_FAILED
         logger.debug("[{}] {}".format(model_name, msg))
 
@@ -361,6 +374,145 @@ def pull_and_check_model(model_path, compile_args, keep_model, work_dir, report_
         os.remove(model_tar_gz)
 
     return state, model_name
+
+
+def output_report(history_dir, report_dir, skipped_models, tested_models,
+                  passed_models, failed_models, total_models):
+
+    # Ignore path in args.Html
+    html_file = os.path.basename(args.Html)              # foo.html
+    json_file = os.path.splitext(html_file)[0] + '.json' # foo.json
+    hist_file = json_file + '.html'                      # foo.json.html
+
+    # We used to save the history json in the publish directory but that
+    # has problem with concurrent builds. After the publish directory is
+    # mounted into the model zoo check container and before we come here
+    # to read the json file, another non-merging build could finish and
+    # do its publishing (actually just copy and re-publish). This causes
+    # the publish directory to be deleted and recreated. So we lost the
+    # json file and our history gets reset.
+    #
+    # So now we save the history json in the job directory so it won't be
+    # affected by concurrent builds. Note that reading/writing the json
+    # file is not protected since non-merging builds don't touch it. Other
+    # merging builds won't be a problem either since only one merging build
+    # can run (previously running one gets aborted).
+    json_path = os.path.join(history_dir, json_file)
+
+    try:
+        with open(json_path, 'r') as jf:
+            hist = json.load(jf)
+        prev = hist[0]
+    except:
+        hist = []
+        prev = { 'author':  '',
+                 'commit':  '',
+                 'date':    '',
+                 'failed':  { '_models': [], 'dropped': [], 'entered': [] },
+                 'passed':  { '_models': [], 'dropped': [], 'entered': [] },
+                 'skipped': { '_models': [], 'dropped': [], 'entered': [] },
+                 'total':   { '_models': [], 'dropped': [], 'entered': [] } }
+
+    curr = { 'author': '', 'commit': '', 'date': '',
+             'failed': {}, 'passed': {}, 'skipped': {}, 'total': {} }
+
+    curr['author'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_AUTHOR', '')
+    curr['commit'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_HASH', '')
+    curr['date']   = os.getenv('ONNX_MLIR_HEAD_COMMIT_DATE', '')
+
+    curr['failed']['_models']  = failed_models
+    curr['passed']['_models']  = passed_models
+    curr['skipped']['_models'] = skipped_models
+    curr['total']['_models']   = total_models
+
+    curr['failed']['dropped']  = ([ x for x in prev['failed']['_models']
+                                    if x not in failed_models  ])
+    curr['passed']['dropped']  = ([ x for x in prev['passed']['_models']
+                                    if x not in passed_models  ])
+    curr['skipped']['dropped'] = ([ x for x in prev['skipped']['_models']
+                                    if x not in skipped_models ])
+    curr['total']['dropped']   = ([ x for x in prev['total']['_models']
+                                    if x not in total_models   ])
+
+    curr['failed']['entered']  = ([ x for x in failed_models
+                                    if x not in prev['failed']['_models']  ])
+    curr['passed']['entered']  = ([ x for x in passed_models
+                                    if x not in prev['passed']['_models']  ])
+    curr['skipped']['entered'] = ([ x for x in skipped_models
+                                    if x not in prev['skipped']['_models'] ])
+    curr['total']['entered']   = ([ x for x in total_models
+                                    if x not in prev['total']['_models']   ])
+
+    # Write history json. Keep last 100 commits
+    HIST_MAX  = 100
+    hist_json = [ curr ] + hist[:HIST_MAX-1]
+    with open(json_path, 'w') as jf:
+        json.dump(hist_json, jf)
+
+    # Write history html
+    with open(os.path.join(report_dir, hist_file), 'w') as html:
+        html.write('<div id="history"></div>\n' +
+                   '<style>\n' +
+                   '  .renderjson a { text-decoration: none; }\n' +
+                   '  .renderjson .disclosure { font-size: 75%; }\n' +
+                   '</style>\n' +
+                   '<script type="text/javascript" src="renderjson.js"></script>\n' +
+                   '<script>\n' +
+                   '  renderjson.set_icons("\\u{2795}", "\\u{2796}");\n' +
+                   '  renderjson.set_sort_objects(true);\n' +
+                   '  renderjson.set_show_to_level(3);\n' +
+                   '  document.getElementById("history").appendChild(renderjson(' +
+                   json.dumps(hist_json) + '));\n' +
+                   '</script>\n')
+
+    # Write report html
+    with open(os.path.join(report_dir, html_file), 'w') as html:
+        html.write('<html>\n' +
+                   '<head>\n' +
+                   '<style>\n' +
+                   'table, th, td {\n' +
+                   '  border: 1px solid black;\n' +
+                   '  border-collapse: collapse;\n' +
+                   '  padding: 10px;\n' +
+                   '  vertical-align: top;\n' +
+                   '}\n' +
+                   'table.sticky {\n' +
+                   '  position: -webkit-sticky;\n' +
+                   '  position: sticky;\n' +
+                   '  top: 0;\n' +
+                   '  background-color: #FFF;\n' +
+                   '}\n' +
+                   '</style>\n' +
+                   '</head>\n' +
+                   '<body>\n' +
+                   '<table class="sticky">\n')
+
+        t = [ 'Skipped', 'Passed', 'Failed' ]
+        for i, s in enumerate([ skipped_models,
+                                list(map(lambda m: ('<a href="' + m + '.html" ' +
+                                                    'target="output">' + m + '</a>'),
+                                         passed_models)),
+                                list(map(lambda m: ('<a href="' + m + '.html" ' +
+                                                    'target="output">' + m + '</a>'),
+                                         failed_models)) ]):
+            html.write('  <tr>\n' +
+                       '    <td>{}</td>\n'.format(t[i]) +
+                       '    <td>{}</td>\n'.format(len(s)) +
+                       '    <td>{}</td>\n'.format(', '.join(s)) +
+                       '  </tr>\n')
+
+        html.write('  <tr>\n' +
+                   '    <td>Total</td>\n' +
+                   '    <td>{}</td>\n'.format(len(skipped_models) +
+                                              len(tested_models)) +
+                   '    <td>[ <a href="'+hist_file+'" target="output">History</a> ]</td>\n' +
+                   '  </tr>\n' +
+                   '</table>\n' +
+                   '<iframe name="output" scrolling="auto"' +
+                   ' style="border:0px;width:100%;height:100%">\n' +
+                   '</body>\n' +
+                   '</html>\n')
+
 
 def main():
     work_dir = os.path.realpath(args.workdir)
@@ -412,49 +564,13 @@ def main():
     tested_models  = sorted({r[1] for r in results if r[0] != TEST_SKIPPED})
     passed_models  = sorted({r[1] for r in results if r[0] == TEST_PASSED})
     failed_models  = sorted({r[1] for r in results if r[0] == TEST_FAILED})
+    total_models   = sorted(skipped_models + tested_models)
 
     if args.Html:
-        with open(os.path.join(report_dir, args.Html), 'w') as html:
-            html.write('<html>\n' +
-                       '<head>\n' +
-                       '<style>\n' +
-                       'table, th, td {\n' +
-                       '  border: 1px solid black;\n' +
-                       '  border-collapse: collapse;\n' +
-                       '  padding: 10px;\n' +
-                       '  vertical-align: top;\n' +
-                       '}\n' +
-                       'table.sticky {\n' +
-                       '  position: -webkit-sticky;\n' +
-                       '  position: sticky;\n' +
-                       '  top: 0;\n' +
-                       '  background-color: #FFF;\n' +
-                       '}\n' +
-                       '</style>\n' +
-                       '</head>\n' +
-                       '<body>\n' +
-                       '<table class="sticky">\n')
-            t = [ 'Skipped', 'Passed', 'Failed' ]
-            for i, s in enumerate([ skipped_models,
-                                    list(map(lambda m: ('<a href="'+m+'.html" target="output">'+m+'</a>'),
-                                             passed_models)),
-                                    list(map(lambda m: ('<a href="'+m+'.html" target="output">'+m+'</a>'),
-                                             failed_models)) ]):
-                html.write('  <tr>\n' +
-                           '    <td>{}</td>\n'.format(t[i]) +
-                           '    <td>{}</td>\n'.format(len(s)) +
-                           '    <td>{}</td>\n'.format(', '.join(s)) +
-                           '  </tr>\n')
-            html.write('  <tr>\n' +
-                       '    <td>Total</td>\n' +
-                       '    <td>{}</td>\n'.format(len(skipped_models) +
-                                                  len(tested_models)) +
-                       '    <td></td>\n' +
-                       '  </tr>\n' +
-                       '</table>\n' +
-                       '<iframe name="output" scrolling="auto" style="border:0px;width:100%;height:100%">\n' +
-                       '</body>\n' +
-                       '</html>\n')
+        # Output report files
+        history_dir = os.path.realpath(args.historydir)
+        output_report(history_dir, report_dir, skipped_models, tested_models,
+                      passed_models, failed_models, total_models)
 
         # Output summary to stdout for the badge text
         print('Total:{} Skipped:{} Passed:{} Failed:{}'.format(

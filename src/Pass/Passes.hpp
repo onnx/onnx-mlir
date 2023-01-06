@@ -25,29 +25,34 @@ namespace onnx_mlir {
 /// Pass for ONNX graph level optimization
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass(
-    int threshold, bool report, bool targetCPU);
+    int threshold, bool report, bool targetCPU, bool enableSimdDataLayoutOpt);
 
 /// Pass for rewriting inside frontend dialect.
-std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
+    const std::string &target = "");
 
-std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
+    bool enableSimdDataLayoutOpt = false);
 
 std::unique_ptr<mlir::Pass> createShapeInferencePass(
     bool analyzeAllFunctions = false);
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 
-/// Pass for eliding the values of constant operations.
-std::unique_ptr<mlir::Pass> createElideConstantValuePass();
-
-/// Pass for instrument the Onnx ops.
-std::unique_ptr<mlir::Pass> createInstrumentONNXPass();
-std::unique_ptr<mlir::Pass> createInstrumentONNXPass(
+/// Pass for instrument the ops in specific stage.
+std::unique_ptr<mlir::Pass> createInstrumentPass();
+std::unique_ptr<mlir::Pass> createInstrumentPass(
     llvm::StringRef ops, unsigned actions);
 
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
+
+/// Pass for simplifying shape-related ONNX operations.
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
+
+/// Pass for analysing unknown dimension in ONNX operations.
+std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
 
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
@@ -59,8 +64,10 @@ std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
     bool emitDealloc, bool enableTiling, bool enableParallel);
 
+#ifdef ONNX_MLIR_ENABLE_MHLO
 /// Add pass for lowering to Mhlo IR.
 std::unique_ptr<mlir::Pass> createLowerToMhloPass();
+#endif
 
 /// Pass for lowering krnl.dim operations to standard dialect.
 std::unique_ptr<mlir::Pass> createDisconnectKrnlDimFromAllocPass();

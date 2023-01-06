@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -28,7 +28,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXTransposeOpAdaptor operandAdaptor(operands);
     ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
 
     // Operands and attributes.
     Value data = operandAdaptor.data();
@@ -48,13 +50,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     MemRefType outMemRefType = outConvertedType.cast<MemRefType>();
     uint64_t outRank = outMemRefType.getShape().size();
 
-    // Get a shape helper.
-    ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    (void)shapecomputed;
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Get shape.
+    ONNXTransposeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // If the order of the dimensions whose value is not 1 does not change after
     // transpose, it is safe to lower transpose to a view op.
@@ -74,24 +72,21 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       // It is safe to lower to a view op.
       MemRefBuilder createMemRef(rewriter, loc);
       Value view =
-          createMemRef.reinterpretCast(data, shapeHelper.dimsForOutput());
+          createMemRef.reinterpretCast(data, shapeHelper.getOutputDims());
       rewriter.replaceOp(op, view);
       return success();
     }
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outMemRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, outMemRefType, loc, shapeHelper.getOutputDims());
 
-    KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange loopDef = createKrnl.defineLoops(outRank);
+    ValueRange loopDef = create.krnl.defineLoops(outRank);
     SmallVector<IndexExpr, 4> lbs(outRank, LiteralIndexExpr(0));
 
-    MemRefBoundsIndexCapture dataBounds(data);
     SmallVector<IndexExpr, 4> ubs;
-    dataBounds.getDimList(ubs);
-
-    createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnlIE.getShapeAsDims(data, ubs);
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           // Compute the indices used by the load operation.
           SmallVector<IndexExpr, 4> storeIndices;
@@ -105,7 +100,6 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
         });
 
     rewriter.replaceOp(op, alloc);
-
     return success();
   }
 };

@@ -62,13 +62,13 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlEntryPointOp op, PatternRewriter &rewriter) const override {
-    auto loc = op.getLoc();
+    Location loc = op.getLoc();
 
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     auto module = op->getParentOfType<ModuleOp>();
     auto *context = module.getContext();
     const RuntimeAPIRegistry &apiRegistry =
-        RuntimeAPIRegistry::build(module, rewriter);
+        RuntimeAPIRegistry(module, rewriter);
     auto numOutputs = op->getAttrOfType<IntegerAttr>(
                             KrnlEntryPointOp::getNumOutputsAttrName())
                           .getInt();
@@ -479,7 +479,7 @@ private:
         assert(JSONDimValue && "failed to get value");
         int64_t dim = JSONDimValue.value();
         // Verify.
-        if (dim == -1) {
+        if (ShapedType::isDynamic(dim)) {
           // In case that the reference dimension size is unknown, verify that
           // the actual dimension size is a non-negative value.
           create.llvm.ifThenElse(/*cond=*/

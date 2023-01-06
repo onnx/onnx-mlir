@@ -284,8 +284,9 @@ OMTensor *omTensorCreateEmpty(
 void omTensorDestroy(OMTensor *tensor) {
   if (!tensor)
     return;
-  if (tensor->_owning)
+  if (tensor->_owning) {
     free(tensor->_allocatedPtr);
+  }
   free(tensor->_shape);
   free(tensor->_strides);
   free(tensor);
@@ -422,21 +423,21 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
   bool signatureInfo = false;
   bool typeInfo = false;
   bool dataInfo = false;
+  bool hadFormat = false;
   while (strlen(msg) >= 2 && msg[0] == '%') {
     if (msg[1] == 's') // S for signature.
-      signatureInfo = true;
+      hadFormat = signatureInfo = true;
     else if (msg[1] == 't') // T for type only
-      typeInfo = true;
+      hadFormat = typeInfo = true;
     else if (msg[1] == 'd')
-      dataInfo = true;
-    else {
-      printf(
-          "warning: unknown format `%c`, print signature and data\n", msg[1]);
-      signatureInfo = dataInfo = true;
-    }
+      hadFormat = dataInfo = true;
+    else
+      printf("warning: unknown format `%c`\n", msg[1]);
     // Skip the format when printing message.
     msg += 2;
   }
+  if (!hadFormat)
+    signatureInfo = dataInfo = true;
 
   // Print message.
   if (msg)

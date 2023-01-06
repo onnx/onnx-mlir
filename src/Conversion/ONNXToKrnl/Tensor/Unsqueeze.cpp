@@ -13,20 +13,21 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
-template <typename Adaptor, typename Op, typename ShapeHelper>
+template <typename OP_TYPE>
 LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
     ArrayRef<Value> operands, ConversionPatternRewriter &rewriter,
     TypeConverter *typeConverter) {
-  Adaptor operandAdaptor(operands);
-  Op unsqueezeOp = dyn_cast_or_null<Op>(op);
+  typename OP_TYPE::Adaptor operandAdaptor(operands);
+  // Op unsqueezeOp = dyn_cast_or_null<Op>(op);
 
   Location loc = op->getLoc();
+  IndexExprBuilderForKrnl createIE(rewriter, loc);
   Value data = operandAdaptor.data();
 
   // Convert the output type to MemRefType.
@@ -34,15 +35,14 @@ LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
   assert(convertedType && convertedType.isa<MemRefType>() &&
          "Failed to convert type to MemRefType");
 
-  ShapeHelper shapeHelper(&unsqueezeOp, &rewriter,
-      krnl::getDenseElementAttributeFromKrnlValue,
-      krnl::loadDenseElementArrayValueAtIndex);
-  auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-  assert(succeeded(shapecomputed) && "Could not compute output shape");
+  // Get shape.
+  ONNXCommonUnsqueezeOpShapeHelper<OP_TYPE> shapeHelper(
+      op, operands, &createIE);
+  shapeHelper.computeShapeAndAssertOnFailure();
 
   // Lower to ReinterpretCastOp so that the data is never copied or modified.
   Value newView = emitMemRefReinterpretCastOp(
-      rewriter, loc, data, shapeHelper.dimsForOutput(), convertedType);
+      rewriter, loc, data, shapeHelper.getOutputDims(), convertedType);
   rewriter.replaceOp(op, newView);
   return success();
 }
@@ -54,8 +54,7 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    return ONNXUnsqueezeOpLoweringCommon<ONNXUnsqueezeOpAdaptor,
-        ONNXUnsqueezeOp, ONNXUnsqueezeOpShapeHelper>(
+    return ONNXUnsqueezeOpLoweringCommon<ONNXUnsqueezeOp>(
         op, operands, rewriter, typeConverter);
   }
 };
@@ -67,8 +66,7 @@ struct ONNXUnsqueezeV11OpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    return ONNXUnsqueezeOpLoweringCommon<ONNXUnsqueezeV11OpAdaptor,
-        ONNXUnsqueezeV11Op, ONNXUnsqueezeV11OpShapeHelper>(
+    return ONNXUnsqueezeOpLoweringCommon<ONNXUnsqueezeV11Op>(
         op, operands, rewriter, typeConverter);
   }
 };

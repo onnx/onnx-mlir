@@ -320,14 +320,14 @@ func.func private @copy_to_runtime_start_indices(%p0 : index, %p1 : index) -> ()
   krnl.copy_to_tile_buffer %B, %AA [%p0, %p1], %f0 {padToNext=[1,1]}: memref<4x6xf32>, memref<39x56xf32>
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
-// CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
-// CHECK-LABEL:  func private @copy_to_runtime_start_indices
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (-s0 + 39, 4)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (-s0 + 56, 6)>
+// CHECK-LABEL:  func.func private @copy_to_runtime_start_indices
 // CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<39x56xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
-// CHECK:           affine.for [[I_0_:%.+]] = 0 to min #map0(){{.}}[[START0_]]{{.}} {
-// CHECK:             affine.for [[I_1_:%.+]] = 0 to min #map1(){{.}}[[START1_]]{{.}} {
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to min [[MAP_0_]](){{.}}[[START0_]]{{.}} {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to min [[MAP_1_]](){{.}}[[START1_]]{{.}} {
 // CHECK:               [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]]{{.}}[[I_0_]] + symbol([[START0_]]), [[I_1_]] + symbol([[START1_]])] : memref<39x56xf32>
 // CHECK:               affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
 // CHECK:             }
@@ -349,30 +349,30 @@ func.func private @copy_to_runtime_start_indices_pad3(%p0 : index, %p1 : index) 
   krnl.copy_to_tile_buffer %B, %AA [%p0, %p1], %f0 {padToNext=[3,3]}: memref<4x6xf32>, memref<39x56xf32>
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
-// CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (-s0 + 39, 4)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (-s0 + 56, 6)>
 // CHECK-LABEL:  func private @copy_to_runtime_start_indices_pad3
 // CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ZERO_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<39x56xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.min #map0(){{.}}[[START0_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.min [[MAP_1_]](){{.}}[[START0_]]{{.}}
 // CHECK:           [[VAR_3_:%.+]] = arith.ceildivsi [[VAR_2_]], [[CST_3_]] : index
 // CHECK-DAG:       [[VAR_4_:%.+]] = arith.muli [[VAR_3_]], [[CST_3_]] : index
-// CHECK-DAG:       [[VAR_5_:%.+]] = affine.min #map1(){{.}}[[START1_]]{{.}}
+// CHECK-DAG:       [[VAR_5_:%.+]] = affine.min [[MAP_2_]](){{.}}[[START1_]]{{.}}
 // CHECK:           [[VAR_6_:%.+]] = arith.ceildivsi [[VAR_5_]], [[CST_3_]] : index
 // CHECK:           [[VAR_7_:%.+]] = arith.muli [[VAR_6_]], [[CST_3_]] : index
-// CHECK:           affine.for [[I_0_:%.+]] = 0 to min #map0(){{.}}[[START0_]]{{.}} {
-// CHECK:             affine.for [[I_1_:%.+]] = 0 to min #map1(){{.}}[[START1_]]{{.}} {
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to min [[MAP_1_]](){{.}}[[START0_]]{{.}} {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to min [[MAP_2_]](){{.}}[[START1_]]{{.}} {
 // CHECK:               [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]]{{.}}[[I_0_]] + symbol([[START0_]]), [[I_1_]] + symbol([[START1_]])] : memref<39x56xf32>
 // CHECK:               affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
 // CHECK:             }
-// CHECK:             affine.for [[I_2_:%.+]] = max #map1(){{.}}[[START1_]]{{.}} to [[VAR_7_]] {
+// CHECK:             affine.for [[I_2_:%.+]] = max [[MAP_2_]](){{.}}[[START1_]]{{.}} to [[VAR_7_]] {
 // CHECK:               affine.store [[ZERO_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_2_]]{{.}} : memref<4x6xf32>
 // CHECK:             }
 // CHECK:           }
-// CHECK:           affine.for [[I_3_:%.+]] = max #map0(){{.}}[[START0_]]{{.}} to [[VAR_4_]] {
+// CHECK:           affine.for [[I_3_:%.+]] = max [[MAP_1_]](){{.}}[[START0_]]{{.}} to [[VAR_4_]] {
 // CHECK:             affine.for [[I_4_:%.+]] = 0 to [[VAR_7_]] {
 // CHECK:               affine.store [[ZERO_]], [[BUFFER_]]{{.}}[[I_3_]], [[I_4_]]{{.}} : memref<4x6xf32>
 // CHECK:             }
@@ -397,30 +397,30 @@ func.func private @copy_to_runtime_start_indices_larger_source(%p0 : index, %p1 
   krnl.copy_to_tile_buffer %B, %AA [%i2, %i5, %p0, %p1], %f0 {padToNext=[3,3]}: memref<4x6xf32>, memref<5x10x39x56xf32>
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
-// CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (-s0 + 39, 4)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (-s0 + 56, 6)>
 // CHECK-LABEL:  func private @copy_to_runtime_start_indices_larger_source
 // CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ZERO_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<5x10x39x56xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.min #map0(){{.}}[[START0_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.min [[MAP_0_]](){{.}}[[START0_]]{{.}}
 // CHECK:           [[VAR_3_:%.+]] = arith.ceildivsi [[VAR_2_]], [[CST_3_]] : index
 // CHECK-DAG:       [[VAR_4_:%.+]] = arith.muli [[VAR_3_]], [[CST_3_]] : index
-// CHECK-DAG:       [[VAR_5_:%.+]] = affine.min #map1(){{.}}[[START1_]]{{.}}
+// CHECK-DAG:       [[VAR_5_:%.+]] = affine.min [[MAP_1_]](){{.}}[[START1_]]{{.}}
 // CHECK:           [[VAR_6_:%.+]] = arith.ceildivsi [[VAR_5_]], [[CST_3_]] : index
 // CHECK:           [[VAR_7_:%.+]] = arith.muli [[VAR_6_]], [[CST_3_]] : index
-// CHECK:           affine.for [[I_0_:%.+]] = 0 to min #map0(){{.}}[[START0_]]{{.}} {
-// CHECK:             affine.for [[I_1_:%.+]] = 0 to min #map1(){{.}}[[START1_]]{{.}} {
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to min [[MAP_0_]](){{.}}[[START0_]]{{.}} {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to min [[MAP_1_]](){{.}}[[START1_]]{{.}} {
 // CHECK:               [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]][2, 5, [[I_0_]] + symbol([[START0_]]), [[I_1_]] + symbol([[START1_]])] : memref<5x10x39x56xf32>
 // CHECK:               affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
 // CHECK:             }
-// CHECK:             affine.for [[I_2_:%.+]] = max #map1(){{.}}[[START1_]]{{.}} to [[VAR_7_]] {
+// CHECK:             affine.for [[I_2_:%.+]] = max [[MAP_1_]](){{.}}[[START1_]]{{.}} to [[VAR_7_]] {
 // CHECK:               affine.store [[ZERO_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_2_]]{{.}} : memref<4x6xf32>
 // CHECK:             }
 // CHECK:           }
-// CHECK:           affine.for [[I_3_:%.+]] = max #map0(){{.}}[[START0_]]{{.}} to [[VAR_4_]] {
+// CHECK:           affine.for [[I_3_:%.+]] = max [[MAP_0_]](){{.}}[[START0_]]{{.}} to [[VAR_4_]] {
 // CHECK:             affine.for [[I_4_:%.+]] = 0 to [[VAR_7_]] {
 // CHECK:               affine.store [[ZERO_]], [[BUFFER_]]{{.}}[[I_3_]], [[I_4_]]{{.}} : memref<4x6xf32>
 // CHECK:             }
@@ -472,13 +472,13 @@ func.func @copy_to_nested_partial(%p0 : index, %p1 : index) -> () {
   }
   return
 
-// CHECK-DAG: #map = affine_map<(d0) -> (-d0 + 45, 10)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (-d0 + 45, 10)>
 // CHECK-LABEL:  func @copy_to_nested_partial
 // CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<45x60xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<10x60xf32>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 45 step 10 {
-// CHECK:             affine.for [[I_1_:%.+]] = 0 to min #map([[I_0_]]) {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to min [[MAP_0_]]([[I_0_]]) {
 // CHECK:               affine.for [[I_2_:%.+]] = 0 to 60 {
 // CHECK:                 [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]]{{.*}} + {{.*}}, [[I_2_]]{{.}} : memref<45x60xf32>
 // CHECK:                 affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_1_]], [[I_2_]]{{.}} : memref<10x60xf32>
@@ -644,14 +644,14 @@ func.func private @copy_from_partial_runtime(%p0 : index, %p1 : index) -> () {
 
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
-// CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
-// CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (-s0 + 39, 4)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (-s0 + 56, 6)>
 // CHECK-LABEL:  func private @copy_from_partial_runtime
 // CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) attributes {llvm.emit_c_interface} {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = memref.alloca() : memref<39x56xf32>
 // CHECK-DAG:       [[BUFFER_:%.+]] = memref.alloca() : memref<4x6xf32>
-// CHECK:           affine.for [[I_0_:%.+]] = 0 to min #map0(){{.}}[[START0_]]{{.}} {
-// CHECK:             affine.for [[I_1_:%.+]] = 0 to min #map1(){{.}}[[START1_]]{{.}} {
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to min [[MAP_0_]](){{.}}[[START0_]]{{.}} {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to min [[MAP_1_]](){{.}}[[START1_]]{{.}} {
 // CHECK:               [[LOAD_BUFFER_MEM_:%.+]] = affine.load [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
 // CHECK:               affine.store [[LOAD_BUFFER_MEM_]], [[ORGINAL_]]{{.}}[[I_0_]] + symbol([[START0_]]), [[I_1_]] + symbol([[START1_]])] : memref<39x56xf32>
 // CHECK:             }

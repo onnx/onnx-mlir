@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "reshape_onnx_to_krnl"
@@ -30,9 +30,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXReshapeOpAdaptor operandAdaptor(operands);
-    ONNXReshapeOp reshapeOp = dyn_cast_or_null<ONNXReshapeOp>(op);
-
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     Value data = operandAdaptor.data();
 
     // Convert the output type to MemRefType.
@@ -42,16 +40,16 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
     LLVM_DEBUG(llvm::dbgs() << "memRefType: " << memRefType << "\n");
 
-    ONNXReshapeOpShapeHelper shapeHelper(&reshapeOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    LogicalResult shapeComputed = shapeHelper.computeShape(operandAdaptor);
-    (void)shapeComputed;
-    assert(succeeded(shapeComputed) && "Could not compute shape");
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+        create(rewriter, loc);
+
+    // Get shape.
+    ONNXReshapeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Lower to ReinterpretCastOp so that the data is never copied or modified.
     Value newView = emitMemRefReinterpretCastOp(
-        rewriter, loc, data, shapeHelper.dimsForOutput(), convertedType);
+        rewriter, loc, data, shapeHelper.getOutputDims(), convertedType);
     LLVM_DEBUG(llvm::dbgs() << "newView: " << newView << "\n");
 
     rewriter.replaceOp(op, newView);

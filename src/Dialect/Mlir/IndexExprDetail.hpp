@@ -33,7 +33,15 @@ public:
 
   // Basic initialization calls.
   void initAsUndefined();
+  // Initialize a question mark with the default value of -1.
   void initAsQuestionmark();
+  // Initialize a question mark with a given value.
+  void initAsQuestionmark(int64_t const val);
+  // Initialize a question mark for an unknown dimension in a Tensor/Memref.
+  // This initialization is needed for symbolic shape analysis where each
+  // question mark is assigned to a unique value hashed from the given
+  // tensorOrMemref and dimension index.
+  void initAsQuestionmark(mlir::Value tensorOrMemref, int64_t index);
   void initAsLiteral(int64_t const value, IndexExprKind const kind);
   void initAsKind(mlir::Value const value, IndexExprKind const kind);
   void initAsAffineExpr(mlir::AffineExpr const value);
@@ -66,6 +74,7 @@ public:
   mlir::Location getLoc() const { return getScope().getLoc(); }
   IndexExprKind getKind() const;
   int64_t getLiteral() const;
+  int64_t getQuestionmark() const;
   mlir::AffineExpr getAffineExpr();
   void getAffineMapAndOperands(
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands);
@@ -80,7 +89,8 @@ public:
   bool literal;
   // Type of IndexExpr. Literal are by default affine.
   IndexExprKind kind;
-  // Integer value, valid when "literal" is true.
+  // Integer value, valid when "literal" or "question mark" is true. Negative
+  // value in case of question mark.
   int64_t intLit;
   // Affine expression, may be defined for literal, symbols, dims, or affine
   // expr.

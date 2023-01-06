@@ -1,0 +1,80 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s 2> zipmap.log; cat zipmap.log | FileCheck --check-prefix=FAILED %s
+
+// zipmap.json is an onnx model with a single ZipMap node.
+//
+// Parsing fails because equences of non-tensors are not supported by
+// the ONNX parser in
+// FrontendGenImpl::ImportSequenceType in FrontendDialectTransformer.cpp
+
+// json is generated with utils/testing/zipmap.py
+{
+  "irVersion": "8",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "input"
+        ],
+        "output": [
+          "output"
+        ],
+        "opType": "ZipMap",
+        "attribute": [
+          {
+            "name": "classlabels_int64s",
+            "ints": [
+              "10",
+              "20",
+              "30"
+            ],
+            "type": "INTS"
+          }
+        ]
+      }
+    ],
+    "name": "zipmapper",
+    "input": [
+      {
+        "name": "input",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "output",
+        "type": {
+          "sequenceType": {
+            "elemType": {
+              "mapType": {
+                "keyType": 7,
+                "valueType": {
+                  "tensorType": {
+                    "elemType": 1,
+                    "shape": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "version": "16"
+    }
+  ]
+}
+// FAILED: "expect tensor inside sequence type"

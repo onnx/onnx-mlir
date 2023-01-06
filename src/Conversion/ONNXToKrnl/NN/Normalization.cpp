@@ -154,8 +154,9 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
     ONNXInstanceNormalizationOpAdaptor operandAdaptor(operands);
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
+        create(rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -183,17 +184,18 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
 
     // Get rank, bounds, and constructors.
     int64_t rank = memRefType.getRank();
-    IndexExprScope outerScope(&rewriter, loc);
-    MemRefBoundsIndexCapture inputBounds(inputMemRef);
+    IndexExprScope outerScope(create.krnl);
+    SmallVector<IndexExpr, 4> inputBounds;
+    create.krnlIE.getShapeAsSymbols(inputMemRef, inputBounds);
     MemRefType tmpType = MemRefType::get({}, elementType);
     Value fZero = create.math.constant(elementType, 0);
     Value tmpMemRef = create.mem.alloca(tmpType);
 
     // Compute the number of values in a single channel: product of spatial
     // dimensions, converted to float.
-    IndexExpr num = inputBounds.getSymbol(2);
+    IndexExpr num = inputBounds[2];
     for (int d = 3; d < rank; ++d)
-      num = num * inputBounds.getSymbol(d);
+      num = num * inputBounds[d];
     // Convert num to float from Pooling postProcessPoolingWindow.
     Value meanDenom = create.math.cast(elementType, num.getValue());
 
@@ -201,12 +203,11 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     LiteralIndexExpr iZero(0);
     ValueRange n_c_loopDef = create.krnl.defineLoops(2);
     create.krnl.iterateIE(n_c_loopDef, n_c_loopDef, {iZero, iZero},
-        {inputBounds.getSymbol(0), inputBounds.getSymbol(1)},
-        [&](KrnlBuilder &createKrnl, ValueRange n_c_loopInd) {
+        {inputBounds[0], inputBounds[1]},
+        [&](KrnlBuilder &ck, ValueRange n_c_loopInd) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-              createKrnl);
-
-          IndexExprScope channelScope(createKrnl);
+              ck);
+          IndexExprScope channelScope(ck);
           DimIndexExpr n(n_c_loopInd[0]), c(n_c_loopInd[1]);
 
           // Set bounds for iterating over values in channel.
@@ -214,7 +215,7 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
           SmallVector<IndexExpr, 4> lbs(rank - 2, iZero);
           SmallVector<IndexExpr, 4> ubs;
           for (int d = 2; d < rank; ++d)
-            ubs.emplace_back(inputBounds.getSymbol(d));
+            ubs.emplace_back(SymbolIndexExpr(inputBounds[d]));
 
           // First compute the mean: store zero in reduction value, then sum up
           // all of the values in the channel, and divide by the number of
