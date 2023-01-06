@@ -215,9 +215,9 @@ Value OnnxBuilder::toTensor(Value input) const {
       .getResult(0);
 }
 
-Type OnnxBuilder::toTensor(Type input) const {
-  if (input.isa<TensorType>())
-    return input;
+TensorType OnnxBuilder::toTensor(Type input) const {
+  if (auto tensorType = input.dyn_cast<TensorType>())
+    return tensorType;
   assert(input.isa<MemRefType>() &&
          "expect RankedMemref type when not a TensorType");
   auto aTy = input.cast<ShapedType>();
@@ -225,8 +225,7 @@ Type OnnxBuilder::toTensor(Type input) const {
   if (elementTy.isa<IndexType>()) {
     elementTy = b().getIntegerType(64);
   }
-  auto aTensorTy = RankedTensorType::get(aTy.getShape(), elementTy);
-  return aTensorTy;
+  return RankedTensorType::get(aTy.getShape(), elementTy);
 }
 
 Value OnnxBuilder::toMemref(Value input) const {

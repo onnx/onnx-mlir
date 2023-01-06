@@ -333,16 +333,16 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
       create(rewriter, loc);
   if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    char *inputBuffer = createArrayFromDenseElementsAttr(
-        input.getDefiningOp()
-            ->getAttrOfType<::mlir::Attribute>("value")
-            .dyn_cast_or_null<mlir::DenseElementsAttr>());
-    char *outputBuffer = allocateBufferFor(resultType, /*useMaxSize=*/false);
-    convertDoubleInt64ToExactType(resultType, inputBuffer, outputBuffer);
-    Value constVal =
-        create.onnx.constantFromRawBuffer(resultType, outputBuffer);
-    free(outputBuffer);
-    free(inputBuffer);
+    DenseElementsAttr inputElements =
+        getDenseElementAttributeFromONNXValue(input);
+    TensorType tensorType = create.onnx.toTensor(resultType);
+    DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
+    // TODO: Fix lit tests so we can change this to just:
+    // Value constVal = create.onnx.constant(squeezedElements);
+    // The lit tests want the constant to have memref type, so we do this:
+    Value constVal = rewriter.create<ONNXConstantOp>(loc, resultType,
+        Attribute(), squeezedElements, FloatAttr(), ArrayAttr(), IntegerAttr(),
+        ArrayAttr(), StringAttr(), ArrayAttr());
     return create.onnx.toMemref(constVal);
   } else {
     return create.onnx.toMemref(
@@ -359,16 +359,11 @@ Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    char *inputBuffer = createArrayFromDenseElementsAttr(
-        input.getDefiningOp()
-            ->getAttrOfType<::mlir::Attribute>("value")
-            .dyn_cast_or_null<mlir::DenseElementsAttr>());
-    char *outputBuffer = allocateBufferFor(resultType, /*useMaxSize=*/false);
-    convertDoubleInt64ToExactType(resultType, inputBuffer, outputBuffer);
-    Value constVal =
-        create.onnx.constantFromRawBuffer(resultType, outputBuffer);
-    free(outputBuffer);
-    free(inputBuffer);
+    DenseElementsAttr inputElements =
+        getDenseElementAttributeFromONNXValue(input);
+    TensorType tensorType = create.onnx.toTensor(resultType);
+    DenseElementsAttr unsqueezedElements = inputElements.reshape(tensorType);
+    Value constVal = create.onnx.constant(unsqueezedElements);
     return create.onnx.toMemref(constVal);
   } else {
     return create.onnx.toMemref(
