@@ -390,6 +390,8 @@ int64_t getLinearAccessIndex(
  * update_indices = indices.shape[:-1]
  * for idx in np.ndindex(update_indices):
  *     output[indices[idx]] = updates[idx]
+ *
+ * TODO: Move this to a scatterND method in ElementsAttrBuilder.
  */
 void ScatterNDImpl(ElementsAttr dataElements, ElementsAttr indicesElements,
     ElementsAttr updatesElements, MutableArrayRef<WideNum> output) {
@@ -481,6 +483,8 @@ Value ConstPropCast(
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for SliceOp.
+//
+// TODO: Move this to a slice method in ElementsAttrBuilder.
 //===----------------------------------------------------------------------===//
 
 void ConstPropSliceImpl(ShapedType outputType,
@@ -543,6 +547,8 @@ Value ConstPropSlice(
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for ConcatOp.
+//
+// TODO: Move this to a concat method in ElementsAttrBuilder.
 //===----------------------------------------------------------------------===//
 
 void ConstPropConcatImpl(ShapedType outputType,
@@ -607,6 +613,8 @@ Value ConstPropExpand(
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for GatherOp.
+//
+// TODO: Move this to a gather method in ElementsAttrBuilder.
 //===----------------------------------------------------------------------===//
 
 void ConstPropGatherImpl(ShapedType outputType, ElementsAttr inputElements,
