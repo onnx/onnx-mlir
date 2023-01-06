@@ -41,10 +41,14 @@ public:
         ->template getRegisteredInterface<DisposablePool>();
   }
 
+  using OpAttrPair = std::pair<llvm::StringRef, llvm::StringRef>;
+  using OpAttrDictionary = llvm::ArrayRef<OpAttrPair>;
+
   // Disposes every DisposableElementsAttr and in moduleOp replaces each with a
   // DenseElementsAttr. This is irreversible and is called when we
   // are done transforming the ONNX dialect, just before we lower it.
-  static void scrub(mlir::ModuleOp moduleOp, DisposablePool *disposablepool);
+  static void scrub(mlir::ModuleOp moduleOp, OpAttrDictionary opsAttrs,
+      DisposablePool *disposablepool);
 
   DisposablePool(mlir::Dialect *dialect, mlir::MLIRContext *context);
   ~DisposablePool();
@@ -58,7 +62,8 @@ public:
 
   // Disposes every DisposableElementsAttr in the pool which is unreachable
   // (doesn't appear in moduleOp).
-  void garbageCollectUnreachable(mlir::ModuleOp moduleOp);
+  void garbageCollectUnreachable(
+      mlir::ModuleOp moduleOp, OpAttrDictionary opsAttrs);
 
   // Can be called when the pool is empty, namely after calling scrub(), to
   // ensure that no more DisposableElementsAttr instances are created, i.e.
@@ -80,13 +85,7 @@ private:
   // Returns true on success and false if the pool is not active.
   bool insert(mlir::DisposableElementsAttr disposable);
 
-  template <typename CONST_OP>
-  static void collectReachable(mlir::ModuleOp moduleOp, Pool &reachable);
-
-  template <typename CONST_OP>
-  static void scrubConstants(mlir::ModuleOp moduleOp, Scrubbed &scrubbed);
-
-  static Scrubbed doScrub(mlir::ModuleOp moduleOp);
+  static Scrubbed doScrub(mlir::ModuleOp moduleOp, OpAttrDictionary opsAttrs);
 
   void flushAfterScrub(const Scrubbed &scrubbed);
 

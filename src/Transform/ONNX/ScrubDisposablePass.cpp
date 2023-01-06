@@ -13,6 +13,7 @@
 
 #include "src/Dialect/ONNX/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
 
@@ -32,7 +33,10 @@ struct ScrubDisposablePass
   void runOnOperation() final {
     ModuleOp moduleOp = getOperation();
     DisposablePool *pool = getDisposablePool();
-    DisposablePool::scrub(moduleOp, pool);
+    DisposablePool::scrub(moduleOp,
+        {{ONNXConstantOp::getOperationName(), "value"},
+            {ONNXConstantOfShapeOp::getOperationName(), "value"}},
+        pool);
     if (closeAfter && pool)
       pool->close();
   }

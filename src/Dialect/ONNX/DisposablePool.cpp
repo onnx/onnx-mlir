@@ -10,7 +10,7 @@
 
 #include "src/Dialect/ONNX/DisposablePool.hpp"
 
-#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "llvm/ADT/DenseMap.h"
 
 #include <atomic>
 
@@ -50,21 +50,31 @@ bool DisposablePool::insert(DisposableElementsAttr disposable) {
   return true;
 }
 
-/*static*/
-template <typename CONST_OP>
-void DisposablePool::collectReachable(ModuleOp moduleOp, Pool &reachable) {
-  moduleOp.walk([&reachable](CONST_OP constOp) {
-    if (auto attr = constOp.value())
-      if (auto disposable = attr->template dyn_cast<DisposableElementsAttr>()) {
-        reachable.try_emplace(disposable.getId(), disposable);
-      }
+namespace {
+template <typename Action>
+void walkOpsAttrs(ModuleOp moduleOp, DisposablePool::OpAttrDictionary opsAttrs,
+    const Action &act) {
+  llvm::SmallDenseMap<StringRef, StringRef> opAttrMap(
+      opsAttrs.begin(), opsAttrs.end());
+  moduleOp.walk([&opAttrMap, &act](Operation *op) {
+    auto opAttr = opAttrMap.find(op->getName().getIdentifier());
+    if (opAttr != opAttrMap.end()) {
+      StringRef attrName = opAttr->second;
+      if (auto attr = op->getAttrOfType<DisposableElementsAttr>(attrName))
+        act(op, attrName, attr);
+    }
   });
 }
+} // namespace
 
-void DisposablePool::garbageCollectUnreachable(ModuleOp moduleOp) {
+void DisposablePool::garbageCollectUnreachable(
+    ModuleOp moduleOp, OpAttrDictionary opsAttrs) {
   Pool reachable;
-  collectReachable<ONNXConstantOp>(moduleOp, reachable);
-  collectReachable<ONNXConstantOfShapeOp>(moduleOp, reachable);
+  walkOpsAttrs(moduleOp, opsAttrs,
+      [&reachable](Operation *op, StringRef attrName,
+          DisposableElementsAttr disposable) {
+        reachable.try_emplace(disposable.getId(), disposable);
+      });
   for (auto &entry : reachable)
     assert(pool.count(entry.first) == 1 &&
            "reachable disposables must be in the pool");
@@ -72,34 +82,27 @@ void DisposablePool::garbageCollectUnreachable(ModuleOp moduleOp) {
 }
 
 /*static*/
-void DisposablePool::scrub(
-    mlir::ModuleOp moduleOp, DisposablePool *disposablePool) {
-  Scrubbed scrubbed = doScrub(moduleOp);
+void DisposablePool::scrub(mlir::ModuleOp moduleOp, OpAttrDictionary opsAttrs,
+    DisposablePool *disposablePool) {
+  Scrubbed scrubbed = doScrub(moduleOp, opsAttrs);
   if (disposablePool)
     disposablePool->flushAfterScrub(scrubbed);
 }
 
 /*static*/
-template <typename CONST_OP>
-void DisposablePool::scrubConstants(ModuleOp moduleOp, Scrubbed &scrubbed) {
-  moduleOp.walk([&scrubbed](CONST_OP constOp) {
-    if (auto attr = constOp.value())
-      if (auto disposable = attr->template dyn_cast<DisposableElementsAttr>()) {
+auto DisposablePool::doScrub(ModuleOp moduleOp, OpAttrDictionary opsAttrs)
+    -> Scrubbed {
+  Scrubbed scrubbed;
+  walkOpsAttrs(moduleOp, opsAttrs,
+      [&scrubbed](Operation *op, StringRef attrName,
+          DisposableElementsAttr disposable) {
         auto insertion = scrubbed.try_emplace(disposable.getId(), nullptr);
         auto iter = insertion.first;
         if (insertion.second) { // disposable was inserted
           iter->second = disposable.toDenseElementsAttr();
         }
-        constOp.valueAttr(iter->second);
-      }
-  });
-}
-
-/*static*/
-auto DisposablePool::doScrub(ModuleOp moduleOp) -> Scrubbed {
-  Scrubbed scrubbed;
-  scrubConstants<ONNXConstantOp>(moduleOp, scrubbed);
-  scrubConstants<ONNXConstantOfShapeOp>(moduleOp, scrubbed);
+        op->setAttr(attrName, iter->second);
+      });
   return scrubbed;
 }
 

@@ -11,6 +11,7 @@
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 
 #include "src/Dialect/ONNX/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 #include "mlir/IR/BuiltinOps.h"
 
@@ -26,7 +27,9 @@ void DisposableGarbageCollector::runAfterPass(Pass *pass, Operation *op) {
   ModuleOp moduleOp = dyn_cast<ModuleOp>(op);
   if (!moduleOp)
     return;
-  disposablePool.garbageCollectUnreachable(moduleOp);
+  disposablePool.garbageCollectUnreachable(
+      moduleOp, {{ONNXConstantOp::getOperationName(), "value"},
+                    {ONNXConstantOfShapeOp::getOperationName(), "value"}});
 }
 
 } // namespace onnx_mlir
