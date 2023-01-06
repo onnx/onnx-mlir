@@ -29,12 +29,8 @@ namespace onnx_mlir {
 
 class DisposablePool : public mlir::DialectInterface::Base<DisposablePool> {
 public:
-  template <typename Dialect>
-  static DisposablePool &create(mlir::MLIRContext *context) {
-    return context->getLoadedDialect<Dialect>()
-        ->template addInterface<DisposablePool>(context);
-  }
-
+  // Assumes Dialect has created and registered a DisposablePool with
+  // addInterface<DisposablePool>(context).
   template <typename Dialect>
   static DisposablePool *get(mlir::MLIRContext *context) {
     return context->getLoadedDialect<Dialect>()

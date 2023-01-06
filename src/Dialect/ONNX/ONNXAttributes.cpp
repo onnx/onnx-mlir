@@ -16,6 +16,7 @@
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttributeStorage.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
@@ -105,11 +106,12 @@ void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
 
 // See explanation in ONNXDialect::initialize() in ONNXDialect.cpp.
 void ONNXDialect::registerAttributes() {
-  addAttributes<DisposableElementsAttr>();
   addAttributes<
 #define GET_ATTRDEF_LIST
 #include "src/Dialect/ONNX/ONNXAttributes.cpp.inc"
       >();
+  addAttributes<DisposableElementsAttr>();
+  addInterface<DisposablePool>(getContext());
 }
 
 /// Parse an attribute registered to this dialect.

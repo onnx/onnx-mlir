@@ -35,7 +35,6 @@
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitMLIRPasses.hpp"
@@ -193,10 +192,9 @@ int main(int argc, char **argv) {
 
   auto passManagerSetupFn = [&](PassManager &pm) {
     mlir::MLIRContext *ctx = pm.getContext();
-    DisposablePool::create<ONNXDialect>(ctx);
     pm.addInstrumentation(std::make_unique<DisposableGarbageCollector>(ctx));
-    auto errorHandler = [&](const Twine &msg) {
-      emitError(UnknownLoc::get(pm.getContext())) << msg;
+    auto errorHandler = [ctx](const Twine &msg) {
+      emitError(UnknownLoc::get(ctx)) << msg;
       return failure();
     };
     return passPipeline.addToPipeline(pm, errorHandler);

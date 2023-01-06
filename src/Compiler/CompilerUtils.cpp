@@ -33,7 +33,6 @@
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Compiler/HeapReporter.hpp"
-#include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
 
@@ -624,8 +623,6 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlDialect>();
-
-  DisposablePool::create<ONNXDialect>(&context);
 }
 
 namespace {

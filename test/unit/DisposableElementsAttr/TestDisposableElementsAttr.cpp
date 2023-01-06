@@ -58,8 +58,6 @@ std::vector<T> nums(std::integer_sequence<T, ints...> int_seq) {
 MLIRContext *createCtx() {
   MLIRContext *ctx = new MLIRContext();
   ctx->loadDialect<ONNXDialect>();
-  DisposablePool::create<ONNXDialect>(
-      ctx); // Registers an instance with the dialect.
   return ctx;
 }
 
