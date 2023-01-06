@@ -68,14 +68,14 @@ std::unique_ptr<llvm::MemoryBuffer> getMemoryBuffer(DenseElementsAttr dense) {
       return std::move(writeBuffer);
     }
   } else {
-    StringRef s = asStringRef(dense.getRawData());
-    int64_t size = s.size();
+    ArrayRef<char> bytes = dense.getRawData();
+    int64_t size = bytes.size();
     if (dense.isSplat())
       assert(size == getEltSizeInBytes(type) && "size mismatch");
     else
       assert(size == getSizeInBytes(type) && "size mismatch");
-    return llvm::MemoryBuffer::getMemBuffer(
-        s, /*BufferName=*/"", /*RequiresNullTerminator=*/false);
+    return llvm::MemoryBuffer::getMemBuffer(asStringRef(bytes),
+        /*BufferName=*/"", /*RequiresNullTerminator=*/false);
   }
 }
 
