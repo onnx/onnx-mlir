@@ -31,7 +31,7 @@ namespace onnx_mlir {
 namespace tosa {
 
 // Get a vector of indexExpr and extract the Int64 values
-llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
+llvm::SmallVector<int64_t, 4> createInt64VectorFromIndexExpr(
     llvm::ArrayRef<IndexExpr> indexVector);
 
 // Transpose a given TOSA Tensor

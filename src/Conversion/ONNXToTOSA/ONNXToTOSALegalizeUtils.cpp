@@ -33,7 +33,7 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace tosa {
 
-llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
+llvm::SmallVector<int64_t, 4> createInt64VectorFromIndexExpr(
     llvm::ArrayRef<IndexExpr> indexVector) {
   llvm::SmallVector<int64_t, 4> literalVector(indexVector.size());
   llvm::transform(indexVector, literalVector.begin(),

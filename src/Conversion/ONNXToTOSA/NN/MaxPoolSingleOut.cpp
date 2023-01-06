@@ -37,7 +37,7 @@ llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
   if (ceilMode == 0)
     return llvm::SmallVector<int64_t>{0, 0};
 
-  SmallVector<int64_t, 2> kernelShapeVec =
+  SmallVector<int64_t, 4> kernelShapeVec =
       tosa::createInt64VectorFromIndexExpr(shapeHelper.kernelShape);
 
   // Get stride and pad vectors.
