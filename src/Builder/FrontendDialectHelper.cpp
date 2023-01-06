@@ -19,8 +19,8 @@
 #include "llvm/Support/SwapByteOrder.h"
 
 #include "src/Builder/FrontendDialectHelper.hpp"
-#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/Arrays.hpp"
 #include "src/Support/BType.hpp"
 #include "src/Support/FloatingPoint16.hpp"
