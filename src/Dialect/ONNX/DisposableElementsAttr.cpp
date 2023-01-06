@@ -164,8 +164,8 @@ void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
   printer << "dense_disposable<#" << getImpl()->id << ":";
   if (isSplat() || !printerFlags.shouldElideElementsAttr(*this)) {
     auto bytes = getRawBytes();
-    StringRef s = asStringRef(bytes.get());
-    printer << "\"0x" << llvm::toHex(s) << "\"";
+    auto u8array = castArrayRef<uint8_t>(bytes.get());
+    printer << "\"0x" << llvm::toHex(u8array) << "\"";
   } else {
     printer << "__elided__";
   }
