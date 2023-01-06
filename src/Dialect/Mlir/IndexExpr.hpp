@@ -286,7 +286,6 @@ result in a new Dim variable.
      Affine: affine apply
 */
 
-
 namespace onnx_mlir {
 
 struct DialectBuilder;

@@ -101,8 +101,7 @@ LogicalResult ONNXExpandOp::verify() {
 
 ONNXOpShapeHelper *ONNXExpandOp::getShapeHelper(Operation *op,
     ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXExpandOpShapeHelper>(
-      op, oper, ieb, scope);
+  return getNewShapeHelper<ONNXExpandOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXExpandOp::inferShapes(

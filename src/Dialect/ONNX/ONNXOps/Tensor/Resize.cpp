@@ -73,8 +73,7 @@ LogicalResult ONNXResizeOp::verify() {
 
 ONNXOpShapeHelper *ONNXResizeOp::getShapeHelper(Operation *op,
     ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXResizeOpShapeHelper>(
-      op, oper, ieb, scope);
+  return getNewShapeHelper<ONNXResizeOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXResizeOp::inferShapes(
