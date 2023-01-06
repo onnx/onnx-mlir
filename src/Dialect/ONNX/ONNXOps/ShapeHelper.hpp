@@ -606,6 +606,7 @@ using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpa
 using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
+using ONNXUniqueOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUniqueOp>;
 // clang-format on
 
 // Pattern to use: replace "_" by operation's name.

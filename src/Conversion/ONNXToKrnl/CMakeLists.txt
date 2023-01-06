@@ -22,6 +22,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/Reduction.cpp
   Math/Softmax.cpp
   Math/TopK.cpp
+  Math/Unique.cpp
   NN/Conv.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp
