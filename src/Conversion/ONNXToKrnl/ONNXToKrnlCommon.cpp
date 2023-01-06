@@ -364,9 +364,8 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
       create(rewriter, loc);
   if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    ONNXConstantOp inputConstOp = getONNXConstantOp(input);
     DenseElementsAttr inputElements =
-        inputConstOp.valueAttr().cast<DenseElementsAttr>();
+        getElementAttributeFromONNXValue(input).cast<DenseElementsAttr>();
     ShapedType tensorType = create.onnx.toTensor(resultType).cast<ShapedType>();
     DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
     // TODO: Fix lit tests so we can change this to just:
@@ -456,6 +455,10 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     for (auto permVal : permAttr.getValue())
       perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
+<<<<<<< HEAD
+=======
+    ElementsAttr inputElements = getElementAttributeFromONNXValue(input);
+>>>>>>> c99a9543 (use simpler getElementAttributeFromONNXValue instead of getONNXConstantOp)
     ElementsAttrBuilder elementsBuilder(rewriter.getContext());
     ElementsAttr transposedElements =
         elementsBuilder.transpose(inputElements, perm);
