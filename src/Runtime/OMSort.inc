@@ -335,7 +335,10 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   sortFunctionType *sortFunc = qsort_r;
 #elif defined(_MSC_VER)
 #pragma warning(push, 3)
+// Newer MSVC warns 4113 instead of 4028 for function signature mismatch.
+// Disable both here.
 #pragma warning(disable : 4028)
+#pragma warning(disable : 4113)
   // Windows supports qsort_s
   sortFunctionType *sortFunc = qsort_s;
 #pragma warning(pop)

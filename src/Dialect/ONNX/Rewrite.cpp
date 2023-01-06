@@ -524,7 +524,14 @@ public:
       onnxOp->setAttr(onnxOp.layoutAttrName(),
           rewriter.getIntegerAttr(
               rewriter.getIntegerType(64, /*isSigned=*/true), 0));
-      // Update the output shape.
+      // Update the output shape. Since the onnxOp is reused, it potentially had
+      // some shape inference for its output. But since the input changed, we
+      // don't want these now-erroneous output shapes to influence the output of
+      // the revised op (as current output shape is used to potentially refine
+      // existing shape inference). Long story short, we must reset the output
+      // shapes. The call below does that. It is then safe to call shape
+      // inference with the revised inputs.
+      resetTypesShapeToQuestionmarks(onnxOp);
       inferShapes(onnxOp);
     });
     // Transpose the Y and Y_h outputs by inserting an ONNXTransposeOp
