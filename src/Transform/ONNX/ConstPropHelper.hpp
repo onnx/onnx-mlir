@@ -60,10 +60,4 @@ void copyAndCastArr(char *srcRawArr, char *destRawArr, int64_t size);
 void convertDoubleInt64ToExactType(
     mlir::Type destType, char *srcRawArr, char *destRawArr);
 
-/// Constant propagation for split.
-void ConstPropSplitImpl(mlir::Type elementType, char *constArray,
-    llvm::ArrayRef<int64_t> constShape, uint64_t splitAxis,
-    llvm::ArrayRef<int64_t> splitOffsets,
-    llvm::ArrayRef<mlir::Type> replacingTypes, std::vector<char *> &resBuffers);
-
 } // namespace onnx_mlir

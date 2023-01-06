@@ -395,46 +395,31 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     Location loc, ArrayRef<Type> resultTypes, Value input, int64_t axis) {
 
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  SmallVector<Type, 4> convertedTypes;
-  for (auto t : resultTypes) {
-    convertedTypes.emplace_back(create.onnx.toTensor(t));
-  }
 
   std::vector<Value> resVals;
   int outputNum = resultTypes.size();
-  auto inputType = input.getType().cast<ShapedType>();
-  auto inputShape = inputType.getShape();
-  Type elementType = inputType.getElementType();
-
-  // Compute split offsets.
-  SmallVector<int64_t, 4> splitOffsets;
-  int64_t offset = 0;
-  for (int i = 0; i < outputNum; ++i) {
-    splitOffsets.emplace_back(offset);
-    offset += inputShape[axis] / outputNum;
-  }
 
   if (DenseElementsAttr inputElements = getDenseElementAttrFromValue(input)) {
-    char *inputBuffer = createArrayFromDenseElementsAttr(inputElements);
+    auto inputShape = inputElements.getType().getShape();
+    assert(outputNum == 0 || inputShape[axis] % outputNum == 0);
+    int64_t sizeOfEachSplit = outputNum != 0 ? inputShape[axis] / outputNum : 0;
+    SmallVector<int64_t, 4> sizes(outputNum, sizeOfEachSplit);
 
-    std::vector<char *> resBuffers;
-    ConstPropSplitImpl(elementType, inputBuffer, inputShape,
-        /*splitAxis=*/axis, /*splitOffsets=*/splitOffsets, resultTypes,
-        resBuffers);
-
-    for (int i = 0; i < outputNum; ++i) {
-      char *outputBuffer =
-          allocateBufferFor(convertedTypes[i], /*useMaxSize=*/false);
-      convertDoubleInt64ToExactType(
-          convertedTypes[i], resBuffers[i], outputBuffer);
-      Value constVal =
-          create.onnx.constantFromRawBuffer(convertedTypes[i], outputBuffer);
+    ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    std::vector<ElementsAttr> splits =
+        elementsBuilder.split(inputElements, axis, sizes);
+    for (ElementsAttr splitElements : splits) {
+      // Avoid DisposableElementsAttr during conversion.
+      DenseElementsAttr denseSplitElements =
+          elementsBuilder.toDenseElementsAttr(splitElements);
+      Value constVal = create.onnx.constant(denseSplitElements);
       resVals.emplace_back(create.onnx.toMemref(constVal));
-      free(outputBuffer);
-      free(resBuffers[i]);
     }
-    free(inputBuffer);
   } else {
+    SmallVector<Type, 4> convertedTypes;
+    for (auto t : resultTypes) {
+      convertedTypes.emplace_back(create.onnx.toTensor(t));
+    }
     ONNXSplitV11Op split = rewriter.create<ONNXSplitV11Op>(loc, convertedTypes,
         create.onnx.toTensor(input),
         /*axis=*/axis, nullptr);
@@ -457,8 +442,7 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     ElementsAttrBuilder elementsBuilder(rewriter.getContext());
     ElementsAttr transposedElements =
         elementsBuilder.transpose(inputElements, perm);
-    // Make sure we don't get a DisposableElementsAttr which we don't support
-    // during conversion.
+    // Avoid DisposableElementsAttr during conversion.
     DenseElementsAttr denseTransposedElements =
         elementsBuilder.toDenseElementsAttr(transposedElements);
 

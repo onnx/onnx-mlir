@@ -282,15 +282,6 @@ Value ConstPropSqueeze(
 // Code to perform constant propagation for split.
 //===----------------------------------------------------------------------===//
 
-void SplitImpl(ArrayRef<WideNum> inputData, size_t start, size_t len,
-    size_t stride, MutableArrayRef<WideNum> outputData) {
-  auto in = inputData.begin();
-  auto out = outputData.begin();
-  for (size_t offset = start; offset < inputData.size(); offset += stride)
-    out = std::copy_n(in + offset, len, out);
-  assert(out == outputData.end() && "result num elements mismatch");
-}
-
 template <typename Op>
 LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     llvm::Optional<ArrayAttr> splitAttr) {
@@ -324,23 +315,8 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
 
   ElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr inputElements = getConstValueElements(input);
-  ArrayBuffer<WideNum> inputData = getElementsWideNums(inputElements);
-  size_t stride = ShapedType::getNumElements(inputShape.drop_front(splitAxis));
-  size_t substride = stride / splitAxisSize;
-  size_t offset = 0;
-  std::vector<ElementsAttr> resElements;
-  resElements.reserve(numResults);
-  for (unsigned int i = 0; i < numResults; ++i) {
-    Type replacingType = splitOp.getResult(i).getType();
-    size_t len = splitSizes[i] * substride;
-    ElementsAttr splitElements = elementsBuilder.fromWideNums(
-        replacingType, [&](MutableArrayRef<WideNum> outputData) {
-          SplitImpl(inputData.get(), offset, len, stride, outputData);
-        });
-    resElements.push_back(splitElements);
-    offset += len;
-  }
-
+  std::vector<ElementsAttr> resElements =
+      elementsBuilder.split(inputElements, splitAxis, splitSizes);
   std::vector<Value> resValues;
   resValues.reserve(numResults);
   for (unsigned int i = 0; i < numResults; ++i) {

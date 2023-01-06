@@ -16,6 +16,8 @@
 #include "src/Support/Strides.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+#include <numeric>
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -350,6 +352,54 @@ ElementsAttr ElementsAttrBuilder::expand(
   auto expandedStrides = expandStrides(props.strides, expandedShape);
   return create(expandedType, props.bufferBType, expandedStrides, props.buffer,
       props.transformer);
+}
+
+namespace {
+void splitImpl(ArrayRef<WideNum> data, size_t start, size_t len, size_t stride,
+    MutableArrayRef<WideNum> splitData) {
+  auto in = data.begin();
+  auto out = splitData.begin();
+  for (size_t offset = start; offset < data.size(); offset += stride)
+    out = std::copy_n(in + offset, len, out);
+  assert(out == splitData.end() && "result num elements mismatch");
+}
+} // namespace
+
+std::vector<ElementsAttr> ElementsAttrBuilder::split(
+    ElementsAttr elms, unsigned axis, ArrayRef<int64_t> sizes) {
+  auto type = elms.getType();
+  auto shape = type.getShape();
+  assert(axis < shape.size());
+  auto axisSize = shape[axis];
+  assert(std::accumulate(sizes.begin(), sizes.end(), 0) == axisSize);
+  if (sizes.empty()) {
+    return {};
+  }
+  std::vector<ElementsAttr> results;
+  results.reserve(sizes.size());
+  if (sizes.size() == 1) {
+    results.push_back(elms);
+    return results;
+  }
+
+  ArrayBuffer<WideNum> data = getElementsWideNums(elms);
+  size_t stride = ShapedType::getNumElements(shape.drop_front(axis));
+  size_t substride = stride / axisSize;
+  size_t offset = 0;
+  SmallVector<int64_t, 4> splitShape(shape.begin(), shape.end());
+  splitShape[axis] = 0; // Is set in every iteration.
+  for (size_t i = 0; i < sizes.size(); ++i) {
+    splitShape[axis] = sizes[i];
+    ShapedType splitType = type.clone(splitShape);
+    size_t len = sizes[i] * substride;
+    ElementsAttr splitElms =
+        fromWideNums(splitType, [&](MutableArrayRef<WideNum> splitData) {
+          splitImpl(data.get(), offset, len, stride, splitData);
+        });
+    results.push_back(splitElms);
+    offset += len;
+  }
+  return results;
 }
 
 auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
