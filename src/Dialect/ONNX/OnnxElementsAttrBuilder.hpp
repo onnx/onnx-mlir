@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
 namespace mlir {
 class MLIRContext;

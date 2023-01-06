@@ -10,9 +10,9 @@
 
 #pragma once
 
-#include "src/Support/Arrays.hpp"
-#include "src/Support/BType.hpp"
-#include "src/Support/WideNum.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 
 #include "mlir/IR/AttributeSupport.h"
 #include "mlir/IR/Attributes.h"

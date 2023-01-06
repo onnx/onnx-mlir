@@ -19,8 +19,9 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
-#include "src/Dialect/ONNX/DisposablePool.hpp"
-#include "src/Dialect/ONNX/ElementsAttrHelper.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -28,7 +29,6 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
 #include "src/Support/TypeUtilities.hpp"
-#include "src/Support/WideNum.hpp"
 
 #include <math.h>
 #include <numeric>

@@ -8,12 +8,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
-#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
-#include "src/Dialect/ONNX/DisposablePool.hpp"
-#include "src/Dialect/ONNX/ElementsAttrHelper.hpp"
-#include "src/Support/Strides.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #include <numeric>

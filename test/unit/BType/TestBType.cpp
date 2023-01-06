@@ -9,8 +9,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
-#include "src/Support/BType.hpp"
-#include "src/Support/WideNum.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 
 #include "mlir/IR/Builders.h"
 

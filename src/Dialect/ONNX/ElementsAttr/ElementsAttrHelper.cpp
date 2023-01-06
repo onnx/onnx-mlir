@@ -8,10 +8,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ElementsAttrHelper.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
 
-#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
-#include "src/Support/BType.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
 #include "mlir/IR/BuiltinAttributes.h"
 

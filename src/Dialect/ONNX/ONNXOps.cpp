@@ -14,7 +14,7 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
 #include "mlir/Dialect/Traits.h"
 

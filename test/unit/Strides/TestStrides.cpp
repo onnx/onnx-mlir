@@ -9,7 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
-#include "src/Support/Strides.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
 
 #include "mlir/IR/Builders.h"
 

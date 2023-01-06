@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Support/WideNum.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"

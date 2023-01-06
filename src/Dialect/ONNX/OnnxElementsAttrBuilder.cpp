@@ -10,7 +10,7 @@
 
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
-#include "src/Dialect/ONNX/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 
 using namespace mlir;

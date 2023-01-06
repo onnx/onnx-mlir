@@ -8,9 +8,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Support/Strides.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
 
-#include "src/Support/Arrays.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
 
 using namespace mlir;
 

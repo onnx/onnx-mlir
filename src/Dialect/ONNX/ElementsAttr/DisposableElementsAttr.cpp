@@ -8,10 +8,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
-#include "src/Dialect/ONNX/DisposableElementsAttributeStorage.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttributeStorage.hpp"
 
-#include "src/Support/Strides.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
 
 #include "llvm/ADT/StringExtras.h"
 

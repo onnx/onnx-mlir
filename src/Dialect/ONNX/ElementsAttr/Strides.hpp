@@ -36,8 +36,8 @@
 
 #pragma once
 
-#include "src/Support/Arrays.hpp"
-#include "src/Support/WideNum.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLFunctionalExtras.h"

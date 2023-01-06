@@ -6,7 +6,7 @@ add_onnx_mlir_executable(TestStrides
   NO_INSTALL
 
   LINK_LIBS PRIVATE
-  OMMlirUtilities
+  OMONNXOps
   )
 
 add_test(NAME TestStrides COMMAND TestStrides)

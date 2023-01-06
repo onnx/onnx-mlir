@@ -10,11 +10,11 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
-#include "src/Dialect/ONNX/DisposablePool.hpp"
-#include "src/Support/BType.hpp"
-#include "src/Support/Strides.hpp"
-#include "src/Support/WideNum.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 
 #include <functional>
 #include <memory>

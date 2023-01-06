@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 
 #include "llvm/ADT/DenseMap.h"
 

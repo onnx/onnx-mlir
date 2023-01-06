@@ -10,9 +10,9 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
-#include "src/Support/Arrays.hpp"
-#include "src/Support/WideNum.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 
 #include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "mlir/IR/BuiltinAttributes.h"

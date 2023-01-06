@@ -10,7 +10,7 @@
 
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 
-#include "src/Dialect/ONNX/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 #include "mlir/IR/BuiltinOps.h"

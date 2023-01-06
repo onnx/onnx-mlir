@@ -6,6 +6,8 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "s390x")
   llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" "-O1")
 endif()
 
+add_subdirectory(ElementsAttr)
+
 add_onnx_mlir_dialect(ONNX onnx)
 add_onnx_mlir_dialect_doc(onnx ONNX.td)
 

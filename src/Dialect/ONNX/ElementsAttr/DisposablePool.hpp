@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/DialectInterface.h"
