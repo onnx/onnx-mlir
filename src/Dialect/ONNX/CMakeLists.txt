@@ -14,10 +14,6 @@ add_onnx_mlir_rewriter(Rewrite)
 add_onnx_mlir_library(OMONNXOps
   # Top files for ONNX dialect
   DialectBuilder.cpp
-  DisposableElementsAttr.cpp
-  DisposablePool.cpp
-  ElementsAttrBuilder.cpp
-  ElementsAttrHelper.cpp
   OnnxElementsAttrBuilder.cpp
   ONNXAttributes.cpp
   ONNXDialect.cpp
@@ -116,6 +112,7 @@ add_onnx_mlir_library(OMONNXOps
   LINK_LIBS PUBLIC
   OMMlirDialects
   OMMlirUtilities
+  OMONNXElementsAttr
   onnx
   MLIRFuncDialect
   )
