@@ -145,7 +145,7 @@ Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
 }
 ```
 where `OnnxElementsAttrBuilder.combine(...)` broadcasts the lhs and rhs elements,
-as needed, and constructs a new (Disposable) ElementsAttr whose elemnts are the
+as needed, and constructs a new (Disposable) ElementsAttr whose elements are the
 result of element-wise application of the binary function
 `combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsElemType)`
 which maps the ElementwiseBinaryOp ONNX op to a c++ operator.
