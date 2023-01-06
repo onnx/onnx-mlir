@@ -79,7 +79,8 @@ void updateType(mlir::Value val, llvm::ArrayRef<int64_t> shape,
 void resetTypesShapeToQuestionmarks(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
-// Unimplemented Ops (to be used sparingly, currently for Loop and Scan)
+// Unimplemented Ops (to be used sparingly, currently for Loop and Scan).
+// Other uses should be converted to shape inferences.
 //===----------------------------------------------------------------------===//
 
 struct ONNXUnimplementedOpShapeHelper : public ONNXOpShapeHelper {
