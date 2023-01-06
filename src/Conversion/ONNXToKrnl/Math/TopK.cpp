@@ -69,8 +69,8 @@ struct ONNXTopKOpLowering : public ConversionPattern {
         insertDealloc);
 
     // Compute argSort of X along axis.
-    Value argSort =
-        emitArgSort(rewriter, loc, X, axis, /*ascending=*/ascendingMode);
+    Value argSort = emitArgSort(rewriter, loc, X, axis,
+        /*ascending=*/ascendingMode);
 
     // Produce the final result.
     SmallVector<IndexExpr> zeroDims(rank, LiteralIndexExpr(0));

@@ -3,6 +3,7 @@
 # After modifying this file, the script will need to run to rebuild the
 # onnx-mlir ONNX Dialect. This is performed by calling
 # `make OMONNXOpsIncTranslation` in the build dir.
+# If the changes are not seen, then you need to rebuild the entire onnx-mlir.
 
 # After changes that impact the documentation of the ops, run
 # "make onnx-mlir-docs".
@@ -56,7 +57,7 @@ check_operation_version = args.check_operation_version
 list_operation_version = args.list_operation_version
 
 # Change this variable only when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.12.0"
+current_onnx_version = "1.13.0"
 
 # Check the version of onnx package being used.
 if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
@@ -90,6 +91,10 @@ version_dict = {
  'Bernoulli': [15],
  'Binarizer': [1],
  'BitShift': [11],
+ 'BitwiseAnd': [18],
+ 'BitwiseNot': [18],
+ 'BitwiseOr': [18],
+ 'BitwiseXor': [18],
  'BlackmanWindow': [17],
  'Cast': [13],
  'CastLike': [15],
@@ -97,6 +102,7 @@ version_dict = {
  'CategoryMapper': [1],
  'Ceil': [13],
  'Celu': [12],
+ 'CenterCropPad': [18],
  'Clip': [13, 12, 11, 6],
  'Compress': [11],
  'Concat': [13],
@@ -108,6 +114,7 @@ version_dict = {
  'ConvTranspose': [11],
  'Cos': [7],
  'Cosh': [9],
+ 'Col2Im': [18],
  'CumSum': [14],
  'DepthToSpace': [13],
  'DequantizeLinear': [13],
@@ -139,6 +146,7 @@ version_dict = {
  'Greater': [13],
  'GreaterOrEqual': [16],
  'GridSample': [16],
+ 'GroupNormalization': [18],
  'HammingWindow': [17],
  'HannWindow': [17],
  'HardSigmoid': [6],
@@ -174,6 +182,7 @@ version_dict = {
  'MeanVarianceNormalization': [13],
  'MelWeightMatrix': [17],
  'Min': [13],
+ 'Mish': [18],
  'Mod': [13],
  'Momentum': [1],
  'Mul': [14],
@@ -187,8 +196,8 @@ version_dict = {
  'OneHot': [11],
  'OneHotEncoder': [1],
  'Optional' : [15],
- 'OptionalGetElement' : [15],
- 'OptionalHasElement' : [15],
+ 'OptionalGetElement' : [18],
+ 'OptionalHasElement' : [18],
  'Or': [7],
  'PRelu': [16],
  'Pad': [13, 11, 2],
@@ -224,8 +233,8 @@ version_dict = {
  'Scaler': [1],
  'Scan': [16],
  'Scatter': [11],
- 'ScatterElements': [16],
- 'ScatterND': [16],
+ 'ScatterElements': [18],
+ 'ScatterND': [18],
  'Selu': [6],
  'SequenceAt': [11],
  'SequenceConstruct': [11],
@@ -333,6 +342,9 @@ OpsWithVerifier = [
     'ArgMin',
     'AveragePool',
     'BitShift',
+    'BitwiseAnd',
+    'BitwiseOr',
+    'BitwiseXor',
     'CategoryMapper',
     'Compress',
     'Concat',
@@ -373,6 +385,8 @@ OpsWithVerifier = [
     'Pad',
     'Pow',
     'RandomNormalLike',
+    'Range',
+    'Resize',
     'ReverseSequence',
     'RoiAlign',
     'ScatterElements',

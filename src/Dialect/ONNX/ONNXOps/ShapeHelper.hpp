@@ -118,8 +118,11 @@ struct ONNXOpShapeHelper {
       mlir::TypeRange elementTypeRange,
       mlir::ArrayRef<mlir::Attribute> encodingList = {});
 
-  // Get/set output dims for the N-th output dimension as Index Expressions.
+  // Get output dims for the N-th output dimension as Index Expressions.
+  // Scalar may have a DimsExpr that is empty.
   DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }
+  // Set output dims, merging the dims associated with the  current type with
+  // inferred dims provided here, as appropriate.
   void setOutputDims(const DimsExpr &inferredDims, int n = 0);
 
   // Obtain the n-th output result as value.
@@ -152,6 +155,16 @@ private:
 void updateType(mlir::Value val, llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType = nullptr, mlir::Attribute encoding = nullptr,
     bool refineShape = true);
+
+// When we perform shape inference, we always assume that the type's shape in
+// onnx is correct. There are rare instance where we transform an existing op
+// (see RNN's handling of layout in RNNOpRewriteLayoutPattern) and then seek to
+// perform shape inference on it. As the operation has changed, then we must
+// first "erase" its constant shape's for the output type as they are not
+// correct anymore. It might be wiser to not reuse an existing op, but since we
+// currently have this pattern, this function must be called prior to infer
+// shapes of existing but modified operations.
+void resetTypesShapeToQuestionmarks(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // Unary Ops
@@ -302,6 +315,10 @@ struct ONNXGenericPoolOpShapeHelper : public ONNXOpShapeHelper {
 using ONNXAveragePoolOpShapeHelper =
     ONNXGenericPoolOpShapeHelper<mlir::ONNXAveragePoolOp>;
 using ONNXConvOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXConvOp>;
+using ONNXConvIntegerOpShapeHelper =
+    ONNXGenericPoolOpShapeHelper<mlir::ONNXConvIntegerOp>;
+using ONNXQLinearConvOpShapeHelper =
+    ONNXGenericPoolOpShapeHelper<mlir::ONNXQLinearConvOp>;
 using ONNXMaxPoolSingleOutOpShapeHelper =
     ONNXGenericPoolOpShapeHelper<mlir::ONNXMaxPoolSingleOutOp>;
 
@@ -559,6 +576,30 @@ using ONNXReduceSumSquareOpShapeHelper =
     ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumSquareOp>;
 
 //===----------------------------------------------------------------------===//
+// RNN Ops (ONNXRNNOp, ONNXLSTMOp, ONNXRNNOp)
+//===----------------------------------------------------------------------===//
+
+// Generic Reduction shape helper.
+template <typename OP_TYPE>
+struct ONNXGenericRNNShapeHelper : public ONNXOpShapeHelper {
+  ONNXGenericRNNShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXGenericRNNShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Actual computation of the RNN shape and parameters using every different
+  // switches that differs between pooling and conv ops.
+  mlir::LogicalResult customComputeShape(int gates);
+  // Values set by customComputeShape.
+  llvm::SmallVector<bool, 4> isReductionAxis;
+};
+
+using ONNXGRUOpShapeHelper = ONNXGenericRNNShapeHelper<mlir::ONNXGRUOp>;
+using ONNXLSTMOpShapeHelper = ONNXGenericRNNShapeHelper<mlir::ONNXLSTMOp>;
+using ONNXRNNOpShapeHelper = ONNXGenericRNNShapeHelper<mlir::ONNXRNNOp>;
+
+//===----------------------------------------------------------------------===//
 // Non specific Ops, namely ops that
 //   * need customization only for themselves (no sharing of code)
 //   * have no specific parameters
@@ -591,26 +632,38 @@ using ONNXClipOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
 using ONNXCompressOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
 using ONNXConcatOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
 using ONNXConcatShapeTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
+using ONNXConstantOfShapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConstantOfShapeOp>;
 using ONNXDFTOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDFTOp>;
 using ONNXDepthToSpaceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
+using ONNXDequantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDequantizeLinearOp>;
+using ONNXDropoutOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDropoutOp>;
+using ONNXDynamicQuantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDynamicQuantizeLinearOp>;
 using ONNXEinsumOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXEinsumOp>;
+using ONNXEyeLikeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXEyeLikeOp>;
 using ONNXFlattenOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXFlattenOp>;
 using ONNXGatherElementsOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherElementsOp>;
 using ONNXGatherNDOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherNDOp>;
 using ONNXGatherOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherOp>;
 using ONNXLRNOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
+using ONNXMaxRoiPoolOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXMaxRoiPoolOp>;
 using ONNXOneHotEncoderOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXOneHotEncoderOp>;
+using ONNXQuantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXQuantizeLinearOp>;
+using ONNXRangeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRangeOp>;
 using ONNXReshapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
+using ONNXResizeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXResizeOp>;
 using ONNXReverseSequenceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
 using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
 using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
 using ONNXUniqueOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUniqueOp>;
+using ONNXRangeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRangeOp>;
+using ONNXResizeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXResizeOp>;
+using ONNXDequantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDequantizeLinearOp>;
 // clang-format on
 
-// Pattern to use: replace "_" by operation's name.
-// using ONNXOp_ShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNX_Op>;
+// Pattern to use:
+// using ShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::>;
 
 //===----------------------------------------------------------------------===//
 // Setting a new constant or attribute value.

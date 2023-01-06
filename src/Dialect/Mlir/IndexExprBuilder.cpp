@@ -114,7 +114,7 @@ uint64_t IndexExprBuilder::getArraySize(Value array) {
 
 IndexExpr IndexExprBuilder::getIntFromArrayAsLiteral(
     ArrayAttr intAttrArray, uint64_t i) {
-  uint64_t size = intAttrArray.size();
+  uint64_t size = getArraySize(intAttrArray);
   if (i >= size)
     return UndefinedIndexExpr();
   int64_t val = (intAttrArray.getValue()[i]).cast<IntegerAttr>().getInt();
@@ -138,6 +138,18 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(
     assert((uint64_t)len <= size && "requesting too many elements");
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr = getIntFromArrayAsLiteral(intAttrArray, i);
+    assert(!indexExpr.isUndefined() && "expected defined index expr");
+    list.emplace_back(indexExpr);
+  }
+}
+
+void IndexExprBuilder::getIntFromArrayAsLiterals(ArrayAttr intAttrArray,
+    int64_t outOfBoundVal, IndexExprList &list, int64_t len) {
+  list.clear();
+  assert(len >= 0 && "expect a defined size");
+  for (uint64_t i = 0; i < (uint64_t)len; ++i) {
+    IndexExpr indexExpr =
+        getIntFromArrayAsLiteral(intAttrArray, i, outOfBoundVal);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);
   }

@@ -184,8 +184,6 @@ mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
     bool ascending = false);
 
 /// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
-/// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
-/// lambda type, using ONNX and Krnl operations.
 mlir::DenseElementsAttr getDenseElementAttributeFromConstantValue(
     mlir::Value value);
 
