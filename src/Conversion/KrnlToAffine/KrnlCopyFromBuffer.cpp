@@ -15,6 +15,7 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/Transforms/DialectConversion.h"
 
 #include "src/Conversion/KrnlToAffine/ConvertKrnlToAffine.hpp"
 #include "src/Conversion/KrnlToAffine/KrnlToAffineHelper.hpp"
@@ -38,7 +39,12 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto copyFromBufferOp = cast<KrnlCopyFromBufferOp>(op);
+    KrnlCopyFromBufferOp copyFromBufferOp = cast<KrnlCopyFromBufferOp>(op);
+    Location loc = copyFromBufferOp.getLoc();
+    MultiDialectBuilder<AffineBuilderKrnlMem, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
+    IndexExprScope indexScope(create.affineKMem);
+
     KrnlCopyFromBufferOpAdaptor operandAdaptor(copyFromBufferOp);
     Value buffMemref(operandAdaptor.buffer());
     Value destMemref(operandAdaptor.dest());
@@ -49,16 +55,9 @@ public:
         buffMemref.getType().cast<MemRefType>().getShape().size();
     int64_t destOffset = destRank - buffRank;
     assert(destOffset >= 0 && "offset expected non negative");
-    ArrayAttributeIndexCapture writeSizeCapture(
-        copyFromBufferOp.tileSizeAttr());
 
-    Location loc = copyFromBufferOp.getLoc();
-    AffineBuilderKrnlMem createAffine(rewriter, loc);
-    IndexExprScope indexScope(createAffine);
-
+    auto writeSizeAttr = copyFromBufferOp.tileSizeAttr();
     SmallVector<IndexExpr, 4> starts, bufferWriteUBs;
-    MemRefBoundsIndexCapture buffBounds(buffMemref);
-    MemRefBoundsIndexCapture destBounds(destMemref);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     SmallVector<Value, 4> loopIndices;
     LiteralIndexExpr zeroIE(0);
@@ -66,13 +65,14 @@ public:
     for (long buffIndex = 0; buffIndex < buffRank; ++buffIndex) {
       long destIndex = destOffset + buffIndex;
       // Compute how many values to read.
-      IndexExpr destBound =
-          destBounds.getSymbol(destIndex); // Source memref size.
-      IndexExpr blockSize =
-          buffBounds.getSymbol(buffIndex); // Buffer memref size.
-      if (writeSizeCapture.size()) {
+      IndexExpr destBound = create.krnlIE.getShapeAsSymbol(
+          destMemref, destIndex); // Source memref size.
+      IndexExpr blockSize = create.krnlIE.getShapeAsSymbol(
+          buffMemref, buffIndex); // Buffer memref size.
+      if (create.krnlIE.getArraySize(writeSizeAttr)) {
         int64_t memSize = blockSize.getLiteral();
-        blockSize = writeSizeCapture.getLiteral(buffIndex); // Size from param.
+        blockSize = create.krnlIE.getIntFromArrayAsLiteral(
+            writeSizeAttr, buffIndex); // Size from param.
         assert(blockSize.getLiteral() <= memSize &&
                "writeTileSize cannot be larger than the buffer size");
       }
@@ -82,7 +82,7 @@ public:
       bufferWrite.debugPrint("buffer wrote");
       bufferWriteUBs.emplace_back(bufferWrite);
     }
-    genCopyLoops(createAffine, &indexScope, buffMemref, destMemref, zeroIE,
+    genCopyLoops(create.affineKMem, &indexScope, buffMemref, destMemref, zeroIE,
         starts, bufferWriteUBs, loopIndices, 0, buffRank);
     rewriter.eraseOp(op);
     return success();

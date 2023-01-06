@@ -45,7 +45,7 @@ exposed and easily propagated through other ops. For example, the above
 %4 = "onnx.Reshape"(%arg0, %3) : (tensor<?x256xf32>,  tensor<3xi64>) -> tensor<?x?x?xf32>
 ```
 
-Now, it's straighforward to update the output shape of Reshape from
+Now, it's straightforward to update the output shape of Reshape from
 `<?x?x?xf32>` to `<?x256x1xf32>` by looking at the inputs of Concat.
 
 */
