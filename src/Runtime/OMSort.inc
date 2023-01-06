@@ -199,9 +199,9 @@ static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
 #if defined(__APPLE__)
     if (compFunc(dataPtr, idx + j, idx + end) <= 0)
 #elif defined(_MSC_VER)
-    if (!compFunc(dataPtr, idx + j, idx + end))
+    if (compFunc(dataPtr, idx + j, idx + end) <= 0)
 #else
-    if (!compFunc(idx + j, idx + end, dataPtr))
+    if (compFunc(idx + j, idx + end, dataPtr) <= 0)
 #endif
     {
       SWAP_INDEX(idx[i], idx[j]);
