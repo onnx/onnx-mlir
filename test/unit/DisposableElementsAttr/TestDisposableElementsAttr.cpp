@@ -9,8 +9,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DisposableElementsAttr.hpp"
-#include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/Arrays.hpp"
 #include "src/Support/BType.hpp"
 
@@ -58,7 +58,8 @@ std::vector<T> nums(std::integer_sequence<T, ints...> int_seq) {
 MLIRContext *createCtx() {
   MLIRContext *ctx = new MLIRContext();
   ctx->loadDialect<ONNXDialect>();
-  DisposablePool::create(ctx); // Registers an instance with the dialect.
+  DisposablePool::create<ONNXDialect>(
+      ctx); // Registers an instance with the dialect.
   return ctx;
 }
 
@@ -71,7 +72,7 @@ class Test {
   MLIRContext *ctx;
   Location loc;
   OpBuilder builder;
-  ElementsAttrBuilder elmsBuilder;
+  OnnxElementsAttrBuilder elmsBuilder;
   Type F32;
   Type I32;
   Type I64;

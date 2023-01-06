@@ -88,8 +88,8 @@ struct ElementsAttrBuilder::ElementsProperties {
   const Transformer &transformer;
 };
 
-ElementsAttrBuilder::ElementsAttrBuilder(MLIRContext *context)
-    : disposablePool(*DisposablePool::get(context)) {}
+ElementsAttrBuilder::ElementsAttrBuilder(DisposablePool &disposablePool)
+    : disposablePool(disposablePool) {}
 
 ElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
     ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {

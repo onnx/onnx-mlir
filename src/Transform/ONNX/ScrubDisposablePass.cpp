@@ -12,6 +12,7 @@
 #include "mlir/Transforms/Passes.h"
 
 #include "src/Dialect/ONNX/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 
 using namespace mlir;
 
@@ -39,7 +40,8 @@ struct ScrubDisposablePass
   DisposablePool *getDisposablePool() {
     // The disposablePool may be unknown (nullptr) at the time of construction
     // of the pass, so fall back to looking it up when the pass runs.
-    return disposablePool ? disposablePool : DisposablePool::get(&getContext());
+    return disposablePool ? disposablePool
+                          : DisposablePool::get<ONNXDialect>(&getContext());
   }
 
   DisposablePool *const disposablePool;

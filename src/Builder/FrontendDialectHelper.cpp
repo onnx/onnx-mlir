@@ -19,7 +19,7 @@
 #include "llvm/Support/SwapByteOrder.h"
 
 #include "src/Builder/FrontendDialectHelper.hpp"
-#include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/Arrays.hpp"
 #include "src/Support/BType.hpp"
@@ -125,7 +125,7 @@ mlir::ElementsAttr createElmAttrFromArray(mlir::RankedTensorType tensorType,
     const Range &array, const Transformation &transformation) {
   mlir::MLIRContext *ctx = tensorType.getContext();
   assert(tensorType.getElementType() == onnx_mlir::toMlirType<T>(ctx));
-  return onnx_mlir::ElementsAttrBuilder(ctx).fromArray<T>(
+  return onnx_mlir::OnnxElementsAttrBuilder(ctx).fromArray<T>(
       tensorType, [array, &transformation](llvm::MutableArrayRef<T> copy) {
         std::transform(array.begin(), array.end(), copy.data(), transformation);
       });
@@ -159,7 +159,7 @@ mlir::ElementsAttr createElementsAttrFromMemoryBuffer_LE(
     llvm::ArrayRef<T> array = onnx_mlir::asArrayRef<T>(membuf->getBuffer());
     return createElmAttrFromArray<T>(tensorType, array, swappedBytes<T>);
   } else {
-    return onnx_mlir::ElementsAttrBuilder(ctx).fromMemoryBuffer(
+    return onnx_mlir::OnnxElementsAttrBuilder(ctx).fromMemoryBuffer(
         tensorType, std::move(membuf));
   }
 }

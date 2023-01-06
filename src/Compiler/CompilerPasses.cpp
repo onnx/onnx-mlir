@@ -53,7 +53,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
 
-  DisposablePool *disposablePool = DisposablePool::get(pm.getContext());
+  DisposablePool *disposablePool =
+      DisposablePool::get<ONNXDialect>(pm.getContext());
   if (disposablePool)
     // GC unreachable DisposableElementsAttrs between module passes.
     pm.addInstrumentation(

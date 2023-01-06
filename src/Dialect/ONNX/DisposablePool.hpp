@@ -29,9 +29,17 @@ namespace onnx_mlir {
 
 class DisposablePool : public mlir::DialectInterface::Base<DisposablePool> {
 public:
-  static DisposablePool &create(mlir::MLIRContext *context);
+  template <typename Dialect>
+  static DisposablePool &create(mlir::MLIRContext *context) {
+    return context->getLoadedDialect<Dialect>()
+        ->template addInterface<DisposablePool>(context);
+  }
 
-  static DisposablePool *get(mlir::MLIRContext *context);
+  template <typename Dialect>
+  static DisposablePool *get(mlir::MLIRContext *context) {
+    return context->getLoadedDialect<Dialect>()
+        ->template getRegisteredInterface<DisposablePool>();
+  }
 
   // Disposes every DisposableElementsAttr and in moduleOp replaces each with a
   // DenseElementsAttr. This is irreversible and is called when we

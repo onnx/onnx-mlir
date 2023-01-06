@@ -20,11 +20,11 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/DisposablePool.hpp"
-#include "src/Dialect/ONNX/ElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttrHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -113,7 +113,7 @@ using EnableNotBool = std::enable_if_t<!std::is_same_v<T, bool>>;
 ElementsAttr ConstPropReshapeImpl(PatternRewriter &rewriter,
     Value replacingValue, Value constValue, ArrayRef<int64_t> reshapedShape) {
   ElementsAttr constElements = getConstValueElements(constValue);
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   return elementsBuilder.reshape(constElements, reshapedShape);
 }
 
@@ -169,7 +169,7 @@ Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
   Type operandsElemType = lhs.getElementType();
   assert(operandsElemType == rhs.getElementType() &&
          "all element-wise binary ops have matching operands element types");
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr resultElements = elementsBuilder.combine(lhs, rhs, replacingType,
       combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsElemType));
   return createReplacingConstantOp(rewriter, replacingValue, resultElements)
@@ -219,7 +219,7 @@ Value ConstPropElementwiseUnary(
   ElementsAttr constElements = getConstValueElements(constValue);
   assert(replacingElemType == constElements.getElementType() &&
          "all element-wise unary ops preserve element type");
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr transposedElements =
       elementsBuilder.transform(constElements, replacingElemType,
           transformElementWiseUnaryOp<ElementwiseUnaryOp>(replacingElemType));
@@ -242,7 +242,7 @@ Value ConstPropTranspose(
     perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
   ElementsAttr constElements = getConstValueElements(constValue);
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr transposedElements =
       elementsBuilder.transpose(constElements, perm);
   return createReplacingConstantOp(rewriter, replacingValue, transposedElements)
@@ -312,7 +312,7 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
            "the number of results");
   }
 
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr inputElements = getConstValueElements(input);
   std::vector<ElementsAttr> resElements =
       elementsBuilder.split(inputElements, splitAxis, splitSizes);
@@ -447,7 +447,7 @@ public:
     ConstPropCounters::count("Scatter",
         {scatterNdOp.data(), scatterNdOp.indices(), scatterNdOp.updates()});
 
-    ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
     ElementsAttr dataElements = getConstValueElements(scatterNdOp.data());
     ElementsAttr indicesElements = getConstValueElements(scatterNdOp.indices());
     ElementsAttr updatesElements = getConstValueElements(scatterNdOp.updates());
@@ -474,7 +474,7 @@ Value ConstPropCast(
       replacingValue.getType().cast<ShapedType>().getElementType();
 
   ElementsAttr constElements = getConstValueElements(constValue);
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr castElements =
       elementsBuilder.castElementType(constElements, replacingElemType);
   return createReplacingConstantOp(rewriter, replacingValue, castElements)
@@ -534,7 +534,7 @@ Value ConstPropSlice(
     return nullptr;
   }
 
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr inputElements = getConstValueElements(constValue);
   ShapedType outputType = replacingValue.getType().cast<ShapedType>();
   ElementsAttr slicedElements = elementsBuilder.fromWideNums(
@@ -580,7 +580,7 @@ Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
   if (axis < 0)
     axis += outputType.getRank();
 
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   SmallVector<ElementsAttr, 4> inputElements;
   inputElements.reserve(operands.size());
   for (Value input : operands)
@@ -604,7 +604,7 @@ Value ConstPropExpand(
   ArrayRef<int64_t> expandedShape = getShape(replacingValue.getType());
 
   ElementsAttr constElements = getConstValueElements(constValue);
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr expandedElements =
       elementsBuilder.expand(constElements, expandedShape);
   return createReplacingConstantOp(rewriter, replacingValue, expandedElements)
@@ -653,7 +653,7 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
   if (axis < 0)
     axis += inputValue.getType().cast<ShapedType>().getRank();
 
-  ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr inputElements = getConstValueElements(inputValue);
   ElementsAttr indicesElements = getConstValueElements(indicesValue);
   ShapedType outputType = replacingValue.getType().cast<ShapedType>();

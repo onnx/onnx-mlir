@@ -625,7 +625,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::KrnlDialect>();
 
-  DisposablePool::create(&context);
+  DisposablePool::create<ONNXDialect>(&context);
 }
 
 namespace {

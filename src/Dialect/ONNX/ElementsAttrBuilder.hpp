@@ -26,9 +26,9 @@ namespace onnx_mlir {
 // unreachable instances between compiler passes.
 class ElementsAttrBuilder {
 public:
-  // Uses context to look up the ONNX dialect's DisposablePool for recording
-  // DisposableElementsAttr instances created by the builder methods.
-  ElementsAttrBuilder(mlir::MLIRContext *context);
+  // Uses disposablePool to construct DisposableElementsAttr instances
+  // in the builder methods.
+  ElementsAttrBuilder(DisposablePool &disposablePool);
 
   // Creates a DisposableElementsAttr instance backed by the data in membuf.
   // The created instance takes ownership of membuf and will release it when the

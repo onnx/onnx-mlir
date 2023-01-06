@@ -10,7 +10,6 @@
 
 #include "src/Dialect/ONNX/DisposablePool.hpp"
 
-#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 #include <atomic>
@@ -18,18 +17,6 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-
-/*static*/
-DisposablePool &DisposablePool::create(MLIRContext *context) {
-  return context->getLoadedDialect<ONNXDialect>()->addInterface<DisposablePool>(
-      context);
-}
-
-/*static*/
-DisposablePool *DisposablePool::get(MLIRContext *context) {
-  return context->getLoadedDialect<ONNXDialect>()
-      ->getRegisteredInterface<DisposablePool>();
-}
 
 DisposablePool::DisposablePool(Dialect *dialect, MLIRContext *context)
     : Base(dialect), pool() {}
