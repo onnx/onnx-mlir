@@ -551,20 +551,6 @@ void getDims(Value val, SmallVectorImpl<Value> &dims) {
     dims.emplace_back(val);
 }
 
-/// Create a DenseElementsAttr from a raw buffer.
-DenseElementsAttr createDenseElementsAttrFromRawBuffer(
-    Type resType, char *buf) {
-  assert(isRankedShapedType(resType) && "Not a ranked type");
-  int64_t sizeInBytes = getSizeInBytes(resType);
-  ArrayRef<char> arr(buf, sizeInBytes);
-  RankedTensorType tensorType =
-      RankedTensorType::get(getShape(resType), getElementType(resType));
-  bool detectedSplat;
-  assert(DenseElementsAttr::isValidRawBuffer(tensorType, arr, detectedSplat) &&
-         "The raw buffer is invalid for provided type");
-  return DenseElementsAttr::getFromRawBuffer(tensorType, arr);
-}
-
 Value normalizeConstantOp(
     PatternRewriter &rewriter, Value output, Attribute attr) {
   ShapedType outputType = output.getType().cast<ShapedType>();

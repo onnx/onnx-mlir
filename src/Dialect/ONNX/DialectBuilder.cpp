@@ -69,14 +69,6 @@ Value OnnxBuilder::constantInt64(const ArrayRef<int64_t> intVals) const {
   return constant(denseAttr);
 }
 
-Value OnnxBuilder::constantFromRawBuffer(Type resultType, char *buf) const {
-  DenseElementsAttr denseAttr =
-      createDenseElementsAttrFromRawBuffer(resultType, buf);
-  return b().create<ONNXConstantOp>(loc(), resultType, Attribute(), denseAttr,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
-      ArrayAttr());
-}
-
 Value OnnxBuilder::dim(Value input, int axis) const {
   Type resultType = RankedTensorType::get({1}, b().getI64Type());
   IntegerAttr axisAttr =

@@ -47,7 +47,6 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXConstantOp
   mlir::Value constant(mlir::Attribute denseAttr) const;
   mlir::Value constantInt64(const mlir::ArrayRef<int64_t> intVals) const;
-  mlir::Value constantFromRawBuffer(mlir::Type resultType, char *buf) const;
 
   // ONNXDivOp
   mlir::Value div(mlir::Value A, mlir::Value B) const;
