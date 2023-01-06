@@ -12,13 +12,16 @@
 
 #include "mlir/Pass/PassInstrumentation.h"
 
+namespace mlir {
+class MLIRContext;
+}
+
 namespace onnx_mlir {
 
 class DisposablePool;
 
 struct DisposableGarbageCollector : public mlir::PassInstrumentation {
-  DisposableGarbageCollector(DisposablePool &disposablePool)
-      : disposablePool(disposablePool) {}
+  DisposableGarbageCollector(mlir::MLIRContext *context);
   ~DisposableGarbageCollector() override;
 
   void runAfterPass(mlir::Pass *pass, mlir::Operation *op) override;

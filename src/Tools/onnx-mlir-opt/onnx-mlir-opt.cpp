@@ -193,9 +193,8 @@ int main(int argc, char **argv) {
 
   auto passManagerSetupFn = [&](PassManager &pm) {
     mlir::MLIRContext *ctx = pm.getContext();
-    DisposablePool &disposablePool = DisposablePool::create<ONNXDialect>(ctx);
-    pm.addInstrumentation(
-        std::make_unique<DisposableGarbageCollector>(disposablePool));
+    DisposablePool::create<ONNXDialect>(ctx);
+    pm.addInstrumentation(std::make_unique<DisposableGarbageCollector>(ctx));
     auto errorHandler = [&](const Twine &msg) {
       emitError(UnknownLoc::get(pm.getContext())) << msg;
       return failure();

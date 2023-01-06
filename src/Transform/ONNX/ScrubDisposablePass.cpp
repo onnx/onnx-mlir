@@ -25,8 +25,7 @@ struct ScrubDisposablePass
     : public PassWrapper<ScrubDisposablePass, OperationPass<ModuleOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ScrubDisposablePass)
 
-  ScrubDisposablePass(DisposablePool *disposablePool, bool closeAfter)
-      : disposablePool(disposablePool), closeAfter(closeAfter) {}
+  ScrubDisposablePass(bool closeAfter) : closeAfter(closeAfter) {}
 
   StringRef getArgument() const override { return "scrub-disposable"; }
 
@@ -42,21 +41,21 @@ struct ScrubDisposablePass
   }
 
   DisposablePool *getDisposablePool() {
-    // The disposablePool may be unknown (nullptr) at the time of construction
-    // of the pass, so fall back to looking it up when the pass runs.
-    return disposablePool ? disposablePool
-                          : DisposablePool::get<ONNXDialect>(&getContext());
+    // It can be hard to get the MLIRContext at the time of construction
+    // of the pass, so we look it up the first time the pass is run.
+    if (!disposablePool)
+      disposablePool = DisposablePool::get<ONNXDialect>(&getContext());
+    return disposablePool;
   }
 
-  DisposablePool *const disposablePool;
   const bool closeAfter;
+  DisposablePool *disposablePool = nullptr;
 };
 
 } // namespace
 
-std::unique_ptr<mlir::Pass> createScrubDisposablePass(
-    DisposablePool *disposablePool, bool closeAfter) {
-  return std::make_unique<ScrubDisposablePass>(disposablePool, closeAfter);
+std::unique_ptr<mlir::Pass> createScrubDisposablePass(bool closeAfter) {
+  return std::make_unique<ScrubDisposablePass>(closeAfter);
 }
 
 } // namespace onnx_mlir

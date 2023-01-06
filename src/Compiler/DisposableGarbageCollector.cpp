@@ -11,6 +11,7 @@
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 #include "mlir/IR/BuiltinOps.h"
@@ -18,6 +19,9 @@
 using namespace mlir;
 
 namespace onnx_mlir {
+
+DisposableGarbageCollector::DisposableGarbageCollector(MLIRContext *context)
+    : disposablePool(*DisposablePool::get<ONNXDialect>(context)) {}
 
 DisposableGarbageCollector::~DisposableGarbageCollector() {}
 
