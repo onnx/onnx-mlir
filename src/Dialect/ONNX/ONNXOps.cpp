@@ -27,6 +27,7 @@
 // Enable the corresponding node test in check-onnx-backend
 
 #define NOT_IMPLEMENTED_INFER_SHAPES(T)                                        \
+  /* shape inference interface method */                                       \
   mlir::LogicalResult mlir::T::inferShapes(                                    \
       std::function<void(mlir::Region &)> doShapeInference) {                  \
     return emitOpError(                                                        \
@@ -34,6 +35,14 @@
         "https://github.com/onnx/onnx-mlir and/or consider contributing "      \
         "code. "                                                               \
         "Error encountered in shape inference.");                              \
+  }                                                                            \
+                                                                               \
+  /* shape helper interface method */                                          \
+  onnx_mlir::ONNXOpShapeHelper *mlir::T::getShapeHelper(mlir::Operation *op,   \
+      mlir::ArrayRef<mlir::Value> operands,                                    \
+      onnx_mlir::IndexExprBuilder *ieBuilder,                                  \
+      onnx_mlir::IndexExprScope *scope) {                                      \
+    return nullptr;                                                            \
   }
 
 // Listed alphabetically.

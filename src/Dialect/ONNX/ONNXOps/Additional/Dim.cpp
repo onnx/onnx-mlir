@@ -35,6 +35,12 @@ LogicalResult ONNXDimOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXDimOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnitOpShapeHelper>(op, oper, ieb, scope);
+}
+
+// hi alex use helper
 LogicalResult ONNXDimOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   OpBuilder b(getContext());

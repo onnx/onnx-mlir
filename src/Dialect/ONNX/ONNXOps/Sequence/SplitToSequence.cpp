@@ -84,6 +84,12 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXSplitToSequenceOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
+
 LogicalResult ONNXSplitToSequenceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Value inputValue = input();

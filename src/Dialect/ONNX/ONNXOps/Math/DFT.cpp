@@ -68,6 +68,11 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXDFTOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXDFTOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXDFTOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape is not yet known.

@@ -71,6 +71,12 @@ LogicalResult ONNXUpsampleOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXUpsampleOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
+
 LogicalResult ONNXUpsampleOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!X().getType().isa<RankedTensorType>()) {

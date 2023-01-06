@@ -26,6 +26,12 @@ using namespace onnx_mlir;
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXSizeOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
+
 LogicalResult ONNXSizeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Output is scalar of int64 containing the size of the input tensor.

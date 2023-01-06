@@ -71,6 +71,11 @@ LogicalResult ONNXAddOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
 }
 
+ONNXOpShapeHelper *ONNXAddOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXAddOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXAddOp>(*this);
@@ -82,6 +87,11 @@ LogicalResult ONNXAddOp::inferShapes(
 
 LogicalResult ONNXAndOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
+}
+
+ONNXOpShapeHelper *ONNXAndOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXAndOp::inferShapes(
@@ -97,6 +107,11 @@ LogicalResult ONNXBitwiseAndOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
 }
 
+ONNXOpShapeHelper *ONNXBitwiseAndOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXBitwiseAndOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXBitwiseAndOp>(*this);
@@ -108,6 +123,11 @@ LogicalResult ONNXBitwiseAndOp::inferShapes(
 
 LogicalResult ONNXBitwiseOrOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
+}
+
+ONNXOpShapeHelper *ONNXBitwiseOrOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXBitwiseOrOp::inferShapes(
@@ -123,6 +143,11 @@ LogicalResult ONNXBitwiseXorOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
 }
 
+ONNXOpShapeHelper *ONNXBitwiseXorOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXBitwiseXorOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXBitwiseXorOp>(*this);
@@ -134,6 +159,11 @@ LogicalResult ONNXBitwiseXorOp::inferShapes(
 
 LogicalResult ONNXBitShiftOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
+}
+
+ONNXOpShapeHelper *ONNXBitShiftOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXBitShiftOp::inferShapes(
@@ -149,6 +179,11 @@ LogicalResult ONNXDivOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
 }
 
+ONNXOpShapeHelper *ONNXDivOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXDivOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXDivOp>(*this);
@@ -160,6 +195,11 @@ LogicalResult ONNXDivOp::inferShapes(
 
 LogicalResult ONNXEqualOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
+}
+
+ONNXOpShapeHelper *ONNXEqualOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXEqualOp::inferShapes(
@@ -176,6 +216,11 @@ LogicalResult ONNXGreaterOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
 }
 
+ONNXOpShapeHelper *ONNXGreaterOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXGreaterOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Builder b(getContext());
@@ -188,6 +233,11 @@ LogicalResult ONNXGreaterOp::inferShapes(
 
 LogicalResult ONNXGreaterOrEqualOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
+}
+
+ONNXOpShapeHelper *ONNXGreaterOrEqualOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXGreaterOrEqualOp::inferShapes(
@@ -205,6 +255,11 @@ LogicalResult ONNXLessOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
 }
 
+ONNXOpShapeHelper *ONNXLessOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXLessOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Builder b(getContext());
@@ -217,6 +272,11 @@ LogicalResult ONNXLessOp::inferShapes(
 
 LogicalResult ONNXLessOrEqualOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
+}
+
+ONNXOpShapeHelper *ONNXLessOrEqualOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXLessOrEqualOp::inferShapes(
@@ -233,6 +293,11 @@ LogicalResult ONNXMaxOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
 }
 
+ONNXOpShapeHelper *ONNXMaxOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXMaxOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXMaxOp>(*this);
@@ -246,6 +311,11 @@ LogicalResult ONNXMeanOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
 }
 
+ONNXOpShapeHelper *ONNXMeanOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXMeanOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXMeanOp>(*this);
@@ -257,6 +327,11 @@ LogicalResult ONNXMeanOp::inferShapes(
 
 LogicalResult ONNXMinOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
+}
+
+ONNXOpShapeHelper *ONNXMinOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXMinOp::inferShapes(
@@ -283,6 +358,11 @@ LogicalResult ONNXModOp::verify() {
   return success();
 }
 
+ONNXOpShapeHelper *ONNXModOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXModOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXModOp>(*this);
@@ -296,6 +376,11 @@ LogicalResult ONNXMulOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
 }
 
+ONNXOpShapeHelper *ONNXMulOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXMulOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXMulOp>(*this);
@@ -307,6 +392,11 @@ LogicalResult ONNXMulOp::inferShapes(
 
 LogicalResult ONNXOrOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
+}
+
+ONNXOpShapeHelper *ONNXOrOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXOrOp::inferShapes(
@@ -330,6 +420,11 @@ LogicalResult ONNXPowOp::verify() {
   return success();
 }
 
+ONNXOpShapeHelper *ONNXPowOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXPowOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXPowOp>(*this);
@@ -343,6 +438,11 @@ LogicalResult ONNXSubOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
 }
 
+ONNXOpShapeHelper *ONNXSubOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXSubOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXSubOp>(*this);
@@ -354,6 +454,11 @@ LogicalResult ONNXSubOp::inferShapes(
 
 LogicalResult ONNXSumOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
+}
+
+ONNXOpShapeHelper *ONNXSumOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXSumOp::inferShapes(
@@ -370,6 +475,11 @@ LogicalResult ONNXWhereOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation(), resultElementType);
 }
 
+ONNXOpShapeHelper *ONNXWhereOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXWhereOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Type resultElementType = X().getType().cast<ShapedType>().getElementType();
@@ -382,6 +492,11 @@ LogicalResult ONNXWhereOp::inferShapes(
 
 LogicalResult ONNXXorOp::verify() {
   return verifyShapeForBroadcastingOps(getOperation());
+}
+
+ONNXOpShapeHelper *ONNXXorOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXBroadcastOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXXorOp::inferShapes(

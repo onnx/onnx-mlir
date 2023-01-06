@@ -99,6 +99,11 @@ LogicalResult ONNXTopKOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXTopKOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXTopKOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXTopKOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the operands shape isn't known yet.

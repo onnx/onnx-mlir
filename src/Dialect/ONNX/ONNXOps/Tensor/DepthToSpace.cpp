@@ -98,6 +98,11 @@ LogicalResult ONNXDepthToSpaceOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXDepthToSpaceOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXDepthToSpaceOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXDepthToSpaceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no input shape exists.

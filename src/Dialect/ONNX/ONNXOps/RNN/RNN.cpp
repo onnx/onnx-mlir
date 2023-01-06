@@ -165,6 +165,11 @@ mlir::LogicalResult ONNXRNNOpShapeHelper::computeShape() {
 // GRU
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXGRUOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXGRUOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXGRUOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!X().getType().isa<RankedTensorType>() ||
@@ -181,6 +186,11 @@ LogicalResult ONNXGRUOp::inferShapes(
 // LSTM
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXLSTMOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXLSTMOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXLSTMOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!X().getType().isa<RankedTensorType>() ||
@@ -196,6 +206,11 @@ LogicalResult ONNXLSTMOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // RNN
 //===----------------------------------------------------------------------===//
+
+ONNXOpShapeHelper *ONNXRNNOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXRNNOpShapeHelper>(op, oper, ieb, scope);
+}
 
 LogicalResult ONNXRNNOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {

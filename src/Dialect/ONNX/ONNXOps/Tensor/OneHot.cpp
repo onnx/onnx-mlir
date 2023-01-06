@@ -112,6 +112,11 @@ LogicalResult ONNXOneHotOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXOneHotOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXOneHotOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXOneHotOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.

@@ -59,6 +59,11 @@ LogicalResult ONNXRandomNormalLikeOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXRandomNormalLikeOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnaryOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXRandomNormalLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())

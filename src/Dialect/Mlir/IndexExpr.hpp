@@ -13,6 +13,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/IR/AffineExpr.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Value.h"
+#include "mlir/Transforms/DialectConversion.h"
+
+#include <cstdint>
+#include <functional>
+#include <string>
+
 /*
 
 1) IndexExpr
@@ -272,19 +286,6 @@ result in a new Dim variable.
      Affine: affine apply
 */
 
-#pragma once
-
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/IR/AffineExpr.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Value.h"
-#include "mlir/Transforms/DialectConversion.h"
-
-#include <cstdint>
-#include <functional>
-#include <string>
 
 namespace onnx_mlir {
 

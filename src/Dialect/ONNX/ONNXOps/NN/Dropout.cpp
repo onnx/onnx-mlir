@@ -50,6 +50,11 @@ LogicalResult ONNXDropoutOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXDropoutOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXDropoutOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXDropoutOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!data().getType().isa<RankedTensorType>())

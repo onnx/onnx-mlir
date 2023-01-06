@@ -26,6 +26,11 @@ using namespace onnx_mlir;
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXIsNaNOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnaryOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXIsNaNOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);

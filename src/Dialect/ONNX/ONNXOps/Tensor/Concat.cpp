@@ -135,6 +135,11 @@ LogicalResult ONNXConcatOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXConcatOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXConcatOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXConcatOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // The check of constraints is kept

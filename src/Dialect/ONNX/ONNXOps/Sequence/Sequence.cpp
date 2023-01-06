@@ -72,6 +72,12 @@ ShapedType sequenceAddType(
 // SequenceAtOp
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXSequenceAtOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
+
 LogicalResult ONNXSequenceAtOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto outputType = getResult().getType();
@@ -87,6 +93,12 @@ LogicalResult ONNXSequenceAtOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // SequenceConstructOp
 //===----------------------------------------------------------------------===//
+
+ONNXOpShapeHelper *ONNXSequenceConstructOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
 
 LogicalResult ONNXSequenceConstructOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
@@ -122,6 +134,12 @@ LogicalResult ONNXSequenceEmptyOp::verify() {
   return success();
 }
 
+ONNXOpShapeHelper *ONNXSequenceEmptyOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
+
 LogicalResult ONNXSequenceEmptyOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto originTy = getResult().getType().cast<SeqType>();
@@ -134,6 +152,12 @@ LogicalResult ONNXSequenceEmptyOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // SequenceEraseOp
 //===----------------------------------------------------------------------===//
+
+ONNXOpShapeHelper *ONNXSequenceEraseOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
 
 LogicalResult ONNXSequenceEraseOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
@@ -172,6 +196,12 @@ LogicalResult ONNXSequenceInsertOp::verify() {
   return success();
 }
 
+ONNXOpShapeHelper *ONNXSequenceInsertOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
+
 LogicalResult ONNXSequenceInsertOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Merge the tensor type for the seq and the inserted tensor
@@ -193,6 +223,12 @@ LogicalResult ONNXSequenceInsertOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // SequenceLengthOp
 //===----------------------------------------------------------------------===//
+
+ONNXOpShapeHelper *ONNXSequenceLengthOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
 
 LogicalResult ONNXSequenceLengthOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {

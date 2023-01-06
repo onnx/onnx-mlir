@@ -29,6 +29,12 @@ LogicalResult ONNXOptionalOp::verify() {
   return success();
 }
 
+ONNXOpShapeHelper *ONNXOptionalOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
+
 LogicalResult ONNXOptionalOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Type ty;
@@ -53,6 +59,12 @@ LogicalResult ONNXOptionalGetElementOp::verify() {
   return success();
 }
 
+ONNXOpShapeHelper *ONNXOptionalGetElementOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
+
 LogicalResult ONNXOptionalGetElementOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Type elementType = input().getType().cast<OptType>().getElementType();
@@ -68,6 +80,12 @@ LogicalResult ONNXOptionalHasElementOp::verify() {
   if (!input().getType().isa<OptType>())
     return emitError("OptionalHasElement input should have optional type");
   return success();
+}
+
+ONNXOpShapeHelper *ONNXOptionalHasElementOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
 }
 
 LogicalResult ONNXOptionalHasElementOp::inferShapes(

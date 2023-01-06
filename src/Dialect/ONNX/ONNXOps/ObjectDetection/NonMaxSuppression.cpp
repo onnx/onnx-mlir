@@ -66,6 +66,12 @@ LogicalResult ONNXNonMaxSuppressionOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXNonMaxSuppressionOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+      op, oper, ieb, scope);
+}
+
 LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto b = Builder(getContext());

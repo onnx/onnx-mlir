@@ -90,6 +90,11 @@ LogicalResult ONNXArgMaxOp::verify() {
   return success();
 }
 
+ONNXOpShapeHelper *ONNXArgMaxOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXArgMaxOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXArgMaxOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(data()))
@@ -121,6 +126,11 @@ LogicalResult ONNXArgMinOp::verify() {
         onnx_mlir::Diagnostic::Range<int64_t>(-rank, rank - 1));
 
   return success();
+}
+
+ONNXOpShapeHelper *ONNXArgMinOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXArgMinOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXArgMinOp::inferShapes(

@@ -19,6 +19,7 @@
 #include "src/Dialect/ONNX/ONNXTypes.hpp"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
+#include "src/Interface/ShapeHelperOpInterface.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"

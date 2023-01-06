@@ -149,6 +149,12 @@ LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXConcatShapeTransposeOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXConcatShapeTransposeOpShapeHelper>(
+      op, oper, ieb, scope);
+}
+
 LogicalResult ONNXConcatShapeTransposeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
 

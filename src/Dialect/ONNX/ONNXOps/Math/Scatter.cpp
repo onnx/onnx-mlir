@@ -22,6 +22,11 @@ using namespace onnx_mlir;
 // Scatter
 //===----------------------------------------------------------------------===//
 
+ONNXOpShapeHelper *ONNXScatterOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnaryOpShapeHelper>(op, oper, ieb, scope);
+}
+
 LogicalResult ONNXScatterOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
@@ -91,6 +96,11 @@ LogicalResult ONNXScatterElementsOp::verify() {
   }
 
   return success();
+}
+
+ONNXOpShapeHelper *ONNXScatterElementsOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnaryOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXScatterElementsOp::inferShapes(
@@ -181,6 +191,11 @@ LogicalResult ONNXScatterNDOp::verify() {
   }
 
   return success();
+}
+
+ONNXOpShapeHelper *ONNXScatterNDOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXUnaryOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXScatterNDOp::inferShapes(
