@@ -19,7 +19,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 DisposablePool::DisposablePool(Dialect *dialect, MLIRContext *context)
-    : Base(dialect), pool() {}
+    : Base(dialect), pool(), mutex() {}
 DisposablePool::~DisposablePool() {}
 
 ElementsAttr DisposablePool::createElementsAttr(ShapedType type,
@@ -37,17 +37,6 @@ ElementsAttr DisposablePool::createElementsAttr(ShapedType type,
     disposable.dispose();
     return dense;
   }
-}
-
-bool DisposablePool::insert(DisposableElementsAttr disposable) {
-  // TODO: make this thread safe
-  if (!isActive())
-    return false;
-
-  auto insertion = pool.try_emplace(disposable.getId(), disposable);
-  if (!insertion.second)
-    llvm_unreachable("cannot insert existing DisposableElementsAttr");
-  return true;
 }
 
 namespace {
@@ -75,24 +64,19 @@ void DisposablePool::garbageCollectUnreachable(
           DisposableElementsAttr disposable) {
         reachable.try_emplace(disposable.getId(), disposable);
       });
-  for (auto &entry : reachable)
-    assert(pool.count(entry.first) == 1 &&
-           "reachable disposables must be in the pool");
-  eraseUnreachable(reachable);
+
+  {
+    const std::lock_guard<std::mutex> lock(mutex);
+
+    for (auto &entry : reachable)
+      assert(pool.count(entry.first) == 1 &&
+             "reachable disposables must be in the pool");
+    eraseUnreachable(reachable);
+  }
 }
 
-/*static*/
-void DisposablePool::scrub(mlir::ModuleOp moduleOp, OpAttrDictionary opsAttrs,
-    DisposablePool *disposablePool) {
-  Scrubbed scrubbed = doScrub(moduleOp, opsAttrs);
-  if (disposablePool)
-    disposablePool->flushAfterScrub(scrubbed);
-}
-
-/*static*/
-auto DisposablePool::doScrub(ModuleOp moduleOp, OpAttrDictionary opsAttrs)
-    -> Scrubbed {
-  Scrubbed scrubbed;
+void DisposablePool::scrub(mlir::ModuleOp moduleOp, OpAttrDictionary opsAttrs) {
+  std::unordered_map<size_t, mlir::DenseElementsAttr> scrubbed;
   walkOpsAttrs(moduleOp, opsAttrs,
       [&scrubbed](Operation *op, StringRef attrName,
           DisposableElementsAttr disposable) {
@@ -103,17 +87,44 @@ auto DisposablePool::doScrub(ModuleOp moduleOp, OpAttrDictionary opsAttrs)
         }
         op->setAttr(attrName, iter->second);
       });
-  return scrubbed;
+
+  {
+    const std::lock_guard<std::mutex> lock(mutex);
+
+    for (const auto &s : scrubbed)
+      assert(pool.count(s.first) == 1 &&
+             "scrubbed disposables must be in the pool");
+    eraseUnreachable({});
+  }
 }
 
-void DisposablePool::flushAfterScrub(const Scrubbed &scrubbed) {
-  for (const auto &s : scrubbed)
-    assert(
-        pool.count(s.first) == 1 && "scrubbed disposables must be in the pool");
-  eraseUnreachable({});
+void DisposablePool::close() {
+  const std::lock_guard<std::mutex> lock(mutex);
+
+  assert(pool.empty() && "pool must be scrubbed before close");
+  active = false;
+}
+
+bool DisposablePool::isActive() const {
+  const std::lock_guard<std::mutex> lock(mutex);
+
+  return active;
+}
+
+bool DisposablePool::insert(DisposableElementsAttr disposable) {
+  const std::lock_guard<std::mutex> lock(mutex);
+
+  if (!active)
+    return false;
+
+  auto insertion = pool.try_emplace(disposable.getId(), disposable);
+  if (!insertion.second)
+    llvm_unreachable("cannot insert existing DisposableElementsAttr");
+  return true;
 }
 
 void DisposablePool::eraseUnreachable(const Pool &reachable) {
+  // Assumes caller holds the mutex.
   for (Pool::iterator it = pool.begin(); it != pool.end();) {
     if (reachable.count(it->first) == 0) {
       // The attribute is unreachable, so we reset the buffer payload shared_ptr

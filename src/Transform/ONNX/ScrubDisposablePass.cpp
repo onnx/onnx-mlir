@@ -32,11 +32,10 @@ struct ScrubDisposablePass
   void runOnOperation() final {
     ModuleOp moduleOp = getOperation();
     DisposablePool *pool = getDisposablePool();
-    DisposablePool::scrub(moduleOp,
-        {{ONNXConstantOp::getOperationName(), "value"},
-            {ONNXConstantOfShapeOp::getOperationName(), "value"}},
-        pool);
-    if (closeAfter && pool)
+    pool->scrub(
+        moduleOp, {{ONNXConstantOp::getOperationName(), "value"},
+                      {ONNXConstantOfShapeOp::getOperationName(), "value"}});
+    if (closeAfter)
       pool->close();
   }
 
