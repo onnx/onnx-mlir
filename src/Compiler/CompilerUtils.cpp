@@ -911,6 +911,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   }
   if (!hasAccel)
     addPasses(module, pm, emissionTarget);
+  // TODO: Add HeapReporter PassInstrumentation.
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 
