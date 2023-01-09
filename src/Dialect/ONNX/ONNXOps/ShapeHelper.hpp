@@ -600,7 +600,6 @@ using ONNXMaxRoiPoolOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXMaxRo
 using ONNXOneHotEncoderOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXOneHotEncoderOp>;
 using ONNXQuantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXQuantizeLinearOp>;
 using ONNXRangeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRangeOp>;
-using ONNXRangeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRangeOp>;
 using ONNXReshapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
 using ONNXResizeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXResizeOp>;
 using ONNXResizeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXResizeOp>;
@@ -609,6 +608,9 @@ using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpa
 using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
+
+using ONNXRandomNormalOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRandomNormalOp>;
+
 // clang-format on
 
 //===----------------------------------------------------------------------===//

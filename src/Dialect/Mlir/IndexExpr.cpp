@@ -271,6 +271,15 @@ bool IndexExpr::isLiteralAndSmallerThan(IndexExpr const b) const {
   return true;
 }
 
+// All element in list are literals and non-negative (i.e. >= 0).
+/*static*/ bool IndexExpr::isNonNegativeLiteral(
+    SmallVectorImpl<IndexExpr> &list) {
+  for (IndexExpr i : list)
+    if (!i.isLiteral() || i.getLiteral() < 0)
+      return false;
+  return true;
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExpr private queries.
 //===----------------------------------------------------------------------===//

@@ -38,7 +38,7 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
 
   Type elementType =
       data().getType().dyn_cast<RankedTensorType>().getElementType();
-  ONNXUnaryOpShapeHelper shapeHelper(this->getOperation(), {});
+  ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(
       elementType, target_layoutAttr());
 }

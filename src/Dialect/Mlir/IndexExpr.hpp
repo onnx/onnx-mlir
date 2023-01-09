@@ -458,6 +458,7 @@ public:
   bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values unequal.
   // Test if all element in list are literals.
   static bool isLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
+  static bool isNonNegativeLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
 
   // Getters.
   IndexExprScope &getScope() const { return *getScopePtr(); }
