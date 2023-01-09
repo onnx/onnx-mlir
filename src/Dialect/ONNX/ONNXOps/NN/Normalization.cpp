@@ -22,10 +22,21 @@ using namespace onnx_mlir;
 // BatchNormalizationInferenceMode
 //===----------------------------------------------------------------------===//
 
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXBatchNormalizationInferenceModeOpShapeHelper::computeShape() {
+  // Single output in inference mode, Y same shape as X.
+  ONNXBatchNormalizationInferenceModeOpAdaptor operandAdaptor(operands);
+  return computeShapeFromOperand(operandAdaptor.X());
+}
+
+} // namespace onnx_mlir
+
 ONNXOpShapeHelper *ONNXBatchNormalizationInferenceModeOp::getShapeHelper(
     Operation *op, ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb,
     IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+  return getNewShapeHelper<ONNXBatchNormalizationInferenceModeOpShapeHelper>(
       op, oper, ieb, scope);
 }
 
@@ -39,6 +50,7 @@ LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
       !var().getType().isa<RankedTensorType>())
     return success();
 
+  // Verifier code.
   auto inputTensorTy = X().getType().cast<RankedTensorType>();
   auto scaleTensorTy = scale().getType().cast<RankedTensorType>();
   auto biasTensorTy = B().getType().cast<RankedTensorType>();
@@ -74,9 +86,16 @@ LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
   }
 
   // The output tensor of the same shape as the input.
-  getResult().setType(X().getType());
-  return success();
+  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  ONNXBatchNormalizationInferenceModeOpShapeHelper shapeHelper(
+      getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<
+    ONNXBatchNormalizationInferenceModeOp>;
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // InstanceNormalization
@@ -134,3 +153,5 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
 
   return success();
 }
+
+// TODO: should there be a shape inference for this one?
