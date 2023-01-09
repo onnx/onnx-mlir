@@ -64,6 +64,11 @@ namespace onnx_mlir {
 // Update a tensor type by using the given shape, elementType and encoding.
 // TODO: when all ops are migrated to the new scheme, make this function private
 // to ONNXOpShapeHelper.
+// Parameters:
+// Val: this function will update val's type.
+// shape: shape of the ranked tensor type of val.
+// elementType: When nullptr, pick the elementary type from val.
+// encoding: When nullptr, pick the encoding from val if defined.
 void updateType(mlir::Value val, llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType = nullptr, mlir::Attribute encoding = nullptr,
     bool refineShape = true);

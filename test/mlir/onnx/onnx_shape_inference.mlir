@@ -1,5 +1,3 @@
-
-
 // RUN: onnx-mlir-opt --shape-inference %s -split-input-file | FileCheck %s
 
 // -----
@@ -3350,3 +3348,19 @@ func.func @test_concatshapetranpose_2(%arg0: tensor<?x?xf32>, %arg1: tensor<10x3
 // CHECK:           [[shape_:%.+]], [[VAR_transposed_:%.+]] = "onnx.ConcatShapeTranspose"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, perm = [1, 0], start = 0 : si64} : (tensor<?x?xf32>, tensor<10x30xf32>) -> (tensor<2xi64>, tensor<?x10xf32>)
 // CHECK:           return [[shape_]], [[VAR_transposed_]] : tensor<2xi64>, tensor<?x10xf32>
 // CHECK:         }
+
+// -----
+
+func.func @test_onnx_layout_transform(%arg0: tensor<5x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32>) -> tensor<*xf32>
+  %1 = "onnx.LayoutTransform"(%0) : (tensor<*xf32>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_onnx_layout_transform
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.LayoutTransform"([[PARAM_0_]]) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.LayoutTransform"([[VAR_0_]]) : (tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32>
+// CHECK:           return [[VAR_1_]] : tensor<5x3x32x32xf32>
+// CHECK:         }
+}

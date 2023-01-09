@@ -28,8 +28,7 @@ using namespace onnx_mlir;
 
 ONNXOpShapeHelper *ONNXLayoutTransformOp::getShapeHelper(Operation *op,
     ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
-      op, oper, ieb, scope);
+  return getNewShapeHelper<ONNXUnaryOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXLayoutTransformOp::inferShapes(
@@ -37,10 +36,11 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
   if (!hasShapeAndRank(data()))
     return success();
 
-  Type resType = convertTensorTypeToTensorTypeWithEncoding(
-      data().getType(), target_layoutAttr());
-  getResult().setType(resType);
-  return success();
+  Type elementType =
+      data().getType().dyn_cast<RankedTensorType>().getElementType();
+  ONNXUnaryOpShapeHelper shapeHelper(this->getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(
+      elementType, target_layoutAttr());
 }
 
 //===----------------------------------------------------------------------===//
