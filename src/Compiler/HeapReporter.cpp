@@ -17,7 +17,9 @@
 
 #include <string>
 
-#include <unistd.h>
+#if defined(__APPLE__)
+#include <unistd.h> // Unsupported on MSVC.
+#endif
 
 using namespace mlir;
 
