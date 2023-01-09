@@ -25,6 +25,27 @@ using namespace onnx_mlir;
 // Support
 //===----------------------------------------------------------------------===//
 
+namespace onnx_mlir {
+template <typename OP_TYPE>
+LogicalResult ONNXGenericGlobalPoolOpShapeHelper::computeShape() {
+  typename OP_TYPE::OperandAdaptor operandAdaptor(operands);
+  DimsExpr xDims, outputDims;
+  createIE->getShapeAsDims(operandAdaptor.X(), xDims);
+  if (xDims.size() < 3)
+    return op->emitError("Data input shape must be at least (NxCxD1)");
+  // Keep first two dims.
+  outputDims.emplace_back(xDims[0]);
+  outputDims.emplace_back(xDims[1]);
+  // Spatial dimensions are reduced to 1.
+  for (int i = 2; i < (int)xDims.size(); ++i)
+    outputDims.emplace_back(LiteralIndexExpr(1));
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+
+} // namespace onnx_mlir
+
 namespace {
 
 // Helper function to infer shapes of global pool operations.
@@ -153,15 +174,22 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 // GlobalAveragePool
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXGlobalAveragePoolOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+ONNXOpShapeHelper *ONNXGenericGlobalPoolOpShapeHelper::getShapeHelper(
+    Operation *op, ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb,
+    IndexExprScope *scope) {
+  return getNewShapeHelper<ONNXGlobalAveragePoolOpShapeHelper>(
       op, oper, ieb, scope);
 }
 
 LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+#if 1
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXGlobalAveragePoolOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+#else
   return inferShapesGlobalPool(this);
+#endif
 }
 
 //===----------------------------------------------------------------------===//

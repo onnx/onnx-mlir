@@ -273,6 +273,27 @@ using ONNXMaxPoolSingleOutOpShapeHelper =
     ONNXGenericPoolOpShapeHelper<mlir::ONNXMaxPoolSingleOutOp>;
 
 //===----------------------------------------------------------------------===//
+// Global pooling ops
+//===----------------------------------------------------------------------===//
+
+template <typename OP_TYPE>
+struct ONNXGenericGlobalPoolOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXGenericGlobalPoolOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXGenericGlobalPoolOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+using ONNXGlobalAveragePoolOpShapeHelper =
+    ONNXGenericGlobalPoolOpShapeHelper<mlir::ONNXGlobalAveragePoolOp>;
+using ONNXGlobalLpPoolOpShapeHelper =
+    ONNXGenericGlobalPoolOpShapeHelper<mlir::ONNXGlobalLpPoolOp>;
+using ONNXGlobalMaxPoolOpShapeHelper =
+    ONNXGenericGlobalPoolOpShapeHelper<mlir::ONNXGlobalMaxPoolOp>;
+
+//===----------------------------------------------------------------------===//
 // Slice Op
 //===----------------------------------------------------------------------===//
 
