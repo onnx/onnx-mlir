@@ -1,5 +1,15 @@
 # This script behaves like onnx-mlir (same arguments and behavior) but
 # with the necessary setup and execution environment to report heap usage.
+# Use only on module level compiler passes or with multithreading disabled
+# to avoid parallel writing to the log file.
+#
+# Example which writes heap usage to /tmp/resnet50.heap.log:
+#
+#  cd build
+#  bash  ../utils/onnx-mlir-report-heap.sh \
+#    test/backend/Debug/models/resnet50/model.onnx -o=/tmp/resnet50 \
+#    --mlir-elide-elementsattrs-if-larger=1 \
+#    --report-heap-before=constprop-onnx --report-heap-after=constprop-onnx
 #
 # Assumptions:
 # 1) script is run in the onnx-mlir/build subdir

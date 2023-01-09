@@ -6,6 +6,11 @@
 //
 // Reports heap usage before and after compiler passes.
 //
+// The heap usage is written to the specified logFilename.
+// It is unclear what will happen if applied to parallel compiler passes,
+// so it is recommended to use this only on module level compiler passes
+// or with multithreading disabled.
+//
 //===----------------------------------------------------------------------===//
 
 #pragma once
