@@ -81,8 +81,9 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
 
     // Builder helper.
     IndexExprScope outerScope(&rewriter, loc);
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
 
     // Frequently used MemRefType.
     Value X = operandAdaptor.X();
@@ -106,10 +107,9 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     Value zero = create.math.constant(xElementType, 0);
 
     // Bounds for the input tensor.
-    MemRefBoundsIndexCapture xBounds(X);
     SmallVector<IndexExpr, 4> xLbs(xRank, LiteralIndexExpr(0));
     SmallVector<IndexExpr, 4> xUbs;
-    xBounds.getDimList(xUbs);
+    create.krnlIE.getShapeAsDims(X, xUbs);
 
     // Emit a variable for the total number of nonzero values.
     Value nonzeroCount = create.mem.alloca(MemRefType::get({}, indexTy));
@@ -120,7 +120,8 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     SmallVector<Value, 4> rsumMemRefs;
     for (int i = 0; i < xRank; ++i) {
       // Alloc and dealloc.
-      SmallVector<IndexExpr, 1> dimIE(1, xBounds.getDim(i));
+      IndexExpr xBound = create.krnlIE.getShapeAsDim(X, i);
+      SmallVector<IndexExpr, 1> dimIE(1, xBound);
       int64_t dim = dimIE[0].isLiteral() ? dimIE[0].getLiteral() : -1;
       Value alloc = insertAllocAndDeallocSimple(rewriter, op,
           MemRefType::get({dim}, indexTy), loc, dimIE,
@@ -128,7 +129,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
       // Initialize to zero.
       ValueRange initLoopDef = create.krnl.defineLoops(1);
       create.krnl.iterate(initLoopDef, initLoopDef, {iZero},
-          {xBounds.getDim(i).getValue()},
+          {xBound.getValue()},
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             createKrnl.store(iZero, alloc, loopInd);
           });
@@ -181,20 +182,23 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     Value sum = create.mem.alloca(MemRefType::get({}, indexTy));
     ValueRange iLoopDef = create.krnl.defineLoops(1);
     create.krnl.iterate(iLoopDef, iLoopDef, {iZero}, {numberOfZeros},
-        [&](KrnlBuilder &createKrnl, ValueRange iLoopInd) {
-          MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
-              createKrnl);
+        [&](KrnlBuilder &ck, ValueRange iLoopInd) {
+          MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+              MemRefBuilder>
+              create(ck);
           Value i(iLoopInd[0]);
           for (int64_t axis = 0; axis < xRank; ++axis) {
             Value axisVal = create.math.constantIndex(axis);
-            MemRefBoundsIndexCapture rsumBounds(rsumMemRefs[axis]);
+            Value rsumBoundsVal = rsumMemRefs[axis];
+            IndexExpr rsumBounds0 =
+                create.krnlIE.getShapeAsDim(rsumBoundsVal, 0);
 
             create.krnl.store(iMinusOne, pos, {});
             create.krnl.store(iZero, sum, {});
 
             ValueRange jLoopDef = create.krnl.defineLoops(1);
             create.krnl.iterate(jLoopDef, jLoopDef, {iZero},
-                {rsumBounds.getDim(0).getValue()},
+                {rsumBounds0.getValue()},
                 [&](KrnlBuilder &createKrnl, ValueRange jLoopInd) {
                   MathBuilder createMath(createKrnl);
                   Value j(jLoopInd[0]);
