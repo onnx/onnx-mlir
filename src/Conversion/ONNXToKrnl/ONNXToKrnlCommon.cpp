@@ -337,12 +337,7 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
         getDenseElementAttributeFromONNXValue(input);
     TensorType tensorType = create.onnx.toTensor(resultType);
     DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
-    // TODO: Fix lit tests so we can change this to just:
-    // Value constVal = create.onnx.constant(squeezedElements);
-    // The lit tests want the constant to have memref type, so we do this:
-    Value constVal = rewriter.create<ONNXConstantOp>(loc, resultType,
-        Attribute(), squeezedElements, FloatAttr(), ArrayAttr(), IntegerAttr(),
-        ArrayAttr(), StringAttr(), ArrayAttr());
+    Value constVal = create.onnx.constant(squeezedElements);
     return create.onnx.toMemref(constVal);
   } else {
     return create.onnx.toMemref(
