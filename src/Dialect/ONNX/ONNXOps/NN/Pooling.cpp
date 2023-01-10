@@ -26,9 +26,10 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
+
 template <typename OP_TYPE>
-LogicalResult ONNXGenericGlobalPoolOpShapeHelper::computeShape() {
-  typename OP_TYPE::OperandAdaptor operandAdaptor(operands);
+LogicalResult ONNXGenericGlobalPoolOpShapeHelper<OP_TYPE>::computeShape() {
+  typename OP_TYPE::Adaptor operandAdaptor(operands);
   DimsExpr xDims, outputDims;
   createIE->getShapeAsDims(operandAdaptor.X(), xDims);
   if (xDims.size() < 3)
@@ -174,9 +175,8 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 // GlobalAveragePool
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXGenericGlobalPoolOpShapeHelper::getShapeHelper(
-    Operation *op, ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb,
-    IndexExprScope *scope) {
+ONNXOpShapeHelper *ONNXGlobalAveragePoolOp::getShapeHelper(Operation *op,
+    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
   return getNewShapeHelper<ONNXGlobalAveragePoolOpShapeHelper>(
       op, oper, ieb, scope);
 }
@@ -198,13 +198,19 @@ LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
 
 ONNXOpShapeHelper *ONNXGlobalLpPoolOp::getShapeHelper(Operation *op,
     ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+  return getNewShapeHelper<ONNXGlobalLpPoolOpShapeHelper>(
       op, oper, ieb, scope);
 }
 
 LogicalResult ONNXGlobalLpPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+#if 1
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXGlobalLpPoolOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+#else
   return inferShapesGlobalPool(this);
+#endif
 }
 
 //===----------------------------------------------------------------------===//
@@ -213,13 +219,19 @@ LogicalResult ONNXGlobalLpPoolOp::inferShapes(
 
 ONNXOpShapeHelper *ONNXGlobalMaxPoolOp::getShapeHelper(Operation *op,
     ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+  return getNewShapeHelper<ONNXGlobalMaxPoolOpShapeHelper>(
       op, oper, ieb, scope);
 }
 
 LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+#if 1
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXGlobalMaxPoolOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+#else
   return inferShapesGlobalPool(this);
+#endif
 }
 
 //===----------------------------------------------------------------------===//
@@ -325,6 +337,9 @@ LogicalResult ONNXMaxRoiPoolOp::inferShapes(
 
 namespace onnx_mlir {
 
+template struct ONNXGenericGlobalPoolOpShapeHelper<ONNXGlobalAveragePoolOp>;
+template struct ONNXGenericGlobalPoolOpShapeHelper<ONNXGlobalLpPoolOp>;
+template struct ONNXGenericGlobalPoolOpShapeHelper<ONNXGlobalMaxPoolOp>;
 template struct ONNXGenericPoolOpShapeHelper<ONNXAveragePoolOp>;
 template struct ONNXGenericPoolOpShapeHelper<ONNXMaxPoolSingleOutOp>;
 template struct ONNXNonSpecificOpShapeHelper<ONNXMaxRoiPoolOp>;
