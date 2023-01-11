@@ -32,6 +32,7 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/HeapReporter.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
 
@@ -911,6 +912,11 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   }
   if (!hasAccel)
     addPasses(module, pm, emissionTarget);
+  if (!reportHeapBefore.empty() || !reportHeapAfter.empty()) {
+    std::string heapLogFileame = outputNameNoExt + ".heap.log";
+    pm.addInstrumentation(std::make_unique<HeapReporter>(
+        heapLogFileame, reportHeapBefore, reportHeapAfter));
+  }
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 
