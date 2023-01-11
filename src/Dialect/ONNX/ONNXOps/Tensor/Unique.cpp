@@ -28,9 +28,9 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   // Generate the output dims.
   DimsExpr outputDims;
   LiteralIndexExpr minusone(-1);
-  if (!optionalAxis.has_value()) { // if no axis given
+  if (!optionalAxis.has_value()) {     // if no axis given
     outputDims.emplace_back(minusone); // return 1D array
-  } else { // if axis given
+  } else {                             // if axis given
     int64_t axis = optionalAxis.value();
     for (int64_t i = 0; i < rank; i++) {
       LiteralIndexExpr dim =
@@ -42,12 +42,31 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   return success();
 }
 
-
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXUniqueOp::verify() {
+  ONNXUniqueOpAdaptor operandAdaptor(*this);
+
+  // verify X
+  Value X = operandAdaptor.X();
+  if (!hasShapeAndRank(X))
+    return success(); // Too early to verify.
+
+  // verify axis
+  int64_t XRank = X.getType().cast<ShapedType>().getRank();
+  Optional<int64_t> optionalAxis = axis();
+  if (optionalAxis.has_value()) {
+    // axis attribute must be in the range [-r,r-1], where r = rank(X).
+    int64_t axis = optionalAxis.value();
+    if (axis < -XRank || axis >= XRank)
+      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+          *this->getOperation(), "axis", axis,
+          onnx_mlir::Diagnostic::Range<int64_t>(-XRank, XRank - 1));
+  }
+
+  // verify sorted
   Optional<int64_t> optionalSorted = sorted();
   if (optionalSorted.has_value()) {
     // optional sorted attribute must be zero or one.
@@ -56,22 +75,6 @@ LogicalResult ONNXUniqueOp::verify() {
       return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
           *this->getOperation(), "sorted", sorted,
           onnx_mlir::Diagnostic::Range<int64_t>(0, 1));
-  }
-  ONNXUniqueOpAdaptor operandAdaptor(*this);
-  Value X = operandAdaptor.X();
-  if (!hasShapeAndRank(X))
-    return success(); // Too early to verify.
-
-  int64_t XRank = X.getType().cast<ShapedType>().getRank();
-  Optional<int64_t> optionalAxis = axis();
-
-  if (optionalAxis.has_value()) {
-    // axis attribute must be in the range [-r,r-1], where r = rank(X).
-    int64_t axis = optionalAxis.value();
-    if (axis < -XRank || axis >= XRank)
-      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-          *this->getOperation(), "axis", axis,
-          onnx_mlir::Diagnostic::Range<int64_t>(-XRank, XRank - 1));
   }
 
   return success();
@@ -98,6 +101,5 @@ LogicalResult ONNXUniqueOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-  template struct ONNXNonSpecificOpShapeHelper<ONNXUniqueOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXUniqueOp>;
 } // namespace onnx_mlir
-
