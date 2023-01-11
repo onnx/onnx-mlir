@@ -190,7 +190,6 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXUniqueOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXMatMulOpPattern(
       patterns, typeConverter, ctx, enableTiling);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
@@ -239,6 +238,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
   populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXUniqueOpPattern(patterns, typeConverter, ctx);
 
   // Neural network
   populateLoweringONNXConvOpPattern(

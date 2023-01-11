@@ -52,7 +52,6 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Math/Reduction.cpp
   ONNXOps/Math/Scatter.cpp
   ONNXOps/Math/TopK.cpp
-  ONNXOps/Math/Unique.cpp
   ONNXOps/NN/Conv.cpp
   ONNXOps/NN/Dropout.cpp
   ONNXOps/NN/Normalization.cpp
