@@ -29,7 +29,7 @@ namespace onnx_mlir {
 using DimsExpr = llvm::SmallVector<IndexExpr, 4>;
 
 struct ONNXOpShapeHelper {
-  /* Constructor for shape inference.
+  /* Constructor for shape inference. Implementation is in ShapeHelper.cpp.
 
    This class and its specialized subclasses are used in one of two situation:
    1) For shape analysis (where no code is generated) during shape inference.
@@ -89,8 +89,19 @@ struct ONNXOpShapeHelper {
   // signature. This method is responsible to compute at a minimum the output
   // dims.
   virtual mlir::LogicalResult computeShape() = 0;
-  // Helper function that set n'th output dims from the given value.
+
+  // Helper functions for subclasses that have a specific pattern.
+
+  // Helper for ops for which the output (n'th) is the same as the type of a
+  // given input operand's type.
   mlir::LogicalResult computeShapeFromOperand(mlir::Value operand, int n = 0);
+  // Helper for ops for which the output (n'th) is a constant shape.
+  mlir::LogicalResult computeShapeFromLiterals(
+      llvm::SmallVector<int64_t, 4> shape, int n = 0);
+  // Helper for ops for which the output (n'th) is defined by the shape of
+  // another type. Type must have constant shape (all values>=0).
+  mlir::LogicalResult computeShapeFromTypeWithConstantShape(
+      mlir::Type type, int n = 0);
 
   // Compute shape and assert on failure.
   void computeShapeAndAssertOnFailure();

@@ -1525,7 +1525,7 @@ SymbolIndexExpr::SymbolIndexExpr(SymbolIndexExpr const &o)
 // List helpers
 //===----------------------------------------------------------------------===//
 
-void getIndexExprListFromInt(llvm::SmallVectorImpl<int64_t> &inputList,
+void getIndexExprListFromInt(ArrayRef<int64_t> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList)
@@ -1534,7 +1534,7 @@ void getIndexExprListFromInt(llvm::SmallVectorImpl<int64_t> &inputList,
 
 // Create a list of IndexExpr of kind LiteralIndexExpr/Questionmark from a
 // shape.
-void getIndexExprListFromShape(llvm::SmallVectorImpl<int64_t> &inputList,
+void getIndexExprListFromShape(ArrayRef<int64_t> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList) {

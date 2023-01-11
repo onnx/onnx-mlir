@@ -19,6 +19,26 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXConstantOpShapeHelper::computeShape() {
+  ONNXConstantOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+
+  ElementsAttr valAttr;
+  if (operandAdaptor.sparse_value().has_value())
+    valAttr = operandAdaptor.sparse_valueAttr().cast<SparseElementsAttr>();
+  else
+    valAttr = operandAdaptor.valueAttr().cast<DenseElementsAttr>();
+  return computeShapeFromTypeWithConstantShape(valAttr.getType());
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -28,8 +48,7 @@ using namespace onnx_mlir;
 
 ONNXOpShapeHelper *ONNXConstantOp::getShapeHelper(Operation *op,
     ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
-      op, oper, ieb, scope);
+  return getNewShapeHelper<ONNXConstantOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXConstantOp::inferShapes(
@@ -43,6 +62,21 @@ LogicalResult ONNXConstantOp::inferShapes(
     valAttr = sparse_valueAttr().cast<SparseElementsAttr>();
   else
     valAttr = valueAttr().cast<DenseElementsAttr>();
+#if 1
+  Type elementType =
+      valAttr.getType().cast<RankedTensorType>().getElementType();
+  ONNXConstantOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+#else
   getResult().setType(valAttr.getType());
   return success();
+#endif
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXConstantOp>;
+} // namespace onnx_mlir

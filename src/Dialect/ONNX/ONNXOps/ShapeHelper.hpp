@@ -111,8 +111,12 @@ struct ONNXUnitOpShapeHelper : public ONNXOpShapeHelper {
   virtual ~ONNXUnitOpShapeHelper() {}
 
   mlir::LogicalResult computeShape() final {
+#if 1
+    return computeShapeFromLiterals({1});
+#else
     setOutputDims({LiteralIndexExpr(1)});
     return mlir::success();
+#endif
   }
 };
 
@@ -632,6 +636,9 @@ using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransp
 
 using ONNXRandomNormalOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRandomNormalOp>;
 using ONNXBatchNormalizationInferenceModeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXBatchNormalizationInferenceModeOp>;
+using ONNXNonMaxSuppressionOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXNonMaxSuppressionOp>;
+using ONNXConstantOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConstantOp>;
+using ONNXIdentityOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXIdentityOp>;
 
 // clang-format on
 // using ShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::>;

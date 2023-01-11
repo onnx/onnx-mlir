@@ -20,6 +20,20 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXNonMaxSuppressionOpShapeHelper::computeShape() {
+  return computeShapeFromLiterals({-1, 3});
+}
+
+} // namespace onnx_mlir
+
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -68,13 +82,27 @@ LogicalResult ONNXNonMaxSuppressionOp::verify() {
 
 ONNXOpShapeHelper *ONNXNonMaxSuppressionOp::getShapeHelper(Operation *op,
     ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
+  return getNewShapeHelper<ONNXNonMaxSuppressionOpShapeHelper>(
       op, oper, ieb, scope);
 }
 
 LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto b = Builder(getContext());
+  Builder b = Builder(getContext());
+  Type elementType = b.getI64Type();
+  #if 1
+  ONNXNonMaxSuppressionOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+  #else
   getResult().setType(RankedTensorType::get({-1, 3}, b.getI64Type()));
   return success();
+  #endif
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXNonMaxSuppressionOp>;
+} // namespace onnx_mlir

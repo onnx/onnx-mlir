@@ -45,12 +45,12 @@ struct ONNXSliceOpLoweringToMhlo : public ConversionPattern {
            "data must be ranked Shaped Type");
     ShapedType dataType = data.getType().cast<ShapedType>();
     int64_t rank = dataType.getRank();
-    Type indiceElementType = rewriter.getI64Type();
+    Type indexElementType = rewriter.getI64Type();
     Value zero = rewriter.create<mhlo::ConstantOp>(loc,
-        DenseIntElementsAttr::get(RankedTensorType::get({1}, indiceElementType),
+        DenseIntElementsAttr::get(RankedTensorType::get({1}, indexElementType),
             ArrayRef<int64_t>{0}));
     Value one = rewriter.create<mhlo::ConstantOp>(loc,
-        DenseIntElementsAttr::get(RankedTensorType::get({1}, indiceElementType),
+        DenseIntElementsAttr::get(RankedTensorType::get({1}, indexElementType),
             ArrayRef<int64_t>{1}));
     SmallVector<Value, 4> stepValues;
     SmallVector<Value, 4> beginValues;
@@ -85,7 +85,7 @@ struct ONNXSliceOpLoweringToMhlo : public ConversionPattern {
       if (dataType.getShape()[i] != ShapedType::kDynamicSize)
         dimValue = rewriter.create<mhlo::ConstantOp>(
             loc, DenseIntElementsAttr::get(
-                     RankedTensorType::get({1}, indiceElementType),
+                     RankedTensorType::get({1}, indexElementType),
                      ArrayRef<int64_t>{dataType.getShape()[i]}));
       else {
         Value dimIndexValue =
@@ -94,7 +94,7 @@ struct ONNXSliceOpLoweringToMhlo : public ConversionPattern {
         dimValue = rewriter.create<shape::ToExtentTensorOp>(
             loc, RankedTensorType::get({1}, rewriter.getIndexType()), dimValue);
         dimValue = rewriter.create<arith::IndexCastOp>(
-            loc, RankedTensorType::get({1}, indiceElementType), dimValue);
+            loc, RankedTensorType::get({1}, indexElementType), dimValue);
       }
       if (axesIntLitToIdx[i] == -1) {
         beginValues.push_back(zero);
@@ -102,37 +102,37 @@ struct ONNXSliceOpLoweringToMhlo : public ConversionPattern {
         endValues.push_back(dimValue);
       } else {
         Value beginValue = rewriter.create<mhlo::SliceOp>(loc,
-            RankedTensorType::get({1}, indiceElementType), starts,
+            RankedTensorType::get({1}, indexElementType), starts,
             DenseIntElementsAttr::get(
-                RankedTensorType::get({1}, indiceElementType),
+                RankedTensorType::get({1}, indexElementType),
                 ArrayRef<int64_t>{axesIntLitToIdx[i]}),
             DenseIntElementsAttr::get(
-                RankedTensorType::get({1}, indiceElementType),
+                RankedTensorType::get({1}, indexElementType),
                 ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
             DenseIntElementsAttr::get(
-                RankedTensorType::get({1}, indiceElementType),
+                RankedTensorType::get({1}, indexElementType),
                 ArrayRef<int64_t>{1}));
         Value stepValue = rewriter.create<mhlo::SliceOp>(loc,
-            RankedTensorType::get({1}, indiceElementType), steps,
+            RankedTensorType::get({1}, indexElementType), steps,
             DenseIntElementsAttr::get(
-                RankedTensorType::get({1}, indiceElementType),
+                RankedTensorType::get({1}, indexElementType),
                 ArrayRef<int64_t>{axesIntLitToIdx[i]}),
             DenseIntElementsAttr::get(
-                RankedTensorType::get({1}, indiceElementType),
+                RankedTensorType::get({1}, indexElementType),
                 ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
             DenseIntElementsAttr::get(
-                RankedTensorType::get({1}, indiceElementType),
+                RankedTensorType::get({1}, indexElementType),
                 ArrayRef<int64_t>{1}));
         Value endValue = rewriter.create<mhlo::SliceOp>(loc,
-            RankedTensorType::get({1}, indiceElementType), ends,
+            RankedTensorType::get({1}, indexElementType), ends,
             DenseIntElementsAttr::get(
-                RankedTensorType::get({1}, indiceElementType),
+                RankedTensorType::get({1}, indexElementType),
                 ArrayRef<int64_t>{axesIntLitToIdx[i]}),
             DenseIntElementsAttr::get(
-                RankedTensorType::get({1}, indiceElementType),
+                RankedTensorType::get({1}, indexElementType),
                 ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
             DenseIntElementsAttr::get(
-                RankedTensorType::get({1}, indiceElementType),
+                RankedTensorType::get({1}, indexElementType),
                 ArrayRef<int64_t>{1}));
         Value isNegativeStepValue = rewriter.create<mhlo::CompareOp>(
             loc, stepValue, zero, mhlo::ComparisonDirection::LT);
@@ -149,7 +149,7 @@ struct ONNXSliceOpLoweringToMhlo : public ConversionPattern {
             rewriter.create<mhlo::AddOp>(loc, beginValue, one);
         Value reversedData = rewriter.create<mhlo::ReverseOp>(loc, data,
             DenseIntElementsAttr::get(
-                RankedTensorType::get({1}, indiceElementType),
+                RankedTensorType::get({1}, indexElementType),
                 ArrayRef<int64_t>{i}));
         beginValue = rewriter.create<mhlo::SelectOp>(
             loc, isNegativeStepValue, negatedStartValue, beginValue);
@@ -184,15 +184,15 @@ struct ONNXSliceOpLoweringToMhlo : public ConversionPattern {
     Type outputType = *op->result_type_begin();
     auto start_indices = rewriter.create<mhlo::ConcatenateOp>(loc,
         RankedTensorType::get(
-            {static_cast<int64_t>(beginValues.size())}, indiceElementType),
+            {static_cast<int64_t>(beginValues.size())}, indexElementType),
         beginValues, IntegerAttr::get(rewriter.getIntegerType(64), 0));
     auto end_indices = rewriter.create<mhlo::ConcatenateOp>(loc,
         RankedTensorType::get(
-            {static_cast<int64_t>(endValues.size())}, indiceElementType),
+            {static_cast<int64_t>(endValues.size())}, indexElementType),
         endValues, IntegerAttr::get(rewriter.getIntegerType(64), 0));
     auto step_indices = rewriter.create<mhlo::ConcatenateOp>(loc,
         RankedTensorType::get(
-            {static_cast<int64_t>(stepValues.size())}, indiceElementType),
+            {static_cast<int64_t>(stepValues.size())}, indexElementType),
         stepValues, IntegerAttr::get(rewriter.getIntegerType(64), 0));
     Value sliceValue = rewriter.create<mhlo::RealDynamicSliceOp>(
         loc, outputType, data, start_indices, end_indices, step_indices);
