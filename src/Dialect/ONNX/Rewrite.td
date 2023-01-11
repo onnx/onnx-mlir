@@ -955,10 +955,22 @@ def SoftmaxV11ToLatestPattern: Pat<
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXConvTransposeOp
 //===----------------------------------------------------------------------===//
-def ConvTransposeOpPattern1: Pat<
-   (ONNXConvTransposeOp $x, $w, $b, $auto_pad, $dilation, $group, $kernel_shape, $output_padding, $output_shape, $pads, $strides),
-// Dummy
-   (ONNXAddOp $x, $x)
-//   (ONNXConvOp $x, $w, $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides)
+
+def reverseWeightConvTranspose2D: NativeCodeCall<
+  "onnx_mlir::reverseWeightTensor4D($_builder, $_loc, $0)">;
+
+def getPadsConvTranspose2D: NativeCodeCall<
+  "onnx_mlir::getPadsConvTranspose2D($_builder, $_loc, $0, $1)">;
+
+def ConvTransposeOpPattern1: Pattern<
+   (ONNXConvTransposeOp $x, $w, $b,
+      $auto_pad, $dilation, $group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides),
+   [
+    (reverseWeightConvTranspose2D:$reversed_w $w),
+    (getPadsConvTranspose2D:$new_pads $kernel_shape, $pads),
+    (ONNXConvOp $x, $reversed_w, $b,
+       $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $strides)
+   ]
 >;
 #endif // ONNX_REWRITE

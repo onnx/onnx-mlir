@@ -130,6 +130,97 @@ DenseElementsAttr createDenseElementsAttrFromShapeOp(
   return createDenseElementsAttrFromShape(rewriter, shapeOp.data(), start, end);
 }
 
+// Create ONNX Transpose op
+// TODO: The same function in ONNXToZHighComon.cpp. Commonize them.
+Value emitONNXTranspose(
+    Location loc, PatternRewriter &rewriter, Value x, ArrayRef<int64_t> perms) {
+  ShapedType inputType = x.getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+  Type transposedType;
+  if (inputType.hasRank()) {
+    assert((uint64_t)inputType.getRank() == perms.size() &&
+           "Permutation array size is different from the input rank");
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+    SmallVector<int64_t, 4> transposedShape;
+    for (uint64_t i = 0; i < perms.size(); ++i)
+      transposedShape.emplace_back(inputShape[perms[i]]);
+    transposedType = RankedTensorType::get(transposedShape, elementType);
+  } else {
+    transposedType = UnrankedTensorType::get(elementType);
+  }
+
+  ONNXTransposeOp transposedInput = rewriter.create<ONNXTransposeOp>(
+      loc, transposedType, x, rewriter.getI64ArrayAttr(perms));
+  return transposedInput.getResult();
+}
+
+// Create ONNX ReverseSequence op
+Value emitONNXReverseSequence(Location loc, PatternRewriter &rewriter,
+    Value input, ArrayRef<int64_t> slens, int64_t batchAxis, int64_t timeAxis) {
+  // Create sequence_lens using Constant op
+  SmallVector<int64_t, 4> dims(1, slens.size());
+  Type tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  DenseElementsAttr denseAttr = DenseElementsAttr::get(tensorType, slens);
+  Value constSlens =
+      rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+  // Create batch_axis and time_axis attributes
+  IntegerAttr batchAxisAttr =
+      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, batchAxis, /*isSigned=*/true));
+  IntegerAttr timeAxisAttr =
+      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, timeAxis, /*isSigned=*/true));
+  Type resultType = input.getType().cast<RankedTensorType>();
+  ONNXReverseSequenceOp reverseOp = rewriter.create<ONNXReverseSequenceOp>(
+      loc, resultType, input, constSlens, batchAxisAttr, timeAxisAttr);
+  return reverseOp;
+}
+
+Value reverseWeightTensor4D(
+    PatternRewriter &rewriter, Location loc, Value input) {
+  // Transpose input because ReverseSequence op can reverse elements in the
+  // first and second dimensions.
+  ArrayRef<int64_t> perms = SmallVector<int64_t, 4>({2, 3, 0, 1});
+  Value transposedInput = emitONNXTranspose(loc, rewriter, input, perms);
+
+  // Reverse elements using ReverseSequence op
+  // Create `sequence_lengths` for ReverseSequence op
+  // - Example
+  // input(dim0 x dim1 x sequence x batch) = (dim0 x dim1 x 4 x 3))
+  // then, slensTime = [3, 3, 3, 3], slensBatch = [4, 4, 4]
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  SmallVector<int64_t, 4> slensTime, slensBatch;
+  for (int i = 0; i < inputShape[2]; ++i)
+    slensTime.emplace_back(inputShape[3]);
+  for (int i = 0; i < inputShape[3]; ++i)
+    slensBatch.emplace_back(inputShape[2]);
+  Value reverse0 = emitONNXReverseSequence(loc, rewriter, transposedInput,
+      slensTime, /*batch_axis*/ 0, /*time_axis*/ 1);
+  Value reverse1 = emitONNXReverseSequence(
+      loc, rewriter, reverse0, slensBatch, /*batch_axis*/ 1, /*time_axis*/ 0);
+
+  // Transpose in order to reverse other elements in the tensor
+  Value reverse2 = emitONNXTranspose(loc, rewriter, reverse1, perms);
+  ArrayRef<int64_t> perms1 = SmallVector<int64_t, 4>({1, 0, 2, 3});
+  Value result = emitONNXTranspose(loc, rewriter, reverse2, perms1);
+
+  return result;
+}
+
+ArrayAttr getPadsConvTranspose2D(
+    PatternRewriter &rewriter, Location loc, ArrayAttr kernel, ArrayAttr pads) {
+  // Calculate pads in generated Conv op by rewriting ConvTranspose op
+  // new_pads = kernel -  pads - 1
+  // Reference: Dumoulin, Vincent, and Francesco Visin. "A guide to convolution
+  // arithmetic for deep learning." arXiv preprint arXiv:1603.07285 (2016).
+  SmallVector<int64_t, 4> newPads;
+  for (int i = 0; i < 4; ++i)
+    newPads.emplace_back(
+        ArrayAttrIntVal(kernel, i % 2) - ArrayAttrIntVal(pads, i) - 1);
+  return rewriter.getI64ArrayAttr(newPads);
+}
+
 } // namespace onnx_mlir
 
 // =============================================================================
