@@ -26,12 +26,6 @@ using namespace onnx_mlir;
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXConstantOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXConstantOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if ((sparse_value().has_value() && value().has_value()) ||

@@ -26,12 +26,6 @@ using namespace onnx_mlir;
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXRandomNormalOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXRandomNormalOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto outputShape = shape();

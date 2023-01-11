@@ -44,12 +44,6 @@ LogicalResult ONNXQuantizeLinearOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXQuantizeLinearOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXQuantizeLinearOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXQuantizeLinearOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();

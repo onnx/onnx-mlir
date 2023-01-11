@@ -43,11 +43,6 @@ LogicalResult ONNXEyeLikeOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXEyeLikeOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXEyeLikeOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXEyeLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(input()))

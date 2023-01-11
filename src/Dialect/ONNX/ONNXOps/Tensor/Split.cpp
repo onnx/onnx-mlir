@@ -144,11 +144,6 @@ LogicalResult ONNXSplitOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXSplitOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXSplitOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXSplitOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape isn't known yet.
@@ -160,11 +155,6 @@ LogicalResult ONNXSplitOp::inferShapes(
   ONNXSplitOpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.
   return shapeHelper.computeShapeAndUpdateType(elementType);
-}
-
-ONNXOpShapeHelper *ONNXSplitV11Op::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXSplitV11OpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXSplitV11Op::inferShapes(

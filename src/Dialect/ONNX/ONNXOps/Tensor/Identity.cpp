@@ -30,12 +30,6 @@ using namespace onnx_mlir;
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXIdentityOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXIdentityOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   getResult().setType(getOperand().getType());

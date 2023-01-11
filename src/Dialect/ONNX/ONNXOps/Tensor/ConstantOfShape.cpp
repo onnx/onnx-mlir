@@ -88,12 +88,6 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXConstantOfShapeOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXConstantOfShapeOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXConstantOfShapeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Type elementType;

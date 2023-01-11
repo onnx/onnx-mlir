@@ -138,8 +138,7 @@ def ONNXCustomOp:ONNX_Op<"Custom",
 //===----------------------------------------------------------------------===//
 // ONNX DimOp
 def ONNXDimOp : ONNX_Op<"Dim",
-    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
-    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX dimensions operation.";
   let description = [{
     This operation is to obtain the dimension of a Tensor;
@@ -212,8 +211,7 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
 //===----------------------------------------------------------------------===//
 // LayoutTransform.
 def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
-    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "An operation that transforms data between different layout formats";
   let description = [{
     An operation that transforms a tensor from a layout to another layout. 
@@ -318,8 +316,7 @@ def ONNXReturnOp : ONNX_Op<"Return", [Pure,
 //===----------------------------------------------------------------------===//
 // BatchNorm in Inference mode.
 def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceMode",
-    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
-    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BatchNormalization operation in test mode";
   let description = [{
     Carries out batch normalization as described in the paper
@@ -361,8 +358,7 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
 //===----------------------------------------------------------------------===//
 // MaxPoolSingleOutOp
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
-    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
-    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MaxPool operation with a single output.";
   let description = [{
     ONNX MaxPool operation with a single output.
@@ -393,8 +389,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
 //===----------------------------------------------------------------------===//
 // ConcatShapeTransposeOp
 def ONNXConcatShapeTransposeOp: ONNX_Op<"ConcatShapeTranspose", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, 
-    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX merged operation";
   let description = [{
     Merge the following sequence of ops into one op

@@ -75,12 +75,6 @@ LogicalResult ONNXReverseSequenceOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXReverseSequenceOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXReverseSequenceOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXReverseSequenceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!input().getType().isa<RankedTensorType>())

@@ -43,11 +43,6 @@ LogicalResult ONNXHardmaxOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXHardmaxOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnaryOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXHardmaxOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(input()))

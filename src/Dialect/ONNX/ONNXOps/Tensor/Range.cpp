@@ -96,11 +96,6 @@ LogicalResult ONNXRangeOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXRangeOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXRangeOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXRangeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // All inputs must be valid ranked tensors.

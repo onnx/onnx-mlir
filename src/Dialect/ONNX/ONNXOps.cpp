@@ -35,14 +35,6 @@
         "https://github.com/onnx/onnx-mlir and/or consider contributing "      \
         "code. "                                                               \
         "Error encountered in shape inference.");                              \
-  }                                                                            \
-                                                                               \
-  /* shape helper interface method */                                          \
-  onnx_mlir::ONNXOpShapeHelper *mlir::T::getShapeHelper(mlir::Operation *op,   \
-      mlir::ArrayRef<mlir::Value> operands,                                    \
-      onnx_mlir::IndexExprBuilder *ieBuilder,                                  \
-      onnx_mlir::IndexExprScope *scope) {                                      \
-    return nullptr;                                                            \
   }
 
 // Listed alphabetically.

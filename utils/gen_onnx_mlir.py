@@ -992,13 +992,32 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
         print('No typeStr ', schema.name)
         return []
 
+
+# Generate extra class declaration for shape helper.
+def gen_shape_helper_code(s, indent, opName):
+    # Print getShapeHelper.
+    indent = inc_indent(indent)
+    s += indent + "onnx_mlir::ONNXOpShapeHelper *getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, \n"
+    indent = inc_indent(indent)
+    indent = inc_indent(indent)
+    s += indent + "onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {\n"
+    indent = dec_indent(indent)
+    s += indent + "onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNX{0}OpShapeHelper(op, oper, ieb, scope);\n".format(opName)
+    s += indent + "assert(sh && \"failed to allocate shape helper\");\n"
+    s += indent + "return sh;\n"
+    indent = dec_indent(indent)
+    s += indent + "}\n"
+    return s
+
+def gen_op_name(schema, with_version):
+    if with_version :
+        return schema.name+"V"+str(schema.since_version)
+    return schema.name
+
 # Generate entry for a given operation given by opName (from schema).
 def gen_op_def(schema, with_version = False):
     indent = inc_indent()
-    if with_version :
-        opName = schema.name+"V"+str(schema.since_version)
-    else :
-        opName = schema.name
+    opName = gen_op_name(schema, with_version)
     s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(opName)
 
     regions = OrderedDict()
@@ -1017,7 +1036,7 @@ def gen_op_def(schema, with_version = False):
     # Dummy implementations are added to ONNXOps.cpp.
     # Error will be report if these operations are encountered at runtime.
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
-    traits.append("DeclareOpInterfaceMethods<ShapeHelperOpInterface>")
+    # hi alex traits.append("DeclareOpInterfaceMethods<ShapeHelperOpInterface>")
     if opName in OpsWithResultTypeInference.keys():
         traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
     if len(regions):
@@ -1168,6 +1187,9 @@ def gen_op_def(schema, with_version = False):
         indent = dec_indent(indent)
         s += indent + "}\n"
 
+    # Generate shape helper code
+    s = gen_shape_helper_code(s, indent, opName)
+
     s += indent + '}];\n'
 
     if ( opName in custom_definition_misc) :
@@ -1176,6 +1198,7 @@ def gen_op_def(schema, with_version = False):
     # Generate decl for verifier.
     if opName in OpsWithVerifier:
         s += indent + 'let hasVerifier = 1;\n'
+
 
     s += '}\n\n'
     return s

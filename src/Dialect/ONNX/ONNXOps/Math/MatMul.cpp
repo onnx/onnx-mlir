@@ -163,11 +163,6 @@ LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
 // MatMulOp
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXMatMulOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXMatMulOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXMatMulOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -184,12 +179,6 @@ LogicalResult ONNXMatMulOp::inferShapes(
 // MatMulIntegerOp
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXMatMulIntegerOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXMatMulIntegerOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXMatMulIntegerOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -205,12 +194,6 @@ LogicalResult ONNXMatMulIntegerOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // QLinearMatMulOp
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXQLinearMatMulOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXQLinearMatMulOpShapeHelper>(
-      op, oper, ieb, scope);
-}
 
 LogicalResult ONNXQLinearMatMulOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {

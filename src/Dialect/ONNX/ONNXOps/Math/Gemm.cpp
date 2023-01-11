@@ -115,11 +115,6 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXGemmOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGemmOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXGemmOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   bool hasBias = !C().getType().isa<NoneType>();

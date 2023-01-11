@@ -93,12 +93,6 @@ LogicalResult ONNXGatherElementsOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXGatherElementsOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGatherElementsOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXGatherElementsOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the operands shape is not yet known.

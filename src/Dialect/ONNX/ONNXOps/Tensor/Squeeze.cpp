@@ -153,11 +153,6 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXSqueezeOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXSqueezeOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXSqueezeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto dataType = data().getType().dyn_cast<RankedTensorType>();
@@ -167,11 +162,6 @@ LogicalResult ONNXSqueezeOp::inferShapes(
   Type elementType = dataType.getElementType();
   ONNXSqueezeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-}
-
-ONNXOpShapeHelper *ONNXSqueezeV11Op::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXSqueezeV11OpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXSqueezeV11Op::inferShapes(
