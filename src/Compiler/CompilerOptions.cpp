@@ -22,11 +22,10 @@
 
 namespace onnx_mlir {
 // Options for onnx-mlir only.
-llvm::cl::OptionCategory OnnxMlirOptions(
-    "ONNX-MLIR Options", "These are frontend options.");
+llvm::cl::OptionCategory OnnxMlirOptions("Frontend Options", "");
 
 // Common options shared between onnx-mlir and onnx-mlir-opt.
-llvm::cl::OptionCategory OnnxMlirCommonOptions("ONNX-MLIR Common Options", "");
+llvm::cl::OptionCategory OnnxMlirCommonOptions("Optimization Options", "");
 
 // the option is used in this file, so defined here
 llvm::cl::opt<bool> invokeOnnxVersionConverter("invokeOnnxVersionConverter",
@@ -76,6 +75,12 @@ llvm::cl::opt<std::string> shapeInformation("shapeInformation",
         "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<std::string> customEnvFlags("customEnvFlags",
+    llvm::cl::desc("Override default option env var OnnxMlirEnvOptionName: "
+                   "ONNX_MLIR_FLAGS"),
+    llvm::cl::value_desc("option env var"), llvm::cl::init("ONNX_MLIR_FLAGS"),
+    llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<std::string> mtriple("mtriple",
     llvm::cl::desc("Override target triple for module"),
     llvm::cl::value_desc("LLVM target triple"), llvm::cl::cat(OnnxMlirOptions),
@@ -121,31 +126,51 @@ llvm::cl::opt<std::string> mllvm("mllvm",
     llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
 
-llvm::cl::opt<OptLevel> OptimizationLevel(
-    llvm::cl::desc("Optimization levels:"),
-    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default)."),
-        clEnumVal(O1, "Optimization level 1."),
-        clEnumVal(O2, "Optimization level 2."),
+llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
+    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default):"),
+        clEnumVal(O1, "Optimization level 1,"),
+        clEnumVal(O2, "Optimization level 2,"),
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::init(O0), llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::opt<std::string> instrumentONNXOps("instrument-onnx-ops",
-    llvm::cl::desc("Specify onnx ops to be instrumented\n"
-                   "\"NONE\" or \"\" for no instrument\n"
-                   "\"ALL\" for all ops. \n"
-                   "\"op1 op2 ...\" for the specified ops."),
+llvm::cl::opt<InstrumentStages> instrumentStage("instrument-stage",
+    llvm::cl::desc("Specify stage to be instrumented:"),
+    llvm::cl::values(APPLY_TO_NO_ACCELERATORS(DEFAULT_INSTRUMENTSTAGE_CL_ENUM)
+            APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_CL_ENUM)),
+    llvm::cl::init(Onnx), llvm::cl::cat(OnnxMlirCommonOptions));
+
+llvm::cl::opt<std::string> instrumentOps("instrument-ops",
+    llvm::cl::desc("Specify operations operations to be instrumented:\n"
+                   "\"NONE\" or \"\" for no instrument,\n"
+                   "\"ops1,ops2, ...\" for the multiple ops.\n"
+                   "e.g. \"onnx.Conv,onnx.Add\" for Conv and Add ops.\n"
+                   "Asterisk is also available.\n"
+                   "e.g. \"onnx.*\" for all onnx operations.\n"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::bits<InstrumentActions> instrumentControlBits(
     llvm::cl::desc("Specify what instrumentation actions at runtime:"),
     llvm::cl::values(
-        clEnumVal(InstrumentBeforeOp, "insert instrument before op"),
-        clEnumVal(InstrumentAfterOp, "insert instrument after op"),
+        clEnumVal(InstrumentBeforeOp, "insert instrument before op,"),
+        clEnumVal(InstrumentAfterOp, "insert instrument after op,"),
         clEnumVal(
-            InstrumentReportTime, "instrument runtime reports time usage"),
-        clEnumVal(
-            InstrumentReportMemory, "instrument runtime reports memory usage")),
+            InstrumentReportTime, "instrument runtime reports time usage,"),
+        clEnumVal(InstrumentReportMemory,
+            "instrument runtime reports memory usage.")),
     llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> instrumentONNXSignature("instrument-onnx-signature",
+    llvm::cl::desc("Instrument ONNX ops to print the type of their inputs"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<std::string> ONNXOpStats("onnx-op-stats",
+    llvm::cl::desc(
+        "Report the occurrence frequency of ONNX ops in JSON or TXT format:\n"
+        "\"TXT\" for report as text,\n"
+        "\"JSON\" for report as JSON.\n"
+        "Requires targets like --EmitMLIR, --EmitLLVMIR, or binary-generating "
+        "commands."),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> enableMemoryBundling("enable-memory-bundling",
     llvm::cl::desc(
@@ -164,6 +189,39 @@ llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> enableParallel("parallel",
+    llvm::cl::desc("Enable parallelization (default=false)\n"
+                   "Set to 'true' if you want to enable parallelization."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> enableSimdDataLayout("simd-data-layout",
+    llvm::cl::desc("Enable SIMD optimization for convolution (default=false)\n"
+                   "Set to 'true' if you want to enable SIMD optimizations."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
+    llvm::cl::desc(
+        "Verify input tensors whenever the entry point function is called.\n"
+        "Data type and shape are verified. Enable this may introduce overhead "
+        "at runtime."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> allowSorting("allowSorting",
+    llvm::cl::desc("Perform topological sort on onnx graph"),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<std::string> reportHeapBefore("report-heap-before",
+    llvm::cl::desc("Comma separated list of names of passes.\n"
+                   "Before each heap statistics are dumped to "
+                   "<output-files-base-path>.heap.log"),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<std::string> reportHeapAfter("report-heap-after",
+    llvm::cl::desc("Comma separated list of names of passes.\n"
+                   "After each heap statistics are dumped to "
+                   "<output-files-base-path>.heap.log"),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
 // dependent libdnn.
@@ -174,6 +232,55 @@ std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
 // =============================================================================
 // Methods for setting and getting compiler variables.
+
+// The customEnvFlags must be scanned before the normal options.
+bool parseCustomEnvFlagsCommandLineOption(
+    int argc, const char *const *argv, llvm::raw_ostream *errs) {
+  // Find -customEnvFlags=val and save its value.
+  std::string envVar;
+  for (int i = argc - 1; i > 1; --i) {
+    std::string arg(argv[i]);
+    if (arg.find("--customEnvFlags") == 0) {
+      envVar = arg.substr(sizeof("--customEnvFlags"));
+      break;
+    }
+    if (arg.find("-customEnvFlags") == 0) {
+      envVar = arg.substr(sizeof("-customEnvFlags"));
+      break;
+    }
+  }
+  if (!envVar.empty()) {
+    // We have a custom env var, verify that it does not recursively hold
+    // another -customEnvFlags.
+    const char *envValCstr;
+    if ((envValCstr = std::getenv(envVar.c_str()))) {
+      std::string envVal(envValCstr);
+      if (envVal.find("-customEnvFlags") != std::string::npos) {
+        if (errs)
+          *errs << "Warning: recursive use of --customEnvFlags in custom "
+                   "environment flag not permited\n";
+        return false;
+      }
+    }
+    // The envVar is verified, use it.
+    setCustomEnvVar(envVar);
+  }
+  return true;
+}
+
+// Support for customEnvFlags.
+void setCustomEnvVar(const std::string &envVarName) {
+  assert(envVarName != "" && "Expecting valid target envVarName description");
+  LLVM_DEBUG(
+      llvm::dbgs() << DEBUG_TYPE << "Set envVarName\"" << envVarName << "\"\n");
+  customEnvFlags = envVarName;
+}
+
+void clearCustomEnvVar() { customEnvFlags.clear(); }
+
+std::string getCustomEnvVarOption() {
+  return (customEnvFlags != "") ? "--customEnvFlags=" + customEnvFlags : "";
+}
 
 // Support for Triple.
 void setTargetTriple(const std::string &triple) {
@@ -331,6 +438,13 @@ void setLLVMOption(const std::string &flag) { mllvm = flag; }
 void clearLLVMOption() { mllvm.clear(); }
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
 
+// Support for Verbose Option
+void setVerboseOption() { VerboseOutput = true; }
+void clearVerboseOption() { VerboseOutput = false; }
+std::string getVerboseOption() {
+  return VerboseOutput ? std::string("-v") : std::string();
+}
+
 // =============================================================================
 // Methods for OMCompilerOptions
 
@@ -364,9 +478,12 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
   case OptionKind::LLVMFlag:
     setLLVMOption(val);
     break;
+  case OptionKind::Verbose:
+    setVerboseOption();
+    break;
     // Ignore options that were added but are unknown.
   }
-  return NoCompilerError;
+  return CompilerSuccess;
 }
 
 void clearCompilerOption(const OptionKind kind) {
@@ -394,6 +511,9 @@ void clearCompilerOption(const OptionKind kind) {
     break;
   case OptionKind::LLVMFlag:
     clearLLVMOption();
+    break;
+  case OptionKind::Verbose:
+    clearVerboseOption();
     break;
     // Ignore options that were added but are unknown.
   }
@@ -425,6 +545,8 @@ std::string getCompilerOption(const OptionKind kind) {
   }
   case OptionKind::LLVMFlag:
     return getLLVMOption();
+  case OptionKind::Verbose:
+    return getVerboseOption();
   }
   return std::string();
 }
@@ -432,10 +554,10 @@ std::string getCompilerOption(const OptionKind kind) {
 int setCompilerOptions(const CompilerOptionList &list) {
   for (const auto &pair : list) {
     int rc = setCompilerOption(pair.first, pair.second);
-    if (rc != NoCompilerError)
+    if (rc != CompilerSuccess)
       return rc;
   }
-  return NoCompilerError;
+  return CompilerSuccess;
 }
 
 // Get the string vector associated with the specified key

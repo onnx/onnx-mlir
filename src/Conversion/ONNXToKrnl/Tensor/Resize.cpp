@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -49,14 +49,13 @@ struct ONNXResizeOpLowering : public ConversionPattern {
             resizeOp.coordinate_transformation_mode() != "half_pixel"))
       return emitError(loc, "not implemented yet");
 
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
     SmallVector<Value, 4> scaleValues;
     bool fromScale = !isFromNone(resizeOp.scales());
     IndexExprScope outerloopContex(&rewriter, loc);
     DimsExpr outputDims(rank);
-    MemRefBoundsIndexCapture dataBounds(data);
-    KrnlBuilder createKrnl(rewriter, loc);
     if (fromScale) {
       // Get the scales
       // SymbolIndexExpr was tried but got runtime error
@@ -75,17 +74,17 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       } else {
         for (decltype(rank) i = 0; i < rank; i++) {
           Value indexValue = create.math.constantIndex(i);
-          Value scaleVal = createKrnl.load(scales, indexValue);
+          Value scaleVal = create.krnl.load(scales, indexValue);
           scaleValues.emplace_back(scaleVal);
         }
       }
     } else {
       for (decltype(rank) i = 0; i < rank; i++) {
         Value indexValue = create.math.constantIndex(i);
-        Value resizedVal = createKrnl.load(sizes, indexValue);
+        Value resizedVal = create.krnl.load(sizes, indexValue);
         Value resizedFVal = rewriter.create<arith::SIToFPOp>(
             loc, rewriter.getF32Type(), resizedVal);
-        Value inputDim = dataBounds.getDim(i).getValue();
+        Value inputDim = create.krnlIE.getShapeAsDim(data, i).getValue();
         Value inputDimFloat = create.math.cast(rewriter.getF32Type(), inputDim);
         Value scaleVal = create.math.div(resizedFVal, inputDimFloat);
         scaleValues.emplace_back(scaleVal);
@@ -96,10 +95,10 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else if (fromScale) {
       for (decltype(rank) i = 0; i < rank; i++) {
-        if (memRefType.getShape()[i] != -1) {
+        if (!memRefType.isDynamicDim(i)) {
           outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
         } else {
-          Value inputDim = dataBounds.getDim(i).getValue();
+          Value inputDim = create.krnlIE.getShapeAsDim(data, i).getValue();
           Value inputDimFloat =
               create.math.cast(rewriter.getF32Type(), inputDim);
           Value outputDimFloat = create.math.mul(inputDimFloat, scaleValues[i]);
@@ -113,11 +112,11 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     } else {
       // Output is determined by sizes()
       for (decltype(rank) i = 0; i < rank; i++) {
-        if (memRefType.getShape()[i] != -1) {
+        if (!memRefType.isDynamicDim(i)) {
           outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
         } else {
           Value indexValue = create.math.constantIndex(i);
-          Value resizedVal = createKrnl.load(sizes, indexValue);
+          Value resizedVal = create.krnl.load(sizes, indexValue);
           Value outDim = create.math.castToIndex(resizedVal);
           SymbolIndexExpr outDimIE(outDim);
           outputDims[i] = SymbolIndexExpr(outDimIE);
@@ -129,24 +128,38 @@ struct ONNXResizeOpLowering : public ConversionPattern {
 
     // Call external function when the mode is not "nearest"
     // Create KrnlCallOp and replace the du chain
+    // One of inputs, scales() and size(), has to be None.
+    // For now, None input is picked out by KrnlCall builder,
+    // and different function will be called accordingly.
+    // Another issue is the attributes with default value.
+    // Currently, it is assumed that all the optional attributes have
+    // the default value and does appear in the Attribute dictionry.
+    // ToFix: Handle attributes for general case
     if (resizeOp.mode() != "nearest") {
-      Value resizeCall =
-          rewriter.create<KrnlCallOp>(loc, alloc, op, operands, true);
-      rewriter.replaceOp(op, resizeCall);
+      if (!isFromNone(resizeOp.scales())) {
+        rewriter.create<KrnlCallOp>(
+            loc, "Resize_Scales", alloc, op, operands, true);
+      } else {
+        rewriter.create<KrnlCallOp>(
+            loc, "Resize_Size", alloc, op, operands, true);
+      }
+      rewriter.replaceOp(op, alloc);
       return success();
     }
+    // It is much more efficient to generate codes directly if possible
 
     // Constants used in the loop body
     Value zero = create.math.constant(rewriter.getIntegerType(64), 0);
     Value one = create.math.constantIndex(1);
 
-    ValueRange loopDef = createKrnl.defineLoops(rank);
+    ValueRange loopDef = create.krnl.defineLoops(rank);
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
-    MemRefBoundsIndexCapture allocBounds(alloc);
     SmallVector<IndexExpr, 4> ubs;
-    allocBounds.getDimList(ubs);
-    createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+    create.krnlIE.getShapeAsDims(alloc, ubs);
+    create.krnl.iterateIE(
+        loopDef, loopDef, lbs, ubs, [&](KrnlBuilder &ck, ValueRange loopInd) {
+          MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+              create(ck);
           SmallVector<Value, 4> readIndices;
           for (int64_t i = 0; i < rank; ++i) {
             Value inIndexFloat;
@@ -205,7 +218,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
 
             // Upper bound comparison can be done with Index type
             inIndexLBPadded = create.math.castToIndex(inIndexLBPadded);
-            Value inputDim = dataBounds.getDim(i).getValue();
+            Value inputDim = create.krnlIE.getShapeAsDim(data, i).getValue();
 
             Value lessThanDim = create.math.slt(inIndexLBPadded, inputDim);
             Value inputDimMinus = create.math.sub(inputDim, one);
@@ -214,8 +227,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
 
             readIndices.emplace_back(inIndexPadded);
           }
-          Value loadVal = createKrnl.load(data, readIndices);
-          createKrnl.store(loadVal, alloc, loopInd);
+          Value loadVal = create.krnl.load(data, readIndices);
+          create.krnl.store(loadVal, alloc, loopInd);
         });
 
     rewriter.replaceOp(op, alloc);

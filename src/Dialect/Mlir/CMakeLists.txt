@@ -3,11 +3,18 @@
 add_onnx_mlir_library(OMMlirDialects
   IndexExpr.cpp
   IndexExprDetail.cpp
+  IndexExprBuilder.cpp
   DialectBuilder.cpp
 
+  DEPENDS
+  OMKrnlIncGen
+  OMSpecializedKernelOpInterface
+
   LINK_LIBS PUBLIC
-  MLIRMath
-  MLIRAffine
-  MLIRSCF
-  MLIRVector
+  MLIRMathDialect
+  MLIRAffineDialect
+  MLIRSCFDialect
+  MLIRVectorDialect
+  MLIRLLVMIRTransforms
+  MLIRShapeDialect
   )

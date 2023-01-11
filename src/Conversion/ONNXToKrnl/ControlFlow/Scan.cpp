@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -28,7 +28,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = ONNXLoc<ONNXScanOp>(op);
+    Location loc = ONNXLoc<ONNXScanOp>(op);
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     ONNXScanOpAdaptor scanOpAdapter(operands, op->getAttrDictionary());
 
@@ -255,7 +255,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
         for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
-          if (rankedScanOutTy.getShape()[i] == -1) {
+          if (rankedScanOutTy.isDynamicDim(i)) {
             if (i == 0) {
               // TODO(tjingrant): in general, it is not correct to expect
               // scan operation scan output to have the leading dimension
@@ -316,16 +316,15 @@ struct ONNXScanOpLowering : public ConversionPattern {
     OpBuilder::InsertionGuard insertGuard(builder);
 
     auto srcTy = src.getType().cast<MemRefType>();
-    KrnlBuilder createKrnl(builder, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        builder, loc);
     if (srcTy.getRank() > 0) {
-      IndexExprScope childScope(&builder, loc);
-      ValueRange loopDef = createKrnl.defineLoops(srcTy.getRank());
+      IndexExprScope childScope(create.krnl);
+      ValueRange loopDef = create.krnl.defineLoops(srcTy.getRank());
       SmallVector<IndexExpr, 4> lbs(srcTy.getRank(), LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
-      MemRefBoundsIndexCapture bounds(src);
-      for (int i = 0; i < srcTy.getRank(); i++)
-        ubs.emplace_back(bounds.getDim(i));
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      create.krnlIE.getShapeAsDims(src, ubs);
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value, 4> writeIV(
                 writePrefix.begin(), writePrefix.end());
@@ -335,8 +334,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
             createKrnl.store(val, dest, writeIV);
           });
     } else {
-      Value val = createKrnl.load(src);
-      createKrnl.store(val, dest, writePrefix);
+      Value val = create.krnl.load(src);
+      create.krnl.store(val, dest, writePrefix);
     }
   }
 
@@ -346,26 +345,26 @@ struct ONNXScanOpLowering : public ConversionPattern {
 
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV(readPrefix.begin(), readPrefix.end());
-    KrnlBuilder createKrnl(builder, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        builder, loc);
     if ((size_t)srcTy.getRank() > readIV.size()) {
-      IndexExprScope childScope(&builder, loc);
+      IndexExprScope childScope(create.krnl);
       ValueRange loopDef =
-          createKrnl.defineLoops(srcTy.getRank() - readPrefix.size());
+          create.krnl.defineLoops(srcTy.getRank() - readPrefix.size());
       SmallVector<IndexExpr, 4> lbs(
           srcTy.getRank() - readPrefix.size(), LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
-      MemRefBoundsIndexCapture bounds(src);
       for (int i = readIV.size(); i < srcTy.getRank(); i++)
-        ubs.emplace_back(bounds.getDim(i));
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        ubs.emplace_back(create.krnlIE.getShapeAsDim(src, i));
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             readIV.insert(readIV.end(), loopInd.begin(), loopInd.end());
             Value val = createKrnl.load(src, readIV);
             createKrnl.store(val, dest, loopInd);
           });
     } else {
-      Value val = createKrnl.load(src, readIV);
-      createKrnl.store(val, dest);
+      Value val = create.krnl.load(src, readIV);
+      create.krnl.store(val, dest);
     }
   }
 };

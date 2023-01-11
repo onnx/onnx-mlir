@@ -6,12 +6,14 @@
 #include <assert.h>
 #include <fstream>
 #include <iostream>
+#include <stdlib.h>
 #include <string>
 
 using namespace onnx_mlir;
 
 std::string testFileName;
 std::string outputBaseName;
+std::string flags;
 bool compileFromFile = false;
 
 #define IGNORE_ARG(FLAG)                                                       \
@@ -57,34 +59,45 @@ void readCommandLineAndKeepUnused(int &argc, char *argv[]) {
   }
 }
 
+// Read the arguments from command line and save them as a std::string which may
+// be processed by the ONNX-MLIR compiler.
+void readArgsFromCommandLine(int argc, char *argv[]) {
+  for (int i = 1; i < argc; i++) {
+    flags.append(std::string(argv[i]) + " ");
+    readArg(std::string(argv[i]));
+  }
+}
+
 int main(int argc, char *argv[]) {
-  // Read the compiler options from env and args.
-  readCommandLineAndKeepUnused(argc, argv);
-  omSetCompilerOptionsFromArgsAndEnv(argc, argv, nullptr);
+
+  int retVal = 0;
+  const char *errorMessage = NULL;
+  const char *compiledFilename;
+
+  readArgsFromCommandLine(argc, argv);
 
   if (outputBaseName == "") {
     outputBaseName = testFileName.substr(0, testFileName.find_last_of("."));
   }
 
-  int retVal = 0;
-  const char *errorMessage = NULL;
   if (compileFromFile) {
-    retVal = omCompileFromFile(testFileName.c_str(), outputBaseName.c_str(),
-        onnx_mlir::EmitLib, &errorMessage);
-    if (errorMessage != NULL) {
+    // Add output file option to command line.
+    flags += "-o " + outputBaseName;
+    // Compile.
+    retVal = onnx_mlir::omCompileFromFile(
+        testFileName.c_str(), flags.c_str(), &compiledFilename, &errorMessage);
+    if (retVal != CompilerSuccess && errorMessage != NULL)
       std::cerr << errorMessage;
-      retVal = 0xf;
-    }
   } else {
     std::ifstream inFile(
         testFileName, std::ios_base::in | std::ios_base::binary);
     std::string test((std::istreambuf_iterator<char>(inFile)),
         std::istreambuf_iterator<char>());
-    retVal = omCompileFromArray(test.data(), test.size(),
-        outputBaseName.c_str(), onnx_mlir::EmitLib, &errorMessage);
-    if (errorMessage != NULL) {
+    retVal =
+        omCompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
+            onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
+    if (retVal != CompilerSuccess && errorMessage != NULL) {
       std::cerr << errorMessage;
-      retVal = 0xf;
     }
   }
   if (retVal != 0) {

@@ -4,7 +4,7 @@
 
 //===--------------------- ONNXTypes.hpp - ONNX Types ---------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,8 +14,7 @@
 
 #pragma once
 
-#include "mlir/IR/BuiltinTypes.h"
-#include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "mlir/IR/Types.h"
 
 #define GET_TYPEDEF_CLASSES
 #include "src/Dialect/ONNX/ONNXTypes.hpp.inc"

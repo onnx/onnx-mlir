@@ -138,14 +138,14 @@ public class OMModel {
 
 			// z/OS USS requires "x" permission bit
 			Files.setPosixFilePermissions(lib,
-			      PosixFilePermissions.fromString("rwxr-xr-x"));
+			      PosixFilePermissions.fromString("rwx------"));
 
 			// Load the temporary .so copy
 			System.load(lib.toString());
 			logger.finer(lib.toString() + " loaded");
 
 		    } catch (IOException e2) {
-			e2.printStackTrace();
+			logger.severe(e2.getMessage());
 		    }
 		} // if
             } // for
@@ -163,7 +163,7 @@ public class OMModel {
                  .forEach(f -> f.delete());
 
         } catch (URISyntaxException|IOException e) {
-            e.printStackTrace();
+            logger.severe(e.getMessage());
         }
     }
 

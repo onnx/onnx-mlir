@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
-func @simple_imperfectly_nested() {
+func.func @simple_imperfectly_nested() {
   %ii = krnl.define_loops 1
   %ib, %il = krnl.block %ii 2 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   krnl.iterate(%ib) with (%ii -> %i = 0 to 10) {
@@ -15,10 +15,10 @@ func @simple_imperfectly_nested() {
   return
 
 // CHECK-LABEL: func @simple_imperfectly_nested
-// CHECK-SAME:     () {
+// CHECK-SAME:     () attributes {llvm.emit_c_interface} {
 // CHECK:           affine.for [[I_BLOCK:%.+]] = 0 to 10 step 2 {
 // CHECK:             [[ALLOC:%.+]] = memref.alloc() : memref<10xf32>
-// CHECK:             affine.for [[I_LOCAL:%.+]] = #map0([[I_BLOCK]]) to #map1([[I_BLOCK]]) {
+// CHECK:             affine.for [[I_LOCAL:%.+]] = #map([[I_BLOCK]]) to #map1([[I_BLOCK]]) {
 // CHECK:               [[LOAD_VAL:%.+]] = affine.load [[ALLOC]]{{.}}[[I_LOCAL]]{{.}} : memref<10xf32>
 // CHECK:               [[SUM:%.+]] = arith.addf [[LOAD_VAL]], [[LOAD_VAL]] : f32
 // CHECK:             }
@@ -31,7 +31,7 @@ func @simple_imperfectly_nested() {
 
 // -----
 
-func @test_2d_tiling_imperfectly_nested() {
+func.func @test_2d_tiling_imperfectly_nested() {
   %ii, %ij = krnl.define_loops 2
   %ib, %il = krnl.block %ii 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   %jb, %jl = krnl.block %ij 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
@@ -46,16 +46,16 @@ func @test_2d_tiling_imperfectly_nested() {
   }
   return
 
-  // CHECK:       #map0 = affine_map<(d0) -> (d0)>
+  // CHECK:       #map = affine_map<(d0) -> (d0)>
   // CHECK:       #map1 = affine_map<(d0) -> (d0 + 5)>
   // CHECK:       #map2 = affine_map<(d0) -> (d0 + 4)>
   // CHECK-LABEL:       func @test_2d_tiling_imperfectly_nested
-  // CHECK-SAME:     () {
+  // CHECK-SAME:     () attributes {llvm.emit_c_interface} {
   // CHECK:           affine.for [[IB:%.+]] = 0 to 10 step 5 {
   // CHECK:             affine.for [[JB:%.+]] = 0 to 20 step 4 {
   // CHECK:               [[ALLOC:%.+]] = memref.alloc() : memref<10xf32>
-  // CHECK:               affine.for [[IL:%.+]] = #map0([[IB]]) to #map1([[IB]]) {
-  // CHECK:                 affine.for [[JL:%.+]] = #map0([[JB]]) to #map2([[JB]]) {
+  // CHECK:               affine.for [[IL:%.+]] = #map([[IB]]) to #map1([[IB]]) {
+  // CHECK:                 affine.for [[JL:%.+]] = #map([[JB]]) to #map2([[JB]]) {
   // CHECK:                   [[FOO:%.+]] = arith.addi [[IL]], [[JL]] : index
   // CHECK:                 }
   // CHECK:               }

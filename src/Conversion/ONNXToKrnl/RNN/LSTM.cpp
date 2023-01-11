@@ -85,7 +85,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
   activationReverse.g.name = "tanh";
   activationReverse.h.name = "tanh";
   if (activations) {
-    ArrayAttr activationArrAttr = activations.getValue();
+    ArrayAttr activationArrAttr = activations.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -122,7 +122,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 
   // Get alpha attributes.
   if (activationAlpha) {
-    ArrayAttr activationArrAttr = activationAlpha.getValue();
+    ArrayAttr activationArrAttr = activationAlpha.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -156,7 +156,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 
   // Get beta attributes.
   if (activationBeta) {
-    ArrayAttr activationArrAttr = activationBeta.getValue();
+    ArrayAttr activationArrAttr = activationBeta.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -476,8 +476,10 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // Xt * (Wi^T ++ Wo^T ++ Wf^T ++ Wc^T)
   // Ht * (Ri^T ++ Ro^T ++ Rf^T ++ Rc^T)
   // where '++' is matrix concatenation.
-  Value XtWT = create.onnx.matmul(matrixAllGatesType, Xt, weightPack.WT);
-  Value HtRT = create.onnx.matmul(matrixAllGatesType, Ht, weightPack.RT);
+  Value XtWT = create.onnx.toMemref(
+      create.onnx.matmul(matrixAllGatesType, Xt, weightPack.WT));
+  Value HtRT = create.onnx.toMemref(
+      create.onnx.matmul(matrixAllGatesType, Ht, weightPack.RT));
 
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.

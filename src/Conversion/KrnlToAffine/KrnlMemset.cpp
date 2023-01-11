@@ -36,21 +36,27 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     // Get info from operands.
     auto memsetOp = cast<KrnlMemsetOp>(op);
+    bool delayed = memsetOp.delayed();
     KrnlMemsetOpAdaptor operandAdaptor(memsetOp);
     Value destMemRef(operandAdaptor.dest());
     Value destVal(operandAdaptor.value());
     Location loc = memsetOp.getLoc();
-    AffineBuilderKrnlMem createAffine(rewriter, loc);
-    IndexExprScope indexScope(createAffine);
-    MemRefBoundsIndexCapture destBounds(destMemRef);
 
-    int rank = destBounds.getRank();
-    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+    // If delayed but the input memref has not normalized yet, do nothing.
+    if (delayed &&
+        !destMemRef.getType().cast<MemRefType>().getLayout().isIdentity())
+      return failure();
+
+    MultiDialectBuilder<AffineBuilderKrnlMem, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
+    IndexExprScope indexScope(create.affineKMem);
     SmallVector<IndexExpr, 4> ubs;
-    destBounds.getDimList(ubs);
+    create.krnlIE.getShapeAsDims(destMemRef, ubs);
+    int rank = ubs.size();
+    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
     SmallVector<int64_t, 4> steps(rank, 1);
     // Copy data,
-    createAffine.forIE(lbs, ubs, steps,
+    create.affineKMem.forIE(lbs, ubs, steps,
         [&](AffineBuilderKrnlMem &createAffine, ValueRange indices) {
           createAffine.store(destVal, destMemRef, indices);
         });

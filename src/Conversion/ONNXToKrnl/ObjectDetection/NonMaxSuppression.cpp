@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 
@@ -95,15 +95,15 @@ static Value emitIOU(MathBuilder &createMath, SmallVectorImpl<Value> &box1,
 static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
     Value scores, Value scoreThreshold, Value maxOutputPerClass) {
 
-  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
-      rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+      MemRefBuilder>
+      create(rewriter, loc);
   IndexExprScope scope(create.krnl);
   Type indexType = rewriter.getIndexType();
 
-  MemRefBoundsIndexCapture scoreBounds(scores);
-  IndexExpr bsIE = scoreBounds.getDim(0); // batch size.
-  IndexExpr csIE = scoreBounds.getDim(1); // class size.
-  IndexExpr ssIE = scoreBounds.getDim(2); // spatial size.
+  IndexExpr bsIE = create.krnlIE.getShapeAsDim(scores, 0); // batch size.
+  IndexExpr csIE = create.krnlIE.getShapeAsDim(scores, 1); // class size.
+  IndexExpr ssIE = create.krnlIE.getShapeAsDim(scores, 2); // spatial size.
   Value bs = bsIE.getValue();
   Value cs = csIE.getValue();
   Value ss = ssIE.getValue();
@@ -162,20 +162,20 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
 /// BoundingBoxes: [num_of_batch, spatial_dimension, 4]
 static Value tryToUnflip(
     ConversionPatternRewriter &rewriter, Location loc, Value boundingBoxes) {
-  KrnlBuilder createKrnl(rewriter, loc);
-  MemRefBoundsIndexCapture bbBounds(boundingBoxes);
-  IndexExpr bs = bbBounds.getDim(0); // batch size.
-  IndexExpr ss = bbBounds.getDim(1); // spatial size.
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+      rewriter, loc);
   SmallVector<IndexExpr, 4> ubs;
-  bbBounds.getDimList(ubs);
+  create.krnlIE.getShapeAsDims(boundingBoxes, ubs);
+  IndexExpr bs = ubs[0]; // batch size.
+  IndexExpr ss = ubs[1]; // spatial size.
   LiteralIndexExpr zeroIE(0), oneIE(1), twoIE(2), threeIE(3);
 
   Value resMemRef = insertAllocAndDeallocSimple(rewriter, nullptr,
       boundingBoxes.getType().cast<MemRefType>(), loc, ubs,
       /*insertDealloc=*/false);
 
-  ValueRange loopDef = createKrnl.defineLoops(2);
-  createKrnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE}, {bs, ss},
+  ValueRange loopDef = create.krnl.defineLoops(2);
+  create.krnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE}, {bs, ss},
       [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
         MathBuilder createMath(createKrnl);
         DimIndexExpr b(loopInd[0]), s(loopInd[1]);
@@ -220,8 +220,9 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // Builder helper.
     IndexExprScope mainScope(&rewriter, loc);
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -255,11 +256,9 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // boxes: [num_of_batch, spatial_dimension, 4]
     // scores: [num_of_batch, num_of_class, spatial_dimension]
-    MemRefBoundsIndexCapture boxBounds(boxes);
-    MemRefBoundsIndexCapture scoreBounds(scores);
-    IndexExpr bsIE = scoreBounds.getDim(0); // batch size.
-    IndexExpr csIE = scoreBounds.getDim(1); // class size.
-    IndexExpr ssIE = scoreBounds.getDim(2); // spatial size.
+    IndexExpr bsIE = create.krnlIE.getShapeAsDim(scores, 0); // batch size.
+    IndexExpr csIE = create.krnlIE.getShapeAsDim(scores, 1); // class size.
+    IndexExpr ssIE = create.krnlIE.getShapeAsDim(scores, 2); // spatial size.
     Value bs = bsIE.getValue();
     Value cs = csIE.getValue();
     Value ss = ssIE.getValue();
@@ -283,7 +282,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     Value MOPC = create.krnl.load(maxOutputPerClass, {});
 
     // Sort scores in the descending order.
-    Value order = emitArgSort(rewriter, loc, scores, /*axis=*/2);
+    Value order = emitArgSort(rewriter, loc, scores, /*axis=*/2,
+        /*ascending=*/false);
 
     // Bounding boxes may contain a mix of flipped and non-flipped boxes. Try to
     // unflip the flipped boxes.
@@ -394,7 +394,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                 create.krnl.store(create.math.add(currentMOPC, one),
                     effectiveMaxOutputPerClass, {});
 
-                // Update the effective number of seleted indices.
+                // Update the effective number of selected indices.
                 // effective_num_selected_indices += 1
                 create.krnl.store(create.math.add(soVal, one),
                     effectiveNumSelectedIndices, {});
@@ -434,7 +434,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
                       rewriter.setInsertionPointToStart(
                           &if2Op.getThenRegion().front());
 
-                      // If IOU is satified, mark the current box as removed.
+                      // If IOU is satisfied, mark the current box as removed.
                       createKrnl.store(trueVal, removedIndices, {o});
                     });
               });

@@ -16,6 +16,7 @@
 #ifdef __MVS__
 #define _OPEN_THREADS
 #endif
+#include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -168,11 +169,36 @@ void log_printf(
    * of 8 bytes on z/OS.
    */
   pthread_t tid = get_threadid();
+  assert(LOG_MAX_LEN >= strlen(buf) && "error in snprintf length");
   snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf),
       "[%016lx][%s]%s:%s:%d ", *(unsigned long *)&tid, log_level_name[level],
       get_filename(file), func, line);
 
   /* Output actual log data */
+  /* Definition of vsnprintf:
+     int vsnprintf (char * s, size_t n, const char * format, va_list arg);
+
+     Write formatted data from variable argument list to sized buffer
+     Composes a string with the same text that would be printed if format was
+     used on printf, but using the elements in the variable argument list
+     identified by arg instead of additional function arguments and storing the
+     resulting content as a C string in the buffer pointed by s (taking n as the
+     maximum buffer capacity to fill).
+
+    Analysis:
+    As seen in the code, the buffer is statically declared with a size of
+    `LOG_MAX_LEN`:
+
+    char buf[LOG_MAX_LEN];
+
+    And the vsnprintf will uses at most `LOG_MAX_LEN - strlen(buf)` bytes from
+    the buffer which starts at `buff + strlen(buf)`.
+
+    As an added security, we added an assert to make sure that quantity is
+    positive.
+  */
+  assert(LOG_MAX_LEN >= strlen(buf) && "error in vsnprintf length");
+
   va_list log_data;
   va_start(log_data, fmt);
   vsnprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), fmt, log_data);
@@ -235,15 +261,15 @@ void log_init() {
     return;
 
   set_log_level(LOG_INFO);
-  char *strlevel = getenv("ONNX_MLIR_JNI_LOG_LEVEL");
+  char *str_level = getenv("ONNX_MLIR_JNI_LOG_LEVEL");
   int level;
-  if (strlevel && (level = get_log_level_by_name(strlevel)) != -1)
+  if (str_level && (level = get_log_level_by_name(str_level)) != -1)
     set_log_level(level);
 
   set_log_fp(stderr);
-  char *strfname = getenv("ONNX_MLIR_JNI_LOG_FILE");
+  char *str_fname = getenv("ONNX_MLIR_JNI_LOG_FILE");
   FILE *fp;
-  if (strfname && (fp = get_log_file_by_name(strfname)))
+  if (str_fname && (fp = get_log_file_by_name(str_fname)))
     set_log_fp(fp);
 
   tzset();

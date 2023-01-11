@@ -27,10 +27,13 @@
 #include "llvm/Target/TargetMachine.h"
 
 #include "ExternalUtil.hpp"
+
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/HeapReporter.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
 
 #define DEBUG_TYPE "compiler_utils"
@@ -40,9 +43,18 @@ using namespace onnx_mlir;
 
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
-namespace {
+namespace onnx_mlir {
 
-static llvm::Optional<std::string> getEnvVar(std::string name) {
+// Return the vendor name if specified during make processing or the default.
+std::string getVendorName() {
+#if defined(ONNX_MLIR_VENDOR)
+  return ONNX_MLIR_VENDOR;
+#else
+  return "ONNX-MLIR";
+#endif
+}
+
+llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
   return llvm::None;
@@ -93,10 +105,10 @@ static std::string getExecPath() {
   return execPath;
 }
 
-// Runtime directory contains all the libraries, jars, etc. that are
-// necessary for running onnx-mlir. It's resolved in the following order:
+// Directory contains all the libraries, jars, etc. that are necessary for
+// running onnx-mlir. It's resolved in the following order:
 //
-//   - if ONNX_MLIR_RUNTIME_DIR is set, use it, otherwise
+//   - if ONNX_MLIR_LIBRARY_PATH is set, use it, otherwise
 //   - get path from where onnx-mlir is run, if it's of the form
 //     /foo/bar/bin/onnx-mlir,
 //     the runtime directory is /foo/bar/lib (note that when onnx-mlir is
@@ -107,10 +119,10 @@ static std::string getExecPath() {
 //
 // We now explicitly set CMAKE_INSTALL_LIBDIR to lib so we don't have
 // to deal with lib64 anymore.
-static std::string getRuntimeDir() {
-  const auto &envDir = getEnvVar("ONNX_MLIR_RUNTIME_DIR");
-  if (envDir && llvm::sys::fs::exists(envDir.getValue()))
-    return envDir.getValue();
+static std::string getLibraryPath() {
+  const auto &envDir = getEnvVar("ONNX_MLIR_LIBRARY_PATH");
+  if (envDir && llvm::sys::fs::exists(envDir.value()))
+    return envDir.value();
 
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   if (llvm::sys::path::stem(execDir).str().compare("bin") == 0) {
@@ -141,7 +153,8 @@ static std::string getRuntimeDir() {
 // installed system wide but to different places and their sources have been
 // removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
 // llvm-project.
-static std::string getToolPath(std::string tool) {
+std::string getToolPath(
+    const std::string &tool, const std::string &systemToolPath) {
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   llvm::SmallString<8> toolPath(execDir);
   llvm::sys::path::append(toolPath, tool);
@@ -149,94 +162,91 @@ static std::string getToolPath(std::string tool) {
   if (llvm::sys::fs::can_execute(p))
     return p;
   else
-    return std::string();
+    return systemToolPath;
 }
 
-// Helper struct to make command construction and execution easy & readable.
-struct Command {
-  std::string _path;
-  std::vector<std::string> _args;
+// Append a single string argument.
+Command &Command::appendStr(const std::string &arg) {
+  if (arg.size() > 0)
+    _args.emplace_back(arg);
+  return *this;
+}
 
-  Command(std::string exePath)
-      : _path(std::move(exePath)),
-        _args({llvm::sys::path::filename(_path).str()}) {}
+// Append a single optional string argument.
+Command &Command::appendStrOpt(const llvm::Optional<std::string> &arg) {
+  if (arg.has_value())
+    _args.emplace_back(arg.value());
+  return *this;
+}
 
-  // Append a single string argument.
-  Command &appendStr(const std::string &arg) {
-    if (arg.size() > 0)
-      _args.emplace_back(arg);
-    return *this;
+// Append a list of string arguments.
+Command &Command::appendList(const std::vector<std::string> &args) {
+  _args.insert(_args.end(), args.begin(), args.end());
+  return *this;
+}
+
+// Reset arguments.
+Command &Command::resetArgs() {
+  auto exeFileName = _args.front();
+  _args.clear();
+  _args.emplace_back(exeFileName);
+  return *this;
+}
+
+// Execute command in current work directory.
+//
+// If the optional wdir is specified, the command will be executed
+// in the specified work directory. Current work directory is
+// restored after the command is executed.
+//
+// Return 0 on success, error value otherwise.
+int Command::exec(std::string wdir) const {
+  auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
+
+  // If a work directory is specified, save the current work directory
+  // and switch into it. Note that if wdir is empty, new_wdir will be
+  // cur_wdir.
+  llvm::SmallString<8> cur_wdir;
+  llvm::SmallString<8> new_wdir(wdir);
+  llvm::sys::fs::current_path(cur_wdir);
+  llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
+  std::error_code ec = llvm::sys::fs::set_current_path(new_wdir);
+  if (ec.value()) {
+    llvm::errs() << llvm::StringRef(new_wdir).str() << ": " << ec.message()
+                 << "\n";
+    return ec.value();
   }
 
-  // Append a single optional string argument.
-  Command &appendStrOpt(const llvm::Optional<std::string> &arg) {
-    if (arg.hasValue())
-      _args.emplace_back(arg.getValue());
-    return *this;
+  if (VerboseOutput)
+    llvm::errs() << "[" << llvm::StringRef(new_wdir).str() << "]" << _path
+                 << ": " << llvm::join(argsRef, " ") << "\n";
+
+  std::string errMsg;
+  int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
+      /*Env=*/llvm::None, /*Redirects=*/llvm::None,
+      /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
+
+  if (rc != 0) {
+    llvm::errs() << llvm::join(argsRef, " ") << "\n"
+                 << "Error message: " << errMsg << "\n"
+                 << "Program path: " << _path << "\n"
+                 << "Command execution failed."
+                 << "\n";
+    return rc;
   }
 
-  // Append a list of string arguments.
-  Command &appendList(const std::vector<std::string> &args) {
-    _args.insert(_args.end(), args.begin(), args.end());
-    return *this;
-  }
+  // Restore saved work directory.
+  llvm::sys::fs::set_current_path(cur_wdir);
+  return 0;
+}
 
-  // Reset arguments.
-  Command &resetArgs() {
-    auto exeFileName = _args.front();
-    _args.clear();
-    _args.emplace_back(exeFileName);
-    return *this;
-  }
+} // namespace onnx_mlir
 
-  // Execute command in current work directory.
-  //
-  // If the optional wdir is specified, the command will be executed
-  // in the specified work directory. Current work directory is
-  // restored after the command is executed.
-  void exec(std::string wdir = "") const {
-    auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
-
-    // If a work directory is specified, save the current work directory
-    // and switch into it. Note that if wdir is empty, new_wdir will be
-    // cur_wdir.
-    SmallString<8> cur_wdir;
-    SmallString<8> new_wdir(wdir);
-    llvm::sys::fs::current_path(cur_wdir);
-    llvm::sys::fs::make_absolute(cur_wdir, new_wdir);
-    if (std::error_code ec = llvm::sys::fs::set_current_path(new_wdir)) {
-      llvm::errs() << StringRef(new_wdir).str() << ": " << ec.message() << "\n";
-      exit(ec.value());
-    }
-
-    if (VerboseOutput)
-      llvm::errs() << "[" << StringRef(new_wdir).str() << "]" << _path << ": "
-                   << llvm::join(argsRef, " ") << "\n";
-
-    std::string errMsg;
-    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
-        /*Env=*/None, /*Redirects=*/None,
-        /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
-
-    if (rc != 0) {
-      llvm::errs() << llvm::join(argsRef, " ") << "\n"
-                   << "Error message: " << errMsg << "\n"
-                   << "Program path: " << _path << "\n"
-                   << "Command execution failed."
-                   << "\n";
-      exit(rc);
-    }
-
-    // Restore saved work directory.
-    llvm::sys::fs::set_current_path(cur_wdir);
-  }
-};
-} // namespace
-
+namespace onnx_mlir {
 // =============================================================================
 // Methods for compiling and file processing.
 
-void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
+static void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module) {
   // Handle '.mlir' input to the ONNX-MLIR frontend.
   // The mlir format indicates that one or more of the supported
@@ -275,7 +285,7 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   llvm::NamedMDNode *identMetadata =
       llvmModule.getOrInsertNamedMetadata("llvm.ident");
   llvm::Metadata *identNode[] = {
-      llvm::MDString::get(ctx, getOnnxMlirFullVersion())};
+      llvm::MDString::get(ctx, getOnnxMlirCommitVersion())};
   identMetadata->addOperand(llvm::MDNode::get(ctx, identNode));
 
 #ifdef PRODUCT_VERSION_MAJOR
@@ -330,23 +340,56 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
 #endif
 }
 
+// Extend the input filename (with possibly a path but no extention) by the
+// extention generated by the given emission target type. Names may be different
+// depending on the underlying machine and/or operating system.
+std::string getTargetFilename(
+    const std::string filenameNoExt, EmissionTargetType target) {
+  switch (target) {
+
+#ifdef _WIN32
+  case EmitObj:
+    return filenameNoExt + ".obj";
+  case EmitLib:
+    return filenameNoExt + ".dll";
+#else
+  case EmitObj:
+    return filenameNoExt + ".o";
+  case EmitLib:
+    return filenameNoExt + ".so";
+#endif
+
+  case EmitJNI:
+    return filenameNoExt + ".jar";
+  case EmitLLVMIR:
+  case EmitONNXBasic:
+  case EmitONNXIR:
+  case EmitMLIR:
+    return filenameNoExt + ".onnx.mlir";
+  }
+  llvm_unreachable("all cases should be handled in switch");
+}
+
 // Write LLVM optimized bitcode.
-static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
-    std::string optimizedBitcodePath, std::string outputBaseName) {
+// Returns 0 on success, error code on failure.
+static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
+    std::string outputNameNoExt, std::string optimizedBitcodeNameWithExt) {
   std::error_code error;
 
   // Write bitcode to a file.
-  std::string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
+  std::string unoptimizedBitcodeNameWithExt =
+      outputNameNoExt + ".unoptimized.bc";
   llvm::FileRemover unoptimizedBitcodeRemover(
-      unoptimizedBitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
+      unoptimizedBitcodeNameWithExt, !keepFiles(KeepFilesOfType::Bitcode));
 
-  // outputBaseName might contain a directory, which must exist.
+  // outputNameNoExt might contain a directory, which must exist.
   // Otherwise, a "No such file or directory" error will be returned.
   llvm::raw_fd_ostream moduleBitcodeStream(
-      unoptimizedBitcodePath, error, llvm::sys::fs::OF_None);
+      unoptimizedBitcodeNameWithExt, error, llvm::sys::fs::OF_None);
   if (error) {
-    llvm::errs() << unoptimizedBitcodePath << ": " << error.message() << "\n";
-    exit(error.value());
+    llvm::errs() << unoptimizedBitcodeNameWithExt << ": " << error.message()
+                 << "\n";
+    return InvalidTemporaryFileAccess;
   }
 
   llvm::LLVMContext llvmContext;
@@ -355,21 +398,21 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
       mlir::translateModuleToLLVMIR(*module, llvmContext);
   if (!llvmModule) {
     llvm::errs() << "Failed to translate module to LLVMIR.\n";
-    exit(1);
+    return CompilerFailureInMLIRToLLVM;
   }
 
   // Tailor LLVMIR to add features that cannot be done with MLIR LLVMIR.
   tailorLLVMIR(*llvmModule);
 
   // Write LLVMIR to a file.
-  std::string llvmirPath = outputBaseName + ".ll";
+  std::string llvmirNameWithExt = outputNameNoExt + ".ll";
   llvm::FileRemover llvmirRemover(
-      llvmirPath, !keepFiles(KeepFilesOfType::LLVMIR));
+      llvmirNameWithExt, !keepFiles(KeepFilesOfType::LLVMIR));
   llvm::raw_fd_ostream moduleLLVMIRStream(
-      llvmirPath, error, llvm::sys::fs::OF_None);
+      llvmirNameWithExt, error, llvm::sys::fs::OF_None);
   if (error) {
-    llvm::errs() << llvmirPath << ": " << error.message() << "\n";
-    exit(error.value());
+    llvm::errs() << llvmirNameWithExt << ": " << error.message() << "\n";
+    return InvalidTemporaryFileAccess;
   }
   llvmModule->print(moduleLLVMIRStream, nullptr);
   moduleLLVMIRStream.flush();
@@ -379,67 +422,65 @@ static void genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
-  std::string optPath = getToolPath("opt");
-  Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
-  optBitcode.appendStr(getOptimizationLevelOption())
-      .appendStr(getTargetTripleOption())
-      .appendStr(getTargetArchOption())
-      .appendStr(getTargetCPUOption())
-      .appendList(getXoptOption())
-      .appendStr(getLLVMOption())
-      .appendList({"-o", optimizedBitcodePath})
-      .appendStr(unoptimizedBitcodePath)
-      .exec();
+  std::string optPath = getToolPath("opt", kOptPath);
+  Command optBitcode(/*exePath=*/optPath);
+  int rc = optBitcode.appendStr(getOptimizationLevelOption())
+               .appendStr(getTargetTripleOption())
+               .appendStr(getTargetArchOption())
+               .appendStr(getTargetCPUOption())
+               .appendList(getXoptOption())
+               .appendStr(getLLVMOption())
+               .appendList({"-o", optimizedBitcodeNameWithExt})
+               .appendStr(unoptimizedBitcodeNameWithExt)
+               .exec();
+  return rc != 0 ? CompilerFailureInLLVMOpt : CompilerSuccess;
 }
 
 // Compile LLVM bitcode to object file.
-static std::string genModelObject(
-    std::string bitcodePath, std::string outputBaseName) {
+// Return 0 on success, error code on failure.
+static int genModelObject(
+    std::string bitcodeNameWithExt, std::string &modelObjNameWithExt) {
 
-#ifdef _WIN32
-  std::string modelObjPath = outputBaseName + ".obj";
-#else
-  std::string modelObjPath = outputBaseName + ".o";
-#endif
-
-  std::string llcPath = getToolPath("llc");
-  Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
-  llvmToObj.appendStr(getOptimizationLevelOption())
-      .appendStr(getTargetTripleOption())
-      .appendStr(getTargetArchOption())
-      .appendStr(getTargetCPUOption())
-      .appendList(getXllcOption())
-      .appendStr(getLLVMOption())
-      .appendStr("-filetype=obj")
-      .appendStr("-relocation-model=pic")
-      .appendList({"-o", modelObjPath})
-      .appendStr(bitcodePath)
-      .exec();
-  return modelObjPath;
+  std::string llcPath = getToolPath("llc", kLlcPath);
+  Command llvmToObj(/*exePath=*/llcPath);
+  int rc = llvmToObj.appendStr(getOptimizationLevelOption())
+               .appendStr(getTargetTripleOption())
+               .appendStr(getTargetArchOption())
+               .appendStr(getTargetCPUOption())
+               .appendList(getXllcOption())
+               .appendStr(getLLVMOption())
+               .appendStr("-filetype=obj")
+               .appendStr("-relocation-model=pic")
+               .appendList({"-o", modelObjNameWithExt})
+               .appendStr(bitcodeNameWithExt)
+               .exec();
+  return rc != 0 ? CompilerFailureInLLVMToObj : CompilerSuccess;
 }
 
-static void genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
+// Return 0 on success, error code on failure.
+static int genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
     std::string jniSharedLibPath, std::string jniObjPath) {
   Command ar(/*exePath=*/kArPath);
-  ar.appendStr("x")
-      // old version of ar does not support --output so comment out
-      // for now and use the optional wdir for exec() to get around
-      // the problem.
-      //.appendStr("--output")
-      //.appendStr(llvm::sys::path::parent_path(jniObjPath).str())
-      .appendStr(jniSharedLibPath)
-      .appendStr(llvm::sys::path::filename(jniObjPath).str())
-      .exec(llvm::sys::path::parent_path(jniObjPath).str());
+  int rc = ar.appendStr("x")
+               // old version of ar does not support --output so comment out
+               // for now and use the optional wdir for exec() to get around
+               // the problem.
+               //.appendStr("--output")
+               //.appendStr(llvm::sys::path::parent_path(jniObjPath).str())
+               .appendStr(jniSharedLibPath)
+               .appendStr(llvm::sys::path::filename(jniObjPath).str())
+               .exec(llvm::sys::path::parent_path(jniObjPath).str());
+  return rc != 0 ? CompilerFailureInGenJniObj : CompilerSuccess;
 }
 
 // Link everything into a shared object.
-static std::string genSharedLib(std::string outputBaseName,
+// Return 0 on success, error code on failure.
+static int genSharedLib(std::string sharedLibNameWithExt,
     std::vector<std::string> opts, std::vector<std::string> objs,
     std::vector<std::string> libs, std::vector<std::string> libDirs) {
 
 #ifdef _WIN32
-  std::string sharedLibPath = outputBaseName + ".dll";
-  std::vector<std::string> outputOpt = {"/Fe:" + sharedLibPath};
+  std::vector<std::string> outputOpt = {"/Fe:" + sharedLibNameWithExt};
   // link has to be before libpath since they need to be passed through to the
   // linker
   std::vector<std::string> sharedLibOpts = {"/LD", "/link", "/NOLOGO"};
@@ -448,83 +489,98 @@ static std::string genSharedLib(std::string outputBaseName,
   llvm::for_each(libDirs,
       [](std::string &libDir) { libDir = "/libpath:\"" + libDir + "\""; });
 #else
-  std::string sharedLibPath = outputBaseName + ".so";
-  std::vector<std::string> outputOpt = {"-o", sharedLibPath};
+  std::vector<std::string> outputOpt = {"-o", sharedLibNameWithExt};
   std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
   llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });
 #endif
 
   Command link(kCxxPath);
-  link.appendList(opts)
-      .appendList(objs)
-      .appendList(outputOpt)
-      .appendList(sharedLibOpts)
-      .appendList(libDirs)
-      .appendList(libs)
-      .exec();
-
-  return sharedLibPath;
+  int rc = link.appendList(opts)
+               .appendList(objs)
+               .appendList(outputOpt)
+               .appendList(sharedLibOpts)
+               .appendList(libDirs)
+               .appendList(libs)
+               .exec();
+  return rc != 0 ? CompilerFailureInObjToLib : CompilerSuccess;
 }
 
 // Create jar containing java runtime and model shared library (which includes
 // jni runtime).
-static void genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
+// Return 0 on success, error code on failure.
+static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
     std::string modelSharedLibPath, std::string modelJniJarPath) {
-  llvm::SmallString<8> runtimeDir(getRuntimeDir());
-  llvm::sys::path::append(runtimeDir, "javaruntime.jar");
-  std::string javaRuntimeJarPath = llvm::StringRef(runtimeDir).str();
+  llvm::SmallString<8> libraryPath(getLibraryPath());
+  llvm::sys::path::append(libraryPath, "javaruntime.jar");
+  std::string javaRuntimeJarPath = llvm::StringRef(libraryPath).str();
 
   // Copy javaruntime.jar to model jar.
   llvm::sys::fs::copy_file(javaRuntimeJarPath, modelJniJarPath);
 
   // Add shared library to model jar.
   Command jar(kJarPath);
-  jar.appendStr("uf")
-      .appendStr(modelJniJarPath)
-      .appendStr("-C")
-      .appendStr(llvm::sys::path::parent_path(modelSharedLibPath).str())
-      .appendStr(llvm::sys::path::filename(modelSharedLibPath).str())
-      .exec();
+  int rc =
+      jar.appendStr("uf")
+          .appendStr(modelJniJarPath)
+          .appendStr("-C")
+          .appendStr(llvm::sys::path::parent_path(modelSharedLibPath).str())
+          .appendStr(llvm::sys::path::filename(modelSharedLibPath).str())
+          .exec();
+  return rc != 0 ? CompilerFailureInGenJni : CompilerSuccess;
 }
 
-std::string compileModuleToObject(
-    const mlir::OwningOpRef<ModuleOp> &module, std::string outputBaseName) {
-  std::string bitcodePath = outputBaseName + ".bc";
-  genLLVMBitcode(module, bitcodePath, outputBaseName);
+// Return 0 on success, error code on failure
+static int compileModuleToObject(const mlir::OwningOpRef<ModuleOp> &module,
+    std::string outputNameWithoutExt, std::string &objectNameWithExt) {
+  std::string bitcodeNameWithExt = outputNameWithoutExt + ".bc";
+  int rc = genLLVMBitcode(module, outputNameWithoutExt, bitcodeNameWithExt);
+  if (rc != CompilerSuccess)
+    return rc;
   llvm::FileRemover bitcodeRemover(
-      bitcodePath, !keepFiles(KeepFilesOfType::Bitcode));
-
-  return genModelObject(bitcodePath, outputBaseName);
+      bitcodeNameWithExt, !keepFiles(KeepFilesOfType::Bitcode));
+  objectNameWithExt = getTargetFilename(outputNameWithoutExt, EmitObj);
+  return genModelObject(bitcodeNameWithExt, objectNameWithExt);
 }
 
-std::string compileModuleToSharedLibrary(
-    const mlir::OwningOpRef<ModuleOp> &module, std::string outputBaseName) {
-  std::string modelObjPath = compileModuleToObject(module, outputBaseName);
+// Return 0 on success, error code on failure
+static int compileModuleToSharedLibrary(
+    const mlir::OwningOpRef<ModuleOp> &module, std::string outputNameNoExt,
+    std::string &libNameWithExt) {
+  std::string modelObjNameWithExt;
+  int rc = compileModuleToObject(module, outputNameNoExt, modelObjNameWithExt);
+  if (rc != CompilerSuccess)
+    return rc;
   llvm::FileRemover modelObjRemover(
-      modelObjPath, !keepFiles(KeepFilesOfType::Object));
-
-  return genSharedLib(outputBaseName, {}, {modelObjPath},
-      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getRuntimeDir()});
+      modelObjNameWithExt, !keepFiles(KeepFilesOfType::Object));
+  libNameWithExt = getTargetFilename(outputNameNoExt, EmitLib);
+  return genSharedLib(libNameWithExt, {}, {modelObjNameWithExt},
+      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getLibraryPath()});
 }
 
-void compileModuleToJniJar(
-    const mlir::OwningOpRef<ModuleOp> &module, std::string outputBaseName) {
-  std::string modelObjPath = compileModuleToObject(module, outputBaseName);
+// Return 0 on success, error code on failure
+static int compileModuleToJniJar(
+    const mlir::OwningOpRef<ModuleOp> &module, std::string outputNameNoExt) {
+  std::string modelObjNameWithExt;
+  int rc = compileModuleToObject(module, outputNameNoExt, modelObjNameWithExt);
+  if (rc != CompilerSuccess)
+    return rc;
   llvm::FileRemover modelObjRemover(
-      modelObjPath, !keepFiles(KeepFilesOfType::Object));
+      modelObjNameWithExt, !keepFiles(KeepFilesOfType::Object));
 
-  StringRef outputDir = llvm::sys::path::parent_path(outputBaseName);
+  StringRef outputDir = llvm::sys::path::parent_path(outputNameNoExt);
   if (outputDir.empty())
     outputDir = StringRef(".");
 
-  std::string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
+  std::string jniSharedLibPath = getLibraryPath() + "/libjniruntime.a";
 
   llvm::SmallString<8> jniObjDir(outputDir);
   llvm::sys::path::append(jniObjDir, "jnidummy.c.o");
   std::string jniObjPath = llvm::StringRef(jniObjDir).str();
 
-  genJniObject(module, jniSharedLibPath, jniObjPath);
+  rc = genJniObject(module, jniSharedLibPath, jniObjPath);
+  if (rc != CompilerSuccess)
+    return rc;
   llvm::FileRemover jniObjRemover(
       jniObjPath, !keepFiles(KeepFilesOfType::Object));
 
@@ -532,14 +588,24 @@ void compileModuleToJniJar(
   llvm::sys::path::append(jniLibDir, "libmodel");
   std::string jniLibBase = llvm::StringRef(jniLibDir).str();
 
-  std::string modelSharedLibPath = genSharedLib(jniLibBase,
-      {"-z", "noexecstack"}, {modelObjPath, jniObjPath},
-      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getRuntimeDir()});
+#if defined(__APPLE__) && defined(__clang__)
+#define NOEXECSTACK                                                            \
+  {}
+#else
+#define NOEXECSTACK                                                            \
+  { "-z", "noexecstack" }
+#endif
+  std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
+  rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
+      {modelObjNameWithExt, jniObjPath}, getCompilerConfig(CCM_SHARED_LIB_DEPS),
+      {getLibraryPath()});
+  if (rc != CompilerSuccess)
+    return rc;
   llvm::FileRemover modelSharedLibRemover(
       modelSharedLibPath, !keepFiles(KeepFilesOfType::Object));
 
-  std::string modelJniJarPath = outputBaseName + ".jar";
-  genJniJar(module, modelSharedLibPath, modelJniJarPath);
+  std::string modelJniJarPath = getTargetFilename(outputNameNoExt, EmitJNI);
+  return genJniJar(module, modelSharedLibPath, modelJniJarPath);
 }
 
 void registerDialects(mlir::MLIRContext &context) {
@@ -553,36 +619,46 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::math::MathDialect>();
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
-  context.getOrLoadDialect<mlir::KrnlOpsDialect>();
+  context.getOrLoadDialect<mlir::KrnlDialect>();
 }
 
-// Return 0 on success, error number on failure.
-int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
-    mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
-  // Decide if the input file is an ONNX model or a model specified
-  // in MLIR. The extension of the file is the decider.
-  std::string extension =
-      inputFilename.substr(inputFilename.find_last_of(".") + 1);
-  bool inputIsONNX = (extension == "onnx");
-  bool inputIsMLIR = (extension == "mlir");
+namespace {
+std::string dirName(StringRef inputFilename) {
+  llvm::SmallVector<char> path(inputFilename.begin(), inputFilename.end());
+  llvm::sys::path::remove_filename(path);
+  return std::string(path.data(), path.size());
+}
+} // namespace
 
-  if (!inputIsONNX && !inputIsMLIR) {
-    *errorMessage = "Invalid input file '" + inputFilename +
-                    "': Either an ONNX model (.onnx), or an MLIR file (.mlir) "
+// Return 0 on success, error number on failure.
+int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
+    mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
+  // Decide if the input file is an ONNX model (either ONNX protobuf or JSON) or
+  // a model specified in MLIR. The extension of the file is the decider.
+  bool inputIsONNX = inputFilename.endswith(".onnx");
+  bool inputIsJSON = inputFilename.endswith(".json");
+  bool inputIsMLIR = inputFilename.endswith(".mlir");
+
+  if (!inputIsONNX && !inputIsJSON && !inputIsMLIR) {
+    *errorMessage = "Invalid input file '" + inputFilename.str() +
+                    "': Either an ONNX model (.onnx or .json or '-'), or an "
+                    "MLIR file (.mlir) "
                     "needs to be provided.";
     return InvalidInputFile;
   }
 
-  if (inputIsONNX) {
+  if (inputIsONNX || inputIsJSON) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
+    options.allowSorting = allowSorting;
+    options.externalDataDir = dirName(inputFilename);
     return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
-    loadMLIR(inputFilename, context, module);
-  return NoCompilerError;
+    loadMLIR(inputFilename.str(), context, module);
+  return CompilerSuccess;
 }
 
 // Return 0 on success, error code on error.
@@ -592,19 +668,24 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
   ImportOptions options;
   options.useOnnxModelTypes = useOnnxModelTypes;
   options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
+  options.allowSorting = allowSorting;
   options.shapeInformation = shapeInformation;
   return ImportFrontendModelArray(
       onnxBuffer, bufferSize, context, module, errorMessage, options);
 }
 
-int outputCode(mlir::OwningOpRef<ModuleOp> &module, std::string filename,
-    std::string extension) {
+// Return 0 on success, error code on error.
+int outputCode(mlir::OwningOpRef<ModuleOp> &module, std::string filenameWithExt,
+    int64_t largeElementLimit) {
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
     flags.enableDebugInfo();
 
+  if (largeElementLimit >= 0)
+    flags.elideLargeElementsAttrs(largeElementLimit);
+
   std::string errorMessage;
-  auto output = openOutputFile(filename + extension, &errorMessage);
+  auto output = openOutputFile(filenameWithExt, &errorMessage);
   if (!output) {
     llvm::errs() << errorMessage << "\n";
     return InvalidOutputFileAccess;
@@ -612,11 +693,11 @@ int outputCode(mlir::OwningOpRef<ModuleOp> &module, std::string filename,
 
   module->print(output->os(), flags);
   output->keep();
-  return NoCompilerError;
+  return CompilerSuccess;
 }
 
 // Return 0 on success, error code on failure.
-int emitOutputFiles(std::string outputBaseName,
+static int emitOutputFiles(std::string outputNameNoExt,
     EmissionTargetType emissionTarget, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module) {
   // For EmitONNXIR and EmitMLIR the constant value are embedded in the code
@@ -638,74 +719,77 @@ int emitOutputFiles(std::string outputBaseName,
   // necessary when emitting the .bc file.
   switch (emissionTarget) {
   case EmitObj: {
-    std::string modelObjPath = compileModuleToObject(module, outputBaseName);
+    std::string modelObjNameWithExt;
+    int rc =
+        compileModuleToObject(module, outputNameNoExt, modelObjNameWithExt);
+    if (rc != CompilerSuccess)
+      return rc;
     if (keepFiles(KeepFilesOfType::MLIR)) {
-      int rc = outputCode(module, outputBaseName, ".llvm.mlir");
-      if (rc != NoCompilerError)
+      rc = outputCode(module, outputNameNoExt + ".llvm.mlir");
+      if (rc != CompilerSuccess)
         return rc;
     }
     if (VerboseOutput)
-      printf("Object file %s.o has been compiled.\n", outputBaseName.c_str());
+      printf(
+          "Object file %s has been compiled.\n", modelObjNameWithExt.c_str());
   } break;
   case EmitLib: {
     addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime"});
-    std::string sharedLib =
-        compileModuleToSharedLibrary(module, outputBaseName);
+    std::string sharedLibNameWithExt;
+    int rc = compileModuleToSharedLibrary(
+        module, outputNameNoExt, sharedLibNameWithExt);
+    if (rc != CompilerSuccess)
+      return rc;
     if (keepFiles(KeepFilesOfType::MLIR)) {
-      int rc = outputCode(module, outputBaseName, ".llvm.mlir");
-      if (rc != NoCompilerError)
+      rc = outputCode(module, outputNameNoExt + ".llvm.mlir");
+      if (rc != CompilerSuccess)
         return rc;
     }
     if (VerboseOutput)
-      printf("Shared library %s has been compiled.\n", sharedLib.c_str());
+      printf("Shared library %s has been compiled.\n",
+          sharedLibNameWithExt.c_str());
   } break;
   case EmitJNI: {
     addCompilerConfig(CCM_SHARED_LIB_DEPS, {"jniruntime", "cruntime"});
-    compileModuleToJniJar(module, outputBaseName);
+    int rc = compileModuleToJniJar(module, outputNameNoExt);
+    if (rc != CompilerSuccess)
+      return rc;
     if (keepFiles(KeepFilesOfType::MLIR)) {
-      int rc = outputCode(module, outputBaseName, ".llvm.mlir");
-      if (rc != NoCompilerError)
+      rc = outputCode(module, outputNameNoExt + ".llvm.mlir");
+      if (rc != CompilerSuccess)
         return rc;
     }
     if (VerboseOutput)
-      printf("JNI archive %s.jar has been compiled.\n", outputBaseName.c_str());
+      printf(
+          "JNI archive %s.jar has been compiled.\n", outputNameNoExt.c_str());
   } break;
   default: {
     // Emit the version with all constants included.
-    int rc = outputCode(module, outputBaseName, ".onnx.mlir");
+    std::string ouputNameWithExt =
+        getTargetFilename(outputNameNoExt, emissionTarget);
+    int rc = outputCode(module, ouputNameWithExt);
     if (VerboseOutput)
-      printf("Full MLIR code written to: \n\t%s\n\n",
-          (outputBaseName + ".onnx.mlir").c_str());
-    if (rc != NoCompilerError)
+      printf("Full MLIR code written to: \n\t%s\n\n", ouputNameWithExt.c_str());
+    if (rc != CompilerSuccess)
       return rc;
 
-    // Apply specific passes to clean up the code where necessary.
-    mlir::PassManager cleanSourcePM(
-        &context, mlir::OpPassManager::Nesting::Implicit);
-    if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
-      cleanSourcePM.addNestedPass<func::FuncOp>(
-          onnx_mlir::createElideConstantValuePass());
-    if (emissionTarget == EmitMLIR)
-      cleanSourcePM.addNestedPass<func::FuncOp>(
-          onnx_mlir::createElideConstGlobalValuePass());
-
+    // Elide element attributes if larger than 100.
     if (emissionTarget == EmitONNXBasic || emissionTarget == EmitONNXIR ||
         emissionTarget == EmitMLIR) {
-      if (mlir::failed(cleanSourcePM.run(*module)))
-        llvm::errs() << "Could not apply simplification passes.\n";
-      int rc = outputCode(module, outputBaseName, ".tmp");
+      std::string tempNameWithExt = outputNameNoExt + ".tmp";
+      int rc = outputCode(module, tempNameWithExt, /*largeElementLimit=*/100);
       if (VerboseOutput) {
         printf("Constant-free MLIR Code written to: \n\t%s\n\n",
-            (outputBaseName + ".tmp").c_str());
+            tempNameWithExt.c_str());
         printf("Use:\n\t%s\nto continue lowering the code to other dialects.\n",
-            (outputBaseName + ".onnx.mlir").c_str());
+            ouputNameWithExt.c_str());
       }
-      if (rc != NoCompilerError)
+      if (rc != CompilerSuccess)
         return rc;
     }
   }
   }
-  return NoCompilerError;
+  return CompilerSuccess;
 } // end anonymous namespace
 
 // Get the LLVM Target object corresponding to the target triple (if valid).
@@ -736,8 +820,9 @@ static std::string getDataLayout(const Location &loc) {
   const std::string targetCpu = getTargetCpu();
   const llvm::Target &LLVMTarget = *getLLVMTarget(targetTriple, loc);
   llvm::TargetOptions ops;
-  llvm::TargetMachine *targetMachine = LLVMTarget.createTargetMachine(
-      targetTriple, targetCpu, "" /*features*/, ops, None);
+  auto targetMachine =
+      std::unique_ptr<llvm::TargetMachine>{LLVMTarget.createTargetMachine(
+          targetTriple, targetCpu, "" /*features*/, ops, None)};
   if (!targetMachine) {
     emitError(loc, "failed to create target machine");
     return nullptr;
@@ -751,8 +836,8 @@ static std::string getDataLayout(const Location &loc) {
 }
 
 // Return 0 on success, error code on failure.
-int setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
-    std::string outputBaseName) {
+static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
+    mlir::MLIRContext &context, std::string outputNameNoExt) {
   // Initialize the targets support for all targets LLVM was configured for.
   llvm::InitializeAllTargets();
   llvm::InitializeAllTargetMCs();
@@ -779,38 +864,39 @@ int setupModule(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
     moduleOp.setAttr("onnx-mlir.accels", ArrayAttr::get(&context, accelsAttr));
 
   if (keepFiles(KeepFilesOfType::MLIR)) {
-    int rc = outputCode(module, outputBaseName, ".input.mlir");
-    if (rc != NoCompilerError)
+    std::string mlirNameWithExt = outputNameNoExt + ".input.mlir";
+    int rc = outputCode(module, mlirNameWithExt);
+    if (rc != CompilerSuccess)
       return rc;
     module.release();
-    loadMLIR(outputBaseName + ".input.mlir", context, module);
+    loadMLIR(mlirNameWithExt, context, module);
   }
-  return NoCompilerError;
+  return CompilerSuccess;
 }
 
-int emitOutput(mlir::OwningOpRef<ModuleOp> &module, mlir::MLIRContext &context,
-    std::string outputBaseName, mlir::PassManager &pm,
-    EmissionTargetType emissionTarget) {
+static int emitOutput(mlir::OwningOpRef<ModuleOp> &module,
+    mlir::MLIRContext &context, std::string outputNameNoExt,
+    mlir::PassManager &pm, EmissionTargetType emissionTarget) {
   if (printIR) {
     mlir::OpPrintingFlags flags;
     if (preserveLocations)
       flags.enableDebugInfo();
     module->print(llvm::outs(), flags);
-    return NoCompilerError;
+    return CompilerSuccess;
   }
-  return emitOutputFiles(outputBaseName, emissionTarget, context, module);
+  return emitOutputFiles(outputNameNoExt, emissionTarget, context, module);
 }
 
 // Return 0 on success, error code on error.
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
-    mlir::MLIRContext &context, std::string outputBaseName,
+    mlir::MLIRContext &context, std::string outputNameNoExt,
     EmissionTargetType emissionTarget) {
   // Initialize accelerator(s) if required.
   if (!maccel.empty())
     onnx_mlir::accel::initAccelerators(maccel);
 
-  int rc = setupModule(module, context, outputBaseName);
-  if (rc != NoCompilerError)
+  int rc = setupModule(module, context, outputNameNoExt);
+  if (rc != CompilerSuccess)
     return rc;
 
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
@@ -826,10 +912,16 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   }
   if (!hasAccel)
     addPasses(module, pm, emissionTarget);
+  if (!reportHeapBefore.empty() || !reportHeapAfter.empty()) {
+    std::string heapLogFileame = outputNameNoExt + ".heap.log";
+    pm.addInstrumentation(std::make_unique<HeapReporter>(
+        heapLogFileame, reportHeapBefore, reportHeapAfter));
+  }
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 
   if (mlir::failed(pm.run(*module)))
     return CompilerFailure;
-  return emitOutput(module, context, outputBaseName, pm, emissionTarget);
+  return emitOutput(module, context, outputNameNoExt, pm, emissionTarget);
 }
+} // namespace onnx_mlir

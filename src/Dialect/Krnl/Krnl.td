@@ -29,6 +29,18 @@ include "src/Interface/SpecializedKernelOpInterface.td"
 def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
+  let useDefaultTypePrinterParser = 1;
+  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
+  let dependentDialects = [
+    "AffineDialect",
+    "arith::ArithDialect",
+    "func::FuncDialect",
+    "linalg::LinalgDialect",
+    "math::MathDialect",
+    "memref::MemRefDialect",
+    "scf::SCFDialect",
+    "shape::ShapeDialect",
+  ];
 }
 
 def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
@@ -36,31 +48,36 @@ def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 
-def KrnlCallOp : Op<Krnl_Dialect, "call"> {
+def KrnlCallOp : Op<Krnl_Dialect, "call", 
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]
+  > {
   let summary = "call operation";
   let description = [{
     The call operation provides a generic way to call an external function
     at Krnl level.  The `funcName` determines which function to call.
-    The `alloc` is the Value to store the function return. Since allocation
-    of the return MemRef involves shape inference usually with IndexExpr.
-    Thus most of time the allocation should stay in compiler, not in runtime library.
+    The `result` is the Value to store the function return. Currently only
+    one output is supported. The `result` has to be resulted memref.
+    Since resolution of the output MemRef involves shape inference on ONNX Op,
+    resolution should be done at lowering ONNX Op, not within krnl.Call.
+    Another reason is that Krnl.call need to be defined with AllocationOp
+    interface if `result` is allocated inside this Op.
     The parameters can be of any type: MemRef, NoneType or any llvm type.
     Different types of parameters will be converted, if needed, when KrnlCallOp
     is lowered. Attributes will be converted to parameters too (To be Added).
     The function signature will be determined with the types of parameters.
     An LLVM::CallOp to either a runtime library or a llvm intrinsic function
     will be generated.
+    The krnl.call op will be lowered to llvm at krnl-to-llvm conversion.
   }];
 
-  let arguments = (ins StrAttr:$funcName, AnyType:$alloc, Variadic<AnyType>:$parameters);
-  let results =(outs AnyType:$result);
+  let arguments = (ins StrAttr:$funcName, AnyType:$result, Variadic<AnyType>:$parameters);
 
   // builders to build KrnlCallOp from op and operands, helping conversion from onnx to krnl.
   // The name of function can be determined by the op name and elemnt type of the return,
   // or given to builder if the simple rule does not work
   // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is true
-  let builders = [OpBuilder<(ins "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
-      OpBuilder<(ins "std::string":$funcNameStr, "mlir::Value":$alloc, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
+  let builders = [OpBuilder<(ins "mlir::Value":$result, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::Value":$result, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
 }
  
 def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
@@ -98,21 +115,27 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     The "krnl.iterate" operation is conceptually equivalent to a nested for loops.
 
     For instance, say we have the following two
+    ```
     %l0, %l1 = krnl.define_loops 2
     %o0, %o1 = krnl.optimize_loops  {
         // Identity schedule.
         krnl.return_loops %l0, %l1
     }
+    ```
 
     Then, consider the following krnl.iterate operation:
+    ```
     krnl.iterate (%o0, %o1) with (%l0 -> %i0 = 0 to 10, %l1 -> %i1 = 0 to 10) {
       // Some operations.
     }
+    ```
 
     It is equivalent to:
+    ```
     for (i0 = 0; i0 < 10; i0++)
       for (i1 = 0; i1 < 10; i1++)
         // Some operations.
+    ```
   }];
 
   let arguments = (ins Variadic<AnyType>);
@@ -163,18 +186,66 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   }];
 }
 
+// ONNX sequence type (!onnx.Seq) is implemented with memref of memref.
+// When an element(tensor/memref) is stored into a sequence, it becomes
+// invisible to the bufferization analysis. When onnx-mlir invokes
+// bufferization::Deallocation pass to insert memref::dealloc, the element
+// may be freed. Therefore, element need to be copied when inserted into
+// a sequence. 'copy' here means to allocate a new memref and copy the content 
+// of the memref. The copy is a costly op to maintain the SSA requirement.
+// To reduce the overhead of copy, elements are not copied when
+// a new sequence is created from an exist sequence. However, when an element
+// is extracted from a sequence (krnl.seqextract), the element will be 
+// copied and return. This copy can be further avoided if the extraction is
+// the last reference (by extract or erase from any sequence) of this element.
+// ToDo: handle an element in multiple sequences with copy
+// ToDo: use the one-shot interface for space manangement.
+
+def KrnlSeqAllocOp : Op<Krnl_Dialect, "seqalloc", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+    DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
+  let summary = "Krnl create a sequence";
+  let description = [{
+    This op allocates a memref for a new sequence according to the input Type and length.
+    The output is tagged with Allocate side effect, and a deallocation is defined for
+    sequence. This deallocation will free all the elements in the sequence as well as 
+    the sequence itself.
+  }];
+  let arguments = (ins Variadic<Index>:$length);
+  let results = (outs AnyMemRef:$output);
+}
+
+def KrnlSeqDeallocOp : Op<Krnl_Dialect, "seqdealloc", [MemRefsNormalizable]> {
+  let summary = "Krnl dealloc a sequence";
+  let description = [{
+    This op deallocate the elements in the sequence and the sequence itself
+    with memref::dealloc. This Op is a deep dealloc for sequence type.
+  }];
+  let arguments = (ins AnyMemRef:$input_sequence);
+}
+
 def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     DeclareOpInterfaceMethods<AllocationOpInterface, ["buildDealloc", "buildClone"]>]> {
-  let summary = "Krnl load from a seq";
+  let summary = "Krnl load from a sequence";
   let description = [{
-    sequence is represented with memref<memref<>>.
-    This op loads a tensor for the sequence 'seq' at position 'index',
-    and return the tensor, which will be freed by Bufferization::Deallocation.
-    The element in the sequence will become null.
+    This op loads an element from the input sequence 'seq' at position 'index'.
+    The loaded element is copied and then return.
+    The position value is guaranteed to be positive. Negative position allowed
+    by ONNX Op definition should be handled before lowered to KrnlSeqExtract.
+
+    Attribute 'copy' provides an optimization for copying. 
+    When the attribute 'copy' is 1 (default value): the extracted element is copied and then return. 
+    When the attribute 'copy' is 0: the extracted element is directly returned
+    without copy.
+
+    The returned element is marked as allocated by this Op with the bufferation
+    interface so that deallocation can be generated correctly through the 
+    Bufferization::Deallocation pass.
   }];
   let arguments = (ins AnyMemRef:$seq,
-                       Index:$index);
+                       Index:$index,
+                       DefaultValuedAttr<UI1Attr, "1">:$copy);
 
   let results = (outs AnyType:$output);
 }
@@ -182,12 +253,12 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
 def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
   let summary = "Krnl store into a seq";
   let description = [{
-    sequence is represented with memref<memref<>>.
-    This op will copy the tensor to be stored, and cast the type if needed.
-    The motivation to introduce this Op is to help bufferization::deallocation
-    The experiment showed that memref will be freed after the memref is stored.
-    However, the store of memref only write out the pointer for the memref,
-    and its memory cannot be freed.
+    This op is similar to KrnSeqInsertOp but assumes that the input seq has
+    the space for the new element and 
+    only need to copy the element and store it into the sequence.
+    There is no return of a new seq, different from KrnlSeqInsertOp.
+    This Op is introduced to accumulate a dynamic tensor in a LoopOp with
+    statically known iteration count.
   }];
   let arguments = (ins AnyType:$input,
                        AnyMemRef:$seq,
@@ -208,11 +279,18 @@ def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
 
 def KrnlRegionOp : Op<Krnl_Dialect, "region", [NoTerminator, SingleBlock,
     AffineScope]> {
-  let summary = "Affine Region for Krnl";
+  let summary = "Affine boundary for krnl loops";
   let description = [{
-    This Op has AffineScope trait and is used to limit the scope of affine.for.
-    Otherwise, the affine.for might be illegal if a symbol is not defined at
-    the top of function, which has the AffineScope trait. 
+    This Op has a region with AffineScope trait and is used to limit the 
+    scope of `affine.for`. The loop inside `krnl.region` can be affined if
+    its boundary is defined at the level of `krnl.region`. The `krnl.region` does
+    not guarantee or require the loops inside it to be affine.
+    With `krnl.region`, a krnl loop may not be  affine if its boundary symbol
+    is not defined inside a enclosing region without AffineScope trait.
+    In MLIR, FuncOp has the AffineScope trait.
+    The `krnl.region` will be removed after affine.for is lowered.
+    ToFix: current `krnl.region` does not have input and output. You cannot
+    create a new memref inside the region and use it outside of the region. 
   }];
 
   let regions = (region SizedRegion<1>:$bodyRegion);
@@ -250,7 +328,7 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
   let arguments = (ins AnyMemRef:$dest, AnyMemRef:$src, AnyInteger:$size);
 }
 
-def KrnlGlobalOp : Op<Krnl_Dialect, "global", [NoSideEffect, MemRefsNormalizable]> {
+def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {
   let summary = "Krnl global operation";
   let description = [{
     Operation for holding global data values. A global constant can have a
@@ -267,10 +345,11 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [NoSideEffect, MemRefsNormalizable
 def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
   let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
   let description = [{
-    Retreieves a MemRef from within another MemRef:
+    Retrieves a MemRef from within another MemRef:
 
+```
     "krnl.getref"(%memref, %offset)
-
+```
     The offset is an integer which is used as an index into the input MemRef. It works
     just like an array index.
   }];
@@ -298,7 +377,9 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
   let summary = "Krnl block operation";
   let description = [{
     Block a single for loop by a constant tile size. For instance,
+    ```
     $ib, $il = krnl.block %i, 4
+    ```
     means to block the for loop referred to by %i using a tile size of 4.
   }];
 
@@ -400,7 +481,9 @@ def KrnlDimOp : Op<Krnl_Dialect, "dim", [MemRefsNormalizable]> {
   let description = [{
     Emits the dimension of a MemRef independent of the MemRef alloc:
 
+    ```
     "krnl.dim"(%memref, %index)
+    ```
 
     The index identifies the dimension within the shape which is going to be emitted.
     Initially the krnl.dim operation depends on the alloc of the MemRef.
@@ -414,7 +497,7 @@ def KrnlDimOp : Op<Krnl_Dialect, "dim", [MemRefsNormalizable]> {
 }
 
 def KrnlShapeOp : Op<Krnl_Dialect, "shape", [MemRefsNormalizable]> {
-  let summary = "Krnl operation to retreieve the shape of a MemRef.";
+  let summary = "Krnl operation to retrieve the shape of a MemRef.";
   let description = [{
     Extracts the shape of a MemRef:
     ```
@@ -648,7 +731,7 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
 // =============================================================================
 
-def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect,
+def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [Pure,
     MemRefsNormalizable, DeclareOpInterfaceMethods<CastOpInterface>, ViewLikeOpInterface]> {
   let summary = "vector type cast operation";
   let description = [{
@@ -658,8 +741,10 @@ def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect,
     dimension is divided (floor division) by the vector size to obtain the
     corresponding dimension for target memref type.
 
+    ```
     %MV = vector_type_cast %M : memref<64x16xf32> to memref<64x2xvector<8xf32>>
     %AV = vector_type_cast %A : memref<?x?xf32> to memref<?x?xvector<8xf32>>
+    ```
   }];
 
   let arguments = (ins AnyMemRef:$source);
@@ -703,7 +788,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
        DeclareOpInterfaceMethods<SpecializedKernelOpInterface>, MemRefsNormalizable]> {
   let summary = "Matmul operation for a single pannel.";
   let description = [{
-    Perform a matrix multiplication AA * BB + CC with sizes [IxK] * [KxJ] + [IxJ].
+    Perform a matrix multiplication AA * BB + CC with sizes `[IxK] * [KxJ] + [IxJ]`.
     The original matrices AA, BB, and CC can be buffered in buffered arrays
     which may be padded. The original matrices and the padded array might
     have a higher rank than 2, but the actual matrix multiplication operation
@@ -716,14 +801,17 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     All indices passed to this operation are the global indices in the original
     computation, so as to better know if we have boundary conditions.
     
-    ORIGINAL ARRAY: if AA: *xIxK; if BB: *xKxJ; if CC: *xI*J).
-    BUFFER ARRAYS: denotated as A, B, and C. Note that this operation does
+    ORIGINAL ARRAY: denoted as AA, BB, CC with sizes AA: `*xIxK`; BB: `*xKxJ`; CC: `*xI*J`).
+
+    BUFFER ARRAYS: denoted as A, B, and C. Note that this operation does
       not require the use of buffers arrays. If none are used, then A=AA,
-      B=BB, C=CC. If buffers are used, it is the responsability of the caller
+      B=BB, C=CC. If buffers are used, it is the responsibility of the caller
       to properly fill the buffers with the appropriate data. Buffers are
       typically used for cache tiling.
 
      ORIGINAL ARRAY
+
+```
      -------------------------------------------------
      |                                               ]
      |                                               ]
@@ -741,64 +829,64 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
      |             +++++++++++++++++++++(4)          ]
      |                                               ]
      -----------------------------------------------(2)
+```
 
-    (1) iGlobalIndexComputeStart/jGlobalIndexComputeStart/
-        kGlobalIndexComputeStart, required, global 1D indices.
-    (2) iGlobalUB/jGlobalUB/jGlobalUB, required, global 1D indices.
-    (3) aGlobalIndexMemStart/bGlobalIndexMemStart/cGlobalIndexMemStart,
-        required, global nD indices with the same rank as the buffers
-        A, B, and C.
-    (4) aTileSize/bTileSize/cTileSize, required when padding, 2D sizes.
-    (5) computeTileSizes, required when tiled computation within buffer,
-        3D sizes (I, J, K).
+* (1) `iGlobalIndexComputeStart`/`jGlobalIndexComputeStart`/`kGlobalIndexComputeStart`,
+   required, each three are global 1D indices.
+* (2) `iGlobalUB`/`jGlobalUB`/`jGlobalUB`, required, each three are global 1D indices.
+* (3) `aGlobalIndexMemStart`/`bGlobalIndexMemStart`/`cGlobalIndexMemStart`,
+   required, global nD indices with the same rank as the buffers A, B, and C.
+* (4) `aTileSize`/`bTileSize`/`cTileSize`, required when padding, each 2D sizes.
+* (5) `computeTileSizes`, required when tiled computation within buffer, 3D sizes (I, J, K).
 
-    The iGlobalIndexComputeStart/jGlobalIndexComputeStart/
-    kGlobalIndexComputeStart (1) indicate the global indices of the
+    The `iGlobalIndexComputeStart`/`jGlobalIndexComputeStart`/
+    `kGlobalIndexComputeStart` (1) indicate the global indices of the
     first element of a tile to be computed in the original computations.
 
-    The iGlobalUB/jGlobalUB/jGlobalUB (2) indicate the global upper bounds
+    The `iGlobalUB`/`jGlobalUB`/`kGlobalUB` (2) indicate the global upper bounds
     in the original computations.
 
-    We provide 3 buffers for matrix multipy: A, B, and C. For each buffer,
+    We provide 3 buffers for matrix multiply: A, B, and C. For each buffer,
     we indicate the global indices pointing the beginning of the buffer:
-    aGlobalIndexMemStart, bGlobalIndexMemStart, and cGlobalIndexMemStart (3).
+    `aGlobalIndexMemStart`, `bGlobalIndexMemStart`, and `cGlobalIndexMemStart` (3).
     If no buffers are used, i.e. the computation starts directly in the
-    orginal memory, the global index is 0. If a buffer for AA is used to
-    put data into it starting at indices [i1, k1], where i1 & k1 are the
-    global indices in the original computations, then aGlobalIndexMemStart0
-    and aGlobalIndexMemStart1 are i1 & k1, respectively.
+    original memory, the global index is 0. If a buffer for AA is used to
+    put data into it starting at indices `[i1, k1]`, where `i1` & `k1` are the
+    global indices in the original computations, then `aGlobalIndexMemStart0`
+    and `aGlobalIndexMemStart1` are `i1` & `k1`, respectively.
 
     If the A, B, or C buffers are larger than the actual data tile they
-    contain (see copy_to_tile_buffer), then the actual tile size must be
-    given using an optional attribute: aTileSize, bTileSize, or cTileSize (4).
+    contain (see `copy_to_tile_buffer`), then the actual tile size must be
+    given using an optional attribute: `aTileSize`, `bTileSize`, or `cTileSize` (4).
     These optional tile size have a rank of 2, and their values must be
     equal or smaller than their corresponding buffer memrefs.
 
     If the computation are further tiled with respect to the size of the
     buffers A, B, or C, then the actual computation tile is given by
-    the optional tile attribute computeTileSize (5). Its rank is 3, for the
+    the optional tile attribute `computeTileSize` (5). Its rank is 3, for the
     I, J, and K dimension. The actual A, B, and C buffer tile size
     (possibly specified by the optional parameters) must be a multiple of
-    the I, J, and K computeTileSizes, in their respective
-    dimensions (A: [IxK], B: [KxJ], C: [IxJ]).
+    the I, J, and K `computeTileSizes`, in their respective
+    dimensions (A: `[IxK]`, B: `[KxJ]`, C: `[IxJ]`).
 
     Note that the buffers A, B, and C can be of higher dimensionality than
     the traditional 2D mentioned up to now, because of broadcasting rules.
     At this time, we only support broadcast of arrays having ranks of 2 or
-    more. Because of the broadcast rules, the higher dimenstions have a
+    more. Because of the broadcast rules, the higher dimensions have a
     constant index during one matrix multiply. These fixed indices are
     given as prefix dimensions in the starting indices for AA, BB, and CC
     as described above. E.g. if AA has a rank of 3, and BB has a rank of 2,
-    the starting indices for AA are [d, i1, k1] where i1 and k1 are as
-    above, and d is index pointing to the current instance of the IxK
-    AA matrix to be computed. B start indices would be unchanged at [k1, j1].
+    the starting indices for AA are `[d, i1, k1]` where `i1` and `k1` are as
+    above, and d is index pointing to the current instance of the `IxK`
+    AA matrix to be computed. B start indices would be unchanged at `[k1, j1]`.
 
     Simdize is used to state if simdization is requested.
-    Unrolling is used to unroll and jam loops as warrented.
+    Unrolling is used to unroll and jam loops as warranted.
 
     Below is an example calculating a matrix multiply with pre-zeroed
     C matrix with the sizes below.
 
+```
     %A: memref<40x60xf32>, %B: memref<60x80xf32>, %C: memref<40x80xf32>
 
     // 3 tiled loops.
@@ -852,6 +940,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
         krnl.copy_from_tile_buffer %Cbuff, %C[%i1, %j1] :
           memref<10x8xf32>, memref<40x80xf32>
     }
+```
 
     Note that code is simdized along the J dim (last dim of B and C matrices).
     For simd to be enabled, the simdized flag must be set to true, and the
@@ -861,7 +950,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
   }];
 
   let arguments = (ins 
-    // Buffer/memory used and indices that correspoond to the begining 
+    // Buffer/memory used and indices that correspoond to the beginning
     // of each buffer/memory.
     Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
     Variadic<Index>: $aGlobalIndexMemStart,
@@ -963,23 +1052,23 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     because the operation reaches the upper bounds of the source memory,
     several actions may happen.
 
-    * If padToNext attribute is given, the pad value will be copied from
-      the last source data of to the next index for which index modulo padToNext
-      is zero, i.e. to the end of a "cache line" of side padToLine. Pad
+    * If`padToNext` attribute is given, the pad value will be copied from
+      the last source data of to the next index for which index modulo `padToNext`
+      is zero, i.e. to the end of a "cache line" of side `padToLine`. Pad
       of 1 means no padding, pad of buffer size means fully pad the buffer.
-      Default is no padding (1). PadValue is used to initialized the padded
+      Default is no padding (1). `PadValue` is used to initialized the padded
       areas.
 
-    * If overreadToNext attribute is given, the copy may read source past
-      its upperbound value. This enable optimized code, e.g. using SIMD
+    * If `overreadToNext` attribute is given, the copy may read source past
+      its upper bound value. This enable optimized code, e.g. using SIMD
       read operations even if going past the last value of the source
-      memory, or unrolling and jaming copy loops to reduce memory latency.
-      overreadToNext is expressed like padToNext: value of 1 means no
+      memory, or unrolling and jamming copy loops to reduce memory latency.
+      `overreadToNext` is expressed like padToNext: value of 1 means no
       reading past boundary; value of buffer size enables reading
-      as many additional sourve value as needed to fill the full
+      as many additional source value as needed to fill the full
       buffer. Default is buffer-size.
 
-    padToNext and overreadToNext are of the same rank as source and memory
+    `padToNext` and `overreadToNex`t are of the same rank as source and memory
     memrefs.
   }];
 
@@ -1051,7 +1140,9 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
     May be used for gdb.
   }];
 
-  let arguments = (ins I64Attr:$opID, I64Attr:$tag);
+  let arguments = (ins StrAttr:$opName,
+                       I64Attr:$tag,
+                       OptionalAttr<StrAttr>:$nodeName);
 
   let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
@@ -1062,15 +1153,35 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
                    "$_self.cast<MemRefType>().getElementType()">]> {
   let summary = "Set buffer to a given value.";
   let description = [{
-    Krnl operation that set buffer to a given value.
+    Krnl operation that sets a buffer to a given value.
+    In case that the buffer is a MemRef with affine_map, `delayed` indicates
+    whether we set values along original or extended iteration space.
+    
+    For example, given 
+    - an affine_map `#tile = affine_map < (i)->(i floordiv 4, i mod 4) >`, and
+    - a buffer of type `memref<5xf32, #tile>`
+
+    Original iteration space is along the first axis that has 5 elements.
+
+    If we do normalization, the memref becomes `memref<2x4xf32>`. Now we have
+    an extended iteration space along two axes of sizes 2 and 4, respectively.
+    This extended iteration space has 8 elements in total.
+
+    If `delayed = false`, the original iteration space is used to set values.
+    In the above example, only 5 out of 8 elementes will be set to the given value.
+
+    If `delayed = true`, the extended iteration space is used to set values.
+    In the above example, all 8 elements will be set to the given value.
+
   }];
 
-  let arguments = (ins AnyMemRef:$dest, AnyType: $value); 
+  let arguments = (ins AnyMemRef:$dest, AnyType: $value,
+    DefaultValuedAttr<BoolAttr, "false">:$delayed); 
 
   let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
 }
 
-def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [NoSideEffect]> {
+def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [Pure]> {
   let summary = "Compute the length of a string.";
   let description = [{
     Krnl operation that computes the length of a string.
@@ -1080,7 +1191,7 @@ def KrnlStrlenOp : Op<Krnl_Dialect, "strlen", [NoSideEffect]> {
   let results = (outs I64:$res);
 }
 
-def KrnlStrncmpOp : Op<Krnl_Dialect, "strncmp", [NoSideEffect]> {
+def KrnlStrncmpOp : Op<Krnl_Dialect, "strncmp", [Pure]> {
   let summary = "Perform string comparison up to N bytes.";
   let description = [{
     Krnl operation that performs a string comparison up to N bytes.
@@ -1105,11 +1216,11 @@ def KrnlRandomNormalOp : Op<Krnl_Dialect, "random_normal",
 }
 
 def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
-    [NoSideEffect, MemRefsNormalizable]> {
+    [Pure, MemRefsNormalizable]> {
   let summary = "Retrieve an index into a perfect hash table described by G and V.";
   let description = [{
     This operation can be used to generate a call to a runtime function which, 
-    given two arrays of int32_t values (G and V), whih are used to represent a perfect 
+    given two arrays of int32_t values (G and V), which are used to represent a perfect
     hash table for a dictionary, returns the index corresponding to the input value.
     The index returned is valid only if 'input' is in the dictionary described by G and V.
   }];
@@ -1122,6 +1233,14 @@ def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable]> 
   let summary = "Print a tensor.";
   let description = [{
     This operation can be used to generate a call to a runtime function which prints a tensor.
+    At the beginning of the msg string, user can add formatting instructions. The flags are:
+
+    *  `%s`: detailed signature (including shape, type, offsets),
+    *  `%t`: compact type (ala MLIR: `32x16xfloat`),
+    *  `%d`: data values.
+
+    When no formatting is provided, `%s%d` is used (detailed signature and data) by default.
+    Print operation ends with a newline, except when only requesting a compact types (`%t`).
   }];
 
   let arguments = (ins StrAttr:$msg, AnyMemRef:$input);

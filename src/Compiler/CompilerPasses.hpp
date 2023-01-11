@@ -16,11 +16,13 @@
 #include "mlir/Pass/PassManager.h"
 
 namespace onnx_mlir {
-void addONNXToMLIRPasses(mlir::PassManager &pm);
-void addONNXToKrnlPasses(
-    mlir::PassManager &pm, int optLevel, bool enableCSE = true);
+void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
+    bool transformReport, bool targetCPU, bool enableSimdDataLayoutOpt);
+void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
+    bool enableInstrumentONNXSignature, std::string ONNXOpsStatFilename);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
-void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE = true);
+void addKrnlToLLVMPasses(
+    mlir::OpPassManager &pm, bool enableCSE, bool verifyInputTensors);
 InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::PassManager &pm,

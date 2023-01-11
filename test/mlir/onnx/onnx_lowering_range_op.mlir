@@ -2,10 +2,11 @@
 
 // -----
 
-func @test_range_dynamic_f32(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<*xf32> {
+func.func @test_range_dynamic_f32(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<*xf32> {
   %0 = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
+  // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
   // CHECK-LABEL: test_range_dynamic
   // CHECK: [[START:%.*]] = krnl.load %arg0[] : memref<f32>
   // CHECK: [[DELTA:%.*]] = krnl.load %arg2[] : memref<f32>
@@ -24,7 +25,7 @@ func @test_range_dynamic_f32(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tens
   // CHECK: [[LOOP:%.*]] = krnl.define_loops 1
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map([[CAST]])){
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[MAP_0_]]([[CAST]])){
   // CHECK: [[IV:%.*]] = krnl.get_induction_var_value([[LOOP]]) : (!krnl.loop) -> index
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xf32>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][[[IV]]] : memref<?xf32>
@@ -37,10 +38,11 @@ func @test_range_dynamic_f32(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tens
 
 // -----
 
-func @test_range_dynamic_f64(%arg0: tensor<f64>, %arg1: tensor<f64>, %arg2: tensor<f64>) -> tensor<*xf64> {
+func.func @test_range_dynamic_f64(%arg0: tensor<f64>, %arg1: tensor<f64>, %arg2: tensor<f64>) -> tensor<*xf64> {
   %0 = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<f64>, tensor<f64>, tensor<f64>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
 
+  // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
   // CHECK-LABEL: test_range_dynamic_f64
   // CHECK: [[START:%.*]] = krnl.load %arg0[] : memref<f64>
   // CHECK: [[DELTA:%.*]] = krnl.load %arg2[] : memref<f64>
@@ -59,7 +61,7 @@ func @test_range_dynamic_f64(%arg0: tensor<f64>, %arg1: tensor<f64>, %arg2: tens
   // CHECK: [[LOOP:%.*]] = krnl.define_loops 1
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map([[CAST]])){
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[MAP_0_]]([[CAST]])){
   // CHECK: [[IV:%.*]] = krnl.get_induction_var_value([[LOOP]]) : (!krnl.loop) -> index
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xf64>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][[[IV]]] : memref<?xf64>
@@ -72,10 +74,11 @@ func @test_range_dynamic_f64(%arg0: tensor<f64>, %arg1: tensor<f64>, %arg2: tens
 
 // -----
 
-func @test_range_dynamic_i16(%arg0: tensor<i16>, %arg1: tensor<i16>, %arg2: tensor<i16>) -> tensor<*xi16> {
+func.func @test_range_dynamic_i16(%arg0: tensor<i16>, %arg1: tensor<i16>, %arg2: tensor<i16>) -> tensor<*xi16> {
   %0 = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<i16>, tensor<i16>, tensor<i16>) -> tensor<*xi16>
   return %0 : tensor<*xi16>
 
+  // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
   // CHECK-LABEL: test_range_dynamic_i16
   // CHECK: [[START:%.*]] = krnl.load %arg0[] : memref<i16>
   // CHECK: [[DELTA:%.*]] = krnl.load %arg2[] : memref<i16>
@@ -92,7 +95,7 @@ func @test_range_dynamic_i16(%arg0: tensor<i16>, %arg1: tensor<i16>, %arg2: tens
   // CHECK: [[LOOP:%.*]] = krnl.define_loops 1
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map([[CAST]])){
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[MAP_0_]]([[CAST]])){
   // CHECK: [[IV:%.*]] = krnl.get_induction_var_value([[LOOP]]) : (!krnl.loop) -> index
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi16>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][[[IV]]] : memref<?xi16>
@@ -105,10 +108,11 @@ func @test_range_dynamic_i16(%arg0: tensor<i16>, %arg1: tensor<i16>, %arg2: tens
 
 // -----
 
-func @test_range_dynamic_i32(%arg0: tensor<i32>, %arg1: tensor<i32>, %arg2: tensor<i32>) -> tensor<*xi32> {
+func.func @test_range_dynamic_i32(%arg0: tensor<i32>, %arg1: tensor<i32>, %arg2: tensor<i32>) -> tensor<*xi32> {
   %0 = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<i32>, tensor<i32>, tensor<i32>) -> tensor<*xi32>
   return %0 : tensor<*xi32>
 
+  // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
   // CHECK-LABEL: test_range_dynamic_i32
   // CHECK: [[START:%.*]] = krnl.load %arg0[] : memref<i32>
   // CHECK: [[DELTA:%.*]] = krnl.load %arg2[] : memref<i32>
@@ -125,7 +129,7 @@ func @test_range_dynamic_i32(%arg0: tensor<i32>, %arg1: tensor<i32>, %arg2: tens
   // CHECK: [[LOOP:%.*]] = krnl.define_loops 1
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map([[CAST]])){
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[MAP_0_]]([[CAST]])){
   // CHECK: [[IV:%.*]] = krnl.get_induction_var_value([[LOOP]]) : (!krnl.loop) -> index
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi32>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][[[IV]]] : memref<?xi32>
@@ -138,10 +142,11 @@ func @test_range_dynamic_i32(%arg0: tensor<i32>, %arg1: tensor<i32>, %arg2: tens
 
 // -----
 
-func @test_range_dynamic_i64(%arg0: tensor<i64>, %arg1: tensor<i64>, %arg2: tensor<i64>) -> tensor<*xi64> {
+func.func @test_range_dynamic_i64(%arg0: tensor<i64>, %arg1: tensor<i64>, %arg2: tensor<i64>) -> tensor<*xi64> {
   %0 = "onnx.Range"(%arg0, %arg1, %arg2) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<*xi64>
   return %0 : tensor<*xi64>
 
+  // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
   // CHECK-LABEL: test_range_dynamic_i64
   // CHECK: [[START:%.*]] = krnl.load %arg0[] : memref<i64>
   // CHECK: [[DELTA:%.*]] = krnl.load %arg2[] : memref<i64>
@@ -158,7 +163,7 @@ func @test_range_dynamic_i64(%arg0: tensor<i64>, %arg1: tensor<i64>, %arg2: tens
   // CHECK: [[LOOP:%.*]] = krnl.define_loops 1
   // CHECK: %[[C0_1:.*]] = arith.constant 0 : index
 
-  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to #map([[CAST]])){
+  // CHECK: krnl.iterate([[LOOP]]) with ([[LOOP]] -> %arg3 = 0 to [[MAP_0_]]([[CAST]])){
   // CHECK: [[IV:%.*]] = krnl.get_induction_var_value([[LOOP]]) : (!krnl.loop) -> index
   // CHECK: [[LOAD_ACC:%.*]] = krnl.load [[ACC]][%[[C0_0]]] : memref<1xi64>
   // CHECK: krnl.store [[LOAD_ACC]], [[RES]][[[IV]]] : memref<?xi64>
@@ -171,10 +176,10 @@ func @test_range_dynamic_i64(%arg0: tensor<i64>, %arg1: tensor<i64>, %arg2: tens
 
 // -----
 
-func @test_range_static_f32() -> tensor<*xf32> {
-  %start = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf32>} : () -> tensor<1xf32>
-  %limit = "onnx.Constant"() {value = dense<[10.0]> : tensor<1xf32>} : () -> tensor<1xf32>
-  %delta = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf32>} : () -> tensor<1xf32>
+func.func @test_range_static_f32() -> tensor<*xf32> {
+  %start = onnx.Constant dense<[1.0]> : tensor<1xf32>
+  %limit = onnx.Constant dense<[10.0]> : tensor<1xf32>
+  %delta = onnx.Constant dense<[1.0]> : tensor<1xf32>
   %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
@@ -206,10 +211,10 @@ func @test_range_static_f32() -> tensor<*xf32> {
 
 // -----
 
-func @test_range_static_f64() -> tensor<*xf64> {
-  %start = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf64>} : () -> tensor<1xf64>
-  %limit = "onnx.Constant"() {value = dense<[10.0]> : tensor<1xf64>} : () -> tensor<1xf64>
-  %delta = "onnx.Constant"() {value = dense<[1.0]> : tensor<1xf64>} : () -> tensor<1xf64>
+func.func @test_range_static_f64() -> tensor<*xf64> {
+  %start = onnx.Constant dense<[1.0]> : tensor<1xf64>
+  %limit = onnx.Constant dense<[10.0]> : tensor<1xf64>
+  %delta = onnx.Constant dense<[1.0]> : tensor<1xf64>
   %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<1xf64>, tensor<1xf64>, tensor<1xf64>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
 
@@ -241,10 +246,10 @@ func @test_range_static_f64() -> tensor<*xf64> {
 
 // -----
 
-func @test_range_static_i16() -> tensor<*xi16> {
-  %start = "onnx.Constant"() {value = dense<[1]> : tensor<1xi16>} : () -> tensor<1xi16>
-  %limit = "onnx.Constant"() {value = dense<[10]> : tensor<1xi16>} : () -> tensor<1xi16>
-  %delta = "onnx.Constant"() {value = dense<[1]> : tensor<1xi16>} : () -> tensor<1xi16>
+func.func @test_range_static_i16() -> tensor<*xi16> {
+  %start = onnx.Constant dense<[1]> : tensor<1xi16>
+  %limit = onnx.Constant dense<[10]> : tensor<1xi16>
+  %delta = onnx.Constant dense<[1]> : tensor<1xi16>
   %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<1xi16>, tensor<1xi16>, tensor<1xi16>) -> tensor<*xi16>
   return %0 : tensor<*xi16>
 
@@ -276,10 +281,10 @@ func @test_range_static_i16() -> tensor<*xi16> {
 
 // -----
 
-func @test_range_static_i32() -> tensor<*xi32> {
-  %start = "onnx.Constant"() {value = dense<[1]> : tensor<1xi32>} : () -> tensor<1xi32>
-  %limit = "onnx.Constant"() {value = dense<[10]> : tensor<1xi32>} : () -> tensor<1xi32>
-  %delta = "onnx.Constant"() {value = dense<[1]> : tensor<1xi32>} : () -> tensor<1xi32>
+func.func @test_range_static_i32() -> tensor<*xi32> {
+  %start = onnx.Constant dense<[1]> : tensor<1xi32>
+  %limit = onnx.Constant dense<[10]> : tensor<1xi32>
+  %delta = onnx.Constant dense<[1]> : tensor<1xi32>
   %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<*xi32>
   return %0 : tensor<*xi32>
 
@@ -311,10 +316,10 @@ func @test_range_static_i32() -> tensor<*xi32> {
 
 // -----
 
-func @test_range_static_i64() -> tensor<*xi64> {
-  %start = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64>} : () -> tensor<1xi64>
-  %limit = "onnx.Constant"() {value = dense<[10]> : tensor<1xi64>} : () -> tensor<1xi64>
-  %delta = "onnx.Constant"() {value = dense<[1]> : tensor<1xi64>} : () -> tensor<1xi64>
+func.func @test_range_static_i64() -> tensor<*xi64> {
+  %start = onnx.Constant dense<[1]> : tensor<1xi64>
+  %limit = onnx.Constant dense<[10]> : tensor<1xi64>
+  %delta = onnx.Constant dense<[1]> : tensor<1xi64>
   %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<*xi64>
   return %0 : tensor<*xi64>
 

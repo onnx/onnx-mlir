@@ -7,9 +7,10 @@ add_onnx_mlir_executable(onnx-mlir-opt
 
   LINK_LIBS PRIVATE
   ${OMLibs}
-  CompilerOptions
-  Accelerator
-  InitAccelerators
+  OMCompilerOptions
+  OMCompilerUtils
+  OMAccelerator
+  OMInitAccelerators
   MLIRAffineTransforms
   MLIRLinalgTransforms
   MLIRMemRefTransforms

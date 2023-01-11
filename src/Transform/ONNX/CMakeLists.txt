@@ -1,13 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_onnx_mlir_library(OMElideConstants
-  ElideConstants.cpp
-
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  MLIRTransformUtils
-  )
-
 add_onnx_mlir_library(OMConstPropHelper
   ConstPropHelper.cpp
 
@@ -17,14 +9,19 @@ add_onnx_mlir_library(OMConstPropHelper
 
 add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(ConstProp)
+add_onnx_mlir_rewriter(ConvOpt)
 
 add_onnx_mlir_library(OMONNXRewrite
-  Decompose.cpp
   ConstProp.cpp
+  ConvOpt.cpp
+  Decompose.cpp
+  DecomposeEinsum.cpp
 
   DEPENDS
+  OMONNXOps
   OMONNXDecomposeIncGen
   OMONNXConstPropIncGen
+  OMONNXConvOptIncGen
 
   LINK_LIBS PUBLIC
   OMConstPropHelper
@@ -37,17 +34,19 @@ add_onnx_mlir_library(OMShapeInference
   LINK_LIBS PUBLIC
   OMONNXOps
   OMShapeInferenceOpInterface
-  MLIRFunc
+  MLIRFuncDialect
   MLIRPass
   )
 
 add_onnx_mlir_library(OMInstrumentONNX
-  InstrumentONNXPass.cpp
+  InstrumentPass.cpp
+  InstrumentONNXSignaturePass.cpp
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
+  OMCompilerOptions
   OMONNXOps
   OMKrnlOps
   MLIRPass
@@ -71,4 +70,28 @@ add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
   OMONNXOps
   MLIRPass
   OMSupport
+  )
+
+add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
+  SimplifyShapeRelatedOps.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMONNXRewrite
+  OMShapeInference
+  MLIRFuncDialect
+  MLIRPass
+  MLIRTransforms
+  )
+
+add_onnx_mlir_library(OMONNXDimAnalysis
+  ONNXDimAnalysis.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMONNXRewrite
+  OMShapeInference
+  MLIRFuncDialect
+  MLIRPass
+  MLIRTransforms
   )

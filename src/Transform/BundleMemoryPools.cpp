@@ -144,7 +144,7 @@ public:
 
   LogicalResult matchAndRewrite(
       memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
-    auto loc = allocOp.getLoc();
+    Location loc = allocOp.getLoc();
 
     auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
     auto memRefShape = memRefType.getShape();
@@ -241,9 +241,9 @@ public:
         MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
 
     memref::AllocOp newStaticMemPoolAlloc =
-        (staticMemPoolAlloc.alignment().hasValue())
+        (staticMemPoolAlloc.getAlignment().has_value())
             ? create.mem.alignedAlloc(bundledMemPoolMemRefType,
-                  staticMemPoolAlloc.alignment().getValue())
+                  staticMemPoolAlloc.getAlignment().value())
             : create.mem.alloc(bundledMemPoolMemRefType);
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
@@ -461,10 +461,10 @@ public:
 
     // We need to emit a new alloc which contains the additional MemRef.
     memref::AllocOp bundledAlloc =
-        (oldDynamicMemoryPool.alignment().hasValue())
+        (oldDynamicMemoryPool.getAlignment().has_value())
             ? create.mem.alignedAlloc(bundledMemPoolMemRefType,
                   bundledAllocOperand.getResult(),
-                  oldDynamicMemoryPool.alignment().getValue())
+                  oldDynamicMemoryPool.getAlignment().value())
             : create.mem.alloc(
                   bundledMemPoolMemRefType, bundledAllocOperand.getResult());
 

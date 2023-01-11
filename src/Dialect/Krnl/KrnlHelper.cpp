@@ -27,61 +27,6 @@ namespace onnx_mlir {
 
 namespace krnl {
 
-ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
-    const Type &operandType, Value &operand) {
-  // If operand queue is empty, parse more operands and cache them.
-  if (operandRefQueue.empty()) {
-    // Parse operand types:
-    llvm::SmallVector<OpAsmParser::UnresolvedOperand, 2> operand_refs;
-    parser.parseOperandList(operand_refs);
-
-    // Record operands:
-    for (auto &operand_ref : operand_refs)
-      operandRefQueue.emplace(operand_ref);
-  }
-
-  // If we parsed some operand reference(s), resolve the ref to an operand:
-  if (!operandRefQueue.empty()) {
-    auto operand_ref = operandRefQueue.front();
-    operandRefQueue.pop();
-
-    llvm::SmallVector<Value, 1> operands;
-    parser.resolveOperand(operand_ref, operandType, operands);
-    operand = operands.front();
-    return success();
-  } else {
-    operand = nullptr;
-    return failure();
-  }
-}
-
-ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
-    const Type &operandType, llvm::SmallVectorImpl<Value> &operandList) {
-  Value operand = nullptr;
-  if (ParseOptionalOperand(operandType, operand))
-    return failure();
-
-  operandList.emplace_back(operand);
-  return success();
-}
-
-ParseResult KrnlDialectOperandParser::ParseOperand(
-    const Type &operandType, Value &operand) {
-  if (ParseOptionalOperand(operandType, operand))
-    return parser.emitError(
-        parser.getCurrentLocation(), "Expecting an operand.");
-  return success();
-}
-
-ParseResult KrnlDialectOperandParser::ParseOperand(
-    const Type &operandType, llvm::SmallVectorImpl<Value> &operandList) {
-  if (ParseOptionalOperand(operandType, operandList))
-    return parser.emitError(
-        parser.getCurrentLocation(), "Expecting an operand.");
-
-  return success();
-}
-
 void printDimAndSymbolList(Operation::operand_iterator &begin, unsigned numDims,
     unsigned numSymbols, OpAsmPrinter &p) {
   p << '(';
@@ -210,29 +155,14 @@ void KrnlIterateOperandPack::pushIndexExprsBound(
   pushAffineMapBound(map, list);
 }
 
-// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
-// lambda type, using ONNX and Krnl operations.
 DenseElementsAttr getDenseElementAttributeFromKrnlValue(Value value) {
   KrnlGlobalOp globalOp =
       dyn_cast_or_null<mlir::KrnlGlobalOp>(value.getDefiningOp());
   if (globalOp)
-    if (globalOp.value().hasValue())
+    if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
 
   return nullptr;
-}
-
-// This function satisfies the ArrayValueIndexCapture::LoadVal lambda
-// type, using Krnl operations.
-Value loadDenseElementArrayValueAtIndex(
-    OpBuilder &rewriter, Location loc, Value array, int64_t index) {
-  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-  // Scalar tensor.
-  if (array.getType().cast<ShapedType>().getShape().size() == 0)
-    return create.krnl.load(array);
-
-  Value indexVal = create.math.constantIndex(index);
-  return create.krnl.load(array, {indexVal});
 }
 
 //====---------------- Support for simple transpose -------------------===//

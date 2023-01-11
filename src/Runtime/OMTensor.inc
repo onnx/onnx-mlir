@@ -284,8 +284,9 @@ OMTensor *omTensorCreateEmpty(
 void omTensorDestroy(OMTensor *tensor) {
   if (!tensor)
     return;
-  if (tensor->_owning)
+  if (tensor->_owning) {
     free(tensor->_allocatedPtr);
+  }
   free(tensor->_shape);
   free(tensor->_strides);
   free(tensor);
@@ -418,20 +419,54 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
   const int64_t *strides = omTensorGetStrides(tensor);
   void *dataPtr = omTensorGetDataPtr(tensor);
 
+  // Process format if any (default is signature and data).
+  bool signatureInfo = false;
+  bool typeInfo = false;
+  bool dataInfo = false;
+  bool hadFormat = false;
+  while (strlen(msg) >= 2 && msg[0] == '%') {
+    if (msg[1] == 's') // S for signature.
+      hadFormat = signatureInfo = true;
+    else if (msg[1] == 't') // T for type only
+      hadFormat = typeInfo = true;
+    else if (msg[1] == 'd')
+      hadFormat = dataInfo = true;
+    else
+      printf("warning: unknown format `%c`\n", msg[1]);
+    // Skip the format when printing message.
+    msg += 2;
+  }
+  if (!hadFormat)
+    signatureInfo = dataInfo = true;
+
+  // Print message.
   if (msg)
     printf("%s", msg);
 
-  printf("\trank = %lld\n", (long long)rank);
-  printf("\tdataType = %s\n", getDataTypeName(dataType));
-  printf("\tnumElems = %lld\n", (long long)omTensorGetNumElems(tensor));
-  printf("\tshape: ");
-  for (int64_t i = 0; i < rank; i++)
-    printf("[%lld]", (long long)shape[i]);
-  printf("\n");
-  printf("\tstrides: ");
-  for (int64_t i = 0; i < rank; i++)
-    printf("[%lld]", (long long)strides[i]);
-  printf("\n");
+  if (signatureInfo) {
+    // Print detailed info.
+    printf("\trank = %lld\n", (long long)rank);
+    printf("\tdataType = %s\n", getDataTypeName(dataType));
+    printf("\tnumElems = %lld\n", (long long)omTensorGetNumElems(tensor));
+    printf("\tshape: ");
+    for (int64_t i = 0; i < rank; i++)
+      printf("[%lld]", (long long)shape[i]);
+    printf("\n");
+    printf("\tstrides: ");
+    for (int64_t i = 0; i < rank; i++)
+      printf("[%lld]", (long long)strides[i]);
+    printf("\n");
+  }
+  if (typeInfo) {
+    // Print compact type like in MLIR, e.g. 32x16xf32.
+    if (signatureInfo)
+      printf("\ttype: ");
+    for (int64_t i = 0; i < rank; i++)
+      printf("%lldx", (long long)shape[i]);
+    printf("%s", getDataTypeName(dataType));
+    if (signatureInfo)
+      printf("\n");
+  }
 
 #define LOOP_1(INDEX, IV, UB)                                                  \
   printf("[");                                                                 \
@@ -474,28 +509,30 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
   }                                                                            \
   printf("]");
 
-  printf("\tdata: (");
-  switch (rank) {
-  case 1: {
-    int64_t indexes[1];
-    LOOP_1(0, i, shape[0])
-  } break;
-  case 2: {
-    int64_t indexes[2];
-    LOOP_2(0, i, shape[0], j, shape[1])
-  } break;
-  case 3: {
-    int64_t indexes[3];
-    LOOP_3(0, i, shape[0], j, shape[1], k, shape[2])
-  } break;
-  case 4: {
-    int64_t indexes[4];
-    LOOP_4(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3])
-  } break;
-  default:
-    assert(false && "not implemented");
+  if (dataInfo) {
+    printf("\tdata: (");
+    switch (rank) {
+    case 1: {
+      int64_t indexes[1];
+      LOOP_1(0, i, shape[0])
+    } break;
+    case 2: {
+      int64_t indexes[2];
+      LOOP_2(0, i, shape[0], j, shape[1])
+    } break;
+    case 3: {
+      int64_t indexes[3];
+      LOOP_3(0, i, shape[0], j, shape[1], k, shape[2])
+    } break;
+    case 4: {
+      int64_t indexes[4];
+      LOOP_4(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3])
+    } break;
+    default:
+      assert(false && "not implemented");
+    }
+    printf(")\n");
   }
-  printf(")\n");
 }
 
 #ifdef __cplusplus
@@ -638,10 +675,11 @@ inline bool omTensorAreTwoOmtsClose(
   auto aShape = std::vector<int64_t>(a->_shape, a->_shape + a->_rank);
   auto bShape = std::vector<int64_t>(b->_shape, b->_shape + b->_rank);
   if (aShape != bShape) {
-    std::cerr << "Shape mismatch ";
+    std::cerr << "Shape mismatch in omTensorAreTwoOmtsClose a: ";
     printVector(aShape, ",", std::cerr);
-    std::cerr << " != ";
+    std::cerr << " != b: ";
     printVector(bShape, ",", std::cerr);
+    std::cerr << std::endl;
     return false;
   }
 
@@ -675,6 +713,7 @@ inline bool omTensorAreTwoOmtsClose(
   if (!satisfied) {
     // Figure out where and what went wrong, this can be slow; but hopefully
     // we don't need this often.
+    std::cerr << "result mismatch in omTensorAreTwoOmtsClose" << std::endl;
     for (const auto &idx : omTensorComputeIndexSet(a)) {
       T aElem = omTensorGetElem<T>(a, idx);
       T bElem = omTensorGetElem<T>(b, idx);

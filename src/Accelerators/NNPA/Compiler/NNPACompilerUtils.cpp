@@ -29,11 +29,11 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Accelerators/NNPA/Support/OMNNPAOptions.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Pass/Passes.hpp"
@@ -45,36 +45,22 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 namespace onnx_mlir {
-extern llvm::cl::OptionCategory OnnxMlirOptions;
-extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
-extern llvm::cl::list<std::string> execNodesOnCpu;
-
-llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
-    llvm::cl::desc("[Optional] Choose NNPA-related target to emit "
-                   "(once selected it will cancel the other targets):"),
-    llvm::cl::values(
-        clEnumVal(EmitZHighIR, "Lower model to ZHigh IR (ZHigh dialect)"),
-        clEnumVal(EmitZLowIR, "Lower model to ZLow IR (ZLow dialect)"),
-        clEnumVal(EmitZNONE, "Do not emit NNPA-related target (default)")),
-    llvm::cl::init(EmitZNONE), llvm::cl::cat(OnnxMlirOptions));
-
-llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
-    llvm::cl::desc("Comma-separated list of node names in an onnx graph. The "
-                   "specified nodes are forced to run on the CPU instead of "
-                   "using the zDNN. The node name is an optional attribute "
-                   "in onnx graph, which is `onnx_node_name` in ONNX IR"),
-    llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore,
-    llvm::cl::cat(OnnxMlirOptions)};
 
 void addONNXToZHighPasses(
     mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {
-  pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(execNodesOnCpu));
-  pm.addPass(onnx_mlir::createShapeInferencePass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
-  // Add instrumentation for Onnx Ops in the same way as onnx-mlir.
-  if (instrumentZHighOps == "" || instrumentZHighOps == "NONE")
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXPass(
-        instrumentONNXOps, instrumentControlBits.getBits()));
+  for (unsigned i = 0; i < 3; i++) {
+    // Repeat this process so that shape-related ops such as Shape, Expand,
+    // Gather generated during RewriteONNXForZHigh will become constants.
+    pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(execNodesOnCpu));
+    // Simplify shape-related ops, including ShapeOp-to-DimOp replacement,
+    // constant propagation, shape inference and canonicalize.
+    pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
+  }
+  // Insert an instrumentation before lowering onnx to zhigh to get onnx level
+  // profiling.
+  if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+        instrumentOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
@@ -115,18 +101,23 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm);
+    addONNXToMLIRPasses(pm, onnxOpTransformReport, onnxOpTransformReport,
+        /*target CPU*/ maccel.empty(), enableSimdDataLayout);
 
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
     addONNXToZHighPasses(pm, execNodesOnCpu);
+    // Insert an instrumentation after lowering onnx to zhigh to get profiling
+    // for onnx and zhigh ops.
+    if (instrumentStage == onnx_mlir::InstrumentStages::ZHigh)
+      pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+          instrumentOps, instrumentControlBits.getBits()));
 
     if (nnpaEmissionTarget >= EmitZHighIR)
       emissionTarget = EmitMLIR;
     else {
       pm.addPass(mlir::createCanonicalizerPass());
-      // Add instrumentation for ZHigh Ops
-      pm.addNestedPass<func::FuncOp>(zhigh::createInstrumentZHighPass());
+
       // Lower all ONNX and ZHigh ops.
       std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
       OptLevel optLevel = OptLevel::O0;
@@ -138,7 +129,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         optLevel = OptLevel::O2;
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
-      addONNXToKrnlPasses(pm, optLevel);
+      // Lower ONNX to Krnl, ZHigh to ZLow.
+      addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true,
+          instrumentONNXSignature, ONNXOpStats);
 
       if (nnpaEmissionTarget >= EmitZLowIR)
         emissionTarget = EmitMLIR;
@@ -147,18 +140,26 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         addKrnlToAffinePasses(pm);
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
+        // Some Knrl ops, e.g. KrnlMemset, potentially exist and will be lowered
+        // to Affine when its operands are normalized.
+        addKrnlToAffinePasses(pm);
         // Optimizations at ZLow.
         pm.addPass(zlow::createZLowRewritePass());
         pm.addPass(mlir::createCanonicalizerPass());
         // Constant folding for std.alloc.
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldStdAllocPass());
       }
+      // Insert an instrumentation after lowering zhigh to zlow to get profiling
+      // for zlow ops
+      if (instrumentStage == onnx_mlir::InstrumentStages::ZLow)
+        pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
+            instrumentOps, instrumentControlBits.getBits()));
     }
   }
 
   if (emissionTarget >= EmitLLVMIR)
     // Lower the remaining Krnl and all ZLow ops to LLVM dialect.
-    addKrnlToLLVMPasses(pm);
+    addKrnlToLLVMPasses(pm, /*enableCSE=*/true, verifyInputTensors);
 }
 
 } // namespace onnx_mlir

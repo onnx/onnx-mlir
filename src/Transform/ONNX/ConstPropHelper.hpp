@@ -26,17 +26,7 @@
 
 #include <math.h>
 
-using namespace mlir;
-
-/// Get the element size in bytes. Use the biggest size to avoid loss in
-/// casting.
-int64_t getEltSizeInBytes(mlir::Type ty);
-
-/// Get the number of elements.
-int64_t getNumberOfElements(llvm::ArrayRef<int64_t> shape);
-
-/// Get the size of a tensor from its ranked type in bytes.
-int64_t getSizeInBytes(mlir::Type ty);
+namespace onnx_mlir {
 
 /// Get the size of a tensor from its ranked type in bytes, using the largest
 /// precision.
@@ -62,27 +52,26 @@ char *allocateBufferFor(mlir::Type type, bool useMaxSize = false);
 /// Get a data array from a given ONNXConstantOp.
 char *createArrayFromDenseElementsAttr(mlir::DenseElementsAttr dataAttr);
 
-/// A helper function to construct a DenseElementsAttr from an array.
-mlir::DenseElementsAttr createDenseElementsAttrFromArray(
-    char *arr, mlir::Type outputType);
-
-/// Create a dense ONNXConstantOp from a byte array.
-ONNXConstantOp createDenseONNXConstantOp(PatternRewriter &rewriter,
-    Location loc, mlir::ShapedType resultType, char *array);
+/// Copy and cast an array of a type to another array of another type.
+/// It simply uses C++ type casting. Users must take care about precision loss.
+template <typename SRC_TYPE, typename DEST_TYPE>
+void copyAndCastArr(char *srcRawArr, char *destRawArr, int64_t size);
 
 /// Convert an array whose element type is double or int_64 to an array whose
 /// element type is the one of 'outType' (smaller precision). It does not
 /// support converting from floating point to integer and vise versa.
 void convertDoubleInt64ToExactType(
-    mlir::Type outType, char *inArr, char *outArr);
+    mlir::Type destType, char *srcRawArr, char *destRawArr);
 
 /// Constant propagation for split.
-void ConstPropSplitImpl(Type elementType, char *constArray,
+void ConstPropSplitImpl(mlir::Type elementType, char *constArray,
     llvm::ArrayRef<int64_t> constShape, uint64_t splitAxis,
     llvm::ArrayRef<int64_t> splitOffsets,
     llvm::ArrayRef<mlir::Type> replacingTypes, std::vector<char *> &resBuffers);
 
 /// Constant propagation for transpose.
-void ConstPropTransposeImpl(Type elementType, char *constArray,
+void ConstPropTransposeImpl(mlir::Type elementType, char *constArray,
     llvm::ArrayRef<int64_t> constShape, llvm::ArrayRef<uint64_t> perm,
     llvm::ArrayRef<int64_t> resShape, char *resArray);
+
+} // namespace onnx_mlir

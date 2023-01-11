@@ -20,6 +20,7 @@
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
 #include "llvm/Support/Debug.h"
@@ -55,7 +56,10 @@ public:
         typeConverter->convertType(krnlVectorTypeCastOp.getType());
     if (!targetStructType)
       return failure();
+
     Location loc = op->getLoc();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+
     // Get memRefDescriptor, the new memref descriptor.
     MemRefDescriptor memRefDescriptor =
         MemRefDescriptor::undef(rewriter, loc, targetStructType);
@@ -63,14 +67,13 @@ public:
 
     // Set the new memref to the same buffer as the source memref.
     Value srcBuffer = srcMemRefDesc.allocatedPtr(rewriter, loc);
-    Value targetBuffer = rewriter.create<LLVM::BitcastOp>(
-        loc, targetElementPtrType, ArrayRef<Value>(srcBuffer));
+    Value targetBuffer = create.llvm.bitcast(targetElementPtrType, srcBuffer);
     memRefDescriptor.setAllocatedPtr(rewriter, loc, targetBuffer);
 
     // Set the new memref alignment to the same value as source memref.
     Value srcBufferAligned = srcMemRefDesc.alignedPtr(rewriter, loc);
-    Value targetBufAligned = rewriter.create<LLVM::BitcastOp>(
-        loc, targetElementPtrType, ArrayRef<Value>(srcBufferAligned));
+    Value targetBufAligned =
+        create.llvm.bitcast(targetElementPtrType, srcBufferAligned);
     memRefDescriptor.setAlignedPtr(rewriter, loc, targetBufAligned);
 
     int64_t offset;

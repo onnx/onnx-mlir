@@ -3,7 +3,6 @@
 // COM: Current MLIR normalize-memres does not support multiple dereferencing uses
 // in a single op, check expected failure emitted by MLIR. 
 
-// FAILED-LABEL: onnx-mlir-opt 
 // FAILED: "multiple dereferencing uses in a single op not supported"
 
 // RUN: onnx-mlir-opt --maccel=NNPA --zlow-dummyop-for-multideref --normalize-memrefs --canonicalize %s | FileCheck --check-prefix=PASSED %s
@@ -12,7 +11,7 @@
 // COM: Check that --zlow-dummyop-for-multideref can help to bypass the issue.
 #map = affine_map<(d0, d1, d2) -> (0, d2 floordiv 64, d0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 module {
-  func @should_normalize(%arg0: memref<3x4x5xf16, #map>, %arg1: memref<3x4x5xf16, #map>) -> memref<3x4x5xf16, #map> {
+  func.func @should_normalize(%arg0: memref<3x4x5xf16, #map>, %arg1: memref<3x4x5xf16, #map>) -> memref<3x4x5xf16, #map> {
     %0 = memref.alloc() {alignment = 4096 : i64} : memref<3x4x5xf16, #map>
     %1 = memref.alloc() {alignment = 16 : i64} : memref<3xi64>
     "zlow.add"(%arg0, %arg0, %1, %0) {layout = "3D"} : (memref<3x4x5xf16, #map>, memref<3x4x5xf16, #map>, memref<3xi64>, memref<3x4x5xf16, #map>) -> ()

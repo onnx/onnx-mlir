@@ -21,6 +21,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
@@ -71,7 +72,7 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlDimOp krnlDimOp, PatternRewriter &rewriter) const override {
-    auto loc = krnlDimOp.getLoc();
+    Location loc = krnlDimOp.getLoc();
 
     // If index is not constant, return failure.
     arith::ConstantOp indexOp =

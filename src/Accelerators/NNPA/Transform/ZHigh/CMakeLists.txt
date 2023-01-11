@@ -27,6 +27,7 @@ add_onnx_mlir_library(OMZHighLayoutPropagation
   ZHighLayoutPropagation.cpp
 
   DEPENDS
+  OMLayoutHelper
   OMONNXZHighLayoutPropagationIncGen
 
   LINK_LIBS PUBLIC
@@ -34,13 +35,7 @@ add_onnx_mlir_library(OMZHighLayoutPropagation
   MLIRTransformUtils
   OMZHighOps
   OMONNXOps
-  )
 
-add_onnx_mlir_library(OMInstrumentZHigh
-  InstrumentZHighPass.cpp
-
-  LINK_LIBS PUBLIC
-  OMKrnlOps
-  MLIRPass
-  OMNNPASupport
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
   )

@@ -2,25 +2,58 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------ ONNXTypes.cpp - ONNX Types ------------------------===//
+//===----------------------------- ONNXTypes.cpp --------------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file provides definition of utility functions for  ONNX Types.
+// This file provides definition of ONNX types.
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/IR/DialectImplementation.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/TypeSwitch.h"
-
 #include "src/Dialect/ONNX/ONNXTypes.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
+
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/DialectImplementation.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 
-// ONNXTyps.cpp.inc is NOT included here, but in ONNXOps.cpp.
-// The reason is that the type is used in dialect initialization
+//===----------------------------------------------------------------------===//
+// ONNX Type: SeqType
+//===----------------------------------------------------------------------===//
 
-// This file is for  utility functions for type definition if there is any.
+Type SeqType::parse(AsmParser &parser) {
+  Type elementType;
+  if (parser.parseLess() || parser.parseType(elementType) ||
+      parser.parseGreater()) {
+    parser.emitError(parser.getCurrentLocation())
+        << "failed to parse !onnx.Seq type";
+    return Type();
+  }
+
+  return get(elementType, -1);
+}
+
+void SeqType::print(AsmPrinter &printer) const {
+  // Previous implementation did not print/parse the length field
+  // May add the field in future
+  printer << "<" << getElementType() << ">";
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Types: TableGen generated implementation
+//===----------------------------------------------------------------------===//
+
+#define GET_TYPEDEF_CLASSES
+#include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
+
+// See explanation in ONNXDialect::initialize() in ONNXDialect.cpp.
+void ONNXDialect::registerTypes() {
+  addTypes<
+#define GET_TYPEDEF_LIST
+#include "src/Dialect/ONNX/ONNXTypes.cpp.inc"
+      >();
+}

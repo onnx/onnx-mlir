@@ -18,7 +18,8 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 using namespace mlir;
 
@@ -100,11 +101,12 @@ Value getLSTMGRUGetY(
 }
 
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
-    Value resY, Value resYh, StringAttr direction) {
+    Value resY, Value resYh, Value X, StringAttr direction) {
   Value noneValue;
   if (isNoneType(resYh) || isNoneType(val))
     return noneValue;
 
+  ArrayRef<int64_t> shapeX = X.getType().cast<ShapedType>().getShape();
   // Generate Y_h for onnx.LSTM from hn_output for all timestep
   Value minusOne =
       rewriter
@@ -126,28 +128,46 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
                          loc, nullptr, rewriter.getI64TensorAttr({INT_MAX}))
                      .getResult();
   StringRef directionStr = direction.getValue();
-  Value start, end;
-  if (directionStr.equals_insensitive("forward")) {
-    start = minusOne;
-    end = intMax;
-  } else if (directionStr.equals_insensitive("reverse")) {
-    start = zero;
-    end = one;
-  } else {
-    llvm_unreachable("Bidirectional is not supported.");
-  }
-  ArrayRef<int64_t> yhShape =
+  ArrayRef<int64_t> resYhShape =
       resYh.getType().cast<RankedTensorType>().getShape();
-  SmallVector<int64_t> sliceShape({1, yhShape[0], yhShape[1], yhShape[2]});
-  Type elementType = resYh.getType().cast<RankedTensorType>().getElementType();
-  Type sliceType = RankedTensorType::get(sliceShape, elementType);
+  int64_t T = isNoneType(resY) ? 1 : shapeX[0];
+  int64_t D = resYhShape[0];
+  int64_t B = resYhShape[1];
+  int64_t H = resYhShape[2];
+  Type elementType = resYh.getType().cast<ShapedType>().getElementType();
   Value axis = zero;
   Value step = one;
-  ONNXSliceOp sliceOp =
-      rewriter.create<ONNXSliceOp>(loc, sliceType, val, start, end, axis, step);
-  ONNXSqueezeV11Op squeezeOp = rewriter.create<ONNXSqueezeV11Op>(
-      loc, resYh.getType(), sliceOp.getResult(), rewriter.getI64ArrayAttr(0));
-  return squeezeOp.getResult();
+  Value ret;
+  if (directionStr.equals_insensitive("forward") ||
+      directionStr.equals_insensitive("reverse")) {
+    Value start = directionStr.equals_insensitive("forward") ? minusOne : zero;
+    Value end = directionStr.equals_insensitive("forward") ? intMax : one;
+
+    Type sliceType = RankedTensorType::get({1, D, B, H}, elementType);
+    ONNXSliceOp sliceOp = rewriter.create<ONNXSliceOp>(
+        loc, sliceType, val, start, end, axis, step);
+    return rewriter.create<ONNXSqueezeV11Op>(
+        loc, resYh.getType(), sliceOp.getResult(), rewriter.getI64ArrayAttr(0));
+  } else if (directionStr.equals_insensitive("bidirectional")) {
+    Type splitType = RankedTensorType::get({T, 1, B, H}, elementType);
+    SmallVector<Type> splitTypes = {splitType, splitType};
+    ONNXSplitV11Op splitOp = rewriter.create<ONNXSplitV11Op>(
+        loc, splitTypes, val, /*splitAxis=*/1, nullptr);
+    Type sliceType = RankedTensorType::get({1, 1, B, H}, elementType);
+    Value fwdLastSlice = rewriter.create<ONNXSliceOp>(
+        loc, sliceType, splitOp.getResults()[0], minusOne, intMax, axis, step);
+    Value bkwFirstSlice = rewriter.create<ONNXSliceOp>(
+        loc, sliceType, splitOp.getResults()[1], zero, one, axis, step);
+    Type concatType = RankedTensorType::get({1, D, B, H}, elementType);
+    Value concatOp = rewriter.create<ONNXConcatOp>(loc, concatType,
+        ValueRange({fwdLastSlice, bkwFirstSlice}), /*concatAxis=*/1);
+    Type squeezeType = RankedTensorType::get({D, B, H}, elementType);
+    return rewriter.create<ONNXSqueezeV11Op>(
+        loc, squeezeType, concatOp, rewriter.getI64ArrayAttr(0));
+  } else {
+    llvm_unreachable("Invalid direction.");
+  }
+  return ret;
 }
 
 Value getLSTMGRUGetYc(
@@ -156,7 +176,7 @@ Value getLSTMGRUGetYc(
   if (isNoneType(resYc))
     return noneValue;
 
-  auto unstickOp =
+  zhigh::ZHighUnstickOp unstickOp =
       rewriter.create<zhigh::ZHighUnstickOp>(loc, val.getType(), val);
   return rewriter.create<ONNXSqueezeV11Op>(
       loc, resYc.getType(), unstickOp.getResult(), rewriter.getI64ArrayAttr(0));
@@ -188,10 +208,8 @@ SmallVector<Value, 4> emitONNXSplitOp(Location loc, PatternRewriter &rewriter,
 /// Get kernelShapes using shape helper
 template <typename OP, typename OPAdaptor, typename OPShapeHelper>
 SmallVector<int64_t, 2> getArrayKernelShape(OP op) {
-  OPAdaptor operandAdaptor = OPAdaptor(op);
-  OPShapeHelper shapeHelper(&op);
-  assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
-         "Failed to scan OP parameters successfully");
+  OPShapeHelper shapeHelper(op.getOperation(), {});
+  shapeHelper.computeShapeAndAssertOnFailure();
 
   // Check if kernelShape is literal. Only static value is supported.
   assert((llvm::any_of(shapeHelper.kernelShape, [](IndexExpr val) {
@@ -207,10 +225,8 @@ SmallVector<int64_t, 2> getArrayKernelShape(OP op) {
 /// Get strides using shape helper
 template <typename OP, typename OPAdaptor, typename OPShapeHelper>
 SmallVector<int64_t, 2> getArrayStrides(OP op) {
-  OPAdaptor operandAdaptor = OPAdaptor(op);
-  OPShapeHelper shapeHelper(&op);
-  assert(succeeded(shapeHelper.computeShape(operandAdaptor)) &&
-         "Failed to scan OP parameters successfully");
+  OPShapeHelper shapeHelper(op.getOperation(), {});
+  shapeHelper.computeShapeAndAssertOnFailure();
   return shapeHelper.strides;
 }
 
@@ -237,6 +253,8 @@ struct ONNXSumOpPatternEnhancedRecursion
 
 struct ONNXToZHighLoweringPass
     : public PassWrapper<ONNXToZHighLoweringPass, OperationPass<ModuleOp>> {
+
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXToZHighLoweringPass)
 
   StringRef getArgument() const override { return "convert-onnx-to-zhigh"; }
 
@@ -267,14 +285,19 @@ public:
 void ONNXToZHighLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
+  // Run the unknown dimension analysis to help check equality of unknown
+  // dimensions at compile time.
+  onnx_mlir::DimAnalysis dimAnalysis(module);
+  dimAnalysis.analyze();
+
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
   ConversionTarget target(getContext());
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlOpsDialect,
-      func::FuncDialect, arith::ArithmeticDialect>();
+  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
+      func::FuncDialect, arith::ArithDialect>();
 
   // Combined ONNX ops to ZHigh lowering.
   // There are some combinations of ONNX ops that can be lowering into a single
@@ -304,27 +327,32 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // ONNX ops to ZHigh dialect under specific conditions.
   // When adding a new op, need to implement a method, i.e. isSuitableForZDNN,
   // for the op in ONNXLegalityCheck.cpp.
-  addDynamicallyLegalOpFor<ONNXAddOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSubOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMulOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXDivOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSumOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMinOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMaxOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXReluOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXTanhOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSigmoidOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXLogOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXExpOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMaxPoolSingleOutOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXAveragePoolOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMatMulOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXGemmOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXReduceMeanOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXLSTMOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXGRUOp>(&target, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXConvOp>(&target, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXAddOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXSubOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMulOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXDivOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXSumOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMinOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMaxOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXReluOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXTanhOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXSigmoidOp>(
+      &target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXLogOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXExpOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(
+      &target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMaxPoolSingleOutOp>(
+      &target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXAveragePoolOp>(
+      &target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMatMulOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXGemmOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXReduceMeanOp>(
+      &target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXLSTMOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXGRUOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXConvOp>(&target, &dimAnalysis, execNodesOnCpu);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

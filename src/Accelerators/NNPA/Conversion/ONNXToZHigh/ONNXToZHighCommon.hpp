@@ -12,22 +12,28 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
+    const onnx_mlir::DimAnalysis *dimAnalysis,
     mlir::ArrayRef<std::string> execNodesOnCpu) {
-  target->addDynamicallyLegalOp<OP_TYPE>([execNodesOnCpu](OP_TYPE op) {
+  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, execNodesOnCpu](
+                                             OP_TYPE op) {
     // Check operations to be forced to run on CPU.
-    Operation *genericOp = op.getOperation();
-    StringAttr nodeName =
-        genericOp->getAttrOfType<::mlir::StringAttr>("onnx_node_name");
+    mlir::Operation *genericOp = op.getOperation();
+    mlir::StringAttr nodeName =
+        genericOp->getAttrOfType<mlir::StringAttr>("onnx_node_name");
     if (nodeName) {
-      bool exists = llvm::any_of(execNodesOnCpu, [nodeName](StringRef val) {
-        return nodeName.getValue().equals_insensitive(val);
-      });
+      bool exists =
+          llvm::any_of(execNodesOnCpu, [nodeName](llvm::StringRef val) {
+            return nodeName.getValue().equals_insensitive(val);
+          });
       if (exists)
         return true;
     }
@@ -35,12 +41,12 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     // Check zDNN limitations
     // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another limitation
     bool exceedLimit =
-        llvm::any_of(genericOp->getOperands(), [](Value operand) {
-          if (auto valueType = operand.getType().dyn_cast<ShapedType>()) {
+        llvm::any_of(genericOp->getOperands(), [](mlir::Value operand) {
+          if (auto valueType = operand.getType().dyn_cast<mlir::ShapedType>()) {
             // Check if static dimension size exceeds zDNN limitations
-            ArrayRef<int64_t> valueShape = valueType.getShape();
+            llvm::ArrayRef<int64_t> valueShape = valueType.getShape();
             if (llvm::any_of(valueShape, [](int64_t dim) {
-                  return (dim != -1) &&
+                  return (!mlir::ShapedType::isDynamic(dim)) &&
                          (dim > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
                 }))
               return true;
@@ -50,7 +56,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     if (exceedLimit)
       return true;
 
-    return !isSuitableForZDNN<OP_TYPE>(op);
+    return !isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
   });
 }
 

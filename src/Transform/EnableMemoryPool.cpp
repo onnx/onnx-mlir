@@ -87,7 +87,7 @@ public:
 
   LogicalResult matchAndRewrite(
       memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
-    auto loc = allocOp.getLoc();
+    Location loc = allocOp.getLoc();
 
     auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
 
@@ -96,7 +96,7 @@ public:
       return failure();
 
     // Filter out MemRefs with Index type.
-    auto elementType = memRefType.getElementType();
+    Type elementType = memRefType.getElementType();
     if (elementType.isIndex())
       return failure();
 
@@ -133,9 +133,9 @@ public:
       memPoolShape.emplace_back(totalSize);
       auto memPoolMemRefType =
           MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
-      newAlloc = (allocOp.alignment().hasValue())
+      newAlloc = (allocOp.getAlignment().has_value())
                      ? create.mem.alignedAlloc(
-                           memPoolMemRefType, allocOp.alignment().getValue())
+                           memPoolMemRefType, allocOp.getAlignment().value())
                      : create.mem.alloc(memPoolMemRefType);
 
     } else {
@@ -145,9 +145,9 @@ public:
 
       Value dyanmicTotalSize =
           getDynamicMemRefSizeInBytes(memRefType, loc, rewriter, allocOp);
-      newAlloc = (allocOp.alignment().hasValue())
+      newAlloc = (allocOp.getAlignment().has_value())
                      ? create.mem.alignedAlloc(memPoolMemRefType,
-                           dyanmicTotalSize, allocOp.alignment().getValue())
+                           dyanmicTotalSize, allocOp.getAlignment().value())
                      : create.mem.alloc(memPoolMemRefType, dyanmicTotalSize);
     }
 

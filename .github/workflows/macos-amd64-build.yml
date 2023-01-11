@@ -9,11 +9,19 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: recursive
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.10'
+    - name: remove system python
+      run: |
+        sudo rm -rf /Library/Frameworks/Python.framework/Versions/3* /usr/local/Frameworks/Python.framework/Versions/3* /usr/local/bin/python3* || true
     - name: install tools that are needed for compilation
-      run: brew install ninja protobuf pybind11
+      run: |
+        brew install automake ninja pybind11
+    - name: install protobuf
+      run: |
+        cd ~/work
+        sh ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
     - name: cache MLIR directory
       id: cache-mlir
       uses: actions/cache@v2
@@ -32,17 +40,13 @@ jobs:
       run: |
         cd ~/work/onnx-mlir/onnx-mlir/third_party/onnx
         git fetch --prune --unshallow --tags
-        cd ~/work/onnx-mlir/onnx-mlir
-        pip3 install -e third_party/onnx
+        pip3 install numpy==1.23.5
+        python3 -m pip install -v .
     - name: build onnx-mlir
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
-    - name: run onnx-mlir backend tests
+    - name: run onnx-mlir backend and numerical tests
       run: |
         cd ~/work/onnx-mlir
-        sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-backend.sh
-    - name: run onnx-mlir numerical tests
-      run: |
-        cd ~/work/onnx-mlir
-        sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-numerical.sh
+        sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-backend-numerical.sh

@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------Slice.cpp - Lowering Slice Op----------------------=== //
+//===---------------- Slice.cpp - Lowering Slice Op ----------------------=== //
 //
 // Copyright 2020-2022 The IBM Research Authors.
 //
@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -27,14 +27,12 @@ struct ONNXSliceOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXSliceOpAdaptor operandAdaptor(operands);
-    ONNXSliceOp sliceOp = llvm::cast<ONNXSliceOp>(op);
     Location loc = op->getLoc();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
 
-    ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    ONNXSliceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -45,13 +43,14 @@ struct ONNXSliceOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
-    KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange loopDef = createKrnl.defineLoops(outputRank);
+    ValueRange loopDef = create.krnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
-    createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
+    create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          IndexExprScope loopScope(createKrnl);
+
           // Compute indices for the load and store op.
           // Load: "i * step + start" for all dim.
           // Store: "i" for all dims.

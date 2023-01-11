@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -34,7 +34,7 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
 
   SmallVector<Value, 4> allocOperands;
   for (size_t i = 0; i < inputRank; ++i) {
-    if (outputShape[i] == -1) {
+    if (ShapedType::isDynamic(outputShape[i])) {
       Value indexVal = create.math.constantIndex(i);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
       Value repeatsLoadVal = create.krnl.load(repeatsOperand, repeatsMemRefVal);
@@ -62,16 +62,13 @@ struct ONNXTileOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
-    ONNXTileOp tileOp = cast<ONNXTileOp>(op);
     Location loc = op->getLoc();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
 
-    ONNXTileOpShapeHelper shapeHelper(&tileOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    (void)shapecomputed;
-    assert(!failed(shapecomputed) && "expected to succeed");
+    // Get shape.
+    ONNXTileOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -83,28 +80,29 @@ struct ONNXTileOpLowering : public ConversionPattern {
 
     Value input = operandAdaptor.input();
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
-    KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange loopDef = createKrnl.defineLoops(outputRank);
+    ValueRange loopDef = create.krnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
 
-    MemRefBoundsIndexCapture inputBounds(input);
-    createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
+    create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           // Compute the indices used by the input tensor load operation.
           // Note: An alternative implementation can be found at the end of this
           // file.
+          MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+              createKrnl);
+
           SmallVector<Value, 4> loadIndices;
           for (uint64_t i = 0; i < outputRank; ++i) {
             DimIndexExpr index(indices[i]);
-            DimIndexExpr dimSize(inputBounds.getDim(i));
+            IndexExpr dimSize = create.krnlIE.getShapeAsSymbol(input, i);
             IndexExpr exprVal = index % dimSize;
             loadIndices.emplace_back(exprVal.getValue());
           }
 
-          Value loadVal = createKrnl.load(input, loadIndices);
-          createKrnl.store(loadVal, alloc, indices);
+          Value loadVal = create.krnl.load(input, loadIndices);
+          create.krnl.store(loadVal, alloc, indices);
         });
 
     rewriter.replaceOp(op, alloc);
@@ -180,7 +178,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     SmallVector<Value, 4> outputMemRefVal;
     for (int64_t i = 0; i < inputRank; ++i) {
       Value inputDimSizeVal = create.mem.dim(input, i);
-      if (inputShape[i] != -1) {
+      if (!ShapedType::isDynamic(inputShape[i])) {
         AffineExpr inputIndexAE = rewriter.getAffineDimExpr(0);
         AffineExpr repeatsIndexAE = rewriter.getAffineDimExpr(1);
         AffineExpr inputDimAE = rewriter.getAffineSymbolExpr(0);

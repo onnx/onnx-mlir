@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -27,23 +27,20 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = ONNXLoc<ONNXCompressOp>(op);
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
-        rewriter, loc);
+    Location loc = ONNXLoc<ONNXCompressOp>(op);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
     ONNXCompressOpAdaptor operandAdaptor(operands);
     ONNXCompressOp compressOp = cast<ONNXCompressOp>(op);
 
     // Get shape, also deliver normalized "axis", -1 if undef.
-    ONNXCompressOpShapeHelper shapeHelper(&compressOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    ONNXCompressOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Get input shape.
     Value inputMemRef = operandAdaptor.input();
-    MemRefBoundsIndexCapture inputBounds(inputMemRef);
-    int64_t inputRank = inputBounds.getRank();
+    int64_t inputRank = create.krnlIE.getShapedTypeRank(inputMemRef);
     Optional<int64_t> axis = compressOp.axis();
 
     // Create a few constants.
@@ -61,9 +58,9 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     create.krnl.store(zeroIE.getValue(), sumMemRef);
     // Now create a loop to iterate over all conditions.
     Value condMemRef = operandAdaptor.condition();
-    MemRefBoundsIndexCapture condBounds(condMemRef);
+    IndexExpr condShapeFirstRank = create.krnlIE.getShapeAsDim(condMemRef, 0);
     ValueRange loopDef = create.krnl.defineLoops(1);
-    create.krnl.iterateIE(loopDef, loopDef, {zeroIE}, {condBounds.getDim(0)},
+    create.krnl.iterateIE(loopDef, loopDef, {zeroIE}, {condShapeFirstRank},
         [&](KrnlBuilder createKrnl, ValueRange loopInd) {
           MathBuilder createMath(createKrnl);
           // Load the condition
@@ -79,13 +76,12 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // Now replace questionmark by actual computed size.
     Value sum = create.krnl.load(sumMemRef);
     DimIndexExpr dynDim(sum);
-    if (!axis.hasValue())
-      shapeHelper.dimsForOutput()[0] = dynDim;
-    else {
-      const int64_t axisValue = (axis.getValue() >= 0)
-                                    ? axis.getValue()
-                                    : axis.getValue() + inputRank;
-      shapeHelper.dimsForOutput()[axisValue] = dynDim;
+    if (!axis.has_value()) {
+      shapeHelper.getOutputDims()[0] = dynDim;
+    } else {
+      const int64_t axisValue =
+          (axis.value() >= 0) ? axis.value() : axis.value() + inputRank;
+      shapeHelper.getOutputDims()[axisValue] = dynDim;
     }
 
     // Convert the output type to MemRefType.
@@ -96,7 +92,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
     // Perform the copy depending on the conditions.
     // We will store the current index to write into the output array in
@@ -107,10 +103,10 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
     SmallVector<IndexExpr, 4> inputLbs(inputRank, zeroIE);
     SmallVector<IndexExpr, 4> inputUbs;
-    inputBounds.getSymbolList(inputUbs);
+    create.krnlIE.getShapeAsSymbols(inputMemRef, inputUbs);
 
     // Consider the cases.
-    if (!axis.hasValue()) {
+    if (!axis.has_value()) {
       // We iterate over the original loops, and in the innerblock we test for
       // the condition. The output is 1D.
       //
@@ -127,7 +123,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
       // Try to see if we can guarantee that there are enough bits in the
       // condition tensor.
-      IndexExpr condSize = condBounds.getSymbol(0);
+      IndexExpr condSize = create.krnlIE.getShapeAsSymbol(condMemRef, 0);
       Value condUb = condSize.getValue();
       bool skipCond = false;
       if (condSize.isLiteral()) {
@@ -181,10 +177,9 @@ struct ONNXCompressOpLowering : public ConversionPattern {
             });
           });
     } else {
-      assert(axis.hasValue() && "Expecting axis to have a value");
-      const int64_t axisValue = (axis.getValue() >= 0)
-                                    ? axis.getValue()
-                                    : axis.getValue() + inputRank;
+      assert(axis.has_value() && "Expecting axis to have a value");
+      const int64_t axisValue =
+          (axis.value() >= 0) ? axis.value() : axis.value() + inputRank;
 
       // Handle case where output is multi-dimensional.
       //
@@ -201,7 +196,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
       // Try to see if we can guarantee that there are enough bits in the
       // condition tensor.
-      IndexExpr condSize = condBounds.getSymbol(0);
+      IndexExpr condSize = create.krnlIE.getShapeAsSymbol(condMemRef, 0);
       Value condUb = condSize.getValue();
       bool skipCond = false;
       IndexExpr condTest = (condSize >= inputUbs[axisValue]);

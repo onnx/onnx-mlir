@@ -17,7 +17,6 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "onnx/onnx_pb.h"
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
 
 namespace onnx_mlir {
@@ -27,7 +26,7 @@ namespace krnl {
 int64_t getRankFromMemRefType(mlir::LLVM::LLVMStructType memRefTy);
 
 /// Get the ONNX type corresponding to an MLIR type.
-onnx::TensorProto::DataType mlirTypeToOnnxType(mlir::Type elemType);
+int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
 /// Create an OMTensor from a memref.
 void fillOMTensorWithMemRef(mlir::Value &outMemRef, mlir::Value &outOMTensor,
@@ -50,10 +49,6 @@ void setAlignment(mlir::LLVM::GlobalOp &global, mlir::IntegerAttr alignmentAttr,
     mlir::ModuleOp module, mlir::OpBuilder &builder,
     mlir::LLVMTypeConverter &typeConverter);
 
-/// Retrieve the declaration of a function in the given module.
-llvm::Optional<mlir::FlatSymbolRefAttr> getFunctionDeclaration(
-    mlir::ModuleOp module, llvm::StringRef funcName);
-
 /// Return a symbol reference to the strncmp function, inserting it into the
 /// module if necessary.
 mlir::FlatSymbolRefAttr getOrInsertStrncmp(
@@ -66,6 +61,10 @@ std::string a2e_s(std::string a_s);
 /// Convert a string from EBCDIC IBM-1047 to ASCII.
 /// This is not in-place conversion and a new string in ASCII is returned.
 std::string e2a_s(std::string e_s);
+
+/// Generate LLVM code to set errno to the given value.
+void emitErrNo(mlir::ModuleOp module, mlir::OpBuilder &builder,
+    mlir::Location loc, int err);
 
 } // namespace krnl
 } // namespace onnx_mlir

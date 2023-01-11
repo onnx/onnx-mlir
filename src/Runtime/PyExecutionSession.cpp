@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----- PyExecutionSession.hpp - PyExecutionSession Implementation -----===//
+//===----- PyExecutionSession.cpp - PyExecutionSession Implementation -----===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -22,6 +22,10 @@ SUPPRESS_WARNINGS_POP
 #include "PyExecutionSession.hpp"
 
 namespace onnx_mlir {
+
+PyExecutionSession::PyExecutionSession(
+    std::string sharedLibPath, bool defaultEntryPoint)
+    : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {}
 
 std::vector<py::array> PyExecutionSession::pyRun(
     const std::vector<py::array> &inputsPyArray) {
@@ -94,7 +98,8 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
   auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
-  assert(wrappedOutput && "failed to evaluate model");
+  if (!wrappedOutput)
+    throw std::runtime_error(reportErrnoError());
   std::vector<py::array> outputPyArrays;
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
@@ -158,6 +163,8 @@ std::vector<py::array> PyExecutionSession::pyRun(
     outputPyArrays.emplace_back(
         py::array(dtype, shape, omTensorGetDataPtr(omt)));
   }
+  omTensorListDestroy(wrappedOutput);
+  omTensorListDestroy(wrappedInput);
 
   return outputPyArrays;
 }

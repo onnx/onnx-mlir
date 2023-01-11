@@ -5,10 +5,13 @@ add_onnx_mlir_library(OMONNXToKrnl
   ConvertONNXToKrnl.cpp
   ONNXToKrnlCommon.cpp
   PerfectHash.cpp
+  ControlFlow/If.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
-  Math/CumSum.cpp
+  ConvertONNXToKrnl.cpp
+  ML/CategoryMapper.cpp
   Math/Clip.cpp
+  Math/CumSum.cpp
   Math/Elementwise.cpp
   Math/Gemm.cpp
   Math/Hardmax.cpp
@@ -19,58 +22,60 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/Reduction.cpp
   Math/Softmax.cpp
   Math/TopK.cpp
-  ML/CategoryMapper.cpp
   NN/Conv.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp
   ObjectDetection/NonMaxSuppression.cpp
-  RNN/RNNBase.cpp
   RNN/GRU.cpp
   RNN/LSTM.cpp
   RNN/RNN.cpp
+  RNN/RNNBase.cpp
   RNN/RNNBase.cpp
   Sequence/SequenceAt.cpp
   Sequence/SequenceEmpty.cpp
   Sequence/SequenceErase.cpp
   Sequence/SequenceInsert.cpp
   Sequence/SequenceLength.cpp
-  Tensor/ArgMax.cpp
-  Tensor/Concat.cpp
+  Tensor/ArgMinMax.cpp
   Tensor/Compress.cpp  
+  Tensor/Concat.cpp
+  Tensor/ConcatShapeTranspose.cpp
   Tensor/Constant.cpp
   Tensor/ConstantOfShape.cpp
   Tensor/DepthToSpace.cpp
+  Tensor/Dim.cpp
   Tensor/Expand.cpp
   Tensor/Flatten.cpp
   Tensor/Gather.cpp
   Tensor/GatherElements.cpp
   Tensor/GatherND.cpp
   Tensor/Identity.cpp
+  Tensor/LayoutTransform.cpp
   Tensor/NonZero.cpp
   Tensor/OneHot.cpp  
   Tensor/Pad.cpp
+  Tensor/PrintSignature.cpp
+  Tensor/Range.cpp
+  Tensor/Reshape.cpp
+  Tensor/Resize.cpp
+  Tensor/ReverseSequence.cpp
   Tensor/ScatterElements.cpp
   Tensor/ScatterND.cpp  
-  Tensor/Squeeze.cpp
-  Tensor/Split.cpp
   Tensor/Shape.cpp
   Tensor/Size.cpp 
   Tensor/Slice.cpp
   Tensor/SpaceToDepth.cpp
-  Tensor/Reshape.cpp
+  Tensor/Split.cpp
+  Tensor/Squeeze.cpp
   Tensor/Tile.cpp
   Tensor/Transpose.cpp
   Tensor/Unsqueeze.cpp
-  Tensor/Range.cpp
-  Tensor/Resize.cpp
-  Tensor/ReverseSequence.cpp
-  ConvertONNXToKrnl.cpp
 
   LINK_LIBS PUBLIC
-  Accelerator
+  OMAccelerator
   OMConstPropHelper
   OMONNXOps
   OMSupport
-  MLIRFunc
+  MLIRFuncDialect
   MLIRFuncTransforms
   )

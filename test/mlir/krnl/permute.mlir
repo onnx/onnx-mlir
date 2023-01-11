@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
-func @simple_permute() {
+func.func @simple_permute() {
   %ii, %jj = krnl.define_loops 2
   krnl.permute(%ii, %jj) [1, 0] : !krnl.loop, !krnl.loop
   krnl.iterate(%jj, %ii) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
@@ -18,7 +18,7 @@ func @simple_permute() {
 
 // -----
 
-func @tiling() {
+func.func @tiling() {
   %ii, %ij = krnl.define_loops 2
   %ib, %il = krnl.block %ii 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   %jb, %jl = krnl.block %ij 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
@@ -40,7 +40,7 @@ func @tiling() {
   return
 }
 
-func @tiling3d() {
+func.func @tiling3d() {
   %ii, %jj, %kk = krnl.define_loops 3
   // Blocking each loop by a factor of 4.
   %ib, %il = krnl.block %ii 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
@@ -56,9 +56,9 @@ func @tiling3d() {
   // CHECK-NEXT:  affine.for [[I_BLOCK_IV:%.+]] = 0 to 1024 step 4 {
   // CHECK-NEXT:    affine.for [[J_BLOCK_IV:%.+]] = 0 to 2048 step 4 {
   // CHECK-NEXT:      affine.for [[K_BLOCK_IV:%.+]] = 0 to 4096 step 4 {
-  // CHECK-NEXT:        affine.for [[I_INNER_IV:%.+]] = #map0([[I_BLOCK_IV]]) to #map2([[I_BLOCK_IV]]) {
-  // CHECK-NEXT:          affine.for [[J_INNER_IV:%.+]] = #map0([[J_BLOCK_IV]]) to #map2([[J_BLOCK_IV]]) {
-  // CHECK-NEXT:            affine.for [[K_INNER_IV:%.+]] = #map0([[K_BLOCK_IV]]) to #map2([[K_BLOCK_IV]]) {
+  // CHECK-NEXT:        affine.for [[I_INNER_IV:%.+]] = #map([[I_BLOCK_IV]]) to #map2([[I_BLOCK_IV]]) {
+  // CHECK-NEXT:          affine.for [[J_INNER_IV:%.+]] = #map([[J_BLOCK_IV]]) to #map2([[J_BLOCK_IV]]) {
+  // CHECK-NEXT:            affine.for [[K_INNER_IV:%.+]] = #map([[K_BLOCK_IV]]) to #map2([[K_BLOCK_IV]]) {
   // CHECK-NEXT:            }
   // CHECK-NEXT:          }
   // CHECK-NEXT:        }

@@ -17,15 +17,30 @@ To invoke the test, use the following command:
 ```
 cmake --build . --config Release --target check-onnx-backend[-jni]
 ``` 
-Packages, such as third_party/onnx, needs to be installed to run the backend test. JNI test requires the jsoniter jar which is downloaded from its maven repository by default if no installed version is found on the system. If the user turns on the cmake option `ONNX_MLIR_BUILD_JSONITER` when building ONNX-MLIR, the jsoniter jar will be built locally from the source cloned from its github repository. Note that building jsoniter jar locally requires the maven build tool to be installed.
+Packages, such as third_party/onnx, needs to be installed to run the backend test. You can install your own onnx package with command `pip install your-onnx-mlir/third_party/onnx`.
+JNI test requires the jsoniter jar which is downloaded from its maven repository by default if no installed version is found on the system. If the user turns on the cmake option `ONNX_MLIR_BUILD_JSONITER` when building ONNX-MLIR, the jsoniter jar will be built locally from the source cloned from its github repository. Note that building jsoniter jar locally requires the maven build tool to be installed.
 
-The node and model tests in onnx that will be run by check-onnx-backend is defined by variable test_to_enable in test/backend/test.py. User can test one test case by environment variable `TEST_CASE_BY_USER`. For example,
+All the test cases provided by onnx package are listed in file `test/backend/all_test_names.txt`. check-onnx-backend will selectively run some of them. 
+The node and model tests in onnx that will be run by check-onnx-backend is defined by variable test_to_enable in `test/backend/test.py`. User can test one test case by environment variable `TEST_CASE_BY_USER`. For example,
 ```
 TEST_CASE_BY_USER=selected_test_name cmake --build . --config Release --target check-onnx-backend[-jni]
 ```
-With `TEST_CASE_BY_USER` specified, the intermediate result, the .onnx file and .so file, are kept in build/test/backend for debugging. If you need to check whether a particular instruction is included in the generated shared library, set the environment variable `TEST_INSTRUCTION_CHECK` to true and add the instruction name after the test name, like `TEST_CASE_BY_USER=selected_test_name,instruction_name`.
+With `TEST_CASE_BY_USER` specified, the intermediate result, the .onnx file and .so file, are kept in `build/test/backend` for debugging. If you need to check whether a particular instruction is included in the generated shared library, set the environment variable `TEST_INSTRUCTION_CHECK` to true and add the instruction name after the test name, like `TEST_CASE_BY_USER=selected_test_name,instruction_name`.
+Please note to add suffix `_cpu` to the onnx test name.
 
-When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/backend/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
+### Test cases supported by ONNX
+
+File, test/backend/all_test_names.txt, contains all the test cases provided
+by ONNX package. You can enable a test case by adding it into test/backend/inference_backend.py.
+The all_test_names.txt is automatically generated with command "make check-onnx-backend-case". The update is only needed when ONNX package is upgraded.
+
+### Adding ONNX-supported test cases to the current set of backend tests
+
+When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in `third_part/onnx/onnx/backend/test/case/node`. You can identify new tests by looking for the new operator in `test/backend/all_test_names.txt`. Once you have located new tests, you may add the new tests in the `test/backend/inference_backend.py.` Please note to add suffix `_cpu` to the onnx test name. Associated with the test, you can define how to run the tests for the new operator. For example:
+```
+        "test_and2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+```
+indicates that the test `test_and2d_cpu` can run (1) with static shape, (2) with all of its inputs forced to be dynamic shapes, or (3) with all of its input forced to be defined constants. This is the recommended setting for most operators. However, some do not tolerate dynamic shapes for certain arguments; for these, one can explicitly decide which argument to the function can be of dynamic shape. This is specified with the `{-1:{-1}}` expression. The `test/backend/inference_backend.py.` file contains explicit instructions on how to specify which argument and/or argument dimensions can be set to dynamic.
 
 ### Tests with unknown dimensions
 
@@ -136,15 +151,20 @@ We first need to compile the tool, which can be done in one of two modes.
 In the first mode, the tool is compiled with a statically linked model.
 This mode requires the `-D LOAD_MODEL_STATICALLY=0` option during compilation in addition to including the `.so` file.
 Best is to use the `build-run-onnx-lib.sh` script in the `onnx-mlir/utils` directory to compile the tool with its model, which is passed as a parameter to the script.
-To avoid library path issues, just run the tool in the home directory of the model.
+To avoid library path issues on Mac, run the compiled tool in the directory where the model was built.
 
 ``` sh
 # Compile tool with model.
 cd onnx-mlir/build
-. ../utils/build-run-onnx-lib.sh test/backend/test_add.so
-# Run tool in the directory of the model.
-(cd test/backend; run-onnx-lib)
+sh ../utils/build-run-onnx-lib.sh test/backend/test_add/test_add.so
+# Run the tool to run the model (substitute `Release` for `Debug` for the release version).
+Debug/bin/run-onnx-lib
+# or, on Mac, run the tool in the directory where the model was built
+(cd test/backend; ../../Debug/bin/run-onnx-lib)
+# if test_add.so was built in `test/backend`:
+cd test/backend; ../../Debug/bin/onnx-mlir --EmitLib test_add/test_add.onnx
 ```
+(You can see the path of the library with `otool -L test_add.so` on Mac.)
 
 In the second mode, the tool is compiled without models, which will be passed at runtime.
 To enable this option, simply compile the tool with the `-D LOAD_MODEL_STATICALLY=1` option.
@@ -154,9 +174,9 @@ any directories as long as you pass the `.so` model file at runtime to the tool.
 ``` sh
 # Compile tool without a model.
 cd onnx-mlir/build
-. ../utils/build-run-onnx-lib.sh
+sh ../utils/build-run-onnx-lib.sh
 # Run the tool with an argument pointing to the model.
-run-onnx-lib test/backend/test_add.so
+Debug/bin/run-onnx-lib test/backend/test_add/test_add.so
 ```
 
 ## LLVM FileCheck Tests
@@ -355,13 +375,11 @@ Again, these debug statements can then be activated by adding the `--debug-only=
 
 ## ONNX Model Zoo
 
-We provide a Python script, i.e. [CheckONNXModelZoo.py](test/onnx-model-zoo/CheckONNXModelZoo.py), to check inference accuracy with models in the [ONNX model zoo](https://github.com/onnx/models). The script must be invoked from the ONNX model zoo repository, not the onnx-mlir repository.
+We provide a Python script [RunONNXModelZoo.py](../utils/RunONNXModelZoo.py) to check inference accuracy with models in the [ONNX model zoo](https://github.com/onnx/models). The script can be invoked from the ONNX model zoo repository, e.g.,
 
-Below is a quick start for checking the `mnist-8` model:
 ```bash
 $ git clone https://github.com/onnx/models
 $ cd models
-$ ln -s /onnx_mlir/test/onnx-model/test/onnx-model-zoo/CheckONNXModelZoo.py CheckONNXModelZoo.py
-$ ln -s /onnx_mlir/utils/RunONNXModel.py RunONNXModel.py
-$ VERBOSE=1 ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python CheckONNXModelZoo.py -pull-models -m mnist-8 -compile_args="-O3"
+$ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ /onnx-mlir/utils/RunONNXModelZoo.py -m mnist-8 -compile-args="-O3"
 ```
+Run the script with `-h` to see all the options.

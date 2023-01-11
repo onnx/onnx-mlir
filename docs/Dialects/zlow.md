@@ -3,7 +3,7 @@
 
 ZLow add operation
 
-"ZLow operation to perform an add."
+ZLow operation to perform an add.
 
 Traits: MemRefsNormalizable
 
@@ -26,17 +26,17 @@ Traits: MemRefsNormalizable
 
 ZLow 2D average pooling operation
 
-"ZLow operation to perform 2D average pooling."
-"shape is a 1D MemRef (memref<6xi64>) whose items are:;
-"  - 1st item: batch size"
-"  - 2nd item: channel"
-"  - 3rd item: height in"
-"  - 4th item: width in"
-"  - 5th item: height out"
-"  - 6th item: width out"
-"kernel_shape: 1D array of kernel height and width"
-"strides: 1D array of stride height and width"
-"padding_type: SAME_PADDING or VALID_PADDING."
+ZLow operation to perform 2D average pooling.
+* shape is a 1D MemRef (memref<6xi64>) whose items are:
+  * 1st item: batch size
+  * 2nd item: channel
+  * 3rd item: height in
+  * 4th item: width in
+  * 5th item: height out
+  * 6th item: width out
+* kernel_shape: 1D array of kernel height and width
+* strides: 1D array of stride height and width
+* padding_type: SAME_PADDING or VALID_PADDING.
 
 Traits: MemRefsNormalizable
 
@@ -60,12 +60,12 @@ Traits: MemRefsNormalizable
 
 ZLow batchnorm operation
 
-"ZLow operation to perform batchnorm."
-"shape is a 1D MemRef (memref<4xi64>) whose items are:;
-"  - 1st item: batch size"
-"  - 2nd item: height"
-"  - 3rd item: width"
-"  - 4th item: channel"
+ZLow operation to perform batchnorm.
+* shape is a 1D MemRef (memref<4xi64>) whose items are:
+  * 1st item: batch size
+  * 2nd item: height
+  * 3rd item: width
+  * 4th item: channel
 
 Traits: MemRefsNormalizable
 
@@ -83,19 +83,19 @@ Traits: MemRefsNormalizable
 
 ZLow 2D convolution operation
 
-"ZLow operation to perform 2D convolution."
-"shape is a 1D MemRef (memref<7xi64>) whose items are:;
-"  - 1st item: batch size"
-"  - 2nd item: channel in"
-"  - 3rd item: height in"
-"  - 4th item: width in"
-"  - 5th item: channel out"
-"  - 6th item: height out"
-"  - 7th item: width out"
-"kernel_shape: 1D array of kernel height and width"
-"strides: 1D array of stride height and width"
-"padding_type: SAME_PADDING or VALID_PADDING."
-"act_func: ACT_NONE or ACT_RELU."
+ZLow operation to perform 2D convolution.
+* shape is a 1D MemRef (memref<7xi64>) whose items are:
+  * 1st item: batch size
+  * 2nd item: channel in
+  * 3rd item: height in
+  * 4th item: width in
+  * 5th item: channel out
+  * 6th item: height out
+  * 7th item: width out
+* kernel_shape: 1D array of kernel height and width
+* strides: 1D array of stride height and width
+* padding_type: SAME_PADDING or VALID_PADDING.
+* act_func: ACT_NONE or ACT_RELU.
 
 Traits: MemRefsNormalizable
 
@@ -122,7 +122,7 @@ Traits: MemRefsNormalizable
 
 ZLow div operation
 
-"ZLow operation to perform a div."
+ZLow operation to perform a div.
 
 Traits: MemRefsNormalizable
 
@@ -141,11 +141,32 @@ Traits: MemRefsNormalizable
 | `shape` | memref of 64-bit signless integer values
 | `Out` | memref of any type values
 
+### `zlow.dummy` (::onnx_mlir::zlow::ZLowDummyOp)
+
+ZLow dummy operation that behaves like identity
+
+ZLow operation to forward the input value to the output value.
+It will be removed if canonicalization is called.
+
+Traits: MemRefsNormalizable
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | memref of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | memref of any type values
+
 ### `zlow.exp` (::onnx_mlir::zlow::ZLowExpOp)
 
 ZLow exp operation
 
-"ZLow operation to perform a exp."
+ZLow operation to perform a exp.
 
 Traits: MemRefsNormalizable
 
@@ -167,16 +188,17 @@ Traits: MemRefsNormalizable
 
 ZLow gru operation
 
-"ZLow operation to perform a gru."
-"work_area: a 4K-aligned buffer."
-"shape is a 1D MemRef (memref<5xi64>) whose items are:;
-"  - 1st item: direction"
-"  - 2nd item: timestep"
-"  - 3rd item: batchSize"
-"  - 4th item: featureSize"
-"  - 5th item: hiddenSize"
-"direction accepts "forward", "reverse", or "bidirectional"
-"return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+ZLow operation to perform a gru.
+* work_area: a 4K-aligned buffer.
+* shape is a 1D MemRef (memref<5xi64>) whose items are:;
+  * 1st item: direction
+  * 2nd item: timestep
+  * 3rd item: batchSize
+  * 4th item: featureSize
+  * 5th item: hiddenSize
+* direction accepts "forward", "reverse", or "bidirectional"
+* return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+* prev_layer for where input comes is "none", "uni", or "bidir"
 
 Traits: MemRefsNormalizable
 
@@ -186,6 +208,7 @@ Traits: MemRefsNormalizable
 | :-------: | :-------: | ----------- |
 | `direction` | ::mlir::StringAttr | string attribute
 | `return_all_steps` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `prev_layer` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
@@ -205,16 +228,17 @@ Traits: MemRefsNormalizable
 
 ZLow lstm operation
 
-"ZLow operation to perform a lstm."
-"work_area: a 4K-aligned buffer."
-"shape is a 1D MemRef (memref<5xi64>) whose items are:;
-"  - 1st item: direction"
-"  - 2nd item: timestep"
-"  - 3rd item: batchSize"
-"  - 4th item: featureSize"
-"  - 5th item: hiddenSize"
-"direction accepts "forward", "reverse", or "bidirectional"
-"return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+ZLow operation to perform a lstm.
+work_area: a 4K-aligned buffer.
+* shape is a 1D MemRef (memref<5xi64>) whose items are:
+  * 1st item: direction
+  * 2nd item: timestep
+  * 3rd item: batchSize
+  * 4th item: featureSize
+  * 5th item: hiddenSize
+* direction accepts "forward", "reverse", or "bidirectional"
+* return_all_steps: -1 returns all timesteps, 0: returns only the last timestep
+* prev_layer for where input comes is "none", "uni", or "bidir"
 
 Traits: MemRefsNormalizable
 
@@ -224,6 +248,7 @@ Traits: MemRefsNormalizable
 | :-------: | :-------: | ----------- |
 | `direction` | ::mlir::StringAttr | string attribute
 | `return_all_steps` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `prev_layer` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
@@ -245,7 +270,7 @@ Traits: MemRefsNormalizable
 
 ZLow log operation
 
-"ZLow operation to perform a log."
+ZLow operation to perform a log.
 
 Traits: MemRefsNormalizable
 
@@ -267,21 +292,21 @@ Traits: MemRefsNormalizable
 
 ZLow matmul operation
 
-"ZLow operation to perform a matmul."
-"- In case of unstacked: X(m, n) * Y(n, p) + Bias(p)"
-"shape is a 1D MemRef (memref<3xi64>) whose items are:"
-"  - 1st item: m"
-"  - 2nd item: n"
-"  - 3rd item: p"
-"- In case of stacked: X(s, m, n) * Y(s, n, p) + Bias(s, p)"
-"     or broadcasting: X(s, m, n) * Y(n, p) + Bias(p)"
-"shape is a 1D MemRef (memref<4xi64>) whose items are:"
-"  - 1st item: s"
-"  - 2nd item: m"
-"  - 3rd item: n"
-"  - 4th item: p"
-"is_bcast: -1 broadcasting, 0: no broadcasting."
-"is_stacked: -1 stacked, 0: unstacked."
+ZLow operation to perform a matmul.
+* In case of unstacked: X(m, n) * Y(n, p) + Bias(p)
+shape is a 1D MemRef (memref<3xi64>) whose items are:
+  * 1st item: m
+  * 2nd item: n
+  * 3rd item: p
+* In case of stacked: X(s, m, n) * Y(s, n, p) + Bias(s, p)
+     or broadcasting: X(s, m, n) * Y(n, p) + Bias(p)
+shape is a 1D MemRef (memref<4xi64>) whose items are:
+  * 1st item: s
+  * 2nd item: m
+  * 3rd item: n
+  * 4th item: p
+* is_bcast: -1 broadcasting, 0: no broadcasting.
+* is_stacked: -1 stacked, 0: unstacked.
 
 Traits: MemRefsNormalizable
 
@@ -306,7 +331,7 @@ Traits: MemRefsNormalizable
 
 ZLow max operation
 
-"ZLow operation to perform a max."
+ZLow operation to perform a max.
 
 Traits: MemRefsNormalizable
 
@@ -329,17 +354,17 @@ Traits: MemRefsNormalizable
 
 ZLow 2D max pooling operation
 
-"ZLow operation to perform 2D max pooling."
-"shape is a 1D MemRef (memref<6xi64>) whose items are:;
-"  - 1st item: batch size"
-"  - 2nd item: channel"
-"  - 3rd item: height in"
-"  - 4th item: width in"
-"  - 5th item: height out"
-"  - 6th item: width out"
-"kernel_shape: 1D array of kernel height and width"
-"strides: 1D array of stride height and width"
-"padding_type: SAME_PADDING or VALID_PADDING."
+ZLow operation to perform 2D max pooling.
+* shape is a 1D MemRef (memref<6xi64>) whose items are:
+  * 1st item: batch size
+  * 2nd item: channel
+  * 3rd item: height in
+  * 4th item: width in
+  * 5th item: height out
+  * 6th item: width out
+* kernel_shape: 1D array of kernel height and width
+* strides: 1D array of stride height and width
+* padding_type: SAME_PADDING or VALID_PADDING.
 
 Traits: MemRefsNormalizable
 
@@ -363,12 +388,12 @@ Traits: MemRefsNormalizable
 
 ZLow 2D mean reduce operation
 
-"ZLow operation to perform 2D mean reduce."
-"shape is a 1D MemRef (memref<4xindex>) whose items are:;
-"  - 1st item: batch size": 1st dim of input
-"  - 2rd item: height": 2nd dim of input
-"  - 3th item: width": 3rd dim of input
-"  - 4nd item: channel": 4th dim of input
+ZLow operation to perform 2D mean reduce.
+* shape is a 1D MemRef (memref<4xindex>) whose items are:;
+  * 1st item: batch size": 1st dim of input
+  * 2rd item: height": 2nd dim of input
+  * 3th item: width": 3rd dim of input
+  * 4nd item: channel": 4th dim of input
 
 Traits: MemRefsNormalizable
 
@@ -384,7 +409,7 @@ Traits: MemRefsNormalizable
 
 ZLow min operation
 
-"ZLow operation to perform a min."
+ZLow operation to perform a min.
 
 Traits: MemRefsNormalizable
 
@@ -407,7 +432,7 @@ Traits: MemRefsNormalizable
 
 ZLow mul operation
 
-"ZLow operation to perform a mul."
+ZLow operation to perform a mul.
 
 Traits: MemRefsNormalizable
 
@@ -430,7 +455,7 @@ Traits: MemRefsNormalizable
 
 ZLow relu operation
 
-"ZLow operation to perform a relu."
+ZLow operation to perform a relu.
 
 Traits: MemRefsNormalizable
 
@@ -452,7 +477,7 @@ Traits: MemRefsNormalizable
 
 ZLow sigmoid operation
 
-"ZLow operation to perform a sigmoid."
+ZLow operation to perform a sigmoid.
 
 Traits: MemRefsNormalizable
 
@@ -474,9 +499,9 @@ Traits: MemRefsNormalizable
 
 ZLow softmax operation
 
-"ZLow operation to perform a softmax."
-"work_area: a 4K-aligned buffer."
-"act_func: ACT_NONE or ACT_LOG."
+ZLow operation to perform a softmax.
+work_area: a 4K-aligned buffer.
+act_func: ACT_NONE or ACT_LOG.
 
 Traits: MemRefsNormalizable
 
@@ -499,11 +524,17 @@ Traits: MemRefsNormalizable
 
 ZLow stick operation for GRU
 
-"ZLow operation to perform a stick for GRU."
-"Variadic: list of pointers for input data to be transformed: "
-"  - GRU concatenated: 3 data pointers, one for each input gate in (Z)update, Reset, Hidden, (ZRH) gate order"
+ZLow operation to perform a stick for GRU.
+Variadic: list of pointers for input data to be transformed: 
+  - GRU concatenated: 3 data pointers, one for each input gate in (Z)update, Reset, Hidden, (ZRH) gate order.
 
 Traits: MemRefsNormalizable
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `prev_layer` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
@@ -518,11 +549,17 @@ Traits: MemRefsNormalizable
 
 ZLow stick operation for LSTM
 
-"ZLow operation to perform a stick for LSTM."
-"Variadic: list of pointers for input data to be transformed: "
-"  - LSTM concatenated: 4 data pointers, one for each input gate in Forget, Input, Cell, Output (FICO) order, "
+ZLow operation to perform a stick for LSTM.
+Variadic: list of pointers for input data to be transformed: 
+  - LSTM concatenated: 4 data pointers, one for each input gate in Forget, Input, Cell, Output (FICO) order.
 
 Traits: MemRefsNormalizable
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `prev_layer` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
@@ -559,7 +596,7 @@ Traits: MemRefsNormalizable
 
 ZLow sub operation
 
-"ZLow operation to perform a sub."
+ZLow operation to perform a sub.
 
 Traits: MemRefsNormalizable
 
@@ -582,7 +619,7 @@ Traits: MemRefsNormalizable
 
 ZLow tanh operation
 
-"ZLow operation to perform a tanh."
+ZLow operation to perform a tanh.
 
 Traits: MemRefsNormalizable
 
@@ -604,7 +641,7 @@ Traits: MemRefsNormalizable
 
 ZLow unstick operation
 
-"ZLow operation to perform a unstick."
+ZLow operation to perform a unstick.
 
 Traits: MemRefsNormalizable
 

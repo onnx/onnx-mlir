@@ -17,6 +17,7 @@ include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
+include "src/IR/AttrBase.td"
 
 //===----------------------------------------------------------------------===//
 // ZHigh Dialect
@@ -24,7 +25,10 @@ include "src/Interface/ShapeInferenceOpInterface.td"
 
 def ZHigh_Dialect : Dialect {
   let name = "zhigh";
+  let summary = "A high-level dialect for the ONNX NNPA accelerator ISA.";
   let cppNamespace = "::onnx_mlir::zhigh";
+  let useDefaultAttributePrinterParser = 1;
+  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
 }
 
 //===----------------------------------------------------------------------===//
@@ -33,11 +37,10 @@ def ZHigh_Dialect : Dialect {
 
 // All of the Tensor attributes will extend this class.
 class ZHigh_Attr<string name, list<Trait> traits = []>
-	: AttrDef<ZHigh_Dialect, name, traits>;
+	: BaseLayoutAttr<ZHigh_Dialect, name, traits>;
 
 // ztensor encoding attribute.
 def ZTensorEncodingAttr : ZHigh_Attr<"ZTensorEncoding"> {
-  let mnemonic = "encoding";
   let hasCustomAssemblyFormat = 1;
 
   let description = [{
@@ -55,7 +58,6 @@ def ZTensorEncodingAttr : ZHigh_Attr<"ZTensorEncoding"> {
     #ZAIU_NHWC= #zhigh.encoding<{
       dataLayout = "nhwc"
     }>
-
 
     ... tensor<8x8xf64, #ZAIU_NHWC> ...
     ```
@@ -135,11 +137,12 @@ def SameOperandsAndResultLayout: NativeOpTrait<"SameOperandsAndResultLayout">;
 class ZHigh_Op<string mnemonic, list<Trait> traits = []> :
     Op<ZHigh_Dialect, mnemonic, traits>;
 
-def ZHighStickOp:ZHigh_Op<"Stick", [NoSideEffect,
+def ZHighStickOp:ZHigh_Op<"Stick", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Stick operation";
   let description = [{
-    "ZHigh operation to perform a Stick."
+    ZHigh operation to perform a Stick."
+    If `layout`=`NHWC`, input must be in `NCHW` and output will be in `NHWC`.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, NoneType]>:$In,
                        OptionalAttr<StrAttr>:$layout);
@@ -153,11 +156,11 @@ def ZHighStickOp:ZHigh_Op<"Stick", [NoSideEffect,
   let hasCanonicalizer = 1;
 }
 
-def ZHighUnstickOp:ZHigh_Op<"Unstick", [NoSideEffect,
+def ZHighUnstickOp:ZHigh_Op<"Unstick", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Unstick operation";
   let description = [{
-    "ZHigh operation to perform a Unstick."
+    ZHigh operation to perform a Unstick.
   }];
   let arguments = (ins AnyTypeOf<[ZTensor_1D, ZTensor_2D, ZTensor_3D, ZTensor_4D,
                                  ZTensor_2DS, ZTensor_3DS, ZTensor_4DS,
@@ -169,99 +172,99 @@ def ZHighUnstickOp:ZHigh_Op<"Unstick", [NoSideEffect,
   let hasCanonicalizer = 1;
 }
 
-def ZHighAddOp:ZHigh_Op<"Add", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighAddOp:ZHigh_Op<"Add", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Add operation";
   let description = [{
-    "ZHigh operation to perform an Add."
-    "This operation does not support broadcasting."
+    ZHigh operation to perform an Add.
+    This operation does not support broadcasting.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighSubOp:ZHigh_Op<"Sub", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighSubOp:ZHigh_Op<"Sub", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Sub operation";
   let description = [{
-    "ZHigh operation to perform a Sub."
-    "This operation does not support broadcasting."
+    ZHigh operation to perform a Sub.
+    This operation does not support broadcasting.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighMulOp:ZHigh_Op<"Mul", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighMulOp:ZHigh_Op<"Mul", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Mul operation";
   let description = [{
-    "ZHigh operation to perform a Mul."
-    "This operation does not support broadcasting."
+    ZHigh operation to perform a Mul.
+    This operation does not support broadcasting.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighDivOp:ZHigh_Op<"Div", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighDivOp:ZHigh_Op<"Div", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Div operation";
   let description = [{
-    "ZHigh operation to perform a Div."
-    "This operation does not support broadcasting."
+    ZHigh operation to perform a Div.
+    This operation does not support broadcasting.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighMinOp:ZHigh_Op<"Min", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighMinOp:ZHigh_Op<"Min", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Min operation";
   let description = [{
-    "ZHigh operation to perform a Min."
-    "This operation does not support broadcasting."
+    ZHigh operation to perform a Min.
+    This operation does not support broadcasting.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighMaxOp:ZHigh_Op<"Max", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighMaxOp:ZHigh_Op<"Max", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Max operation";
   let description = [{
-    "ZHigh operation to perform a Max."
-    "This operation does not support broadcasting."
+    ZHigh operation to perform a Max.
+    This operation does not support broadcasting.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighLogOp:ZHigh_Op<"Log", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighLogOp:ZHigh_Op<"Log", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Log operation";
   let description = [{
-    "ZHigh operation to perform a Log."
+    ZHigh operation to perform a Log.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighExpOp:ZHigh_Op<"Exp", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighExpOp:ZHigh_Op<"Exp", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Exp operation";
   let description = [{
-    "ZHigh operation to perform a Exp."
+    ZHigh operation to perform a Exp.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighReluOp:ZHigh_Op<"Relu", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighReluOp:ZHigh_Op<"Relu", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Relu operation";
   let description = [{
@@ -271,46 +274,46 @@ def ZHighReluOp:ZHigh_Op<"Relu", [NoSideEffect, SameOperandsAndResultLayout,
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighTanhOp:ZHigh_Op<"Tanh", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighTanhOp:ZHigh_Op<"Tanh", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Tanh operation";
   let description = [{
-    "ZHigh operation to perform a Tanh."
+    ZHigh operation to perform a Tanh.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighSigmoidOp:ZHigh_Op<"Sigmoid", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighSigmoidOp:ZHigh_Op<"Sigmoid", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Sigmoid operation";
   let description = [{
-    "ZHigh operation to perform a Sigmoid."
+    ZHigh operation to perform a Sigmoid.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
 }
 
-def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [NoSideEffect, SameOperandsAndResultLayout,
+def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Softmax operation";
   let description = [{
-    "ZHigh operation to perform a Softmax."
-    "act_func: ACT_NONE or ACT_LOG."
+    ZHigh operation to perform a Softmax.
+    act_func: ACT_NONE or ACT_LOG.
   }];
   let arguments = (ins ZTensor_3DS:$X,
                        DefaultValuedStrAttr<StrAttr, "ACT_NONE">:$act_func);
   let results = (outs ZTensor_3DS:$Out);
 }
 
-def ZHighMeanReduce2DOp:ZHigh_Op<"MeanReduce2d", [NoSideEffect,
+def ZHighMeanReduce2DOp:ZHigh_Op<"MeanReduce2d", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh 2D mean reduce operation";
   let description = [{
-    "ZHigh operation to perform 2D mean reduce. Given an input 4D tensor, "
-    "returns a downsampled tensor reducing the middle 2nd and 3rd dimensions "
-    "to a size of 1 based on the mean of the original values."
-    " Input and Output tensors should be in the 3D layout."
+    ZHigh operation to perform 2D mean reduce. Given an input 4D tensor, 
+    returns a downsampled tensor reducing the middle 2nd and 3rd dimensions 
+    to a size of 1 based on the mean of the original values.
+     Input and Output tensors should be in the 3D layout.
   }];
   let arguments = (ins ZTensor_NHWC:$input);
   let results = (outs ZTensor_NHWC:$output);
@@ -323,11 +326,11 @@ def ZHighMeanReduce2DOp:ZHigh_Op<"MeanReduce2d", [NoSideEffect,
   ];
 }
 
-def ZHighMaxPool2DOp:ZHigh_Op<"MaxPool2D", [NoSideEffect,
+def ZHighMaxPool2DOp:ZHigh_Op<"MaxPool2D", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh 2D max pooling operation";
   let description = [{
-    "ZHigh operation to perform 2D max pooling."
+    ZHigh operation to perform 2D max pooling.
   }];
   let arguments = (ins ZTensor_NHWC:$input,
                        I64ArrayAttr:$kernel_shape,
@@ -345,11 +348,11 @@ def ZHighMaxPool2DOp:ZHigh_Op<"MaxPool2D", [NoSideEffect,
   ];
 }
 
-def ZHighAvgPool2DOp:ZHigh_Op<"AvgPool2D", [NoSideEffect,
+def ZHighAvgPool2DOp:ZHigh_Op<"AvgPool2D", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh 2D average pooling operation";
   let description = [{
-    "ZHigh operation to perform 2D average pooling."
+    ZHigh operation to perform 2D average pooling.
   }];
   let arguments = (ins ZTensor_NHWC:$input,
                        I64ArrayAttr:$kernel_shape,
@@ -367,11 +370,11 @@ def ZHighAvgPool2DOp:ZHigh_Op<"AvgPool2D", [NoSideEffect,
   ];
 }
 
-def ZHighMatMulOp:ZHigh_Op<"MatMul", [NoSideEffect,
+def ZHighMatMulOp:ZHigh_Op<"MatMul", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh MatMul operation";
   let description = [{
-    "ZHigh operation to perform a MatMul."
+    ZHigh operation to perform a MatMul.
   }];
   let arguments = (ins AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$X,
                        AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$Y,
@@ -388,23 +391,23 @@ def ZHighMatMulOp:ZHigh_Op<"MatMul", [NoSideEffect,
   let hasVerifier = 1;
 }
 
-def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
+def ZHighLSTMOp:ZHigh_Op<"LSTM", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh LSTM operation";
   let description = [{
-    "zHigh operation to perform a LSTM."
-    "Shape for input is [S, B, I]. Shape for h0 and c0 is [D, B, H]."
-    "Shape for input_weights is  [D, I, 4*H]."
-    "Shape for hidden_weights is  [D, H, 4*H]."
-    "Shape for input_bias and hidden_bias is [D, 4*H]."
-    "Shape for hn_output is [S, D, B, H] if return all timesteps "
-    "and [1, D, B, H] if return the final step only."
-    "Shape for cf_output is [1, D, B, H]."
-    "S is timesteps, D is the number of directions (1 for unidirectional and "
-    "2 for bidirectional), B is batch size, I is input size, and "
-     H is hidden size."
-    "direction accepts "forward", "reverse", or "bidirectional"
-    "return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+    zHigh operation to perform a LSTM.
+    * Shape for input is `[S, B, I]`. Shape for `h0` and `c0` is `[D, B, H]`.
+    * Shape for input_weights is  `[D, I, 4*H]`.
+    * Shape for hidden_weights is  `[D, H, 4*H]`.
+    * Shape for input_bias and hidden_bias is `[D, 4*H]`.
+    * Shape for hn_output is `[S, D, B, H]` if return all timesteps 
+      and `[1, D, B, H]` if return the final step only.
+    * Shape for cf_output is `[1, D, B, H]`.
+    * S is timesteps, D is the number of directions (1 for unidirectional and 
+    * 2 for bidirectional), B is batch size, I is input size, and 
+    * H is hidden size.
+    * direction accepts "forward", "reverse", or "bidirectional
+    * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
   }];
   let arguments = (ins ZTensor_3DS:$input,
                        AnyTypeOf<[ZTensor_3DS, NoneType]>:$h0,
@@ -434,22 +437,22 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [NoSideEffect,
   let hasVerifier = 1;
 }
 
-def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
+def ZHighGRUOp:ZHigh_Op<"GRU", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh GRU operation";
   let description = [{
-    "zHigh operation to perform a GRU."
-    "Shape for input is [S, B, I]. Shape for h0 is [D, B, H]."
-    "Shape for input_weights is  [D, I, 3*H]."
-    "Shape for hidden_weights is  [D, H, 3*H]."
-    "Shape for input_bias and hidden_bias is [D, 3*H]."
-    "Shape for hn_output is [S, D, B, H] if return all timesteps "
-    "and [1, D, B, H] if return the final step only."
-    "S is timesteps, D is the number of directions (1 for unidirectional and "
-    "2 for bidirectional), B is batch size, I is input size, and "
-     H is hidden size."
-    "direction accepts "forward", "reverse", or "bidirectional"
-    "return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
+    * zHigh operation to perform a GRU.
+    * Shape for input is `[S, B, I]`. Shape for h0 is `[D, B, H]`.
+    * Shape for input_weights is `[D, I, 3*H]`.
+    * Shape for hidden_weights is `[D, H, 3*H]`.
+    * Shape for input_bias and hidden_bias is `[D, 3*H]`.
+    * Shape for hn_output is `[S, D, B, H]` if return all timesteps 
+      and `[1, D, B, H]` if return the final step only.
+    * S is timesteps, D is the number of directions (1 for unidirectional and 
+    * 2 for bidirectional), B is batch size, I is input size, and 
+    * H is hidden size.
+    * direction accepts "forward", "reverse", or "bidirectional
+    * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep."
   }];
   let arguments = (ins ZTensor_3DS:$input,
                        AnyTypeOf<[ZTensor_3DS, NoneType]>:$h0,
@@ -476,14 +479,14 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [NoSideEffect,
   let hasVerifier = 1;
 }
 
-def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [NoSideEffect,
+def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh stick operation for LSTM";
   let description = [{
-    "ZHigh operation to perform a stick for LSTM."
-    "Variadic: list of pointers for input data to be transformed: "
-    "  - LSTM concatenated: 4 data pointers, one for each input gate in "
-    "Forget, Input, Cell, Output (FICO) order, "
+    ZHigh operation to perform a stick for LSTM.
+    Variadic: list of pointers for input data to be transformed: 
+      - LSTM concatenated: 4 data pointers, one for each input gate in 
+    Forget, Input, Cell, Output (FICO) order, 
   }];
   let arguments = (ins TensorOf<[F32]>:$f_gate,
                        TensorOf<[F32]>:$i_gate,
@@ -500,14 +503,14 @@ def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [NoSideEffect,
   ];
 }
 
-def ZHighStickForGRUOp:ZHigh_Op<"StickForGRU", [NoSideEffect,
+def ZHighStickForGRUOp:ZHigh_Op<"StickForGRU", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh stick operation for GRU";
   let description = [{
-    "ZHigh operation to perform a stick for GRU."
-    "Variadic: list of pointers for input data to be transformed: "
-    "  - GRU concatenated: 3 data pointers, one for each input gate in " 
-    "(Z)update, Reset, Hidden, (ZRH) gate order"
+    ZHigh operation to perform a stick for GRU.
+    Variadic: list of pointers for input data to be transformed: 
+      - GRU concatenated: 3 data pointers, one for each input gate in
+    (Z)update, Reset, Hidden, (ZRH) gate order
   }];
   let arguments = (ins TensorOf<[F32]>:$z_gate,
                        TensorOf<[F32]>:$r_gate,
@@ -522,19 +525,19 @@ def ZHighStickForGRUOp:ZHigh_Op<"StickForGRU", [NoSideEffect,
   ];
 }
 
-def ZHighConv2DOp:ZHigh_Op<"Conv2D", [NoSideEffect,
+def ZHighConv2DOp:ZHigh_Op<"Conv2D", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh 2D convolution operation";
   let description = [{
-    "ZHigh operation to perform 2D convolution. "
-    "input: [num_batches, height_in, width_in, channels_in] "
-    "input_kernel: [kernel_height, kernel_width, channels_in, channels_out] "
-    "input_bias: [channels_out] "
-    "kernel_shape: 1D array of kernel height and width "
-    "strides: 1D array of stride height and width "
-    "padding_type: SAME_PADDING or VALID_PADDING "
-    "act_func: ACT_NONE or ACT_RELU "
-    "output: [num_batches, height_out, width_out, channels_out]"
+    ZHigh operation to perform 2D convolution. 
+    * input: `[num_batches, height_in, width_in, channels_in]`
+    * input_kernel: `[kernel_height, kernel_width, channels_in, channels_out]` 
+    * input_bias: `[channels_out] `
+    * kernel_shape: 1D array of kernel height and width 
+    * strides: 1D array of stride height and width 
+    * padding_type: SAME_PADDING or VALID_PADDING 
+    * act_func: ACT_NONE or ACT_RELU 
+    * output: `[num_batches, height_out, width_out, channels_out]`
   }];
   let arguments = (ins ZTensor_NHWC:$input,
                        ZTensor_HWCK:$input_kernel,
@@ -558,11 +561,11 @@ def ZHighConv2DOp:ZHigh_Op<"Conv2D", [NoSideEffect,
   let hasVerifier = 1;
 }
 
-def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [NoSideEffect,
+def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh batchnorm operation";
   let description = [{
-    "ZHigh operation to perform batchnorm."
+    ZHigh operation to perform batchnorm.
   }];
   let arguments = (ins ZTensor_NHWC:$input,
                        ZTensor_1D:$a,
@@ -576,32 +579,17 @@ def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [NoSideEffect,
   ];
 }
 
-def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [NoSideEffect]> {
+def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   let summary = "ZHigh Stickified Constant operation";
   let description = [{
-    "This operator produces a constant tensor to store stickified data." 
-    "Stickified data is opaque and must be 4K-aligned. One who produces"
-    "the stickified data must make sure its size in bytes consistent with"
-    "the output tensor's size."
+    This operator produces a constant tensor to store stickified data."
+    Stickified data is opaque and must be 4K-aligned. One who produces
+    the stickified data must make sure its size in bytes consistent with
+    the output tensor's size.
   }];
   let arguments = (ins OptionalAttr<AnyAttr>:$value,
                        DefaultValuedAttr<I64Attr, "4096">:$alignment);
   let results = (outs AnyZTensor:$output);
-}
-
-def ZHighConcatOp:ZHigh_Op<"Concat", [NoSideEffect,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ZHigh Concat operation to concatenate stickified tensors";
-  let description = [{
-    "Concatenate a list of tensors into a single tensor. All input tensors must"
-    "have the same shape, except for the dimension size of the axis"
-    "to concatenate on. Users must ensure that it is safe to concatenate"
-    "stickified tensors for the given axis."
-  }];
-  let arguments = (ins Variadic<AnyTypeOf<[ZTensor_4D, ZTensor_NHWC, AnyMemRef]>>:$inputs,
-                       SI64Attr:$axis);
-  let results = (outs AnyTypeOf<[ZTensor_4D, ZTensor_NHWC, AnyMemRef]>:$concat_result);
-  let hasVerifier = 1;
 }
 
 #endif // ZHIGH_OPS

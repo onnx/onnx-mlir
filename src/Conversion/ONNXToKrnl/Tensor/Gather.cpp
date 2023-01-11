@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -29,12 +29,12 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     ONNXGatherOpAdaptor operandAdaptor(operands);
     ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
     Location loc = op->getLoc();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
 
-    ONNXGatherOpShapeHelper shapeHelper(&gatherOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Get shape.
+    ONNXGatherOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -44,7 +44,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Operands and attributes.
     Value data = operandAdaptor.data();
@@ -59,15 +59,14 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Negative value means counting dimensions from the back.
     axisLit = axisLit < 0 ? axisLit + dataRank : axisLit;
 
-    int64_t outputRank = shapeHelper.dimsForOutput().size();
+    int64_t outputRank = shapeHelper.getOutputDims().size();
     int iIndexStart = 0;
     int jIndexStart = iIndexStart + axisLit;
     int kIndexStart = jIndexStart + indicesRank - (axisLit + 1);
 
     LiteralIndexExpr zeroIE(0);
-    MemRefBoundsIndexCapture dataBounds(data);
     DimsExpr dataDims;
-    dataBounds.getDimList(dataDims);
+    create.krnlIE.getShapeAsDims(data, dataDims);
 
     /*
       The pattern that we are using is that of numpy.take.
@@ -80,10 +79,9 @@ struct ONNXGatherOpLowering : public ConversionPattern {
             out[ii + jj + kk] = data[ii + (indices[jj],) + kk]
     */
     // Define loops and iteration trip counts (equivalent to size of output)
-    KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange loopDef = createKrnl.defineLoops(outputRank);
+    ValueRange loopDef = create.krnl.defineLoops(outputRank);
     DimsExpr lbs(outputRank, zeroIE);
-    createKrnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.dimsForOutput(),
+    create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);

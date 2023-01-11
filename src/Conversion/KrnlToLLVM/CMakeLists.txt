@@ -3,6 +3,7 @@
 add_onnx_mlir_library(OMKrnlToLLVM
   ConvertKrnlToLLVM.cpp
   KrnlFindIndex.cpp
+  KrnlCall.cpp
   KrnlEntryPoint.cpp
   KrnlGetRef.cpp  
   KrnlGlobal.cpp
@@ -19,10 +20,11 @@ add_onnx_mlir_library(OMKrnlToLLVM
   RuntimeAPI.cpp
 
   LINK_LIBS PUBLIC
-  Accelerator
+  OMAccelerator
   OMSupport
   MLIRAffineToStandard
-  MLIRFunc
+  MLIRArithTransforms
+  MLIRFuncDialect
   MLIRFuncToLLVM
   MLIRFuncTransforms
   MLIRMathToLLVM

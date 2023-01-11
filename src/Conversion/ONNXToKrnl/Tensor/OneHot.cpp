@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ShapeInference/ONNXShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -27,17 +27,15 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXOneHotOpAdaptor operandAdaptor(operands);
-    ONNXOneHotOp oneHotOp = llvm::cast<ONNXOneHotOp>(op);
     Location loc = op->getLoc();
-
     Value indices = operandAdaptor.indices();
     Value values = operandAdaptor.values();
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
 
-    ONNXOneHotOpShapeHelper shapeHelper(&oneHotOp, &rewriter,
-        krnl::getDenseElementAttributeFromKrnlValue,
-        krnl::loadDenseElementArrayValueAtIndex);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Get shape.
+    ONNXOneHotOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
     int64_t axis = shapeHelper.axis;
 
     // Convert the output type to MemRefType.
@@ -48,30 +46,28 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput());
+        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Load off/on vals found in values memref.
-    KrnlBuilder createKrnl(rewriter, loc);
     LiteralIndexExpr minusOneIE(-1), zeroIE(0), oneIE(1);
-    Value offVal = createKrnl.loadIE(values, zeroIE);
-    Value onVal = createKrnl.loadIE(values, oneIE);
+    Value offVal = create.krnl.loadIE(values, zeroIE);
+    Value onVal = create.krnl.loadIE(values, oneIE);
 
     // Iterate over all of the inputs.
-    MemRefBoundsIndexCapture indicesBounds(indices);
-    int64_t indicesRank = indicesBounds.getRank();
+    int64_t indicesRank = create.krnlIE.getShapedTypeRank(indices);
     SmallVector<IndexExpr, 4> indicesLbs(indicesRank, zeroIE);
     SmallVector<IndexExpr, 4> indicesUbs;
-    indicesBounds.getDimList(indicesUbs);
-    ValueRange indicesLoopDef = createKrnl.defineLoops(indicesRank);
-    createKrnl.iterateIE(indicesLoopDef, indicesLoopDef, indicesLbs, indicesUbs,
-        [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
+    create.krnlIE.getShapeAsDims(indices, indicesUbs);
+    ValueRange indicesLoopDef = create.krnl.defineLoops(indicesRank);
+    create.krnl.iterateIE(indicesLoopDef, indicesLoopDef, indicesLbs,
+        indicesUbs, [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           // Loop for all input values.
           MathBuilder createMath(createKrnl);
           // Input val is allowed to be any integer/float. Read and convert to
           // index type.
           Value inputVal = createKrnl.load(indices, indicesLoopInd);
           Value inputIndexVal = createMath.castToIndex(inputVal);
-          IndexExprScope innerScope(createKrnl, shapeHelper.scope);
+          IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
           NonAffineIndexExpr input(inputIndexVal);
           SymbolIndexExpr depth(shapeHelper.depth);
           // Because valid input is from [-depth...depth-1], we must add depth

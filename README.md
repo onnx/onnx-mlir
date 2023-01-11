@@ -21,6 +21,18 @@ This project contributes:
 * an `onnx-mlir` driver to perform these lowering,
 * and a python/C/C++/Java runtime environment.
 
+Current levels of support for the code generation of ONNX operations are listed here for
+[a generic CPU](docs/SupportedONNXOps-cpu.md) and
+[IBM's Telum integrated AI accelerator](docs/SupportedONNXOps-NNPA.md).
+
+## Interacting with the community.
+
+For ongoing discussions, we use an [`#onnx-mlir-discussion`](https://lfaifoundation.slack.com/archives/C01J4NAL4A2) slack channel established under the Linux Foundation AI and Data Workspace.
+We use GitHub Issues for request for comments, questions, or bug reports.
+Security-related issues are reported using the channels listed in the [SECURITY](SECURITY.md) page.
+
+We hold informal weekly meetings on Tuesdays, 8-9pm EST where we discuss  current issues and progress. Meeting uses [WebEx](https://ibm.webex.com/meet/alexe) and everyone is welcome to attend. Please email alexe@us.ibm.com to be added to the meeting invite or to request a 15-30 min time slot to discuss a specific topic of interest.
+
 ## Setting up ONNX-MLIR using Prebuilt Containers
 
 The preferred approach to using and developing ONNX-MLIR is to use Docker Images and Containers, as getting the proper code dependences may be tricky on some systems. Our instructions on using ONNX-MLIR with Dockers are [here](docs/Docker.md).
@@ -36,18 +48,20 @@ Detailed instructions are provided below.
 
 <!-- Keep list below in sync with docs/Prerequisite.md. -->
 ```
+python >= 3.8
 gcc >= 6.4
-libprotoc >= 3.11.0
-cmake >= 3.15.4
-ninja >= 1.10.2
+protobuf >= 3.20.3
+cmake >= 3.13.4
+make >= 4.2.1 or ninja >= 1.10.2
+java >= 1.11 (optional)
 ```
 
-Help to update the prerequisites is found [here](docs/Prerequisite.md).
+Look [here](docs/Prerequisite.md) for help to set up the prerequisite software.
 
-At any point in time, ONNX-MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. 
-Periodically the maintainers need to move to a more recent LLVM level. 
-Among other things, this requires to update the commit string in (utils/clone-mlir.sh). 
-When updating ONNX-MLIR, it is good practice to check that the commit string of the MLIR/LLVM is the same as the one listed in that file.
+At any point in time, ONNX-MLIR depends on a specific commit of the LLVM project that has been shown to work with the project.
+Periodically the maintainers need to move to a more recent LLVM level.
+Among other things, this requires to update the LLVM commit string in [clone-mlir.sh](utils/clone-mlir.sh).
+When updating ONNX-MLIR, it is good practice to check that the commit string of the MLIR/LLVM is the same as the one listed in that file. See instructions [here](docs/BuildONNX.md) when third-party ONNX also need to be updated.
 
 ### Build
 
@@ -85,7 +99,7 @@ These are frontend options.
       --EmitONNXIR    - Ingest ONNX and emit corresponding ONNX dialect.
       --EmitMLIR      - Lower the input to MLIR built-in transformation dialect.
       --EmitLLVMIR    - Lower the input to LLVM IR (LLVM MLIR dialect).
-      --EmitObj       - Compile the input to an object file.      
+      --EmitObj       - Compile the input to an object file.
       --EmitLib       - Compile and link the input into a shared library (default).
       --EmitJNI       - Compile the input to a jar file.
 
@@ -96,7 +110,9 @@ These are frontend options.
       --O3           - Optimization level 3.
 ```
 
-The full list of options is given by the `--help` option. Note that just as most compilers, the default optimization level is `-O0`. 
+The full list of options is given by the `-help` option.
+The `-` and the `--` prefix for flags can be used interchangeably.
+Note that just as most compilers, the default optimization level is `-O0`.
 We recommend using `-O3` for most applications.
 
 Options are also read from the `ONNX_MLIR_FLAGS` environment variable. For example, `ONNX_MLIR_FLAGS="-O3"` will ensure `-O3` for all compilations.
@@ -110,7 +126,7 @@ For example, use the following command to lower an ONNX model (e.g., add.onnx) t
 The output should look like:
 ```mlir
 module {
-  func @main_graph(%arg0: tensor<10x10x10xf32>, %arg1: tensor<10x10x10xf32>) -> tensor<10x10x10xf32> {
+  func.func @main_graph(%arg0: tensor<10x10x10xf32>, %arg1: tensor<10x10x10xf32>) -> tensor<10x10x10xf32> {
     %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10x10xf32>, tensor<10x10x10xf32>) -> tensor<10x10x10xf32>
     return %0 : tensor<10x10x10xf32>
   }
@@ -119,25 +135,20 @@ module {
 
 An example based on the add operation is found [here](docs/doc_example), which build an ONNX model using a python script, and then provide a main program to load the model's value, compute, and print the models output.
 
-### End to End Example
+### Writing a driver to perform inferences: end to end example
 
-An end to end example is provided [here](docs/mnist_example/README.md), which train, compile, and execute a simple MNIST example using both the C++ or Python interface.
+An end to end example is provided [here](docs/mnist_example/README.md), which train, compile, and execute a simple MNIST example using our
+C/C++, Python, or Java interface.
 
-## Interacting via Slack and GitHub.
+## Documentation
 
-We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`.
-This channel can be used for asking quick questions related to this project.
-A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).
-
-You may also open GitHub Issues for any questions and/or suggestions you may have.
-
-Do not use public channels to discuss any security-related issues; use instead the specific instructions provided in the [SECURITY](SECURITY.md) page.
+Documentation is provided in the `docs` sub-directory; the [DocumentList](docs/DocumentList.md) page provides an organized list of documents. Information is also provided on our public facing
+[onnx.ai/onnx-mlir](https://onnx.ai/onnx-mlir/) pages.
 
 ## Contributing
 
 We are welcoming contributions from the community.
 Please consult the [CONTRIBUTING](CONTRIBUTING.md) page for help on how to proceed.
-Documentation is provided in the `docs` sub-directory; the [DocumentList](docs/DocumentList.md) page provides an organized list of documents.
 
 ONNX-MLIR requires committers to sign their code using the [Developer Certificate of Origin (DCO)](https://developercertificate.org).
 Practically, each `git commit` needs to be signed, see [here](docs/Workflow.md#step-7-commit--push) for specific instructions.
@@ -145,3 +156,7 @@ Practically, each `git commit` needs to be signed, see [here](docs/Workflow.md#s
 ## Code of Conduct
 
 The ONNX-MLIR code of conduct is described at https://onnx.ai/codeofconduct.html.
+
+## Projects related/using onnx-mlir
+
+* The [onnx-mlir-serving](https://github.com/IBM/onnx-mlir-serving) project implements a GRPC server written with C++ to serve onnx-mlir compiled models. Benefiting from C++ implementation, ONNX Serving has very low latency overhead and high throughput.

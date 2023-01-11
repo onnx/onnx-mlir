@@ -21,6 +21,7 @@
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -41,24 +42,32 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     auto *context = op->getContext();
     KrnlInstrumentOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     KrnlInstrumentOp instrumentOp = llvm::dyn_cast<KrnlInstrumentOp>(op);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
-    Value nodeName =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), instrumentOp.opID()));
-    Value tag =
-        rewriter.create<LLVM::ConstantOp>(loc, IntegerType::get(context, 64),
-            rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), instrumentOp.tag()));
-
-    rewriter.create<func::CallOp>(loc, instrumentRef, ArrayRef<Type>({}),
-        ArrayRef<Value>({nodeName, tag}));
+    StringRef opNameStr = instrumentOp.opName();
+    LLVM::GlobalOp globalOpNameStr =
+        krnl::getOrCreateGlobalString(opNameStr, loc, rewriter, parentModule,
+            static_cast<LLVMTypeConverter *>(getTypeConverter()));
+    Value opNamePtr =
+        krnl::getPtrToGlobalString(globalOpNameStr, loc, rewriter);
+    Value tag = create.llvm.constant(
+        IntegerType::get(context, 64), (int64_t)instrumentOp.tag());
+    StringRef nodeName;
+    if (instrumentOp.nodeName().has_value())
+      nodeName = instrumentOp.nodeName().value();
+    else
+      nodeName = StringRef("NOTSET");
+    LLVM::GlobalOp globalStr =
+        krnl::getOrCreateGlobalString(nodeName, loc, rewriter, parentModule,
+            static_cast<LLVMTypeConverter *>(getTypeConverter()));
+    Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
+    create.llvm.call({}, instrumentRef, {opNamePtr, tag, nodeNamePtr});
 
     rewriter.eraseOp(op);
     return success();
@@ -66,22 +75,18 @@ public:
 
 private:
   // Create a function declaration for OMInstrumentPoint, the signature is:
-  //   `void (i64, i64)`
+  //   `void (ptr, i64, ptr)`
   FlatSymbolRefAttr getOrInsertInstrument(
       PatternRewriter &rewriter, ModuleOp module) const {
-    auto *context = module.getContext();
-    std::string funcName("OMInstrumentPoint");
-    if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName))
-      return SymbolRefAttr::get(context, funcName);
-    auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    auto llvmI64Ty = IntegerType::get(context, 64);
-    auto llvmFnType = LLVM::LLVMFunctionType::get(
-        llvmVoidTy, ArrayRef<mlir::Type>({llvmI64Ty, llvmI64Ty}), false);
-
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, llvmFnType);
-    return SymbolRefAttr::get(context, funcName);
+    MLIRContext *context = module.getContext();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
+    Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    Type llvmI64Ty = IntegerType::get(context, 64);
+    Type llvmI8Ty = IntegerType::get(context, 8);
+    Type opaquePtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
+    return create.llvm.getOrInsertSymbolRef(module,
+        StringRef("OMInstrumentPoint"), llvmVoidTy,
+        {opaquePtrTy, llvmI64Ty, opaquePtrTy});
   }
 };
 

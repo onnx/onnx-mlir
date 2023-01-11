@@ -84,7 +84,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
   // Get alpha attributes.
   if (activationAlpha) {
-    ArrayRef<Attribute> activationArrAttr = activationAlpha.getValue();
+    ArrayRef<Attribute> activationArrAttr = activationAlpha.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -104,7 +104,7 @@ getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
 
   // Get beta attributes.
   if (activationBeta) {
-    ArrayRef<Attribute> activationArrAttr = activationBeta.getValue();
+    ArrayRef<Attribute> activationArrAttr = activationBeta.value();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
@@ -320,8 +320,10 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   unsigned htRank = matrixType.getRank();
 
   // Do matrix multiplications.
-  Value XtWi = create.onnx.matmul(matrixType, Xt, weightPack.Wi);
-  Value HtRi = create.onnx.matmul(matrixType, Ht, weightPack.Ri);
+  Value XtWi =
+      create.onnx.toMemref(create.onnx.matmul(matrixType, Xt, weightPack.Wi));
+  Value HtRi =
+      create.onnx.toMemref(create.onnx.matmul(matrixType, Ht, weightPack.Ri));
 
   // Do element-wise computations. Fuse them into a single nested loop.
   // Lower and upper bounds derived from Ht tensor.

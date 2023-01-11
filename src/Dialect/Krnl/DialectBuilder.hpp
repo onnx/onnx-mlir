@@ -16,23 +16,35 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 
 namespace onnx_mlir {
 
 //====-------------------- Support for Krnl Builder ----------------------===//
 
 struct KrnlBuilder : public DialectBuilder {
+  KrnlBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   KrnlBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
-  KrnlBuilder(DialectBuilder &db) : DialectBuilder(db) {}
+  KrnlBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  virtual ~KrnlBuilder() {}
 
   mlir::Value load(mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
+  mlir::Value load(mlir::Value memref, mlir::ValueRange indices,
+      mlir::ValueRange offsets) const;
   mlir::Value loadIE(
       mlir::Value memref, mlir::ArrayRef<IndexExpr> indices) const;
   void store(
       mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
+  // When ranks of offsets<indices, add offsets to the least significant dims.
+  void store(mlir::Value val, mlir::Value memref, mlir::ValueRange indices,
+      mlir::ValueRange offsets) const;
   void storeIE(mlir::Value val, mlir::Value memref,
       mlir::ArrayRef<IndexExpr> indices) const;
+
+  void seqstore(mlir::Value element, mlir::Value seq, mlir::Value index) const;
+  void seqstore(mlir::Value element, mlir::Value seq, IndexExpr index) const;
 
   mlir::Value vectorTypeCast(mlir::Value sourceMemref, int64_t vectorLen) const;
 
@@ -82,13 +94,13 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::ValueRange starts) const;
 
   void matmul(
-      // The a/b/cStart are the indices at the begining of the buffer/mem
+      // The a/b/cStart are the indices at the beginning of the buffer/mem
       // A/B/C.
       mlir::Value A, mlir::ValueRange aStart, mlir::Value B,
       mlir::ValueRange bStart, mlir::Value C, mlir::ValueRange cStart,
       // Loops are the krnl loop indices that this matmul replaces
       mlir::ValueRange loops,
-      // the computeStarts indicate the i/j/k indices pointing to the begining
+      // the computeStarts indicate the i/j/k indices pointing to the beginning
       // of the matmul computation.
       mlir::ValueRange computeStarts,
       // The globalUBs are the global bounds on the original I, J, K
@@ -108,12 +120,12 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::ArrayRef<int64_t> aTileSize, mlir::ArrayRef<int64_t> bTileSize,
       mlir::ArrayRef<int64_t> cTileSize,
       // Optimizations for code gen.
-      bool simdize, bool unroll, bool overcompute) const;
+      bool simdize, bool unroll, bool overCompute) const;
   void matmul(mlir::Value A, mlir::ValueRange aStart, mlir::Value B,
       mlir::ValueRange bStart, mlir::Value C, mlir::ValueRange cStart,
       mlir::ValueRange loops, mlir::ValueRange computeStarts,
       mlir::ValueRange globalUBs, bool simdize, bool unroll,
-      bool overcompute) const;
+      bool overCompute) const;
 
   mlir::Value dim(mlir::Type type, mlir::Value alloc, mlir::Value index) const;
 
@@ -129,13 +141,13 @@ struct KrnlBuilder : public DialectBuilder {
 
   // C library functions.
   void memcpy(mlir::Value dest, mlir::Value src, mlir::Value size) const;
-  void memset(mlir::Value dest, mlir::Value val) const;
+  void memset(mlir::Value dest, mlir::Value val, bool delayed = false) const;
   mlir::Value strncmp(
       mlir::Value str1, mlir::Value str2, mlir::Value len) const;
   mlir::Value strlen(mlir::Value str) const;
   void printf(mlir::StringRef msg) const;
-  void printf(
-      mlir::StringRef msg, mlir::Value input, mlir::Type inputType) const;
+  void printf(mlir::StringRef msg, mlir::Value input, mlir::Type inputType,
+      bool endsWithNewLine = false) const;
   void printf(mlir::Value input, mlir::Type inputType) const;
 
   // Onnx-mlir runtime functions.
@@ -146,24 +158,35 @@ struct KrnlBuilder : public DialectBuilder {
   void printTensor(mlir::StringRef msg, mlir::Value input) const;
 };
 
-// Recursive class specialized for KrnlBuilder referred to as krnl.
-template <class... Ts>
-struct MultiDialectBuilder<KrnlBuilder, Ts...> : MultiDialectBuilder<Ts...> {
-  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
-      : MultiDialectBuilder<Ts...>(b, loc), krnl(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
-      : MultiDialectBuilder<Ts...>(db), krnl(db) {}
-  KrnlBuilder krnl;
-};
-
 //====--- Support for Affine Builder with Krnl Mem Ops ------------------===//
 
 // We use here a Affine builder that generates Krnl Load and Store ops instead
-// of the affine memory ops directly. This is because we can still generrate
-// Krnl Ops while lowring the dialect, and the big advantage of the Krnl memory
+// of the affine memory ops directly. This is because we can still generate
+// Krnl Ops while lowering the dialect, and the big advantage of the Krnl memory
 // operations is that they distinguish themselves if they are affine or not.
 using AffineBuilderKrnlMem =
     GenericAffineBuilder<mlir::KrnlLoadOp, mlir::KrnlStoreOp>;
+
+// =============================================================================
+// IndexExpr Builder for building
+// =============================================================================
+
+struct IndexExprBuilderForKrnl : IndexExprBuilder {
+  IndexExprBuilderForKrnl(mlir::Location loc) : IndexExprBuilder(loc) {}
+  IndexExprBuilderForKrnl(mlir::OpBuilder &b, mlir::Location loc)
+      : IndexExprBuilder(b, loc) {}
+  IndexExprBuilderForKrnl(const DialectBuilder &db) : IndexExprBuilder(db) {}
+  virtual ~IndexExprBuilderForKrnl() {}
+
+protected:
+  mlir::DenseElementsAttr getConst(mlir::Value value) final;
+  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
+  mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
+};
+
+// =============================================================================
+// MultiDialectBuilder for Krnl
+// =============================================================================
 
 // Recursive class specialized for AffineBuilderKrnlMem refereed to as
 // affineKMem.
@@ -172,9 +195,31 @@ struct MultiDialectBuilder<AffineBuilderKrnlMem, Ts...>
     : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), affineKMem(b, loc) {}
-  MultiDialectBuilder(DialectBuilder &db)
+  MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), affineKMem(db) {}
   AffineBuilderKrnlMem affineKMem;
+};
+
+// Recursive class specialized for KrnlBuilder referred to as krnl.
+template <class... Ts>
+struct MultiDialectBuilder<KrnlBuilder, Ts...> : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), krnl(b, loc) {}
+  MultiDialectBuilder(const DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), krnl(db) {}
+  KrnlBuilder krnl;
+};
+
+// Recursive class specialized for IndexExprBuilderForKrnl referred to as
+// krnlIE.
+template <class... Ts>
+struct MultiDialectBuilder<IndexExprBuilderForKrnl, Ts...>
+    : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), krnlIE(b, loc) {}
+  MultiDialectBuilder(const DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), krnlIE(db) {}
+  IndexExprBuilderForKrnl krnlIE;
 };
 
 } // namespace onnx_mlir

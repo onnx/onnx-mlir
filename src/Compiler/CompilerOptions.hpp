@@ -17,12 +17,23 @@
 #include "src/Accelerators/Accelerator.hpp"
 #include "llvm/Support/CommandLine.h"
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
+
+#define DEFAULT_INSTRUMENTSTAGE_CL_ENUM clEnumVal(Onnx, "Profile for onnx ops.")
 
 extern const std::string OnnxMlirEnvOptionName;
 
 namespace onnx_mlir {
+
+typedef enum {
+  // clang-format off
+  Onnx
+  APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_ENUM)
+  // clang-format on
+} InstrumentStages;
+
 // Options for onnx-mlir only.
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 // Common options shared between onnx-mlir and onnx-mlir-opt.
@@ -38,6 +49,7 @@ extern llvm::cl::opt<bool> useOnnxModelTypes;
 extern llvm::cl::opt<int> repeatOnnxTransform;
 extern llvm::cl::opt<std::string> shapeInformation;
 extern llvm::cl::opt<onnx_mlir::OptLevel> OptimizationLevel;
+extern llvm::cl::opt<std::string> customEnvFlags;
 extern llvm::cl::opt<std::string> mtriple;
 extern llvm::cl::opt<std::string> mcpu;
 extern llvm::cl::opt<std::string> march;
@@ -46,12 +58,28 @@ extern llvm::cl::opt<bool> VerboseOutput;
 extern llvm::cl::list<std::string> Xopt;
 extern llvm::cl::list<std::string> Xllc;
 extern llvm::cl::opt<std::string> mllvm;
-
-extern llvm::cl::opt<std::string> instrumentONNXOps;
+extern llvm::cl::opt<bool> verifyInputTensors;
+extern llvm::cl::opt<bool> allowSorting;
+extern llvm::cl::opt<std::string> reportHeapBefore;
+extern llvm::cl::opt<std::string> reportHeapAfter;
+extern llvm::cl::opt<InstrumentStages> instrumentStage;
+extern llvm::cl::opt<std::string> instrumentOps;
 extern llvm::cl::bits<InstrumentActions> instrumentControlBits;
+extern llvm::cl::opt<bool> instrumentONNXSignature;
+extern llvm::cl::opt<std::string> ONNXOpStats;
 extern llvm::cl::opt<bool> enableMemoryBundling;
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
+extern llvm::cl::opt<bool> enableParallel;
+extern llvm::cl::opt<bool> enableSimdDataLayout;
+
+// The customEnvFlags must be scanned before the normal options.
+bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,
+    llvm::raw_ostream *errs = (llvm::raw_ostream *)nullptr);
+
+void setCustomEnvVar(const std::string &envVarName);
+void clearCustomEnvVar();
+std::string getCustomEnvVarOption();
 
 void setTargetTriple(const std::string &triple);
 void clearTargetTriple();

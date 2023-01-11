@@ -20,6 +20,7 @@
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -68,26 +69,14 @@ private:
   /// module if necessary.
   static FlatSymbolRefAttr getOrInsertStrlen(
       PatternRewriter &rewriter, ModuleOp module) {
-    constexpr const char *funcName = "strlen";
-    Optional<FlatSymbolRefAttr> optFuncDecl =
-        krnl::getFunctionDeclaration(module, funcName);
-    if (optFuncDecl.hasValue())
-      return optFuncDecl.getValue();
-
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     // Create 'strlen' function signature: `size_t (i8*)`
     // TODO: need to create size_t not i64.
     MLIRContext *ctx = module.getContext();
     Type i8Type = IntegerType::get(ctx, 8);
     Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
-    Type fnType = LLVM::LLVMFunctionType::get(
-        rewriter.getI64Type(), ArrayRef<Type>({i8PtrType}), false);
-
-    // Insert the function declaration the module.
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, fnType);
-
-    return SymbolRefAttr::get(ctx, funcName);
+    return create.llvm.getOrInsertSymbolRef(
+        module, StringRef("strlen"), rewriter.getI64Type(), {i8PtrType});
   }
 };
 

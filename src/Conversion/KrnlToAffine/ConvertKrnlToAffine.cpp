@@ -19,7 +19,6 @@
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
-#include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
@@ -211,11 +210,11 @@ public:
 
     for (const Movable &transferPt : opsToTransfer) {
       assert(insertPt != loopBody.end() && "Expecting insertPt in the loop");
-      assert(transferPt.loopsToSkip.hasValue() !=
-                 transferPt.movableOp.hasValue() &&
+      assert(transferPt.loopsToSkip.has_value() !=
+                 transferPt.movableOp.has_value() &&
              "Expecting non-equal values");
-      if (transferPt.movableOp.hasValue()) {
-        KrnlMovableOp movableOp = transferPt.movableOp.getValue();
+      if (transferPt.movableOp.has_value()) {
+        KrnlMovableOp movableOp = transferPt.movableOp.value();
 
         loopBody.getOperations().splice(insertPt,
             movableOp.getBody()->getOperations(), movableOp.getBody()->begin(),
@@ -232,12 +231,11 @@ public:
         if (insertPt == movableOp->getIterator())
           insertPt++;
         movableOp->erase();
-      } else if (transferPt.loopsToSkip.hasValue()) {
+      } else if (transferPt.loopsToSkip.has_value()) {
         llvm::Optional<AffineForOp> loopToSkip;
-        loopToSkip =
-            transferPt.loopsToSkip.getValue().empty()
-                ? loopToSkip
-                : loopRefToOp[transferPt.loopsToSkip.getValue().front()];
+        loopToSkip = transferPt.loopsToSkip.value().empty()
+                         ? loopToSkip
+                         : loopRefToOp[transferPt.loopsToSkip.value().front()];
 
         // Move iterator to point to the next AffineFor Op.
         while (insertPt != loopBody.end() &&
@@ -249,7 +247,7 @@ public:
 
         // Assert that now insertion point points to the loop to skip.
         if (loopToSkip)
-          assert(insertPt == loopToSkip.getValue()->getIterator());
+          assert(insertPt == loopToSkip.value()->getIterator());
 
         // Skip loop by incrementing insertion point.
         insertPt++;
@@ -395,8 +393,8 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
   } else {
     // Transfer krnl.iterate region to innermost for op.
     AffineForOp innermostForOp = currentNestedForOps.back().second;
-    innermostForOp.region().getBlocks().clear();
-    Region &innerMostRegion = innermostForOp.region();
+    innermostForOp.getRegion().getBlocks().clear();
+    Region &innerMostRegion = innermostForOp.getRegion();
     innerMostRegion.getBlocks().splice(
         innerMostRegion.end(), iterateOp.bodyRegion().getBlocks());
   }
@@ -623,7 +621,9 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(
       &getContext(), dataLayoutAnalysis.getAtOrAbove(funcOp));
-  options.emitCWrappers = true;
+  // Request C wrapper emission via attribute.
+  funcOp->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
+      UnitAttr::get(&getContext()));
 
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
@@ -679,13 +679,12 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   target.addIllegalOp<KrnlMatMulOp>();
   target.addIllegalOp<KrnlCopyToBufferOp>();
   target.addIllegalOp<KrnlCopyFromBufferOp>();
-  target.addIllegalOp<KrnlMemsetOp>();
   target.addLegalOp<AffineYieldOp>();
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
-  target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithmeticDialect,
-      mlir::memref::MemRefDialect, func::FuncDialect,
+  target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithDialect,
+      mlir::memref::MemRefDialect, mlir::func::FuncDialect,
       mlir::vector::VectorDialect>();
 
   // Patterns.
