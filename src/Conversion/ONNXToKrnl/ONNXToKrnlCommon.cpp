@@ -331,20 +331,19 @@ namespace {
 // Returns the DenseElementsAttr of input if it's a krnl.global constant or
 // onnx.Constant, or if it's one step removed from a krnl/onnx constant by a
 // builtin.unrealized_conversion_cast. Otherwise returns a nullptr attribute.
-DenseElementsAttr getDenseElementAttrFromValue(Value input) {
-  Operation *definingOp = input.getDefiningOp();
+DenseElementsAttr getDenseElementAttrFromConstValue(mlir::Value value) {
+  Operation *definingOp = value.getDefiningOp();
   if (auto castOp = dyn_cast_or_null<UnrealizedConversionCastOp>(definingOp)) {
     if (castOp.getNumOperands() != 1)
       return nullptr;
     definingOp = castOp.getOperand(0).getDefiningOp();
   }
-  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+  if (auto globalOp = dyn_cast_or_null<KrnlGlobalOp>(definingOp)) {
     if (globalOp.value().has_value())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  } else if (auto globalOp =
-                 dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
-    if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  } else if (auto constOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
+    if (constOp.value().has_value())
+      return constOp.valueAttr().dyn_cast<DenseElementsAttr>();
   }
   return nullptr;
 }
@@ -356,7 +355,8 @@ Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   TensorType tensorType = create.onnx.toTensor(resultType);
-  if (DenseElementsAttr inputElements = getDenseElementAttrFromValue(input)) {
+  if (DenseElementsAttr inputElements =
+          getDenseElementAttrFromConstValue(input)) {
     DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
     Value constVal = create.onnx.constant(squeezedElements);
     return create.onnx.toMemref(constVal);
@@ -375,7 +375,8 @@ Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   TensorType tensorType = create.onnx.toTensor(resultType);
-  if (DenseElementsAttr inputElements = getDenseElementAttrFromValue(input)) {
+  if (DenseElementsAttr inputElements =
+          getDenseElementAttrFromConstValue(input)) {
     DenseElementsAttr unsqueezedElements = inputElements.reshape(tensorType);
     Value constVal = create.onnx.constant(unsqueezedElements);
     return create.onnx.toMemref(constVal);
@@ -399,13 +400,14 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
   std::vector<Value> resVals;
   int outputNum = resultTypes.size();
 
-  if (DenseElementsAttr inputElements = getDenseElementAttrFromValue(input)) {
+  if (DenseElementsAttr inputElements =
+          getDenseElementAttrFromConstValue(input)) {
     auto inputShape = inputElements.getType().getShape();
     assert(outputNum == 0 || inputShape[axis] % outputNum == 0);
     int64_t sizeOfEachSplit = outputNum != 0 ? inputShape[axis] / outputNum : 0;
     SmallVector<int64_t, 4> sizes(outputNum, sizeOfEachSplit);
 
-    ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
     std::vector<ElementsAttr> splits =
         elementsBuilder.split(inputElements, axis, sizes);
     for (ElementsAttr splitElements : splits) {
@@ -434,18 +436,18 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
 Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, ArrayAttr permAttr) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  if (DenseElementsAttr inputElements = getDenseElementAttrFromValue(input)) {
+  if (DenseElementsAttr inputElements =
+          getDenseElementAttrFromConstValue(input)) {
     SmallVector<uint64_t, 4> perm;
     for (auto permVal : permAttr.getValue())
       perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
-    ElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
     ElementsAttr transposedElements =
         elementsBuilder.transpose(inputElements, perm);
     // Avoid DisposableElementsAttr during conversion.
     DenseElementsAttr denseTransposedElements =
         elementsBuilder.toDenseElementsAttr(transposedElements);
-
     Value constVal = create.onnx.constant(denseTransposedElements);
     return create.onnx.toMemref(constVal);
   } else {
