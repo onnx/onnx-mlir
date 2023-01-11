@@ -285,7 +285,6 @@ void KrnlBuilder::printf(Value input, Type inputType) const {
 // =============================================================================
 
 // Return null if none is found.
-// Copy from getDenseElementAttributeFromConstantValue
 DenseElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
   auto definingOp = value.getDefiningOp();
   if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {

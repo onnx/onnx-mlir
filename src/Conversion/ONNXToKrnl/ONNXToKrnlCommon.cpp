@@ -331,19 +331,21 @@ namespace {
 // onnx.Constant, or if it's one step removed from a krnl/onnx constant by a
 // builtin.unrealized_conversion_cast. Otherwise returns a nullptr attribute.
 DenseElementsAttr getDenseElementAttrFromValue(Value input) {
-  Operation *op = input.getDefiningOp();
-  if (op == nullptr)
-    return nullptr;
-  if (auto castOp = llvm::dyn_cast<UnrealizedConversionCastOp>(op)) {
+  Operation *definingOp = input.getDefiningOp();
+  if (auto castOp = dyn_cast_or_null<UnrealizedConversionCastOp>(definingOp)) {
     if (castOp.getNumOperands() != 1)
       return nullptr;
-    op = castOp.getOperand(0).getDefiningOp();
-    if (op == nullptr)
-      return nullptr;
+    definingOp = castOp.getOperand(0).getDefiningOp();
   }
-  if (!llvm::isa<KrnlGlobalOp, ONNXConstantOp>(op))
-    return nullptr;
-  return op->getAttrOfType<DenseElementsAttr>("value");
+  if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
+    if (globalOp.value().has_value())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  } else if (auto globalOp =
+                 dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+    if (globalOp.value().has_value())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  }
+  return nullptr;
 }
 } // namespace
 
