@@ -21,23 +21,23 @@
 #define FALSE 0
 
 //
-// Declare compare functions for data types and sorting directions.
+// Declare compare functions for data types and uniqueing directions.
 //
 // Data-type-specific compare functions are used here for performance reason.
-// As background, the performance of this sort function is important for the
+// As background, the performance of this unique function is important for the
 // whole model performance (e.g. the dominant part of the Yolov3 model).
 // If we use data-type-general compare function, including switch statements
 // to check the data type in the compare function, the switch statements are
-// executed in the sort and compare loops, we can avoid this overhead by
+// executed in the unique and compare loops, we can avoid this overhead by
 // using data-type-specific compare functions to check the data type at once
 // before entering the loop.
 //
-// This function is expected to provide "stable" sort that preserve the input
-// data order, if the values are the same. Although most sort algorithms (e.g.
-// quick sort) are not stable, we use special compare functions to compare two
+// This function is expected to provide "stable" unique that preserve the input
+// data order, if the values are the same. Although most unique algorithms (e.g.
+// quick unique) are not stable, we use special compare functions to compare two
 // values at first, then compare the input orders if the values are the same.
 // This comparison functions guarantee the input order among the same values
-// and makes sorting algorithms stable.
+// and makes uniqueing algorithms stable.
 //
 #if defined(__APPLE__)
 typedef int(
@@ -117,92 +117,31 @@ declare_compare_function(Double, double, Descending, <)
 // clang-format on
 
 //
-// Declare sort functions for sorting algorithms
+// Declare unique functions for uniqueing algorithms
 //
 #ifdef __APPLE__
-                            typedef void(sortFunctionType(void *base,
+                            typedef void(uniqueFunctionType(void *base,
                                 size_t dataNum, size_t dataSize, void *dataPtr,
                                 compareFunctionType compFunc));
 #elif defined(_MSC_VER)
-                            typedef void(sortFunctionType(void *base,
+                            typedef void(uniqueFunctionType(void *base,
                                 size_t num, size_t width,
                                 compareFunctionType compFunc, void *context));
 #else
-                            typedef void(sortFunctionType(void *base,
+                            typedef void(uniqueFunctionType(void *base,
                                 size_t dataNum, size_t dataSize,
                                 compareFunctionType compFunc, void *dataPtr));
 #endif
+
+//
+// Custom quick unique function for environments not suppirting qunique_r (e.g. zos)
+//
 #define SWAP_INDEX(a, b)                                                       \
   do {                                                                         \
     uint64_t tmp = (a);                                                        \
     (a) = (b);                                                                 \
     (b) = tmp;                                                                 \
   } while (0)
-
-//
-// Bubble sort
-//
-#ifdef __APPLE__
-void bubble_sort(void *base, size_t dataNum, size_t dataSize, void *dataPtr,
-    compareFunctionType compFunc)
-#else
-void bubble_sort(void *base, size_t dataNum, size_t dataSize,
-    compareFunctionType compFunc, void *dataPtr)
-#endif
-{
-  uint64_t *idx = (uint64_t *)base;
-  for (uint64_t i = 0; i < dataNum; i++) {
-    for (uint64_t j = 0; j < dataNum - 1; j++) {
-#if defined(__APPLE__)
-      if (compFunc(dataPtr, idx + j, idx + j + 1) > 0)
-#elif defined(_MSC_VER)
-      if (compFunc(dataPtr, idx + j, idx + j + 1))
-#else
-      if (compFunc(idx + j, idx + j + 1, dataPtr))
-#endif
-      {
-        SWAP_INDEX(idx[j], idx[j + 1]);
-      }
-    }
-  }
-}
-
-//
-// Comb sort
-//
-#ifdef __APPLE__
-void comb_sort(void *base, size_t dataNum, size_t dataSize, void *dataPtr,
-    compareFunctionType compFunc)
-#else
-void comb_sort(void *base, size_t dataNum, size_t dataSize,
-    compareFunctionType compFunc, void *dataPtr)
-#endif
-{
-  uint64_t *idx = (uint64_t *)base;
-  size_t gap = dataNum;
-  int swap = TRUE;
-  while ((gap != 1) || swap) {
-    gap = gap / 1.3;
-    gap = (gap < 1) ? 1 : gap;
-    swap = FALSE;
-    for (uint64_t i = 0; i < dataNum - gap; i++) {
-#if defined(__APPLE__)
-      if (compFunc(dataPtr, idx + i, idx + i + gap) > 0)
-#elif defined(_MSC_VER)
-      if (compFunc(dataPtr, idx + i, idx + i + gap))
-#else
-      if (compFunc(idx + i, idx + i + gap, dataPtr))
-#endif
-      {
-        SWAP_INDEX(idx[i], idx[i + gap]);
-      }
-    }
-  }
-}
-
-//
-// Quick sort
-//
 // stack for index (uint64_t)
 typedef struct indexStack {
   uint64_t *stackData;
@@ -252,17 +191,17 @@ static int64_t log2u(uint64_t n) {
   return b;
 }
 
-// Quick sort patition function
-static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
+// Quick unique patition function
+static int64_t quick_unique_partition(void *dataPtr, uint64_t *idx,
     compareFunctionType compFunc, int64_t begin, int64_t end) {
   int64_t i = begin;
   for (int64_t j = begin; j < end; j++) {
 #if defined(__APPLE__)
     if (compFunc(dataPtr, idx + j, idx + end) <= 0)
 #elif defined(_MSC_VER)
-    if (!compFunc(dataPtr, idx + j, idx + end))
+    if (compFunc(dataPtr, idx + j, idx + end) <= 0)
 #else
-    if (!compFunc(idx + j, idx + end, dataPtr))
+    if (compFunc(idx + j, idx + end, dataPtr) <= 0)
 #endif
     {
       SWAP_INDEX(idx[i], idx[j]);
@@ -273,12 +212,12 @@ static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
   return i;
 }
 
-// Quick sort main function (custom version)
+// Quick unique main function (custom version)
 #ifdef __APPLE__
-void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
+void quick_unique_custom(void *base, size_t dataNum, size_t dataSize,
     void *dataPtr, compareFunctionType compFunc) {
 #else
-void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
+void quick_unique_custom(void *base, size_t dataNum, size_t dataSize,
     compareFunctionType compFunc, void *dataPtr) {
 #endif
   uint64_t *idx = (uint64_t *)base;
@@ -297,7 +236,7 @@ void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
     STACK_POP(stack, begin, end);
     if (begin < end) {
       int64_t pivotIdx =
-          quick_sort_partition(dataPtr, idx, compFunc, begin, end);
+          quick_unique_partition(dataPtr, idx, compFunc, begin, end);
       // To limit the stack size, push larger partion at first
       if ((pivotIdx - begin) > (end - pivotIdx)) {
         if (begin < pivotIdx - 1)
@@ -369,21 +308,21 @@ compareFunctionType *getCompareFunction(
   return compFunc;
 }
 
-void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
-    uint64_t axis, uint64_t ascending, uint64_t algorithm) {
+void omTensorUnique(OMTensor *orderTensor, const OMTensor *inputTensor,
+    uint64_t axis, uint64_t ascending) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const uint64_t rank = omTensorGetRank(inputTensor);
-  assert(rank <= 6 && "omTensorSort assumes rank <= 6");
-  assert(axis == (rank - 1) && "omTensorSort assumes axis == (rank - 1)");
+  assert(rank <= 6 && "omTensorUnique assumes rank <= 6");
+  assert(axis == (rank - 1) && "omTensorUnique assumes axis == (rank - 1)");
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
-  assert(inputStrides[axis] == 1 && "omTensorSort assumes strides[axis] == 1");
+  assert(inputStrides[axis] == 1 && "omTensorUnique assumes strides[axis] == 1");
   void *orderPtr = omTensorGetDataPtr(orderTensor);
   uint64_t *order = (uint64_t *)orderPtr;
   void *dataPtr = omTensorGetDataPtr(inputTensor);
-  int64_t sort_elems = inputShape[axis];
-  // Sorting not necessary for empty array
-  if (sort_elems == 0)
+  int64_t unique_elems = inputShape[axis];
+  // Uniqueing not necessary for empty array
+  if (unique_elems == 0)
     return;
 
   // Choose the appropriate compare function
@@ -391,44 +330,11 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
       getCompareFunction(ascending, dataType);
   uint64_t datasize = OM_DATA_TYPE_SIZE[dataType];
 
-  // Choose the sorting function
-  sortFunctionType *sortFunc = bubble_sort;
-  switch (algorithm) {
-  case OMSORT_BUBBLESORT:
-    sortFunc = bubble_sort;
-    break;
-  case OMSORT_COMBSORT:
-    sortFunc = comb_sort;
-    break;
-  case OMSORT_QUICKSORT:
-#if defined(__APPLE__)
-    // MacOS supports qsort_r in different API
-    sortFunc = qsort_r;
-#elif defined(_MSC_VER)
-#pragma warning(push, 3)
-#pragma warning(disable : 4028)
-    // Windows supports qsort_s
-    sortFunc = qsort_s;
-#pragma warning(pop)
-#elif defined(__linux) || defined(__linux__) || defined(linux)
-    // Use standard quick sort in libc
-    sortFunc = qsort_r;
-#else
-    // Use standard quick sort in libc
-    sortFunc = qsort_r;
-#endif
-    break;
-  case OMSORT_QUICKSORT_CUSTOM:
-    sortFunc = quick_sort_custom; // custum quick sort
-    break;
-  default:
-    assert("invalid sorting algorithm");
-    break;
-  }
+  uniqueFunctionType *uniqueFunc = quick_unique_custom; // custum quick unique
   // To support input Tensor with various ranks in a uniform way.
   // If the input rank < 6, upgrade the rank to 6 virtually without changing
   // the physical memory layout by inserting length=1 ranks at lower ranks.
-  // The 5th axis becomes the sort axis.
+  // The 5th axis becomes the unique axis.
   int64_t shape[6] = {1, 1, 1, 1, 1, 1};
   int64_t strides[6] = {0, 0, 0, 0, 0, 0};
   for (uint64_t i = 0; i < rank; i++) {
@@ -436,7 +342,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     strides[i + (6 - rank)] = inputStrides[i];
   }
 
-  // Sort the the 6th axis in the outer 5 loops
+  // Unique the the 6th axis in the outer 5 loops
   for (int dim0 = 0; dim0 < shape[0]; dim0++) {
     for (int dim1 = 0; dim1 < shape[1]; dim1++) {
       for (int dim2 = 0; dim2 < shape[2]; dim2++) {
@@ -448,10 +354,10 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
             void *data = ((char *)dataPtr) + datasize * off;
             uint64_t *idx = order + off;
 #if defined(__APPLE__)
-            sortFunc((void *)idx, sort_elems, sizeof(uint64_t), data,
+            uniqueFunc((void *)idx, unique_elems, sizeof(uint64_t), data,
                 compareElements);
 #else
-            sortFunc((void *)idx, sort_elems, sizeof(uint64_t), compareElements,
+            uniqueFunc((void *)idx, unique_elems, sizeof(uint64_t), compareElements,
                 data);
 #endif
           }
