@@ -208,16 +208,24 @@ Value reverseWeightTensor4D(
   return result;
 }
 
-ArrayAttr getPadsConvTranspose2D(
-    PatternRewriter &rewriter, Location loc, ArrayAttr kernel, ArrayAttr pads) {
+ArrayAttr getPadsConvTranspose2D(PatternRewriter &rewriter, Location loc,
+    ArrayAttr kernel, ArrayAttr pads, ArrayAttr dilation) {
   // Calculate pads in generated Conv op by rewriting ConvTranspose op
   // new_pads = kernel -  pads - 1
   // Reference: Dumoulin, Vincent, and Francesco Visin. "A guide to convolution
   // arithmetic for deep learning." arXiv preprint arXiv:1603.07285 (2016).
   SmallVector<int64_t, 4> newPads;
+  SmallVector<int64_t, 2> newKernel;
+  // If `dilations` is not default one [1, 1], `kernel` is updated by inserting
+  // spaces in kernel elements
+  //   ex. kernel [2, 3] and dilation [2, 2], then new `kernel` is [3, 4]
+  for (int i = 0; i < 2; ++i)
+    newKernel.emplace_back(
+        ArrayAttrIntVal(kernel, i) +
+        (ArrayAttrIntVal(kernel, i) - 1) * (ArrayAttrIntVal(dilation, i) - 1));
+  // 2D `kernel` is updated to 4D to calculate `new_pads`
   for (int i = 0; i < 4; ++i)
-    newPads.emplace_back(
-        ArrayAttrIntVal(kernel, i % 2) - ArrayAttrIntVal(pads, i) - 1);
+    newPads.emplace_back(newKernel[i % 2] - ArrayAttrIntVal(pads, i) - 1);
   return rewriter.getI64ArrayAttr(newPads);
 }
 

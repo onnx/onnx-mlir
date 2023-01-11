@@ -960,7 +960,7 @@ def reverseWeightConvTranspose2D: NativeCodeCall<
   "onnx_mlir::reverseWeightTensor4D($_builder, $_loc, $0)">;
 
 def getPadsConvTranspose2D: NativeCodeCall<
-  "onnx_mlir::getPadsConvTranspose2D($_builder, $_loc, $0, $1)">;
+  "onnx_mlir::getPadsConvTranspose2D($_builder, $_loc, $0, $1, $2)">;
 
 def ConvTransposeOpPattern1: Pattern<
    (ONNXConvTransposeOp $x, $w, $b,
@@ -968,7 +968,7 @@ def ConvTransposeOpPattern1: Pattern<
       $output_padding, $output_shape, $pads, $strides),
    [
     (reverseWeightConvTranspose2D:$reversed_w $w),
-    (getPadsConvTranspose2D:$new_pads $kernel_shape, $pads),
+    (getPadsConvTranspose2D:$new_pads $kernel_shape, $pads, $dilation),
     (ONNXConvOp $x, $reversed_w, $b,
        $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $strides)
    ]
