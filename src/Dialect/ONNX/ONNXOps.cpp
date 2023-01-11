@@ -14,6 +14,8 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
+
 #include "mlir/Dialect/Traits.h"
 
 //===----------------------------------------------------------------------===//
@@ -169,11 +171,14 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
     assert(!elements.isa<SparseElementsAttr>() &&
            "ONNXConstantOp value cannot be sparse");
     if (elements.getType() == resultType) {
-      // NOTE: Here we can insert logic to print alternatives to
-      //       DenseElementsAttr, like DenseResourceElementsAttr, in the same
-      //       way as DenseElementsAttr to hide these internal representations.
       odsPrinter << ' ';
-      odsPrinter.printAttribute(elements);
+      // Print DisposableElementsAttr as a DenseElementsAttr, because
+      // DisposableElementsAttr is an internal representation, so we hide it
+      // in this way.
+      if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
+        disposable.printAsDenseElementsAttr(odsPrinter);
+      else
+        odsPrinter.printAttribute(elements);
       return;
     }
   }

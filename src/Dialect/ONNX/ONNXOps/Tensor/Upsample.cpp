@@ -48,9 +48,9 @@ LogicalResult ONNXUpsampleOp::verify() {
   if (!scalesConstOp) {
     return success();
   }
-  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<ElementsAttr>();
   if (!valueAttr) {
-    return emitError("Scales constant is not a DenseElementsAttr");
+    return emitError("Scales constant is not an ElementsAttr");
   }
 
   int scaleIdx = 0;
@@ -90,9 +90,9 @@ LogicalResult ONNXUpsampleOp::inferShapes(
   if (!scalesConstOp) {
     return success();
   }
-  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<ElementsAttr>();
   if (!valueAttr) {
-    return emitError("Scales constant is not a DenseElementsAttr");
+    return emitError("Scales constant is not an ElementsAttr");
   }
   int scaleIdx = 0;
   // Why are the scale values float's?
