@@ -454,16 +454,15 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     OpBuilder::InsertionGuard insertGuard(rewriter);
     auto srcTy = src.getType().cast<MemRefType>();
     SmallVector<Value, 4> readIV;
-    KrnlBuilder createKrnl(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
     if (srcTy.getRank() > 0) {
-      IndexExprScope childScope(&rewriter, loc);
-      ValueRange loopDef = createKrnl.defineLoops(srcTy.getRank());
+      IndexExprScope childScope(create.krnl);
+      ValueRange loopDef = create.krnl.defineLoops(srcTy.getRank());
       SmallVector<IndexExpr, 4> lbs(srcTy.getRank(), LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
-      MemRefBoundsIndexCapture bounds(src);
-      for (int i = 0; i < srcTy.getRank(); i++)
-        ubs.emplace_back(bounds.getDim(i));
-      createKrnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      create.krnlIE.getShapeAsDims(src, ubs);
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value, 4> writeIV(
                 writePrefix.begin(), writePrefix.end());
@@ -472,8 +471,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             createKrnl.store(val, dest, writeIV);
           });
     } else {
-      Value val = createKrnl.load(src);
-      createKrnl.store(val, dest, writePrefix);
+      Value val = create.krnl.load(src);
+      create.krnl.store(val, dest, writePrefix);
     }
   }
 
