@@ -24,13 +24,12 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   // Get info about X and K operands.
   Value X = operandAdaptor.X();
   int64_t rank = createIE->getShapedTypeRank(X);
-  Type elementType = X.getType().cast<ShapedType>().getElementType();
   Optional<int64_t> optionalAxis = operandAdaptor.axis();
   // Generate the output dims.
   DimsExpr outputDims;
   LiteralIndexExpr minusone(-1);
   if (!optionalAxis.has_value()) { // if no axis given
-    outputDims.emplace_back(minusone);
+    outputDims.emplace_back(minusone); // return 1D array
   } else { // if axis given
     int64_t axis = optionalAxis.value();
     for (int64_t i = 0; i < rank; i++) {
