@@ -183,10 +183,6 @@ mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value input, int64_t axis,
     bool ascending = false);
 
-/// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
-mlir::DenseElementsAttr getDenseElementAttributeFromConstantValue(
-    mlir::Value value);
-
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
