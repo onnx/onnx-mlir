@@ -32,18 +32,18 @@ namespace {
 // This calculates the values that need to be added to the padding in order to
 // simulate the ceil mode
 llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
-    const ONNXMaxPoolSingleOutOpShapeHelper &shapeHelper, int64_t ceilMode) {
+    ONNXMaxPoolSingleOutOpShapeHelper &shapeHelper, int64_t ceilMode) {
   // This avoids having more if statements when creating the padding const.
   if (ceilMode == 0)
     return llvm::SmallVector<int64_t>{0, 0};
 
-  SmallVector<int64_t, 4> kernelShapeVec =
-      tosa::createInt64VectorFromIndexExpr(shapeHelper.kernelShape);
+  SmallVector<int64_t, 4> kernelShapeVec;
+  IndexExpr::getLiteral(shapeHelper.kernelShape, kernelShapeVec);
 
   // Get stride and pad vectors.
   SmallVector<int64_t, 2> stridesVec = shapeHelper.strides;
-  SmallVector<int64_t, 4> padsVec =
-      tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
+  SmallVector<int64_t, 4> padsVec;
+  IndexExpr::getLiteral(shapeHelper.pads, padsVec);
 
   // Check if the idiv_check for the output dimentions in
   // https://www.mlplatform.org/tosa/tosa_spec.html#_max_pool2d has no
@@ -120,8 +120,8 @@ public:
     // When ceil mode is 1, we need to add values to the padding
     const llvm::SmallVector<int64_t, 4> ceilConstants =
         getCeilConstants(inputType.getShape(), shapeHelper, ceilMode);
-    llvm::SmallVector<int64_t, 4> pads =
-        tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
+    llvm::SmallVector<int64_t, 4> pads;
+    IndexExpr::getLiteral(shapeHelper.pads, pads);
 
     // reorder padding values
     mlir::ArrayAttr newPads = rewriter.getI64ArrayAttr({pads[0],
