@@ -326,15 +326,34 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
              : create.math.constant(type, shape[axis]);
 }
 
+namespace {
+// Returns the DenseElementsAttr of input if it's a krnl.global constant or
+// onnx.Constant, or if it's one step removed from a krnl/onnx constant by a
+// builtin.unrealized_conversion_cast. Otherwise returns a nullptr attribute.
+DenseElementsAttr getDenseElementAttrFromValue(Value input) {
+  Operation *op = input.getDefiningOp();
+  if (op == nullptr)
+    return nullptr;
+  if (auto castOp = llvm::dyn_cast<UnrealizedConversionCastOp>(op)) {
+    if (castOp.getNumOperands() != 1)
+      return nullptr;
+    op = castOp.getOperand(0).getDefiningOp();
+    if (op == nullptr)
+      return nullptr;
+  }
+  if (!llvm::isa<KrnlGlobalOp, ONNXConstantOp>(op))
+    return nullptr;
+  return op->getAttrOfType<DenseElementsAttr>("value");
+}
+} // namespace
+
 /// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,
 /// and return a constant.
 Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   TensorType tensorType = create.onnx.toTensor(resultType);
-  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    DenseElementsAttr inputElements =
-        input.getDefiningOp()->getAttrOfType<DenseElementsAttr>("value");
+  if (DenseElementsAttr inputElements = getDenseElementAttrFromValue(input)) {
     DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
     Value constVal = create.onnx.constant(squeezedElements);
     return create.onnx.toMemref(constVal);
@@ -353,9 +372,7 @@ Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   TensorType tensorType = create.onnx.toTensor(resultType);
-  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    DenseElementsAttr inputElements =
-        input.getDefiningOp()->getAttrOfType<DenseElementsAttr>("value");
+  if (DenseElementsAttr inputElements = getDenseElementAttrFromValue(input)) {
     DenseElementsAttr unsqueezedElements = inputElements.reshape(tensorType);
     Value constVal = create.onnx.constant(unsqueezedElements);
     return create.onnx.toMemref(constVal);
@@ -394,9 +411,8 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
     offset += inputShape[axis] / outputNum;
   }
 
-  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    char *inputBuffer = createArrayFromDenseElementsAttr(
-        input.getDefiningOp()->getAttrOfType<DenseElementsAttr>("value"));
+  if (DenseElementsAttr inputElements = getDenseElementAttrFromValue(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(inputElements);
 
     std::vector<char *> resBuffers;
     ConstPropSplitImpl(elementType, inputBuffer, inputShape,
@@ -440,9 +456,8 @@ Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
     perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  if (krnl::isKrnlGlobalConstant(input) || isDenseONNXConstant(input)) {
-    char *inputBuffer = createArrayFromDenseElementsAttr(
-        input.getDefiningOp()->getAttrOfType<DenseElementsAttr>("value"));
+  if (DenseElementsAttr inputElements = getDenseElementAttrFromValue(input)) {
+    char *inputBuffer = createArrayFromDenseElementsAttr(inputElements);
 
     char *resBuffer = allocateBufferFor(resultType, /*useMaxSize=*/true);
     ConstPropTransposeImpl(

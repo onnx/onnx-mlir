@@ -176,123 +176,114 @@ func.func private @test_lstm_forward_mode_constant_weight_and_bias(%arg0: tensor
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<2x4xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4){
-// CHECK:             [[VAR_25_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_]], [[VAR_25_]]#0, [[VAR_25_]]#1] : memref<1x2x4xf32>
-// CHECK:             krnl.store [[LOAD_PARAM_1_MEM_]], [[RES_1_]]{{.}}[[VAR_25_]]#0, [[VAR_25_]]#1] : memref<2x4xf32>
-// CHECK:             [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[CST_0_]], [[VAR_25_]]#0, [[VAR_25_]]#1] : memref<1x2x4xf32>
-// CHECK:             krnl.store [[LOAD_PARAM_2_MEM_]], [[RES_2_]]{{.}}[[VAR_25_]]#0, [[VAR_25_]]#1] : memref<2x4xf32>
+// CHECK:             [[VAR_15_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_]], [[VAR_15_]]#0, [[VAR_15_]]#1] : memref<1x2x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_1_MEM_]], [[RES_1_]]{{.}}[[VAR_15_]]#0, [[VAR_15_]]#1] : memref<2x4xf32>
+// CHECK:             [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[CST_0_]], [[VAR_15_]]#0, [[VAR_15_]]#1] : memref<1x2x4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_2_MEM_]], [[RES_2_]]{{.}}[[VAR_15_]]#0, [[VAR_15_]]#1] : memref<2x4xf32>
 // CHECK:           }
-// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [16, 3], value = dense<1.000000e+00> : tensor<16x3xf32>} : () -> memref<16x3xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [16, 4], value = dense<2.000000e+00> : tensor<16x4xf32>} : () -> memref<16x4xf32>
-// CHECK:           [[VAR_3_:%.+]] = builtin.unrealized_conversion_cast [[VAR_1_]] : memref<16x3xf32> to tensor<16x3xf32>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [1, 0]} : (tensor<16x3xf32>) -> tensor<3x16xf32>
-// CHECK-DAG:       [[VAR_5_:%.+]] = builtin.unrealized_conversion_cast [[VAR_2_]] : memref<16x4xf32> to tensor<16x4xf32>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Transpose"([[VAR_5_]]) {perm = [1, 0]} : (tensor<16x4xf32>) -> tensor<4x16xf32>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [32], value = dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00, 9.000000e+00, 1.000000e+01, 1.100000e+01, 1.200000e+01, 1.300000e+01, 1.400000e+01, 1.500000e+01, 1.600000e+01, 1.700000e+01, 1.800000e+01, 1.900000e+01, 2.000000e+01, 2.100000e+01, 2.200000e+01, 2.300000e+01, 2.400000e+01, 2.500000e+01, 2.600000e+01, 2.700000e+01, 2.800000e+01, 2.900000e+01, 3.000000e+01, 3.100000e+01, 3.200000e+01]> : tensor<32xf32>} : () -> memref<32xf32>
-// CHECK:           [[VAR_8_:%.+]] = builtin.unrealized_conversion_cast [[VAR_7_]] : memref<32xf32> to tensor<32xf32>
-// CHECK:           [[VAR_9_:%.+]]:8 = "onnx.SplitV11"([[VAR_8_]]) {axis = 0 : si64} : (tensor<32xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
-// CHECK-DAG:       [[VAR_10_:%.+]] = builtin.unrealized_conversion_cast [[VAR_9_]]#0 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_11_:%.+]] = builtin.unrealized_conversion_cast [[VAR_9_]]#1 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_12_:%.+]] = builtin.unrealized_conversion_cast [[VAR_9_]]#2 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_13_:%.+]] = builtin.unrealized_conversion_cast [[VAR_9_]]#3 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_14_:%.+]] = builtin.unrealized_conversion_cast [[VAR_9_]]#4 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_15_:%.+]] = builtin.unrealized_conversion_cast [[VAR_9_]]#5 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_16_:%.+]] = builtin.unrealized_conversion_cast [[VAR_9_]]#6 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_17_:%.+]] = builtin.unrealized_conversion_cast [[VAR_9_]]#7 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_18_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [12], value = dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00, 9.000000e+00, 1.000000e+01, 1.100000e+01, 1.200000e+01]> : tensor<12xf32>} : () -> memref<12xf32>
-// CHECK:           [[VAR_19_:%.+]] = builtin.unrealized_conversion_cast [[VAR_18_]] : memref<12xf32> to tensor<12xf32>
-// CHECK:           [[VAR_20_:%.+]]:3 = "onnx.SplitV11"([[VAR_19_]]) {axis = 0 : si64} : (tensor<12xf32>) -> (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>)
-// CHECK-DAG:       [[VAR_21_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#0 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_22_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#1 : tensor<4xf32> to memref<4xf32>
-// CHECK-DAG:       [[VAR_23_:%.+]] = builtin.unrealized_conversion_cast [[VAR_20_]]#2 : tensor<4xf32> to memref<4xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [3, 16], value = dense<1.000000e+00> : tensor<3x16xf32>} : () -> memref<3x16xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4, 16], value = dense<2.000000e+00> : tensor<4x16xf32>} : () -> memref<4x16xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4], value = dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4], value = dense<[5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4], value = dense<[9.000000e+00, 1.000000e+01, 1.100000e+01, 1.200000e+01]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4], value = dense<[1.300000e+01, 1.400000e+01, 1.500000e+01, 1.600000e+01]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4], value = dense<[1.700000e+01, 1.800000e+01, 1.900000e+01, 2.000000e+01]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4], value = dense<[2.100000e+01, 2.200000e+01, 2.300000e+01, 2.400000e+01]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4], value = dense<[2.500000e+01, 2.600000e+01, 2.700000e+01, 2.800000e+01]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4], value = dense<[2.900000e+01, 3.000000e+01, 3.100000e+01, 3.200000e+01]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4], value = dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_12_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4], value = dense<[5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00]> : tensor<4xf32>} : () -> memref<4xf32>
+// CHECK-DAG:       [[VAR_13_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [4], value = dense<[9.000000e+00, 1.000000e+01, 1.100000e+01, 1.200000e+01]> : tensor<4xf32>} : () -> memref<4xf32>
 // CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 7){
-// CHECK-DAG:         [[VAR_25_1_:%.+]] = krnl.get_induction_var_value([[LOOP_1_]]) : (!krnl.loop) -> index
+// CHECK-DAG:         [[VAR_15_1_:%.+]] = krnl.get_induction_var_value([[LOOP_1_]]) : (!krnl.loop) -> index
 // CHECK-DAG:         [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2x3xf32>
 // CHECK-DAG:         [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = [[CST_0_]] to [[CST_2_]], [[LOOP_2_]]#1 -> [[I_4_:%.+]] = [[CST_0_]] to [[CST_3_]]){
-// CHECK:               [[VAR_34_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_25_1_]], [[VAR_34_]]#0, [[VAR_34_]]#1] : memref<7x2x3xf32>
-// CHECK:               krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_3_]]{{.}}[[VAR_34_]]#0, [[VAR_34_]]#1] : memref<2x3xf32>
+// CHECK:               [[VAR_26_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_15_1_]], [[VAR_26_]]#0, [[VAR_26_]]#1] : memref<7x2x3xf32>
+// CHECK:               krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_3_]]{{.}}[[VAR_26_]]#0, [[VAR_26_]]#1] : memref<2x3xf32>
 // CHECK:             }
-// CHECK:             [[LOAD_PARAM_2_MEM_1_:%.+]] = builtin.unrealized_conversion_cast [[RES_3_]] : memref<2x3xf32> to tensor<2x3xf32>
-// CHECK:             [[VAR_28_:%.+]] = "onnx.MatMul"([[LOAD_PARAM_2_MEM_1_]], [[VAR_4_]]) : (tensor<2x3xf32>, tensor<3x16xf32>) -> tensor<2x16xf32>
-// CHECK-DAG:         [[VAR_29_:%.+]] = builtin.unrealized_conversion_cast [[VAR_28_]] : tensor<2x16xf32> to memref<2x16xf32>
-// CHECK-DAG:         [[VAR_30_:%.+]] = builtin.unrealized_conversion_cast [[RES_1_]] : memref<2x4xf32> to tensor<2x4xf32>
-// CHECK:             [[VAR_31_:%.+]] = "onnx.MatMul"([[VAR_30_]], [[VAR_6_]]) : (tensor<2x4xf32>, tensor<4x16xf32>) -> tensor<2x16xf32>
-// CHECK-DAG:         [[VAR_32_:%.+]] = builtin.unrealized_conversion_cast [[VAR_31_]] : tensor<2x16xf32> to memref<2x16xf32>
+// CHECK-DAG:         [[LOAD_PARAM_2_MEM_1_:%.+]] = builtin.unrealized_conversion_cast [[RES_3_]] : memref<2x3xf32> to tensor<2x3xf32>
+// CHECK-DAG:         [[VAR_18_:%.+]] = builtin.unrealized_conversion_cast [[VAR_1_]] : memref<3x16xf32> to tensor<3x16xf32>
+// CHECK:             [[VAR_19_:%.+]] = "onnx.MatMul"([[LOAD_PARAM_2_MEM_1_]], [[VAR_18_]]) : (tensor<2x3xf32>, tensor<3x16xf32>) -> tensor<2x16xf32>
+// CHECK-DAG:         [[VAR_20_:%.+]] = builtin.unrealized_conversion_cast [[VAR_19_]] : tensor<2x16xf32> to memref<2x16xf32>
+// CHECK-DAG:         [[VAR_21_:%.+]] = builtin.unrealized_conversion_cast [[RES_1_]] : memref<2x4xf32> to tensor<2x4xf32>
+// CHECK-DAG:         [[VAR_22_:%.+]] = builtin.unrealized_conversion_cast [[VAR_2_]] : memref<4x16xf32> to tensor<4x16xf32>
+// CHECK:             [[VAR_23_:%.+]] = "onnx.MatMul"([[VAR_21_]], [[VAR_22_]]) : (tensor<2x4xf32>, tensor<4x16xf32>) -> tensor<2x16xf32>
+// CHECK-DAG:         [[VAR_24_:%.+]] = builtin.unrealized_conversion_cast [[VAR_23_]] : tensor<2x16xf32> to memref<2x16xf32>
 // CHECK-DAG:         [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = [[CST_0_]] to [[CST_2_]], [[LOOP_3_]]#1 -> [[I_6_:%.+]] = [[CST_0_]] to [[CST_4_]]){
-// CHECK:               [[VAR_34_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_2_]]{{.}}[[VAR_34_1_]]#0, [[VAR_34_1_]]#1] : memref<2x4xf32>
-// CHECK-DAG:           [[LOAD_VAR_29_MEM_:%.+]] = krnl.load [[VAR_29_]]{{.}}[[VAR_34_1_]]#0, [[VAR_34_1_]]#1] : memref<2x16xf32>
-// CHECK-DAG:           [[LOAD_VAR_32_MEM_:%.+]] = krnl.load [[VAR_32_]]{{.}}[[VAR_34_1_]]#0, [[VAR_34_1_]]#1] : memref<2x16xf32>
+// CHECK:               [[VAR_26_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_2_]]{{.}}[[VAR_26_1_]]#0, [[VAR_26_1_]]#1] : memref<2x4xf32>
+// CHECK-DAG:           [[LOAD_VAR_20_MEM_:%.+]] = krnl.load [[VAR_20_]]{{.}}[[VAR_26_1_]]#0, [[VAR_26_1_]]#1] : memref<2x16xf32>
+// CHECK-DAG:           [[LOAD_VAR_24_MEM_:%.+]] = krnl.load [[VAR_24_]]{{.}}[[VAR_26_1_]]#0, [[VAR_26_1_]]#1] : memref<2x16xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[VAR_38_:%.+]] = arith.addf [[LOAD_VAR_29_MEM_]], [[LOAD_VAR_32_MEM_]] : f32
-// CHECK-DAG:           [[LOAD_VAR_10_MEM_:%.+]] = krnl.load [[VAR_10_]]{{.}}[[VAR_34_1_]]#1] : memref<4xf32>
-// CHECK-DAG:           [[LOAD_VAR_14_MEM_:%.+]] = krnl.load [[VAR_14_]]{{.}}[[VAR_34_1_]]#1] : memref<4xf32>
-// CHECK:               [[VAR_41_:%.+]] = arith.addf [[VAR_38_]], [[LOAD_VAR_10_MEM_]] : f32
-// CHECK-DAG:           [[VAR_42_:%.+]] = arith.addf [[VAR_41_]], [[LOAD_VAR_14_MEM_]] : f32
-// CHECK-DAG:           [[LOAD_VAR_21_MEM_:%.+]] = krnl.load [[VAR_21_]]{{.}}[[VAR_34_1_]]#1] : memref<4xf32>
-// CHECK:               [[VAR_44_:%.+]] = arith.mulf [[LOAD_VAR_21_MEM_]], [[LOAD_PARAM_0_MEM_1_]] : f32
-// CHECK:               [[VAR_45_:%.+]] = arith.addf [[VAR_42_]], [[VAR_44_]] : f32
-// CHECK:               [[VAR_46_:%.+]] = arith.subf [[CST_0_dot_000000_]], [[VAR_45_]] : f32
-// CHECK:               [[VAR_47_:%.+]] = math.exp [[VAR_46_]] : f32
-// CHECK:               [[VAR_48_:%.+]] = arith.addf [[VAR_47_]], [[CST_1_dot_000000_]] : f32
-// CHECK-DAG:           [[VAR_49_:%.+]] = arith.divf [[CST_1_dot_000000_]], [[VAR_48_]] : f32
-// CHECK-DAG:           [[VAR_50_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[VAR_34_1_]]#1]
+// CHECK-DAG:           [[VAR_30_:%.+]] = arith.addf [[LOAD_VAR_20_MEM_]], [[LOAD_VAR_24_MEM_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_3_MEM_:%.+]] = krnl.load [[VAR_3_]]{{.}}[[VAR_26_1_]]#1] : memref<4xf32>
+// CHECK-DAG:           [[LOAD_VAR_7_MEM_:%.+]] = krnl.load [[VAR_7_]]{{.}}[[VAR_26_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_33_:%.+]] = arith.addf [[VAR_30_]], [[LOAD_VAR_3_MEM_]] : f32
+// CHECK-DAG:           [[VAR_34_:%.+]] = arith.addf [[VAR_33_]], [[LOAD_VAR_7_MEM_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_11_MEM_:%.+]] = krnl.load [[VAR_11_]]{{.}}[[VAR_26_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_36_:%.+]] = arith.mulf [[LOAD_VAR_11_MEM_]], [[LOAD_PARAM_0_MEM_1_]] : f32
+// CHECK:               [[VAR_37_:%.+]] = arith.addf [[VAR_34_]], [[VAR_36_]] : f32
+// CHECK:               [[VAR_38_:%.+]] = arith.subf [[CST_0_dot_000000_]], [[VAR_37_]] : f32
+// CHECK:               [[VAR_39_:%.+]] = math.exp [[VAR_38_]] : f32
+// CHECK:               [[VAR_40_:%.+]] = arith.addf [[VAR_39_]], [[CST_1_dot_000000_]] : f32
+// CHECK-DAG:           [[VAR_41_:%.+]] = arith.divf [[CST_1_dot_000000_]], [[VAR_40_]] : f32
+// CHECK-DAG:           [[VAR_42_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[VAR_26_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[LOAD_VAR_29_MEM_1_:%.+]] = krnl.load [[VAR_29_]]{{.}}[[VAR_34_1_]]#0, [[VAR_50_]]{{.}} : memref<2x16xf32>
-// CHECK-DAG:           [[VAR_52_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[VAR_34_1_]]#1]
-// CHECK:               [[LOAD_VAR_32_MEM_1_:%.+]] = krnl.load [[VAR_32_]]{{.}}[[VAR_34_1_]]#0, [[VAR_52_]]{{.}} : memref<2x16xf32>
-// CHECK-DAG:           [[VAR_54_:%.+]] = arith.addf [[LOAD_VAR_29_MEM_1_]], [[LOAD_VAR_32_MEM_1_]] : f32
-// CHECK-DAG:           [[LOAD_VAR_12_MEM_:%.+]] = krnl.load [[VAR_12_]]{{.}}[[VAR_34_1_]]#1] : memref<4xf32>
-// CHECK-DAG:           [[LOAD_VAR_16_MEM_:%.+]] = krnl.load [[VAR_16_]]{{.}}[[VAR_34_1_]]#1] : memref<4xf32>
-// CHECK:               [[VAR_57_:%.+]] = arith.addf [[VAR_54_]], [[LOAD_VAR_12_MEM_]] : f32
-// CHECK-DAG:           [[VAR_58_:%.+]] = arith.addf [[VAR_57_]], [[LOAD_VAR_16_MEM_]] : f32
-// CHECK-DAG:           [[LOAD_VAR_23_MEM_:%.+]] = krnl.load [[VAR_23_]]{{.}}[[VAR_34_1_]]#1] : memref<4xf32>
-// CHECK:               [[VAR_60_:%.+]] = arith.mulf [[LOAD_VAR_23_MEM_]], [[LOAD_PARAM_0_MEM_1_]] : f32
-// CHECK:               [[VAR_61_:%.+]] = arith.addf [[VAR_58_]], [[VAR_60_]] : f32
-// CHECK:               [[VAR_62_:%.+]] = arith.subf [[CST_0_dot_000000_]], [[VAR_61_]] : f32
-// CHECK:               [[VAR_63_:%.+]] = math.exp [[VAR_62_]] : f32
-// CHECK:               [[VAR_64_:%.+]] = arith.addf [[VAR_63_]], [[CST_1_dot_000000_]] : f32
-// CHECK-DAG:           [[VAR_65_:%.+]] = arith.divf [[CST_1_dot_000000_]], [[VAR_64_]] : f32
-// CHECK-DAG:           [[VAR_66_:%.+]] = affine.apply [[MAP_4_]](){{.}}[[VAR_34_1_]]#1]
+// CHECK-DAG:           [[LOAD_VAR_20_MEM_1_:%.+]] = krnl.load [[VAR_20_]]{{.}}[[VAR_26_1_]]#0, [[VAR_42_]]{{.}} : memref<2x16xf32>
+// CHECK-DAG:           [[VAR_44_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[VAR_26_1_]]#1]
+// CHECK:               [[LOAD_VAR_24_MEM_1_:%.+]] = krnl.load [[VAR_24_]]{{.}}[[VAR_26_1_]]#0, [[VAR_44_]]{{.}} : memref<2x16xf32>
+// CHECK-DAG:           [[VAR_46_:%.+]] = arith.addf [[LOAD_VAR_20_MEM_1_]], [[LOAD_VAR_24_MEM_1_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_5_MEM_:%.+]] = krnl.load [[VAR_5_]]{{.}}[[VAR_26_1_]]#1] : memref<4xf32>
+// CHECK-DAG:           [[LOAD_VAR_9_MEM_:%.+]] = krnl.load [[VAR_9_]]{{.}}[[VAR_26_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_49_:%.+]] = arith.addf [[VAR_46_]], [[LOAD_VAR_5_MEM_]] : f32
+// CHECK-DAG:           [[VAR_50_:%.+]] = arith.addf [[VAR_49_]], [[LOAD_VAR_9_MEM_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_13_MEM_:%.+]] = krnl.load [[VAR_13_]]{{.}}[[VAR_26_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_52_:%.+]] = arith.mulf [[LOAD_VAR_13_MEM_]], [[LOAD_PARAM_0_MEM_1_]] : f32
+// CHECK:               [[VAR_53_:%.+]] = arith.addf [[VAR_50_]], [[VAR_52_]] : f32
+// CHECK:               [[VAR_54_:%.+]] = arith.subf [[CST_0_dot_000000_]], [[VAR_53_]] : f32
+// CHECK:               [[VAR_55_:%.+]] = math.exp [[VAR_54_]] : f32
+// CHECK:               [[VAR_56_:%.+]] = arith.addf [[VAR_55_]], [[CST_1_dot_000000_]] : f32
+// CHECK-DAG:           [[VAR_57_:%.+]] = arith.divf [[CST_1_dot_000000_]], [[VAR_56_]] : f32
+// CHECK-DAG:           [[VAR_58_:%.+]] = affine.apply [[MAP_4_]](){{.}}[[VAR_26_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[LOAD_VAR_29_MEM_2_:%.+]] = krnl.load [[VAR_29_]]{{.}}[[VAR_34_1_]]#0, [[VAR_66_]]{{.}} : memref<2x16xf32>
-// CHECK-DAG:           [[VAR_68_:%.+]] = affine.apply [[MAP_4_]](){{.}}[[VAR_34_1_]]#1]
-// CHECK:               [[LOAD_VAR_32_MEM_2_:%.+]] = krnl.load [[VAR_32_]]{{.}}[[VAR_34_1_]]#0, [[VAR_68_]]{{.}} : memref<2x16xf32>
-// CHECK-DAG:           [[VAR_70_:%.+]] = arith.addf [[LOAD_VAR_29_MEM_2_]], [[LOAD_VAR_32_MEM_2_]] : f32
-// CHECK-DAG:           [[LOAD_VAR_13_MEM_:%.+]] = krnl.load [[VAR_13_]]{{.}}[[VAR_34_1_]]#1] : memref<4xf32>
-// CHECK-DAG:           [[LOAD_VAR_17_MEM_:%.+]] = krnl.load [[VAR_17_]]{{.}}[[VAR_34_1_]]#1] : memref<4xf32>
-// CHECK:               [[VAR_73_:%.+]] = arith.addf [[VAR_70_]], [[LOAD_VAR_13_MEM_]] : f32
-// CHECK:               [[VAR_74_:%.+]] = arith.addf [[VAR_73_]], [[LOAD_VAR_17_MEM_]] : f32
-// CHECK-DAG:           [[VAR_75_:%.+]] = math.tanh [[VAR_74_]] : f32
-// CHECK-DAG:           [[VAR_76_:%.+]] = arith.mulf [[VAR_65_]], [[LOAD_PARAM_0_MEM_1_]] : f32
-// CHECK:               [[VAR_77_:%.+]] = arith.mulf [[VAR_49_]], [[VAR_75_]] : f32
-// CHECK-DAG:           [[VAR_78_:%.+]] = arith.addf [[VAR_76_]], [[VAR_77_]] : f32
-// CHECK-DAG:           [[VAR_79_:%.+]] = affine.apply [[MAP_5_]](){{.}}[[VAR_34_1_]]#1]
+// CHECK-DAG:           [[LOAD_VAR_20_MEM_2_:%.+]] = krnl.load [[VAR_20_]]{{.}}[[VAR_26_1_]]#0, [[VAR_58_]]{{.}} : memref<2x16xf32>
+// CHECK-DAG:           [[VAR_60_:%.+]] = affine.apply [[MAP_4_]](){{.}}[[VAR_26_1_]]#1]
+// CHECK:               [[LOAD_VAR_24_MEM_2_:%.+]] = krnl.load [[VAR_24_]]{{.}}[[VAR_26_1_]]#0, [[VAR_60_]]{{.}} : memref<2x16xf32>
+// CHECK-DAG:           [[VAR_62_:%.+]] = arith.addf [[LOAD_VAR_20_MEM_2_]], [[LOAD_VAR_24_MEM_2_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_6_MEM_:%.+]] = krnl.load [[VAR_6_]]{{.}}[[VAR_26_1_]]#1] : memref<4xf32>
+// CHECK-DAG:           [[LOAD_VAR_10_MEM_:%.+]] = krnl.load [[VAR_10_]]{{.}}[[VAR_26_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_65_:%.+]] = arith.addf [[VAR_62_]], [[LOAD_VAR_6_MEM_]] : f32
+// CHECK:               [[VAR_66_:%.+]] = arith.addf [[VAR_65_]], [[LOAD_VAR_10_MEM_]] : f32
+// CHECK-DAG:           [[VAR_67_:%.+]] = math.tanh [[VAR_66_]] : f32
+// CHECK-DAG:           [[VAR_68_:%.+]] = arith.mulf [[VAR_57_]], [[LOAD_PARAM_0_MEM_1_]] : f32
+// CHECK:               [[VAR_69_:%.+]] = arith.mulf [[VAR_41_]], [[VAR_67_]] : f32
+// CHECK-DAG:           [[VAR_70_:%.+]] = arith.addf [[VAR_68_]], [[VAR_69_]] : f32
+// CHECK-DAG:           [[VAR_71_:%.+]] = affine.apply [[MAP_5_]](){{.}}[[VAR_26_1_]]#1]
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:           [[LOAD_VAR_29_MEM_3_:%.+]] = krnl.load [[VAR_29_]]{{.}}[[VAR_34_1_]]#0, [[VAR_79_]]{{.}} : memref<2x16xf32>
-// CHECK-DAG:           [[VAR_81_:%.+]] = affine.apply [[MAP_5_]](){{.}}[[VAR_34_1_]]#1]
-// CHECK:               [[LOAD_VAR_32_MEM_3_:%.+]] = krnl.load [[VAR_32_]]{{.}}[[VAR_34_1_]]#0, [[VAR_81_]]{{.}} : memref<2x16xf32>
-// CHECK-DAG:           [[VAR_83_:%.+]] = arith.addf [[LOAD_VAR_29_MEM_3_]], [[LOAD_VAR_32_MEM_3_]] : f32
-// CHECK-DAG:           [[LOAD_VAR_11_MEM_:%.+]] = krnl.load [[VAR_11_]]{{.}}[[VAR_34_1_]]#1] : memref<4xf32>
-// CHECK-DAG:           [[LOAD_VAR_15_MEM_:%.+]] = krnl.load [[VAR_15_]]{{.}}[[VAR_34_1_]]#1] : memref<4xf32>
-// CHECK:               [[VAR_86_:%.+]] = arith.addf [[VAR_83_]], [[LOAD_VAR_11_MEM_]] : f32
-// CHECK-DAG:           [[VAR_87_:%.+]] = arith.addf [[VAR_86_]], [[LOAD_VAR_15_MEM_]] : f32
-// CHECK-DAG:           [[LOAD_VAR_22_MEM_:%.+]] = krnl.load [[VAR_22_]]{{.}}[[VAR_34_1_]]#1] : memref<4xf32>
-// CHECK:               [[VAR_89_:%.+]] = arith.mulf [[LOAD_VAR_22_MEM_]], [[VAR_78_]] : f32
-// CHECK:               [[VAR_90_:%.+]] = arith.addf [[VAR_87_]], [[VAR_89_]] : f32
-// CHECK:               [[VAR_91_:%.+]] = arith.subf [[CST_0_dot_000000_]], [[VAR_90_]] : f32
-// CHECK:               [[VAR_92_:%.+]] = math.exp [[VAR_91_]] : f32
-// CHECK:               [[VAR_93_:%.+]] = arith.addf [[VAR_92_]], [[CST_1_dot_000000_]] : f32
-// CHECK-DAG:           [[VAR_94_:%.+]] = arith.divf [[CST_1_dot_000000_]], [[VAR_93_]] : f32
-// CHECK-DAG:           [[VAR_95_:%.+]] = math.tanh [[VAR_78_]] : f32
-// CHECK:               [[VAR_96_:%.+]] = arith.mulf [[VAR_94_]], [[VAR_95_]] : f32
-// CHECK:               krnl.store [[VAR_78_]], [[RES_2_]]{{.}}[[VAR_34_1_]]#0, [[VAR_34_1_]]#1] : memref<2x4xf32>
-// CHECK:               krnl.store [[VAR_96_]], [[RES_1_]]{{.}}[[VAR_34_1_]]#0, [[VAR_34_1_]]#1] : memref<2x4xf32>
+// CHECK-DAG:           [[LOAD_VAR_20_MEM_3_:%.+]] = krnl.load [[VAR_20_]]{{.}}[[VAR_26_1_]]#0, [[VAR_71_]]{{.}} : memref<2x16xf32>
+// CHECK-DAG:           [[VAR_73_:%.+]] = affine.apply [[MAP_5_]](){{.}}[[VAR_26_1_]]#1]
+// CHECK:               [[LOAD_VAR_24_MEM_3_:%.+]] = krnl.load [[VAR_24_]]{{.}}[[VAR_26_1_]]#0, [[VAR_73_]]{{.}} : memref<2x16xf32>
+// CHECK-DAG:           [[VAR_75_:%.+]] = arith.addf [[LOAD_VAR_20_MEM_3_]], [[LOAD_VAR_24_MEM_3_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_4_MEM_:%.+]] = krnl.load [[VAR_4_]]{{.}}[[VAR_26_1_]]#1] : memref<4xf32>
+// CHECK-DAG:           [[LOAD_VAR_8_MEM_:%.+]] = krnl.load [[VAR_8_]]{{.}}[[VAR_26_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_78_:%.+]] = arith.addf [[VAR_75_]], [[LOAD_VAR_4_MEM_]] : f32
+// CHECK-DAG:           [[VAR_79_:%.+]] = arith.addf [[VAR_78_]], [[LOAD_VAR_8_MEM_]] : f32
+// CHECK-DAG:           [[LOAD_VAR_12_MEM_:%.+]] = krnl.load [[VAR_12_]]{{.}}[[VAR_26_1_]]#1] : memref<4xf32>
+// CHECK:               [[VAR_81_:%.+]] = arith.mulf [[LOAD_VAR_12_MEM_]], [[VAR_70_]] : f32
+// CHECK:               [[VAR_82_:%.+]] = arith.addf [[VAR_79_]], [[VAR_81_]] : f32
+// CHECK:               [[VAR_83_:%.+]] = arith.subf [[CST_0_dot_000000_]], [[VAR_82_]] : f32
+// CHECK:               [[VAR_84_:%.+]] = math.exp [[VAR_83_]] : f32
+// CHECK:               [[VAR_85_:%.+]] = arith.addf [[VAR_84_]], [[CST_1_dot_000000_]] : f32
+// CHECK-DAG:           [[VAR_86_:%.+]] = arith.divf [[CST_1_dot_000000_]], [[VAR_85_]] : f32
+// CHECK-DAG:           [[VAR_87_:%.+]] = math.tanh [[VAR_70_]] : f32
+// CHECK:               [[VAR_88_:%.+]] = arith.mulf [[VAR_86_]], [[VAR_87_]] : f32
+// CHECK:               krnl.store [[VAR_70_]], [[RES_2_]]{{.}}[[VAR_26_1_]]#0, [[VAR_26_1_]]#1] : memref<2x4xf32>
+// CHECK:               krnl.store [[VAR_88_]], [[RES_1_]]{{.}}[[VAR_26_1_]]#0, [[VAR_26_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK:           "krnl.memcpy"([[RES_]], [[RES_]]_1, [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
