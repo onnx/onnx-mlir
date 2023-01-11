@@ -62,8 +62,7 @@ struct ONNXSliceOpLoweringToMhlo : public ConversionPattern {
       // If `axes` are omitted, they are set to `[0, ..., nDim-1]`."
       for (int64_t i = 0; i < rank; ++i)
         axesIntLitToIdx[i] = i;
-    } else if (auto valueAttribute =
-                   getDenseElementAttributeFromONNXValue(axes)) {
+    } else if (auto valueAttribute = getElementAttributeFromONNXValue(axes)) {
       // If `axes` are constants, read them."
       int64_t idx = 0;
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
