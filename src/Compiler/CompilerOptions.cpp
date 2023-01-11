@@ -210,6 +210,18 @@ llvm::cl::opt<bool> allowSorting("allowSorting",
     llvm::cl::desc("Perform topological sort on onnx graph"),
     llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<std::string> reportHeapBefore("report-heap-before",
+    llvm::cl::desc("Comma separated list of names of passes.\n"
+                   "Before each heap statistics are dumped to "
+                   "<output-files-base-path>.heap.log"),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<std::string> reportHeapAfter("report-heap-after",
+    llvm::cl::desc("Comma separated list of names of passes.\n"
+                   "After each heap statistics are dumped to "
+                   "<output-files-base-path>.heap.log"),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
 // dependent libdnn.
