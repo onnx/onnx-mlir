@@ -158,8 +158,6 @@ size_t ArrayAttrSize(llvm::Optional<mlir::ArrayAttr> a);
 int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
 
-// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
-// lambda type, using ONNX operations only.
 mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
     mlir::Value value);
 

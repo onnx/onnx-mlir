@@ -60,8 +60,12 @@ bool areOverlapping(const onnx_mlir::DimAnalysis::DimSetT &lhs,
 
 /// Given a QuestionMarkIndexExpr representing an unknown dimension, find the
 /// same unknown dimensions in the inputs.
-void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
-    mlir::ValueRange operands, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
+static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
+    mlir::Operation *op, mlir::ValueRange operands,
+    onnx_mlir::DimAnalysis::DimSetT &sameDims) {
+  mlir::Location loc = op->getLoc();
+  onnx_mlir::IndexExprBuilderForAnalysis createIE(loc);
+
   // Cannot process if the question mark is not a specific one.
   if (!qmOuputIE.specificQuestionmark())
     return;
@@ -70,9 +74,10 @@ void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
     if (onnx_mlir::isFromNone(v))
       continue;
     int64_t rank = onnx_mlir::getRank(v.getType());
-    onnx_mlir::MemRefBoundsIndexCapture vDims(v);
+    onnx_mlir::DimsExpr vDims;
+    createIE.getShapeAsDims(v, vDims);
     for (int64_t i = 0; i < rank; ++i) {
-      if (qmOuputIE.sameQuestionmark(vDims.getDim(i)))
+      if (qmOuputIE.sameQuestionmark(vDims[i]))
         sameDims.insert(onnx_mlir::DimAnalysis::DimT(v, i));
     }
   }
@@ -101,7 +106,8 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
   uint64_t dimIndex = dim.second;
   onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
       shapeHelper.getOutputDims(tensorIndex)[dimIndex];
-  findAndAddSameDim(qmOuputIE, op.getOperation()->getOperands(), sameDims);
+  findAndAddSameDim(
+      qmOuputIE, op.getOperation(), op.getOperation()->getOperands(), sameDims);
 }
 
 /// Given an unknown dimension, find the same unknown dimensions in the inputs.
@@ -115,7 +121,7 @@ void exploreSameInputDimsUnaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
   // output dimension.
   onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
       shapeHelper.getOutputDims()[dim.second];
-  findAndAddSameDim(qmOuputIE, op->getOperands(), sameDims);
+  findAndAddSameDim(qmOuputIE, op, op->getOperands(), sameDims);
 }
 
 /// Given an unknown dimension, find the same unknown dimensions in the inputs.
@@ -134,7 +140,7 @@ void exploreSameInputDimsBinaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
   // output dimension.
   onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
       shapeHelper.getOutputDims()[dim.second];
-  findAndAddSameDim(qmOuputIE, op->getOperands(), sameDims);
+  findAndAddSameDim(qmOuputIE, op, op->getOperands(), sameDims);
 }
 
 } // namespace
