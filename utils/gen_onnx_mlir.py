@@ -997,7 +997,7 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
 def gen_shape_helper_code(s, indent, opName):
     # Print getShapeHelper.
     indent = inc_indent(indent)
-    s += indent + "onnx_mlir::ONNXOpShapeHelper *getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, \n"
+    s += indent + "onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, \n"
     indent = inc_indent(indent)
     indent = inc_indent(indent)
     s += indent + "onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {\n"
@@ -1036,6 +1036,7 @@ def gen_op_def(schema, with_version = False):
     # Dummy implementations are added to ONNXOps.cpp.
     # Error will be report if these operations are encountered at runtime.
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
+    traits.append("DeclareOpInterfaceMethods<ShapeHelperOpInterface>")
     if opName in OpsWithResultTypeInference.keys():
         traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
     if len(regions):
@@ -1071,6 +1072,7 @@ def gen_op_def(schema, with_version = False):
     # Parse type constraint into onnx-mlir type string list.
     type_str_dict =  parse_type_constraints(schema)
 
+    ###########################################
     # Generate ins (consisting of operands and attributes).
     ins = get_operands_or_results(schema, type_str_dict, opName, is_input=True)
     ins.update(get_attrs(schema))
@@ -1079,6 +1081,7 @@ def gen_op_def(schema, with_version = False):
     s += indent + 'let arguments = (ins {});\n'.format(
         (',\n' + inc_indent(indent)).join(ins_strs))
 
+    ###########################################
     # Generate outs (operation results).
     outs = get_operands_or_results(schema, type_str_dict, opName, is_input=False)
     outs_strs = ["{1}:${0}".format(*i) for i in outs.items()]
@@ -1093,6 +1096,7 @@ def gen_op_def(schema, with_version = False):
 
     # custom_builder_broadcast_ops_list
 
+    ###########################################
     # Add custom builders.
     # Use element type of the first operand to construct an UnrankedTensorType
     # for the output.
@@ -1163,6 +1167,7 @@ def gen_op_def(schema, with_version = False):
 
         s += '\n' + indent + '];\n'
 
+    ###########################################
     # Generate extraClassDeclaration.
     s += indent + "let extraClassDeclaration = [{\n"
     #indent = inc_indent(indent)
@@ -1185,6 +1190,11 @@ def gen_op_def(schema, with_version = False):
         s += indent + "llvm_unreachable(\"region with the specified name does not exist\");\n"
         indent = dec_indent(indent)
         s += indent + "}\n"
+    s += indent + '}];\n'
+
+    ###########################################
+    # Generate extraClassDefinition.
+    s += indent + "let extraClassDefinition = [{\n"
 
     # Generate shape helper code
     s = gen_shape_helper_code(s, indent, opName)
@@ -1194,10 +1204,10 @@ def gen_op_def(schema, with_version = False):
     if ( opName in custom_definition_misc) :
         s += custom_definition_misc[opName] + '\n'
 
+    ###########################################
     # Generate decl for verifier.
     if opName in OpsWithVerifier:
         s += indent + 'let hasVerifier = 1;\n'
-
 
     s += '}\n\n'
     return s
