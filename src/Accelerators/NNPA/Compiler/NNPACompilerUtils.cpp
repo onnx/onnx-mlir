@@ -54,7 +54,8 @@ void addONNXToZHighPasses(
     pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(execNodesOnCpu));
     // Simplify shape-related ops, including ShapeOp-to-DimOp replacement,
     // constant propagation, shape inference and canonicalize.
-    pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
+    pm.addPass(
+        onnx_mlir::createSimplifyShapeRelatedOpsPass(onnxConstPropReport));
   }
   // Insert an instrumentation before lowering onnx to zhigh to get onnx level
   // profiling.
@@ -65,7 +66,8 @@ void addONNXToZHighPasses(
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createConstPropONNXToONNXPass(onnxConstPropReport));
   pm.addPass(mlir::createCanonicalizerPass());
   // Layout propagation at ZHighIR.
   pm.addNestedPass<func::FuncOp>(
@@ -101,8 +103,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm, onnxOpTransformReport, onnxOpTransformReport,
-        /*target CPU*/ maccel.empty(), enableSimdDataLayout);
+    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
 
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.

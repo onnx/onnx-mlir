@@ -92,11 +92,6 @@ LogicalResult ONNXFlattenOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXFlattenOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXFlattenOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXFlattenOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape is not yet known.

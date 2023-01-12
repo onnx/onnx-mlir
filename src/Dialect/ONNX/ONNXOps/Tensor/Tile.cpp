@@ -53,11 +53,6 @@ LogicalResult ONNXTileOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXTileOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXTileOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXTileOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.

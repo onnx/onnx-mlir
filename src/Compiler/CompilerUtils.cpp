@@ -32,8 +32,12 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/HeapReporter.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
+
+#include <charconv>
+#include <regex>
 
 #define DEBUG_TYPE "compiler_utils"
 
@@ -673,24 +677,26 @@ int processInputArray(const void *onnxBuffer, int bufferSize,
       onnxBuffer, bufferSize, context, module, errorMessage, options);
 }
 
-// Return 0 on success, error code on error.
-int outputCode(mlir::OwningOpRef<ModuleOp> &module, std::string filenameWithExt,
-    int64_t largeElementLimit) {
+static void outputModule(mlir::OwningOpRef<ModuleOp> &module, raw_ostream &os,
+    int64_t largeElementLimit = -1) {
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
     flags.enableDebugInfo();
-
   if (largeElementLimit >= 0)
     flags.elideLargeElementsAttrs(largeElementLimit);
+  module->print(os, flags);
+}
 
+// Return 0 on success, error code on error.
+int outputCode(mlir::OwningOpRef<ModuleOp> &module, std::string filenameWithExt,
+    int64_t largeElementLimit) {
   std::string errorMessage;
   auto output = openOutputFile(filenameWithExt, &errorMessage);
   if (!output) {
     llvm::errs() << errorMessage << "\n";
     return InvalidOutputFileAccess;
   }
-
-  module->print(output->os(), flags);
+  outputModule(module, output->os(), largeElementLimit);
   output->keep();
   return CompilerSuccess;
 }
@@ -877,10 +883,7 @@ static int emitOutput(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputNameNoExt,
     mlir::PassManager &pm, EmissionTargetType emissionTarget) {
   if (printIR) {
-    mlir::OpPrintingFlags flags;
-    if (preserveLocations)
-      flags.enableDebugInfo();
-    module->print(llvm::outs(), flags);
+    outputModule(module, llvm::outs());
     return CompilerSuccess;
   }
   return emitOutputFiles(outputNameNoExt, emissionTarget, context, module);
@@ -911,6 +914,11 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   }
   if (!hasAccel)
     addPasses(module, pm, emissionTarget);
+  if (!reportHeapBefore.empty() || !reportHeapAfter.empty()) {
+    std::string heapLogFileame = outputNameNoExt + ".heap.log";
+    pm.addInstrumentation(std::make_unique<HeapReporter>(
+        heapLogFileame, reportHeapBefore, reportHeapAfter));
+  }
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 

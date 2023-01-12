@@ -35,6 +35,14 @@ def ONNXAbsOp:ONNX_Op<"Abs",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAbsOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXAcosOp:ONNX_Op<"Acos",
@@ -56,6 +64,14 @@ def ONNXAcosOp:ONNX_Op<"Acos",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAcosOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXAcoshOp:ONNX_Op<"Acosh",
@@ -75,6 +91,14 @@ def ONNXAcoshOp:ONNX_Op<"Acosh",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAcoshOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -124,6 +148,14 @@ def ONNXAddOp:ONNX_Op<"Add",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAddOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -170,6 +202,14 @@ def ONNXAndOp:ONNX_Op<"And",
         return {0};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAndOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -199,6 +239,14 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
     }
     static std::vector<int> getTypeMap() {
       return {4};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXArgMaxOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -232,6 +280,14 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
       return {4};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXArgMinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -252,6 +308,14 @@ def ONNXAsinOp:ONNX_Op<"Asin",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAsinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -275,6 +339,14 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAsinhOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXAtanOp:ONNX_Op<"Atan",
@@ -296,6 +368,14 @@ def ONNXAtanOp:ONNX_Op<"Atan",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAtanOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXAtanhOp:ONNX_Op<"Atanh",
@@ -315,6 +395,14 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAtanhOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -370,6 +458,14 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAveragePoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -443,6 +539,14 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
       return {20,23,23};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBatchNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
@@ -469,6 +573,14 @@ def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBernoulliOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -505,6 +617,14 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBitShiftOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -531,6 +651,14 @@ def ONNXBitwiseAndOp:ONNX_Op<"BitwiseAnd",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBitwiseAndOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -551,6 +679,14 @@ def ONNXBitwiseNotOp:ONNX_Op<"BitwiseNot",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBitwiseNotOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -576,6 +712,14 @@ def ONNXBitwiseOrOp:ONNX_Op<"BitwiseOr",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBitwiseOrOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -604,6 +748,14 @@ def ONNXBitwiseXorOp:ONNX_Op<"BitwiseXor",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBitwiseXorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -626,6 +778,14 @@ def ONNXBlackmanWindowOp:ONNX_Op<"BlackmanWindow",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBlackmanWindowOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -690,6 +850,14 @@ def ONNXCastOp:ONNX_Op<"Cast",
       return resultTypes;
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCastOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
    let builders = [
   OpBuilder<(ins "Value":$input, "TypeAttr":$to), [{
    auto resultType = mlir::UnrankedTensorType::get(to.getValue());
@@ -720,6 +888,14 @@ def ONNXCastLikeOp:ONNX_Op<"CastLike",
       return {21};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCastLikeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCeilOp:ONNX_Op<"Ceil",
@@ -741,6 +917,14 @@ def ONNXCeilOp:ONNX_Op<"Ceil",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCeilOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -769,6 +953,14 @@ def ONNXCeluOp:ONNX_Op<"Celu",
     }
     static std::vector<int> getTypeMap() {
       return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCeluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -801,6 +993,14 @@ def ONNXCenterCropPadOp:ONNX_Op<"CenterCropPad",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCenterCropPadOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXClipOp:ONNX_Op<"Clip",
@@ -824,6 +1024,14 @@ def ONNXClipOp:ONNX_Op<"Clip",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXClipOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -851,6 +1059,14 @@ def ONNXClipV12Op:ONNX_Op<"ClipV12",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXClipV12OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXClipV11Op:ONNX_Op<"ClipV11",
@@ -876,6 +1092,14 @@ def ONNXClipV11Op:ONNX_Op<"ClipV11",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXClipV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXClipV6Op:ONNX_Op<"ClipV6",
@@ -899,6 +1123,14 @@ def ONNXClipV6Op:ONNX_Op<"ClipV6",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXClipV6OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -936,6 +1168,14 @@ def ONNXCol2ImOp:ONNX_Op<"Col2Im",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCol2ImOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCompressOp:ONNX_Op<"Compress",
@@ -962,6 +1202,14 @@ def ONNXCompressOp:ONNX_Op<"Compress",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCompressOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -983,6 +1231,14 @@ def ONNXConcatOp:ONNX_Op<"Concat",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConcatOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -1010,6 +1266,14 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConcatFromSequenceOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -1051,6 +1315,14 @@ def ONNXConstantOp:ONNX_Op<"Constant",
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
       }
       return resultTypes;
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConstantOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let builders = [
@@ -1099,6 +1371,14 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
       return resultTypes;
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConstantOfShapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -1128,6 +1408,14 @@ def ONNXConvOp:ONNX_Op<"Conv",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConvOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -1160,6 +1448,14 @@ def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
     }
     static std::vector<int> getTypeMap() {
       return {3};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConvIntegerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -1206,6 +1502,14 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConvTransposeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCosOp:ONNX_Op<"Cos",
@@ -1227,6 +1531,14 @@ def ONNXCosOp:ONNX_Op<"Cos",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCosOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCoshOp:ONNX_Op<"Cosh",
@@ -1246,6 +1558,14 @@ def ONNXCoshOp:ONNX_Op<"Cosh",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCoshOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -1291,6 +1611,14 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCumSumOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXDFTOp:ONNX_Op<"DFT",
@@ -1314,6 +1642,14 @@ def ONNXDFTOp:ONNX_Op<"DFT",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDFTOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -1366,6 +1702,14 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDepthToSpaceOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -1395,6 +1739,14 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
       return {7};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDequantizeLinearOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -1419,6 +1771,14 @@ def ONNXDetOp:ONNX_Op<"Det",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDetOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -1467,6 +1827,14 @@ def ONNXDivOp:ONNX_Op<"Div",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDivOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -1503,6 +1871,14 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
     }
     static std::vector<int> getTypeMap() {
       return {20,0};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDropoutOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -1549,6 +1925,14 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
       return {1,7,1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDynamicQuantizeLinearOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXEinsumOp:ONNX_Op<"Einsum",
@@ -1593,6 +1977,14 @@ def ONNXEinsumOp:ONNX_Op<"Einsum",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXEinsumOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -1617,6 +2009,14 @@ def ONNXEluOp:ONNX_Op<"Elu",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXEluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -1666,6 +2066,14 @@ def ONNXEqualOp:ONNX_Op<"Equal",
         return {0};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXEqualOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -1686,6 +2094,14 @@ def ONNXErfOp:ONNX_Op<"Erf",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXErfOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -1719,6 +2135,14 @@ def ONNXExpOp:ONNX_Op<"Exp",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXExpOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXExpandOp:ONNX_Op<"Expand",
@@ -1746,6 +2170,14 @@ def ONNXExpandOp:ONNX_Op<"Expand",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXExpandOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -1778,6 +2210,14 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXEyeLikeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXFlattenOp:ONNX_Op<"Flatten",
@@ -1802,6 +2242,14 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXFlattenOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -1824,6 +2272,14 @@ def ONNXFloorOp:ONNX_Op<"Floor",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXFloorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -1934,6 +2390,14 @@ def ONNXGRUOp:ONNX_Op<"GRU",
       return {20,20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGRUOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXGatherOp:ONNX_Op<"Gather",
@@ -2011,6 +2475,14 @@ def ONNXGatherOp:ONNX_Op<"Gather",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGatherOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -2083,6 +2555,14 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGatherElementsOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -2199,6 +2679,14 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGatherNDOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -2239,6 +2727,14 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGemmOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
@@ -2261,6 +2757,14 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGlobalAveragePoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -2287,6 +2791,14 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGlobalLpPoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
@@ -2309,6 +2821,14 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGlobalMaxPoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -2358,6 +2878,14 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
         return {0};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGreaterOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -2382,6 +2910,14 @@ def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
     }
     static std::vector<int> getTypeMap() {
       return {0};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGreaterOrEqualOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -2420,6 +2956,14 @@ def ONNXGridSampleOp:ONNX_Op<"GridSample",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGridSampleOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -2461,6 +3005,14 @@ def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGroupNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",
@@ -2484,6 +3036,14 @@ def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXHammingWindowOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXHannWindowOp:ONNX_Op<"HannWindow",
@@ -2505,6 +3065,14 @@ def ONNXHannWindowOp:ONNX_Op<"HannWindow",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXHannWindowOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -2532,6 +3100,14 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXHardSigmoidOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXHardSwishOp:ONNX_Op<"HardSwish",
@@ -2553,6 +3129,14 @@ def ONNXHardSwishOp:ONNX_Op<"HardSwish",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXHardSwishOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -2581,6 +3165,14 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXHardmaxOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -2616,6 +3208,14 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXIdentityOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXIfOp:ONNX_Op<"If",
@@ -2643,6 +3243,14 @@ def ONNXIfOp:ONNX_Op<"If",
     if (name == "else_branch") return 1;
     llvm_unreachable("region with the specified name does not exist");
   }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXIfOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
   }];
   let hasVerifier = 1;
 }
@@ -2674,6 +3282,14 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXInstanceNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -2698,6 +3314,14 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
       return {0};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXIsInfOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXIsNaNOp:ONNX_Op<"IsNaN",
@@ -2717,6 +3341,14 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
     }
     static std::vector<int> getTypeMap() {
       return {0};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXIsNaNOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -2751,6 +3383,14 @@ def ONNXLRNOp:ONNX_Op<"LRN",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLRNOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -2872,6 +3512,14 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
       return {20,20,20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLSTMOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
@@ -2938,6 +3586,14 @@ def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
       return {20,-1,-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLayerNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
@@ -2963,6 +3619,14 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLeakyReluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -3013,6 +3677,14 @@ def ONNXLessOp:ONNX_Op<"Less",
         return {0};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLessOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -3039,6 +3711,14 @@ def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
       return {0};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLessOrEqualOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -3059,6 +3739,14 @@ def ONNXLogOp:ONNX_Op<"Log",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLogOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -3087,6 +3775,14 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLogSoftmaxOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -3256,6 +3952,14 @@ def ONNXLoopOp:ONNX_Op<"Loop",
     llvm_unreachable("region with the specified name does not exist");
   }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLoopOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
@@ -3277,6 +3981,14 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLpNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -3309,6 +4021,14 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLpPoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMatMulOp:ONNX_Op<"MatMul",
@@ -3329,6 +4049,14 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMatMulOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -3356,6 +4084,14 @@ def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
       return {3};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMatMulIntegerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMaxOp:ONNX_Op<"Max",
@@ -3377,6 +4113,14 @@ def ONNXMaxOp:ONNX_Op<"Max",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMaxOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -3437,6 +4181,14 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
       return {20,4};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMaxPoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
@@ -3461,6 +4213,14 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMaxRoiPoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -3506,6 +4266,14 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMaxUnpoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMeanOp:ONNX_Op<"Mean",
@@ -3527,6 +4295,14 @@ def ONNXMeanOp:ONNX_Op<"Mean",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMeanOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -3551,6 +4327,14 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMeanVarianceNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -3586,6 +4370,14 @@ def ONNXMelWeightMatrixOp:ONNX_Op<"MelWeightMatrix",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMelWeightMatrixOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMinOp:ONNX_Op<"Min",
@@ -3607,6 +4399,14 @@ def ONNXMinOp:ONNX_Op<"Min",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -3635,6 +4435,14 @@ def ONNXMishOp:ONNX_Op<"Mish",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMishOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -3670,6 +4478,14 @@ def ONNXModOp:ONNX_Op<"Mod",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXModOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -3720,6 +4536,14 @@ def ONNXMulOp:ONNX_Op<"Mul",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMulOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -3744,6 +4568,14 @@ def ONNXMultinomialOp:ONNX_Op<"Multinomial",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMultinomialOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -3777,6 +4609,14 @@ def ONNXNegOp:ONNX_Op<"Neg",
       }
       static std::vector<int> getTypeMap() {
         return {20};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNegOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
       }
     }];
 }
@@ -3889,6 +4729,14 @@ def ONNXNegativeLogLikelihoodLossOp:ONNX_Op<"NegativeLogLikelihoodLoss",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNegativeLogLikelihoodLossOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
@@ -3921,6 +4769,14 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
       return {4};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNonMaxSuppressionOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -3947,6 +4803,14 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
       return {4};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNonZeroOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXNotOp:ONNX_Op<"Not",
@@ -3966,6 +4830,14 @@ def ONNXNotOp:ONNX_Op<"Not",
     }
     static std::vector<int> getTypeMap() {
       return {0};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNotOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -4010,6 +4882,14 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
       return {22};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOneHotOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -4032,6 +4912,14 @@ def ONNXOptionalOp:ONNX_Op<"Optional",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOptionalOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -4058,6 +4946,14 @@ def ONNXOptionalGetElementOp:ONNX_Op<"OptionalGetElement",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOptionalGetElementOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -4080,6 +4976,14 @@ def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",
     }
     static std::vector<int> getTypeMap() {
       return {0};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOptionalHasElementOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -4128,6 +5032,14 @@ def ONNXOrOp:ONNX_Op<"Or",
         return {0};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOrOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -4155,6 +5067,14 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPReluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -4266,6 +5186,14 @@ def ONNXPadOp:ONNX_Op<"Pad",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPadOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -4365,6 +5293,14 @@ def ONNXPadV11Op:ONNX_Op<"PadV11",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPadV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXPadV2Op:ONNX_Op<"PadV2",
@@ -4402,6 +5338,14 @@ def ONNXPadV2Op:ONNX_Op<"PadV2",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPadV2OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -4449,6 +5393,14 @@ def ONNXPowOp:ONNX_Op<"Pow",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPowOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -4491,6 +5443,14 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
       return {1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXQLinearConvOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
@@ -4529,6 +5489,14 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
       return {1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXQLinearMatMulOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
@@ -4555,6 +5523,14 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
     }
     static std::vector<int> getTypeMap() {
       return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXQuantizeLinearOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -4652,6 +5628,14 @@ def ONNXRNNOp:ONNX_Op<"RNN",
       return {20,20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRNNOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
@@ -4704,6 +5688,14 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
       return resultTypes;
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRandomNormalOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
@@ -4733,6 +5725,14 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRandomNormalLikeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -4766,6 +5766,14 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRandomUniformOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
@@ -4795,6 +5803,14 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRandomUniformLikeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -4844,6 +5860,14 @@ def ONNXRangeOp:ONNX_Op<"Range",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRangeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -4866,6 +5890,14 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReciprocalOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -4896,6 +5928,14 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceL1OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
@@ -4922,6 +5962,14 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceL2OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -4962,6 +6010,14 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
@@ -4988,6 +6044,14 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumExpOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -5028,6 +6092,14 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
@@ -5054,6 +6126,14 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMeanOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -5084,6 +6164,14 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
@@ -5110,6 +6198,14 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceProdOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -5151,6 +6247,14 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
@@ -5187,6 +6291,14 @@ def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
       }
       static std::vector<int> getTypeMap() {
         return {20};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumV11OpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
       }
     }];
 }
@@ -5227,6 +6339,14 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumSquareOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXReluOp:ONNX_Op<"Relu",
@@ -5248,6 +6368,14 @@ def ONNXReluOp:ONNX_Op<"Relu",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -5286,6 +6414,14 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReshapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXResizeOp:ONNX_Op<"Resize",
@@ -5316,6 +6452,14 @@ def ONNXResizeOp:ONNX_Op<"Resize",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXResizeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -5351,6 +6495,14 @@ def ONNXResizeV11Op:ONNX_Op<"ResizeV11",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXResizeV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXResizeV10Op:ONNX_Op<"ResizeV10",
@@ -5374,6 +6526,14 @@ def ONNXResizeV10Op:ONNX_Op<"ResizeV10",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXResizeV10OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -5432,6 +6592,14 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReverseSequenceOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -5472,6 +6640,14 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRoiAlignOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -5506,6 +6682,14 @@ def ONNXRoundOp:ONNX_Op<"Round",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRoundOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSTFTOp:ONNX_Op<"STFT",
@@ -5529,6 +6713,14 @@ def ONNXSTFTOp:ONNX_Op<"STFT",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSTFTOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -5687,6 +6879,14 @@ def ONNXScanOp:ONNX_Op<"Scan",
     llvm_unreachable("region with the specified name does not exist");
   }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXScanOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXScatterOp:ONNX_Op<"Scatter",
@@ -5761,6 +6961,14 @@ def ONNXScatterOp:ONNX_Op<"Scatter",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXScatterOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -5848,6 +7056,14 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXScatterElementsOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -5945,6 +7161,14 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXScatterNDOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -5972,6 +7196,14 @@ def ONNXSeluOp:ONNX_Op<"Selu",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSeluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
@@ -5996,6 +7228,14 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceAtOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
@@ -6018,6 +7258,14 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceConstructOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
@@ -6037,6 +7285,14 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceEmptyOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -6063,6 +7319,14 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceEraseOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -6092,6 +7356,14 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceInsertOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -6112,6 +7384,14 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
     }
     static std::vector<int> getTypeMap() {
       return {4};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceLengthOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -6153,6 +7433,14 @@ def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
     if (name == "body") return 0;
     llvm_unreachable("region with the specified name does not exist");
   }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceMapOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
   }];
 }
 
@@ -6206,6 +7494,14 @@ def ONNXShapeOp:ONNX_Op<"Shape",
       return {4};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXShapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -6233,6 +7529,14 @@ def ONNXShrinkOp:ONNX_Op<"Shrink",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXShrinkOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
@@ -6254,6 +7558,14 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSigmoidOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -6278,6 +7590,14 @@ def ONNXSignOp:ONNX_Op<"Sign",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSignOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSinOp:ONNX_Op<"Sin",
@@ -6297,6 +7617,14 @@ def ONNXSinOp:ONNX_Op<"Sin",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -6320,6 +7648,14 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSinhOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSizeOp:ONNX_Op<"Size",
@@ -6340,6 +7676,14 @@ def ONNXSizeOp:ONNX_Op<"Size",
     }
     static std::vector<int> getTypeMap() {
       return {4};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSizeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -6421,6 +7765,14 @@ def ONNXSliceOp:ONNX_Op<"Slice",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSliceOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSoftmaxOp:ONNX_Op<"Softmax",
@@ -6459,6 +7811,14 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftmaxOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
@@ -6493,6 +7853,14 @@ def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftmaxV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -6551,6 +7919,14 @@ def ONNXSoftmaxCrossEntropyLossOp:ONNX_Op<"SoftmaxCrossEntropyLoss",
       return {20,20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftmaxCrossEntropyLossOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus",
@@ -6574,6 +7950,14 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftplusOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSoftsignOp:ONNX_Op<"Softsign",
@@ -6593,6 +7977,14 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftsignOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -6618,6 +8010,14 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSpaceToDepthOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -6656,6 +8056,14 @@ def ONNXSplitOp:ONNX_Op<"Split",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSplitOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -6680,6 +8088,14 @@ def ONNXSplitV11Op:ONNX_Op<"SplitV11",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSplitV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -6713,6 +8129,14 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSplitToSequenceOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -6749,6 +8173,14 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqrtOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze",
@@ -6773,6 +8205,14 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqueezeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -6811,6 +8251,14 @@ def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqueezeV11OpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
@@ -6842,6 +8290,14 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
     }
     static std::vector<int> getTypeMap() {
       return {11};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXStringNormalizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -6890,6 +8346,14 @@ def ONNXSubOp:ONNX_Op<"Sub",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSubOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -6914,6 +8378,14 @@ def ONNXSumOp:ONNX_Op<"Sum",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSumOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -6936,6 +8408,14 @@ def ONNXTanOp:ONNX_Op<"Tan",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTanOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXTanhOp:ONNX_Op<"Tanh",
@@ -6955,6 +8435,14 @@ def ONNXTanhOp:ONNX_Op<"Tanh",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTanhOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7013,6 +8501,14 @@ def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
       return {7};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTfIdfVectorizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
@@ -7037,6 +8533,14 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXThresholdedReluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXTileOp:ONNX_Op<"Tile",
@@ -7059,6 +8563,14 @@ def ONNXTileOp:ONNX_Op<"Tile",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTileOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7100,6 +8612,14 @@ def ONNXTopKOp:ONNX_Op<"TopK",
       return {20,4};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTopKOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -7124,6 +8644,14 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTransposeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7158,6 +8686,14 @@ def ONNXTriluOp:ONNX_Op<"Trilu",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTriluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7260,6 +8796,14 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
       return {20,4,4,4};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUniqueOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
@@ -7293,6 +8837,14 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUnsqueezeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7339,6 +8891,14 @@ def ONNXUnsqueezeV11Op:ONNX_Op<"UnsqueezeV11",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUnsqueezeV11OpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXUpsampleOp:ONNX_Op<"Upsample",
@@ -7362,6 +8922,14 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUpsampleOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -7388,6 +8956,14 @@ def ONNXUpsampleV7Op:ONNX_Op<"UpsampleV7",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUpsampleV7OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7419,6 +8995,14 @@ def ONNXWhereOp:ONNX_Op<"Where",
     }
     static std::vector<int> getTypeMap() {
       return {21};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXWhereOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -7467,6 +9051,14 @@ def ONNXXorOp:ONNX_Op<"Xor",
         return {0};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXXorOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
@@ -7491,6 +9083,14 @@ def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXArrayFeatureExtractorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXBinarizerOp:ONNX_Op<"Binarizer",
@@ -7511,6 +9111,14 @@ def ONNXBinarizerOp:ONNX_Op<"Binarizer",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBinarizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7537,6 +9145,14 @@ def ONNXCastMapOp:ONNX_Op<"CastMap",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCastMapOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7569,6 +9185,14 @@ def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCategoryMapperOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -7606,6 +9230,14 @@ def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDictVectorizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
@@ -7629,6 +9261,14 @@ def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
     }
     static std::vector<int> getTypeMap() {
       return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXFeatureVectorizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7661,6 +9301,14 @@ def ONNXImputerOp:ONNX_Op<"Imputer",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXImputerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7709,6 +9357,14 @@ def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLabelEncoderOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
@@ -7735,6 +9391,14 @@ def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
     }
     static std::vector<int> getTypeMap() {
       return {-1,7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLinearClassifierOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7765,6 +9429,14 @@ def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
     }
     static std::vector<int> getTypeMap() {
       return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLinearRegressorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7798,6 +9470,14 @@ def ONNXNormalizerOp:ONNX_Op<"Normalizer",
       return {7};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNormalizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
@@ -7827,6 +9507,14 @@ def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
     }
     static std::vector<int> getTypeMap() {
       return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOneHotEncoderOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
@@ -7863,6 +9551,14 @@ def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
       return {-1,7};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSVMClassifierOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
@@ -7892,6 +9588,14 @@ def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
       return {7};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSVMRegressorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXScalerOp:ONNX_Op<"Scaler",
@@ -7913,6 +9617,14 @@ def ONNXScalerOp:ONNX_Op<"Scaler",
     }
     static std::vector<int> getTypeMap() {
       return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXScalerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -7962,6 +9674,14 @@ def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
       return {-1,7};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTreeEnsembleClassifierOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
@@ -8009,6 +9729,14 @@ def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
       return {7};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTreeEnsembleRegressorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXZipMapOp:ONNX_Op<"ZipMap",
@@ -8033,6 +9761,14 @@ def ONNXZipMapOp:ONNX_Op<"ZipMap",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXZipMapOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -8108,6 +9844,14 @@ def ONNXAdagradOp:ONNX_Op<"Adagrad",
     }
     static std::vector<int> getTypeMap() {
       return {22};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAdagradOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -8196,6 +9940,14 @@ def ONNXAdamOp:ONNX_Op<"Adam",
     }
     static std::vector<int> getTypeMap() {
       return {22};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAdamOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
@@ -8344,6 +10096,14 @@ def ONNXGradientOp:ONNX_Op<"Gradient",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGradientOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMomentumOp:ONNX_Op<"Momentum",
@@ -8428,6 +10188,14 @@ def ONNXMomentumOp:ONNX_Op<"Momentum",
     }
     static std::vector<int> getTypeMap() {
       return {22};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMomentumOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }

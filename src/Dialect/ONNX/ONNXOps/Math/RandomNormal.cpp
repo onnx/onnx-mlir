@@ -43,11 +43,6 @@ LogicalResult ONNXRandomNormalOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXRandomNormalOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXRandomNormalOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXRandomNormalOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto elementTypeID = dtype();

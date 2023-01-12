@@ -162,12 +162,6 @@ static LogicalResult inferShapeForReductionOps(OP_TYPE &op) {
 // ReduceL1
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXReduceL1Op::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGenericReductionOpShapeHelper<ONNXReduceL1Op>>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXReduceL1Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceL1Op>(*this);
@@ -176,12 +170,6 @@ LogicalResult ONNXReduceL1Op::inferShapes(
 //===----------------------------------------------------------------------===//
 // ReduceL2
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXReduceL2Op::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGenericReductionOpShapeHelper<ONNXReduceL2Op>>(
-      op, oper, ieb, scope);
-}
 
 LogicalResult ONNXReduceL2Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
@@ -192,13 +180,6 @@ LogicalResult ONNXReduceL2Op::inferShapes(
 // ReduceLogSum
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXReduceLogSumOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<
-      ONNXGenericReductionOpShapeHelper<ONNXReduceLogSumOp>>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXReduceLogSumOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceLogSumOp>(*this);
@@ -207,13 +188,6 @@ LogicalResult ONNXReduceLogSumOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // ReduceLogSumExp
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXReduceLogSumExpOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<
-      ONNXGenericReductionOpShapeHelper<ONNXReduceLogSumExpOp>>(
-      op, oper, ieb, scope);
-}
 
 LogicalResult ONNXReduceLogSumExpOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
@@ -224,12 +198,6 @@ LogicalResult ONNXReduceLogSumExpOp::inferShapes(
 // ReduceMax
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXReduceMaxOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGenericReductionOpShapeHelper<ONNXReduceMaxOp>>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXReduceMaxOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceMaxOp>(*this);
@@ -238,12 +206,6 @@ LogicalResult ONNXReduceMaxOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // ReduceMean
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXReduceMeanOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGenericReductionOpShapeHelper<ONNXReduceMeanOp>>(
-      op, oper, ieb, scope);
-}
 
 LogicalResult ONNXReduceMeanOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
@@ -254,12 +216,6 @@ LogicalResult ONNXReduceMeanOp::inferShapes(
 // ReduceMin
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXReduceMinOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGenericReductionOpShapeHelper<ONNXReduceMinOp>>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXReduceMinOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceMinOp>(*this);
@@ -269,12 +225,6 @@ LogicalResult ONNXReduceMinOp::inferShapes(
 // ReduceProd
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXReduceProdOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGenericReductionOpShapeHelper<ONNXReduceProdOp>>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXReduceProdOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceProdOp>(*this);
@@ -282,11 +232,6 @@ LogicalResult ONNXReduceProdOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // ReduceSum
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXReduceSumOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXReduceSumOpShapeHelper>(op, oper, ieb, scope);
-}
 
 LogicalResult ONNXReduceSumOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
@@ -305,13 +250,6 @@ LogicalResult ONNXReduceSumOp::inferShapes(
 // ReduceSum legacy: ReduceSumV11
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXReduceSumV11Op::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<
-      ONNXGenericReductionOpShapeHelper<ONNXReduceSumV11Op>>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXReduceSumV11Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceSumV11Op>(*this);
@@ -320,13 +258,6 @@ LogicalResult ONNXReduceSumV11Op::inferShapes(
 //===----------------------------------------------------------------------===//
 // ReduceSumSquare
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXReduceSumSquareOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<
-      ONNXGenericReductionOpShapeHelper<ONNXReduceSumSquareOp>>(
-      op, oper, ieb, scope);
-}
 
 LogicalResult ONNXReduceSumSquareOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {

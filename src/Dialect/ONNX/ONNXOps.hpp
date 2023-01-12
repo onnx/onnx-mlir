@@ -14,15 +14,14 @@
 
 #pragma once
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "src/Dialect/ONNX/ONNXAttributes.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXTypes.hpp"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
-#include "src/Interface/ShapeHelperOpInterface.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
-
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 
 namespace mlir {
 // OpSet level supported by onnx-mlir

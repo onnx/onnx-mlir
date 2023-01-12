@@ -90,12 +90,6 @@ LogicalResult ONNXOneHotEncoderOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXOneHotEncoderOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXOneHotEncoderOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXOneHotEncoderOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(X()))

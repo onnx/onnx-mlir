@@ -39,11 +39,6 @@ LogicalResult ONNXIdentityOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXIdentityOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXIdentityOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXIdentityOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   fprintf(stderr, "hi alex 1\n");

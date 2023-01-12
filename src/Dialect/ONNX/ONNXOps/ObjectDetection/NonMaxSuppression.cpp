@@ -32,7 +32,6 @@ LogicalResult ONNXNonMaxSuppressionOpShapeHelper::computeShape() {
 
 } // namespace onnx_mlir
 
-
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
@@ -80,23 +79,17 @@ LogicalResult ONNXNonMaxSuppressionOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXNonMaxSuppressionOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXNonMaxSuppressionOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Builder b = Builder(getContext());
   Type elementType = b.getI64Type();
-  #if 1
+#if 1
   ONNXNonMaxSuppressionOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-  #else
+#else
   getResult().setType(RankedTensorType::get({-1, 3}, b.getI64Type()));
   return success();
-  #endif
+#endif
 }
 
 //===----------------------------------------------------------------------===//

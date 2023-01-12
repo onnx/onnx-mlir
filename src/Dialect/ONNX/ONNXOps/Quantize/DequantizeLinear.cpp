@@ -117,7 +117,7 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
     //   return emitOpError("x and x_zero_point must have the same data type");
 
     if (getElementType(zero.getType()).isInteger(32) && zeroLen != 0)
-      if (auto values = getDenseElementAttributeFromONNXValue(zero))
+      if (auto values = getElementAttributeFromONNXValue(zero))
         if (!values.isSplat() || !values.getSplatValue<APInt>().isZero())
           return emitOpError("x_zero_point must be 0 for data type int32");
   }
@@ -154,12 +154,6 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
 //===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXDequantizeLinearOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXDequantizeLinearOpShapeHelper>(
-      op, oper, ieb, scope);
-}
 
 LogicalResult ONNXDequantizeLinearOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {

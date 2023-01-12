@@ -41,11 +41,6 @@ LogicalResult ONNXLRNOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXLRNOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXLRNOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXLRNOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Type elementType = X().getType().cast<ShapedType>().getElementType();

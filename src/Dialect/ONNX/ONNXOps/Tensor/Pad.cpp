@@ -92,11 +92,6 @@ LogicalResult ONNXPadOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXPadOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXPadOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXPadOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.

@@ -79,11 +79,6 @@ LogicalResult ONNXRoiAlignOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXRoiAlignOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXRoiAlignOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXRoiAlignOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.

@@ -41,11 +41,6 @@ LogicalResult ONNXClipOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXClipOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXClipOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXClipOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Look at input.

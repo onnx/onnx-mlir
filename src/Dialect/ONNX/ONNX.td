@@ -23,8 +23,8 @@ include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/IR/PatternBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
-include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ShapeHelperOpInterface.td"
+include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
 include "src/IR/AttrBase.td"
@@ -38,7 +38,7 @@ def ONNX_Dialect : Dialect {
   let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
-  let useDefaultAttributePrinterParser = 1;
+  let useDefaultAttributePrinterParser = 0;
   let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
   let dependentDialects = ["func::FuncDialect"];
   let extraClassDeclaration = [{
@@ -48,6 +48,10 @@ def ONNX_Dialect : Dialect {
     // Register the builtin Types.
     void registerTypes();
   public:
+    ::mlir::Attribute parseAttribute(::mlir::DialectAsmParser &parser,
+                                     ::mlir::Type type) const override;
+    void printAttribute(::mlir::Attribute attr,
+                        ::mlir::DialectAsmPrinter &printer) const override;
   }];
 }
 

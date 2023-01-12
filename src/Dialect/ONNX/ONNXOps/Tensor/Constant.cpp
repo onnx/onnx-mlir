@@ -46,11 +46,6 @@ LogicalResult ONNXConstantOpShapeHelper::computeShape() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXConstantOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXConstantOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXConstantOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if ((sparse_value().has_value() && value().has_value()) ||

@@ -83,11 +83,6 @@ LogicalResult ONNXEinsumOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXEinsumOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXEinsumOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXEinsumOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   ONNXEinsumOpAdaptor operandAdaptor(*this);

@@ -424,11 +424,6 @@ LogicalResult ONNXConvOp::verify() {
   return success();
 }
 
-ONNXOpShapeHelper *ONNXConvOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXConvOpShapeHelper>(op, oper, ieb, scope);
-}
-
 // For this operation, we define the attributes once in the original Conv
 // operation class. There is no need to redefine the attribute names for the
 // other classes based on Conv.
@@ -530,12 +525,6 @@ static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferredPads,
     inferredPads[i] = beginPad;
     inferredPads[spatialRank + i] = endPad;
   }
-}
-
-ONNXOpShapeHelper *ONNXConvTransposeOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
-      op, oper, ieb, scope);
 }
 
 // For this operation, we define the attributes once in the original Conv
@@ -685,11 +674,6 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
 // QLinearConv
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXQLinearConvOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXQLinearConvOpShapeHelper>(op, oper, ieb, scope);
-}
-
 // Enable this one default; but keep the else code as there is currently no lit
 // test of any kind to very functionality.
 
@@ -814,11 +798,6 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // ConvInteger - copied almost exactly from Conv (X -> x, W -> w, no bias)
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXConvIntegerOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXConvIntegerOpShapeHelper>(op, oper, ieb, scope);
-}
 
 LogicalResult ONNXConvIntegerOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {

@@ -33,13 +33,6 @@ LogicalResult ONNXBatchNormalizationInferenceModeOpShapeHelper::computeShape() {
 
 } // namespace onnx_mlir
 
-ONNXOpShapeHelper *ONNXBatchNormalizationInferenceModeOp::getShapeHelper(
-    Operation *op, ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb,
-    IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXBatchNormalizationInferenceModeOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.

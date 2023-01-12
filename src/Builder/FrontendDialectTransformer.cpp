@@ -253,7 +253,7 @@ private:
           llvm::makeArrayRef(attr.ints().data(), attr.ints().size()));
       break;
     case onnx::AttributeProto::TENSOR:
-      mlirAttr = onnxTensorProtoToDenseElmAttr(
+      mlirAttr = onnxTensorProtoToElmAttr(
           builder_, options_.externalDataDir, attr.t());
       break;
     case onnx::AttributeProto::STRINGS: {

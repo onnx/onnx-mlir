@@ -86,11 +86,6 @@ LogicalResult ONNXGatherOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXGatherOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGatherOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXGatherOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (llvm::any_of(this->getOperands(),

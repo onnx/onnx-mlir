@@ -121,11 +121,6 @@ LogicalResult ONNXAveragePoolOp::verify() {
   return success();
 }
 
-ONNXOpShapeHelper *ONNXAveragePoolOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXAveragePoolOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -141,12 +136,6 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 // GlobalAveragePool
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXGlobalAveragePoolOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGlobalAveragePoolOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Type elementType = X().getType().cast<ShapedType>().getElementType();
@@ -158,11 +147,6 @@ LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
 // GlobalLpPool
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXGlobalLpPoolOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGlobalLpPoolOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXGlobalLpPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Type elementType = X().getType().cast<ShapedType>().getElementType();
@@ -173,12 +157,6 @@ LogicalResult ONNXGlobalLpPoolOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // GlobalMaxPool
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXGlobalMaxPoolOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGlobalMaxPoolOpShapeHelper>(
-      op, oper, ieb, scope);
-}
 
 LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
@@ -241,12 +219,6 @@ LogicalResult ONNXMaxPoolSingleOutOp::verify() {
   return success();
 }
 
-ONNXOpShapeHelper *ONNXMaxPoolSingleOutOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXMaxPoolSingleOutOpShapeHelper>(
-      op, oper, ieb, scope);
-}
-
 LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
@@ -266,11 +238,6 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // MaxRoiPoolOp
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXMaxRoiPoolOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXMaxRoiPoolOpShapeHelper>(op, oper, ieb, scope);
-}
 
 LogicalResult ONNXMaxRoiPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {

@@ -142,8 +142,7 @@ LogicalResult ONNXGatherNDOp::verify() {
 
   // All values in 'indices' are expected to satisfy the inequality:
   //   -data.shape[b + i] <= indices[...,i] <= (data.shape[b + i]-1)].
-  if (DenseElementsAttr valueAttribute =
-          getDenseElementAttributeFromONNXValue(indices)) {
+  if (ElementsAttr valueAttribute = getElementAttributeFromONNXValue(indices)) {
     int flatIndex = 0;
     for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
       int64_t indexValue = value.getInt();
@@ -167,11 +166,6 @@ LogicalResult ONNXGatherNDOp::verify() {
 //===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXGatherNDOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXGatherNDOpShapeHelper>(op, oper, ieb, scope);
-}
 
 LogicalResult ONNXGatherNDOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {

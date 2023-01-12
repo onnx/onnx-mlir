@@ -22,11 +22,6 @@ using namespace onnx_mlir;
 // Scatter
 //===----------------------------------------------------------------------===//
 
-ONNXOpShapeHelper *ONNXScatterOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnaryOpShapeHelper>(op, oper, ieb, scope);
-}
-
 LogicalResult ONNXScatterOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
@@ -80,8 +75,8 @@ LogicalResult ONNXScatterElementsOp::verify() {
   ArrayRef<int64_t> dataShape = dataType.getShape();
   const int64_t dataDimAtAxis = dataShape[axis];
   if (dataDimAtAxis >= 0) {
-    if (DenseElementsAttr valueAttribute =
-            getDenseElementAttributeFromONNXValue(indices)) {
+    if (ElementsAttr valueAttribute =
+            getElementAttributeFromONNXValue(indices)) {
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
         int64_t index = value.getInt();
         if (index >= -dataDimAtAxis && index < dataDimAtAxis)
@@ -96,11 +91,6 @@ LogicalResult ONNXScatterElementsOp::verify() {
   }
 
   return success();
-}
-
-ONNXOpShapeHelper *ONNXScatterElementsOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnaryOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXScatterElementsOp::inferShapes(
@@ -191,11 +181,6 @@ LogicalResult ONNXScatterNDOp::verify() {
   }
 
   return success();
-}
-
-ONNXOpShapeHelper *ONNXScatterNDOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnaryOpShapeHelper>(op, oper, ieb, scope);
 }
 
 LogicalResult ONNXScatterNDOp::inferShapes(

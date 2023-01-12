@@ -14,6 +14,8 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
+
 #include "mlir/Dialect/Traits.h"
 
 //===----------------------------------------------------------------------===//
@@ -35,14 +37,6 @@
         "https://github.com/onnx/onnx-mlir and/or consider contributing "      \
         "code. "                                                               \
         "Error encountered in shape inference.");                              \
-  }                                                                            \
-                                                                               \
-  /* shape helper interface method */                                          \
-  onnx_mlir::ONNXOpShapeHelper *mlir::T::getShapeHelper(mlir::Operation *op,   \
-      mlir::ArrayRef<mlir::Value> operands,                                    \
-      onnx_mlir::IndexExprBuilder *ieBuilder,                                  \
-      onnx_mlir::IndexExprScope *scope) {                                      \
-    return nullptr;                                                            \
   }
 
 // Listed alphabetically.
@@ -178,11 +172,14 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
     assert(!elements.isa<SparseElementsAttr>() &&
            "ONNXConstantOp value cannot be sparse");
     if (elements.getType() == resultType) {
-      // NOTE: Here we can insert logic to print alternatives to
-      //       DenseElementsAttr, like DenseResourceElementsAttr, in the same
-      //       way as DenseElementsAttr to hide these internal representations.
       odsPrinter << ' ';
-      odsPrinter.printAttribute(elements);
+      // Print DisposableElementsAttr as a DenseElementsAttr, because
+      // DisposableElementsAttr is an internal representation, so we hide it
+      // in this way.
+      if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
+        disposable.printAsDenseElementsAttr(odsPrinter);
+      else
+        odsPrinter.printAttribute(elements);
       return;
     }
   }

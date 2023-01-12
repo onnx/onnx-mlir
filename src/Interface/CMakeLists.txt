@@ -17,7 +17,7 @@ add_onnx_mlir_library(OMShapeInferenceOpInterface
   LLVMSupport
   )
 
-  add_onnx_mlir_library(OMShapeHelperOpInterface
+add_onnx_mlir_library(OMShapeHelperOpInterface
   ShapeHelperOpInterface.cpp
 
   DEPENDS

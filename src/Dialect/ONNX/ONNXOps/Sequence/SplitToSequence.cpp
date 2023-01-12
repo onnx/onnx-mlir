@@ -56,8 +56,7 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
   int64_t splitRank = splitShape.size();
   if (splitRank > 1)
     return emitOpError() << ": split has rank " << splitRank << " > 1";
-  if (DenseElementsAttr entries =
-          getDenseElementAttributeFromONNXValue(splitValue)) {
+  if (ElementsAttr entries = getElementAttributeFromONNXValue(splitValue)) {
     if (splitRank == 0) {
       auto scalar = getScalarValue<int64_t>(entries, splitType);
       if (scalar <= 0)
@@ -83,12 +82,6 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
 //===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
-
-ONNXOpShapeHelper *ONNXSplitToSequenceOp::getShapeHelper(Operation *op,
-    ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb, IndexExprScope *scope) {
-  return getNewShapeHelper<ONNXUnimplementedOpShapeHelper>(
-      op, oper, ieb, scope);
-}
 
 LogicalResult ONNXSplitToSequenceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
@@ -130,8 +123,7 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
     ArrayRef<int64_t> splitShape = splitType.getShape();
     int64_t splitRank = splitShape.size();
     assert(splitRank <= 1 && "invalid split tensor rank");
-    if (DenseElementsAttr entries =
-            getDenseElementAttributeFromONNXValue(splitValue)) {
+    if (ElementsAttr entries = getElementAttributeFromONNXValue(splitValue)) {
       if (splitRank == 0) {
         auto scalar = getScalarValue<int64_t>(entries, splitType);
         assert(scalar > 0 && "invalid split scalar");
