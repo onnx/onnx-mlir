@@ -1036,7 +1036,6 @@ def gen_op_def(schema, with_version = False):
     # Dummy implementations are added to ONNXOps.cpp.
     # Error will be report if these operations are encountered at runtime.
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
-    # hi alex traits.append("DeclareOpInterfaceMethods<ShapeHelperOpInterface>")
     if opName in OpsWithResultTypeInference.keys():
         traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
     if len(regions):
