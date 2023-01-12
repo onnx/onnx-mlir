@@ -85,4 +85,9 @@ bool sameEncodingAttr(Type t1, Type t2) {
   return false;
 }
 
+/// Get the byte width of an int or float type.
+unsigned getIntOrFloatByteWidth(Type ty) {
+  return llvm::divideCeil(ty.getIntOrFloatBitWidth(), 8);
+}
+
 } // namespace onnx_mlir
