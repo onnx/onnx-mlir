@@ -124,8 +124,6 @@ struct MathFunctionName<KrnlAtanhOp> {
 };
 
 template <>
-//Input type can be: float 16, float, double and bfloat16
-//Output type is: Boolean
 struct MathFunctionName<KrnlIsNaNOp> {
   static std::string functionName(mlir::Type type) {
     if (type.isF32() || type.isF64())
