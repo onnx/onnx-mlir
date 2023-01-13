@@ -47,18 +47,14 @@ template <class OP_TYPE>
 static LogicalResult inferShapeForBroadcastingOps(
     OP_TYPE &op, Type elementType = nullptr) {
   typename OP_TYPE::Adaptor operandAdaptor(op);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // cannot infer when the operands shape is not yet known.
+  if (!hasShapeAndRank(op.getOperation()))
+    return success();
 
-  auto resultTy = op.getOperand(0).getType().template cast<ShapedType>();
-  for (unsigned i = 1; i < op->getNumOperands(); ++i) {
-    auto nextTy = op.getOperand(i).getType().template cast<ShapedType>();
-    resultTy = getBroadcastedType(resultTy, nextTy, elementType);
-  }
-
-  updateType(op.getResult(), getShape(resultTy), resultTy.getElementType());
-  return success();
+  if (!elementType)
+    elementType =
+        op.getOperand(0).getType().template cast<ShapedType>().getElementType();
+  ONNXBroadcastOpShapeHelper shapeHelper(op.getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 } // namespace
