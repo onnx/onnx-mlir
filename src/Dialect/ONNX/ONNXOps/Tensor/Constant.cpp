@@ -32,7 +32,7 @@ LogicalResult ONNXConstantOpShapeHelper::computeShape() {
   if (operandAdaptor.sparse_value().has_value())
     valAttr = operandAdaptor.sparse_valueAttr().cast<SparseElementsAttr>();
   else
-    valAttr = operandAdaptor.valueAttr().cast<DenseElementsAttr>();
+    valAttr = operandAdaptor.valueAttr().cast<ElementsAttr>();
   return setOutputDimsFromTypeWithConstantShape(valAttr.getType());
 }
 
@@ -56,7 +56,7 @@ LogicalResult ONNXConstantOp::inferShapes(
   if (sparse_value().has_value())
     valAttr = sparse_valueAttr().cast<SparseElementsAttr>();
   else
-    valAttr = valueAttr().cast<DenseElementsAttr>();
+    valAttr = valueAttr().cast<ElementsAttr>();
   Type elementType =
       valAttr.getType().cast<RankedTensorType>().getElementType();
   ONNXConstantOpShapeHelper shapeHelper(getOperation(), {});

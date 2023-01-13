@@ -362,28 +362,9 @@ LogicalResult ONNXPReluOp::inferShapes(
           [](const Value &op) { return !hasShapeAndRank(op); }))
     return success();
 
-#if 1
   Type elementType = X().getType().cast<ShapedType>().getElementType();
   ONNXPReluOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-#else
-  auto xShape = X().getType().cast<ShapedType>().getShape();
-  auto slopeShape = slope().getType().cast<ShapedType>().getShape();
-
-  // To do unidirectional broadcasting, we first apply bidirectional
-  // broadcasting. Then, fine-tune by getting constant dimensions from X.
-  SmallVector<int64_t, 4> shape;
-  // Bidirectional broadcasting rules.
-  getBroadcastedShape(xShape, slopeShape, shape);
-  // Fine-tune.
-  for (unsigned int i = 0; i < shape.size(); ++i)
-    if (!ShapedType::isDynamic(xShape[i]))
-      shape[i] = xShape[i];
-
-  getResult().setType(RankedTensorType::get(
-      shape, X().getType().cast<ShapedType>().getElementType()));
-  return success();
-#endif
 }
 
 //===----------------------------------------------------------------------===//
