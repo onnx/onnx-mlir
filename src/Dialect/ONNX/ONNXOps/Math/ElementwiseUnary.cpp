@@ -137,6 +137,15 @@ LogicalResult ONNXBitwiseNotOp::inferShapes(
 
 LogicalResult ONNXCastOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+#if 1
+  if (!hasShapeAndRank(input()))
+    return success();
+
+  Type elementType = (*this)->getAttr("to").cast<::TypeAttr>().getValue();
+  ONNXCastOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+
+#else
   ShapedType inputType = input().getType().dyn_cast<RankedTensorType>();
   if (!inputType) {
     return success();
@@ -153,6 +162,7 @@ LogicalResult ONNXCastOp::inferShapes(
   OpBuilder builder(getContext());
   getResult().setType(getOutputType(targetType));
   return success();
+#endif
 }
 
 //===----------------------------------------------------------------------===//
@@ -161,6 +171,15 @@ LogicalResult ONNXCastOp::inferShapes(
 
 LogicalResult ONNXCastLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+#if 1
+  if (!hasShapeAndRank(input()))
+    return success();
+
+  Type elementType = (*this)->getAttr("to").cast<::TypeAttr>().getValue();
+  ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+
+#else
   ShapedType inputType = input().getType().dyn_cast<RankedTensorType>();
   if (!inputType) {
     return success();
@@ -181,6 +200,7 @@ LogicalResult ONNXCastLikeOp::inferShapes(
 
   getResult().setType(getOutputType(targetElementType));
   return success();
+#endif
 }
 
 //===----------------------------------------------------------------------===//
@@ -372,6 +392,8 @@ LogicalResult ONNXNotOp::inferShapes(
   return inferShapeForUnaryOps(this->getOperation());
 }
 
+#if 0
+
 //===----------------------------------------------------------------------===//
 // PRelu
 //===----------------------------------------------------------------------===//
@@ -417,6 +439,7 @@ LogicalResult ONNXPReluOp::inferShapes(
       shape, X().getType().cast<ShapedType>().getElementType()));
   return success();
 }
+#endif
 
 //===----------------------------------------------------------------------===//
 // ReciprocalOp

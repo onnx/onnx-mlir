@@ -29,7 +29,7 @@ namespace {
 
 static LogicalResult verifyShapeForBroadcastingOps(
     Operation *op, Type elementType = nullptr) {
-  if (!operandsOfOpHaveShapesAndRanks(op))
+  if (!hasShapeAndRank(op))
     return success();
 
   auto resultTy = op->getOperand(0).getType().template cast<ShapedType>();
@@ -333,6 +333,57 @@ LogicalResult ONNXPowOp::verify() {
 LogicalResult ONNXPowOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXPowOp>(*this);
+}
+
+//===----------------------------------------------------------------------===//
+// PRelu
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXPReluOp::verify() {
+  if (!hasShapeAndRank(X())) 
+    return success();
+  if (!hasShapeAndRank(slope())) 
+    return success();
+  
+  ArrayRef<int64_t> xShape = X().getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> slopeShape =
+      slope().getType().cast<ShapedType>().getShape();
+  // PRelu supports unidirectional broadcasting, that is slope should be
+  // unidirectional broadcast to input X.
+  if (slopeShape.size() > xShape.size())
+    return emitError("Slope tensor has a wrong shape");
+  return success();
+}
+
+LogicalResult ONNXPReluOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  ONNXPReluOpAdaptor operandAdaptor(*this);
+  if (llvm::any_of(operandAdaptor.getOperands(),
+          [](const Value &op) { return !hasShapeAndRank(op); }))
+    return success();
+
+#if 1
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXPReluOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+#else
+  auto xShape = X().getType().cast<ShapedType>().getShape();
+  auto slopeShape = slope().getType().cast<ShapedType>().getShape();
+
+  // To do unidirectional broadcasting, we first apply bidirectional
+  // broadcasting. Then, fine-tune by getting constant dimensions from X.
+  SmallVector<int64_t, 4> shape;
+  // Bidirectional broadcasting rules.
+  getBroadcastedShape(xShape, slopeShape, shape);
+  // Fine-tune.
+  for (unsigned int i = 0; i < shape.size(); ++i)
+    if (!ShapedType::isDynamic(xShape[i]))
+      shape[i] = xShape[i];
+
+  getResult().setType(RankedTensorType::get(
+      shape, X().getType().cast<ShapedType>().getElementType()));
+  return success();
+#endif
 }
 
 //===----------------------------------------------------------------------===//

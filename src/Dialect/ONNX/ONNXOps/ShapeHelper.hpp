@@ -217,7 +217,6 @@ using ONNXLpNormalizationOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXMeanVarianceNormalizationOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXNegOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXNotOpShapeHelper = ONNXUnaryOpShapeHelper;
-using ONNXPReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXRandomNormalLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXReciprocalOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXReluOpShapeHelper = ONNXUnaryOpShapeHelper;
@@ -322,7 +321,7 @@ using ONNXSubOpShapeHelper = ONNXBroadcastOpShapeHelper;
 using ONNXSumOpShapeHelper = ONNXBroadcastOpShapeHelper;
 using ONNXWhereOpShapeHelper = ONNXBroadcastOpShapeHelper;
 using ONNXXorOpShapeHelper = ONNXBroadcastOpShapeHelper;
-// clang-format off
+// clang-format on
 
 // Helper for ExpandOp
 struct ONNXExpandOpShapeHelper : public ONNXBroadcastOpShapeHelper {
@@ -332,6 +331,19 @@ struct ONNXExpandOpShapeHelper : public ONNXBroadcastOpShapeHelper {
       : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXExpandOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
+};
+
+// Helper for ONNXPReluOp
+struct ONNXPReluOpShapeHelper : public ONNXBroadcastOpShapeHelper {
+  ONNXPReluOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope,
+            /*hasUniBroadcasting*/ true) {}
+  virtual ~ONNXPReluOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final {
+    return ONNXBroadcastOpShapeHelper::computeShape();
+  }
 };
 
 //===----------------------------------------------------------------------===//

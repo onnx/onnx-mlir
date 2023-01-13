@@ -459,7 +459,7 @@ bool hasShapeAndRank(Value val) {
   return shapedType && shapedType.hasRank();
 }
 
-bool operandsOfOpHaveShapesAndRanks(Operation *op) {
+bool hasShapeAndRank(Operation *op) {
   int num = op->getNumOperands();
   for (int i = 0; i < num; ++i)
     if (!hasShapeAndRank(op->getOperand(i)))

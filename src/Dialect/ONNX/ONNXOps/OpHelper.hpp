@@ -195,7 +195,7 @@ bool AreTheSameConstantOpDenseAttr(
 
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(mlir::Value val);
-bool operandsOfOpHaveShapesAndRanks(mlir::Operation *op);
+bool hasShapeAndRank(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.

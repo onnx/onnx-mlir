@@ -32,14 +32,13 @@ LogicalResult ONNXBernoulliOp::inferShapes(
   if (!hasShapeAndRank(input())) {
     return success();
   }
-  RankedTensorType inputType = input().getType().cast<RankedTensorType>();
   Type elementType;
   if (dtypeAttr()) {
     elementType = convertONNXTypeToMLIRType(builder,
         (onnx::TensorProto_DataType)dtypeAttr().getValue().getSExtValue());
   } else {
-    elementType = inputType.getElementType();
+    elementType = input().getType().cast<RankedTensorType>().getElementType();
   }
-  getResult().setType(RankedTensorType::get(inputType.getShape(), elementType));
-  return success();
+  ONNXBernoulliOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
