@@ -62,7 +62,7 @@ struct ONNXClipOpLowering : public ConversionPattern {
       Value loadedVal = create.krnl.load(input, indices); // load input[i,j,k]
       Value res = loadedVal;
       if (!min.getType().isa<NoneType>()) {
-        Value minVal = create.krnl.load(min); // load min
+        Value minVal = create.krnl.load(min);             // load min
         Value lessThanMin = create.math.slt(res, minVal); // (input[i,j,k]<min)
         res = create.math.select(lessThanMin, minVal, res);
       }

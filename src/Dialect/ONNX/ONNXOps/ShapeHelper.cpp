@@ -384,18 +384,22 @@ void SaveOnnxConstInOp(Operation *op, MutableOperandRange operand,
 void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     Attribute encoding, bool refineShape) {
   // Try to combine the given shape and the output's shape if possible.
-  IndexExprScope scope(nullptr, val.getLoc());
-  DimsExpr inferredDims;
-  for (int64_t d : shape) {
-    if (ShapedType::isDynamic(d))
-      inferredDims.emplace_back(QuestionmarkIndexExpr());
-    else
-      inferredDims.emplace_back(LiteralIndexExpr(d));
-  }
-  if (refineShape)
-    refineDims(inferredDims, val);
   SmallVector<int64_t, 4> inferredShape;
-  IndexExpr::getShape(inferredDims, inferredShape);
+  if (refineShape) {
+    IndexExprScope scope(nullptr, val.getLoc());
+    DimsExpr inferredDims;
+    for (int64_t d : shape) {
+      if (ShapedType::isDynamic(d))
+        inferredDims.emplace_back(QuestionmarkIndexExpr());
+      else
+        inferredDims.emplace_back(LiteralIndexExpr(d));
+    }
+    refineDims(inferredDims, val);
+    IndexExpr::getShape(inferredDims, inferredShape);
+  } else {
+    for (int i = 0; i < shape.size(); ++i)
+      inferredShape.emplace_back(shape[i]);
+  }
 
   // Get element type.
   if (!elementType)
