@@ -132,7 +132,6 @@ LogicalResult ONNXOpShapeHelper::computeShapeFromOperand(Value operand, int n) {
   // output.
   DimsExpr outputDims;
   createIE->getShapeAsDims(operand, outputDims);
-  IndexExpr::debugPrint("hi alex, from operand", outputDims);
   setOutputDims(outputDims, n);
   return success();
 }
@@ -154,7 +153,6 @@ LogicalResult ONNXOpShapeHelper::computeShapeFromTypeWithConstantShape(
     return failure();
   DimsExpr outputDims;
   getIndexExprListFromShape(rankedType.getShape(), outputDims);
-  IndexExpr::debugPrint("hi alex: shape from type", outputDims);
   if (!IndexExpr::isNonNegativeLiteral(outputDims))
     return failure();
   setOutputDims(outputDims, n);

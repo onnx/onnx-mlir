@@ -123,41 +123,9 @@ LogicalResult ONNXUpsampleOp::inferShapes(
     return success();
   }
 
-#if 1
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();
   ONNXUpsampleOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-#else
-  auto inputTy = X().getType().cast<RankedTensorType>();
-  int32_t inputRank = inputTy.getShape().size();
-
-  SmallVector<int64_t, 4> outputDims(inputRank, -1);
-
-  // Extract the scale values
-  auto scalesConstOp = getONNXConstantOp(scales());
-  if (!scalesConstOp) {
-    return success();
-  }
-  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<ElementsAttr>();
-  if (!valueAttr) {
-    return emitError("Scales constant is not an ElementsAttr");
-  }
-  int scaleIdx = 0;
-  // Why are the scale values float's?
-  for (auto it = valueAttr.getValues<FloatAttr>().begin();
-       it != valueAttr.getValues<FloatAttr>().end(); ++it) {
-    outputDims[scaleIdx++] = (int)((*it).getValueAsDouble());
-  }
-
-  // Compute and set the output shape
-  for (int i = 0; i < inputRank; ++i) {
-    outputDims[i] *= inputTy.getShape()[i];
-  }
-  getResult().setType(
-      RankedTensorType::get(outputDims, inputTy.getElementType()));
-
-  return success();
-#endif
 }
 
 //===----------------------------------------------------------------------===//

@@ -51,15 +51,9 @@ LogicalResult ONNXDimOp::verify() {
 
 LogicalResult ONNXDimOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-#if 1
   Type elementType = IntegerType::get(getContext(), 64);
   ONNXDimOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-#else
-  OpBuilder b(getContext());
-  getResult().setType(RankedTensorType::get({1}, b.getI64Type()));
-  return success();
-#endif
 }
 
 //===----------------------------------------------------------------------===//

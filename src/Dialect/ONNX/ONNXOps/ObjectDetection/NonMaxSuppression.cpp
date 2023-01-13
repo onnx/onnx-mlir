@@ -83,13 +83,8 @@ LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Builder b = Builder(getContext());
   Type elementType = b.getI64Type();
-#if 1
   ONNXNonMaxSuppressionOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-#else
-  getResult().setType(RankedTensorType::get({-1, 3}, b.getI64Type()));
-  return success();
-#endif
 }
 
 //===----------------------------------------------------------------------===//
