@@ -90,9 +90,10 @@ public:
         rewriter, resizeOp, input, {0, 2, 3, 1});
 
     bool alignCorners = coordinateTransformationMode == "align_corners";
-    bool halfPixel = coordinateTransformationMode == "align_corners";
+    bool halfPixel = coordinateTransformationMode == "half_pixel";
     bool isBilinear = mode == "linear";
     bool isNearest = mode == "nearest";
+    bool floor = nearestMode == "floor";
     StringRef resizeMode = isBilinear ? "BILINEAR" : "NEAREST_NEIGHBOR";
 
     auto inputShape = inputType.getShape();
@@ -127,7 +128,11 @@ public:
       d = 2 * d / gcd;
 
       // If half pixel centers we need to sample half a pixel inward.
-      offset = halfPixel ? d / 2 : 0;
+      offset = halfPixel ? (d - n) / 2 : 0;
+      // If round_half_up we need to adjust the offset
+      if (floor) {
+        offset -= n / 2;
+      }
 
       // If nearest neighbours we need to guarantee we round up.
       if (isNearest && alignCorners) {
