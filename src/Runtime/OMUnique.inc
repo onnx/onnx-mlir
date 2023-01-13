@@ -13,357 +13,238 @@
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "onnx-mlir/Runtime/OnnxDataType.h"
+#include "src/Runtime/OMUnique.h"
 #ifdef __cplusplus
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
 
-#define TRUE 1
-#define FALSE 0
+//
+// Table for elements
+//
+typedef struct elementTable {
+  void *tablePointer;
+  uint64_t elementSize;
+  uint64_t elementMax;
+  uint64_t elementCount;
+} elementTable;
 
-//
-// Declare compare functions for data types and uniqueing directions.
-//
-// Data-type-specific compare functions are used here for performance reason.
-// As background, the performance of this unique function is important for the
-// whole model performance (e.g. the dominant part of the Yolov3 model).
-// If we use data-type-general compare function, including switch statements
-// to check the data type in the compare function, the switch statements are
-// executed in the unique and compare loops, we can avoid this overhead by
-// using data-type-specific compare functions to check the data type at once
-// before entering the loop.
-//
-// This function is expected to provide "stable" unique that preserve the input
-// data order, if the values are the same. Although most unique algorithms (e.g.
-// quick unique) are not stable, we use special compare functions to compare two
-// values at first, then compare the input orders if the values are the same.
-// This comparison functions guarantee the input order among the same values
-// and makes uniqueing algorithms stable.
-//
-#if defined(__APPLE__)
-typedef int(
-    compareFunctionType(void *dataPtr, const void *idx1, const void *idx2));
-#define declare_compare_function(fname, typeName, direction, symbol)           \
-  int compare##fname##direction(                                               \
-      void *dataPtr, const void *idx1p, const void *idx2p) {                   \
-    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
-    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
-    typeName *data = (typeName *)dataPtr;                                      \
-    return ((data[idx1] symbol data[idx2]) ||                                  \
-               ((data[idx1] == data[idx2]) && (idx1 > idx2)))                  \
-               ? 1                                                             \
-               : -1;                                                           \
-  }
-#elif defined(_MSC_VER)
-typedef int(__cdecl compareFunctionType)(void *, const void *, const void *);
-#define declare_compare_function(fname, typeName, direction, symbol)           \
-  int compare##fname##direction(                                               \
-      void *dataPtr, const void *idx1p, const void *idx2p) {                   \
-    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
-    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
-    typeName *data = (typeName *)dataPtr;                                      \
-    return ((data[idx1] symbol data[idx2]) ||                                  \
-               ((data[idx1] == data[idx2]) && (idx1 > idx2)))                  \
-               ? 1                                                             \
-               : -1;                                                           \
-  }
-#else
-typedef int(
-    compareFunctionType(const void *idx1, const void *idx2, void *dataPtr));
-#define declare_compare_function(fname, typeName, direction, symbol)           \
-  int compare##fname##direction(                                               \
-      const void *idx1p, const void *idx2p, void *dataPtr) {                   \
-    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
-    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
-    typeName *data = (typeName *)dataPtr;                                      \
-    return ((data[idx1] symbol data[idx2]) ||                                  \
-               ((data[idx1] == data[idx2]) && (idx1 > idx2)))                  \
-               ? 1                                                             \
-               : -1;                                                           \
-  }
-#endif
-#define compareFunction(fname, typeName, direction) compare##fname##direction
-// clang-format off
-// declare ascending functions
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-qual"
-#endif
-declare_compare_function(Bool, bool, Ascending, >)
-declare_compare_function(Uint8, uint8_t, Ascending, >)
-declare_compare_function(Int8, int8_t, Ascending, >)
-declare_compare_function(Uint16, uint16_t, Ascending, >)
-declare_compare_function(Int16, int16_t, Ascending, >)
-declare_compare_function(Uint32, uint32_t, Ascending, >)
-declare_compare_function(Int32, int32_t, Ascending, >)
-declare_compare_function(Uint64, uint64_t, Ascending, >)
-declare_compare_function(Int64, int64_t, Ascending, >)
-declare_compare_function(Float, float, Ascending, >)
-declare_compare_function(Double, double, Ascending, >)
-// declare descending functions
-declare_compare_function(Bool, bool, Descending, <)
-declare_compare_function(Uint8, uint8_t, Descending, <)
-declare_compare_function(Int8, int8_t, Descending, <)
-declare_compare_function(Uint16, uint16_t, Descending, <)
-declare_compare_function(Int16, int16_t, Descending, <)
-declare_compare_function(Uint32, uint32_t, Descending, <)
-declare_compare_function(Int32, int32_t, Descending, <)
-declare_compare_function(Uint64, uint64_t, Descending, <)
-declare_compare_function(Int64, int64_t, Descending, <)
-declare_compare_function(Float, float, Descending, <)
-declare_compare_function(Double, double, Descending, <)
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-// clang-format on
-
-//
-// Declare unique functions for uniqueing algorithms
-//
-#ifdef __APPLE__
-                            typedef void(uniqueFunctionType(void *base,
-                                size_t dataNum, size_t dataSize, void *dataPtr,
-                                compareFunctionType compFunc));
-#elif defined(_MSC_VER)
-                            typedef void(uniqueFunctionType(void *base,
-                                size_t num, size_t width,
-                                compareFunctionType compFunc, void *context));
-#else
-                            typedef void(uniqueFunctionType(void *base,
-                                size_t dataNum, size_t dataSize,
-                                compareFunctionType compFunc, void *dataPtr));
-#endif
-
-//
-// Custom quick unique function for environments not suppirting qunique_r (e.g. zos)
-//
-#define SWAP_INDEX(a, b)                                                       \
-  do {                                                                         \
-    uint64_t tmp = (a);                                                        \
-    (a) = (b);                                                                 \
-    (b) = tmp;                                                                 \
-  } while (0)
-// stack for index (uint64_t)
-typedef struct indexStack {
-  uint64_t *stackData;
-  int64_t stackSize;
-  int64_t stackTop;
-} indexStack;
-
-#define STACK_INIT(stack, stackSize)                                           \
-  do {                                                                         \
-    assert(stackSize > 0);                                                     \
-    stack.stackData = (uint64_t *)alloca(stackSize * sizeof(uint64_t));        \
-    assert(stack.stackData != NULL);                                           \
-    stack.stackSize = stackSize;                                               \
-    stack.stackTop = 0;                                                        \
-  } while (0)
-#define STACK_ISEMPTY(stack) (stack.stackTop == 0)
-#define STACK_PUSH(stack, begin, end)                                          \
-  do {                                                                         \
-    assert(stack.stackTop <= stack.stackSize - 2);                             \
-    stack.stackData[(stack.stackTop)++] = begin;                               \
-    stack.stackData[(stack.stackTop)++] = end;                                 \
-  } while (0)
-#define STACK_POP(stack, begin, end)                                           \
-  do {                                                                         \
-    assert(stack.stackTop >= 2);                                               \
-    end = stack.stackData[--(stack.stackTop)];                                 \
-    begin = stack.stackData[--(stack.stackTop)];                               \
-  } while (0)
-#define STACK_PRINT(stack)                                                     \
-  do {                                                                         \
-    assert(stack.stackTop >= 0);                                               \
-    fprintf(stderr, "Stack: [");                                               \
-    for (int64_t i = 0; (i + 1) < stack.stackTop; i += 2) {                    \
-      fprintf(                                                                 \
-          stderr, "<%ld:%ld>, ", stack.stackData[i], stack.stackData[i + 1]);  \
-    }                                                                          \
-    fprintf(                                                                   \
-        stderr, "] (Top=%ld,Size=%ld)\n", stack.stackTop, stack.stackSize);    \
-    fflush(stderr);                                                            \
-  } while (0)
-
-static int64_t log2u(uint64_t n) {
-  assert(n > 0);
-  int64_t b = 0;
-  for (; n > 0; b++)
-    n = n >> 2;
-  return b;
+void elementTableInit(
+    elementTable *table, uint64_t elementSize, uint64_t elementMax) {
+  table->tablePointer = alloca(elementSize * elementMax);
+  table->elementSize = elementSize;
+  table->elementMax = elementMax;
+  table->elementCount = 0;
 }
 
-// Quick unique patition function
-static int64_t quick_unique_partition(void *dataPtr, uint64_t *idx,
-    compareFunctionType compFunc, int64_t begin, int64_t end) {
-  int64_t i = begin;
-  for (int64_t j = begin; j < end; j++) {
-#if defined(__APPLE__)
-    if (compFunc(dataPtr, idx + j, idx + end) <= 0)
-#elif defined(_MSC_VER)
-    if (compFunc(dataPtr, idx + j, idx + end) <= 0)
-#else
-    if (compFunc(idx + j, idx + end, dataPtr) <= 0)
-#endif
-    {
-      SWAP_INDEX(idx[i], idx[j]);
-      i++;
+int elementTableRegister(elementTable *table, void *element) {
+  char *tablePtr = (char *)table->tablePointer;
+  int i;
+  for (i = 0; i < table->elementCount; i++) {
+    void *elementInTable = (void *)(tablePtr + table->elementSize * i);
+    if (!memcmp(elementInTable, element, table->elementSize)) {
+      break;
     }
   }
-  SWAP_INDEX(idx[end], idx[i]);
-  return i;
+  if (i == table->elementCount) { // no matching element found in the table
+    void *elementInTable = (void *)(tablePtr + table->elementSize * i);
+    memcpy(elementInTable, element, table->elementSize);
+    (table->elementCount)++;
+    return 0;
+  }
+  return 1;
 }
 
-// Quick unique main function (custom version)
-#ifdef __APPLE__
-void quick_unique_custom(void *base, size_t dataNum, size_t dataSize,
-    void *dataPtr, compareFunctionType compFunc) {
-#else
-void quick_unique_custom(void *base, size_t dataNum, size_t dataSize,
-    compareFunctionType compFunc, void *dataPtr) {
-#endif
-  uint64_t *idx = (uint64_t *)base;
-  // Calculate the theoritical maximum stack size for index
-  int64_t stackSize = (log2u(dataNum + 1) + 2) * 2;
-  indexStack stack;
-  STACK_INIT(stack, stackSize);
-  int64_t begin = 0;
-  int64_t end = dataNum - 1;
+uint64_t elementTable_count(elementTable *table) { return table->elementCount; }
 
-  // push current job to the stack
-  STACK_PUSH(stack, begin, end);
+#if 0
+//
+// Table for matrix
+//
+typedef struct matrixTable {
+  void *tablePointer;
+  uint64_t uniqueShape[OMUNIQUE_MAXRANK];
+  uint64_t uniqueShapeBegin[OMUNIQUE_MAXRANK];
+  uint64_t uniqueShapeEnd[OMUNIQUE_MAXRANK];
+  uint64_t matrixSize;
+  int uniqueAxis;
+  uint64_t matrixMax;
+  uint64_t matrixCount;
+} matrixTable;
 
-  while (!STACK_ISEMPTY(stack)) {
-    // pop current job from the stack
-    STACK_POP(stack, begin, end);
-    if (begin < end) {
-      int64_t pivotIdx =
-          quick_unique_partition(dataPtr, idx, compFunc, begin, end);
-      // To limit the stack size, push larger partion at first
-      if ((pivotIdx - begin) > (end - pivotIdx)) {
-        if (begin < pivotIdx - 1)
-          STACK_PUSH(stack, begin, pivotIdx - 1);
-        if (pivotIdx + 1 < end)
-          STACK_PUSH(stack, pivotIdx + 1, end);
-      } else {
-        if (pivotIdx + 1 < end)
-          STACK_PUSH(stack, pivotIdx + 1, end);
-        if (begin < pivotIdx - 1)
-          STACK_PUSH(stack, begin, pivotIdx - 1);
+void matrixTableInit(matrixTable *table, int matrixRank, uint64_t *matrixShape,
+     uint64_t dataSize, uint64_t uniqueAxis) {
+  uint64_t matrixSize = dataSize;
+  for (int i = 0; i < OMUNIQUE_MAXRANK; i++) {
+    table->uniqueShape[i] = matrixShape[i];
+    table->uniqueShapeBegin[i] = 0;
+    if (i == uniqueAxis) {
+      table->uniqueShapeEnd[i] = 0;
+    } else {
+      table->uniqueShapeEnd[i] = matrixShape[i];
+      matrixSize *= matrixShape[i];
+    }
+  }
+  table->tablePointer = alloca(dataSize * matrixMax);
+  table->uniqueShape = matrixShape;
+  table->uniqueShape = matrixShape;
+  table->uniqueAxis = uniqueAxis;
+  table->dataSize = dataSize;
+  table->matrixMax = matrixShape[axis];
+  table->matrixCount = 0;
+}
+
+int matrixTableRegister(matrixTable *table, void *dataPtr, int64_t idx) {
+  char *tablePtr = table->matrixpointer;
+  int uniqueRank = table->uniqueRank;
+  uint64_t *shape = table->matrixShape;
+  uint64_t *shapeBegin = table->matrixShapeBegin;
+  uint64_t *shapeEnd = table->matrixShapeEnd;
+  for (uint64_t i = 0; i < table->matrixCount; i++) {
+    void *matrixInTable = (void *) (tablePtr + table->matrixSize * i);
+    for (int j = 0; j < table->uniqueRank; j++) {
+      for (int dim0 = shapeBegin[0] < shapeEnd[0]; dim0++) {
+        for (int dim1 = shapeBegin[1]; dim1 < shapeEnd[1]; dim1++) {
+          for (int dim2 = shapeBegin[2]; dim2 < shapeEnd[2]; dim2++) {
+            for (int dim3 = shapeBegin[3]; dim3 < shapeEnd[3]; dim3++) {
+              for (int dim4 = shapeBegin[4]; dim4 < shapeEnd[4]; dim4++) {
+                for (int dim5 = shapeBegin[5]; dim5 < shapeEnd[5]; dim5++) {
+                uint64_t off = dim0 * strides[0] + dim1 * strides[1] +
+                               dim2 * strides[2] + dim3 * strides[3] +
+                               dim4 * strides[4] + dim5 * strides[5];
+                void *data = ((char *)dataPtr) + table->dataSize * off;
+                if (elementTableRegister(&elementTable, data) == 0)
+                  count++; 
+              }
+            }
+          }
+        }
       }
     }
+    for (uint64_t rank = 0; rank < table->matrixRank; rank++) {
+       if (rank != table->matrixRank) {
+         int64_t off = dim0 * strides[0] + dim1 * strides[1] +
+                       dim2 * strides[2] + dim3 * strides[3] +
+                       dim4 * strides[4] + dim5 * strides[5];
+         void *data = ((char *)dataPtr) + matrixSize * off;
+{
+         && !memcmp(matrix 
+       }
+    }
+    if (j == table->matrixRank) {
+      // matching matrix found in the table
+      break;
+    }
   }
-}
-
-compareFunctionType *getCompareFunction(
-    uint64_t ascending, OM_DATA_TYPE dataType) {
-  compareFunctionType *compFunc;
-
-  switch (dataType) {
-  case ONNX_TYPE_BOOL:
-    compFunc = ascending ? compareFunction(Bool, bool, Ascending)
-                         : compareFunction(Bool, bool, Descending);
-    break;
-  case ONNX_TYPE_UINT8:
-    compFunc = ascending ? compareFunction(Uint8, uint8_t, Ascending)
-                         : compareFunction(Uint8, uint8_t, Descending);
-    break;
-  case ONNX_TYPE_INT8:
-    compFunc = ascending ? compareFunction(Int8, int8_t, Ascending)
-                         : compareFunction(Int8, int8_t, Descending);
-    break;
-  case ONNX_TYPE_UINT16:
-    compFunc = ascending ? compareFunction(Uint16, uint16, Ascending)
-                         : compareFunction(Uint16, uint16, Descending);
-    break;
-  case ONNX_TYPE_INT16:
-    compFunc = ascending ? compareFunction(Int16, int16, Ascending)
-                         : compareFunction(Int16, int16, Descending);
-    break;
-  case ONNX_TYPE_UINT32:
-    compFunc = ascending ? compareFunction(Uint32, uint32, Ascending)
-                         : compareFunction(Uint32, uint32, Descending);
-    break;
-  case ONNX_TYPE_INT32:
-    compFunc = ascending ? compareFunction(Int32, int32, Ascending)
-                         : compareFunction(Int32, int32, Descending);
-    break;
-  case ONNX_TYPE_UINT64:
-    compFunc = ascending ? compareFunction(Uint64, uint64, Ascending)
-                         : compareFunction(Uint64, uint64, Descending);
-    break;
-  case ONNX_TYPE_INT64:
-    compFunc = ascending ? compareFunction(Int64, int64, Ascending)
-                         : compareFunction(Int64, int64, Descending);
-    break;
-  case ONNX_TYPE_FLOAT:
-    compFunc = ascending ? compareFunction(Float, float, Ascending)
-                         : compareFunction(Float, float, Descending);
-    break;
-  case ONNX_TYPE_DOUBLE:
-    compFunc = ascending ? compareFunction(Double, double, Ascending)
-                         : compareFunction(Double, double, Descending);
-    break;
-  default:
-    assert(false && "unexpected data type in getCompareFunction");
+  if (i == table->matrixCount) { // no matching matrix found in the table
+    void *elemInTable = (void *) (tablePtr + table->matrixSize * i);
+    memcpy(elemInTable, element, table->matrixSize);
+    (table->elementCount)++;
+    return 0;
   }
-  return compFunc;
+  return 1;
 }
+#endif
 
-void omTensorUnique(OMTensor *orderTensor, const OMTensor *inputTensor,
-    uint64_t axis, uint64_t ascending) {
+int omTensorUnique(
+    const OMTensor *inputTensor, uint64_t axis, uint64_t sorted, int flag) {
+  omTensorPrint("omTensorUnique: ", inputTensor);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const uint64_t rank = omTensorGetRank(inputTensor);
   assert(rank <= 6 && "omTensorUnique assumes rank <= 6");
-  assert(axis == (rank - 1) && "omTensorUnique assumes axis == (rank - 1)");
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
-  assert(inputStrides[axis] == 1 && "omTensorUnique assumes strides[axis] == 1");
-  void *orderPtr = omTensorGetDataPtr(orderTensor);
-  uint64_t *order = (uint64_t *)orderPtr;
   void *dataPtr = omTensorGetDataPtr(inputTensor);
-  int64_t unique_elems = inputShape[axis];
-  // Uniqueing not necessary for empty array
-  if (unique_elems == 0)
-    return;
+  int unique_elems = inputShape[axis];
+  // Uniqueing not necessary for array whose size <= 1
+  if (unique_elems <= 1)
+    return unique_elems;
 
-  // Choose the appropriate compare function
-  compareFunctionType *compareElements =
-      getCompareFunction(ascending, dataType);
-  uint64_t datasize = OM_DATA_TYPE_SIZE[dataType];
+  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
 
-  uniqueFunctionType *uniqueFunc = quick_unique_custom; // custum quick unique
   // To support input Tensor with various ranks in a uniform way.
   // If the input rank < 6, upgrade the rank to 6 virtually without changing
   // the physical memory layout by inserting length=1 ranks at lower ranks.
   // The 5th axis becomes the unique axis.
   int64_t shape[6] = {1, 1, 1, 1, 1, 1};
+  int64_t shapeInUniqueAxis[6] = {1, 1, 1, 1, 1, 1};
   int64_t strides[6] = {0, 0, 0, 0, 0, 0};
+  uint64_t elementnum = 1;
   for (uint64_t i = 0; i < rank; i++) {
     shape[i + (6 - rank)] = inputShape[i];
+    shapeInUniqueAxis[i + (6 - rank)] = (i == axis) ? 1 : inputShape[i];
     strides[i + (6 - rank)] = inputStrides[i];
+    elementnum *= inputShape[i];
   }
 
-  // Unique the the 6th axis in the outer 5 loops
-  for (int dim0 = 0; dim0 < shape[0]; dim0++) {
-    for (int dim1 = 0; dim1 < shape[1]; dim1++) {
-      for (int dim2 = 0; dim2 < shape[2]; dim2++) {
-        for (int dim3 = 0; dim3 < shape[3]; dim3++) {
-          for (int dim4 = 0; dim4 < shape[4]; dim4++) {
-            uint64_t off = dim0 * strides[0] + dim1 * strides[1] +
-                           dim2 * strides[2] + dim3 * strides[3] +
-                           dim4 * strides[4];
-            void *data = ((char *)dataPtr) + datasize * off;
-            uint64_t *idx = order + off;
-#if defined(__APPLE__)
-            uniqueFunc((void *)idx, unique_elems, sizeof(uint64_t), data,
-                compareElements);
-#else
-            uniqueFunc((void *)idx, unique_elems, sizeof(uint64_t), compareElements,
-                data);
-#endif
+  int count = 0;
+  if (axis < 0) { // manage the inputTensor as flatten one
+    elementTable elementTable;
+    elementTableInit(&elementTable, elementnum, dataSize);
+    for (int dim0 = 0; dim0 < shape[0]; dim0++) {
+      for (int dim1 = 0; dim1 < shape[1]; dim1++) {
+        for (int dim2 = 0; dim2 < shape[2]; dim2++) {
+          for (int dim3 = 0; dim3 < shape[3]; dim3++) {
+            for (int dim4 = 0; dim4 < shape[4]; dim4++) {
+              for (int dim5 = 0; dim5 < shape[5]; dim5++) {
+                uint64_t off = dim0 * strides[0] + dim1 * strides[1] +
+                               dim2 * strides[2] + dim3 * strides[3] +
+                               dim4 * strides[4] + dim5 * strides[5];
+                void *data = ((char *)dataPtr) + dataSize * off;
+                if (elementTableRegister(&elementTable, data) == 0) {
+                  count++;
+                }
+              }
+            }
           }
         }
       }
     }
+  } else {
+    int dimCurrInUniqueAxis, dimPrevInUniqueAxis;
+    for (dimCurrInUniqueAxis = 0; dimCurrInUniqueAxis < shape[axis];
+         dimCurrInUniqueAxis++) {
+      for (dimPrevInUniqueAxis = 0; dimPrevInUniqueAxis < dimCurrInUniqueAxis;
+           dimPrevInUniqueAxis++) {
+        int dim[6];
+        for (dim[0] = 0; dim[0] < shapeInUniqueAxis[0]; dim[0]++) {
+          for (dim[1] = 0; dim[1] < shapeInUniqueAxis[1]; dim[1]++) {
+            for (dim[2] = 0; dim[2] < shapeInUniqueAxis[2]; dim[2]++) {
+              for (dim[3] = 0; dim[3] < shapeInUniqueAxis[3]; dim[3]++) {
+                for (dim[4] = 0; dim[4] < shapeInUniqueAxis[4]; dim[4]++) {
+                  for (dim[5] = 0; dim[5] < shapeInUniqueAxis[5]; dim[5]++) {
+                    int dimCurr[6], dimPrev[6];
+                    for (int i = 0; i < 6; i++) {
+                      dimCurr[i] = dim[i];
+                      dimPrev[i] = dim[i];
+                    }
+                    dimCurr[axis] = dimCurrInUniqueAxis;
+                    dimPrev[axis] = dimPrevInUniqueAxis;
+                    uint64_t offCurr =
+                        dimCurr[0] * strides[0] + dimCurr[1] * strides[1] +
+                        dimCurr[2] * strides[2] + dimCurr[3] * strides[3] +
+                        dimCurr[4] * strides[4] + dimCurr[5] * strides[5];
+                    uint64_t offPrev =
+                        dimPrev[0] * strides[0] + dimPrev[1] * strides[1] +
+                        dimPrev[2] * strides[2] + dimPrev[3] * strides[3] +
+                        dimPrev[4] * strides[4] + dimPrev[5] * strides[5];
+                    void *dataCurr = ((char *)dataPtr) + dataSize * offCurr;
+                    void *dataPrev = ((char *)dataPtr) + dataSize * offPrev;
+                    if (memcmp(dataCurr, dataPrev, dataSize)) {
+                      goto mismatch_found;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      mismatch_found:
+        continue;
+      }
+      if (dimPrevInUniqueAxis == dimCurrInUniqueAxis) {
+        count++; // new matrix found
+      }
+    }
   }
-  return;
+  return count;
 }

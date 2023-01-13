@@ -14,6 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Runtime/OMUnique.h"
 
 using namespace mlir;
 
@@ -25,7 +26,35 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
             typeConverter, mlir::ONNXUniqueOp::getOperationName(), 1, ctx) {}
 
   ///
-  /// XXX Explanation about operation and steps is required here.
+  /// Intermediate data are presented below for better understanding:
+  ///
+  /// there are 4 subtensors sliced along axis 1 of input_x (shape = (2, 4, 2)):
+  /// A: [[1, 1], [1, 1]],
+  ///    [[0, 1], [0, 1]],
+  ///    [[2, 1], [2, 1]],
+  ///    [[0, 1], [0, 1]].
+  ///
+  /// there are 3 unique subtensors:
+  /// [[1, 1], [1, 1]],
+  /// [[0, 1], [0, 1]],
+  /// [[2, 1], [2, 1]].
+  ///
+  /// sorted unique subtensors:
+  /// B: [[0, 1], [0, 1]],
+  ///    [[1, 1], [1, 1]],
+  ///    [[2, 1], [2, 1]].
+  ///
+  /// output_Y is constructed from B:
+  /// [[[0. 1.], [1. 1.], [2. 1.]],
+  /// [[0. 1.], [1. 1.], [2. 1.]]]
+  ///
+  /// output_indices is to map from B to A:
+  /// [1, 0, 2]
+  ///
+  /// output_inverse_indices is to map from A to B:
+  /// [1, 0, 2, 0]
+  ///
+  /// output_counts = [2 1 1]
   ///
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -195,18 +224,16 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 
     // Op's Attributes.
     int64_t rank = resMemRefType.getRank();
-    int64_t axis = operandAdaptor.axis();
-    axis = axis < 0 ? axis + rank : axis;
-    assert(axis >= 0 && axis < rank && "axis is out of bound");
-    bool ascendingMode = operandAdaptor.largest() != 1;
-    // According to ONNX TopK: 'If "sorted" is 0, order of returned 'Values' and
-    // 'Indices' are undefined'.
-    // In this case, we still return sorted values and indices to make them
-    // deterministic. So this attribute is not used.
-    // bool sortedMode = TopKOp.sorted() == 1;
+    Optional<int64_t> optionalAxis = operandAdaptor.axis();
+    int64_t axis = -1;
+    if (optionalAxis.has_value()) {
+      axis = axis < 0 ? axis + rank : axis;
+      assert(axis >= 0 && axis < rank && "axis is out of bound");
+    }
+    int64_t sorted = operandAdaptor.sorted();
 
     // Compute the output's dimension sizes.
-    ONNXTopKOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXUniqueOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     DimsExpr resDims = shapeHelper.getOutputDims();
 
@@ -219,10 +246,9 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
         MemRefType::get(resMemRefType.getShape(), i64Type), loc, resDims,
         insertDealloc);
 
-    // Compute argSort of X along axis.
-    Value argSort =
-        emitArgSort(rewriter, loc, X, axis, /*ascending=*/ascendingMode);
-
+    // Compute argUnique of X along axis.
+    Value argUnique =
+        emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted, indices, reverse_indices, counts, OMUNIQUE_FLAG_COUNTONLY);
 
     // Produce the final result.
     SmallVector<IndexExpr> zeroDims(rank, LiteralIndexExpr(0));
@@ -243,7 +269,6 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 
     rewriter.replaceOp(op, {resMemRef, resIndexMemRef});
 #endif
-
     return success();
   }
 };
