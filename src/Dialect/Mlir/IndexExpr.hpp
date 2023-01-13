@@ -828,7 +828,7 @@ void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
 }
 
 // Create a list of IndexExpr of kind LiteralIndexExpr from a list of integers.
-void getIndexExprListFromInt(mlir::ArrayRef<int64_t>  inputList,
+void getIndexExprListFromInt(mlir::ArrayRef<int64_t> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList);
 
 // Create a list of IndexExpr of kind LiteralIndexExpr/Questionmark from a

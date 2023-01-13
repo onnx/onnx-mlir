@@ -340,11 +340,11 @@ LogicalResult ONNXPowOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPReluOp::verify() {
-  if (!hasShapeAndRank(X())) 
+  if (!hasShapeAndRank(X()))
     return success();
-  if (!hasShapeAndRank(slope())) 
+  if (!hasShapeAndRank(slope()))
     return success();
-  
+
   ArrayRef<int64_t> xShape = X().getType().cast<ShapedType>().getShape();
   ArrayRef<int64_t> slopeShape =
       slope().getType().cast<ShapedType>().getShape();
