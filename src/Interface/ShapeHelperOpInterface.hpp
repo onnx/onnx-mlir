@@ -89,7 +89,6 @@ struct ONNXOpShapeHelper {
   // signature. This method is responsible to compute at a minimum the output
   // dims.
   virtual mlir::LogicalResult computeShape() = 0;
-<<<<<<< HEAD
 
   // Helper functions for subclasses that have a specific pattern.
 
@@ -104,10 +103,6 @@ struct ONNXOpShapeHelper {
   // another type. Type must have constant shape (all values>=0).
   mlir::LogicalResult computeShapeFromTypeWithConstantShape(
       mlir::Type type, int n = 0);
-=======
-  // Helper function that set n'th output dims from the given value.
-  mlir::LogicalResult computeShapeFromOperand(mlir::Value operand, int n = 0);
->>>>>>> main
 
   // Compute shape and assert on failure.
   void computeShapeAndAssertOnFailure();
