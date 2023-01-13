@@ -435,7 +435,9 @@ struct ZHighLayoutPropagationPass
     // Sub
     patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXSubOp>>(ctx);
     // Reciprocal
-    patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReciprocalOp>>(ctx);
+    // ERROR: aiu_ops_func_specific() (aiu_ops.c:155):
+    // ZDNN_ELEMENT_RANGE_VIOLATION: Range violation on tensor data
+    // patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReciprocalOp>>(ctx);
     // Sqrt
     patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(ctx);
 
