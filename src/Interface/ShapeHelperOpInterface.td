@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//=======- ShapeHelperInterface.td - ShapeHelper Interface -*- tablegen -=====//
+//===- ShapeHelperInterface.td - ShapeHelper Interface -*- tablegen -===//
 //
 // Copyright 2023 The IBM Research Authors.
 //

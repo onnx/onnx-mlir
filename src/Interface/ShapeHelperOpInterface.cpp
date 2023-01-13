@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---- ShapeHelperOpInterface.cpp - Definition for ShapeHelper ---===//
+//===------- ShapeHelperOpInterface.cpp - Definition for ShapeHelper ------===//
 //
 // Copyright 2023 The IBM Research Authors.
 //
