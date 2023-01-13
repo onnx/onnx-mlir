@@ -95,7 +95,8 @@ struct ONNXOpShapeHelper {
   // Helper for ops for which the output (n'th) is the same as the type of a
   // given input operand's type.
   mlir::LogicalResult computeShapeFromOperand(mlir::Value operand, int n = 0);
-  // Helper for ops for which the output (n'th) is a constant shape.
+  // Helper for ops for which the output (n'th) is a constant shape. Value -1
+  // indicates runtime dim.
   mlir::LogicalResult computeShapeFromLiterals(
       llvm::SmallVector<int64_t, 4> shape, int n = 0);
   // Helper for ops for which the output (n'th) is defined by the shape of

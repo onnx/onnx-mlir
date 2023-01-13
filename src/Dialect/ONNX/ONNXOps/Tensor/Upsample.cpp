@@ -20,6 +20,47 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXUpsampleOpShapeHelper::computeShape() {
+  // Read data and indices shapes as dim indices.
+  ONNXUpsampleOpAdaptor operandAdaptor(operands);
+
+  // No need to come up with a solution that generate runtime bounds as this op
+  // will be converted to a resize op.
+  DimsExpr outputDims, xShape;
+  createIE->getShapeAsDims(operandAdaptor.X(), xShape);
+  int64_t xRank = xShape.size();
+  for (int64_t i = 0; i < xRank; ++i)
+    outputDims.emplace_back(QuestionmarkIndexExpr());
+
+  auto scalesConstOp = getONNXConstantOp(operandAdaptor.scales());
+  if (scalesConstOp) {
+    // Can get the scales as constant.
+    auto valueAttr = scalesConstOp.valueAttr().dyn_cast<ElementsAttr>();
+    if (!valueAttr)
+      return op->emitError("Scales constant is not an ElementsAttr");
+    for (int64_t i = 0; i < xRank; ++i) {
+      if (xShape[i].isLiteral()) {
+        // When shape is also constant, replace questionmark by actual value.
+        double dim = xShape[i].getLiteral();
+        double scale = valueAttr.getValues<FloatAttr>()[i].getValueAsDouble();
+        outputDims[i] = LiteralIndexExpr((int64_t)(dim * scale));
+      }
+    }
+  }
+
+  setOutputDims(outputDims);
+  return success();
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -37,7 +78,7 @@ LogicalResult ONNXUpsampleOp::verify() {
   // Safety checks on scale argument
   auto scalesTy = scales().getType().cast<RankedTensorType>();
   if (scalesTy.getShape().size() != 1) {
-    return emitError("Scales tensor must be rank-1");
+    return emitError("Scales tensor must be rank 1");
   }
   if (scalesTy.getShape()[0] != inputRank) {
     return emitError("Input tensor rank doesn't match scales tensor shape");
@@ -80,6 +121,11 @@ LogicalResult ONNXUpsampleOp::inferShapes(
     return success();
   }
 
+#if 1
+  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  ONNXUpsampleOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+#else
   auto inputTy = X().getType().cast<RankedTensorType>();
   int32_t inputRank = inputTy.getShape().size();
 
@@ -109,4 +155,13 @@ LogicalResult ONNXUpsampleOp::inferShapes(
       RankedTensorType::get(outputDims, inputTy.getElementType()));
 
   return success();
+#endif
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXUpsampleOp>;
+} // namespace onnx_mlir

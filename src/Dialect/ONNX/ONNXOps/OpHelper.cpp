@@ -450,11 +450,12 @@ bool AreTheSameConstantOpDenseAttr(
 bool hasShapeAndRank(Value val) {
   Type valType = val.getType();
   ShapedType shapedType;
-  if (auto seqType = valType.dyn_cast<SeqType>()) {
+  if (SeqType seqType = valType.dyn_cast<SeqType>()) 
     shapedType = seqType.getElementType().dyn_cast<ShapedType>();
-  } else {
+  else if (OptType optType = valType.dyn_cast<OptType>())
+    shapedType = optType.getElementType().dyn_cast<ShapedType>();  
+  else 
     shapedType = valType.dyn_cast<ShapedType>();
-  }
   return shapedType && shapedType.hasRank();
 }
 

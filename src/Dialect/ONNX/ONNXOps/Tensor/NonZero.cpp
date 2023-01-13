@@ -19,6 +19,21 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXNonZeroOpShapeHelper::computeShape() {
+  ONNXNonZeroOpAdaptor operandAdaptor(operands);
+  int64_t xRank = createIE->getShapedTypeRank(operandAdaptor.X());
+  return computeShapeFromLiterals({xRank, -1});
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -28,6 +43,15 @@ using namespace onnx_mlir;
 
 LogicalResult ONNXNonZeroOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+#if 1
+  if (!hasShapeAndRank(X()))
+    return success();
+
+  auto builder = Builder(getContext());
+  Type elementType = builder.getI64Type();
+  ONNXNonZeroOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+#else
   auto builder = Builder(getContext());
   Type inputType = getOperand().getType();
   if (!inputType.isa<RankedTensorType>())
@@ -40,4 +64,13 @@ LogicalResult ONNXNonZeroOp::inferShapes(
   dims.emplace_back(-1);
   getResult().setType(RankedTensorType::get(dims, builder.getI64Type()));
   return success();
+#endif
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXNonZeroOp>;
+} // namespace onnx_mlir

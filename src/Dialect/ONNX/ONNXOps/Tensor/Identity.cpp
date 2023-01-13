@@ -41,20 +41,14 @@ LogicalResult ONNXIdentityOpShapeHelper::computeShape() {
 
 LogicalResult ONNXIdentityOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  fprintf(stderr, "hi alex 1\n");
   if (!hasShapeAndRank(input()))
     return success();
 
-#if 1
-  fprintf(stderr, "hi alex 2\n");
-  Type elementType =
-      input().getType().cast<RankedTensorType>().getElementType();
-  ONNXIdentityOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(elementType);
-#else
-  getResult().setType(getOperand().getType());
+  // Since identity set the output to the same as the input, don't use the shape
+  // helper infrastructure here, especially because we may have to deal with Opt
+  // or Seq types.
+  getResult().setType(input().getType());
   return success();
-#endif
 }
 
 //===----------------------------------------------------------------------===//

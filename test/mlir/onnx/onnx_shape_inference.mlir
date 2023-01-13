@@ -2582,14 +2582,17 @@ return %1 : tensor<*xf32>
 
 // -----
 
+
 func.func @test_upsample_dyn(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
 %1 = "onnx.Upsample"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<*xf32>
 return %1 : tensor<*xf32>
 
-// CHECK-LABEL: test_upsample_dyn
-// CHECK: [[RES:%.+]] = "onnx.Upsample"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<*xf32>
-// CHECK: return [[RES]] : tensor<*xf32>
-
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_upsample_dyn
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x2x2xf32>, [[PARAM_1_:%.+]]: tensor<4xf32>) -> tensor<?x?x?x?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Upsample"([[PARAM_0_]], [[PARAM_1_]]) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<?x?x?x?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x?x?xf32>
+// CHECK:         }
 }
 
 // -----

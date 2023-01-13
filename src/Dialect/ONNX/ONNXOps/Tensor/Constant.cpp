@@ -57,15 +57,10 @@ LogicalResult ONNXConstantOp::inferShapes(
     valAttr = sparse_valueAttr().cast<SparseElementsAttr>();
   else
     valAttr = valueAttr().cast<DenseElementsAttr>();
-#if 1
   Type elementType =
       valAttr.getType().cast<RankedTensorType>().getElementType();
   ONNXConstantOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-#else
-  getResult().setType(valAttr.getType());
-  return success();
-#endif
 }
 
 //===----------------------------------------------------------------------===//
