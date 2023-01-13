@@ -86,6 +86,7 @@ using ONNXArrayFeatureExtractorOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXBatchNormalizationOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXBinarizerOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXBlackmanWindowOpShapeHelper = ONNXUnimplementedOpShapeHelper;
+using ONNXCallOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXCastMapOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXCenterCropPadOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXClipV11OpShapeHelper = ONNXUnimplementedOpShapeHelper;
@@ -93,6 +94,7 @@ using ONNXClipV12OpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXClipV6OpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXCol2ImOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXConcatFromSequenceOpShapeHelper = ONNXUnimplementedOpShapeHelper;
+using ONNXCustomOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXDetOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXDictVectorizerOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXFeatureVectorizerOpShapeHelper = ONNXUnimplementedOpShapeHelper;
@@ -133,7 +135,7 @@ using ONNXTreeEnsembleClassifierOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXTreeEnsembleRegressorOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXUniqueOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXUpsampleV7OpShapeHelper = ONNXUnimplementedOpShapeHelper;
-using ONNXCustomOpShapeHelper = ONNXUnimplementedOpShapeHelper;
+using ONNXZipMapOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 
 // Classes with implemented shape inference but not shape helper.
 using ONNXConvTransposeOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Not implemented.
@@ -150,11 +152,6 @@ using ONNXSequenceEraseOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason
 using ONNXSequenceInsertOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Seq
 using ONNXSequenceLengthOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Seq
 using ONNXSplitToSequenceOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Seq
-
-// not sure of status
-using ONNXZipMapOpShapeHelper = ONNXUnimplementedOpShapeHelper;
-using ONNXCallOpShapeHelper = ONNXUnimplementedOpShapeHelper;
-
 // clang-format on
 
 //===----------------------------------------------------------------------===//
@@ -212,6 +209,7 @@ using ONNXHardSwishOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXHardmaxOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXInstanceNormalizationOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXIsNaNOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXLayoutTransformOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXLeakyReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXLogOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXLogSoftmaxOpShapeHelper = ONNXUnaryOpShapeHelper;
@@ -243,9 +241,6 @@ using ONNXTanOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTanhOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXThresholdedReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTriluOpShapeHelper = ONNXUnaryOpShapeHelper;
-
-using ONNXLayoutTransformOpShapeHelper = ONNXUnaryOpShapeHelper;
-
 // clang-format on
 
 //===----------------------------------------------------------------------===//
@@ -413,12 +408,11 @@ struct ONNXGenericGlobalPoolOpShapeHelper : public ONNXOpShapeHelper {
   mlir::LogicalResult computeShape() final;
 };
 
-using ONNXGlobalAveragePoolOpShapeHelper =
-    ONNXGenericGlobalPoolOpShapeHelper<mlir::ONNXGlobalAveragePoolOp>;
-using ONNXGlobalLpPoolOpShapeHelper =
-    ONNXGenericGlobalPoolOpShapeHelper<mlir::ONNXGlobalLpPoolOp>;
-using ONNXGlobalMaxPoolOpShapeHelper =
-    ONNXGenericGlobalPoolOpShapeHelper<mlir::ONNXGlobalMaxPoolOp>;
+// clang-format off
+using ONNXGlobalAveragePoolOpShapeHelper = ONNXGenericGlobalPoolOpShapeHelper<mlir::ONNXGlobalAveragePoolOp>;
+using ONNXGlobalLpPoolOpShapeHelper = ONNXGenericGlobalPoolOpShapeHelper<mlir::ONNXGlobalLpPoolOp>;
+using ONNXGlobalMaxPoolOpShapeHelper = ONNXGenericGlobalPoolOpShapeHelper<mlir::ONNXGlobalMaxPoolOp>;
+// clang-format on
 
 //===----------------------------------------------------------------------===//
 // Slice Op
@@ -632,7 +626,7 @@ using ONNXUnsqueezeV11OpShapeHelper = ONNXCommonUnsqueezeOpShapeHelper<mlir::ONN
 // clang-format on
 
 //===----------------------------------------------------------------------===//
-// Reduction Ops ()
+// Reduction Ops
 //===----------------------------------------------------------------------===//
 
 // Generic Reduction shape helper.
@@ -719,15 +713,18 @@ struct ONNXNonSpecificOpShapeHelper : public ONNXOpShapeHelper {
 
 // Ops listed in alphabetical order. Disable formatting for easier sorting.
 // clang-format off
+using ONNXBatchNormalizationInferenceModeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXBatchNormalizationInferenceModeOp>;
 using ONNXCategoryMapperOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
 using ONNXClipOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
 using ONNXCompressOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
 using ONNXConcatOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
 using ONNXConcatShapeTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
 using ONNXConstantOfShapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConstantOfShapeOp>;
+using ONNXConstantOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConstantOp>;
 using ONNXDFTOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDFTOp>;
 using ONNXDepthToSpaceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
 using ONNXDequantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDequantizeLinearOp>;
+using ONNXDimOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDimOp>;
 using ONNXDropoutOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDropoutOp>;
 using ONNXDynamicQuantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDynamicQuantizeLinearOp>;
 using ONNXEinsumOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXEinsumOp>;
@@ -736,32 +733,26 @@ using ONNXFlattenOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXFlattenO
 using ONNXGatherElementsOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherElementsOp>;
 using ONNXGatherNDOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherNDOp>;
 using ONNXGatherOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXGatherOp>;
+using ONNXIdentityOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXIdentityOp>;
 using ONNXLRNOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXLRNOp>;
 using ONNXMaxRoiPoolOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXMaxRoiPoolOp>;
+using ONNXNonMaxSuppressionOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXNonMaxSuppressionOp>;
+using ONNXNonZeroOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXNonZeroOp>;
 using ONNXOneHotEncoderOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXOneHotEncoderOp>;
 using ONNXQuantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXQuantizeLinearOp>;
+using ONNXRandomNormalOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRandomNormalOp>;
 using ONNXRangeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRangeOp>;
 using ONNXReshapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
 using ONNXResizeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXResizeOp>;
 using ONNXResizeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXResizeOp>;
 using ONNXReverseSequenceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
+using ONNXSizeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSizeOp>;
 using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
 using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
-
-using ONNXRandomNormalOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRandomNormalOp>;
-using ONNXBatchNormalizationInferenceModeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXBatchNormalizationInferenceModeOp>;
-using ONNXNonMaxSuppressionOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXNonMaxSuppressionOp>;
-using ONNXConstantOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConstantOp>;
-using ONNXIdentityOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXIdentityOp>;
-using ONNXNonZeroOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXNonZeroOp>;
 using ONNXUpsampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleOp>;
-using ONNXDimOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDimOp>;
-using ONNXSizeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSizeOp>;
-
 // clang-format on
-// using ShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::>;
 
 //===----------------------------------------------------------------------===//
 // Helper function for getShapeHelper

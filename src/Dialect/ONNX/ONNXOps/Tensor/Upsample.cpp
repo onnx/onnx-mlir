@@ -31,7 +31,9 @@ LogicalResult ONNXUpsampleOpShapeHelper::computeShape() {
   ONNXUpsampleOpAdaptor operandAdaptor(operands);
 
   // No need to come up with a solution that generate runtime bounds as this op
-  // will be converted to a resize op.
+  // will be converted to a resize op. If that were not the case, we would need
+  // to load the float values, convert the shapes to float, multiply, reconvert
+  // back to int. No need for that at this moment.
   DimsExpr outputDims, xShape;
   createIE->getShapeAsDims(operandAdaptor.X(), xShape);
   int64_t xRank = xShape.size();
