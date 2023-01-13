@@ -74,7 +74,6 @@ LogicalResult ONNXEinsumOp::verify() {
       return emitOpError() << "different input element types";
     }
   }
-  // hi alex if (!llvm::all_of(inputs, hasShapeAndRank))
   if (!hasShapeAndRank(getOperation()))
     return success(); // Can only infer once operand shapes are known.
   return einsum::verifyShapes(operandAdaptor, errorFn);
@@ -87,7 +86,6 @@ LogicalResult ONNXEinsumOp::verify() {
 LogicalResult ONNXEinsumOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   ONNXEinsumOpAdaptor operandAdaptor(*this);
-  // hi alex if (!llvm::all_of(operandAdaptor.Inputs(), hasShapeAndRank))
   if (!hasShapeAndRank(getOperation()))
     return success(); // Can only infer once operand shapes are known.
 

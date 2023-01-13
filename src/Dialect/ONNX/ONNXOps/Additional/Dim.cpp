@@ -27,7 +27,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXDimOpShapeHelper::computeShape() {
   // Dim returns tensor<1xi64>
-  return computeShapeFromLiterals({1});
+  return setOutputDimsFromLiterals({1});
 }
 
 } // namespace onnx_mlir

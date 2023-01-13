@@ -28,7 +28,7 @@ template <>
 LogicalResult ONNXNonZeroOpShapeHelper::computeShape() {
   ONNXNonZeroOpAdaptor operandAdaptor(operands);
   int64_t xRank = createIE->getShapedTypeRank(operandAdaptor.X());
-  return computeShapeFromLiterals({xRank, -1});
+  return setOutputDimsFromLiterals({xRank, -1});
 }
 
 } // namespace onnx_mlir

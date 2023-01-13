@@ -28,7 +28,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXClipOpShapeHelper::computeShape() {
   ONNXClipOpAdaptor operandAdaptor(operands);
-  return computeShapeFromOperand(operandAdaptor.input());
+  return setOutputDimsFromOperand(operandAdaptor.input());
 }
 
 } // namespace onnx_mlir

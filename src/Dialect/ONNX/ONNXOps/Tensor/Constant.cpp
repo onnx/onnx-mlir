@@ -33,7 +33,7 @@ LogicalResult ONNXConstantOpShapeHelper::computeShape() {
     valAttr = operandAdaptor.sparse_valueAttr().cast<SparseElementsAttr>();
   else
     valAttr = operandAdaptor.valueAttr().cast<DenseElementsAttr>();
-  return computeShapeFromTypeWithConstantShape(valAttr.getType());
+  return setOutputDimsFromTypeWithConstantShape(valAttr.getType());
 }
 
 } // namespace onnx_mlir

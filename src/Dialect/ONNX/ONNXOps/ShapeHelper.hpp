@@ -168,7 +168,7 @@ struct ONNXUnaryOpShapeHelper : public ONNXOpShapeHelper {
   virtual ~ONNXUnaryOpShapeHelper() {}
 
   mlir::LogicalResult computeShape() final {
-    return computeShapeFromOperand(operands[0]);
+    return setOutputDimsFromOperand(operands[0]);
   }
 };
 

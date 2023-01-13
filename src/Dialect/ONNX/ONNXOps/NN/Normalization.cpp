@@ -28,7 +28,7 @@ template <>
 LogicalResult ONNXBatchNormalizationInferenceModeOpShapeHelper::computeShape() {
   // Single output in inference mode, Y same shape as X.
   ONNXBatchNormalizationInferenceModeOpAdaptor operandAdaptor(operands);
-  return computeShapeFromOperand(operandAdaptor.X());
+  return setOutputDimsFromOperand(operandAdaptor.X());
 }
 
 } // namespace onnx_mlir
