@@ -28,6 +28,7 @@ using namespace onnx_mlir;
 
 LogicalResult ONNXCustomOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  // TODO: is this used?
   // getResult().setType(getOperand().getType());
   return success();
 }

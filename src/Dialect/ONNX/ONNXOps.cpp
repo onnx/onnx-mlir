@@ -29,6 +29,7 @@
 // Enable the corresponding node test in check-onnx-backend
 
 #define NOT_IMPLEMENTED_INFER_SHAPES(T)                                        \
+  /* shape inference interface method */                                       \
   mlir::LogicalResult mlir::T::inferShapes(                                    \
       std::function<void(mlir::Region &)> doShapeInference) {                  \
     return emitOpError(                                                        \
