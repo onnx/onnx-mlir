@@ -76,25 +76,19 @@ LogicalResult ONNXResizeOp::inferShapes(
   if (!X().getType().isa<RankedTensorType>()) {
     return success();
   }
-  // TODO : Return to this implementation once floating point scales are handled
-  //
-  // Type elementType = X().getType().cast<RankedTensorType>().getElementType();
-  // ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});
-  // return shapeHelper.computeShapeAndUpdateType(elementType);
 
-  auto inputTy = X().getType().cast<RankedTensorType>();
-
-  // Output should at least has the same rank as X input
-  if (!getResult().getType().isa<RankedTensorType>()) {
-    SmallVector<int64_t, 4> dims(inputTy.getRank(), -1);
-    getResult().setType(RankedTensorType::get(dims, inputTy.getElementType()));
-  }
-
-  assert(isFromNone(scales()) != isFromNone(sizes()) &&
-         "Exactly one of scales and sizes can be defined");
-
-  // Current implementation handles constant scales only
+  // TODO : Remove this if branch once floating point scales are handled in
+  // ONNXResizeOpShapeHelper Issue number : #1958
   if (!isFromNone(scales())) {
+    auto inputTy = X().getType().cast<RankedTensorType>();
+
+    // Output should at least has the same rank as X input
+    if (!getResult().getType().isa<RankedTensorType>()) {
+      SmallVector<int64_t, 4> dims(inputTy.getRank(), -1);
+      getResult().setType(
+          RankedTensorType::get(dims, inputTy.getElementType()));
+    }
+
     ElementsAttr scalesAttrs = getElementAttributeFromONNXValue(scales());
     if (!scalesAttrs) {
       return success();
@@ -116,20 +110,12 @@ LogicalResult ONNXResizeOp::inferShapes(
     }
 
     updateType(getResult(), dims, inputTy.getElementType());
-  } else {
-    ElementsAttr sizesAttrs = getElementAttributeFromONNXValue(sizes());
-    if (!sizesAttrs) {
-      return success();
-    }
-
-    SmallVector<int64_t, 4> sizesConstant;
-    for (auto sizeAttr : sizesAttrs.getValues<IntegerAttr>()) {
-      sizesConstant.emplace_back(sizeAttr.getInt());
-    }
-
-    updateType(getResult(), sizesConstant, inputTy.getElementType());
+    return success();
   }
-  return success();
+
+  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
