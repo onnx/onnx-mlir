@@ -236,6 +236,73 @@ ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
   });
 }
 
+ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
+    ElementsAttr rhs, ShapedType combinedType) {
+  assert(cond.getElementType().isInteger(1));
+  assert(lhs.getElementType() == rhs.getElementType());
+  assert(lhs.getElementType() == combinedType.getElementType());
+
+  auto combinedShape = combinedType.getShape();
+
+  if (cond.isSplat()) {
+    bool condBool = getElementsSplatWideNum(cond).u64;
+    return expand(condBool ? lhs : rhs, combinedShape);
+  }
+
+  // TODO: Reuse implementation with expandAndTransform in combine().
+  auto expandAndTransform = [combinedType, combinedShape, this](
+                                ElementsAttr elms, auto transformFunc) {
+    ElementsProperties props = getElementsProperties(elms);
+    auto xpStrides = expandStrides(props.strides, combinedShape);
+    return create(combinedType, props.bufferBType, xpStrides, props.buffer,
+        [transformer = props.transformer, func = std::move(transformFunc)](
+            MutableArrayRef<WideNum> data) -> void {
+          if (transformer != nullptr)
+            transformer(data);
+          for (WideNum &n : data)
+            n = func(n);
+        });
+  };
+
+  if (lhs.isSplat() && rhs.isSplat()) {
+    WideNum lhsNum = getElementsSplatWideNum(lhs);
+    WideNum rhsNum = getElementsSplatWideNum(rhs);
+    return expandAndTransform(
+        cond, [lhsNum, rhsNum](WideNum n) { return n.u64 ? lhsNum : rhsNum; });
+  }
+
+  // TODO: Reuse implementation with getWideNumsAndStrides in combine().
+  auto getWideNumsAndStrides = [](ElementsAttr elms,
+                                   SmallVectorImpl<int64_t> &strides) {
+    if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
+      auto disposableStrides = disposable.getStrides();
+      strides.assign(disposableStrides.begin(), disposableStrides.end());
+      return disposable.getBufferAsWideNums();
+    } else {
+      strides = getDefaultStrides(elms.getType().getShape());
+      return getElementsWideNums(elms);
+    };
+  };
+
+  SmallVector<int64_t, 4> lhsStrides;
+  ArrayBuffer<WideNum> lhsNums = getWideNumsAndStrides(lhs, lhsStrides);
+  auto xpLhsStrides = expandStrides(lhsStrides, combinedShape);
+  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
+
+  SmallVector<int64_t, 4> rhsStrides;
+  ArrayBuffer<WideNum> rhsNums = getWideNumsAndStrides(rhs, rhsStrides);
+  auto xpRhsStrides = expandStrides(rhsStrides, combinedShape);
+  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
+
+  return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
+    readElementsWideNums(cond, dstNums);
+    WideNum *end = traverseStrides<WideNum *, WideNum, WideNum>(combinedShape,
+        dstNums.begin(), stridedLhs, stridedRhs,
+        [](WideNum *res, WideNum x, WideNum y) { *res = res->u64 ? x : y; });
+    assert(end == dstNums.end() && "traverses every dstNums element");
+  });
+}
+
 namespace {
 template <typename SrcT, typename DstT>
 struct Caster {

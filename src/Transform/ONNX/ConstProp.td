@@ -106,6 +106,9 @@ def CreateMulOfTwoConst :
 def CreateDivOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXDivOp>($_builder, $0, $1, $2)">;
 
+def CreateWhereOfThreeConst :
+   NativeCodeCall<"ConstPropWhere($_builder, $0, $1, $2, $3)">;
+
 def CreateTransposeOfConst :
    NativeCodeCall<"ConstPropTranspose($_builder, $0, $1)">;
 
@@ -331,6 +334,23 @@ def DivConstProp : Pat<
     (CreateDivOfTwoConst $divOp, $lhs, $rhs),
     // Division constraints
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+
+
+//===----------------------------------------------------------------------===//
+// Patterns for Where.
+//===----------------------------------------------------------------------===//
+
+// Constant Propagation for Where
+def WhereConstProp : Pat<
+    // From where(c0, c1, c2).
+    (ONNXWhereOp:$whereOp (ONNXConstantOp:$condition $_, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$X $_, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$Y $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To c0?c1:c2
+    (CreateWhereOfThreeConst $whereOp, $condition, $X, $Y),
+    // Where constraints
+    [(IsFromDenseONNXConstantOp:$condition),
+     (IsFromDenseONNXConstantOp:$X), (IsFromDenseONNXConstantOp:$Y)]>;
 
 
 //===----------------------------------------------------------------------===//
