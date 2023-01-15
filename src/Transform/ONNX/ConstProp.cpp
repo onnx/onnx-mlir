@@ -239,7 +239,7 @@ Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
   Type replacingType = replacingValue.getType().cast<ShapedType>();
 
   ElementsAttr cond = getConstValueElements(condValue);
-  assert(cond.getElementType.isInteger(1) &&
+  assert(cond.getElementType().isInteger(1) &&
          "ONNXWhereOp condition has bool element type");
   ElementsAttr lhs = getConstValueElements(lhsValue);
   ElementsAttr rhs = getConstValueElements(rhsValue);
