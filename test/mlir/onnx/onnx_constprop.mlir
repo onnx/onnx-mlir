@@ -310,8 +310,8 @@ func.func @test_default_transpose_const_3() -> tensor<*xi32> {
 
 // -----
 
-// CHECK-LABEL: @test_div(%arg0: tensor<3x2xf32>) -> tensor<3x2xf32>
-func.func @test_div(%arg0: tensor<3x2xf32>) -> tensor<3x2xf32> {
+// CHECK-LABEL: @test_div() -> tensor<3x2xf32>
+func.func @test_div() -> tensor<3x2xf32> {
   %0 = onnx.Constant dense<[[2.0, 4.0], [6.0, 8.0], [10.0, 12.0]]> : tensor<3x2xf32>
   %1 = onnx.Constant dense<[[2.0]]> : tensor<1x1xf32>
   %2 = "onnx.Div"(%0, %1) : (tensor<3x2xf32>, tensor<1x1xf32>) -> tensor<3x2xf32>
