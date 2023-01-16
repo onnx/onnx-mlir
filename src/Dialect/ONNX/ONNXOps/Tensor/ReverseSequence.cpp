@@ -29,7 +29,7 @@ LogicalResult ONNXReverseSequenceOpShapeHelper::computeShape() {
   // Get info about input data operand.
   ONNXReverseSequenceOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.input();
-  return computeShapeFromOperand(input);
+  return setOutputDimsFromOperand(input);
 }
 
 } // namespace onnx_mlir

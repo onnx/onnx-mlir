@@ -4,7 +4,7 @@
 
 //===------------------ Constant.cpp - ONNX Operations --------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -17,6 +17,26 @@
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
+
+//===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXConstantOpShapeHelper::computeShape() {
+  ONNXConstantOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+
+  ElementsAttr valAttr;
+  if (operandAdaptor.sparse_value().has_value())
+    valAttr = operandAdaptor.sparse_valueAttr().cast<SparseElementsAttr>();
+  else
+    valAttr = operandAdaptor.valueAttr().cast<ElementsAttr>();
+  return setOutputDimsFromTypeWithConstantShape(valAttr.getType());
+}
+
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // Verify
@@ -37,6 +57,16 @@ LogicalResult ONNXConstantOp::inferShapes(
     valAttr = sparse_valueAttr().cast<SparseElementsAttr>();
   else
     valAttr = valueAttr().cast<ElementsAttr>();
-  getResult().setType(valAttr.getType());
-  return success();
+  Type elementType =
+      valAttr.getType().cast<RankedTensorType>().getElementType();
+  ONNXConstantOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXConstantOp>;
+} // namespace onnx_mlir
