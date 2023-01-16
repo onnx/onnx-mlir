@@ -34,8 +34,11 @@ public:
   /// ## coordinateTransformationMode ##
   /// TOSA uses the formula ix = (ox * scale_x_d + offset_x) / scale_x_n
   /// to find the input coordinates. In order to lower ONNX one needs to
-  /// express the modes in this context. Border is always
-  /// border = d * (output - 1) - n * (input - 1) + offset;
+  /// express the modes in this context. Border is only used to check if certain
+  /// conditions in the dimensions are met, but has no actual use in calculating
+  /// something. It is probably an error in the TOSA specification. In order to
+  /// fulfill the conditions, border is always
+  /// border = d * (output - 1) - n *(input - 1) + offset
   ///
   /// ### half_pixel ###
   /// ONNX formula: ix = (ox + 0.5) / scale - 0.5
@@ -88,6 +91,8 @@ public:
           resizeOp, "TOSA only support 4D tensors as input of resize.");
     }
 
+    // With only static dimensions, scales and sizes as inputs are not relevant
+    // anymore.
     if (inputType.isDynamicDim(2) || inputType.isDynamicDim(3)) {
       return rewriter.notifyMatchFailure(
           resizeOp, "Only static sized tensors are supported.");
@@ -104,6 +109,7 @@ public:
           "TOSA does not support ceil and round_prefer_floor as nearestMode.");
     }
 
+    // This also makes roi as an input irrelevant.
     if (coordinateTransformationMode == "tf_crop_and_resize") {
       return rewriter.notifyMatchFailure(
           resizeOp, "TOSA does not support tf_crop_and_resize.");
@@ -119,7 +125,7 @@ public:
         coordinateTransformationMode == "pytorch_half_pixel";
     bool isBilinear = mode == "linear";
     bool isNearest = mode == "nearest";
-    bool floor = nearestMode == "floor";
+    bool isNearestModeFloor = nearestMode == "floor";
     StringRef resizeMode = isBilinear ? "BILINEAR" : "NEAREST_NEIGHBOR";
 
     auto inputShape = inputType.getShape();
@@ -133,15 +139,16 @@ public:
     // Adapted from TFL to TOSA.
     // Align corners sets the scaling ratio to (OH - 1)/(IH - 1)
     // rather than OH / IH. Similarly for width.
-    auto normalize = [&](int64_t input, int64_t output, int64_t &n, int64_t &d,
-                         int64_t &offset, int64_t &border) {
+
+    auto normalize = [=](int64_t input, int64_t output) {
       // Dimension is length 1, we are just sampling from one value.
+      int64_t n, d, offset, border;
       if (input == 1) {
         n = 1;
         d = 1;
         offset = 0;
         border = output - 1;
-        return;
+        return std::make_tuple(n, d, offset, border);
       }
 
       // Test if pytorch_half_pixel needs special handling
@@ -150,7 +157,7 @@ public:
         d = 1;
         offset = -1;
         border = d * (output - 1) - n * (input - 1) + offset;
-        return;
+        return std::make_tuple(n, d, offset, border);
       }
 
       // Apply if aligned and capable to be aligned.
@@ -166,20 +173,19 @@ public:
       // If half pixel centers we need to sample half a pixel inward.
       offset = halfPixel || pytorchHalfPixel ? (d - n) / 2 : 0;
       // If round_half_up we need to adjust the offset
-      if (isNearest && floor) {
+      if (isNearest && isNearestModeFloor) {
         offset -= n / 2;
       }
 
       // We can compute this directly based on previous values.
       border = d * (output - 1) - n * (input - 1) + offset;
+      return std::make_tuple(n, d, offset, border);
     };
 
-    int64_t scale_y_n, scale_y_d, offset_y, border_y;
-    int64_t scale_x_n, scale_x_d, offset_x, border_x;
-    normalize(
-        inputHeight, outputHeight, scale_y_n, scale_y_d, offset_y, border_y);
-    normalize(
-        inputWidth, outputWidth, scale_x_n, scale_x_d, offset_x, border_x);
+    auto [scale_y_n, scale_y_d, offset_y, border_y] =
+        normalize(inputHeight, outputHeight);
+    auto [scale_x_n, scale_x_d, offset_x, border_x] =
+        normalize(inputWidth, outputWidth);
 
     auto scale =
         rewriter.getI64ArrayAttr({scale_y_n, scale_y_d, scale_x_n, scale_x_d});
