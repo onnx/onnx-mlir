@@ -207,26 +207,14 @@ ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
         lhs, [rhsNum, combiner](WideNum n) { return combiner(n, rhsNum); });
   }
 
-  auto getWideNumsAndStrides = [](ElementsAttr elms,
-                                   SmallVectorImpl<int64_t> &strides) {
-    if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
-      auto disposableStrides = disposable.getStrides();
-      strides.assign(disposableStrides.begin(), disposableStrides.end());
-      return disposable.getBufferAsWideNums();
-    } else {
-      strides = getDefaultStrides(elms.getType().getShape());
-      return getElementsWideNums(elms);
-    };
-  };
-
-  SmallVector<int64_t, 4> lhsStrides;
-  ArrayBuffer<WideNum> lhsNums = getWideNumsAndStrides(lhs, lhsStrides);
-  auto xpLhsStrides = expandStrides(lhsStrides, combinedShape);
+  SmallVector<int64_t, 4> xpLhsStrides;
+  ArrayBuffer<WideNum> lhsNums =
+      getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
   StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
 
-  SmallVector<int64_t, 4> rhsStrides;
-  ArrayBuffer<WideNum> rhsNums = getWideNumsAndStrides(rhs, rhsStrides);
-  auto xpRhsStrides = expandStrides(rhsStrides, combinedShape);
+  SmallVector<int64_t, 4> xpRhsStrides;
+  ArrayBuffer<WideNum> rhsNums =
+      getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
   StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
 
   return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
@@ -270,36 +258,25 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
         cond, [lhsNum, rhsNum](WideNum n) { return n.u64 ? lhsNum : rhsNum; });
   }
 
-  // TODO: Reuse implementation with getWideNumsAndStrides in combine().
-  auto getWideNumsAndStrides = [](ElementsAttr elms,
-                                   SmallVectorImpl<int64_t> &strides) {
-    if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
-      auto disposableStrides = disposable.getStrides();
-      strides.assign(disposableStrides.begin(), disposableStrides.end());
-      return disposable.getBufferAsWideNums();
-    } else {
-      strides = getDefaultStrides(elms.getType().getShape());
-      return getElementsWideNums(elms);
-    };
-  };
+  SmallVector<int64_t, 4> xpCondStrides;
+  ArrayBuffer<WideNum> condNums =
+      getWideNumsAndExpandedStrides(cond, combinedShape, xpCondStrides);
 
-  SmallVector<int64_t, 4> condStrides;
-  ArrayBuffer<WideNum> condNums = getWideNumsAndStrides(cond, condStrides);
-  auto xpCondStrides = expandStrides(condStrides, combinedShape);
-
-  SmallVector<int64_t, 4> lhsStrides;
-  ArrayBuffer<WideNum> lhsNums = getWideNumsAndStrides(lhs, lhsStrides);
-  auto xpLhsStrides = expandStrides(lhsStrides, combinedShape);
+  SmallVector<int64_t, 4> xpLhsStrides;
+  ArrayBuffer<WideNum> lhsNums =
+      getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
   StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
 
-  SmallVector<int64_t, 4> rhsStrides;
-  ArrayBuffer<WideNum> rhsNums = getWideNumsAndStrides(rhs, rhsStrides);
-  auto xpRhsStrides = expandStrides(rhsStrides, combinedShape);
+  SmallVector<int64_t, 4> xpRhsStrides;
+  ArrayBuffer<WideNum> rhsNums =
+      getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
   StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
 
   return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
+    // Copy cond into dstNums with broadcast.
     restrideArray<WideNum>(
         combinedShape, xpCondStrides, condNums.get(), dstNums);
+
     WideNum *end = traverseStrides<WideNum *, WideNum, WideNum>(combinedShape,
         dstNums.begin(), stridedLhs, stridedRhs,
         [](WideNum *res, WideNum x, WideNum y) { *res = res->u64 ? x : y; });
@@ -498,6 +475,19 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
   }
   // TODO: consider supporting more ElementsAttr types
   llvm_unreachable("unexpected ElementsAttr instance");
+}
+
+ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
+    ElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape,
+    llvm::SmallVectorImpl<int64_t> &expandedStrides) const {
+  if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
+    expandedStrides = expandStrides(disposable.getStrides(), expandedShape);
+    return disposable.getBufferAsWideNums();
+  } else {
+    auto strides = getDefaultStrides(elms.getType().getShape());
+    expandedStrides = expandStrides(strides, expandedShape);
+    return getElementsWideNums(elms);
+  };
 }
 
 ElementsAttr ElementsAttrBuilder::fromRawBytes(

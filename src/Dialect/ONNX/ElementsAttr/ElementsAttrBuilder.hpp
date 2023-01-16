@@ -143,6 +143,10 @@ private:
 
   ElementsProperties getElementsProperties(mlir::ElementsAttr elements) const;
 
+  ArrayBuffer<WideNum> getWideNumsAndExpandedStrides(mlir::ElementsAttr elms,
+      llvm::ArrayRef<int64_t> expandedShape,
+      llvm::SmallVectorImpl<int64_t> &expandedStrides) const;
+
   mlir::ElementsAttr fromRawBytes(
       mlir::ShapedType type, BType bufferBType, llvm::ArrayRef<char> bytes);
 
