@@ -227,6 +227,33 @@ Value ConstPropElementwiseUnary(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ONNXWhereOp in presence of
+// broadcast.
+//
+/// Does element-wise ternary (cond ? lhs : rhs) with broadcast on all inputs.
+//===----------------------------------------------------------------------===//
+
+Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
+    Value condValue, Value lhsValue, Value rhsValue) {
+  ConstPropCounters::count("Where", {condValue, lhsValue, rhsValue});
+  Type replacingType = replacingValue.getType().cast<ShapedType>();
+
+  ElementsAttr cond = getConstValueElements(condValue);
+  assert(cond.getElementType().isInteger(1) &&
+         "ONNXWhereOp condition has bool element type");
+  ElementsAttr lhs = getConstValueElements(lhsValue);
+  ElementsAttr rhs = getConstValueElements(rhsValue);
+  Type operandsElemType = lhs.getElementType();
+  assert(operandsElemType == rhs.getElementType() &&
+         "ONNXWhereOp branches have matching element types");
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr resultElements =
+      elementsBuilder.where(cond, lhs, rhs, replacingType);
+  return createReplacingConstantOp(rewriter, replacingValue, resultElements)
+      .getResult();
+}
+
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for transpose.
 //===----------------------------------------------------------------------===//
 
@@ -522,6 +549,7 @@ void ConstPropSliceImpl(ShapedType outputType,
 
 Value ConstPropSlice(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  ConstPropCounters::count("Slice", {constValue});
   Operation *op = replacingValue.getDefiningOp();
   ONNXSliceOp sliceOp = cast<ONNXSliceOp>(op);
 
