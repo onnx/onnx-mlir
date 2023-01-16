@@ -39,6 +39,41 @@ public:
       : ConversionPattern(ONNXResizeOp::getOperationName(), 1, ctx) {}
   using OpAdaptor = typename ONNXResizeOp::Adaptor;
 
+  /// ## coordinateTransformationMode ##
+  /// TOSA uses the formula ix = (ox * scale_x_d + offset_x) / scale_x_n
+  /// to find the input coordinates. In order to lower ONNX one needs to
+  /// express the modes in this context. Border is always
+  /// border = d * (output - 1) - n * (input - 1) + offset;
+  ///
+  /// ### half_pixel ###
+  /// ONNX formula: ix = (ox + 0.5) / scale - 0.5
+  /// gcd = greatest common divisor
+  /// To meet TOSA requirements:
+  /// - scale_x_d = input_size * 2 / gcd
+  /// - scale_x_n = output_size * 2 / gcd
+  /// - offset_x =  (scale_x_d - scale_x_n) / 2
+  ///
+  /// ### pytorch_half_pixel ###
+  /// Same as half_pixel, but if output == 1:
+  /// - scale_x_d = scale_x_n = 1
+  /// - offset = -1
+  ///
+  /// ### align_corners ###
+  /// - scale_x_d = (input_size - 1)
+  /// - scale_x_n = (output_size - 1)
+  /// - offset = 0
+  ///
+  /// ### asymmetric ###
+  /// - scale_x_d = input_size
+  /// - scale_x_n = output_size
+  /// - offset = 0
+  ///
+  /// ## nearest_mode ##
+  /// If mode == nearest, then ONNX can set the nearest_mode attribute.
+  /// The standard case for TOSA of round_half_up. Support for floor can
+  /// be achieved with:
+  /// offset_x -= n/2
+
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto resizeOp = llvm::cast<ONNXResizeOp>(op);
@@ -55,11 +90,15 @@ public:
     StringRef nearestMode = adaptor.nearest_mode();
     StringRef coordinateTransformationMode =
         adaptor.coordinate_transformation_mode();
-    int64_t excludeOutside = adaptor.exclude_outside();
 
     if (inputType.getRank() != 4) {
       return rewriter.notifyMatchFailure(
           resizeOp, "TOSA only support 4D tensors as input of resize.");
+    }
+
+    if (inputType.isDynamicDim(2) || inputType.isDynamicDim(3)) {
+      return rewriter.notifyMatchFailure(
+          resizeOp, "Only static sized tensors are supported.");
     }
 
     if (mode == "cubic") {
@@ -67,22 +106,15 @@ public:
           resizeOp, "TOSA does not support cubic interpolation.");
     }
 
-    if (nearestMode == "ceil" || nearestMode == "round_prefer_floor") {
+    if (mode == "nearest" &&
+        (nearestMode == "ceil" || nearestMode == "round_prefer_floor")) {
       return rewriter.notifyMatchFailure(resizeOp,
           "TOSA does not support ceil and round_prefer_floor as nearestMode.");
     }
 
-    // TODO: Maybe it does support it with border? Investigate on this.
-    if (excludeOutside) {
+    if (coordinateTransformationMode == "tf_crop_and_resize") {
       return rewriter.notifyMatchFailure(
-          resizeOp, "TOSA does not support excludeOutside.");
-    }
-
-    // TODO: special handling for pytorch_half_pixel
-    if (coordinateTransformationMode == "tf_crop_and_resize" ||
-        coordinateTransformationMode == "pytorch_half_pixel") {
-      return rewriter.notifyMatchFailure(resizeOp,
-          "TOSA does not support tf_crop_and_resize or pytorch_half_pixel.");
+          resizeOp, "TOSA does not support tf_crop_and_resize.");
     }
 
     // Convert input [N,IC,IH,IW] -> [N,IH,IW,IC]
@@ -91,6 +123,8 @@ public:
 
     bool alignCorners = coordinateTransformationMode == "align_corners";
     bool halfPixel = coordinateTransformationMode == "half_pixel";
+    bool pytorchHalfPixel =
+        coordinateTransformationMode == "pytorch_half_pixel";
     bool isBilinear = mode == "linear";
     bool isNearest = mode == "nearest";
     bool floor = nearestMode == "floor";
@@ -104,6 +138,7 @@ public:
     int64_t outputHeight = outputShape[2];
     int64_t outputWidth = outputShape[3];
 
+    // Adapted from TFL to TOSA.
     // Align corners sets the scaling ratio to (OH - 1)/(IH - 1)
     // rather than OH / IH. Similarly for width.
     auto normalize = [&](int64_t input, int64_t output, int64_t &n, int64_t &d,
@@ -114,6 +149,15 @@ public:
         d = 1;
         offset = 0;
         border = output - 1;
+        return;
+      }
+
+      // Test if pytorch_half_pixel needs special handling
+      if (pytorchHalfPixel && output == 1) {
+        n = 1;
+        d = 1;
+        offset = -1;
+        border = d * (output - 1) - n * (input - 1) + offset;
         return;
       }
 
@@ -128,18 +172,9 @@ public:
       d = 2 * d / gcd;
 
       // If half pixel centers we need to sample half a pixel inward.
-      offset = halfPixel ? (d - n) / 2 : 0;
+      offset = halfPixel || pytorchHalfPixel ? (d - n) / 2 : 0;
       // If round_half_up we need to adjust the offset
-      if (floor) {
-        offset -= n / 2;
-      }
-
-      // If nearest neighbours we need to guarantee we round up.
-      if (isNearest && alignCorners) {
-        offset += n / 2;
-      }
-
-      if (isBilinear && halfPixel) {
+      if (isNearest && floor) {
         offset -= n / 2;
       }
 
