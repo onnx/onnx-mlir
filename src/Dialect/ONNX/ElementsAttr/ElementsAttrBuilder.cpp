@@ -138,18 +138,15 @@ ElementsAttr ElementsAttrBuilder::fromWideNums(
       });
 }
 
-// TODO: Inline this implementation to help the compiler inline fun into the
-//       closure, if benchmarking demonstrates a speedup.
-/*static*/
-ElementsAttrBuilder::Transformer ElementsAttrBuilder::functionTransformer(
-    WideNum (*fun)(WideNum)) {
-  return [fun = std::move(fun)](MutableArrayRef<WideNum> data) -> void {
+namespace {
+template <typename Fun>
+ElementsAttrBuilder::Transformer toTransformer(Fun &&fun) {
+  return [fun = std::forward<Fun>(fun)](MutableArrayRef<WideNum> data) -> void {
     for (WideNum &n : data)
       n = fun(n);
   };
 }
 
-namespace {
 ElementsAttrBuilder::Transformer composeTransforms(
     ElementsAttrBuilder::Transformer first,
     ElementsAttrBuilder::Transformer second) {
@@ -163,6 +160,14 @@ ElementsAttrBuilder::Transformer composeTransforms(
     };
 }
 } // namespace
+
+// TODO: Inline this implementation to help the compiler inline fun into the
+//       closure, if benchmarking demonstrates a speedup.
+/*static*/
+ElementsAttrBuilder::Transformer ElementsAttrBuilder::functionTransformer(
+    WideNum (*fun)(WideNum)) {
+  return toTransformer(fun);
+}
 
 ElementsAttr ElementsAttrBuilder::transform(
     ElementsAttr elms, Type transformedElementType, Transformer transformer) {
@@ -179,33 +184,21 @@ ElementsAttr ElementsAttrBuilder::transform(
 //       demonstrates a speedup.
 ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
     ShapedType combinedType, WideNum (*combiner)(WideNum, WideNum)) {
-  auto combinedShape = combinedType.getShape();
-
-  auto expandAndTransform = [combinedType, combinedShape, this](
-                                ElementsAttr elms, auto transformFunc) {
-    ElementsProperties props = getElementsProperties(elms);
-    auto xpStrides = expandStrides(props.strides, combinedShape);
-    return create(combinedType, props.bufferBType, xpStrides, props.buffer,
-        [transformer = props.transformer, func = std::move(transformFunc)](
-            MutableArrayRef<WideNum> data) -> void {
-          if (transformer != nullptr)
-            transformer(data);
-          for (WideNum &n : data)
-            n = func(n);
-        });
-  };
-
   if (lhs.isSplat()) {
     WideNum lhsNum = getElementsSplatWideNum(lhs);
-    return expandAndTransform(
-        rhs, [lhsNum, combiner](WideNum n) { return combiner(lhsNum, n); });
+    return expandAndTransform(rhs, combinedType,
+        toTransformer(
+            [lhsNum, combiner](WideNum n) { return combiner(lhsNum, n); }));
   }
 
   if (rhs.isSplat()) {
     WideNum rhsNum = getElementsSplatWideNum(rhs);
-    return expandAndTransform(
-        lhs, [rhsNum, combiner](WideNum n) { return combiner(n, rhsNum); });
+    return expandAndTransform(lhs, combinedType,
+        toTransformer(
+            [rhsNum, combiner](WideNum n) { return combiner(n, rhsNum); }));
   }
+
+  auto combinedShape = combinedType.getShape();
 
   SmallVector<int64_t, 4> xpLhsStrides;
   ArrayBuffer<WideNum> lhsNums =
@@ -229,34 +222,20 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
   assert(lhs.getElementType() == rhs.getElementType());
   assert(lhs.getElementType() == combinedType.getElementType());
 
-  auto combinedShape = combinedType.getShape();
-
   if (cond.isSplat()) {
     bool condBool = getElementsSplatWideNum(cond).u64;
-    return expand(condBool ? lhs : rhs, combinedShape);
+    return expand(condBool ? lhs : rhs, combinedType.getShape());
   }
-
-  // TODO: Reuse implementation with expandAndTransform in combine().
-  auto expandAndTransform = [combinedType, combinedShape, this](
-                                ElementsAttr elms, auto transformFunc) {
-    ElementsProperties props = getElementsProperties(elms);
-    auto xpStrides = expandStrides(props.strides, combinedShape);
-    return create(combinedType, props.bufferBType, xpStrides, props.buffer,
-        [transformer = props.transformer, func = std::move(transformFunc)](
-            MutableArrayRef<WideNum> data) -> void {
-          if (transformer != nullptr)
-            transformer(data);
-          for (WideNum &n : data)
-            n = func(n);
-        });
-  };
 
   if (lhs.isSplat() && rhs.isSplat()) {
     WideNum lhsNum = getElementsSplatWideNum(lhs);
     WideNum rhsNum = getElementsSplatWideNum(rhs);
-    return expandAndTransform(
-        cond, [lhsNum, rhsNum](WideNum n) { return n.u64 ? lhsNum : rhsNum; });
+    return expandAndTransform(cond, combinedType,
+        toTransformer(
+            [lhsNum, rhsNum](WideNum n) { return n.u64 ? lhsNum : rhsNum; }));
   }
+
+  auto combinedShape = combinedType.getShape();
 
   SmallVector<int64_t, 4> xpCondStrides;
   ArrayBuffer<WideNum> condNums =
@@ -488,6 +467,18 @@ ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
     expandedStrides = expandStrides(strides, expandedShape);
     return getElementsWideNums(elms);
   };
+}
+
+ElementsAttr ElementsAttrBuilder::expandAndTransform(ElementsAttr elms,
+    ShapedType expandedTransformedType, Transformer transformer) {
+  ElementsProperties props = getElementsProperties(elms);
+
+  auto expandedStrides =
+      expandStrides(props.strides, expandedTransformedType.getShape());
+
+  return create(expandedTransformedType, props.bufferBType, expandedStrides,
+      props.buffer,
+      composeTransforms(props.transformer, std::move(transformer)));
 }
 
 ElementsAttr ElementsAttrBuilder::fromRawBytes(
