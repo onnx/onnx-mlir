@@ -235,7 +235,7 @@ Value ConstPropElementwiseUnary(
 
 Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
     Value condValue, Value lhsValue, Value rhsValue) {
-  ConstPropCounters::count("ElementwiseBinary", {lhsValue, rhsValue});
+  ConstPropCounters::count("Where", {condValue, lhsValue, rhsValue});
   Type replacingType = replacingValue.getType().cast<ShapedType>();
 
   ElementsAttr cond = getConstValueElements(condValue);
@@ -549,6 +549,7 @@ void ConstPropSliceImpl(ShapedType outputType,
 
 Value ConstPropSlice(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  ConstPropCounters::count("Slice", {constValue});
   Operation *op = replacingValue.getDefiningOp();
   ONNXSliceOp sliceOp = cast<ONNXSliceOp>(op);
 
