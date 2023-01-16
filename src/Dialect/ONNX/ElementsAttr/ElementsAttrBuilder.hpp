@@ -95,6 +95,16 @@ public:
   mlir::ElementsAttr combine(mlir::ElementsAttr lhs, mlir::ElementsAttr rhs,
       mlir::ShapedType combinedType, WideNum (*combiner)(WideNum, WideNum));
 
+  // Returns an ElementsAttr that is the result of applying a the function
+  // (cond ? lhs : rhs) element-wise after broadcast to combinedType.
+  //
+  // Constructs new underlying data except in the cases where either cond is
+  // splat or lhs and rhs are both splat. In those case reuses the underlying
+  // data of one of the elements and just adds the necessary transformation
+  // and broadcast.
+  mlir::ElementsAttr where(mlir::ElementsAttr cond, mlir::ElementsAttr lhs,
+      mlir::ElementsAttr rhs, mlir::ShapedType combinedType);
+
   // Returns an ElementsAttr with the elements cast to the given newElementType.
   //
   // Reuses elms' underlying data without a data copy.
@@ -132,6 +142,13 @@ private:
   struct ElementsProperties;
 
   ElementsProperties getElementsProperties(mlir::ElementsAttr elements) const;
+
+  ArrayBuffer<WideNum> getWideNumsAndExpandedStrides(mlir::ElementsAttr elms,
+      llvm::ArrayRef<int64_t> expandedShape,
+      llvm::SmallVectorImpl<int64_t> &expandedStrides) const;
+
+  mlir::ElementsAttr expandAndTransform(mlir::ElementsAttr elms,
+      mlir::ShapedType expandedTransformedType, Transformer transformer);
 
   mlir::ElementsAttr fromRawBytes(
       mlir::ShapedType type, BType bufferBType, llvm::ArrayRef<char> bytes);
