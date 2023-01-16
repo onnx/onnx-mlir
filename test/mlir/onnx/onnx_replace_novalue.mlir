@@ -13,8 +13,8 @@ func.func @test_onnx_gemm_novalue(%arg0: tensor<1x5xf32>, %arg1: tensor<4x5xf32>
    %none = "onnx.NoValue"() {value} : () -> none
    %0 = "onnx.Gemm"(%arg0, %arg1, %none) {transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x5xf32>, none) -> tensor<1x4xf32>
    return %0 : tensor<1x4xf32>
-// CHECK: %[[VAL_1:.*]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<1xf32>} : () -> tensor<1xf32>
-// CHECK: %[[VAL_2:.*]] = "onnx.Gemm"(%arg0, %arg1, %[[VAL_1]]) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x5xf32>, tensor<1xf32>) -> tensor<1x4xf32>
+// CHECK: %[[VAL_1:.*]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<4xf32>} : () -> tensor<4xf32>
+// CHECK: %[[VAL_2:.*]] = "onnx.Gemm"(%arg0, %arg1, %[[VAL_1]]) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x5xf32>, tensor<4xf32>) -> tensor<1x4xf32>
 }
 
 // -----
@@ -34,8 +34,8 @@ func.func @test_onnx_gemm_novalue_multiple_uses(%arg0: tensor<1x5xf32>, %arg1: t
    %0 = "onnx.Gemm"(%arg0, %arg1, %none) {transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x5xf32>, none) -> tensor<1x4xf32>
    %1 = "onnx.Gemm"(%arg0, %arg2, %none) {transB = 0 : si64} : (tensor<1x5xf32>, tensor<5x4xf32>, none) -> tensor<1x4xf32>
    return %0, %1 : tensor<1x4xf32>, tensor<1x4xf32>
-// CHECK: %[[VAL_1:.*]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<1xf32>} : () -> tensor<1xf32>
-// CHECK: %[[VAL_2:.*]] = "onnx.Gemm"(%arg0, %arg1, %[[VAL_1]]) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x5xf32>, tensor<1xf32>) -> tensor<1x4xf32>
-// CHECK: %[[VAL_3:.*]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<1xf32>} : () -> tensor<1xf32>
-// CHECK: %[[VAL_4:.*]] = "onnx.Gemm"(%arg0, %arg2, %[[VAL_3]]) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<1x5xf32>, tensor<5x4xf32>, tensor<1xf32>) -> tensor<1x4xf32>
+// CHECK: %[[VAL_1:.*]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<4xf32>} : () -> tensor<4xf32>
+// CHECK: %[[VAL_2:.*]] = "onnx.Gemm"(%arg0, %arg1, %[[VAL_1]]) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 1 : si64} : (tensor<1x5xf32>, tensor<4x5xf32>, tensor<4xf32>) -> tensor<1x4xf32>
+// CHECK: %[[VAL_3:.*]] = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<4xf32>} : () -> tensor<4xf32>
+// CHECK: %[[VAL_4:.*]] = "onnx.Gemm"(%arg0, %arg2, %[[VAL_3]]) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<1x5xf32>, tensor<5x4xf32>, tensor<4xf32>) -> tensor<1x4xf32>
 }

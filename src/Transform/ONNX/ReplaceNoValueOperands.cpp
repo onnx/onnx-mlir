@@ -86,8 +86,9 @@ public:
     if (isNotNoValue(matrixC)) {
       return rewriter.notifyMatchFailure(op, "has no NoValue operand");
     }
+    ArrayRef<int64_t> cshape(op.getResult().getType().cast<TensorType>().getShape()[1]);
 
-    matrixC = createONNXConstFromFloatValue(rewriter, op.getLoc(), {1}, 0.0F);
+    matrixC = createONNXConstFromFloatValue(rewriter, op.getLoc(), cshape, 0.0F);
     op.setOperand(2, matrixC);
     return success();
   }

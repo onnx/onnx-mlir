@@ -150,12 +150,24 @@ public:
     return success();
   }
 
-  /// The GEMM can be described as a FullyConnected operator
-  /// Y = AB^T + C if we perform a transpose on B only with
+  /// Check if the bias (C) needs broadcasting when we convert GEMM to FC.
+  static bool hasCCorrectShape(TensorType A, TensorType B, Value C) {
+      if (!C.getType().isa<mlir::RankedTensorType>())
+        return false;
+      ArrayRef<int64_t> AShape = A.getShape();
+      ArrayRef<int64_t> BShape = B.getShape();
+      ArrayRef<int64_t> CShape = C.getType().cast<RankedTensorType>().getShape();
+      // In the case of GemmToFC, transB is set meaning that B shapes will be interverted so we check B[0].
+      // Also, C is supposed to be of rank 1 so we only need to check C[0].
+      return CShape[0] == AShape[0] || CShape[0] == BShape[0];
+  }
+
+  /// The GEMM can be described as a FullyConnected operator.
+  /// Y = AB^T + C if we perform a transpose on B only with.
   /// alpha and beta factors set to 1.
-  /// Input A must be of rank 2 (input)
-  /// Input B must be of rank 2 (weights)
-  /// Input C must be of rank 1 (bias)
+  /// Input A must be of rank 2 (input).
+  /// Input B must be of rank 2 (weights).
+  /// Input C must be of rank 1 (bias).
   bool rewriteToTosaFC(ONNXGemmOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const {
     Value A = op.A();
@@ -165,22 +177,23 @@ public:
     auto AType = A.getType().cast<TensorType>();
     auto BType = B.getType().cast<TensorType>();
 
-    // If C is present, it can only be of rank 1
+    bool isCPresent = !C.getType().isa<mlir::NoneType>();
+    // If C is present, it can only be of rank 1, if the rank is not 1, return false.
     if (C.getType().isa<RankedTensorType>() &&
         C.getType().cast<RankedTensorType>().getRank() != 1) {
       return false;
     }
-    // Input tensor must be of rank 2
-    // Weights must also be of rank 2
+    // Input tensor must be of rank 2.
+    // Weights must also be of rank 2.
     if (AType.getRank() != 2 || BType.getRank() != 2) {
       return false;
     }
-    // Both alpha and beta must be 1
+    // Both alpha and beta must be 1.
     if ((adaptor.alpha().convertToFloat() != 1.0F) ||
         (adaptor.beta().convertToFloat() != 1.0F)) {
       return false;
     }
-    // Only Transpose B must be enabled
+    // Only Transpose B must be enabled.
     if (adaptor.transA() != 0 || adaptor.transB() != 1) {
       return false;
     }
@@ -188,19 +201,29 @@ public:
     // If all check passed, we replace the GEMM by a FC operator
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
 
-    // If no bias is given to the GEMM operator, we create a 1D bias with all
-    // zeroes
-    if (C.getType().isa<mlir::NoneType>()) {
-      // Base C format on B[0] format
-      ArrayRef<int64_t> cformat(B.getType().cast<TensorType>().getShape()[0]);
+    // Because the bias is not broadcastable for TOSA while it is for ONNX,
+    // we create an empty bias and use an add (broadcastable for tosa)
+    // afterwards.
+    // Base dummy C shape on B[0] shape.
+    bool needsBroadcasting = !hasCCorrectShape(AType, BType, C);
+    Value dummyC = C;
+    if (!isCPresent|| needsBroadcasting) {
+      ArrayRef<int64_t> cformat(resultType.cast<TensorType>().getShape()[1]);
       std::vector<float> elements = {};
       for (int i = 0; i < cformat[0]; ++i)
         elements.push_back(0.0F);
-      C = tosa::getConstTensor<float>(rewriter, op, elements, cformat).value();
+      dummyC = tosa::getConstTensor<float>(rewriter, op, elements, cformat).value();
     }
 
-    rewriter.replaceOpWithNewOp<mlir::tosa::FullyConnectedOp>(
-        op, resultType, A, B, C);
+    Value fcRes = tosa::CreateOpAndInfer<mlir::tosa::FullyConnectedOp>(rewriter,
+        op->getLoc(), resultType, A, B, dummyC).getResult();
+    // If C was present in the original GEMM, we create an add to take the bias into account.
+    if (isCPresent && needsBroadcasting) {
+      tosa::CreateReplaceOpAndInfer<mlir::tosa::AddOp>(rewriter, op, resultType, fcRes, C);
+    }
+    else {
+      rewriter.replaceOp(op, fcRes);
+    }
     return true;
   }
 };
