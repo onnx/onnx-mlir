@@ -32,34 +32,12 @@ WideNum getElementsSplatWideNum(ElementsAttr elms) {
   llvm_unreachable("WideNum only supports integer and float types");
 }
 
-// Returns a pointer to the underlying data as a flat WideNum array, if
-// everything aligns, otherwise makes and returns a copy.
-// Precondition: elms.getElementType.isIntOrFloat().
-ArrayBuffer<WideNum> getElementsWideNums(ElementsAttr elms) {
-  if (auto disposable = elms.dyn_cast<DisposableElementsAttr>())
-    return disposable.getWideNums();
+namespace {
+void readDenseElementsWideNums(
+    ElementsAttr elms, MutableArrayRef<WideNum> dst) {
+  if (elms.isSplat())
+    return std::fill(dst.begin(), dst.end(), getElementsSplatWideNum(elms));
   // TODO: Implement the following in a more efficient way.
-  BType btype = btypeOfMlirType(elms.getElementType());
-  if (isFloatBType(btype)) {
-    auto range = llvm::map_range(elms.getValues<APFloat>(),
-        [btype](APFloat f) { return WideNum::fromAPFloat(btype, f); });
-    return ArrayBuffer<WideNum>::Vector(range);
-  }
-  if (isIntBType(btype)) {
-    auto range = llvm::map_range(elms.getValues<APInt>(),
-        [btype](APInt i) { return WideNum::fromAPInt(btype, i); });
-    return ArrayBuffer<WideNum>::Vector(range);
-  }
-  llvm_unreachable("WideNum only supports integer and float types");
-}
-
-// Copies out the elements in a flat WideNum array in row-major order.
-// Precondition: elms.getElementType.isIntOrFloat().
-void readElementsWideNums(ElementsAttr elms, MutableArrayRef<WideNum> dst) {
-  if (auto disposable = elms.dyn_cast<DisposableElementsAttr>())
-    return disposable.readWideNums(dst);
-  // TODO: Implement the following in a more efficient way.
-  assert(dst.size() == static_cast<size_t>(elms.size()));
   BType btype = btypeOfMlirType(elms.getElementType());
   if (isFloatBType(btype)) {
     auto range = elms.getValues<APFloat>();
@@ -72,6 +50,31 @@ void readElementsWideNums(ElementsAttr elms, MutableArrayRef<WideNum> dst) {
   } else {
     llvm_unreachable("WideNum only supports integer and float types");
   }
+}
+} // namespace
+
+// Returns a pointer to the underlying data as a flat WideNum array, if
+// everything aligns, otherwise makes and returns a copy.
+// Precondition: elms.getElementType.isIntOrFloat().
+ArrayBuffer<WideNum> getElementsWideNums(ElementsAttr elms) {
+  if (auto disposable = elms.dyn_cast<DisposableElementsAttr>())
+    return disposable.getWideNums();
+
+  // TODO: If elms is DenseElementsAttr and elm type is wide, return raw data.
+
+  ArrayBuffer<WideNum>::Vector dst;
+  dst.resize_for_overwrite(elms.size());
+  readDenseElementsWideNums(elms, dst);
+  return std::move(dst);
+}
+
+// Copies out the elements in a flat WideNum array in row-major order.
+// Precondition: elms.getElementType.isIntOrFloat().
+void readElementsWideNums(ElementsAttr elms, MutableArrayRef<WideNum> dst) {
+  if (auto disposable = elms.dyn_cast<DisposableElementsAttr>())
+    return disposable.readWideNums(dst);
+  assert(dst.size() == static_cast<size_t>(elms.size()));
+  readDenseElementsWideNums(elms, dst);
 }
 
 } // namespace onnx_mlir
