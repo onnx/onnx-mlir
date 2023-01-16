@@ -348,6 +348,61 @@ func.func @test_relu() -> tensor<1x2xf32> {
 }
 
 //===----------------------------------------------------------------------===//
+/// Where tests
+
+// -----
+
+// CHECK-LABEL: @test_where() -> tensor<3x2xf32>
+func.func @test_where() -> tensor<3x2xf32> {
+  %0 = onnx.Constant dense<[true, false]> : tensor<2xi1>
+  %1 = onnx.Constant dense<[[2.0, 4.0], [6.0, 8.0], [10.0, 12.0]]> : tensor<3x2xf32>
+  %2 = onnx.Constant dense<[[2.0]]> : tensor<1x1xf32>
+  %3 = "onnx.Where"(%0, %1, %2) : (tensor<2xi1>, tensor<3x2xf32>, tensor<1x1xf32>) -> tensor<3x2xf32>
+  "func.return"(%3) : (tensor<3x2xf32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[2.000000e+00, 2.000000e+00], [6.000000e+00, 2.000000e+00], [1.000000e+01, 2.000000e+00]{{\]}}> : tensor<3x2xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_where_true() -> tensor<3x2xf32>
+func.func @test_where_true() -> tensor<3x2xf32> {
+  %0 = onnx.Constant dense<true> : tensor<2xi1>
+  %1 = onnx.Constant dense<[[2.0, 4.0], [6.0, 8.0], [10.0, 12.0]]> : tensor<3x2xf32>
+  %2 = onnx.Constant dense<[[2.0]]> : tensor<1x1xf32>
+  %3 = "onnx.Where"(%0, %1, %2) : (tensor<2xi1>, tensor<3x2xf32>, tensor<1x1xf32>) -> tensor<3x2xf32>
+  "func.return"(%3) : (tensor<3x2xf32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[2.000000e+00, 4.000000e+00], [6.000000e+00, 8.000000e+00], [1.000000e+01, 1.200000e+01]{{\]}}> : tensor<3x2xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_where_false() -> tensor<3x2xf32>
+func.func @test_where_false() -> tensor<3x2xf32> {
+  %0 = onnx.Constant dense<false> : tensor<2xi1>
+  %1 = onnx.Constant dense<[[2.0, 4.0], [6.0, 8.0], [10.0, 12.0]]> : tensor<3x2xf32>
+  %2 = onnx.Constant dense<[[2.0]]> : tensor<1x1xf32>
+  %3 = "onnx.Where"(%0, %1, %2) : (tensor<2xi1>, tensor<3x2xf32>, tensor<1x1xf32>) -> tensor<3x2xf32>
+  "func.return"(%3) : (tensor<3x2xf32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<2.000000e+00> : tensor<3x2xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_where_splat_branches() -> tensor<3x2xf32>
+func.func @test_where_splat_branches() -> tensor<3x2xf32> {
+  %0 = onnx.Constant dense<[true, false]> : tensor<2xi1>
+  %1 = onnx.Constant dense<1.0> : tensor<3x2xf32>
+  %2 = onnx.Constant dense<2.0> : tensor<1x1xf32>
+  %3 = "onnx.Where"(%0, %1, %2) : (tensor<2xi1>, tensor<3x2xf32>, tensor<1x1xf32>) -> tensor<3x2xf32>
+  "func.return"(%3) : (tensor<3x2xf32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[1.000000e+00, 2.000000e+00], [1.000000e+00, 2.000000e+00], [1.000000e+00, 2.000000e+00]{{\]}}> : tensor<3x2xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+}
+
+//===----------------------------------------------------------------------===//
 /// Unsqueeze tests
 
 // -----
