@@ -85,9 +85,11 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
     // Scalar operations
     // Note: consider to use dlf16_to_fp32 and fp32_to_dlf16 for better
     // performance.
+    // ApiSpec(API::DLF16_TO_F32, "dlf16_to_fp32", int64Ty, {int16PtrTy, float32PtrTy, int64Ty}, false),
+    // ApiSpec(API::F32_TO_DLF16, "fp32_to_dlf16", int64Ty, {float32PtrTy, int16PtrTy, int64Ty}, false),
     // TODO: make sure there is no problem causing by using int16 as arguments.
-    ApiSpec(API::DLF16_TO_F32, "dlf16_to_fp32", int64Ty, {int16PtrTy, float32PtrTy, int64Ty}, false),
-    ApiSpec(API::F32_TO_DLF16, "fp32_to_dlf16", int64Ty, {float32PtrTy, int16PtrTy, int64Ty}, false),
+    ApiSpec(API::DLF16_TO_F32, "cnvt_1_dlf16_to_fp32", float32Ty, {int16Ty}, false),
+    ApiSpec(API::F32_TO_DLF16, "cnvt_1_fp32_to_dlf16", int16Ty, {float32Ty}, false),
   };
   // clang-format on
 
