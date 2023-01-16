@@ -52,8 +52,7 @@ bool testRawBytesValidityAndSplatness(
 }
 
 std::unique_ptr<llvm::MemoryBuffer> getMemoryBuffer(DenseElementsAttr dense) {
-  ShapedType type = dense.getType();
-  if (type.isInteger(1)) {
+  if (dense.getElementType().isInteger(1)) {
     // Don't use dense.rawData() which is bit packed, whereas
     // DisposableElementsAttr represents bools with one byte per bool value.
     if (dense.isSplat()) {
@@ -71,9 +70,9 @@ std::unique_ptr<llvm::MemoryBuffer> getMemoryBuffer(DenseElementsAttr dense) {
     ArrayRef<char> bytes = dense.getRawData();
     int64_t size = bytes.size();
     if (dense.isSplat())
-      assert(size == getEltSizeInBytes(type) && "size mismatch");
+      assert(size == getEltSizeInBytes(dense.getType()) && "size mismatch");
     else
-      assert(size == getSizeInBytes(type) && "size mismatch");
+      assert(size == getSizeInBytes(dense.getType()) && "size mismatch");
     return llvm::MemoryBuffer::getMemBuffer(asStringRef(bytes),
         /*BufferName=*/"", /*RequiresNullTerminator=*/false);
   }
