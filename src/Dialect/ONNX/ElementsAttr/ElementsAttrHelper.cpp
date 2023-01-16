@@ -59,6 +59,7 @@ void readElementsWideNums(ElementsAttr elms, MutableArrayRef<WideNum> dst) {
   if (auto disposable = elms.dyn_cast<DisposableElementsAttr>())
     return disposable.readWideNums(dst);
   // TODO: Implement the following in a more efficient way.
+  assert(dst.size() == static_cast<size_t>(elms.size()));
   BType btype = btypeOfMlirType(elms.getElementType());
   if (isFloatBType(btype)) {
     auto range = elms.getValues<APFloat>();
