@@ -86,9 +86,8 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape() {
 LogicalResult ONNXConcatOp::verify() {
   // Cannot verify semantics if the operands do not have a known shape yet.
   ONNXConcatOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   auto commonType =
       operandAdaptor.getOperands().front().getType().cast<ShapedType>();

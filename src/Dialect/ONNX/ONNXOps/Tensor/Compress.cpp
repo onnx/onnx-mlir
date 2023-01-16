@@ -83,9 +83,8 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape() {
 LogicalResult ONNXCompressOp::verify() {
   // Cannot check constraints if the shape of the inputs is not yet knwon.
   ONNXCompressOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   int64_t inputRank = input().getType().cast<ShapedType>().getRank();
   Optional<int64_t> optionalAxis = axis();

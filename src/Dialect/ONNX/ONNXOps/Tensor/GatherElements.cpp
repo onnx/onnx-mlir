@@ -38,9 +38,8 @@ LogicalResult ONNXGatherElementsOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGatherElementsOp::verify() {
   ONNXGatherElementsOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   // Get operands and attributes.
   Value data = operandAdaptor.data();
@@ -95,8 +94,7 @@ LogicalResult ONNXGatherElementsOp::verify() {
 LogicalResult ONNXGatherElementsOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the operands shape is not yet known.
-  if (llvm::any_of(this->getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
+  if (!hasShapeAndRank(getOperation()))
     return success();
 
   Type elementType = data().getType().cast<ShapedType>().getElementType();
