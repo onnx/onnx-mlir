@@ -121,18 +121,45 @@ void ONNXOpShapeHelper::computeShapeAndAssertOnFailure() {
   assert(succeeded(res) && "Failed to compute shape");
 }
 
-void ONNXOpShapeHelper::setOutputDims(const DimsExpr &inferredDims, int n) {
+void ONNXOpShapeHelper::setOutputDims(
+    const DimsExpr &inferredDims, int n, bool refineShape) {
   privateOutputsDims[n] = inferredDims;
-  Value output = getOutput(n);
-  refineDims(privateOutputsDims[n], output);
+  if (refineShape) {
+    Value output = getOutput(n);
+    refineDims(privateOutputsDims[n], output);
+  }
 }
 
-LogicalResult ONNXOpShapeHelper::computeShapeFromOperand(Value operand, int n) {
+LogicalResult ONNXOpShapeHelper::setOutputDimsFromOperand(
+    Value operand, int n, bool refineShape) {
   // Output and operand have the same shape. Just pass the operand shape to the
   // output.
   DimsExpr outputDims;
   createIE->getShapeAsDims(operand, outputDims);
-  setOutputDims(outputDims, n);
+  setOutputDims(outputDims, n, refineShape);
+  return success();
+}
+
+LogicalResult ONNXOpShapeHelper::setOutputDimsFromLiterals(
+    SmallVector<int64_t, 4> shape, int n, bool refineShape) {
+  // Output has the shape given by the vector of integer numbers. Number -1 is
+  // transformed into a questionmark.
+  DimsExpr outputDims;
+  getIndexExprListFromShape(shape, outputDims);
+  setOutputDims(outputDims, n, refineShape);
+  return success();
+}
+
+LogicalResult ONNXOpShapeHelper::setOutputDimsFromTypeWithConstantShape(
+    Type type, int n, bool refineShape) {
+  RankedTensorType rankedType = type.dyn_cast<RankedTensorType>();
+  if (!rankedType)
+    return failure();
+  DimsExpr outputDims;
+  getIndexExprListFromShape(rankedType.getShape(), outputDims);
+  if (!IndexExpr::isNonNegativeLiteral(outputDims))
+    return failure();
+  setOutputDims(outputDims, n, refineShape);
   return success();
 }
 
@@ -149,7 +176,10 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
       continue;
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
-    updateType(op->getResults()[i], shapeVect, elementType, encoding);
+    // Set refineShape to false here because we refine it (or not) when setting
+    // the output shape. So there is no need to perform this again here.
+    updateType(op->getResults()[i], shapeVect, elementType, encoding,
+        /*refineShape*/ false);
   }
   return success();
 }
@@ -174,8 +204,10 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
     Type currElementType = elementTypeRange[i];
+    // Set refineShape to false here because we refine it (or not) when setting
+    // the output shape. So there is no need to perform this again here.
     updateType(op->getResults()[i], shapeVect, currElementType,
-        hasEncoding ? encodingList[i] : nullptr);
+        hasEncoding ? encodingList[i] : nullptr, /*refineShape*/ false);
   }
   return success();
 }
@@ -352,18 +384,22 @@ void SaveOnnxConstInOp(Operation *op, MutableOperandRange operand,
 void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     Attribute encoding, bool refineShape) {
   // Try to combine the given shape and the output's shape if possible.
-  IndexExprScope scope(nullptr, val.getLoc());
-  DimsExpr inferredDims;
-  for (int64_t d : shape) {
-    if (ShapedType::isDynamic(d))
-      inferredDims.emplace_back(QuestionmarkIndexExpr());
-    else
-      inferredDims.emplace_back(LiteralIndexExpr(d));
-  }
-  if (refineShape)
-    refineDims(inferredDims, val);
   SmallVector<int64_t, 4> inferredShape;
-  IndexExpr::getShape(inferredDims, inferredShape);
+  if (refineShape) {
+    IndexExprScope scope(nullptr, val.getLoc());
+    DimsExpr inferredDims;
+    for (int64_t d : shape) {
+      if (ShapedType::isDynamic(d))
+        inferredDims.emplace_back(QuestionmarkIndexExpr());
+      else
+        inferredDims.emplace_back(LiteralIndexExpr(d));
+    }
+    refineDims(inferredDims, val);
+    IndexExpr::getShape(inferredDims, inferredShape);
+  } else {
+    for (int i = 0; i < shape.size(); ++i)
+      inferredShape.emplace_back(shape[i]);
+  }
 
   // Get element type.
   if (!elementType)

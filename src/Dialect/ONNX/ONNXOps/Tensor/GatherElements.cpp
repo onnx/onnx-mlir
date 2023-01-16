@@ -27,7 +27,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXGatherElementsOpShapeHelper::computeShape() {
   ONNXGatherElementsOpAdaptor operandAdaptor(operands);
-  return computeShapeFromOperand(operandAdaptor.indices());
+  return setOutputDimsFromOperand(operandAdaptor.indices());
 }
 
 } // namespace onnx_mlir
