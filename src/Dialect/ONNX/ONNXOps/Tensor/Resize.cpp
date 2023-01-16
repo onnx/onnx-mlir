@@ -73,7 +73,7 @@ LogicalResult ONNXResizeOp::verify() {
 
 LogicalResult ONNXResizeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X())) 
+  if (!hasShapeAndRank(X()))
     return success();
 
   // TODO : Remove this if branch once floating point scales are handled in

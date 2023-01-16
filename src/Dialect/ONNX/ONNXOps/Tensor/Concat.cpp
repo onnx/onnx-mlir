@@ -140,7 +140,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   // The check of constraints is kept
   // However, current check handles dynamic dim only for the concat dim
   if (!hasShapeAndRank(getOperation()))
-      return success();
+    return success();
   // Checking value of axis parameter.
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   auto commonShape = commonType.getShape();
