@@ -115,7 +115,7 @@ LogicalResult ONNXOneHotOp::verify() {
 LogicalResult ONNXOneHotOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!indices().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(indices()))
     return success();
 
   Type elementType = values().getType().cast<ShapedType>().getElementType();

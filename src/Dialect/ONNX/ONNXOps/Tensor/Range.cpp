@@ -50,11 +50,8 @@ LogicalResult ONNXRangeOpShapeHelper::computeShape() {
 
 LogicalResult ONNXRangeOp::verify() {
   // All inputs must be valid ranked tensors.
-  if (!start().getType().isa<RankedTensorType>())
-    return success();
-  if (!limit().getType().isa<RankedTensorType>())
-    return success();
-  if (!delta().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(start()) || !hasShapeAndRank(limit()) ||
+      !hasShapeAndRank(delta()))
     return success();
 
   auto startTensorTy = start().getType().cast<RankedTensorType>();

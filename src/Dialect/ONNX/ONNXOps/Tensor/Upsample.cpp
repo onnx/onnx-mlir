@@ -67,12 +67,8 @@ LogicalResult ONNXUpsampleOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXUpsampleOp::verify() {
-  if (!X().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(scales()))
     return success();
-  }
-  if (!scales().getType().isa<RankedTensorType>()) {
-    return success();
-  }
 
   auto inputTy = X().getType().cast<RankedTensorType>();
   int32_t inputRank = inputTy.getShape().size();
@@ -116,12 +112,8 @@ LogicalResult ONNXUpsampleOp::verify() {
 
 LogicalResult ONNXUpsampleOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(scales()))
     return success();
-  }
-  if (!scales().getType().isa<RankedTensorType>()) {
-    return success();
-  }
 
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();
   ONNXUpsampleOpShapeHelper shapeHelper(getOperation(), {});

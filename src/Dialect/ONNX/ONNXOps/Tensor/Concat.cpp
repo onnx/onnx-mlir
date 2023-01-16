@@ -139,11 +139,8 @@ LogicalResult ONNXConcatOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // The check of constraints is kept
   // However, current check handles dynamic dim only for the concat dim
-  int inputNum = getNumOperands();
-  for (int i = 0; i < inputNum; ++i) {
-    if (!getOperand(i).getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(getOperation()))
       return success();
-  }
   // Checking value of axis parameter.
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   auto commonShape = commonType.getShape();
