@@ -283,6 +283,10 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
     };
   };
 
+  SmallVector<int64_t, 4> condStrides;
+  ArrayBuffer<WideNum> condNums = getWideNumsAndStrides(cond, condStrides);
+  auto xpCondStrides = expandStrides(condStrides, combinedShape);
+
   SmallVector<int64_t, 4> lhsStrides;
   ArrayBuffer<WideNum> lhsNums = getWideNumsAndStrides(lhs, lhsStrides);
   auto xpLhsStrides = expandStrides(lhsStrides, combinedShape);
@@ -294,7 +298,8 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
   StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
 
   return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
-    readElementsWideNums(cond, dstNums);
+    restrideArray<WideNum>(
+        combinedShape, xpCondStrides, condNums.get(), dstNums);
     WideNum *end = traverseStrides<WideNum *, WideNum, WideNum>(combinedShape,
         dstNums.begin(), stridedLhs, stridedRhs,
         [](WideNum *res, WideNum x, WideNum y) { *res = res->u64 ? x : y; });
