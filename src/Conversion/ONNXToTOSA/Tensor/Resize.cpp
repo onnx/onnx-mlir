@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Resize.cpp - Resize Op-----------===//
+//===---------------- Resize.cpp - Resize Op-------------------------------===//
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
-// This file lowers ONNX Resize operator to TOSA dialect.
+// This file lowers the ONNX Resize operator to TOSA dialect.
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,16 +16,8 @@
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include <cstdint>
-#include <llvm/ADT/APFloat.h>
-#include <llvm/ADT/ArrayRef.h>
-#include <llvm/ADT/STLExtras.h>
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/ADT/StringRef.h>
 #include <numeric>
-#include <src/Dialect/Mlir/IndexExpr.hpp>
-#include <src/Dialect/ONNX/ONNXOps/OpHelper.hpp>
 
 using namespace mlir;
 
