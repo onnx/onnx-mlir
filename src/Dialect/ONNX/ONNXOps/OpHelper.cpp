@@ -4,7 +4,7 @@
 
 //===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -450,15 +450,16 @@ bool AreTheSameConstantOpDenseAttr(
 bool hasShapeAndRank(Value val) {
   Type valType = val.getType();
   ShapedType shapedType;
-  if (auto seqType = valType.dyn_cast<SeqType>()) {
+  if (SeqType seqType = valType.dyn_cast<SeqType>())
     shapedType = seqType.getElementType().dyn_cast<ShapedType>();
-  } else {
+  else if (OptType optType = valType.dyn_cast<OptType>())
+    shapedType = optType.getElementType().dyn_cast<ShapedType>();
+  else
     shapedType = valType.dyn_cast<ShapedType>();
-  }
   return shapedType && shapedType.hasRank();
 }
 
-bool operandsOfOpHaveShapesAndRanks(Operation *op) {
+bool hasShapeAndRank(Operation *op) {
   int num = op->getNumOperands();
   for (int i = 0; i < num; ++i)
     if (!hasShapeAndRank(op->getOperand(i)))

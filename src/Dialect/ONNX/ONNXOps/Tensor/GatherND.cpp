@@ -86,9 +86,8 @@ LogicalResult ONNXGatherNDOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGatherNDOp::verify() {
   ONNXGatherNDOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   // Get operands and attributes.
   Value data = operandAdaptor.data();
@@ -170,8 +169,7 @@ LogicalResult ONNXGatherNDOp::verify() {
 LogicalResult ONNXGatherNDOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the shape of the output if the inputs shape is not yet known.
-  if (llvm::any_of(
-          this->getOperands(), [](Value op) { return !hasShapeAndRank(op); }))
+  if (!hasShapeAndRank(getOperation()))
     return success();
 
   // The output rank is given by:

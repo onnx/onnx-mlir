@@ -23,14 +23,14 @@ ArrayBuffer<X> getElementsArray(mlir::ElementsAttr elms) {
   return typename ArrayBuffer<X>::Vector(elms.getValues<X>());
 }
 
-// Copies out the elements in a flat array in row-major order.
-// Precondition: X must correspond to elms.getElementType().
 template <typename X>
 void readElementsArray(mlir::ElementsAttr elms, llvm::MutableArrayRef<X> dst) {
   if (auto disposable = elms.dyn_cast<mlir::DisposableElementsAttr>())
     return disposable.readArray<X>(dst);
-  if (elms.isSplat())
+  if (elms.isSplat()) {
+    assert(dst.size() == static_cast<size_t>(elms.size()));
     return std::fill(dst.begin(), dst.end(), elms.getSplatValue<X>());
+  }
   if (!elms.getElementType().isInteger(1)) {
     if (auto dense = elms.dyn_cast<mlir::DenseElementsAttr>()) {
       llvm::ArrayRef<X> data = castArrayRef<X>(dense.getRawData());

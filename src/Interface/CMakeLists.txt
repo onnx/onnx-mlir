@@ -26,7 +26,7 @@ add_onnx_mlir_library(OMShapeHelperOpInterface
   OMShapeHelperOpInterfaceIncGen
 
   LINK_LIBS PUBLIC
-  LLVMSupport
+  MLIRSupport
   )
 
 add_onnx_mlir_library(OMResultTypeInferenceOpInterface

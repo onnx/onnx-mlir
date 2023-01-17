@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---- ShapeHelperOpInterface.hpp - Definition for ShapeHelper ---===//
+//===-------- ShapeHelperOpInterface.hpp - Definition for ShapeHelper -----===//
 //
 // Copyright 2023 The IBM Research Authors.
 //
@@ -89,8 +89,6 @@ struct ONNXOpShapeHelper {
   // signature. This method is responsible to compute at a minimum the output
   // dims.
   virtual mlir::LogicalResult computeShape() = 0;
-  // Helper function that set n'th output dims from the given value.
-  mlir::LogicalResult computeShapeFromOperand(mlir::Value operand, int n = 0);
 
   // Compute shape and assert on failure.
   void computeShapeAndAssertOnFailure();
@@ -109,9 +107,10 @@ struct ONNXOpShapeHelper {
   // Get output dims for the N-th output dimension as Index Expressions.
   // Scalar may have a DimsExpr that is empty.
   DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }
-  // Set output dims, merging the dims associated with the  current type with
+  // Set output dims, merging the dims associated with the current type with
   // inferred dims provided here, as appropriate.
-  void setOutputDims(const DimsExpr &inferredDims, int n = 0);
+  void setOutputDims(
+      const DimsExpr &inferredDims, int n = 0, bool refineShape = true);
 
   // Obtain the n-th output result as value.
   mlir::Value getOutput(int n = 0) { return op->getResult(n); }
@@ -121,6 +120,19 @@ struct ONNXOpShapeHelper {
   mlir::Operation *getOp() { return op; }
 
 protected:
+  // Helper for ops for which the output (n'th) is the same as the type of a
+  // given input operand's type.
+  mlir::LogicalResult setOutputDimsFromOperand(
+      mlir::Value operand, int n = 0, bool refineShape = true);
+  // Helper for ops for which the output (n'th) is a constant shape. Value -1
+  // indicates runtime dim.
+  mlir::LogicalResult setOutputDimsFromLiterals(
+      llvm::SmallVector<int64_t, 4> shape, int n = 0, bool refineShape = true);
+  // Helper for ops for which the output (n'th) is defined by the shape of
+  // another type. Type must have constant shape (all values>=0).
+  mlir::LogicalResult setOutputDimsFromTypeWithConstantShape(
+      mlir::Type type, int n = 0, bool refineShape = true);
+
   // Data that must be present for every ShapeHelper operation. Op and scope
   // are initialized in the constructor.
   mlir::Operation *op;
@@ -129,8 +141,8 @@ protected:
   IndexExprScope *scope;
 
 private:
-  //  outputsDims is computed by the child's struct `computeShape` function. It
-  //  can be set using setOutputDims and retrieved using getOutputDims.
+  // OutputsDims is computed by the child's struct `computeShape` function. It
+  // can be set using setOutputDims and retrieved using getOutputDims.
   llvm::SmallVector<DimsExpr, 1> privateOutputsDims;
   // Used to cache the operation's operands (shape inference only).
   llvm::SmallVector<mlir::Value> privateOperandsCache;

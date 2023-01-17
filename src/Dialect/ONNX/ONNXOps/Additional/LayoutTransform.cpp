@@ -31,10 +31,11 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
   if (!hasShapeAndRank(data()))
     return success();
 
-  Type resType = convertTensorTypeToTensorTypeWithEncoding(
-      data().getType(), target_layoutAttr());
-  getResult().setType(resType);
-  return success();
+  Type elementType =
+      data().getType().dyn_cast<RankedTensorType>().getElementType();
+  ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(
+      elementType, target_layoutAttr());
 }
 
 //===----------------------------------------------------------------------===//

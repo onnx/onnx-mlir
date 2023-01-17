@@ -4,7 +4,7 @@
 
 //===------------ IndexExprBuilder.cpp - builder for index expressions ----===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -72,6 +72,8 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 // Test/assert that value has type with defined shape and rank.
 
+// Warning, this does not work well in presence of Seq and Opt types, which have
+// a dependence on ONNX.
 bool IndexExprBuilder::hasShapeAndRank(Value value) {
   ShapedType shapedType = value.getType().dyn_cast_or_null<ShapedType>();
   return shapedType && shapedType.hasRank();

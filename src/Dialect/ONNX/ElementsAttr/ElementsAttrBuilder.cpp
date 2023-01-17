@@ -23,37 +23,8 @@ using namespace mlir;
 namespace onnx_mlir {
 
 namespace {
-
-// Returns whether isSplat. Fails assert or llvm_unreachable if invalid.
-bool testBoolsValidityAndSplatness(ArrayRef<char> bytes) {
-  for (char c : bytes)
-    assert(c == 0 || c == 1);
-  return bytes.size() == 1;
-}
-
-// Returns whether isSplat. Fails assert or llvm_unreachable if invalid.
-bool testRawBytesValidityAndSplatness(
-    ShapedType type, BType bufferBType, ArrayRef<char> bytes) {
-  BType btype = btypeOfMlirType(type.getElementType());
-  assert(wideBTypeOfBType(btype) == wideBTypeOfBType(bufferBType));
-  if (bufferBType == BType::BOOL) {
-    size_t numElements = type.getNumElements();
-    assert(bytes.size() == numElements || bytes.size() == 1);
-    return testBoolsValidityAndSplatness(bytes);
-  }
-  ShapedType bufferType =
-      btype == bufferBType
-          ? type
-          : type.clone(mlirTypeOfBType(bufferBType, type.getContext()));
-  bool isSplat;
-  if (!DenseElementsAttr::isValidRawBuffer(bufferType, bytes, isSplat))
-    llvm_unreachable("invalid dense int or fps raw buffer");
-  return isSplat;
-}
-
 std::unique_ptr<llvm::MemoryBuffer> getMemoryBuffer(DenseElementsAttr dense) {
-  ShapedType type = dense.getType();
-  if (type.isInteger(1)) {
+  if (dense.getElementType().isInteger(1)) {
     // Don't use dense.rawData() which is bit packed, whereas
     // DisposableElementsAttr represents bools with one byte per bool value.
     if (dense.isSplat()) {
@@ -71,14 +42,13 @@ std::unique_ptr<llvm::MemoryBuffer> getMemoryBuffer(DenseElementsAttr dense) {
     ArrayRef<char> bytes = dense.getRawData();
     int64_t size = bytes.size();
     if (dense.isSplat())
-      assert(size == getEltSizeInBytes(type) && "size mismatch");
+      assert(size == getEltSizeInBytes(dense.getType()) && "size mismatch");
     else
-      assert(size == getSizeInBytes(type) && "size mismatch");
+      assert(size == getSizeInBytes(dense.getType()) && "size mismatch");
     return llvm::MemoryBuffer::getMemBuffer(asStringRef(bytes),
         /*BufferName=*/"", /*RequiresNullTerminator=*/false);
   }
 }
-
 } // namespace
 
 struct ElementsAttrBuilder::ElementsProperties {
@@ -139,18 +109,15 @@ ElementsAttr ElementsAttrBuilder::fromWideNums(
       });
 }
 
-// TODO: Inline this implementation to help the compiler inline fun into the
-//       closure, if benchmarking demonstrates a speedup.
-/*static*/
-ElementsAttrBuilder::Transformer ElementsAttrBuilder::functionTransformer(
-    WideNum (*fun)(WideNum)) {
-  return [fun = std::move(fun)](MutableArrayRef<WideNum> data) -> void {
+namespace {
+template <typename Fun>
+ElementsAttrBuilder::Transformer toTransformer(Fun &&fun) {
+  return [fun = std::forward<Fun>(fun)](MutableArrayRef<WideNum> data) -> void {
     for (WideNum &n : data)
       n = fun(n);
   };
 }
 
-namespace {
 ElementsAttrBuilder::Transformer composeTransforms(
     ElementsAttrBuilder::Transformer first,
     ElementsAttrBuilder::Transformer second) {
@@ -164,6 +131,14 @@ ElementsAttrBuilder::Transformer composeTransforms(
     };
 }
 } // namespace
+
+// TODO: Inline this implementation to help the compiler inline fun into the
+//       closure, if benchmarking demonstrates a speedup.
+/*static*/
+ElementsAttrBuilder::Transformer ElementsAttrBuilder::functionTransformer(
+    WideNum (*fun)(WideNum)) {
+  return toTransformer(fun);
+}
 
 ElementsAttr ElementsAttrBuilder::transform(
     ElementsAttr elms, Type transformedElementType, Transformer transformer) {
@@ -180,59 +155,82 @@ ElementsAttr ElementsAttrBuilder::transform(
 //       demonstrates a speedup.
 ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
     ShapedType combinedType, WideNum (*combiner)(WideNum, WideNum)) {
-  auto combinedShape = combinedType.getShape();
-
-  auto expandAndTransform = [combinedType, combinedShape, this](
-                                ElementsAttr elms, auto transformFunc) {
-    ElementsProperties props = getElementsProperties(elms);
-    auto xpStrides = expandStrides(props.strides, combinedShape);
-    return create(combinedType, props.bufferBType, xpStrides, props.buffer,
-        [transformer = props.transformer, func = std::move(transformFunc)](
-            MutableArrayRef<WideNum> data) -> void {
-          if (transformer != nullptr)
-            transformer(data);
-          for (WideNum &n : data)
-            n = func(n);
-        });
-  };
-
   if (lhs.isSplat()) {
     WideNum lhsNum = getElementsSplatWideNum(lhs);
-    return expandAndTransform(
-        rhs, [lhsNum, combiner](WideNum n) { return combiner(lhsNum, n); });
+    return expandAndTransform(rhs, combinedType,
+        toTransformer(
+            [lhsNum, combiner](WideNum n) { return combiner(lhsNum, n); }));
   }
 
   if (rhs.isSplat()) {
     WideNum rhsNum = getElementsSplatWideNum(rhs);
-    return expandAndTransform(
-        lhs, [rhsNum, combiner](WideNum n) { return combiner(n, rhsNum); });
+    return expandAndTransform(lhs, combinedType,
+        toTransformer(
+            [rhsNum, combiner](WideNum n) { return combiner(n, rhsNum); }));
   }
 
-  auto getWideNumsAndStrides = [](ElementsAttr elms,
-                                   SmallVectorImpl<int64_t> &strides) {
-    if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
-      auto disposableStrides = disposable.getStrides();
-      strides.assign(disposableStrides.begin(), disposableStrides.end());
-      return disposable.getBufferAsWideNums();
-    } else {
-      strides = getDefaultStrides(elms.getType().getShape());
-      return getElementsWideNums(elms);
-    };
-  };
+  auto combinedShape = combinedType.getShape();
 
-  SmallVector<int64_t, 4> lhsStrides;
-  ArrayBuffer<WideNum> lhsNums = getWideNumsAndStrides(lhs, lhsStrides);
-  auto xpLhsStrides = expandStrides(lhsStrides, combinedShape);
+  SmallVector<int64_t, 4> xpLhsStrides;
+  ArrayBuffer<WideNum> lhsNums =
+      getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
   StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
 
-  SmallVector<int64_t, 4> rhsStrides;
-  ArrayBuffer<WideNum> rhsNums = getWideNumsAndStrides(rhs, rhsStrides);
-  auto xpRhsStrides = expandStrides(rhsStrides, combinedShape);
+  SmallVector<int64_t, 4> xpRhsStrides;
+  ArrayBuffer<WideNum> rhsNums =
+      getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
   StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
 
   return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
     mapStrides<WideNum, WideNum, WideNum>(
         combinedShape, dstNums, stridedLhs, stridedRhs, combiner);
+  });
+}
+
+ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
+    ElementsAttr rhs, ShapedType combinedType) {
+  assert(cond.getElementType().isInteger(1));
+  assert(lhs.getElementType() == rhs.getElementType());
+  assert(lhs.getElementType() == combinedType.getElementType());
+
+  if (cond.isSplat()) {
+    bool condBool = getElementsSplatWideNum(cond).u64;
+    return expand(condBool ? lhs : rhs, combinedType.getShape());
+  }
+
+  if (lhs.isSplat() && rhs.isSplat()) {
+    WideNum lhsNum = getElementsSplatWideNum(lhs);
+    WideNum rhsNum = getElementsSplatWideNum(rhs);
+    return expandAndTransform(cond, combinedType,
+        toTransformer(
+            [lhsNum, rhsNum](WideNum n) { return n.u64 ? lhsNum : rhsNum; }));
+  }
+
+  auto combinedShape = combinedType.getShape();
+
+  SmallVector<int64_t, 4> xpCondStrides;
+  ArrayBuffer<WideNum> condNums =
+      getWideNumsAndExpandedStrides(cond, combinedShape, xpCondStrides);
+
+  SmallVector<int64_t, 4> xpLhsStrides;
+  ArrayBuffer<WideNum> lhsNums =
+      getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
+  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
+
+  SmallVector<int64_t, 4> xpRhsStrides;
+  ArrayBuffer<WideNum> rhsNums =
+      getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
+  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
+
+  return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
+    // Copy cond into dstNums with broadcast.
+    restrideArray<WideNum>(
+        combinedShape, xpCondStrides, condNums.get(), dstNums);
+
+    WideNum *end = traverseStrides<WideNum *, WideNum, WideNum>(combinedShape,
+        dstNums.begin(), stridedLhs, stridedRhs,
+        [](WideNum *res, WideNum x, WideNum y) { *res = res->u64 ? x : y; });
+    assert(end == dstNums.end() && "traverses every dstNums element");
   });
 }
 
@@ -429,13 +427,29 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
   llvm_unreachable("unexpected ElementsAttr instance");
 }
 
-ElementsAttr ElementsAttrBuilder::fromRawBytes(
-    ShapedType type, BType bufferBType, ArrayRef<char> bytes) {
-  std::unique_ptr<llvm::MemoryBuffer> membuf =
-      llvm::MemoryBuffer::getMemBufferCopy(asStringRef(bytes));
-  return testRawBytesValidityAndSplatness(type, bufferBType, bytes)
-             ? createSplat(type, bufferBType, std::move(membuf))
-             : createWithDefaultStrides(type, bufferBType, std::move(membuf));
+ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
+    ElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape,
+    llvm::SmallVectorImpl<int64_t> &expandedStrides) const {
+  if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
+    expandedStrides = expandStrides(disposable.getStrides(), expandedShape);
+    return disposable.getBufferAsWideNums();
+  } else {
+    auto strides = getDefaultStrides(elms.getType().getShape());
+    expandedStrides = expandStrides(strides, expandedShape);
+    return getElementsWideNums(elms);
+  };
+}
+
+ElementsAttr ElementsAttrBuilder::expandAndTransform(ElementsAttr elms,
+    ShapedType expandedTransformedType, Transformer transformer) {
+  ElementsProperties props = getElementsProperties(elms);
+
+  auto expandedStrides =
+      expandStrides(props.strides, expandedTransformedType.getShape());
+
+  return create(expandedTransformedType, props.bufferBType, expandedStrides,
+      props.buffer,
+      composeTransforms(props.transformer, std::move(transformer)));
 }
 
 ElementsAttr ElementsAttrBuilder::fromRawBytes(
@@ -452,12 +466,6 @@ ElementsAttr ElementsAttrBuilder::createWithDefaultStrides(ShapedType type,
     BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   auto strides = getDefaultStrides(type.getShape());
   return create(type, bufferBType, strides, std::move(membuf));
-}
-
-ElementsAttr ElementsAttrBuilder::createSplat(ShapedType type,
-    BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
-  SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
-  return create(type, bufferBType, zerosStrides, std::move(membuf));
 }
 
 ElementsAttr ElementsAttrBuilder::create(ShapedType type, BType bufferBType,
