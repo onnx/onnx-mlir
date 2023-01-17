@@ -100,10 +100,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 LogicalResult ONNXReshapeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape tensor is specified.
-  if (!data().getType().isa<RankedTensorType>())
-    return success();
-
-  if (!shape().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(data()) || !hasShapeAndRank(shape()))
     return success();
 
   // Only rank 1 shape tensors are supported.

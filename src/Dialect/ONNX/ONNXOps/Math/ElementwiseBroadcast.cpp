@@ -353,9 +353,7 @@ LogicalResult ONNXPReluOp::verify() {
 
 LogicalResult ONNXPReluOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  ONNXPReluOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
+  if (!hasShapeAndRank(getOperation()))
     return success();
 
   Type elementType = X().getType().cast<ShapedType>().getElementType();

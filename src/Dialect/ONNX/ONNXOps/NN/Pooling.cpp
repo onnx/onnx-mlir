@@ -124,7 +124,7 @@ LogicalResult ONNXAveragePoolOp::verify() {
 LogicalResult ONNXAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()))
     return success();
 
   Type elementType = X().getType().cast<ShapedType>().getElementType();
@@ -222,7 +222,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::verify() {
 LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()))
     return success();
 
   // Verify parameters: mandatory for kernel shape.
@@ -241,9 +241,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
 
 LogicalResult ONNXMaxRoiPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>())
-    return success();
-  if (!rois().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(rois()))
     return success();
 
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();
