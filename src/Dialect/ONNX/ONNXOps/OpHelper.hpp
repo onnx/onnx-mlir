@@ -4,7 +4,7 @@
 
 //===------- ONNXOpsHelper.hpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -158,11 +158,10 @@ size_t ArrayAttrSize(llvm::Optional<mlir::ArrayAttr> a);
 int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
 
-mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
-    mlir::Value value);
+mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
-mlir::Value createONNXConstantOpWithDenseAttr(
+mlir::ONNXConstantOp createONNXConstantOpWithDenseAttr(
     mlir::OpBuilder &builder, mlir::Location loc, mlir::Attribute dense);
 mlir::Value createNoneIntegerConstant(
     mlir::PatternRewriter &rewriter, mlir::Location loc);
@@ -196,7 +195,7 @@ bool AreTheSameConstantOpDenseAttr(
 
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(mlir::Value val);
-bool operandsOfOpHaveShapesAndRanks(mlir::Operation *op);
+bool hasShapeAndRank(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
@@ -206,10 +205,6 @@ bool operandsOfOpHaveShapesAndRanks(mlir::Operation *op);
 mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::FloatAttr attr);
-
-/// Create a DenseElementsAttr from a raw buffer.
-mlir::DenseElementsAttr createDenseElementsAttrFromRawBuffer(
-    mlir::Type resType, char *buf);
 
 mlir::Value normalizeConstantOp(
     mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
@@ -232,7 +227,7 @@ bool isDenseONNXConstant(mlir::Value result);
 
 // Get scalar value when it is a constant.
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(mlir::DenseElementsAttr &denseAttr, mlir::Type type);
+RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
 
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp, mlir::Type type);

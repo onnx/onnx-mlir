@@ -4,7 +4,7 @@
 
 //===----------------IndexExpr.cpp - Index expression---------------------=== //
 //
-// copyright 2020-2022 The IBM Research Authors.
+// copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -267,6 +267,15 @@ bool IndexExpr::isLiteralAndSmallerThan(IndexExpr const b) const {
 /*static*/ bool IndexExpr::isLiteral(SmallVectorImpl<IndexExpr> &list) {
   for (IndexExpr i : list)
     if (!i.isLiteral())
+      return false;
+  return true;
+}
+
+// All element in list are literals and non-negative (i.e. >= 0).
+/*static*/ bool IndexExpr::isNonNegativeLiteral(
+    SmallVectorImpl<IndexExpr> &list) {
+  for (IndexExpr i : list)
+    if (!i.isLiteral() || i.getLiteral() < 0)
       return false;
   return true;
 }
@@ -1523,8 +1532,8 @@ SymbolIndexExpr::SymbolIndexExpr(SymbolIndexExpr const &o)
 // List helpers
 //===----------------------------------------------------------------------===//
 
-void getIndexExprListFromInt(llvm::SmallVectorImpl<int64_t> &inputList,
-    llvm::SmallVectorImpl<IndexExpr> &outputList) {
+void getIndexExprListFromInt(
+    ArrayRef<int64_t> inputList, llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList)
     outputList.emplace_back(LiteralIndexExpr(item));
@@ -1532,8 +1541,8 @@ void getIndexExprListFromInt(llvm::SmallVectorImpl<int64_t> &inputList,
 
 // Create a list of IndexExpr of kind LiteralIndexExpr/Questionmark from a
 // shape.
-void getIndexExprListFromShape(llvm::SmallVectorImpl<int64_t> &inputList,
-    llvm::SmallVectorImpl<IndexExpr> &outputList) {
+void getIndexExprListFromShape(
+    ArrayRef<int64_t> inputList, llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList) {
     if (item >= 0)

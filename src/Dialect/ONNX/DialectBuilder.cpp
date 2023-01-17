@@ -4,7 +4,7 @@
 
 //===----- DialectBuilder.cpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -67,14 +67,6 @@ Value OnnxBuilder::constant(Attribute denseAttr) const {
 Value OnnxBuilder::constantInt64(const ArrayRef<int64_t> intVals) const {
   Attribute denseAttr = b().getI64TensorAttr(intVals);
   return constant(denseAttr);
-}
-
-Value OnnxBuilder::constantFromRawBuffer(Type resultType, char *buf) const {
-  DenseElementsAttr denseAttr =
-      createDenseElementsAttrFromRawBuffer(resultType, buf);
-  return b().create<ONNXConstantOp>(loc(), resultType, Attribute(), denseAttr,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
-      ArrayAttr());
 }
 
 Value OnnxBuilder::dim(Value input, int axis) const {
@@ -215,9 +207,9 @@ Value OnnxBuilder::toTensor(Value input) const {
       .getResult(0);
 }
 
-Type OnnxBuilder::toTensor(Type input) const {
-  if (input.isa<TensorType>())
-    return input;
+TensorType OnnxBuilder::toTensor(Type input) const {
+  if (auto tensorType = input.dyn_cast<TensorType>())
+    return tensorType;
   assert(input.isa<MemRefType>() &&
          "expect RankedMemref type when not a TensorType");
   auto aTy = input.cast<ShapedType>();
@@ -225,8 +217,7 @@ Type OnnxBuilder::toTensor(Type input) const {
   if (elementTy.isa<IndexType>()) {
     elementTy = b().getIntegerType(64);
   }
-  auto aTensorTy = RankedTensorType::get(aTy.getShape(), elementTy);
-  return aTensorTy;
+  return RankedTensorType::get(aTy.getShape(), elementTy);
 }
 
 Value OnnxBuilder::toMemref(Value input) const {
@@ -320,8 +311,8 @@ Value OnnxBuilder::reshapeToNDim(
 // =============================================================================
 
 // Return null if none is found.
-DenseElementsAttr IndexExprBuilderForAnalysis::getConst(Value value) {
-  return getDenseElementAttributeFromONNXValue(value);
+ElementsAttr IndexExprBuilderForAnalysis::getConst(Value value) {
+  return getElementAttributeFromONNXValue(value);
 }
 
 // For analysis, we never create values, so return null.

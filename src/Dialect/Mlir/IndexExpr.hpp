@@ -13,6 +13,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/IR/AffineExpr.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Value.h"
+#include "mlir/Transforms/DialectConversion.h"
+
+#include <cstdint>
+#include <functional>
+#include <string>
+
 /*
 
 1) IndexExpr
@@ -272,20 +286,6 @@ result in a new Dim variable.
      Affine: affine apply
 */
 
-#pragma once
-
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/IR/AffineExpr.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Value.h"
-#include "mlir/Transforms/DialectConversion.h"
-
-#include <cstdint>
-#include <functional>
-#include <string>
-
 namespace onnx_mlir {
 
 struct DialectBuilder;
@@ -458,6 +458,7 @@ public:
   bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values unequal.
   // Test if all element in list are literals.
   static bool isLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
+  static bool isNonNegativeLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
 
   // Getters.
   IndexExprScope &getScope() const { return *getScopePtr(); }
@@ -829,12 +830,12 @@ void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
 }
 
 // Create a list of IndexExpr of kind LiteralIndexExpr from a list of integers.
-void getIndexExprListFromInt(llvm::SmallVectorImpl<int64_t> &inputList,
+void getIndexExprListFromInt(mlir::ArrayRef<int64_t> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList);
 
 // Create a list of IndexExpr of kind LiteralIndexExpr/Questionmark from a
 // shape. Negative values are translated to Questionmarks.
-void getIndexExprListFromShape(llvm::SmallVectorImpl<int64_t> &inputList,
+void getIndexExprListFromShape(mlir::ArrayRef<int64_t> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList);
 
 } // namespace onnx_mlir

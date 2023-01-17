@@ -4,7 +4,7 @@
 
 //===------------------ Upsample.cpp - ONNX Operations --------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,6 +18,49 @@
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
+
+//===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXUpsampleOpShapeHelper::computeShape() {
+  // Read data and indices shapes as dim indices.
+  ONNXUpsampleOpAdaptor operandAdaptor(operands);
+
+  // No need to come up with a solution that generate runtime bounds as this op
+  // will be converted to a resize op. If that were not the case, we would need
+  // to load the float values, convert the shapes to float, multiply, reconvert
+  // back to int. No need for that at this moment.
+  DimsExpr outputDims, xShape;
+  createIE->getShapeAsDims(operandAdaptor.X(), xShape);
+  int64_t xRank = xShape.size();
+  for (int64_t i = 0; i < xRank; ++i)
+    outputDims.emplace_back(QuestionmarkIndexExpr());
+
+  auto scalesConstOp = getONNXConstantOp(operandAdaptor.scales());
+  if (scalesConstOp) {
+    // Can get the scales as constant.
+    auto valueAttr = scalesConstOp.valueAttr().dyn_cast<ElementsAttr>();
+    if (!valueAttr)
+      return op->emitError("Scales constant is not an ElementsAttr");
+    for (int64_t i = 0; i < xRank; ++i) {
+      if (xShape[i].isLiteral()) {
+        // When shape is also constant, replace questionmark by actual value.
+        double dim = xShape[i].getLiteral();
+        double scale = valueAttr.getValues<FloatAttr>()[i].getValueAsDouble();
+        outputDims[i] = LiteralIndexExpr((int64_t)(dim * scale));
+      }
+    }
+  }
+
+  setOutputDims(outputDims);
+  return success();
+}
+
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // Verify
@@ -37,7 +80,7 @@ LogicalResult ONNXUpsampleOp::verify() {
   // Safety checks on scale argument
   auto scalesTy = scales().getType().cast<RankedTensorType>();
   if (scalesTy.getShape().size() != 1) {
-    return emitError("Scales tensor must be rank-1");
+    return emitError("Scales tensor must be rank 1");
   }
   if (scalesTy.getShape()[0] != inputRank) {
     return emitError("Input tensor rank doesn't match scales tensor shape");
@@ -48,9 +91,9 @@ LogicalResult ONNXUpsampleOp::verify() {
   if (!scalesConstOp) {
     return success();
   }
-  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<ElementsAttr>();
   if (!valueAttr) {
-    return emitError("Scales constant is not a DenseElementsAttr");
+    return emitError("Scales constant is not an ElementsAttr");
   }
 
   int scaleIdx = 0;
@@ -80,33 +123,15 @@ LogicalResult ONNXUpsampleOp::inferShapes(
     return success();
   }
 
-  auto inputTy = X().getType().cast<RankedTensorType>();
-  int32_t inputRank = inputTy.getShape().size();
-
-  SmallVector<int64_t, 4> outputDims(inputRank, -1);
-
-  // Extract the scale values
-  auto scalesConstOp = getONNXConstantOp(scales());
-  if (!scalesConstOp) {
-    return success();
-  }
-  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<DenseElementsAttr>();
-  if (!valueAttr) {
-    return emitError("Scales constant is not a DenseElementsAttr");
-  }
-  int scaleIdx = 0;
-  // Why are the scale values float's?
-  for (auto it = valueAttr.getValues<FloatAttr>().begin();
-       it != valueAttr.getValues<FloatAttr>().end(); ++it) {
-    outputDims[scaleIdx++] = (int)((*it).getValueAsDouble());
-  }
-
-  // Compute and set the output shape
-  for (int i = 0; i < inputRank; ++i) {
-    outputDims[i] *= inputTy.getShape()[i];
-  }
-  getResult().setType(
-      RankedTensorType::get(outputDims, inputTy.getElementType()));
-
-  return success();
+  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  ONNXUpsampleOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXUpsampleOp>;
+} // namespace onnx_mlir

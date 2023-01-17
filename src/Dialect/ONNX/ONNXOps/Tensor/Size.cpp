@@ -19,6 +19,20 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXSizeOpShapeHelper::computeShape() {
+  // Dim returns tensor<64>
+  return setOutputDimsFromLiterals({});
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -29,8 +43,15 @@ using namespace onnx_mlir;
 LogicalResult ONNXSizeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Output is scalar of int64 containing the size of the input tensor.
-  SmallVector<int64_t, 1> outDims;
-  getResult().setType(
-      RankedTensorType::get(outDims, IntegerType::get(getContext(), 64)));
-  return success();
+  Type elementType = IntegerType::get(getContext(), 64);
+  ONNXSizeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXSizeOp>;
+} // namespace onnx_mlir

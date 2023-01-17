@@ -4,7 +4,7 @@
 
 //===------------ IndexExprBuilder.cpp - builder for index expressions ----===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -39,18 +39,17 @@ namespace {
 // Get scalar value regardless of the type.
 // Code adapted from src/Dialect/ONNX/ONNXOps/OpHelper.cpp file.
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(
-    DenseElementsAttr &denseAttr, Type type, uint64_t i) {
+RESULT_TYPE getScalarValue(ElementsAttr &elementsAttr, Type type, uint64_t i) {
   Type elementaryType = getElementTypeOrSelf(type);
   if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
       elementaryType.isInteger(64)) {
-    auto value = denseAttr.getValues<IntegerAttr>()[ArrayRef<uint64_t>({i})];
+    auto value = elementsAttr.getValues<IntegerAttr>()[ArrayRef<uint64_t>({i})];
     return (RESULT_TYPE)value.cast<IntegerAttr>().getInt();
   } else if (elementaryType.isF32()) {
-    auto value = denseAttr.getValues<APFloat>()[ArrayRef<uint64_t>({i})];
+    auto value = elementsAttr.getValues<APFloat>()[ArrayRef<uint64_t>({i})];
     return (RESULT_TYPE)value.convertToFloat();
   } else if (elementaryType.isF64()) {
-    auto value = denseAttr.getValues<APFloat>()[ArrayRef<uint64_t>({i})];
+    auto value = elementsAttr.getValues<APFloat>()[ArrayRef<uint64_t>({i})];
     return (RESULT_TYPE)value.convertToDouble();
   }
   llvm_unreachable("Unexpected type.");
@@ -60,7 +59,7 @@ RESULT_TYPE getScalarValue(
 // Template instantiation for getScalarValue. I don't see any need to have any
 // other result types that int, but keep it general just in case.
 template int64_t getScalarValue<int64_t>(
-    DenseElementsAttr &denseAttr, Type type, uint64_t i);
+    ElementsAttr &elementsAttr, Type type, uint64_t i);
 
 } // namespace
 
@@ -73,6 +72,8 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 // Test/assert that value has type with defined shape and rank.
 
+// Warning, this does not work well in presence of Seq and Opt types, which have
+// a dependence on ONNX.
 bool IndexExprBuilder::hasShapeAndRank(Value value) {
   ShapedType shapedType = value.getType().dyn_cast_or_null<ShapedType>();
   return shapedType && shapedType.hasRank();
@@ -169,9 +170,9 @@ IndexExpr IndexExprBuilder::getIntFromArray(
 
   if (i >= size)
     return UndefinedIndexExpr();
-  if (DenseElementsAttr denseAttr = getConst(array)) {
+  if (ElementsAttr elementsAttr = getConst(array)) {
     // From OpHelper.cpp's getScalarValue.
-    int64_t intVal = getScalarValue<int64_t>(denseAttr, type, i);
+    int64_t intVal = getScalarValue<int64_t>(elementsAttr, type, i);
     return LiteralIndexExpr(intVal);
   }
   // If our scalar array is not a constant; we have a runtime value.
