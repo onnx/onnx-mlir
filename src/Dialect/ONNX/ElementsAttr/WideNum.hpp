@@ -37,6 +37,28 @@ union WideNum {
   int64_t i64;  // Signed ints up to bitwidth 64.
   uint64_t u64; // Unsigned ints up to bitwidth 64, including bool.
 
+  template <typename T>
+  T to(mlir::Type ttag) const {
+    BType tag = btypeOfMlirType(ttag);
+    if constexpr (std::is_same_v<T, llvm::APFloat>)
+      return toAPFloat(tag);
+    else if constexpr (std::is_same_v<T, llvm::APInt>)
+      return toAPInt(tag);
+    else
+      return to<T>(tag);
+  }
+
+  template <typename T>
+  static WideNum from(mlir::Type ttag, T x) {
+    BType tag = btypeOfMlirType(ttag);
+    if constexpr (std::is_same_v<T, llvm::APFloat>)
+      return fromAPFloat(tag, x);
+    else if constexpr (std::is_same_v<T, llvm::APInt>)
+      return fromAPInt(tag, x);
+    else
+      return from<T>(tag, x);
+  }
+
   llvm::APFloat toAPFloat(BType tag) const;
 
   static WideNum fromAPFloat(BType tag, llvm::APFloat x);
@@ -46,8 +68,8 @@ union WideNum {
   static WideNum fromAPInt(BType tag, llvm::APInt x);
 
   template <typename T>
-  constexpr T to(BType dtag) const {
-    switch (dtag) {
+  constexpr T to(BType tag) const {
+    switch (tag) {
     case BType::BOOL:
     case BType::UINT8:
     case BType::UINT16:
@@ -70,8 +92,8 @@ union WideNum {
   }
 
   template <typename T>
-  static constexpr WideNum from(BType dtag, T x) {
-    switch (dtag) {
+  static constexpr WideNum from(BType tag, T x) {
+    switch (tag) {
     case BType::BOOL:
     case BType::UINT8:
     case BType::UINT16:
@@ -140,19 +162,19 @@ template <class Function>
 using WideNumWrappedFunction =
     detail::FunctionWrapper<decltype(Function::eval), Function>;
 
-// If FunctionTemplate<OP, T> is a Function class, like the argument to
+// If TemplateFunction<OP, T> is a Function class, like the argument to
 // WrappedFunction, then getWideNumWrappedTemplateFunction instantiates it with
 // the T corresponding to the given mlir type (promotes to the nearest among the
 // 4 types double, int64_t, uint64_t, bool) and returns a function pointer to
 // the instantiated static eval function, wrapped to take WideNum args and
 // return WideNum result. See ConstProp.cpp for example uses.
 //
-// NOTE: Although we only pass two type arguments to FunctionTemplate is
+// NOTE: Although we only pass two type arguments TemplateFunction is
 //       declared with a variadic second argument typename... T
 //       to support an extra 'Enable' type argument for enable_if stuff;
 //       see ElementWiseBinaryOpImpl, ElementWiseUnaryOpImpl in ConstProp.cpp.
-template <template <class OP, typename... T> class FunctionTemplate, class OP>
-constexpr auto getWideNumWrappedTemplateFunction(mlir::Type type);
+template <template <class OP, typename... T> class TemplateFunction, class OP>
+auto getWideNumWrappedTemplateFunction(mlir::Type type);
 
 // Include template implementations.
 #include "WideNum.hpp.inc"

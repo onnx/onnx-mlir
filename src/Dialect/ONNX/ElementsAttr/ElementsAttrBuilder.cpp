@@ -109,47 +109,6 @@ ElementsAttr ElementsAttrBuilder::fromWideNums(
       });
 }
 
-namespace {
-template <typename Fun>
-ElementsAttrBuilder::Transformer toTransformer(Fun &&fun) {
-  return [fun = std::forward<Fun>(fun)](MutableArrayRef<WideNum> data) -> void {
-    for (WideNum &n : data)
-      n = fun(n);
-  };
-}
-
-ElementsAttrBuilder::Transformer composeTransforms(
-    ElementsAttrBuilder::Transformer first,
-    ElementsAttrBuilder::Transformer second) {
-  if (first == nullptr)
-    return second;
-  else
-    return [fst = std::move(first), snd = std::move(second)](
-               MutableArrayRef<WideNum> dst) {
-      fst(dst);
-      snd(dst);
-    };
-}
-} // namespace
-
-// TODO: Inline this implementation to help the compiler inline fun into the
-//       closure, if benchmarking demonstrates a speedup.
-/*static*/
-ElementsAttrBuilder::Transformer ElementsAttrBuilder::functionTransformer(
-    WideNum (*fun)(WideNum)) {
-  return toTransformer(fun);
-}
-
-ElementsAttr ElementsAttrBuilder::transform(
-    ElementsAttr elms, Type transformedElementType, Transformer transformer) {
-  ShapedType transformedType = elms.getType().clone(transformedElementType);
-
-  ElementsProperties props = getElementsProperties(elms);
-
-  return create(transformedType, props.bufferBType, props.strides, props.buffer,
-      composeTransforms(props.transformer, std::move(transformer)));
-}
-
 // TODO: Inline this implementation to help the compiler inline combiner into
 //       the closures constructed in expandAndTransform, if benchmarking
 //       demonstrates a speedup.
@@ -158,14 +117,14 @@ ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
   if (lhs.isSplat()) {
     WideNum lhsNum = getElementsSplatWideNum(lhs);
     return expandAndTransform(rhs, combinedType,
-        toTransformer(
+        functionTransformer(
             [lhsNum, combiner](WideNum n) { return combiner(lhsNum, n); }));
   }
 
   if (rhs.isSplat()) {
     WideNum rhsNum = getElementsSplatWideNum(rhs);
     return expandAndTransform(lhs, combinedType,
-        toTransformer(
+        functionTransformer(
             [rhsNum, combiner](WideNum n) { return combiner(n, rhsNum); }));
   }
 
@@ -202,7 +161,7 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
     WideNum lhsNum = getElementsSplatWideNum(lhs);
     WideNum rhsNum = getElementsSplatWideNum(rhs);
     return expandAndTransform(cond, combinedType,
-        toTransformer(
+        functionTransformer(
             [lhsNum, rhsNum](WideNum n) { return n.u64 ? lhsNum : rhsNum; }));
   }
 
@@ -235,26 +194,37 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
 }
 
 namespace {
+using ElementsTransformer = std::function<void(llvm::MutableArrayRef<WideNum>)>;
+
+ElementsTransformer composeTransforms(
+    ElementsTransformer first, ElementsTransformer second) {
+  if (first == nullptr)
+    return second;
+  else
+    return [fst = std::move(first), snd = std::move(second)](
+               MutableArrayRef<WideNum> dst) {
+      fst(dst);
+      snd(dst);
+    };
+}
+
 template <typename SrcT, typename DstT>
 struct Caster {
   static inline constexpr DstT eval(SrcT src) { return static_cast<DstT>(src); }
 };
 
 template <typename SrcT, typename DstT>
-void wideCaster(MutableArrayRef<WideNum> nums) {
-  for (WideNum &n : nums)
-    n = WideNumWrappedFunction<Caster<SrcT, DstT>>::eval(n);
-}
+using WideCaster = WideNumWrappedFunction<Caster<SrcT, DstT>>;
 
-ElementsAttrBuilder::Transformer wideCaster(BType src, BType dst) {
+auto wideCaster(BType src, BType dst) {
   constexpr BType DBL = BType::DOUBLE, I64 = BType::INT64, U64 = BType::UINT64;
   // clang-format off
-  if (src == DBL && dst == I64) return wideCaster<double, int64_t>;
-  if (src == DBL && dst == U64) return wideCaster<double, uint64_t>;
-  if (src == I64 && dst == DBL) return wideCaster<int64_t, double>;
-  if (src == I64 && dst == U64) return wideCaster<int64_t, uint64_t>;
-  if (src == U64 && dst == DBL) return wideCaster<uint64_t, double>;
-  if (src == U64 && dst == I64) return wideCaster<uint64_t, int64_t>;
+  if (src == DBL && dst == I64) return WideCaster<double, int64_t>::eval;
+  if (src == DBL && dst == U64) return WideCaster<double, uint64_t>::eval;
+  if (src == I64 && dst == DBL) return WideCaster<int64_t, double>::eval;
+  if (src == I64 && dst == U64) return WideCaster<int64_t, uint64_t>::eval;
+  if (src == U64 && dst == DBL) return WideCaster<uint64_t, double>::eval;
+  if (src == U64 && dst == I64) return WideCaster<uint64_t, int64_t>::eval;
   // clang-format on
   llvm_unreachable("wideCaster must be called with 2 different wide types");
 }
@@ -274,10 +244,11 @@ ElementsAttr ElementsAttrBuilder::castElementType(
   BType newWideType = wideBTypeOfBType(newBType);
   BType oldWideType = wideBTypeOfBType(oldBType);
 
-  auto transformer = oldWideType == newWideType
-                         ? props.transformer
-                         : composeTransforms(props.transformer,
-                               wideCaster(oldWideType, newWideType));
+  auto transformer =
+      oldWideType == newWideType
+          ? props.transformer
+          : composeTransforms(props.transformer,
+                functionTransformer(wideCaster(oldWideType, newWideType)));
   return create(newType, props.bufferBType, props.strides, props.buffer,
       std::move(transformer));
 }
@@ -401,6 +372,12 @@ std::vector<ElementsAttr> ElementsAttrBuilder::split(
   return results;
 }
 
+ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
+    ArrayRef<unsigned> axes, bool keepdims,
+    WideNum (*reducer)(WideNum, WideNum)) {
+  llvm_unreachable("TODO: implement ElementsAttrBuilder::reduce()");
+}
+
 auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
     -> ElementsProperties {
   static Transformer nullTransformer = nullptr;
@@ -438,6 +415,16 @@ ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
     expandedStrides = expandStrides(strides, expandedShape);
     return getElementsWideNums(elms);
   };
+}
+
+ElementsAttr ElementsAttrBuilder::doTransform(
+    ElementsAttr elms, Type transformedElementType, Transformer transformer) {
+  ShapedType transformedType = elms.getType().clone(transformedElementType);
+
+  ElementsProperties props = getElementsProperties(elms);
+
+  return create(transformedType, props.bufferBType, props.strides, props.buffer,
+      composeTransforms(props.transformer, std::move(transformer)));
 }
 
 ElementsAttr ElementsAttrBuilder::expandAndTransform(ElementsAttr elms,
