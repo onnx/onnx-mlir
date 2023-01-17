@@ -325,7 +325,8 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
     doesn't generate a new memory entry and treats a reshape like a cast.
   }];
 
-  let arguments = (ins AnyMemRef:$dest, AnyMemRef:$src, AnyInteger:$size);
+  let arguments = (ins AnyMemRef:$dest, AnyMemRef:$src, AnyInteger:$size,
+                       AnyInteger:$dest_offset, AnyInteger:$src_offset);
 }
 
 def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {

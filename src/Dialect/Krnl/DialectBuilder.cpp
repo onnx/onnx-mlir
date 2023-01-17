@@ -232,7 +232,10 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
 }
 
 void KrnlBuilder::memcpy(Value dest, Value src, Value size) const {
-  b().create<KrnlMemcpyOp>(loc(), dest, src, size);
+  MultiDialectBuilder<MathBuilder> create(*this);
+  Value zero = create.math.constant(b().getI64Type(), 0);
+  b().create<KrnlMemcpyOp>(
+      loc(), dest, src, size, /*dest_offset=*/zero, /*src_offset=*/zero);
 }
 
 void KrnlBuilder::memset(Value dest, Value val, bool delayed) const {
