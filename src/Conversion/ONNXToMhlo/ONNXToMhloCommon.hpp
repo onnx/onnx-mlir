@@ -33,7 +33,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 using namespace mlir;
 

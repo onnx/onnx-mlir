@@ -4,7 +4,7 @@
 
 //===------------------ ONNXOps.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
 #include "mlir/Dialect/Traits.h"
 
@@ -27,6 +29,7 @@
 // Enable the corresponding node test in check-onnx-backend
 
 #define NOT_IMPLEMENTED_INFER_SHAPES(T)                                        \
+  /* shape inference interface method */                                       \
   mlir::LogicalResult mlir::T::inferShapes(                                    \
       std::function<void(mlir::Region &)> doShapeInference) {                  \
     return emitOpError(                                                        \
@@ -44,15 +47,18 @@ NOT_IMPLEMENTED_INFER_SHAPES(ONNXBatchNormalizationOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXBinarizerOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXBlackmanWindowOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXCastMapOp)
+NOT_IMPLEMENTED_INFER_SHAPES(ONNXCenterCropPadOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXClipV11Op)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXClipV12Op)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXClipV6Op)
+NOT_IMPLEMENTED_INFER_SHAPES(ONNXCol2ImOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXConcatFromSequenceOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXDetOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXDictVectorizerOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXFeatureVectorizerOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXGradientOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXGridSampleOp)
+NOT_IMPLEMENTED_INFER_SHAPES(ONNXGroupNormalizationOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXHammingWindowOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXHannWindowOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXImputerOp)
@@ -65,6 +71,7 @@ NOT_IMPLEMENTED_INFER_SHAPES(ONNXLpPoolOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXMaxPoolOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXMaxUnpoolOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXMelWeightMatrixOp)
+NOT_IMPLEMENTED_INFER_SHAPES(ONNXMishOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXMomentumOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXMultinomialOp)
 NOT_IMPLEMENTED_INFER_SHAPES(ONNXNegativeLogLikelihoodLossOp)
@@ -165,11 +172,14 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
     assert(!elements.isa<SparseElementsAttr>() &&
            "ONNXConstantOp value cannot be sparse");
     if (elements.getType() == resultType) {
-      // NOTE: Here we can insert logic to print alternatives to
-      //       DenseElementsAttr, like DenseResourceElementsAttr, in the same
-      //       way as DenseElementsAttr to hide these internal representations.
       odsPrinter << ' ';
-      odsPrinter.printAttribute(elements);
+      // Print DisposableElementsAttr as a DenseElementsAttr, because
+      // DisposableElementsAttr is an internal representation, so we hide it
+      // in this way.
+      if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
+        disposable.printAsDenseElementsAttr(odsPrinter);
+      else
+        odsPrinter.printAttribute(elements);
       return;
     }
   }

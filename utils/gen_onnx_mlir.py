@@ -3,6 +3,7 @@
 # After modifying this file, the script will need to run to rebuild the
 # onnx-mlir ONNX Dialect. This is performed by calling
 # `make OMONNXOpsIncTranslation` in the build dir.
+# If the changes are not seen, then you need to rebuild the entire onnx-mlir.
 
 # After changes that impact the documentation of the ops, run
 # "make onnx-mlir-docs".
@@ -56,7 +57,7 @@ check_operation_version = args.check_operation_version
 list_operation_version = args.list_operation_version
 
 # Change this variable only when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.12.0"
+current_onnx_version = "1.13.0"
 
 # Check the version of onnx package being used.
 if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
@@ -90,6 +91,10 @@ version_dict = {
  'Bernoulli': [15],
  'Binarizer': [1],
  'BitShift': [11],
+ 'BitwiseAnd': [18],
+ 'BitwiseNot': [18],
+ 'BitwiseOr': [18],
+ 'BitwiseXor': [18],
  'BlackmanWindow': [17],
  'Cast': [13],
  'CastLike': [15],
@@ -97,6 +102,7 @@ version_dict = {
  'CategoryMapper': [1],
  'Ceil': [13],
  'Celu': [12],
+ 'CenterCropPad': [18],
  'Clip': [13, 12, 11, 6],
  'Compress': [11],
  'Concat': [13],
@@ -108,6 +114,7 @@ version_dict = {
  'ConvTranspose': [11],
  'Cos': [7],
  'Cosh': [9],
+ 'Col2Im': [18],
  'CumSum': [14],
  'DepthToSpace': [13],
  'DequantizeLinear': [13],
@@ -139,6 +146,7 @@ version_dict = {
  'Greater': [13],
  'GreaterOrEqual': [16],
  'GridSample': [16],
+ 'GroupNormalization': [18],
  'HammingWindow': [17],
  'HannWindow': [17],
  'HardSigmoid': [6],
@@ -174,6 +182,7 @@ version_dict = {
  'MeanVarianceNormalization': [13],
  'MelWeightMatrix': [17],
  'Min': [13],
+ 'Mish': [18],
  'Mod': [13],
  'Momentum': [1],
  'Mul': [14],
@@ -187,8 +196,8 @@ version_dict = {
  'OneHot': [11],
  'OneHotEncoder': [1],
  'Optional' : [15],
- 'OptionalGetElement' : [15],
- 'OptionalHasElement' : [15],
+ 'OptionalGetElement' : [18],
+ 'OptionalHasElement' : [18],
  'Or': [7],
  'PRelu': [16],
  'Pad': [13, 11, 2],
@@ -224,8 +233,8 @@ version_dict = {
  'Scaler': [1],
  'Scan': [16],
  'Scatter': [11],
- 'ScatterElements': [16],
- 'ScatterND': [16],
+ 'ScatterElements': [18],
+ 'ScatterND': [18],
  'Selu': [6],
  'SequenceAt': [11],
  'SequenceConstruct': [11],
@@ -333,6 +342,9 @@ OpsWithVerifier = [
     'ArgMin',
     'AveragePool',
     'BitShift',
+    'BitwiseAnd',
+    'BitwiseOr',
+    'BitwiseXor',
     'CategoryMapper',
     'Compress',
     'Concat',
@@ -373,6 +385,8 @@ OpsWithVerifier = [
     'Pad',
     'Pow',
     'RandomNormalLike',
+    'Range',
+    'Resize',
     'ReverseSequence',
     'RoiAlign',
     'ScatterElements',
@@ -978,13 +992,32 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
         print('No typeStr ', schema.name)
         return []
 
+
+# Generate extra class declaration for shape helper.
+def gen_shape_helper_code(s, indent, opName):
+    # Print getShapeHelper.
+    indent = inc_indent(indent)
+    s += indent + "onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, \n"
+    indent = inc_indent(indent)
+    indent = inc_indent(indent)
+    s += indent + "onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {\n"
+    indent = dec_indent(indent)
+    s += indent + "onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNX{0}OpShapeHelper(op, oper, ieb, scope);\n".format(opName)
+    s += indent + "assert(sh && \"failed to allocate shape helper\");\n"
+    s += indent + "return sh;\n"
+    indent = dec_indent(indent)
+    s += indent + "}\n"
+    return s
+
+def gen_op_name(schema, with_version):
+    if with_version :
+        return schema.name+"V"+str(schema.since_version)
+    return schema.name
+
 # Generate entry for a given operation given by opName (from schema).
 def gen_op_def(schema, with_version = False):
     indent = inc_indent()
-    if with_version :
-        opName = schema.name+"V"+str(schema.since_version)
-    else :
-        opName = schema.name
+    opName = gen_op_name(schema, with_version)
     s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(opName)
 
     regions = OrderedDict()
@@ -1003,6 +1036,7 @@ def gen_op_def(schema, with_version = False):
     # Dummy implementations are added to ONNXOps.cpp.
     # Error will be report if these operations are encountered at runtime.
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
+    traits.append("DeclareOpInterfaceMethods<ShapeHelperOpInterface>")
     if opName in OpsWithResultTypeInference.keys():
         traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
     if len(regions):
@@ -1038,6 +1072,7 @@ def gen_op_def(schema, with_version = False):
     # Parse type constraint into onnx-mlir type string list.
     type_str_dict =  parse_type_constraints(schema)
 
+    ###########################################
     # Generate ins (consisting of operands and attributes).
     ins = get_operands_or_results(schema, type_str_dict, opName, is_input=True)
     ins.update(get_attrs(schema))
@@ -1046,6 +1081,7 @@ def gen_op_def(schema, with_version = False):
     s += indent + 'let arguments = (ins {});\n'.format(
         (',\n' + inc_indent(indent)).join(ins_strs))
 
+    ###########################################
     # Generate outs (operation results).
     outs = get_operands_or_results(schema, type_str_dict, opName, is_input=False)
     outs_strs = ["{1}:${0}".format(*i) for i in outs.items()]
@@ -1060,6 +1096,7 @@ def gen_op_def(schema, with_version = False):
 
     # custom_builder_broadcast_ops_list
 
+    ###########################################
     # Add custom builders.
     # Use element type of the first operand to construct an UnrankedTensorType
     # for the output.
@@ -1130,6 +1167,7 @@ def gen_op_def(schema, with_version = False):
 
         s += '\n' + indent + '];\n'
 
+    ###########################################
     # Generate extraClassDeclaration.
     s += indent + "let extraClassDeclaration = [{\n"
     #indent = inc_indent(indent)
@@ -1152,12 +1190,21 @@ def gen_op_def(schema, with_version = False):
         s += indent + "llvm_unreachable(\"region with the specified name does not exist\");\n"
         indent = dec_indent(indent)
         s += indent + "}\n"
+    s += indent + '}];\n'
+
+    ###########################################
+    # Generate extraClassDefinition.
+    s += indent + "let extraClassDefinition = [{\n"
+
+    # Generate shape helper code
+    s = gen_shape_helper_code(s, indent, opName)
 
     s += indent + '}];\n'
 
     if ( opName in custom_definition_misc) :
         s += custom_definition_misc[opName] + '\n'
 
+    ###########################################
     # Generate decl for verifier.
     if opName in OpsWithVerifier:
         s += indent + 'let hasVerifier = 1;\n'

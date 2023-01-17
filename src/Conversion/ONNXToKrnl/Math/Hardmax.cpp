@@ -23,7 +23,8 @@ namespace onnx_mlir {
 /// Returns the indices of the maximum values along a given axis.
 static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
     Value input, int64_t axis) {
-  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
+      rewriter, loc);
   IndexExprScope scope(create.krnl);
 
   MemRefType memRefType = input.getType().cast<MemRefType>();
@@ -31,9 +32,8 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   int64_t rank = memRefType.getRank();
   Value zero = create.math.constantIndex(0);
 
-  MemRefBoundsIndexCapture inputBounds(input);
   SmallVector<IndexExpr, 4> inputUBS;
-  inputBounds.getDimList(inputUBS);
+  create.krnlIE.getShapeAsDims(input, inputUBS);
 
   // Allocate and initialize the result.
   // Th result has the same shape as the input except the axis dimension is 1.
@@ -83,7 +83,8 @@ struct ONNXHardmaxOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    MultiDialectBuilder<MathBuilder, KrnlBuilder> create(rewriter, loc);
+    MultiDialectBuilder<MathBuilder, KrnlBuilder, IndexExprBuilderForKrnl>
+        create(rewriter, loc);
     IndexExprScope scope(create.krnl);
 
     ONNXHardmaxOpAdaptor operandAdaptor(operands);
@@ -103,9 +104,8 @@ struct ONNXHardmaxOpLowering : public ConversionPattern {
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
 
-    MemRefBoundsIndexCapture inputBounds(input);
     SmallVector<IndexExpr, 4> ubs;
-    inputBounds.getDimList(ubs);
+    create.krnlIE.getShapeAsDims(input, ubs);
 
     // Insert an allocation and deallocation for the result of this operation.
     bool insertDealloc = checkInsertDealloc(op);

@@ -60,7 +60,8 @@ extern llvm::cl::list<std::string> Xllc;
 extern llvm::cl::opt<std::string> mllvm;
 extern llvm::cl::opt<bool> verifyInputTensors;
 extern llvm::cl::opt<bool> allowSorting;
-
+extern llvm::cl::opt<std::string> reportHeapBefore;
+extern llvm::cl::opt<std::string> reportHeapAfter;
 extern llvm::cl::opt<InstrumentStages> instrumentStage;
 extern llvm::cl::opt<std::string> instrumentOps;
 extern llvm::cl::bits<InstrumentActions> instrumentControlBits;
@@ -69,6 +70,7 @@ extern llvm::cl::opt<std::string> ONNXOpStats;
 extern llvm::cl::opt<bool> enableMemoryBundling;
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
+extern llvm::cl::opt<bool> onnxConstPropReport;
 extern llvm::cl::opt<bool> enableParallel;
 extern llvm::cl::opt<bool> enableSimdDataLayout;
 

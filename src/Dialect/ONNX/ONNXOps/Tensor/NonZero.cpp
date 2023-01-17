@@ -19,6 +19,21 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXNonZeroOpShapeHelper::computeShape() {
+  ONNXNonZeroOpAdaptor operandAdaptor(operands);
+  int64_t xRank = createIE->getShapedTypeRank(operandAdaptor.X());
+  return setOutputDimsFromLiterals({xRank, -1});
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -28,16 +43,18 @@ using namespace onnx_mlir;
 
 LogicalResult ONNXNonZeroOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto builder = Builder(getContext());
-  Type inputType = getOperand().getType();
-  if (!inputType.isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()))
     return success();
-  SmallVector<int64_t, 2> dims;
-  // The first dimension size is the rank of the input.
-  dims.emplace_back(inputType.cast<RankedTensorType>().getRank());
-  // The second dimension size is the number of nonzero values in the input.
-  // So this dimension size is always unknown at compile time.
-  dims.emplace_back(-1);
-  getResult().setType(RankedTensorType::get(dims, builder.getI64Type()));
-  return success();
+
+  Type elementType = IntegerType::get(getContext(), 64);
+  ONNXNonZeroOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXNonZeroOp>;
+} // namespace onnx_mlir

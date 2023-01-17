@@ -1,5 +1,3 @@
-
-
 // RUN: onnx-mlir-opt --shape-inference %s -split-input-file | FileCheck %s
 
 // -----
@@ -1706,16 +1704,18 @@ func.func @test_dequantize_linear_2(%arg0 : tensor<5x?x3x4xi8>, %arg1 : tensor<*
 //===----------------------------------------------------------------------===//
 /// Test shape inference for ConvInteger operation and all its attributes.
 //===----------------------------------------------------------------------===//
-
 /// Default and required attributes for 1-D convolution.
 
 func.func @test_convinteger_0(%arg0 : tensor<1x2x32xi8>, %arg1 : tensor<5x2x6xi8>, %arg2 : tensor<i8>, %arg3 : tensor<i8>) -> tensor<*xi32> {
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32xi8>, tensor<5x2x6xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_0
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1], group = 1 : si64, kernel_shape = [6], pads = [0, 0], strides = [1]} : (tensor<1x2x32xi8>, tensor<5x2x6xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x27xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x27xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_0
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x27xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32xi8>, tensor<5x2x6xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x27xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x27xi32>
+// CHECK:         }
 }
 
 // -----
@@ -1726,9 +1726,12 @@ func.func @test_convinteger_1(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_1
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x27x58xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x27x58xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32x64xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6x7xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x27x58xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x27x58xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x27x58xi32>
+// CHECK:         }
 }
 
 // -----
@@ -1739,9 +1742,12 @@ func.func @test_convinteger_2(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [8, 9]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_2
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [8, 9], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x25x56xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x25x56xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32x64xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6x7xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x25x56xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [8, 9]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x25x56xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x25x56xi32>
+// CHECK:         }
 }
 
 // -----
@@ -1753,9 +1759,12 @@ func.func @test_convinteger_3(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", group = 1 : si64, pads = [2, 4, 3, 5]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_3
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 10], pads = [2, 4, 3, 5], strides = [1, 1]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x32x64xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_3
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32x64xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6x10xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x32x64xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "NOTSET", group = 1 : si64, pads = [2, 4, 3, 5]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x32x64xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x32x64xi32>
+// CHECK:         }
 }
 
 // -----
@@ -1766,20 +1775,27 @@ func.func @test_convinteger_4(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "SAME_UPPER", group = 1 : si64} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_4
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 10], pads = [2, 4, 3, 5], strides = [1, 1]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x32x64xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_4
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32x64xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6x10xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x32x64xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "SAME_UPPER", group = 1 : si64} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x32x64xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x32x64xi32>
+// CHECK:         }
 }
 
 // -----
+
 
 func.func @test_convinteger_5(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6x10xi8>, %arg2 : tensor<i8>, %arg3 : tensor<i8>) -> tensor<*xi32> {
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "SAME_LOWER", group = 1 : si64} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_5
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 10], pads = [3, 5, 2, 4], strides = [1, 1]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x32x64xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_5
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32x64xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6x10xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x32x64xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "SAME_LOWER", group = 1 : si64} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x32x64xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x32x64xi32>
+// CHECK:         }
 }
 
 // -----
@@ -1790,9 +1806,12 @@ func.func @test_convinteger_6(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "VALID", group = 1 : si64} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_6
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 10], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x27x55xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x27x55xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_6
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32x64xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6x10xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x27x55xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "VALID", group = 1 : si64} : (tensor<1x2x32x64xi8>, tensor<5x2x6x10xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x27x55xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x27x55xi32>
+// CHECK:         }
 }
 
 // -----
@@ -1803,9 +1822,12 @@ func.func @test_convinteger_7(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", group = 1 : si64, strides = [2, 3]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_7
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [2, 3]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x14x20xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x14x20xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_7
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32x64xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6x7xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x14x20xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "NOTSET", group = 1 : si64, strides = [2, 3]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x14x20xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x14x20xi32>
+// CHECK:         }
 }
 
 // -----
@@ -1817,9 +1839,12 @@ func.func @test_convinteger_8(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "SAME_UPPER", group = 1 : si64, strides = [2, 3]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_8
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [6, 7], pads = [2, 3, 2, 3], strides = [2, 3]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x16x22xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x16x22xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_8
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32x64xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6x7xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x16x22xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "SAME_UPPER", group = 1 : si64, strides = [2, 3]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x16x22xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x16x22xi32>
+// CHECK:         }
 }
 
 // -----
@@ -1830,9 +1855,12 @@ func.func @test_convinteger_9(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", group = 1 : si64, dilations = [2, 3]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_9
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : si64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x22x46xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x22x46xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_9
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32x64xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6x7xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x22x46xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : si64} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x22x46xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x22x46xi32>
+// CHECK:         }
 }
 
 // -----
@@ -1843,9 +1871,12 @@ func.func @test_convinteger_10(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", group = 1 : si64, dilations = [2, 3], strides = [2, 2]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_10
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : si64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x11x23xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x11x23xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_10
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32x64xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6x7xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x11x23xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : si64, strides = [2, 2]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x11x23xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x11x23xi32>
+// CHECK:         }
 }
 
 // -----
@@ -1856,9 +1887,12 @@ func.func @test_convinteger_11(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x
   %0 = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "SAME_UPPER", group = 1 : si64, dilations = [2, 3]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_convinteger_11
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : si64, kernel_shape = [6, 7], pads = [5, 9, 5, 9], strides = [1, 1]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x32x64xi32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_convinteger_11
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x32x64xi8>, [[PARAM_1_:%.+]]: tensor<5x2x6x7xi8>, [[PARAM_2_:%.+]]: tensor<i8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<1x5x32x64xi32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConvInteger"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {auto_pad = "SAME_UPPER", dilations = [2, 3], group = 1 : si64} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x32x64xi32>
+// CHECK:           return [[VAR_0_]] : tensor<1x5x32x64xi32>
+// CHECK:         }
 }
 
 // -----
@@ -2225,6 +2259,17 @@ func.func @test_dropout(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<1xf32>, %arg2:
 
 // -----
 
+func.func @test_dropout_no_mask(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<1xf32>, %arg2: tensor<1xi1>) -> tensor<*xf32> {
+  %output, %mask = "onnx.Dropout"(%arg0, %arg1, %arg2) {ratio =  1.000000e-01 : f32} : (tensor<1x2x3x4xf32>, tensor<1xf32>, tensor<1xi1>) -> (tensor<*xf32>, none)
+  "func.return"(%output) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_dropout
+  // CHECK: [[RES:%.+]], [[MASK:%.+]] = "onnx.Dropout"(%arg0, %arg1, %arg2) {ratio =  1.000000e-01 : f32} : (tensor<1x2x3x4xf32>, tensor<1xf32>, tensor<1xi1>) -> (tensor<1x2x3x4xf32>, none)
+  // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test shape inference for OneHotEncoder.
 //===----------------------------------------------------------------------===//
@@ -2537,14 +2582,17 @@ return %1 : tensor<*xf32>
 
 // -----
 
+
 func.func @test_upsample_dyn(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
 %1 = "onnx.Upsample"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<*xf32>
 return %1 : tensor<*xf32>
 
-// CHECK-LABEL: test_upsample_dyn
-// CHECK: [[RES:%.+]] = "onnx.Upsample"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<*xf32>
-// CHECK: return [[RES]] : tensor<*xf32>
-
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_upsample_dyn
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x2x2xf32>, [[PARAM_1_:%.+]]: tensor<4xf32>) -> tensor<?x?x?x?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Upsample"([[PARAM_0_]], [[PARAM_1_]]) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<?x?x?x?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x?x?xf32>
+// CHECK:         }
 }
 
 // -----
@@ -2564,6 +2612,23 @@ func.func @test_resize1(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> {
   // CHECK: [[R0:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>
   // CHECK: [[R1:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
   // CHECK: [[R2:%.+]] = "onnx.Resize"([[ARG]], [[R0]], [[R1]], [[CST]]) {coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<3x4x10x12xf32>
+}
+
+// -----
+
+func.func @test_resize_scales_floor(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>
+  %1 = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 1.510000e+00]> : tensor<4xf32>
+  %2 = "onnx.Resize"(%arg0, %0, %1, %cst) {coordinate_transformation_mode = "asymmetric", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<*xf32>
+  "func.return"(%2) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_resize_scales_floor
+  // CHECK-SAME: ([[ARG:%.+]]: tensor<3x4x5x6xf32>) -> tensor<3x4x10x9xf32> {
+  // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK: [[R0:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>
+  // CHECK: [[R1:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 1.510000e+00]> : tensor<4xf32>
+  // CHECK: [[R2:%.+]] = "onnx.Resize"([[ARG]], [[R0]], [[R1]], [[CST]]) {coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<3x4x10x9xf32>
 }
 
 // -----
@@ -3303,3 +3368,19 @@ func.func @test_concatshapetranpose_2(%arg0: tensor<?x?xf32>, %arg1: tensor<10x3
 // CHECK:           [[shape_:%.+]], [[VAR_transposed_:%.+]] = "onnx.ConcatShapeTranspose"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, perm = [1, 0], start = 0 : si64} : (tensor<?x?xf32>, tensor<10x30xf32>) -> (tensor<2xi64>, tensor<?x10xf32>)
 // CHECK:           return [[shape_]], [[VAR_transposed_]] : tensor<2xi64>, tensor<?x10xf32>
 // CHECK:         }
+
+// -----
+
+func.func @test_onnx_layout_transform(%arg0: tensor<5x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32>) -> tensor<*xf32>
+  %1 = "onnx.LayoutTransform"(%0) : (tensor<*xf32>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_onnx_layout_transform
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.LayoutTransform"([[PARAM_0_]]) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.LayoutTransform"([[VAR_0_]]) : (tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32>
+// CHECK:           return [[VAR_1_]] : tensor<5x3x32x32xf32>
+// CHECK:         }
+}

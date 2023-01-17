@@ -41,7 +41,6 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
-#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 // A global variable to indicate whether this pass will emit dealloc for
 // allocated memrefs or not during the conversion of ONNX to Krnl.
@@ -182,12 +181,6 @@ mlir::Value emitMemRefReinterpretCastOp(
 mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value input, int64_t axis,
     bool ascending = false);
-
-/// Return a DenseElementAttr of a KrnlGlobalOp or ONNXConstantOp.
-/// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
-/// lambda type, using ONNX and Krnl operations.
-mlir::DenseElementsAttr getDenseElementAttributeFromConstantValue(
-    mlir::Value value);
 
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
