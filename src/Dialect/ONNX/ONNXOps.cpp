@@ -4,7 +4,7 @@
 
 //===------------------ ONNXOps.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
 #include "mlir/Dialect/Traits.h"
 
@@ -27,6 +29,7 @@
 // Enable the corresponding node test in check-onnx-backend
 
 #define NOT_IMPLEMENTED_INFER_SHAPES(T)                                        \
+  /* shape inference interface method */                                       \
   mlir::LogicalResult mlir::T::inferShapes(                                    \
       std::function<void(mlir::Region &)> doShapeInference) {                  \
     return emitOpError(                                                        \
@@ -168,11 +171,14 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
     assert(!elements.isa<SparseElementsAttr>() &&
            "ONNXConstantOp value cannot be sparse");
     if (elements.getType() == resultType) {
-      // NOTE: Here we can insert logic to print alternatives to
-      //       DenseElementsAttr, like DenseResourceElementsAttr, in the same
-      //       way as DenseElementsAttr to hide these internal representations.
       odsPrinter << ' ';
-      odsPrinter.printAttribute(elements);
+      // Print DisposableElementsAttr as a DenseElementsAttr, because
+      // DisposableElementsAttr is an internal representation, so we hide it
+      // in this way.
+      if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
+        disposable.printAsDenseElementsAttr(odsPrinter);
+      else
+        odsPrinter.printAttribute(elements);
       return;
     }
   }

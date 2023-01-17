@@ -18,6 +18,10 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
+//===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
 namespace onnx_mlir {
 
 template <>

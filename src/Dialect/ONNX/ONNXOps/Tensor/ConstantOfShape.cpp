@@ -66,8 +66,7 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
   // If 'input' is a constant, check whether its values are valid or not.
   // If the values are valid, it is possible to infer shape.
   if (auto constantOp = getONNXConstantOp(input)) {
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    ElementsAttr valueAttribute = constantOp.valueAttr().cast<ElementsAttr>();
     // Get repeat values from valueAttribute.
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
     for (int i = 0; i < inputShape[0]; ++i) {
@@ -95,8 +94,7 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
   // 'value' attribute is a one-element tensor whose value and datatype are
   // used to set the output tensor value and datatype.
   if (value().has_value()) {
-    elementType =
-        valueAttr().cast<DenseElementsAttr>().getType().getElementType();
+    elementType = valueAttr().cast<ElementsAttr>().getType().getElementType();
   } else {
     // If 'value' attribute is not specified, it defaults to a tensor of
     // value 0 and datatype float32.

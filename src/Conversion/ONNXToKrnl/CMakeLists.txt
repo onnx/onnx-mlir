@@ -74,7 +74,6 @@ add_onnx_mlir_library(OMONNXToKrnl
 
   LINK_LIBS PUBLIC
   OMAccelerator
-  OMConstPropHelper
   OMONNXOps
   OMSupport
   MLIRFuncDialect
