@@ -29,7 +29,7 @@ LogicalResult ONNXReverseSequenceOpShapeHelper::computeShape() {
   // Get info about input data operand.
   ONNXReverseSequenceOpAdaptor operandAdaptor(operands);
   Value input = operandAdaptor.input();
-  return computeShapeFromOperand(input);
+  return setOutputDimsFromOperand(input);
 }
 
 } // namespace onnx_mlir
@@ -77,7 +77,7 @@ LogicalResult ONNXReverseSequenceOp::verify() {
 
 LogicalResult ONNXReverseSequenceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!input().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(input()))
     return success();
 
   Type elementType = input().getType().cast<ShapedType>().getElementType();

@@ -21,6 +21,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -791,12 +792,12 @@ void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
 
 LogicalResult KrnlCopyToBufferOp::verify() {
   KrnlCopyToBufferOpAdaptor opAdaptor = KrnlCopyToBufferOpAdaptor(*this);
-  MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
-  MemRefBoundsIndexCapture srcCapture(opAdaptor.source());
-  int64_t bufferRank = buffCapture.getRank();
-  int64_t srcRank = srcCapture.getRank();
+  IndexExprBuilderForAnalysis createIE(getLoc());
+  SmallVector<IndexExpr, 4> buff, source;
+  int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.buffer());
+  int64_t srcRank = createIE.getShapedTypeRank(opAdaptor.source());
   int64_t startRank = opAdaptor.starts().size();
-  if (!buffCapture.areAllLiteral())
+  if (!createIE.isLiteralShape(opAdaptor.buffer()))
     return emitOpError("buffer expect constant dimensions");
   if (srcRank < bufferRank)
     return emitOpError("Rank of memref cannot be smaller than buffer");
@@ -846,12 +847,12 @@ void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
 
 LogicalResult KrnlCopyFromBufferOp::verify() {
   KrnlCopyFromBufferOpAdaptor opAdaptor = KrnlCopyFromBufferOpAdaptor(*this);
-  MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
-  int64_t bufferRank = buffCapture.getRank();
+  IndexExprBuilderForAnalysis createIE(getLoc());
+  int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.buffer());
   int64_t destRank =
       opAdaptor.dest().getType().cast<MemRefType>().getShape().size();
   int64_t startRank = opAdaptor.starts().size();
-  if (!buffCapture.areAllLiteral())
+  if (!createIE.isLiteralShape(opAdaptor.buffer()))
     return emitOpError("buffer expect constant dimensions");
   if (destRank < bufferRank)
     return emitOpError("Rank of memref cannot be smaller than buffer");

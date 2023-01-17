@@ -74,9 +74,8 @@ LogicalResult ONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
 
 LogicalResult ONNXArgMaxOp::verify() {
   ONNXArgMaxOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   int64_t rank = data().getType().cast<ShapedType>().getRank();
   int64_t axisIndex = axis();
@@ -107,9 +106,8 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 
 LogicalResult ONNXArgMinOp::verify() {
   ONNXArgMinOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   int64_t rank = data().getType().cast<ShapedType>().getRank();
   int64_t axisIndex = axis();

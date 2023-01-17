@@ -4,12 +4,20 @@
 
 //===---------------- ONNXShapeHelper.hpp - help for shapes ---------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file has the computations to compute the shapes using the new index expr
-// approach.
+// This file defines a class that enables the scanning of MLIR Values,
+// Attributes, and Type Shape to generate IndexExpr. They are the main way to
+// generate IndexExpr in onnx-mlir.
+//
+// The IndexExprBuilder class has virtual functions that needs to be
+// instantiated by specialized sub-classes, defined to work in a specific
+// dialect. There are currently 3 sub-classes, one for ONNX, KRNL, and MHLO.
+//
+// Namely: IndexExprBuilderForAnalysis, IndexExprBuilderForKrnl, and
+// IndexExprBuilderForMhlo
 //
 //===----------------------------------------------------------------------===//
 
@@ -31,7 +39,7 @@
 namespace onnx_mlir {
 
 // ===----------------------------------------------------------------------===//
-//  IndexShapeBuilder
+//  IndexExprBuilder
 // ===----------------------------------------------------------------------===/
 
 /*
@@ -105,6 +113,11 @@ struct IndexExprBuilder : DialectBuilder {
   // the whole list. Assert when `len` exceed the array bounds.
   void getIntFromArrayAsLiterals(
       mlir::ArrayAttr intAttrArray, IndexExprList &list, int64_t len = -1);
+  // Same as above, but get a list of len values, filling in with outOfBoundVal
+  // if the actual attribute array does not have sufficient number of values.
+  // Expects an actual (i.e.  nonnegative) length.
+  void getIntFromArrayAsLiterals(mlir::ArrayAttr intAttrArray,
+      int64_t outOfBoundVal, IndexExprList &list, int64_t len);
 
   //===--------------------------------------------------------------------===//
   // Get symbol/dim index expressions from a scalar or 1D array value. When
@@ -166,9 +179,9 @@ protected:
   //===--------------------------------------------------------------------===//
   // Subclasses must define these pure virtual functions.
 
-  // Locate a dense element attribute associated with the defining op given by
+  // Locate an elements attribute associated with the defining op given by
   // value. Return nullptr if none exists.
-  virtual mlir::DenseElementsAttr getConst(mlir::Value value) = 0;
+  virtual mlir::ElementsAttr getConst(mlir::Value value) = 0;
   // Locate/generate a value that represents a value given by the op defining
   // arrayVal at position i in the array. Return nullptr if cannot
   // locate/generate the value.

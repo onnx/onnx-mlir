@@ -66,7 +66,8 @@ func.func @test_reshape_1D_constant_shape(%arg0 : tensor<5x5x1x32xf32>, %arg1 : 
 
 func.func @test_lstm_not_3D_input(%arg0: tensor<4x3xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
-  // expected-error @+2 {{The first input tensor must have rank 3}}
+  // expected-error @+3 {{The first input tensor must have rank 3}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
   // expected-error @+1 {{shape inference failed}}
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
@@ -76,7 +77,8 @@ func.func @test_lstm_not_3D_input(%arg0: tensor<4x3xf32>, %arg1: tensor<1x12x2xf
 
 func.func @test_lstm_not_3D_weight(%arg0: tensor<4x3x2xf32>, %arg1: tensor<12x2xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
-  // expected-error @+2 {{The second input tensor must have rank 3}}
+  // expected-error @+3 {{The second input tensor must have rank 3}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
   // expected-error @+1 {{shape inference failed}}
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
@@ -86,7 +88,8 @@ func.func @test_lstm_not_3D_weight(%arg0: tensor<4x3x2xf32>, %arg1: tensor<12x2x
 
 func.func @test_lstm_not_3D_recurrent(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<12x3xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
-  // expected-error @+2 {{The third input tensor must have rank 3}}
+  // expected-error @+3 {{The third input tensor must have rank 3}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
   // expected-error @+1 {{shape inference failed}}
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<12x3xf32>, none, none, none, none, none) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
@@ -96,7 +99,8 @@ func.func @test_lstm_not_3D_recurrent(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x
 
 func.func @test_lstm_wrong_direction(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
-  // expected-error @+2 {{direction attribute must be one of the strings: forward, reverse, and bidirectional}}
+  // expected-error @+3 {{direction attribute must be one of the strings: forward, reverse, and bidirectional}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
   // expected-error @+1 {{shape inference failed}}
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64, direction="forwadr"} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
   return %Y_h : tensor<*xf32>

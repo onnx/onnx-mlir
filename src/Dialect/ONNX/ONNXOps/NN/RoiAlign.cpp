@@ -82,8 +82,7 @@ LogicalResult ONNXRoiAlignOp::verify() {
 LogicalResult ONNXRoiAlignOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>() ||
-      !batch_indices().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(batch_indices()))
     return success();
 
   Type elementType = X().getType().cast<ShapedType>().getElementType();

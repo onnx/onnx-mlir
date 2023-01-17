@@ -25,35 +25,54 @@ using namespace onnx_mlir;
 // Support
 //===----------------------------------------------------------------------===//
 
-namespace {
+namespace onnx_mlir {
 
-// Helper function to infer shapes of global pool operations.
-template <typename PoolingOp>
-static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
-  // Cannot infer shape if no shape exists.
-  if (!op->X().getType().template isa<RankedTensorType>())
-    return success();
-
-  auto xTy = op->X().getType().template cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
-  xTy.getRank();
-
-  if (xShape.size() < 3) {
+template <typename OP_TYPE>
+LogicalResult ONNXGenericGlobalPoolOpShapeHelper<OP_TYPE>::computeShape() {
+  typename OP_TYPE::Adaptor operandAdaptor(operands);
+  DimsExpr xDims, outputDims;
+  createIE->getShapeAsDims(operandAdaptor.X(), xDims);
+  if (xDims.size() < 3)
     return op->emitError("Data input shape must be at least (NxCxD1)");
-  }
-
-  SmallVector<int64_t, 4> outputDims;
-  outputDims.emplace_back(xShape[0]);
-  outputDims.emplace_back(xShape[1]);
+  // Keep first two dims.
+  outputDims.emplace_back(xDims[0]);
+  outputDims.emplace_back(xDims[1]);
   // Spatial dimensions are reduced to 1.
-  outputDims.insert(outputDims.end(), xTy.getRank() - 2, 1);
-
-  op->getResult().setType(
-      RankedTensorType::get(outputDims, xTy.getElementType()));
+  for (int i = 2; i < (int)xDims.size(); ++i)
+    outputDims.emplace_back(LiteralIndexExpr(1));
+  // Save the final result.
+  setOutputDims(outputDims);
   return success();
 }
 
-} // namespace
+template <>
+LogicalResult ONNXMaxRoiPoolOpShapeHelper::computeShape() {
+  ONNXMaxRoiPoolOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+
+  IndexExpr channel = createIE->getShapeAsDim(operandAdaptor.X(), 1);
+  uint64_t roisRank = createIE->getShapedTypeRank(operandAdaptor.rois());
+  if (roisRank != 2)
+    return op->emitError("rois rank is expected to be 2d");
+
+  // 2d tensor: (num_rois, 5)
+  IndexExpr numRois = createIE->getShapeAsDim(operandAdaptor.rois(), 0);
+  DimsExpr pooledDims;
+  createIE->getIntFromArrayAsLiterals(
+      operandAdaptor.pooled_shape(), pooledDims);
+
+  // 4-D tensor : (num_rois, channels, pooled_shape[0], pooled_shape[1]).
+  DimsExpr outputDims;
+  outputDims.push_back(LiteralIndexExpr(numRois));
+  outputDims.push_back(channel);
+  outputDims.push_back(pooledDims[0]);
+  outputDims.push_back(pooledDims[1]);
+
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // AveragePool
@@ -105,7 +124,7 @@ LogicalResult ONNXAveragePoolOp::verify() {
 LogicalResult ONNXAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()))
     return success();
 
   Type elementType = X().getType().cast<ShapedType>().getElementType();
@@ -119,7 +138,9 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 
 LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapesGlobalPool(this);
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXGlobalAveragePoolOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -128,7 +149,9 @@ LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
 
 LogicalResult ONNXGlobalLpPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapesGlobalPool(this);
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXGlobalLpPoolOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -137,7 +160,9 @@ LogicalResult ONNXGlobalLpPoolOp::inferShapes(
 
 LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapesGlobalPool(this);
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXGlobalMaxPoolOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -197,7 +222,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::verify() {
 LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()))
     return success();
 
   // Verify parameters: mandatory for kernel shape.
@@ -216,40 +241,12 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
 
 LogicalResult ONNXMaxRoiPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(rois()))
     return success();
 
-  if (!rois().getType().isa<RankedTensorType>())
-    return success();
-
-  auto x_type = X().getType().cast<RankedTensorType>();
-  auto x_shape = x_type.getShape();
-  auto rois_rank = rois().getType().cast<RankedTensorType>().getRank();
-  if (rois_rank != 2)
-    return success();
-
-  // 2d tensor: (num_rois, 5)
-  auto roi_shape = rois().getType().cast<RankedTensorType>().getShape();
-  int64_t num_rois = roi_shape[0];
-  SmallVector<int64_t, 2> pooled_dims;
-
-  auto pooled_shape_array_attr = pooled_shape();
-  for (auto pooled_shape_attr : pooled_shape_array_attr) {
-    auto pooled_shape_int_attr = pooled_shape_attr.dyn_cast<IntegerAttr>();
-    if (!pooled_shape_int_attr)
-      return success();
-    pooled_dims.push_back(pooled_shape_int_attr.getInt());
-  }
-
-  // 4-D tensor : (num_rois, channels, pooled_shape[0], pooled_shape[1]).
-  SmallVector<int64_t, 2> outputDims;
-  outputDims.push_back(num_rois);
-  outputDims.push_back(x_shape[1]); // channel
-  outputDims.push_back(pooled_dims[0]);
-  outputDims.push_back(pooled_dims[1]);
-
-  updateType(getResult(), outputDims, x_type.getElementType());
-  return success();
+  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  ONNXMaxRoiPoolOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -258,7 +255,11 @@ LogicalResult ONNXMaxRoiPoolOp::inferShapes(
 
 namespace onnx_mlir {
 
+template struct ONNXGenericGlobalPoolOpShapeHelper<ONNXGlobalAveragePoolOp>;
+template struct ONNXGenericGlobalPoolOpShapeHelper<ONNXGlobalLpPoolOp>;
+template struct ONNXGenericGlobalPoolOpShapeHelper<ONNXGlobalMaxPoolOp>;
 template struct ONNXGenericPoolOpShapeHelper<ONNXAveragePoolOp>;
 template struct ONNXGenericPoolOpShapeHelper<ONNXMaxPoolSingleOutOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXMaxRoiPoolOp>;
 
 } // namespace onnx_mlir

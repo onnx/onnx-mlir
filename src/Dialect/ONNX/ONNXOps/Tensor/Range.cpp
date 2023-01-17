@@ -18,6 +18,10 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
+//===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
 namespace onnx_mlir {
 
 template <>
@@ -46,11 +50,8 @@ LogicalResult ONNXRangeOpShapeHelper::computeShape() {
 
 LogicalResult ONNXRangeOp::verify() {
   // All inputs must be valid ranked tensors.
-  if (!start().getType().isa<RankedTensorType>())
-    return success();
-  if (!limit().getType().isa<RankedTensorType>())
-    return success();
-  if (!delta().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(start()) || !hasShapeAndRank(limit()) ||
+      !hasShapeAndRank(delta()))
     return success();
 
   auto startTensorTy = start().getType().cast<RankedTensorType>();

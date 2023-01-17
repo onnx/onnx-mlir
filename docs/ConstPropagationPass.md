@@ -35,43 +35,35 @@ consumes memory until the end of compilation. In [Example](#example), all the
 three DenseElementsAttrs in the three ONNXConstantOps exist until the end of
 compilation. Especially, two intermediate DenseElementsAttrs in the two
 ONNXConstantOps produced by folding the two ONNXAddOps also exist. For a
-practice model, the number of intermediate DenseElementsAttrs will increase
-quickly, which lead to a large memory footprint during compilation. 
+real world model, the number of intermediate DenseElementsAttrs will increase
+quickly, which leads to a large memory footprint during compilation. 
 
 To avoid creating too many DenseElementsAttrs for intermediate ONNXConstantOps
-during `--constprop-onnx`, we design a mechanism that dynamically allocates and
+during `--constprop-onnx`, we designed a mechanism that dynamically allocates and
 deallocates buffers for intermediate ONNXConstantOps and only creates
-DenseElementsAttr for the final results of constant propagation.
+DenseElementsAttr after constant propagation and other ONNX dialect passes,
+just before lowering to Krnl (or any other target dialect).
 
-In particular, we maintain a buffer pool internally. When an ONNXConstantOp
-is reached at the first time, we read its DenseElementsAttr and store
-data to an array buffer in the pool. A unique buffer ID is used to map the
-ONNXConstantOp to the buffer. All constant computations are then done on array
-buffers, which is to avoid creating DenseElementsAttr for intermediate
-ONNXConstantOps. Buffers are automatically freed if they are not used.
+This is accomplished with a custom attribute DisposableElementsAttr which
+acts as a substitute for DenseElementsAttr for the common case of
+non-complex scalar element types: bool and integer and floating point types.
+DisposableElementsAttr implements the same ElementsAttr interface as
+DenseElementsAttr and in most cases they are functionally identical and
+the surrounding code doesn't need to distinguish. It just needs to use the
+OnnxElementsAttrBuilder class and ElementsAttrHelper functions to
+construct and access ElementsAttr instances to reap the the memory footprint
+and performance benefits.
 
-We provide three helper functions to use when working with buffers:
-1. `getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op)`
-   - create a buffer from a dense attribute at the first time we reach the
-     const 'op' and add the buffer to the buffer pool, or
-   - get the buffer from the buffer pool if it was created.
-2. `allocateBufferFor(Value value, bool useMaxSize = false)`
-   - create a new buffer whose size is obtained from the type of 'value'. This
-     buffer has not yet been added to the buffer pool.
-3. `createConstantOpAndStoreBufferPtr(..., char *buffer)`
-   - create a new ONNXConstantOp using the given buffer, and
-   - add the buffer to the buffer pool.
+The deallocation of DisposableElementsAttr buffers happens between compiler
+passes in DisposableGarbageCollector, which is run by the PassManager
+between "module" passes (which are guaranteed to "stop the world" with no
+other passes executing in parallel) as an "instrumentation".
 
-Note that:
-  - A buffer in the buffer pool will be automatically freed when there is
-    no use of the ONNXConstantOp associated with the buffer. Users don't
-    need to take care about that.
-  - If we create a buffer by calling `allocateBufferFor` and the buffer is not
-    used with `createConstantOpAndStoreBufferPtr` to create a new
-    ONNXConstantOp, it is not managed by the buffer pool. Please make sure to
-    free the buffer. We do not manage buffers that are not associated with an
-    ONNXConstantOp.
-    
+DisposableElementsAttr offers other memory and speed benefits which are
+outlined in the comments in the class source file and are
+explained in the presentation from November 2022, linked from the
+[meeting wiki page](https://github.com/onnx/onnx-mlir/wiki/Informal-meeting-agenda-and-notes#nov-29th).
+
 ## Write rules for constant propagation
 
 We use MLIR declarative rewriting rules (DRR) to write patterns for constant
@@ -87,14 +79,6 @@ class Pattern<
 
 More information about DRR can be found [here](https://mlir.llvm.org/docs/DeclarativeRewrites/).
 
-There is a limitation in writing DRRs for `--constprop-onnx` pass so that the
-memory footprint is minimized, that is:
-- Do not use ONNXConstantOp directly in the result patterns of a DRR, because this
-  ONNXConstantOp will create a new DenseElementsAttr which consumes memory. Creating an
-  ONNXConstantOp should be done with `createConstantOpAndStoreBufferPtr`.
-
-We will explain in detail how to construct a returned ONNXConstantOp in [Step 2](#step2).
- 
 Now, we go through a simple example that adds constant propagation for ONNXAddOp.
 
 ### Step 1: Write DRR patterns <a id="step1"></a>
@@ -122,10 +106,7 @@ check a dense constant tensor by using `IsFromDenseONNXConstantOp`.
 
 In the result pattern, to produce a ONNXConstantOp, we will add `lhs`
 and `rhs` at compile time, and emit an ONNXConstantOp. To minimize the
-memory footprint, **this ONNXConstantOp does not have a DenseElementsAttr**, but
-refers to an internal buffer where the real data is stored. DenseElementsAttrs
-will be added to only **the final ONNXConstantOps of the whole pass**,
-not to intermediate generated ONNXConstantOps.
+memory footprint, this ONNXConstantOp has a DisposableElementsAttr instead of a conventional DenseElementsAttr.
 
 Function `CreateAddOfTwoConst` will do the addition at compile time and return
 an ONNXConstantOp.
@@ -142,130 +123,34 @@ Function `CreateAddOfTwoConst` in the pattern calls
 
 ```c++
 template <typename ElementwiseBinaryOp>
-ONNXConstantOp ConstPropElementwiseBinary(
-    PatternRewriter &rewriter, Value replacingValue, Value lhs, Value rhs) {
-  Type elementType =
-      replacingValue.getType().cast<ShapedType>().getElementType();
-  ArrayRef<int64_t> lhsShape = lhs.getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> rhsShape = rhs.getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> outputShape =
-      replacingValue.getType().cast<ShapedType>().getShape();
-      
-  // Get lhs and rhs array buffers.
-  char *lhsArray = getArrayFromAttributeOrBuffer(rewriter, lhs.getDefiningOp());
-  char *rhsArray = getArrayFromAttributeOrBuffer(rewriter, rhs.getDefiningOp());
+Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
+    Value replacingValue, Value lhsValue, Value rhsValue) {
+  ConstPropCounters::count("ElementwiseBinary", {lhsValue, rhsValue});
+  Type replacingType = replacingValue.getType().cast<ShapedType>();
 
-  // Allocate a buffer for the result.
-  // Use maximum size (double or int64_t) to avoid the precision loss.
-  char *resArray =
-      allocateBufferFor(replacingValue.getType(), /*useMaxSize=*/true);
-      
-  // Do calculation on array buffers.
-  if (elementType.isa<FloatType>()) {
-    // Use double to avoid the precision loss during computation.
-    IterateConstPropElementwiseBinary<ElementwiseBinaryOp, double>(
-        lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
-  } else if (elementType.isa<IntegerType>()) {
-    // Use int64_t to avoid the precision loss during computation.
-    IterateConstPropElementwiseBinary<ElementwiseBinaryOp, int64_t>(
-        lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
-  } else
-    llvm_unreachable("Unknown data type");
+  // Get lhs and rhs ElementsAttr from the values' defining constant ops.
+  ElementsAttr lhs = getConstValueElements(lhsValue);
+  ElementsAttr rhs = getConstValueElements(rhsValue);
 
-  // Construct a new ONNXConstantOp for the result array buffer.
-  // This ONNXConstantOp contains a buffer ID instead of a DenseElementsAttr.
-  ONNXConstantOp res =
-      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
-  
-  // Return the constant.
-  return res;
+  Type operandsElemType = lhs.getElementType();
+  assert(operandsElemType == rhs.getElementType() &&
+         "all element-wise binary ops have matching operands element types");
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr resultElements = elementsBuilder.combine(lhs, rhs, replacingType,
+      combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsElemType));
+
+  // Construct and return a new ONNXConstantOp with the resultElements attribute.
+  return createReplacingConstantOp(rewriter, replacingValue, resultElements)
+      .getResult();
 }
 ```
+where `OnnxElementsAttrBuilder.combine(...)` broadcasts the lhs and rhs elements,
+as needed, and constructs a new (Disposable) ElementsAttr whose elements are the
+result of element-wise application of the binary function
+`combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsElemType)`
+which maps the ElementwiseBinaryOp ONNX op to a c++ operator.
 
-For each constant tensor defined by ONNXConstantOp, we get an array buffer
-associated with it by using function `getArrayFromAttributeOrBuffer`. The buffer
-is created from DenseElementsAttr at the first time we reach an ONNXConstantOp.
-For the other reaches, the buffer is obtained from the buffer pool.
-
-To allocate an array buffer for the result, we use function `allocateBufferFor`
-with the maximum type size to avoid precision loss.
-
-Constant computation will operate on the two input array buffers and the result
-will be stored in the result array buffer. 
-
-To construct a result ONNXConstantOp from the result array buffer, we
-use function `createConstantOpAndStoreBufferPtr`. The buffer will be added to
-the buffer pool, and the returned ONNXConstantOp will contain a buffer id which
-is associated with the buffer. No DenseElementsAttr is created.
-
-### Step 3: Write computation on array buffers <a id="step1"></a>
-
-Now we describe how to do computation on array buffers. In other words, we
-describe the function `IterateConstPropElementwiseBinary`.
-
-An array buffer is an 1D array while its original data layout is tensor. Thus,
-to access elements, we need to convert a linear access index to a tensor index,
-and vice versa.
-
-We provide two helper functions for index conversion, they are: 
-1. `getAccessIndex`: to get a tensor index from a linear index.
-2. `getLinearAccessIndex`: to get a linear index from a tensor index.
- 
-Below is a snippet code in `IterateConstPropElementwiseBinary` to demonstrate
-how to use them.
-
-```c++
-// Iterate over the linea space of the result index.
-for (int64_t i = 0; i < getNumberOfElements(outputShape); ++i) {
-  // Compute indices to access the output.
-  std::vector<int64_t> outputIndices = getAccessIndex(i, outputStrides);
-
-  // Compute indices to access inputs.
-  SmallVector<int64_t, 4> lhsIndices(lhsRank, 0);
-  SmallVector<int64_t, 4> rhsIndices(rhsRank, 0);
-  if (!broadcasting) {
-    for (int k = 0; k < outputRank; ++k) {
-      lhsIndices[k] = outputIndices[k];
-      rhsIndices[k] = outputIndices[k];
-    }
-  } else {
-    for (int k = 0; k < outputRank; ++k) {
-      // in the lhs index range.
-      if (k >= outputRank - lhsRank) {
-        int lhsIndex = k - outputRank + lhsRank;
-        if (lhsShape[lhsIndex] == 1)
-          // broadcast
-          lhsIndices[lhsIndex] = 0;
-        else
-          lhsIndices[lhsIndex] = outputIndices[k];
-      }
-      // in the rhs index range.
-      if (k >= outputRank - rhsRank) {
-        int rhsIndex = k - outputRank + rhsRank;
-        if (rhsShape[rhsIndex] == 1)
-          // broadcast
-          rhsIndices[rhsIndex] = 0;
-        else
-          rhsIndices[rhsIndex] = outputIndices[k];
-      }
-    }
-  }
-
-  // Calculate element-wise binary result.
-  int64_t lhsOffset = getLinearAccessIndex(lhsIndices, lhsStrides);
-  int64_t rhsOffset = getLinearAccessIndex(rhsIndices, rhsStrides);
-
-  T lhsValue = *(lhsArray + lhsOffset);
-  T rhsValue = *(rhsArray + rhsOffset);
-  *(resArray + i) = ComputeConstPropElementwiseBinary<ElementwiseBinaryOp, T>(
-      lhsValue, rhsValue);
-}
-```
-The above code iterates over the linear index space of the output. For each
-index, it computes a tensor index, and uses the tensor index to computes tensor
-indices for the lhs and rhs according to the broadcasting rule. After that, it
-computes linear indices for the lhs and rhs, then get lhs and rhs values for
-addition. The result is finally stored to the result array buffer.
+### TODO: Describe how to add OnnxElementsAttrBuilder builder methods for new ops
 
 For more information about constant propagation, please see [ConstProp.td](https://github.com/onnx/onnx-mlir/blob/main/src/Transform/ONNX/ConstProp.td)
 and

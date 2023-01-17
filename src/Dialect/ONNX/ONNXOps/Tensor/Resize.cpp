@@ -52,7 +52,7 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXResizeOp::verify() {
-  if (!X().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X())) {
     return success();
   }
 
@@ -73,9 +73,45 @@ LogicalResult ONNXResizeOp::verify() {
 
 LogicalResult ONNXResizeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X()))
+    return success();
+
+  // TODO : Remove this if branch once floating point scales are handled in
+  // ONNXResizeOpShapeHelper Issue number : #1958
+  if (!isFromNone(scales())) {
+    auto inputTy = X().getType().cast<RankedTensorType>();
+
+    // Output should at least has the same rank as X input
+    if (!getResult().getType().isa<RankedTensorType>()) {
+      SmallVector<int64_t, 4> dims(inputTy.getRank(), -1);
+      getResult().setType(
+          RankedTensorType::get(dims, inputTy.getElementType()));
+    }
+
+    ElementsAttr scalesAttrs = getElementAttributeFromONNXValue(scales());
+    if (!scalesAttrs) {
+      return success();
+    }
+
+    SmallVector<float, 4> scalesConstant;
+    for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
+      scalesConstant.emplace_back(scaleAttr.getValueAsDouble());
+    }
+
+    SmallVector<int64_t, 4> dims;
+    for (int i = 0; i < inputTy.getRank(); i++) {
+      int newDim;
+      if (ShapedType::isDynamic(inputTy.getShape()[i]))
+        newDim = -1;
+      else
+        newDim = inputTy.getShape()[i] * scalesConstant[i];
+      dims.emplace_back(newDim);
+    }
+
+    updateType(getResult(), dims, inputTy.getElementType());
     return success();
   }
+
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();
   ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);

@@ -43,11 +43,10 @@ LogicalResult ONNXSpaceToDepthOpShapeHelper::computeShape() {
   // shape [N, C * blocksize * blocksize, H/blocksize, W/blocksize].
   DimsExpr outputDims;
   outputDims.resize(inputRank);
-  MemRefBoundsIndexCapture inputBounds(input);
-  DimIndexExpr N(inputBounds.getDim(0));
-  DimIndexExpr C(inputBounds.getDim(1));
-  DimIndexExpr H(inputBounds.getDim(2));
-  DimIndexExpr W(inputBounds.getDim(3));
+  DimIndexExpr N(createIE->getShapeAsDim(input, 0));
+  DimIndexExpr C(createIE->getShapeAsDim(input, 1));
+  DimIndexExpr H(createIE->getShapeAsDim(input, 2));
+  DimIndexExpr W(createIE->getShapeAsDim(input, 3));
 
   outputDims[0] = N;
   outputDims[1] = C * blocksize * blocksize;
@@ -104,7 +103,7 @@ LogicalResult ONNXSpaceToDepthOp::verify() {
 LogicalResult ONNXSpaceToDepthOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no input shape exists.
-  if (!input().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(input()))
     return success();
 
   Type elementType = input().getType().cast<ShapedType>().getElementType();
