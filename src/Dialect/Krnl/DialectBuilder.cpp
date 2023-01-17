@@ -238,6 +238,11 @@ void KrnlBuilder::memcpy(Value dest, Value src, Value size) const {
       loc(), dest, src, size, /*dest_offset=*/zero, /*src_offset=*/zero);
 }
 
+void KrnlBuilder::memcpy(Value dest, Value src, Value size, Value destOffset,
+    Value srcOffset) const {
+  b().create<KrnlMemcpyOp>(loc(), dest, src, size, destOffset, srcOffset);
+}
+
 void KrnlBuilder::memset(Value dest, Value val, bool delayed) const {
   b().create<KrnlMemsetOp>(loc(), dest, val, b().getBoolAttr(delayed));
 }

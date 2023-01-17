@@ -29,8 +29,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     ONNXTransposeOpAdaptor operandAdaptor(operands);
     ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
+        create(rewriter, loc);
 
     // Operands and attributes.
     Value data = operandAdaptor.data();
@@ -41,14 +42,13 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     assert(inConvertedType && inConvertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType inMemRefType = inConvertedType.cast<MemRefType>();
-    uint64_t inRank = inMemRefType.getShape().size();
+    uint64_t rank = inMemRefType.getShape().size();
     // Convert the output type to MemRefType.
     Type outConvertedType =
         typeConverter->convertType(*op->result_type_begin());
     assert(outConvertedType && outConvertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType outMemRefType = outConvertedType.cast<MemRefType>();
-    uint64_t outRank = outMemRefType.getShape().size();
 
     // Get shape.
     ONNXTransposeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -62,7 +62,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       if (dims[axis] != 1)
         originalAxes.emplace_back(axis);
     SmallVector<int64_t, 4> permutedAxes;
-    for (uint64_t i = 0; i < inRank; ++i) {
+    for (uint64_t i = 0; i < rank; ++i) {
       int64_t axis = ArrayAttrIntVal(permAttr, i);
       if (dims[axis] != 1)
         permutedAxes.emplace_back(axis);
@@ -70,9 +70,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
     if (originalAxes == permutedAxes) {
       // It is safe to lower to a view op.
-      MemRefBuilder createMemRef(rewriter, loc);
       Value view =
-          createMemRef.reinterpretCast(data, shapeHelper.getOutputDims());
+          create.mem.reinterpretCast(data, shapeHelper.getOutputDims());
       rewriter.replaceOp(op, view);
       return success();
     }
@@ -81,23 +80,84 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outMemRefType, loc, shapeHelper.getOutputDims());
 
-    ValueRange loopDef = create.krnl.defineLoops(outRank);
-    SmallVector<IndexExpr, 4> lbs(outRank, LiteralIndexExpr(0));
+    if ((uint64_t)ArrayAttrIntVal(permAttr, rank - 1) == (rank - 1)) {
+      // The last dimension is not permuted. Do block copying for the last
+      // dimension.
+      Type i64Ty = create.math.getBuilder().getI64Type();
 
-    SmallVector<IndexExpr, 4> ubs;
-    create.krnlIE.getShapeAsDims(data, ubs);
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange indices) {
-          // Compute the indices used by the load operation.
-          SmallVector<IndexExpr, 4> storeIndices;
-          for (uint64_t i = 0; i < outRank; ++i) {
-            Value index = indices[ArrayAttrIntVal(permAttr, i)];
-            storeIndices.emplace_back(DimIndexExpr(index));
-          }
+      // Input and output upperbounds.
+      SmallVector<IndexExpr, 4> inUBs;
+      create.krnlIE.getShapeAsDims(data, inUBs);
+      SmallVector<IndexExpr, 4> outUBs;
+      create.krnlIE.getShapeAsDims(alloc, outUBs);
 
-          Value loadData = createKrnl.load(data, indices);
-          createKrnl.storeIE(loadData, alloc, storeIndices);
-        });
+      // Size to copy.
+      Value sizeInBytes =
+          create.math.constant(i64Ty, getMemRefEltSizeInBytes(inMemRefType));
+      sizeInBytes = create.math.mul(
+          sizeInBytes, create.math.cast(i64Ty, inUBs[rank - 1].getValue()));
+
+      // Strides (the last stride is ommitted)
+      IndexExpr strideIE = LiteralIndexExpr(1);
+      SmallVector<IndexExpr, 4> inStrides, outStrides;
+      inStrides.resize_for_overwrite(rank - 1);
+      for (uint64_t i = 0; i < rank - 1; ++i) {
+        strideIE = strideIE * inUBs[rank - 1 - i];
+        inStrides[rank - 2 - i] = strideIE;
+      }
+      strideIE = LiteralIndexExpr(1);
+      outStrides.resize_for_overwrite(rank - 1);
+      for (uint64_t i = 0; i < rank - 1; ++i) {
+        strideIE = strideIE * outUBs[rank - 1 - i];
+        outStrides[rank - 2 - i] = strideIE;
+      }
+
+      // Remove the last dimension.
+      inUBs.truncate(rank - 1);
+      outUBs.truncate(rank - 1);
+
+      ValueRange loopDef = create.krnl.defineLoops(rank - 1);
+      SmallVector<IndexExpr, 4> lbs(rank - 1, LiteralIndexExpr(0));
+      create.krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
+          [&](KrnlBuilder &createKrnl, ValueRange indices) {
+            MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createKrnl);
+            // Compute destination and source offsets for memcpy.
+            IndexExpr destOffsetIE = LiteralIndexExpr(0);
+            IndexExpr srcOffsetIE = LiteralIndexExpr(0);
+            for (uint64_t i = 0; i < rank - 1; ++i) {
+              // source offset
+              IndexExpr srcIndex = DimIndexExpr(indices[i]);
+              srcOffsetIE = srcOffsetIE + srcIndex * inStrides[i];
+
+              // destination offset
+              int64_t k = ArrayAttrIntVal(permAttr, i);
+              IndexExpr destIndex = DimIndexExpr(indices[k]);
+              destOffsetIE = destOffsetIE + destIndex * outStrides[k];
+            }
+            // call memcpy.
+            Value destOffset = create.math.cast(i64Ty, destOffsetIE.getValue());
+            Value srcOffset = create.math.cast(i64Ty, srcOffsetIE.getValue());
+            create.krnl.memcpy(alloc, data, sizeInBytes, destOffset, srcOffset);
+          });
+    } else {
+      ValueRange loopDef = create.krnl.defineLoops(rank);
+      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs;
+      create.krnlIE.getShapeAsDims(data, ubs);
+
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange indices) {
+            // Compute the indices used by the load operation.
+            SmallVector<IndexExpr, 4> storeIndices;
+            for (uint64_t i = 0; i < rank; ++i) {
+              Value index = indices[ArrayAttrIntVal(permAttr, i)];
+              storeIndices.emplace_back(DimIndexExpr(index));
+            }
+
+            Value loadData = createKrnl.load(data, indices);
+            createKrnl.storeIE(loadData, alloc, storeIndices);
+          });
+    }
 
     rewriter.replaceOp(op, alloc);
     return success();
