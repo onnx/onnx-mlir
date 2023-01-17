@@ -143,9 +143,10 @@ public:
       return failure();
 
     // Do computation directly on the zTensor.
-    Value zOutput = rewriter.create<ONNX_OP>(loc, zTensor.getType(), zTensor);
     Value replacedValue =
-        rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
+        rewriter.create<ONNX_OP>(loc, output.getType(), zTensor);
+    // Value replacedValue =
+    //     rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
     rewriter.replaceOp(genericOp, replacedValue);
     return success();
   }
@@ -199,11 +200,6 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNX_OP binaryOp, PatternRewriter &rewriter) const override {
-    using DataLayout = ZTensorEncodingAttr::DataLayout;
-    DataLayout NO_LAYOUT = ZTensorEncodingAttr::DataLayout::UNDEFINED;
-    DataLayout LAYOUT_1D = ZTensorEncodingAttr::DataLayout::_1D;
-    DataLayout LAYOUT_2DS = ZTensorEncodingAttr::DataLayout::_2DS;
-
     Operation *genericOp = binaryOp.getOperation();
     Location loc = genericOp->getLoc();
 
@@ -237,59 +233,8 @@ public:
     if (!shouldRewrite)
       return failure();
 
-    // Get layout for the output zTensor.
-    DataLayout outputLayout;
-    DataLayout ALayout = getZTensorLayout(newA.getType());
-    DataLayout BLayout = getZTensorLayout(newB.getType());
-    // Both new inputs are a CPU or unranked tensor, do nothing.
-    if ((ALayout == NO_LAYOUT) && (BLayout == NO_LAYOUT))
-      return failure();
-    // Do not support layout 1D and 2DS since their access index functions are
-    // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
-    if ((ALayout == LAYOUT_1D) || (ALayout == LAYOUT_2DS) ||
-        (BLayout == LAYOUT_1D) || (BLayout == LAYOUT_2DS))
-      return failure();
-    // Only support f32 in the normal tensor.
-    if (ALayout == NO_LAYOUT) {
-      if (auto tensorType = llvm::dyn_cast<TensorType>(newA.getType())) {
-        Type elementType = tensorType.getElementType();
-        if (auto floatType = llvm::dyn_cast<FloatType>(elementType)) {
-          if (floatType.getWidth() != 32)
-            return failure();
-        } else
-          return failure();
-      }
-    }
-    if (BLayout == NO_LAYOUT) {
-      if (auto tensorType = llvm::dyn_cast<TensorType>(newB.getType())) {
-        Type elementType = tensorType.getElementType();
-        if (auto floatType = llvm::dyn_cast<FloatType>(elementType)) {
-          if (floatType.getWidth() != 32)
-            return failure();
-        } else
-          return failure();
-      }
-    }
-    // TODO: Only support static dimensions in zTensor because access index in
-    // case of broadcasting is not affine and memref normalization seems not
-    // working well.
-    //
-    // If A and B have the same layout, use that layout for the output.
-    // Otherwise, use the rank of the output to set a layout.
-    if ((ALayout == BLayout) && (ALayout != NO_LAYOUT))
-      outputLayout = ALayout;
-    else {
-      int64_t rank = getRank(output.getType());
-      outputLayout = getZTensorDataLayoutByRank(rank);
-    }
-
-    // Construct the zTensor type from the output CPU tensor.
-    Type zOutputType = getZTensorType(rewriter, loc, output,
-        convertZTensorDataLayoutToStringAttr(rewriter, outputLayout));
-
-    Value zOutput = rewriter.create<ONNX_OP>(loc, zOutputType, newA, newB);
     Value replacedValue =
-        rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
+        rewriter.create<ONNX_OP>(loc, output.getType(), newA, newB);
     rewriter.replaceOp(genericOp, replacedValue);
     return success();
   }

@@ -871,7 +871,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             Value inputVal = createKrnl.load(X, loopInd);
             Value convertedVal = KrnlTypeConverter::convertToHostType(
-                rewriter, loc, outputTensorType, inputVal);
+                rewriter, loc, op->getOperand(0).getType(), inputVal);
             // If the value is converted succesfully, use the new type as
             // element type.
             if (convertedVal != inputVal)
@@ -1098,8 +1098,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       }
       Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
           rewriter, loc, op, outputElementType, accumulated);
-      // finalResult = KrnlTypeConverter::convertToAcceleratorType(
-      //     rewriter, loc, outputTensorType, finalResult);
+      finalResult = KrnlTypeConverter::convertToAcceleratorType(
+          rewriter, loc, outputTensorType, finalResult);
       // Store result in the resulting array.
       create.krnl.store(finalResult, alloc);
     }

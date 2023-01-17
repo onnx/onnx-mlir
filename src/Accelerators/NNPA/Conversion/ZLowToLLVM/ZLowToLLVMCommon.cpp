@@ -83,8 +83,8 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
     ApiSpec(API::ZDNN_MEANREDUCE2D, "zdnn_meanreduce2d", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_BATCHNORM, "zdnn_batchnorm", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
     // Scalar operations
-    // Note: consider to use dlf16_to_fp32 and fp32_to_dlf16 for better
-    // performance.
+    // Note: consider to use dlf16_to_fp32 and fp32_to_dlf16 for better performance.
+    // But, experimentally, it looks slower than the other.
     // ApiSpec(API::DLF16_TO_F32, "dlf16_to_fp32", int64Ty, {int16PtrTy, float32PtrTy, int64Ty}, false),
     // ApiSpec(API::F32_TO_DLF16, "fp32_to_dlf16", int64Ty, {float32PtrTy, int16PtrTy, int64Ty}, false),
     // TODO: make sure there is no problem causing by using int16 as arguments.
