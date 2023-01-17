@@ -56,95 +56,6 @@ int elementTableRegister(elementTable *table, void *element) {
 
 uint64_t elementTable_count(elementTable *table) { return table->elementCount; }
 
-#if 0
-//
-// Table for matrix
-//
-typedef struct matrixTable {
-  void *tablePointer;
-  uint64_t uniqueShape[OMUNIQUE_MAXRANK];
-  uint64_t uniqueShapeBegin[OMUNIQUE_MAXRANK];
-  uint64_t uniqueShapeEnd[OMUNIQUE_MAXRANK];
-  uint64_t matrixSize;
-  int uniqueAxis;
-  uint64_t matrixMax;
-  uint64_t matrixCount;
-} matrixTable;
-
-void matrixTableInit(matrixTable *table, int matrixRank, uint64_t *matrixShape,
-     uint64_t dataSize, uint64_t uniqueAxis) {
-  uint64_t matrixSize = dataSize;
-  for (int i = 0; i < OMUNIQUE_MAXRANK; i++) {
-    table->uniqueShape[i] = matrixShape[i];
-    table->uniqueShapeBegin[i] = 0;
-    if (i == uniqueAxis) {
-      table->uniqueShapeEnd[i] = 0;
-    } else {
-      table->uniqueShapeEnd[i] = matrixShape[i];
-      matrixSize *= matrixShape[i];
-    }
-  }
-  table->tablePointer = alloca(dataSize * matrixMax);
-  table->uniqueShape = matrixShape;
-  table->uniqueShape = matrixShape;
-  table->uniqueAxis = uniqueAxis;
-  table->dataSize = dataSize;
-  table->matrixMax = matrixShape[axis];
-  table->matrixCount = 0;
-}
-
-int matrixTableRegister(matrixTable *table, void *dataPtr, int64_t idx) {
-  char *tablePtr = table->matrixpointer;
-  int uniqueRank = table->uniqueRank;
-  uint64_t *shape = table->matrixShape;
-  uint64_t *shapeBegin = table->matrixShapeBegin;
-  uint64_t *shapeEnd = table->matrixShapeEnd;
-  for (uint64_t i = 0; i < table->matrixCount; i++) {
-    void *matrixInTable = (void *) (tablePtr + table->matrixSize * i);
-    for (int j = 0; j < table->uniqueRank; j++) {
-      for (int dim0 = shapeBegin[0] < shapeEnd[0]; dim0++) {
-        for (int dim1 = shapeBegin[1]; dim1 < shapeEnd[1]; dim1++) {
-          for (int dim2 = shapeBegin[2]; dim2 < shapeEnd[2]; dim2++) {
-            for (int dim3 = shapeBegin[3]; dim3 < shapeEnd[3]; dim3++) {
-              for (int dim4 = shapeBegin[4]; dim4 < shapeEnd[4]; dim4++) {
-                for (int dim5 = shapeBegin[5]; dim5 < shapeEnd[5]; dim5++) {
-                uint64_t off = dim0 * strides[0] + dim1 * strides[1] +
-                               dim2 * strides[2] + dim3 * strides[3] +
-                               dim4 * strides[4] + dim5 * strides[5];
-                void *data = ((char *)dataPtr) + table->dataSize * off;
-                if (elementTableRegister(&elementTable, data) == 0)
-                  count++; 
-              }
-            }
-          }
-        }
-      }
-    }
-    for (uint64_t rank = 0; rank < table->matrixRank; rank++) {
-       if (rank != table->matrixRank) {
-         int64_t off = dim0 * strides[0] + dim1 * strides[1] +
-                       dim2 * strides[2] + dim3 * strides[3] +
-                       dim4 * strides[4] + dim5 * strides[5];
-         void *data = ((char *)dataPtr) + matrixSize * off;
-{
-         && !memcmp(matrix 
-       }
-    }
-    if (j == table->matrixRank) {
-      // matching matrix found in the table
-      break;
-    }
-  }
-  if (i == table->matrixCount) { // no matching matrix found in the table
-    void *elemInTable = (void *) (tablePtr + table->matrixSize * i);
-    memcpy(elemInTable, element, table->matrixSize);
-    (table->elementCount)++;
-    return 0;
-  }
-  return 1;
-}
-#endif
-
 int omTensorUnique(
     const OMTensor *inputTensor, uint64_t axis, uint64_t sorted, int flag) {
   omTensorPrint("omTensorUnique: ", inputTensor);
@@ -230,7 +141,7 @@ int omTensorUnique(
                     void *dataCurr = ((char *)dataPtr) + dataSize * offCurr;
                     void *dataPrev = ((char *)dataPtr) + dataSize * offPrev;
                     if (memcmp(dataCurr, dataPrev, dataSize)) {
-                      goto mismatch_found;
+                      goto mismatch_element_found;
                     }
                   }
                 }
@@ -238,11 +149,13 @@ int omTensorUnique(
             }
           }
         }
-      mismatch_found:
-        continue;
+      mismatch_element_found:
+        continue; // goto next dimPrevInUniqueAxis to check next axis
       }
       if (dimPrevInUniqueAxis == dimCurrInUniqueAxis) {
-        count++; // new matrix found
+        count++; // dimCurrInUniqueAxis is a unique dim in the unique axis 
+        // TODO: Fill values of return variables, such as Y, indices,
+        //       inverse_indices and counts
       }
     }
   }
