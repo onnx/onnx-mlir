@@ -44,14 +44,14 @@ LogicalResult ONNXClipOpShapeHelper::computeShape() {
 LogicalResult ONNXClipOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Look at input.
-  if (!input().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(input()))
     return success();
   RankedTensorType inputTy = input().getType().cast<RankedTensorType>();
   Type elementType = inputTy.getElementType();
   // Look at optional min.
   if (!min().getType().isa<NoneType>()) {
     // Has a min, make sure its of the right type.
-    if (!min().getType().isa<RankedTensorType>())
+    if (!hasShapeAndRank(min()))
       return success();
     // And size.
     RankedTensorType minTy = min().getType().cast<RankedTensorType>();
@@ -63,7 +63,7 @@ LogicalResult ONNXClipOp::inferShapes(
   // Look at optional max
   if (!max().getType().isa<NoneType>()) {
     // Has a max, make sure its of the right type.
-    if (!max().getType().isa<RankedTensorType>())
+    if (!hasShapeAndRank(max()))
       return success();
     // And size.
     RankedTensorType maxTy = max().getType().cast<RankedTensorType>();

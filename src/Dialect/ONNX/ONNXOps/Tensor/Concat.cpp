@@ -86,9 +86,8 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape() {
 LogicalResult ONNXConcatOp::verify() {
   // Cannot verify semantics if the operands do not have a known shape yet.
   ONNXConcatOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   auto commonType =
       operandAdaptor.getOperands().front().getType().cast<ShapedType>();
@@ -139,11 +138,8 @@ LogicalResult ONNXConcatOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // The check of constraints is kept
   // However, current check handles dynamic dim only for the concat dim
-  int inputNum = getNumOperands();
-  for (int i = 0; i < inputNum; ++i) {
-    if (!getOperand(i).getType().isa<RankedTensorType>())
-      return success();
-  }
+  if (!hasShapeAndRank(getOperation()))
+    return success();
   // Checking value of axis parameter.
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   auto commonShape = commonType.getShape();

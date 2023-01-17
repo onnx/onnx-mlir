@@ -77,7 +77,7 @@ LogicalResult ONNXReverseSequenceOp::verify() {
 
 LogicalResult ONNXReverseSequenceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!input().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(input()))
     return success();
 
   Type elementType = input().getType().cast<ShapedType>().getElementType();

@@ -52,7 +52,7 @@ LogicalResult ONNXDropoutOpShapeHelper::computeShape() {
 
 LogicalResult ONNXDropoutOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!data().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(data()))
     return success();
 
   Type outputElementType =

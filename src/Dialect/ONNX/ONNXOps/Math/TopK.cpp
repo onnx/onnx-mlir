@@ -102,8 +102,7 @@ LogicalResult ONNXTopKOp::verify() {
 LogicalResult ONNXTopKOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the operands shape isn't known yet.
-  if (llvm::any_of(this->getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
+  if (!hasShapeAndRank(getOperation()))
     return success();
 
   Builder b(getContext());

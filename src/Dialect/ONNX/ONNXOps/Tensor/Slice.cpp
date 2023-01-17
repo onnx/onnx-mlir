@@ -152,7 +152,7 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
 LogicalResult ONNXSliceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!data().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(data()))
     return success();
 
   const auto startsType =
