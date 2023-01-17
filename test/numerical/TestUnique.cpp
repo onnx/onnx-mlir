@@ -59,8 +59,6 @@ static bool isOMUniqueTheSameAsNaiveImplFor(
     const int rank, const int I, const int J, const int K, const int axis,
     const int sorted = 0) {
 
-  static int testNum = 0;
-
   UniqueLibBuilder unique(SHARED_LIB_BASE.str(), rank, I, J, K, axis, sorted);
   return unique.build() && unique.compileAndLoad() &&
          unique.prepareInputsFromEnv("TEST_DATARANGE") && unique.run() &&
@@ -87,7 +85,6 @@ int main(int argc, char *argv[]) {
   if (true) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Unique implementation correctness", []() {
-      const int maxRank = 3;
       const int rank = 3; // *rc::gen::inRange(1, maxRank);
       const int I = 2; // *rc::gen::inRange(1, maxRank);
       const int J = 2; // *rc::gen::inRange(1, maxRank);
