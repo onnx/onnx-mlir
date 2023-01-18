@@ -335,9 +335,9 @@ bool isFromNone(Value v) {
     return true;
 
   if (auto ty = v.getType().dyn_cast<ShapedType>()) {
-  auto shape = ty.getShape();
-  if (shape.size() == 1 && shape[0] == 0)
-    return true;
+    auto shape = ty.getShape();
+    if (shape.size() == 1 && shape[0] == 0)
+      return true;
   }
 
   return false;
