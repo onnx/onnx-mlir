@@ -23,7 +23,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXScatterOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -33,9 +33,8 @@ LogicalResult ONNXScatterOp::inferShapes(
 
 LogicalResult ONNXScatterElementsOp::verify() {
   ONNXScatterElementsOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   // Get operands and attributes.
   Value data = operandAdaptor.data();
@@ -75,8 +74,8 @@ LogicalResult ONNXScatterElementsOp::verify() {
   ArrayRef<int64_t> dataShape = dataType.getShape();
   const int64_t dataDimAtAxis = dataShape[axis];
   if (dataDimAtAxis >= 0) {
-    if (DenseElementsAttr valueAttribute =
-            getDenseElementAttributeFromONNXValue(indices)) {
+    if (ElementsAttr valueAttribute =
+            getElementAttributeFromONNXValue(indices)) {
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
         int64_t index = value.getInt();
         if (index >= -dataDimAtAxis && index < dataDimAtAxis)
@@ -94,7 +93,7 @@ LogicalResult ONNXScatterElementsOp::verify() {
 }
 
 LogicalResult ONNXScatterElementsOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
 
@@ -104,9 +103,8 @@ LogicalResult ONNXScatterElementsOp::inferShapes(
 
 LogicalResult ONNXScatterNDOp::verify() {
   ONNXScatterNDOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   // Get operands and attributes.
   Value data = operandAdaptor.data();
@@ -184,6 +182,6 @@ LogicalResult ONNXScatterNDOp::verify() {
 }
 
 LogicalResult ONNXScatterNDOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }

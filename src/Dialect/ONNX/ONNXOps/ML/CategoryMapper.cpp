@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,9 +25,9 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXCategoryMapperOpShapeHelper::computeShape() {
+LogicalResult ONNXCategoryMapperOpShapeHelper::computeShape() {
   ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
-  return computeShapeFromOperand(operandAdaptor.X());
+  return setOutputDimsFromOperand(operandAdaptor.X());
 }
 
 } // namespace onnx_mlir
@@ -73,9 +72,9 @@ LogicalResult ONNXCategoryMapperOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCategoryMapperOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()))
     return success();
 
   Type inputElementType = X().getType().cast<ShapedType>().getElementType();
@@ -89,7 +88,7 @@ LogicalResult ONNXCategoryMapperOp::inferShapes(
   else
     outputElementType = IntegerType::get(getContext(), /*width=*/64);
 
-  NewONNXCategoryMapperOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXCategoryMapperOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(outputElementType);
 }
 
@@ -98,5 +97,5 @@ LogicalResult ONNXCategoryMapperOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXCategoryMapperOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXCategoryMapperOp>;
 } // namespace onnx_mlir

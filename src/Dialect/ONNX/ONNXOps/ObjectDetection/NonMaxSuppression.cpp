@@ -20,6 +20,22 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXNonMaxSuppressionOpShapeHelper::computeShape() {
+  // Three is a backend test where the result of ONNXNonMaxSuppressionOp is set
+  // to 1 (first dim), where in fact it the size must be -1 since its data
+  // dependent. Thus disable the refineDims because of this test case.
+  return setOutputDimsFromLiterals({-1, 3}, 0, /*refineDims*/ false);
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -67,8 +83,17 @@ LogicalResult ONNXNonMaxSuppressionOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto b = mlir::Builder(getContext());
-  getResult().setType(RankedTensorType::get({-1, 3}, b.getI64Type()));
-  return success();
+    std::function<void(Region &)> doShapeInference) {
+  Builder b = Builder(getContext());
+  Type elementType = b.getI64Type();
+  ONNXNonMaxSuppressionOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXNonMaxSuppressionOp>;
+} // namespace onnx_mlir

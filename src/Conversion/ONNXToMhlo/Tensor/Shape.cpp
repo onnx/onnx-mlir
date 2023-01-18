@@ -14,7 +14,6 @@
 
 #include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -34,7 +33,7 @@ struct ONNXShapeOpLoweringToMhlo : public ConversionPattern {
     ONNXShapeOp shapeOp = cast<ONNXShapeOp>(op);
     Location loc = op->getLoc();
     IndexExprBuilderForMhlo createIE(rewriter, loc);
-    NewONNXShapeOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXShapeOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     Type outputType = *op->result_type_begin();

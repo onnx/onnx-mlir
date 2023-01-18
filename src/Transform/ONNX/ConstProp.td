@@ -55,17 +55,13 @@ def AttributeIsNull :
   "Attribute is null">;
 
 def IsFromDenseONNXConstantOp:
-    Constraint<CPred<"isFromDenseONNXConstantOp($_self, false)">,
+    Constraint<CPred<"isDenseONNXConstant($_self)">,
   "Value is produced by a dense ONNXConstantOp that can be linked with "
   "a buffer during constant propagation">;
 
-def IsFromTrueDenseONNXConstantOp:
-    Constraint<CPred<"isFromDenseONNXConstantOp($_self, true)">,
-  "Value is produced by a true dense ONNXConstantOp">;
-
-def IsFromTrueDenseONNXConstantOpOrNone:
+def IsFromDenseONNXConstantOpOrNone:
   Constraint<
-    CPred<"isFromDenseONNXConstantOp($_self, false) || ($_self.getType().isa<NoneType>())">,
+    CPred<"isDenseONNXConstant($_self) || ($_self.getType().isa<NoneType>())">,
     "Value is none or produced by a true dense ONNXConstantOp"
   >;
 
@@ -109,6 +105,9 @@ def CreateMulOfTwoConst :
 
 def CreateDivOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXDivOp>($_builder, $0, $1, $2)">;
+
+def CreateWhereOfThreeConst :
+   NativeCodeCall<"ConstPropWhere($_builder, $0, $1, $2, $3)">;
 
 def CreateTransposeOfConst :
    NativeCodeCall<"ConstPropTranspose($_builder, $0, $1)">;
@@ -338,6 +337,23 @@ def DivConstProp : Pat<
 
 
 //===----------------------------------------------------------------------===//
+// Patterns for Where.
+//===----------------------------------------------------------------------===//
+
+// Constant Propagation for Where
+def WhereConstProp : Pat<
+    // From where(c0, c1, c2).
+    (ONNXWhereOp:$whereOp (ONNXConstantOp:$condition $_, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$X $_, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$Y $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To c0?c1:c2
+    (CreateWhereOfThreeConst $whereOp, $condition, $X, $Y),
+    // Where constraints
+    [(IsFromDenseONNXConstantOp:$condition),
+     (IsFromDenseONNXConstantOp:$X), (IsFromDenseONNXConstantOp:$Y)]>;
+
+
+//===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Transpose operations.
 //===----------------------------------------------------------------------===//
 
@@ -394,9 +410,9 @@ def SliceofConst :  Pat<
                         $starts, $ends, $axes, $steps),
     // To c' where c' is the sliced value.
     (CreateSliceOfConst $resOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsFromTrueDenseONNXConstantOp:$starts),
-     (IsFromTrueDenseONNXConstantOp:$ends), (IsFromTrueDenseONNXConstantOpOrNone:$axes),
-     (IsFromTrueDenseONNXConstantOpOrNone:$steps)]>;
+    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$starts),
+     (IsFromDenseONNXConstantOp:$ends), (IsFromDenseONNXConstantOpOrNone:$axes),
+     (IsFromDenseONNXConstantOpOrNone:$steps)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Concat operations.

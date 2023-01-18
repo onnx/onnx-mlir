@@ -43,7 +43,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     KrnlGetRefOpAdaptor operandAdaptor(operands);

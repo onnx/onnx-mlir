@@ -14,7 +14,6 @@
 
 #include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -70,7 +69,7 @@ struct ONNXArgMaxOpLoweringToMhlo : public ConversionPattern {
 
     // Shape helper (not really used).
     IndexExprBuilderForMhlo createIE(rewriter, loc);
-    NewONNXArgMaxOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXArgMaxOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     Type outputType = *op->result_type_begin();

@@ -6,6 +6,8 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "s390x")
   llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" "-O1")
 endif()
 
+add_subdirectory(ElementsAttr)
+
 add_onnx_mlir_dialect(ONNX onnx)
 add_onnx_mlir_dialect_doc(onnx ONNX.td)
 
@@ -14,15 +16,15 @@ add_onnx_mlir_rewriter(Rewrite)
 add_onnx_mlir_library(OMONNXOps
   # Top files for ONNX dialect
   DialectBuilder.cpp
+  OnnxElementsAttrBuilder.cpp
   ONNXAttributes.cpp
   ONNXDialect.cpp
   ONNXOps.cpp
   ONNXOps/OpHelper.cpp
   ONNXOps/ShapeHelper.cpp
-  ONNXOps/NewShapeHelper.cpp
   ONNXTypes.cpp
   Rewrite.cpp
-  
+
   # Support for shape inference and verifiers
   ONNXOps/Additional/CallOp.cpp
   ONNXOps/Additional/ConcatShapeTranspose.cpp
@@ -38,6 +40,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/ML/OneHotEncoder.cpp
   ONNXOps/Math/Bernoulli.cpp
   ONNXOps/Math/Clip.cpp
+  ONNXOps/Math/DFT.cpp
   ONNXOps/Math/Einsum.cpp
   ONNXOps/Math/EinsumHelper.cpp
   ONNXOps/Math/ElementwiseBroadcast.cpp
@@ -107,10 +110,11 @@ add_onnx_mlir_library(OMONNXOps
 
   LINK_LIBS PRIVATE
   OMDiagnostic
-    
+
   LINK_LIBS PUBLIC
   OMMlirDialects
   OMMlirUtilities
+  OMONNXElementsAttr
   onnx
   MLIRFuncDialect
   )

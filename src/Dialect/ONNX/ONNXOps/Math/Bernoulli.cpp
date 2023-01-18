@@ -27,19 +27,18 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXBernoulliOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto builder = mlir::OpBuilder(getContext());
+    std::function<void(Region &)> doShapeInference) {
+  auto builder = OpBuilder(getContext());
   if (!hasShapeAndRank(input())) {
     return success();
   }
-  RankedTensorType inputType = input().getType().cast<RankedTensorType>();
   Type elementType;
   if (dtypeAttr()) {
     elementType = convertONNXTypeToMLIRType(builder,
         (onnx::TensorProto_DataType)dtypeAttr().getValue().getSExtValue());
   } else {
-    elementType = inputType.getElementType();
+    elementType = input().getType().cast<RankedTensorType>().getElementType();
   }
-  getResult().setType(RankedTensorType::get(inputType.getShape(), elementType));
-  return success();
+  ONNXBernoulliOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }

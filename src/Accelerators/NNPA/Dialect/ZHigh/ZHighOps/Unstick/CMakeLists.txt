@@ -1,0 +1,1 @@
+add_onnx_mlir_rewriter(ZHighUnstick)

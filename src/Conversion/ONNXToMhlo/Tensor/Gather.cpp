@@ -14,7 +14,6 @@
 
 #include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -37,7 +36,7 @@ struct ONNXGatherOpLoweringToMhlo : public ConversionPattern {
 
     // Is it unused?
     IndexExprBuilderForMhlo createIE(rewriter, loc);
-    NewONNXGatherOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXGatherOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     Type outputType = *op->result_type_begin();

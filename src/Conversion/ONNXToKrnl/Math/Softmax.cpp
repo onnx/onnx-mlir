@@ -134,9 +134,9 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
     Value zero, Value negInfinity, int64_t axis) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
 
-  KrnlBuilder createKrnl(rewriter, loc);
-  IndexExprScope ieScope(createKrnl);
-  MemRefBoundsIndexCapture inputBounds(input);
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+      rewriter, loc);
+  IndexExprScope ieScope(create.krnl);
   LiteralIndexExpr zeroIE(0);
 
   // Coerce the input into a 2-D tensor. `axis` will be the coercing
@@ -148,41 +148,42 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
   if (axis == 0) {
     // There is no need having outer loops.
     // Reset accumulators.
-    createKrnl.store(zero, sumOp, ArrayRef<Value>{});
-    createKrnl.store(negInfinity, maxOp, ArrayRef<Value>{});
+    create.krnl.store(zero, sumOp, ArrayRef<Value>{});
+    create.krnl.store(negInfinity, maxOp, ArrayRef<Value>{});
 
     // Common information to create nested loops.
     int64_t numberOfLoops = rank;
     SmallVector<IndexExpr, 4> Lbs(numberOfLoops, zeroIE);
     SmallVector<IndexExpr, 4> Ubs;
-    inputBounds.getDimList(Ubs);
+    create.krnlIE.getShapeAsDims(input, Ubs);
 
-    emitInnerLoops(createKrnl, numberOfLoops, Lbs, Ubs, {}, input, alloc, sumOp,
-        maxOp, axis, /*coerced=*/true);
+    emitInnerLoops(create.krnl, numberOfLoops, Lbs, Ubs, {}, input, alloc,
+        sumOp, maxOp, axis, /*coerced=*/true);
   } else {
     // Define outer loops.
-    ValueRange outerLoops = createKrnl.defineLoops(axis);
+    ValueRange outerLoops = create.krnl.defineLoops(axis);
     SmallVector<IndexExpr, 4> outerLbs(axis, zeroIE);
     SmallVector<IndexExpr, 4> outerUbs;
     for (int i = 0; i < axis; ++i)
-      outerUbs.emplace_back(inputBounds.getDim(i));
-    createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
-        [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
-          IndexExprScope ieScope(createKrnl);
+      outerUbs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
+    create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
+        [&](KrnlBuilder &ck, ValueRange outerIndices) {
+          MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(ck);
+          IndexExprScope ieScope(ck);
 
           // Reset accumulators.
-          createKrnl.store(zero, sumOp, ArrayRef<Value>{});
-          createKrnl.store(negInfinity, maxOp, ArrayRef<Value>{});
+          create.krnl.store(zero, sumOp, ArrayRef<Value>{});
+          create.krnl.store(negInfinity, maxOp, ArrayRef<Value>{});
 
           // Common information to create inner nested loops.
           int64_t numberOfLoops = rank - axis;
           SmallVector<IndexExpr, 4> Lbs(numberOfLoops, zeroIE);
           SmallVector<IndexExpr, 4> Ubs;
           for (int i = axis; i < rank; ++i)
-            Ubs.emplace_back(inputBounds.getDim(i));
+            Ubs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
 
           // Emit the inner loops.
-          emitInnerLoops(createKrnl, numberOfLoops, Lbs, Ubs, outerIndices,
+          emitInnerLoops(create.krnl, numberOfLoops, Lbs, Ubs, outerIndices,
               input, alloc, sumOp, maxOp, axis, /*coerced=*/true);
         });
   }
@@ -197,36 +198,38 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
     Value zero, Value negInfinity, int64_t axis) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
 
-  KrnlBuilder createKrnl(rewriter, loc);
-  IndexExprScope ieScope(createKrnl);
-  MemRefBoundsIndexCapture inputBounds(input);
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+      rewriter, loc);
+  IndexExprScope ieScope(create.krnl);
   LiteralIndexExpr zeroIE(0);
 
   // Outer loops iterate over all dimensions except axis.
-  ValueRange outerLoops = createKrnl.defineLoops(rank - 1);
+  ValueRange outerLoops = create.krnl.defineLoops(rank - 1);
   SmallVector<IndexExpr, 4> outerLbs(rank - 1, zeroIE);
   SmallVector<IndexExpr, 4> outerUbs;
   for (int i = 0; i < rank; ++i)
     if (i != axis)
-      outerUbs.emplace_back(inputBounds.getDim(i));
+      outerUbs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
 
   // Emit outer loops.
-  createKrnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
-      [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
-        IndexExprScope ieScope(createKrnl);
+  create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
+      [&](KrnlBuilder &ck, ValueRange outerIndices) {
+        MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(ck);
+        IndexExprScope ieScope(ck);
 
         // Reset accumulators.
-        createKrnl.store(zero, sumOp, ArrayRef<Value>{});
-        createKrnl.store(negInfinity, maxOp, ArrayRef<Value>{});
+        create.krnl.store(zero, sumOp, ArrayRef<Value>{});
+        create.krnl.store(negInfinity, maxOp, ArrayRef<Value>{});
 
         // Common information to create inner nested loops for axis only.
         int64_t numberOfLoops = 1;
         SmallVector<IndexExpr, 4> Lbs(numberOfLoops, zeroIE);
-        SmallVector<IndexExpr, 4> Ubs(numberOfLoops, inputBounds.getDim(axis));
+        SmallVector<IndexExpr, 4> Ubs(
+            numberOfLoops, create.krnlIE.getShapeAsDim(input, axis));
 
         // Emit the inner loops.
-        emitInnerLoops(createKrnl, numberOfLoops, Lbs, Ubs, outerIndices, input,
-            alloc, sumOp, maxOp, axis, /*coerced=*/false);
+        emitInnerLoops(create.krnl, numberOfLoops, Lbs, Ubs, outerIndices,
+            input, alloc, sumOp, maxOp, axis, /*coerced=*/false);
       });
 }
 
@@ -254,11 +257,11 @@ struct ONNXSoftmaxLowering : public ConversionPattern {
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
 
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     OpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
     // Insert an allocation and deallocation for the result of this operation.
-    auto elementType = memRefType.getElementType();
+    Type elementType = memRefType.getElementType();
 
     bool insertDealloc = checkInsertDealloc(op);
     Value alloc =

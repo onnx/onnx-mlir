@@ -4,7 +4,7 @@
 
 //===----------------IndexExpr.hpp - Index expression---------------------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,6 +12,20 @@
 // literals, affine expressions, and values.
 //
 //===----------------------------------------------------------------------===//
+
+#pragma once
+
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/IR/AffineExpr.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Value.h"
+#include "mlir/Transforms/DialectConversion.h"
+
+#include <cstdint>
+#include <functional>
+#include <string>
 
 /*
 
@@ -99,6 +113,8 @@ refer to the affine MLIR dialect.
 * SymbolIndexExpr: Symbols represent runtime values that are considered as a
 constant in a given scope. See affine dialect for more info.
 
+Note that in most cases, IndexExpr are built from MLIR Values, Types, or
+Attributes. See Section 5) below for references.
 
 2) IndexExprScope
 ======================
@@ -141,40 +157,52 @@ also means that one can only generate code in one index scope at a time.
 
 3a) Create a scope:
 
-    // During shape inference: no rewriter.
+During shape inference: no rewriter.
 
-    IndexExprScope scope(nullptr, getLoc());
+```
+  IndexExprScope scope(nullptr, getLoc());
+```
 
-    // During lowering.
+During lowering: rewriter/builder provided.
 
-    IndexExprScope outerLoopContext(&rewriter, sliceOp.getLoc());
+```
+  IndexExprScope outerLoopContext(&rewriter, sliceOp.getLoc());
+```
+
+Note that the presence of a rewriter/builder in the constructor is what
+indicates whether we are in "shape inference" or "code gen/lowering" mode.
 
 3b) Computations on IndexExpr (examples from processing of ONNXSliceOp)
 
-    // IN ONNXShapeHelper.cpp
+In src/Dialect/ONNX/ONNXOps/Tensor/Slice.cpp
 
+```
     // Get a value from an input operand (either a constant or a value to load).
+    SymbolIndexExpr startInput =
+        createIE->getIntFromArrayAsSymbol(operandAdaptor.starts(), i);
+    if (startInput.isUndefined())
+      return op->emitError("start input parameter could not be processed");
+```
 
-    ArrayValueIndexCapture startsCapture(genericOp, operandAdaptor.starts());
-    SymbolIndexExpr startInput(startsCapture.getSymbol(i));
+In the code above, we get a symbol index expression from the "starts" array
+(limited to 1D arrays at this time). Specifically, we create a symbol index
+expression from the captured array value at index "i". When constant, it will
+result in a literal. Otherwise it will result in a new Symbol variable.
 
-In the code above, we first capture the (hopefully compile time constant) values
-of the "starts" array (limited to 1D arrays at this time). Then we create a
-symbol index expression from the captured array value at index "i". When
-constant, it will result in a literal. Otherwise it will result in a new Symbol
-variable.
+The `createIE` is a IndexExprBuilder that is used to scan MLIR structures to
+generate index expressions. See Section 5 for references.
 
+```
     // Get a dimension from a memref.
-    MemRefBoundsIndexCapture dataBounds(data);
-    DimIndexExpr dimInput(dataBounds.getDim(ii));
+    DimIndexExpr dimInput = createIE->getShapeAsDim(data, ii);
+```
 
-In the code above, we first capture the (hopefully constant) bounds of hte
-memref. We then create a Dim index expression from the memref's "ii" dimension.
-When constant, this will result in a literal. Otherwise, it will result in a new
-Dim variable.
+In the code above, we create a Dim index expression from the memref's "ii"
+dimension. When constant, this will result in a literal. Otherwise, it will
+result in a new Dim variable.
 
+```
     // Perform calculations.
-
     // Calculation for start: start < 0 ? start + dim : start.
     IndexExpr startPos =
         IndexExpr::select(startInput < 0, startInput + dimInput, startInput);
@@ -182,21 +210,11 @@ Dim variable.
     IndexExpr neg = startPos.clamp(0, dimInput - 1);
     IndexExpr pos = startPos.clamp(0, dimInput);
     IndexExpr startFinal = IndexExpr::select(stepInput < 0, neg, pos);
+```
 
-3c) Look at Slice in ONNXOps.cpp on how to use IndexExpr for shape inferences.
+3c) Look at Slice.cpp on how to use IndexExpr for lowering.
 
-    // Extract the shape of the output.
-
-    SmallVector<int64_t, 4> outputDims;
-    IndexExpr::getShape(
-        shapeHelper.dimsForOutput(), outputDims);
-    getResult().setType(RankedTensorType::get(outputDims, elementType));
-
-In this code, we convert the IndexExpressions back to integer dims (with >=0 for
-compile time sizes, -1 for runtime sizes).
-
-3d) Look at Slice.cpp on how to use IndexExpr for lowering.
-
+```
     // Create an alloc using dimensions as indices.
 
     Value alloc = insertAllocAndDeallocSimple(
@@ -224,11 +242,13 @@ compile time sizes, -1 for runtime sizes).
       loadIndices.emplace_back((step * inductionIndex) + start);
       storeIndices.emplace_back(inductionIndex);
     }
+```
 
 4) Scopes
 
   Here is an example of how scopes work:
 
+  ```
     IndexExprScope outerScope; // outer scope
       DimIndexExpr d1(dataBounds.getDim(2); // outer scope variable
       // ...
@@ -242,18 +262,19 @@ compile time sizes, -1 for runtime sizes).
     }
 
     // Back to the outer scope
+  ```
 
 5) Additional infrastructure
 
-   ArrayValueIndexCapture allows us to read 1D arrays and generate symbols out
-of them expressions that are either literals or runtime values (symbols).
+  Look at the IndexExprBuilder on how to create index expressions from MLIR
+  Attributes and Values. There are basically 3 ways to get index expressions:
 
-   MemRefBoundsIndexCapture allows us to read memref or tensor 1D descriptors
-and generate out of them expressions that are either literals or runtime values
-(dims).
+  * From attributes, see `getIntFromArrayAsLiteral` for example.
+  * From values, see `getIntFromArrayAsSymbol` for example.
+  * From shapes, see `getShapeAsDim` for example.
 
-Note that in both case, runtime values may be "question marks" during the shape
-inference part as no code may be generated during such phases.
+  Interface is described in src/Dialect/Mlir/IndexExprBuilder.hpp
+
 */
 
 /* Dialect use in Index Expression stack (when generating ops)
@@ -264,20 +285,6 @@ inference part as no code may be generated during such phases.
      Arithmetic: constant, constant index, index cast.
      Affine: affine apply
 */
-
-#pragma once
-
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/IR/AffineExpr.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Value.h"
-#include "mlir/Transforms/DialectConversion.h"
-
-#include <cstdint>
-#include <functional>
-#include <string>
 
 namespace onnx_mlir {
 
@@ -451,6 +458,7 @@ public:
   bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values unequal.
   // Test if all element in list are literals.
   static bool isLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
+  static bool isNonNegativeLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
 
   // Getters.
   IndexExprScope &getScope() const { return *getScopePtr(); }
@@ -788,102 +796,10 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr &b) {
 }
 
 //===----------------------------------------------------------------------===//
-// Capturing Index Expressions
-//===----------------------------------------------------------------------===//
-
-// Capture array of values given by an operand. Will find its definitition and
-// use it locate its constant values, or load dynamically if they are not
-// constant.
-class ArrayValueIndexCapture {
-public:
-  // Lambda functions to extract/generate info. No code is provided in order to
-  // keep the IndexExpr and their support operations generic.
-
-  // If ArrayValueIndexCapture constructor's array is defined by a constant,
-  // the the function below will locate it and return its DenseElementsAttr.
-  // GetDenseVal attempts to locate a DenseElementAttr by looking at the
-  // definition of the array value. Return null if this definition is not
-  // generating a dense array.
-  using GetDenseVal = std::function<mlir::DenseElementsAttr(mlir::Value array)>;
-  // LoadVal will load the value at array[i] where array is a single dimensional
-  // array.
-  using LoadVal = std::function<mlir::Value(mlir::OpBuilder &rewriter,
-      mlir::Location loc, mlir::Value array, int64_t index)>;
-
-  // Constructor when there is no default value.
-  ArrayValueIndexCapture(
-      mlir::Value array, GetDenseVal fGetDenseVal, LoadVal fLoadVal);
-  // Constructor in the presence of a default value when none is found.
-  ArrayValueIndexCapture(mlir::Value array, int64_t defaultLiteral,
-      GetDenseVal fGetDenseVal, LoadVal fLoadVal);
-  ArrayValueIndexCapture() = delete;
-
-  // Return Undefined op when we cannot read the value.
-  IndexExpr getSymbol(uint64_t i);
-  // Return true when it could successfully read num symbols; otherwise return
-  // false and an empty list.
-  bool getSymbolList(int num, llvm::SmallVectorImpl<IndexExpr> &symbolList);
-  // Same as above. Assume array is a 1D shape typed; we use its size as num.
-  bool getSymbolList(llvm::SmallVectorImpl<IndexExpr> &symbolList);
-
-private:
-  mlir::Value array;
-  int64_t defaultLiteral;
-  bool hasDefault;
-  GetDenseVal fGetDenseArrayAttr;
-  LoadVal fLoadVallFromArrayAtIndex;
-};
-
-// Capture array of values given by attributes.
-class ArrayAttributeIndexCapture {
-public:
-  ArrayAttributeIndexCapture(mlir::ArrayAttr array);
-  ArrayAttributeIndexCapture(mlir::ArrayAttr array, int64_t defaultLiteral);
-  ArrayAttributeIndexCapture() = delete;
-
-  IndexExpr getLiteral(uint64_t i);
-  uint64_t size() { return arraySize; }
-
-private:
-  mlir::ArrayAttr array;
-  uint64_t arraySize;
-  int64_t defaultLiteral;
-  bool hasDefault;
-};
-
-// Capture memory bounds give by a tensor or memref. Locate its shape, return
-// constant values when available or generate the appropriate dim operation when
-// they are not constant at compile time.
-class MemRefBoundsIndexCapture {
-public:
-  MemRefBoundsIndexCapture();
-  MemRefBoundsIndexCapture(mlir::Value tensorOrMemref);
-
-  uint64_t getRank() { return memRank; }
-  bool isLiteral(int64_t i);
-  bool areAllLiteral();
-  int64_t getShape(int64_t i);
-  IndexExpr getLiteral(uint64_t i); // Assert if bound is not compile time.
-  IndexExpr getDim(uint64_t i);
-  IndexExpr getSymbol(uint64_t i);
-  void getLiteralList(llvm::SmallVectorImpl<IndexExpr> &literalList);
-  void getDimList(llvm::SmallVectorImpl<IndexExpr> &dimList);
-  void getSymbolList(llvm::SmallVectorImpl<IndexExpr> &symbolList);
-
-private:
-  template <class INDEX>
-  IndexExpr get(uint64_t i);
-  template <class INDEX>
-  void getList(llvm::SmallVectorImpl<IndexExpr> &dimList);
-
-  mlir::Value tensorOrMemref;
-  uint64_t memRank;
-};
-
-//===----------------------------------------------------------------------===//
 // Make IndexExpressions of a given type from provided input list/range
 //===----------------------------------------------------------------------===//
 
+// Create a list of IndexExpr of kind INDEXEXPR from an ArrayRef of block args.
 template <class INDEXEXPR>
 void getIndexExprList(mlir::ArrayRef<mlir::BlockArgument> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -892,6 +808,8 @@ void getIndexExprList(mlir::ArrayRef<mlir::BlockArgument> inputList,
     outputList.emplace_back(INDEXEXPR(item));
 }
 
+// Create a list of IndexExpr of kind INDEXEXPR from a value range (list of
+// values).
 template <class INDEXEXPR>
 void getIndexExprList(
     mlir::ValueRange range, llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -900,6 +818,7 @@ void getIndexExprList(
     outputList.emplace_back(INDEXEXPR(item));
 }
 
+// Create a list of IndexExpr of kind INDEXEXPR from another list of IndexExpr.
 template <class INDEXEXPR>
 void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
@@ -907,5 +826,14 @@ void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
   for (auto item : inputList)
     outputList.emplace_back(INDEXEXPR(item));
 }
+
+// Create a list of IndexExpr of kind LiteralIndexExpr from a list of integers.
+void getIndexExprListFromInt(mlir::ArrayRef<int64_t> inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList);
+
+// Create a list of IndexExpr of kind LiteralIndexExpr/Questionmark from a
+// shape. Negative values are translated to Questionmarks.
+void getIndexExprListFromShape(mlir::ArrayRef<int64_t> inputList,
+    llvm::SmallVectorImpl<IndexExpr> &outputList);
 
 } // namespace onnx_mlir

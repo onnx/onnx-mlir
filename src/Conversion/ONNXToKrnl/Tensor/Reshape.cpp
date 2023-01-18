@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "llvm/Support/Debug.h"
 
@@ -31,7 +30,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXReshapeOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     Value data = operandAdaptor.data();
 
     // Convert the output type to MemRefType.
@@ -45,7 +44,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // Get shape.
-    NewONNXReshapeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXReshapeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Lower to ReinterpretCastOp so that the data is never copied or modified.
