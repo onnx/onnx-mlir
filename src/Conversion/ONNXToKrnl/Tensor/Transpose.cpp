@@ -127,12 +127,14 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
             for (uint64_t i = 0; i < rank - 1; ++i) {
               // source offset
               IndexExpr srcIndex = DimIndexExpr(indices[i]);
-              srcOffsetIE = srcOffsetIE + srcIndex * inStrides[i];
+              srcOffsetIE =
+                  srcOffsetIE + srcIndex * SymbolIndexExpr(inStrides[i]);
 
               // destination offset
               int64_t k = ArrayAttrIntVal(permAttr, i);
               IndexExpr destIndex = DimIndexExpr(indices[k]);
-              destOffsetIE = destOffsetIE + destIndex * outStrides[k];
+              destOffsetIE =
+                  destOffsetIE + destIndex * SymbolIndexExpr(outStrides[k]);
             }
             // call memcpy.
             Value destOffset = create.math.cast(i64Ty, destOffsetIE.getValue());
