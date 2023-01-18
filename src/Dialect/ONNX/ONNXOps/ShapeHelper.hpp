@@ -133,7 +133,6 @@ using ONNXStringNormalizerOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXTfIdfVectorizerOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXTreeEnsembleClassifierOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXTreeEnsembleRegressorOpShapeHelper = ONNXUnimplementedOpShapeHelper;
-using ONNXUniqueOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXUpsampleV7OpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXZipMapOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 

@@ -456,7 +456,6 @@ class UniqueLibBuilder : public ModelLibBuilder {
 public:
   UniqueLibBuilder(const std::string &modelName, const int rank, const int I,
       const int J, const int K = -1, const int axis = -1, const int sorted = 0);
-  virtual ~UniqueLibBuilder();
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRangeLB, float dataRangeUB);
@@ -469,7 +468,6 @@ private:
   // Computed parameters.
   int yRank;
   llvm::SmallVector<int64_t, 3> xShape, yShape;
-  OMTensor *xOmt, *yOmt;
 };
 
 } // namespace test
