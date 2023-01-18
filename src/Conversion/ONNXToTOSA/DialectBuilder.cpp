@@ -28,7 +28,7 @@ namespace onnx_mlir {
 // =============================================================================
 
 // Return null if none is found.
-DenseElementsAttr IndexExprBuilderForTosa::getConst(Value value) {
+ElementsAttr IndexExprBuilderForTosa::getConst(Value value) {
   auto definingOp = value.getDefiningOp();
   // If we have a cast between index/integer, skip it, i.e. get the defining op
   // that is the input to the cast.
