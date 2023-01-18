@@ -321,8 +321,14 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
 def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
   let summary = "Krnl memcpy operation";
   let description = [{
-    In the KRNL dialect the reshape op
-    doesn't generate a new memory entry and treats a reshape like a cast.
+    Copy `size` bytes from `src` to `dest` MemRef.
+
+    Starting positions for `src` and `dest` are defined by `src_offset` and
+    `dest_offset`, respectively.
+
+    `size`, `dest_offset` and `src_offset` are in bytes. 
+
+    It is the users' responsibility to make sure there is no out-of-bound read/write.
   }];
 
   let arguments = (ins AnyMemRef:$dest, AnyMemRef:$src, I64:$size,

@@ -80,9 +80,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outMemRefType, loc, shapeHelper.getOutputDims());
 
+    // If the last dimension is not permuted, do block copying for the last
+    // dimension. Otherwise, do element-wise copying.
     if ((uint64_t)ArrayAttrIntVal(permAttr, rank - 1) == (rank - 1)) {
-      // The last dimension is not permuted. Do block copying for the last
-      // dimension.
       Type i64Ty = create.math.getBuilder().getI64Type();
 
       // Input and output upperbounds.
@@ -92,10 +92,10 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       create.krnlIE.getShapeAsDims(alloc, outUBs);
 
       // Size to copy.
-      Value sizeInBytes =
+      Value eltSizeInBytes =
           create.math.constant(i64Ty, getMemRefEltSizeInBytes(inMemRefType));
-      sizeInBytes = create.math.mul(
-          sizeInBytes, create.math.cast(i64Ty, inUBs[rank - 1].getValue()));
+      Value sizeInBytes = create.math.mul(
+          eltSizeInBytes, create.math.cast(i64Ty, inUBs[rank - 1].getValue()));
 
       // Strides (the last stride is ommitted)
       IndexExpr strideIE = LiteralIndexExpr(1);
@@ -116,6 +116,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       inUBs.truncate(rank - 1);
       outUBs.truncate(rank - 1);
 
+      // Main loop
       ValueRange loopDef = create.krnl.defineLoops(rank - 1);
       SmallVector<IndexExpr, 4> lbs(rank - 1, LiteralIndexExpr(0));
       create.krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
@@ -126,20 +127,23 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
             IndexExpr srcOffsetIE = LiteralIndexExpr(0);
             for (uint64_t i = 0; i < rank - 1; ++i) {
               // source offset
-              IndexExpr srcIndex = DimIndexExpr(indices[i]);
+              DimIndexExpr srcIndex(indices[i]);
               srcOffsetIE =
                   srcOffsetIE + srcIndex * SymbolIndexExpr(inStrides[i]);
 
               // destination offset
-              int64_t k = ArrayAttrIntVal(permAttr, i);
-              IndexExpr destIndex = DimIndexExpr(indices[k]);
+              DimIndexExpr destIndex(indices[ArrayAttrIntVal(permAttr, i)]);
+              // Note: index for outStrides is not the permuted index.
               destOffsetIE =
-                  destOffsetIE + destIndex * SymbolIndexExpr(outStrides[k]);
+                  destOffsetIE + destIndex * SymbolIndexExpr(outStrides[i]);
             }
+            Value destOffsetInBytes = create.math.mul(eltSizeInBytes,
+                create.math.cast(i64Ty, destOffsetIE.getValue()));
+            Value srcOffsetInBytes = create.math.mul(eltSizeInBytes,
+                create.math.cast(i64Ty, srcOffsetIE.getValue()));
             // call memcpy.
-            Value destOffset = create.math.cast(i64Ty, destOffsetIE.getValue());
-            Value srcOffset = create.math.cast(i64Ty, srcOffsetIE.getValue());
-            create.krnl.memcpy(alloc, data, sizeInBytes, destOffset, srcOffset);
+            create.krnl.memcpy(
+                alloc, data, sizeInBytes, destOffsetInBytes, srcOffsetInBytes);
           });
     } else {
       ValueRange loopDef = create.krnl.defineLoops(rank);

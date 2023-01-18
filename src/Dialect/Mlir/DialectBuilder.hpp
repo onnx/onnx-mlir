@@ -411,7 +411,7 @@ struct LLVMBuilder final : DialectBuilder {
       mlir::Value val, llvm::ArrayRef<int64_t> position) const;
 
   // Inttoptr
-  mlir::Value inttoptr(mlir::Type type, mlir::Value arg) const;
+  mlir::Value inttoptr(mlir::Type type, mlir::Value val) const;
 
   // LoadOp
   mlir::Value load(mlir::Value addr) const;
@@ -421,10 +421,13 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value nullI8Ptr() const;
 
   // Ptrtoint
-  mlir::Value ptrtoint(mlir::Type type, mlir::Value arg) const;
+  mlir::Value ptrtoint(mlir::Type type, mlir::Value val) const;
 
   // ReturnOp
   void _return(mlir::Value val) const;
+
+  // SExtOp
+  mlir::Value sext(mlir::Type type, mlir::Value val) const;
 
   // StoreOp
   void store(mlir::Value val, mlir::Value addr) const;

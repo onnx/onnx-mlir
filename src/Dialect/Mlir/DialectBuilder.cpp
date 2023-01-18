@@ -1023,8 +1023,8 @@ Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
       loc(), resultType, container, val, position);
 }
 
-Value LLVMBuilder::inttoptr(Type type, Value arg) const {
-  return b().create<LLVM::IntToPtrOp>(loc(), type, arg);
+Value LLVMBuilder::inttoptr(Type type, Value val) const {
+  return b().create<LLVM::IntToPtrOp>(loc(), type, val);
 }
 
 Value LLVMBuilder::load(Value addr) const {
@@ -1040,12 +1040,16 @@ Value LLVMBuilder::nullI8Ptr() const {
   return b().create<LLVM::NullOp>(loc(), I8PtrTy);
 }
 
-Value LLVMBuilder::ptrtoint(Type type, Value arg) const {
-  return b().create<LLVM::PtrToIntOp>(loc(), type, arg);
+Value LLVMBuilder::ptrtoint(Type type, Value val) const {
+  return b().create<LLVM::PtrToIntOp>(loc(), type, val);
 }
 
 void LLVMBuilder::_return(Value val) const {
   b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({val}));
+}
+
+Value LLVMBuilder::sext(Type type, Value val) const {
+  return b().create<LLVM::SExtOp>(loc(), type, val);
 }
 
 void LLVMBuilder::store(Value val, Value addr) const {

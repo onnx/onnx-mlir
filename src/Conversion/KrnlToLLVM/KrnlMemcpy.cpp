@@ -39,57 +39,53 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    KrnlMemcpyOpAdaptor operandAdaptor(operands);
+    MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
+    // Get operands.
+    KrnlMemcpyOpAdaptor operandAdaptor(operands);
+    Value src = operandAdaptor.src();
+    Value dest = operandAdaptor.dest();
+    Value srcOffset = operandAdaptor.src_offset();
+    Value dstOffset = operandAdaptor.dest_offset();
+    Value copySize = operandAdaptor.size();
+
+    // Common types.
+    Type i1Ty = IntegerType::get(context, 1);
     Type i64Ty = IntegerType::get(context, 64);
+    Type srcType = src.getType().cast<LLVM::LLVMStructType>().getBody()[1];
+    Type dstType = dest.getType().cast<LLVM::LLVMStructType>().getBody()[1];
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto memcpyRef = getOrInsertMemcpy(rewriter, parentModule);
 
     // First operand.
-    Type dstType = operandAdaptor.dest()
-                       .getType()
-                       .cast<LLVM::LLVMStructType>()
-                       .getBody()[1];
-    Value alignedDstMemory =
-        create.llvm.extractValue(dstType, operandAdaptor.dest(), {1});
+    Value alignedDstMemory = create.llvm.extractValue(dstType, dest, {1});
     // Update the pointer with the given offset.
-    Value dstOffset = operandAdaptor.dest_offset();
     Value dstPtrInInt = create.llvm.ptrtoint(i64Ty, alignedDstMemory);
     dstPtrInInt = create.llvm.add(dstPtrInInt, dstOffset);
     alignedDstMemory = create.llvm.inttoptr(dstType, dstPtrInInt);
-    Value alignedInt8PtrDstMemory = create.llvm.bitcastI8Ptr(alignedDstMemory);
+    Value dstAddress = create.llvm.bitcastI8Ptr(alignedDstMemory);
 
     // Second operand.
-    Type srcType = operandAdaptor.src()
-                       .getType()
-                       .cast<LLVM::LLVMStructType>()
-                       .getBody()[1];
-    Value alignedSrcMemory =
-        create.llvm.extractValue(srcType, operandAdaptor.src(), {1});
+    Value alignedSrcMemory = create.llvm.extractValue(srcType, src, {1});
     // Update the pointer with the given offset.
-    Value srcOffset = operandAdaptor.src_offset();
     Value srcPtrInInt = create.llvm.ptrtoint(i64Ty, alignedSrcMemory);
     srcPtrInInt = create.llvm.add(srcPtrInInt, srcOffset);
     alignedSrcMemory = create.llvm.inttoptr(srcType, srcPtrInInt);
-    Value alignedInt8PtrSrcMemory = create.llvm.bitcastI8Ptr(alignedSrcMemory);
+    Value srcAddress = create.llvm.bitcastI8Ptr(alignedSrcMemory);
 
     // Size.
-    Value int64Size =
-        rewriter.create<LLVM::SExtOp>(loc, i64Ty, operandAdaptor.size());
+    Value sizeInBytes = create.llvm.sext(i64Ty, copySize);
 
     // Is volatile (set to false).
-    Value isVolatile =
-        create.llvm.constant(IntegerType::get(context, 1), (int64_t)0);
+    Value isVolatile = create.llvm.constant(i1Ty, (int64_t)0);
 
     // Memcpy call
-    create.llvm.call({}, memcpyRef,
-        {alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory, int64Size,
-            isVolatile});
+    create.llvm.call(
+        {}, memcpyRef, {dstAddress, srcAddress, sizeInBytes, isVolatile});
 
     rewriter.eraseOp(op);
     return success();
