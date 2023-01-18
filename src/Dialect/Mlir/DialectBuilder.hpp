@@ -351,6 +351,9 @@ struct LLVMBuilder final : DialectBuilder {
   LLVMBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~LLVMBuilder() {}
 
+  // AddOp
+  mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
+
   // AddressOfOp
   mlir::Value addressOf(mlir::LLVM::GlobalOp op) const;
 
@@ -407,12 +410,18 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value insertValue(mlir::Type resultType, mlir::Value container,
       mlir::Value val, llvm::ArrayRef<int64_t> position) const;
 
+  // Inttoptr
+  mlir::Value inttoptr(mlir::Type type, mlir::Value arg) const;
+
   // LoadOp
   mlir::Value load(mlir::Value addr) const;
 
   // NullOp
   mlir::Value null(mlir::Type type) const;
   mlir::Value nullI8Ptr() const;
+
+  // Ptrtoint
+  mlir::Value ptrtoint(mlir::Type type, mlir::Value arg) const;
 
   // ReturnOp
   void _return(mlir::Value val) const;

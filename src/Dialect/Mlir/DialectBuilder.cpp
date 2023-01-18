@@ -882,6 +882,10 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 // LLVM Builder
 //===----------------------------------------------------------------------===//
 
+Value LLVMBuilder::add(Value lhs, Value rhs) const {
+  return b().create<LLVM::AddOp>(loc(), lhs, rhs);
+}
+
 Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
   return b().create<LLVM::AddressOfOp>(loc(), op);
 }
@@ -1019,6 +1023,10 @@ Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
       loc(), resultType, container, val, position);
 }
 
+Value LLVMBuilder::inttoptr(Type type, Value arg) const {
+  return b().create<LLVM::IntToPtrOp>(loc(), type, arg);
+}
+
 Value LLVMBuilder::load(Value addr) const {
   return b().create<LLVM::LoadOp>(loc(), addr);
 }
@@ -1030,6 +1038,10 @@ Value LLVMBuilder::null(Type type) const {
 Value LLVMBuilder::nullI8Ptr() const {
   Type I8PtrTy = LLVM::LLVMPointerType::get(b().getI8Type());
   return b().create<LLVM::NullOp>(loc(), I8PtrTy);
+}
+
+Value LLVMBuilder::ptrtoint(Type type, Value arg) const {
+  return b().create<LLVM::PtrToIntOp>(loc(), type, arg);
 }
 
 void LLVMBuilder::_return(Value val) const {

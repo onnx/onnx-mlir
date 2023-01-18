@@ -44,6 +44,8 @@ public:
     Location loc = op->getLoc();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
+    Type i64Ty = IntegerType::get(context, 64);
+
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto memcpyRef = getOrInsertMemcpy(rewriter, parentModule);
@@ -55,6 +57,11 @@ public:
                        .getBody()[1];
     Value alignedDstMemory =
         create.llvm.extractValue(dstType, operandAdaptor.dest(), {1});
+    // Update the pointer with the given offset.
+    Value dstOffset = operandAdaptor.dest_offset();
+    Value dstPtrInInt = create.llvm.ptrtoint(i64Ty, alignedDstMemory);
+    dstPtrInInt = create.llvm.add(dstPtrInInt, dstOffset);
+    alignedDstMemory = create.llvm.inttoptr(dstType, dstPtrInInt);
     Value alignedInt8PtrDstMemory = create.llvm.bitcastI8Ptr(alignedDstMemory);
 
     // Second operand.
@@ -64,11 +71,16 @@ public:
                        .getBody()[1];
     Value alignedSrcMemory =
         create.llvm.extractValue(srcType, operandAdaptor.src(), {1});
+    // Update the pointer with the given offset.
+    Value srcOffset = operandAdaptor.src_offset();
+    Value srcPtrInInt = create.llvm.ptrtoint(i64Ty, alignedSrcMemory);
+    srcPtrInInt = create.llvm.add(srcPtrInInt, srcOffset);
+    alignedSrcMemory = create.llvm.inttoptr(srcType, srcPtrInInt);
     Value alignedInt8PtrSrcMemory = create.llvm.bitcastI8Ptr(alignedSrcMemory);
 
     // Size.
-    Value int64Size = rewriter.create<LLVM::SExtOp>(
-        loc, IntegerType::get(context, 64), operandAdaptor.size());
+    Value int64Size =
+        rewriter.create<LLVM::SExtOp>(loc, i64Ty, operandAdaptor.size());
 
     // Is volatile (set to false).
     Value isVolatile =
