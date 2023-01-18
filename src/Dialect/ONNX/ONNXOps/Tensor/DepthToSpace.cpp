@@ -101,7 +101,7 @@ LogicalResult ONNXDepthToSpaceOp::verify() {
 LogicalResult ONNXDepthToSpaceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no input shape exists.
-  if (!input().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(input()))
     return success();
 
   Type elementType = input().getType().cast<ShapedType>().getElementType();

@@ -36,11 +36,9 @@ LogicalResult ONNXBatchNormalizationInferenceModeOpShapeHelper::computeShape() {
 LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>() ||
-      !scale().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>() ||
-      !mean().getType().isa<RankedTensorType>() ||
-      !var().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(scale()) ||
+      !hasShapeAndRank(B()) || !hasShapeAndRank(mean()) ||
+      !hasShapeAndRank(var()))
     return success();
 
   // Verifier code.
