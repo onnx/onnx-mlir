@@ -56,11 +56,7 @@ LogicalResult ONNXTileOpShapeHelper::computeShape() {
 LogicalResult ONNXTileOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!input().getType().isa<RankedTensorType>())
-    return success();
-
-  // Read 'repeats' value.
-  if (!repeats().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(input()) || !hasShapeAndRank(repeats()))
     return success();
 
   // 'repeats' tensor is an 1D tensor.

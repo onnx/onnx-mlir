@@ -95,8 +95,7 @@ LogicalResult ONNXPadOp::verify() {
 LogicalResult ONNXPadOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!data().getType().isa<RankedTensorType>() ||
-      !pads().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(data()) || !hasShapeAndRank(pads()))
     return success();
 
   Type elementType = data().getType().cast<ShapedType>().getElementType();

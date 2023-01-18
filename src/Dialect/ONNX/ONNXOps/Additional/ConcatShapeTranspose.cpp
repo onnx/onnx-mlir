@@ -151,13 +151,9 @@ LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
 
 LogicalResult ONNXConcatShapeTransposeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-
   // If any input is not ranked tensor, do nothing.
-  int inputNum = getNumOperands();
-  for (int i = 0; i < inputNum; ++i) {
-    if (!getOperand(i).getType().isa<RankedTensorType>())
-      return success();
-  }
+  if (!hasShapeAndRank(getOperation()))
+    return success();
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   Type intType = IntegerType::get(getContext(), 64).cast<Type>();
   SmallVector<Type> elementTypes = {intType, commonType.getElementType()};

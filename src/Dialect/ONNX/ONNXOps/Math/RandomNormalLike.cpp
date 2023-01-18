@@ -61,7 +61,7 @@ LogicalResult ONNXRandomNormalLikeOp::verify() {
 
 LogicalResult ONNXRandomNormalLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!input().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(input()))
     return success();
   auto inputType = input().getType().cast<RankedTensorType>();
   auto elementTypeIDDType = dtype();

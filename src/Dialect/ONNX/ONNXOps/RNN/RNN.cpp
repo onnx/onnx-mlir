@@ -167,9 +167,7 @@ mlir::LogicalResult ONNXRNNOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGRUOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      !R().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) || !hasShapeAndRank(R())) {
     return success();
   }
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();
@@ -183,9 +181,7 @@ LogicalResult ONNXGRUOp::inferShapes(
 
 LogicalResult ONNXLSTMOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      !R().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) || !hasShapeAndRank(R())) {
     return success();
   }
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();
@@ -199,9 +195,7 @@ LogicalResult ONNXLSTMOp::inferShapes(
 
 LogicalResult ONNXRNNOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      !R().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) || !hasShapeAndRank(R())) {
     return success();
   }
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();
