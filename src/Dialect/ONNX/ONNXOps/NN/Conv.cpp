@@ -508,7 +508,8 @@ static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferredPads,
   inferredPads.resize(spatialRank * 2);
   for (unsigned int i = 0; i < spatialRank; ++i) {
     auto inputSize = xShape[spatialOffset + i];
-    auto outputSize = ArrayAttrIntVal(outputShapeOpt, spatialOffset + i);
+    // auto outputSize = ArrayAttrIntVal(outputShapeOpt, spatialOffset + i);
+    auto outputSize = ArrayAttrIntVal(outputShapeOpt, i);
     auto kernelSize = ArrayAttrIntVal(kernelShape, i);
     if (dilationsOpt.has_value())
       dilationVal = ArrayAttrIntVal(dilationsOpt, i);
@@ -636,19 +637,23 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   llvm::SmallVector<int64_t, 4> outputShapeFinal;
 
   if (outputShape.has_value()) {
+    /*
     if (xShape[0] != ArrayAttrIntVal(outputShape, 0)) {
       return emitOpError("mismatch in batch size");
     }
     if (outChannels != ArrayAttrIntVal(outputShape, 1)) {
       return emitOpError("mismatch in output channel size");
     }
+    */
     SmallVector<int64_t, 4> inferredPads;
     // Determine padding values based on output shape.
     auto autoPad = auto_pad();
     insertConvTransposePads(inferredPads, autoPad, xShape, kernelShape, padsOpt,
         stridesOpt, outputPads, outputShape, dilationsOpt);
     padsAttr(builder.getI64ArrayAttr(inferredPads));
-    for (uint64_t i = 0; i < xShape.size(); ++i) {
+    outputShapeFinal.emplace_back(xShape[0]);
+    outputShapeFinal.emplace_back(outChannels);
+    for (int i = 0; i < spatialRank; ++i) {
       outputShapeFinal.emplace_back(ArrayAttrIntVal(outputShape, i));
     }
   } else {
