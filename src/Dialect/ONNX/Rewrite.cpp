@@ -229,6 +229,132 @@ ArrayAttr getPadsConvTranspose2D(PatternRewriter &rewriter, Location loc,
   return rewriter.getI64ArrayAttr(newPads);
 }
 
+// Check if strides is unit strides
+bool hasUnitStrides(ArrayAttr strides) {
+  SmallVector<int64_t, 3> vstrides;
+  for (unsigned int i = 0; i < strides.size(); ++i)
+    vstrides.emplace_back(ArrayAttrIntVal(strides, i));
+  return llvm::all_of(vstrides, [](int64_t s) { return s == 1; });
+}
+
+ArrayAttr createUnitStrides(PatternRewriter &rewriter, ArrayAttr strides) {
+  SmallVector<int64_t, 2> unitStrides;
+  for (unsigned int i = 0; i < strides.size(); ++i)
+    unitStrides.emplace_back(1);
+  return rewriter.getI64ArrayAttr(unitStrides);
+}
+
+ValueRange emitSplitAxisOutputLength1(
+    PatternRewriter &rewriter, Location loc, Value input, int64_t axis) {
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  // Create `split` to split each output in `axis` into length 1.
+  SmallVector<int64_t> dims(1, inputShape[axis]);
+  Type tensorType =
+      RankedTensorType::get(dims, rewriter.getIntegerType(64)); // tensor<3xi64>
+  SmallVector<int64_t, 1> values(inputShape[axis], 1);
+  DenseElementsAttr denseAttr =
+      DenseElementsAttr::get(tensorType, makeArrayRef(values));
+  Value split = rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+  SmallVector<int64_t> splitShape;
+  for (int i = 0; i < 4; ++i) {
+    if (i == axis)
+      splitShape.emplace_back(1);
+    else
+      splitShape.emplace_back(inputShape[i]);
+  }
+  Type splitType = RankedTensorType::get(splitShape, elementType);
+  SmallVector<Type, 4> splitTypes(inputShape[axis], splitType);
+  ONNXSplitOp splitOp =
+      rewriter.create<ONNXSplitOp>(loc, splitTypes, input, split, axis);
+  return splitOp.getResults();
+}
+
+Value emitPads(PatternRewriter &rewriter, Location loc, Value input,
+    int64_t axis, int64_t size) {
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  SmallVector<int64_t> resultShape;
+  for (unsigned int i = 0; i < inputShape.size(); ++i) {
+    if (i == axis)
+      resultShape.emplace_back(inputShape[i] + size);
+    else
+      resultShape.emplace_back(inputShape[i]);
+  }
+  Type padType = RankedTensorType::get(resultShape, elementType);
+  SmallVector<int64_t> dims(1, (int64_t)resultShape.size() * 2);
+  Type tensorType =
+      RankedTensorType::get(dims, rewriter.getIntegerType(64)); // tensor<8xi64>
+  SmallVector<int64_t, 1> values((int64_t)inputShape.size() * 2, 0);
+  values[inputShape.size() + axis] =
+      size; // Add padding at the end of each axis.
+  DenseElementsAttr denseAttr =
+      DenseElementsAttr::get(tensorType, makeArrayRef(values));
+  Value pads = rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+  Type tensorTypeF32 =
+      RankedTensorType::get({}, rewriter.getF32Type()); // tensor<f32>
+  DenseElementsAttr denseAttrConst =
+      DenseElementsAttr::get(tensorTypeF32, ArrayRef<float>({0.0}));
+  Value constantValue =
+      rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttrConst);
+  ONNXPadOp padOp = rewriter.create<ONNXPadOp>(loc, padType, input, pads,
+      constantValue, rewriter.getStringAttr("constant"));
+  return padOp.getResult();
+}
+
+Value emitConcat(
+    PatternRewriter &rewriter, Location loc, ValueRange inputs, int64_t axis) {
+  ShapedType inputType = inputs[0].getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  int64_t concatAxisSize = 0;
+  for (Value v : inputs) {
+    ShapedType vType = v.getType().cast<ShapedType>();
+    ArrayRef<int64_t> vShape = vType.getShape();
+    concatAxisSize += vShape[axis];
+  }
+  SmallVector<int64_t> concatShape;
+  for (unsigned int i = 0; i < inputShape.size(); ++i) {
+    if (i == axis)
+      concatShape.emplace_back(concatAxisSize);
+    else
+      concatShape.emplace_back(inputShape[i]);
+  }
+  Type concatType = RankedTensorType::get(concatShape, elementType);
+  ONNXConcatOp concatOp = rewriter.create<ONNXConcatOp>(loc, concatType, inputs,
+      rewriter.getIntegerAttr(
+          rewriter.getIntegerType(64, /*isSigned=*/true), axis));
+  return concatOp.getResult();
+}
+
+Value insertPadAxis(PatternRewriter &rewriter, Location loc, Value input,
+    int64_t axis, int64_t padSize) {
+  // Split
+  ValueRange splitResults =
+      emitSplitAxisOutputLength1(rewriter, loc, input, axis);
+  // Pad
+  Value splitLastResults = splitResults.back();
+  ValueRange padInputs = splitResults.drop_back();
+  SmallVector<Value, 4> padResults;
+  for (Value v : padInputs)
+    padResults.emplace_back(emitPads(rewriter, loc, v, axis, padSize));
+  padResults.emplace_back(splitLastResults);
+  // Concat
+  Value concatResult = emitConcat(rewriter, loc, ValueRange(padResults), axis);
+  return concatResult;
+}
+
+Value insertPadsConvTranspose2DInput(
+    PatternRewriter &rewriter, Location loc, Value input, ArrayAttr strides) {
+  Value out0 = insertPadAxis(rewriter, loc, input, /*axis*/ 3,
+      /*padSize*/ ArrayAttrIntVal(strides, 1) - 1);
+  Value out1 = insertPadAxis(rewriter, loc, out0, /*axis*/ 2,
+      /*padSize*/ ArrayAttrIntVal(strides, 0) - 1);
+  return out1;
+}
+
 } // namespace onnx_mlir
 
 // =============================================================================
@@ -694,6 +820,7 @@ void ONNXConstantOp::getCanonicalizationPatterns(
 void ONNXConvTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ConvTransposeOpPattern1>(context);
+  results.insert<ConvTransposeOpPattern2>(context);
 }
 
 /// on the ONNXDepthToSpaceOp.

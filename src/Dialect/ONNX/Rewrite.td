@@ -962,6 +962,17 @@ def reverseWeightConvTranspose2D: NativeCodeCall<
 def getPadsConvTranspose2D: NativeCodeCall<
   "onnx_mlir::getPadsConvTranspose2D($_builder, $_loc, $0, $1, $2)">;
 
+def HasUnitStrides: Constraint<
+  CPred<"onnx_mlir::hasUnitStrides($_self)">,
+  "has unit strides"
+>;
+
+def createUnitStrides: NativeCodeCall<
+  "onnx_mlir::createUnitStrides($_builder, $0)">;
+
+def insertPadsConvTranspose2DInput: NativeCodeCall<
+  "onnx_mlir::insertPadsConvTranspose2DInput($_builder, $_loc, $0, $1)">;
+
 def ConvTransposeOpPattern1: Pattern<
    (ONNXConvTransposeOp $x, $w, $b,
       $auto_pad, $dilation, $group, $kernel_shape,
@@ -971,6 +982,21 @@ def ConvTransposeOpPattern1: Pattern<
     (getPadsConvTranspose2D:$new_pads $kernel_shape, $pads, $dilation),
     (ONNXConvOp $x, $reversed_w, $b,
        $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $strides)
+   ],
+   [(HasUnitStrides:$strides)]
+>;
+
+def ConvTransposeOpPattern2: Pattern<
+   (ONNXConvTransposeOp $x, $w, $b,
+      $auto_pad, $dilation, $group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides),
+   [
+    (reverseWeightConvTranspose2D:$reversed_w $w),
+    (getPadsConvTranspose2D:$new_pads $kernel_shape, $pads, $dilation),
+    (insertPadsConvTranspose2DInput:$new_x $x, $strides),
+    (createUnitStrides:$unit_strides $strides),
+    (ONNXConvOp $new_x, $reversed_w, $b,
+       $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $unit_strides)
    ]
 >;
 #endif // ONNX_REWRITE
