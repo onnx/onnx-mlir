@@ -71,7 +71,7 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
 LogicalResult ONNXTransposeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!data().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(data()))
     return success();
 
   Type elementType = data().getType().cast<ShapedType>().getElementType();

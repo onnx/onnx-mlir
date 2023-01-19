@@ -145,7 +145,7 @@ namespace {
 // Method that does all the work for inference of traditional reductions, namely
 // the ones that use the attributes for describing the axes.
 template <class OP_TYPE>
-static LogicalResult inferShapeForReductionOps_xxx(OP_TYPE &op) {
+static LogicalResult inferShapeForReductionOps(OP_TYPE &op) {
   typename OP_TYPE::Adaptor operandAdaptor(op);
   if (!hasShapeAndRank(operandAdaptor.data()))
     return success();
@@ -164,7 +164,7 @@ static LogicalResult inferShapeForReductionOps_xxx(OP_TYPE &op) {
 
 LogicalResult ONNXReduceL1Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_xxx<ONNXReduceL1Op>(*this);
+  return inferShapeForReductionOps<ONNXReduceL1Op>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -173,7 +173,7 @@ LogicalResult ONNXReduceL1Op::inferShapes(
 
 LogicalResult ONNXReduceL2Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_xxx<ONNXReduceL2Op>(*this);
+  return inferShapeForReductionOps<ONNXReduceL2Op>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -182,7 +182,7 @@ LogicalResult ONNXReduceL2Op::inferShapes(
 
 LogicalResult ONNXReduceLogSumOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_xxx<ONNXReduceLogSumOp>(*this);
+  return inferShapeForReductionOps<ONNXReduceLogSumOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -191,7 +191,7 @@ LogicalResult ONNXReduceLogSumOp::inferShapes(
 
 LogicalResult ONNXReduceLogSumExpOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_xxx<ONNXReduceLogSumExpOp>(*this);
+  return inferShapeForReductionOps<ONNXReduceLogSumExpOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -200,7 +200,7 @@ LogicalResult ONNXReduceLogSumExpOp::inferShapes(
 
 LogicalResult ONNXReduceMaxOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_xxx<ONNXReduceMaxOp>(*this);
+  return inferShapeForReductionOps<ONNXReduceMaxOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -209,7 +209,7 @@ LogicalResult ONNXReduceMaxOp::inferShapes(
 
 LogicalResult ONNXReduceMeanOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_xxx<ONNXReduceMeanOp>(*this);
+  return inferShapeForReductionOps<ONNXReduceMeanOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -218,7 +218,7 @@ LogicalResult ONNXReduceMeanOp::inferShapes(
 
 LogicalResult ONNXReduceMinOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_xxx<ONNXReduceMinOp>(*this);
+  return inferShapeForReductionOps<ONNXReduceMinOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -227,7 +227,7 @@ LogicalResult ONNXReduceMinOp::inferShapes(
 
 LogicalResult ONNXReduceProdOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_xxx<ONNXReduceProdOp>(*this);
+  return inferShapeForReductionOps<ONNXReduceProdOp>(*this);
 }
 //===----------------------------------------------------------------------===//
 // ReduceSum
@@ -252,15 +252,16 @@ LogicalResult ONNXReduceSumOp::inferShapes(
 
 LogicalResult ONNXReduceSumV11Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_xxx<ONNXReduceSumV11Op>(*this);
+  return inferShapeForReductionOps<ONNXReduceSumV11Op>(*this);
 }
+
 //===----------------------------------------------------------------------===//
 // ReduceSumSquare
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceSumSquareOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_xxx<ONNXReduceSumSquareOp>(*this);
+  return inferShapeForReductionOps<ONNXReduceSumSquareOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//

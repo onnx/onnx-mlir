@@ -1,5 +1,3 @@
-
-
 // RUN: onnx-mlir-opt --shape-inference %s -split-input-file | FileCheck %s
 
 // -----
@@ -2584,14 +2582,17 @@ return %1 : tensor<*xf32>
 
 // -----
 
+
 func.func @test_upsample_dyn(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
 %1 = "onnx.Upsample"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<*xf32>
 return %1 : tensor<*xf32>
 
-// CHECK-LABEL: test_upsample_dyn
-// CHECK: [[RES:%.+]] = "onnx.Upsample"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<*xf32>
-// CHECK: return [[RES]] : tensor<*xf32>
-
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_upsample_dyn
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x2x2xf32>, [[PARAM_1_:%.+]]: tensor<4xf32>) -> tensor<?x?x?x?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Upsample"([[PARAM_0_]], [[PARAM_1_]]) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<?x?x?x?xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x?x?xf32>
+// CHECK:         }
 }
 
 // -----
@@ -2611,6 +2612,23 @@ func.func @test_resize1(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> {
   // CHECK: [[R0:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>
   // CHECK: [[R1:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
   // CHECK: [[R2:%.+]] = "onnx.Resize"([[ARG]], [[R0]], [[R1]], [[CST]]) {coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<3x4x10x12xf32>
+}
+
+// -----
+
+func.func @test_resize_scales_floor(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>
+  %1 = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 1.510000e+00]> : tensor<4xf32>
+  %2 = "onnx.Resize"(%arg0, %0, %1, %cst) {coordinate_transformation_mode = "asymmetric", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<*xf32>
+  "func.return"(%2) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_resize_scales_floor
+  // CHECK-SAME: ([[ARG:%.+]]: tensor<3x4x5x6xf32>) -> tensor<3x4x10x9xf32> {
+  // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK: [[R0:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>
+  // CHECK: [[R1:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 1.510000e+00]> : tensor<4xf32>
+  // CHECK: [[R2:%.+]] = "onnx.Resize"([[ARG]], [[R0]], [[R1]], [[CST]]) {coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<3x4x10x9xf32>
 }
 
 // -----
@@ -3350,3 +3368,19 @@ func.func @test_concatshapetranpose_2(%arg0: tensor<?x?xf32>, %arg1: tensor<10x3
 // CHECK:           [[shape_:%.+]], [[VAR_transposed_:%.+]] = "onnx.ConcatShapeTranspose"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, perm = [1, 0], start = 0 : si64} : (tensor<?x?xf32>, tensor<10x30xf32>) -> (tensor<2xi64>, tensor<?x10xf32>)
 // CHECK:           return [[shape_]], [[VAR_transposed_]] : tensor<2xi64>, tensor<?x10xf32>
 // CHECK:         }
+
+// -----
+
+func.func @test_onnx_layout_transform(%arg0: tensor<5x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32>) -> tensor<*xf32>
+  %1 = "onnx.LayoutTransform"(%0) : (tensor<*xf32>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_onnx_layout_transform
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.LayoutTransform"([[PARAM_0_]]) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32>) -> tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.LayoutTransform"([[VAR_0_]]) : (tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32>
+// CHECK:           return [[VAR_1_]] : tensor<5x3x32x32xf32>
+// CHECK:         }
+}

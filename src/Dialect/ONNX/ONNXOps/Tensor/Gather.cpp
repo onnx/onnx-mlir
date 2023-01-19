@@ -4,7 +4,7 @@
 
 //===------------------ Gather.cpp - ONNX Operations ----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -64,9 +64,8 @@ LogicalResult ONNXGatherOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGatherOp::verify() {
   ONNXGatherOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   auto dataType = operandAdaptor.data().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> dataShape = dataType.getShape();
@@ -88,8 +87,7 @@ LogicalResult ONNXGatherOp::verify() {
 
 LogicalResult ONNXGatherOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (llvm::any_of(this->getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
+  if (!hasShapeAndRank(getOperation()))
     return success();
 
   Type elementType = data().getType().cast<ShapedType>().getElementType();

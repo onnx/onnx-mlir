@@ -55,7 +55,6 @@ add_onnx_mlir_library(OMONNXToMhlo
   MLIRShapeDialect
   MLIRQuantDialect
   MLIRTransforms
-  OMConstPropHelper
   OMONNXRewrite
   OMONNXOps
   OMSupport

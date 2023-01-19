@@ -442,9 +442,8 @@ LogicalResult ONNXConvOp::inferShapes(
 
   // Cannot infer shape if no shape exists.
   bool hasBias = !B().getType().isa<NoneType>();
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      (hasBias && !B().getType().isa<RankedTensorType>()))
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) ||
+      (hasBias && !hasShapeAndRank(B())))
     return success();
 
   Type elementType = X().getType().cast<ShapedType>().getElementType();
@@ -547,9 +546,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   bool hasBias = !B().getType().isa<NoneType>();
 
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      (hasBias && !B().getType().isa<RankedTensorType>())) {
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) ||
+      (hasBias && !hasShapeAndRank(B()))) {
     return success();
   }
 
@@ -691,9 +689,8 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
 
   // Cannot infer shape if no shape exists.
   bool hasBias = !B().getType().isa<NoneType>();
-  if (!x().getType().isa<RankedTensorType>() ||
-      !w().getType().isa<RankedTensorType>() ||
-      (hasBias && !B().getType().isa<RankedTensorType>()))
+  if (!hasShapeAndRank(x()) || !hasShapeAndRank(w()) ||
+      (hasBias && !hasShapeAndRank(B())))
     return success();
 
   Type elementType = x().getType().cast<ShapedType>().getElementType();
@@ -812,8 +809,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
   // B: (M) Optional
 
   // Cannot infer shape if no shape exists.
-  if (!x().getType().isa<RankedTensorType>() ||
-      !w().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(x()) || !hasShapeAndRank(w()))
     return success();
 
   Type outputElementType = IntegerType::get(getContext(), 32);
