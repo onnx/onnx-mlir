@@ -665,7 +665,16 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
     // Compute and insert spatial dims.
     insertConvTransposeSpatialDim(outputShapeFinal, xShape, kernelShape,
         padsOpt, stridesOpt, outputPads, outputShape, dilationsOpt);
-    output_shapeAttr(builder.getI64ArrayAttr(outputShapeFinal));
+    // output_shapeAttr(builder.getI64ArrayAttr(outputShapeFinal));
+    auto xRank = xShape.size();
+    auto spatialRank = ArrayAttrSize(kernelShape);
+    auto spatialOffset = xRank - spatialRank;
+    llvm::SmallVector<int64_t, 4> outputShapeAttrVal;
+    for (unsigned int i = 0; i < spatialRank; ++i) {
+      outputShapeAttrVal.emplace_back(outputShapeFinal[spatialOffset + i]);
+    }
+    output_shapeAttr(
+        builder.getI64ArrayAttr(llvm::makeArrayRef(outputShapeAttrVal)));
   }
   getResult().setType(
       RankedTensorType::get(outputShapeFinal, xTy.getElementType()));
