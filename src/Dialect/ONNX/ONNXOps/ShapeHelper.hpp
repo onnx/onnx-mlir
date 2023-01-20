@@ -138,7 +138,6 @@ using ONNXUpsampleV7OpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXZipMapOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 
 // Classes with implemented shape inference but not shape helper.
-using ONNXConvTransposeOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Not implemented.
 using ONNXIfOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: recursive, Opt, Seq
 using ONNXLoopOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: recursive, Opt, Seq
 using ONNXOptionalGetElementOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Opt, Seq
@@ -405,6 +404,28 @@ using ONNXConvIntegerOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXConv
 using ONNXQLinearConvOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXQLinearConvOp>;
 using ONNXMaxPoolSingleOutOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONNXMaxPoolSingleOutOp>;
 // clang-format on
+
+//===----------------------------------------------------------------------===//
+// ConvTranspose Op
+//===----------------------------------------------------------------------===//
+
+struct ONNXConvTransposeOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXConvTransposeOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope), kernelShape(),
+        pads(), strides(), dilations(), outputPadding(), dimsNoOutputPadding() {
+  }
+  virtual ~ONNXConvTransposeOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Values set by computeShape.
+  llvm::SmallVector<IndexExpr, 2> kernelShape;
+  llvm::SmallVector<IndexExpr, 4> pads;
+  llvm::SmallVector<int64_t, 2> strides;
+  llvm::SmallVector<int64_t, 2> dilations;
+  llvm::SmallVector<int64_t, 2> outputPadding;
+  llvm::SmallVector<IndexExpr, 2> dimsNoOutputPadding;
+};
 
 //===----------------------------------------------------------------------===//
 // Global pooling ops

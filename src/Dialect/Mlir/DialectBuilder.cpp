@@ -228,16 +228,14 @@ Value MathBuilder::constantIndex(int64_t val) const {
   return b().create<arith::ConstantOp>(loc(), constantAttr);
 }
 
-Value MathBuilder::negativeInf(Type type) const {
-  Value constant = nullptr;
+Attribute MathBuilder::negativeInfAttr(mlir::Type type) const {
+  Attribute attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
-        constant = b().create<arith::ConstantOp>(loc(),
-            b().getF32FloatAttr(-std::numeric_limits<float>::infinity()));
+        attr = b().getF32FloatAttr(-std::numeric_limits<float>::infinity());
       })
       .Case<Float64Type>([&](Type) {
-        constant = b().create<arith::ConstantOp>(loc(),
-            b().getF64FloatAttr(-std::numeric_limits<double>::infinity()));
+        attr = b().getF64FloatAttr(-std::numeric_limits<double>::infinity());
       })
       .Case<IntegerType>([&](IntegerType type) {
         unsigned width = type.getWidth();
@@ -268,25 +266,21 @@ Value MathBuilder::negativeInf(Type type) const {
         default:
           llvm_unreachable("unsupported element type");
         }
-        constant = b().create<arith::ConstantOp>(
-            loc(), b().getIntegerAttr(type, APInt(width, value)));
+        attr = b().getIntegerAttr(type, APInt(width, value));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
-
-  assert(constant != nullptr && "Expecting valid constant value");
-  return constant;
+  assert(attr != nullptr && "Expecting valid attribute");
+  return attr;
 }
 
-Value MathBuilder::positiveInf(Type type) const {
-  Value constant = nullptr;
+Attribute MathBuilder::positiveInfAttr(mlir::Type type) const {
+  Attribute attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
-        constant = b().create<arith::ConstantOp>(
-            loc(), b().getF32FloatAttr(std::numeric_limits<float>::infinity()));
+        attr = b().getF32FloatAttr(std::numeric_limits<float>::infinity());
       })
       .Case<Float64Type>([&](Type) {
-        constant = b().create<arith::ConstantOp>(loc(),
-            b().getF64FloatAttr(std::numeric_limits<double>::infinity()));
+        attr = b().getF64FloatAttr(std::numeric_limits<double>::infinity());
       })
       .Case<IntegerType>([&](IntegerType type) {
         unsigned width = type.getWidth();
@@ -317,11 +311,23 @@ Value MathBuilder::positiveInf(Type type) const {
         default:
           llvm_unreachable("unsupported element type");
         }
-        constant = b().create<arith::ConstantOp>(
-            loc(), b().getIntegerAttr(type, APInt(width, value)));
+        attr = b().getIntegerAttr(type, APInt(width, value));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
+  assert(attr != nullptr && "Expecting valid attribute");
+  return attr;
+}
 
+Value MathBuilder::negativeInf(Type type) const {
+  Attribute attr = negativeInfAttr(type);
+  Value constant = b().create<arith::ConstantOp>(loc(), attr);
+  assert(constant != nullptr && "Expecting valid constant value");
+  return constant;
+}
+
+Value MathBuilder::positiveInf(Type type) const {
+  Attribute attr = positiveInfAttr(type);
+  Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
   return constant;
 }
