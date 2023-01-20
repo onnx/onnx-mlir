@@ -26,18 +26,21 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   Optional<int64_t> optionalAxis = operandAdaptor.axis();
   // Generate the output dims.
   DimsExpr outputDims;
-  LiteralIndexExpr minusone(-1);
   if (!optionalAxis.has_value()) {     // if no axis given
-    outputDims.emplace_back(minusone); // return 1D array
+    outputDims.emplace_back(QuestionmarkIndexExpr()); // return 1D array
   } else {                             // if axis given
     int64_t axis = optionalAxis.value();
     for (int64_t i = 0; i < rank; i++) {
-      LiteralIndexExpr dim =
-          (i == axis) ? minusone : createIE->getShapeAsDim(X, i);
-      outputDims.emplace_back(dim);
+      outputDims.emplace_back(
+          (i == axis) ? QuestionmarkIndexExpr() : createIE->getShapeAsDim(X, i));
     }
   }
-  setOutputDims(outputDims);
+  setOutputDims(outputDims, 0);
+  DimsExpr indexDims;
+  indexDims.emplace_back(QuestionmarkIndexExpr());
+  setOutputDims(indexDims, 1);
+  setOutputDims(indexDims, 2);
+  setOutputDims(indexDims, 3);
   return success();
 }
 
