@@ -4,7 +4,7 @@
 
 //====------ DialectBuilder.hpp - TOSA dialect builder --------------------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //

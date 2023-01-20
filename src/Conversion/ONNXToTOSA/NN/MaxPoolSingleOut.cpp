@@ -4,7 +4,7 @@
 
 //===---------------- MaxPoolSingleOut.cpp - MaxPoolSingleOut Op-----------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -117,6 +117,14 @@ public:
     Value newMaxpoolInput = tosa::createTosaTransposedTensor(
         rewriter, maxpoolOp, input, {0, 2, 3, 1});
 
+    if (!IndexExpr::isLiteral(shapeHelper.pads)) {
+      return rewriter.notifyMatchFailure(
+          maxpoolOp, "could not determine pad values");
+    }
+    if (!IndexExpr::isLiteral(shapeHelper.kernelShape)) {
+      return rewriter.notifyMatchFailure(
+          maxpoolOp, "could not determine kernel_shape values");
+    }
     // When ceil mode is 1, we need to add values to the padding
     const llvm::SmallVector<int64_t, 4> ceilConstants =
         getCeilConstants(inputType.getShape(), shapeHelper, ceilMode);
