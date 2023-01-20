@@ -190,6 +190,31 @@ struct ScalarOp<ONNXTanOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXIsNaNOp
+//===----------------------------------------------------------------------===//
+
+template <>
+Value emitScalarOpFor<ONNXIsNaNOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+
+  Value result;
+  MathBuilder createMath(rewriter, loc);
+  #if (__APPLE__)
+    #include "TargetConditionals.h"
+    #if (TARGET_OS_MAC)
+      printf("MacOS\n");
+      // float f = x(d); convert a double to a float by using casting
+      result = createMath.cast(f32Ty, scalarOperands[0]);
+      printf(result)
+    #else
+	    printf("Not an Apple OS\n");
+    #endif
+  #endif
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
 template <>
