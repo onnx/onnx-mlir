@@ -69,7 +69,8 @@ enum class KeepFilesOfType { All, MLIR, LLVMIR, Bitcode, Object, None };
 
 // Value below override at compile time by effectively setting the requested
 // flags.
-static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
+//static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
+static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::All;
 
 static bool keepFiles(KeepFilesOfType preserve) {
   // When wanting to preserve all files, do it regardles of isBitcode.
@@ -453,6 +454,7 @@ static int genModelObject(
                .appendList(getXllcOption())
                .appendStr(getLLVMOption())
                .appendStr("-filetype=obj")
+               .appendStr("-print-after-all")
                .appendStr("-relocation-model=pic")
                .appendList({"-o", modelObjNameWithExt})
                .appendStr(bitcodeNameWithExt)
@@ -739,7 +741,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
           "Object file %s has been compiled.\n", modelObjNameWithExt.c_str());
   } break;
   case EmitLib: {
-    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime"});
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime", "mlir_async_runtime"});
     std::string sharedLibNameWithExt;
     int rc = compileModuleToSharedLibrary(
         module, outputNameNoExt, sharedLibNameWithExt);

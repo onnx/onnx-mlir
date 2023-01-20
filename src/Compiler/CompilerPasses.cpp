@@ -35,6 +35,7 @@
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Pass/Passes.hpp"
+#include "mlir/Dialect/Async/Passes.h"
 
 using namespace mlir;
 
@@ -42,7 +43,7 @@ namespace onnx_mlir {
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // This is a transition from previous static passes to full dynamic passes
-  // Static passes are kept and the dynamic pass is added as IF-THEN
+  // Static passes are kept and the dynamic pass is added as IF-THENxs
   // with the static iteration.
   // The reasons are
   // 1. The debug flag, --print-ir-after/befor-all, can display IR for each
@@ -133,6 +134,8 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
   pm.addPass(mlir::createCanonicalizerPass());
+  /*pm.addPass(mlir::createConvertSCFToOpenMPPass());
+  pm.addPass(mlir::createCanonicalizerPass());*/
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createDisconnectKrnlDimFromAllocPass());
   pm.addPass(mlir::createCanonicalizerPass());
@@ -170,11 +173,31 @@ void addKrnlToLLVMPasses(
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
   }
-
+  
+  pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
+  //pm.addPass(mlir::createAsyncParallelForPass(false, 4, 1));
+  //pm.addPass(mlir::createCanonicalizerPass());
+  //pm.addPass(mlir::createAsyncToAsyncRuntimePass());
+  //pm.addPass(mlir::createCanonicalizerPass());
+  //pm.addPass(mlir::createMemRefToLLVMPass());
+  //pm.addPass(mlir::createConvertAsyncToLLVMPass());
+  pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
-  pm.addNestedPass<func::FuncOp>(mlir::createConvertSCFToCFPass());
+  if (!enableParallel) {
+  pm.addPass(mlir::createConvertSCFToCFPass());
+  }
+  //pm.addPass(mlir::createCanonicalizerPass());
+  //pm.addPass(mlir::cf::createConvertControlFlowToLLVMPass());
+  //pm.addPass(mlir::createCanonicalizerPass());
+  //pm.addPass(mlir::createConvertOpenMPToLLVMPass());
 
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors));
+  if (enableParallel) {
+  pm.addPass(mlir::createConvertSCFToOpenMPPass());
+  pm.addPass(mlir::createMemRefToLLVMPass());
+  pm.addPass(mlir::createConvertSCFToCFPass());
+  pm.addPass(mlir::cf::createConvertControlFlowToLLVMPass());
+  }
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }

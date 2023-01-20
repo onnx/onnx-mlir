@@ -18,6 +18,7 @@ add_onnx_mlir_library(OMKrnlToLLVM
   KrnlUnaryMath.cpp
   KrnlVectorTypeCast.cpp 
   RuntimeAPI.cpp
+  DummyParallel.cpp
 
   LINK_LIBS PUBLIC
   OMAccelerator
