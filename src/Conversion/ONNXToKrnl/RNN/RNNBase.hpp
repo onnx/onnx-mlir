@@ -31,9 +31,6 @@ struct RNNActivation {
   llvm::Optional<mlir::FloatAttr> beta;
 };
 
-/// Check a mlir::Value's type is none or not.
-bool isNoneType(mlir::Value val);
-
 /// Get a dimension of the tensor's shape.
 int64_t dimAt(mlir::Value val, int index);
 
