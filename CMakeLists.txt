@@ -8,6 +8,7 @@ project(onnx-mlir)
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
 option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
 option(ONNX_MLIR_ENABLE_MHLO "Enable MHLO support." ON)
+option(ONNX_MLIR_ENABLE_TORCH "Enable Torch support." ON)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 
@@ -165,6 +166,13 @@ if (ONNX_MLIR_ENABLE_MHLO)
   include_directories(${ONNX_MLIR_BIN_ROOT}/third_party/mlir-hlo)
 endif()
 
+if (ONNX_MLIR_ENABLE_TORCH)
+  set(TORCH_MLIR_ENABLE_MHLO OFF)
+  set(TORCH_MLIR_ENABLE_LTC OFF)
+  set(TORCH_MLIR_OUT_OF_TREE_BUILD ON)
+  add_subdirectory(third_party/torch-mlir EXCLUDE_FROM_ALL)
+endif()
+
 if (NOT TARGET benchmark)
   set(BENCHMARK_USE_BUNDLED_GTEST OFF)
   set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
@@ -203,6 +211,10 @@ endif()
 
 if (ONNX_MLIR_ENABLE_MHLO)
   add_compile_definitions(ONNX_MLIR_ENABLE_MHLO)
+endif()
+
+if (ONNX_MLIR_ENABLE_TORCH)
+  add_compile_definitions(ONNX_MLIR_ENABLE_TORCH)
 endif()
 
 add_subdirectory(utils)

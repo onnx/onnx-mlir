@@ -20,6 +20,12 @@ else()
   set(ONNX_MLIR_MHLO_ENABLED 0)
 endif()
 
+if (ONNX_MLIR_ENABLE_TORCH)
+  set(ONNX_MLIR_TORCH_ENABLED 1)
+else()
+  set(ONNX_MLIR_TORCH_ENABLED 0)
+endif()
+
 # Set LLVM_DEFAULT_EXTERNAL_LIT to an empty string to avoid warnings about the path
 # when using multi-config generators such as VS or Xcode
 set(LLVM_DEFAULT_EXTERNAL_LIT "")
