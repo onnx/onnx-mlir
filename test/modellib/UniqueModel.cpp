@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//==============-- UniqueModel.cpp - Building GEMM Models for tests -===========//
+//==============-- UniqueModel.cpp - Building GEMM Models for tests
+//-===========//
 //
 // Copyright 2019-2022 The IBM Research Authors.
 //
@@ -26,33 +27,36 @@ namespace onnx_mlir {
 namespace test {
 
 UniqueLibBuilder::UniqueLibBuilder(const std::string &modelName, const int rank,
-    const int I, const int J, const int K, const int axis, const int sorted)
-  : ModelLibBuilder(modelName), rank(rank), I(I), J(J), K(K), axis(axis),
-    sorted(sorted) {}
+    const int I, const int J, /*const int K, */const int axis, const int sorted)
+    : ModelLibBuilder(modelName), rank(rank), I(I), J(J), /*K(K),*/ axis(axis),
+      sorted(sorted) {}
 
 bool UniqueLibBuilder::build() {
-  if (rank < 2 || rank > 3) {
+  if (rank != 2) { // XXX TODO support rank==3
     return false;
   }
   if (axis > rank) {
     return false;
   }
-  xShape = {I, J, K};
-  yShape = {I, J, K};
+  xShape = {I, J};
+  yShape = {I, J};
   if (axis < 0) {
     yRank = 1;
     yShape = {-1};
   } else { // axis >= 0
     yRank = rank;
-    yShape = {I, J, K};
-    yShape[rank] = -1;
+    yShape = {I, J};
+    yShape[axis] = -1;
   }
 
-  auto xType = RankedTensorType::get(xShape, builder.getF32Type());
-  auto yType = RankedTensorType::get(yShape, builder.getI64Type());
+  Type xType = RankedTensorType::get(xShape, builder.getF32Type());
+  Type yType = RankedTensorType::get(yShape, builder.getI64Type());
+  llvm::SmallVector<int64_t, 1> d1IndexShape = {-1};
+  Type d1IndexType = RankedTensorType::get(d1IndexShape, builder.getI64Type());
 
   llvm::SmallVector<Type, 1> inputsType{xType};
-  llvm::SmallVector<Type, 1> outputsType{yType};
+  llvm::SmallVector<Type, 4> outputsType{
+      yType, d1IndexType, d1IndexType, d1IndexType};
 
   func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
@@ -60,14 +64,20 @@ bool UniqueLibBuilder::build() {
   auto xVal = entryBlock.getArgument(0);
 
   IntegerAttr axisAttr =
-      IntegerAttr::get(builder.getIntegerType(64, true), axis);
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true), axis);
   IntegerAttr sortedAttr =
-      IntegerAttr::get(builder.getIntegerType(64, true), sorted);
-  auto uniqueOp = builder.create<ONNXUniqueOp>(
-      loc, /*Y=*/yType, /*X=*/xVal, axisAttr, sortedAttr);
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true), sorted);
+  auto uniqueOp = builder.create<ONNXUniqueOp>(loc, /*Y=*/yType,
+      /*indices=*/d1IndexType, /*inverse_indices=*/d1IndexType,
+      /*counts=*/d1IndexType, /*X=*/xVal, axisAttr, sortedAttr);
   uniqueOp.getResults()[0].setType(yType);
+  uniqueOp.getResults()[1].setType(d1IndexType);
+  uniqueOp.getResults()[2].setType(d1IndexType);
+  uniqueOp.getResults()[3].setType(d1IndexType);
 
-  llvm::SmallVector<Value, 1> results = {uniqueOp.getResults()[0]};
+  llvm::SmallVector<Value, 4> results = {uniqueOp.getResults()[0],
+      uniqueOp.getResults()[1], uniqueOp.getResults()[2],
+      uniqueOp.getResults()[3]};
   builder.create<func::ReturnOp>(loc, results);
   module.push_back(funcOp);
 
@@ -143,8 +153,18 @@ bool UniqueLibBuilder::verifyOutputs() {
   bool ok = areCloseFloat(res, ref);
   omTensorDestroy(ref);
   return ok;
-#endif
+#else
+  OMTensor *x = omTensorListGetOmtByIndex(inputs, 0);
+  OMTensor *res = omTensorListGetOmtByIndex(outputs, 0);
+  OMTensor *ref = omTensorCreateWithShape<float>({I, J});
+  if (!x || !res || !ref)
+    return false;
+  printf("UniqueLibBuilder::verifyOutputs: rank=2<%dx%d>[", I, J);
+  omTensorPrint("  Input: ", x);
+  printf("]\n");
+  fflush(stdout);
   return true;
+#endif
 }
 
 } // namespace test

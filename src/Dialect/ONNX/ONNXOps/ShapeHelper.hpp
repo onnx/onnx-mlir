@@ -609,6 +609,22 @@ using ONNXSqueezeV11OpShapeHelper = ONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqu
 // clang-format on
 
 //===----------------------------------------------------------------------===//
+// Unique ops
+//===----------------------------------------------------------------------===//
+
+// Different versions of split op use common code, so specialize with
+// templated code.
+struct ONNXUniqueOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXUniqueOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXUniqueOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for UniqueOp:
+};
+
+//===----------------------------------------------------------------------===//
 // Unsqueeze ops
 //===----------------------------------------------------------------------===//
 
@@ -763,7 +779,6 @@ using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpa
 using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
-using ONNXUniqueOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUniqueOp>;
 using ONNXUpsampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleOp>;
 // clang-format on
 

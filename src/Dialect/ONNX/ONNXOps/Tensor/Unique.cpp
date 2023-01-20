@@ -18,7 +18,6 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
-template <>
 LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   ONNXUniqueOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   // Get info about X and K operands.
@@ -86,7 +85,6 @@ LogicalResult ONNXUniqueOp::verify() {
 
 LogicalResult ONNXUniqueOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto builder = Builder(getContext());
   Type xType = getOperand().getType();
   if (!xType.isa<RankedTensorType>())
     return success();
@@ -95,11 +93,3 @@ LogicalResult ONNXUniqueOp::inferShapes(
   ONNXUniqueOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
-
-//===----------------------------------------------------------------------===//
-// Template instantiation
-//===----------------------------------------------------------------------===//
-
-namespace onnx_mlir {
-template struct ONNXNonSpecificOpShapeHelper<ONNXUniqueOp>;
-} // namespace onnx_mlir

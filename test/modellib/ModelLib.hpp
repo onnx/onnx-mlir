@@ -455,7 +455,7 @@ private:
 class UniqueLibBuilder : public ModelLibBuilder {
 public:
   UniqueLibBuilder(const std::string &modelName, const int rank, const int I,
-      const int J, const int K = -1, const int axis = -1, const int sorted = 0);
+      const int J, /*const int K = -1,*/ const int axis = -1, const int sorted = 0);
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRangeLB, float dataRangeUB);
@@ -464,10 +464,10 @@ public:
 
 private:
   // Data that defines model.
-  const int rank, I, J, K, axis, sorted;
+  const int rank, I, J, axis, sorted;
   // Computed parameters.
   int yRank;
-  llvm::SmallVector<int64_t, 3> xShape, yShape;
+  llvm::SmallVector<int64_t, 2> xShape, yShape;
 };
 
 } // namespace test
