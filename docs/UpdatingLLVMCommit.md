@@ -10,7 +10,7 @@ We plan to update `llvm-project` a couple of times a month in order to keep up-t
 
 Since downstream projects may want to build ONNX-MLIR (and thus LLVM and MLIR-HLO) in various configurations (Release versus Debug builds; on Linux, Windows, or macOS; possibly with Clang, LLD, and LLDB enabled), it is crucial to pick LLVM commits that pass tests for all combinations of these configurations.
 
-Rather than picking independent LLVM commits from other `mlir`-related projects, we levarage the _green_ commits identified by `Torch-MLIR`. These are updated weekly in the following Issue in the `Torch-MLIR` github project: https://github.com/llvm/torch-mlir/issues/1178.
+Rather than picking independent LLVM commits from other `mlir`-related projects, we leverage the _green_ commits identified by `Torch-MLIR`. These are updated weekly in the following Issue in the `Torch-MLIR` github project: https://github.com/llvm/torch-mlir/issues/1178.
 
 We've started an update rotation that is described [here](https://github.com/onnx/onnx-mlir/wiki/LLVM-Update-Schedule).
 
