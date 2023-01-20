@@ -360,7 +360,7 @@ LogicalResult ONNXConvOp::verify() {
   auto X = operandAdaptor.X();
   auto W = operandAdaptor.W();
   auto B = operandAdaptor.B();
-  bool hasBias = !B.getType().isa<NoneType>();
+  bool hasBias = !isFromNone(B);
   int64_t g = group();
   if (g < 1)
     return emitOpError("group must be strictly positive");
@@ -441,7 +441,7 @@ LogicalResult ONNXConvOp::inferShapes(
   // B: (M) Optional
 
   // Cannot infer shape if no shape exists.
-  bool hasBias = !B().getType().isa<NoneType>();
+  bool hasBias = !isFromNone(B());
   if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) ||
       (hasBias && !hasShapeAndRank(B())))
     return success();
@@ -542,7 +542,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   // W: (C x M/group x k1 x k2 x ... x kn)
   // B: (M) Optional
 
-  bool hasBias = !B().getType().isa<NoneType>();
+  bool hasBias = !isFromNone(B());
 
   // Cannot infer shape if no shape exists.
   if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) ||
@@ -683,7 +683,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   // B: (M) Optional
 
   // Cannot infer shape if no shape exists.
-  bool hasBias = !B().getType().isa<NoneType>();
+  bool hasBias = !isFromNone(B());
   if (!hasShapeAndRank(x()) || !hasShapeAndRank(w()) ||
       (hasBias && !hasShapeAndRank(B())))
     return success();
@@ -701,7 +701,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   // W: (M x C/group x k1 x k2 x ... x kn)
   // B: (M) Optional
 
-  bool hasBias = !B().getType().isa<NoneType>();
+  bool hasBias = !isFromNone(B());
 
   // Cannot infer shape if no shape exists.
   if (!x().getType().isa<RankedTensorType>() ||
