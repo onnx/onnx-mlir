@@ -12,7 +12,7 @@ Since downstream projects may want to build ONNX-MLIR (and thus LLVM and MLIR-HL
 
 Rather than picking independent LLVM commits from other `mlir`-related projects, we levarage the _green_ commits identified by `Torch-MLIR`. These are updated weekly in the following Issue in the `Torch-MLIR` github project: https://github.com/llvm/torch-mlir/issues/1178.
 
-We've started an update rotation that id described [here](https://github.com/onnx/onnx-mlir/wiki/LLVM-Update-Schedule).
+We've started an update rotation that is described [here](https://github.com/onnx/onnx-mlir/wiki/LLVM-Update-Schedule).
 
 ## What is the update process?
 
