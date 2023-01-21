@@ -292,6 +292,14 @@ Attribute getIdentity(Builder &builder, Type type) {
   }
 }
 
+std::function<WideNum(WideNum)> divideBy(Type type, int64_t denominator) {
+  return wideZeroDispatch(type, [denominator](auto wideZero) {
+    using WideCppType = decltype(wideZero);
+    return widenumWrapped<WideCppType, WideCppType>(
+        [denominator](auto x) { return x / denominator; });
+  });
+}
+
 template <typename ReduceOp, typename AxesRange = std::initializer_list<APInt>>
 Value ConstPropReduceAxes(PatternRewriter &rewriter, Value replacingValue,
     Value dataValue, AxesRange axesRange) {
@@ -324,25 +332,23 @@ Value ConstPropReduceAxes(PatternRewriter &rewriter, Value replacingValue,
 
   // Compute the result.
   ElementsAttr reduced;
+  Type elemType = data.getElementType();
   if (data.empty()) {
-    reduced = DenseElementsAttr::get(replacingValue.getType(),
-        {getIdentity<ReduceOp>(rewriter, data.getElementType())});
+    Attribute identity = getIdentity<ReduceOp>(rewriter, elemType);
+    reduced = DenseElementsAttr::get(replacingValue.getType(), {identity});
   } else {
-    Type elemType = data.getElementType();
     bool keepdims = intAttr(op, "keepdims", /*default=*/1) != 0;
     OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
     if constexpr (std::is_same_v<ReduceOp, ONNXReduceMeanOp>) {
+      // sum = ReduceSum(data)
       ElementsAttr sum = elementsBuilder.reduce(data, absoluteAxes, keepdims,
           elementwiseBinaryOpCombiner<ONNXAddOp>(elemType));
       assert(data.size() % sum.size() == 0 &&
              "ReduceSum reduces tensor size by integer factor");
-      int64_t factor = data.size() / sum.size();
-      auto div = wideZeroDispatch(elemType, [factor](auto wideZero) {
-        using WideCppType = decltype(wideZero);
-        return widenumWrapped<WideCppType, WideCppType>(
-            [factor](auto x) { return x / factor; });
-      });
-      reduced = elementsBuilder.transform(sum, elemType, div);
+      int64_t denominator = data.size() / sum.size();
+      // reduced = sum / denominator
+      reduced = elementsBuilder.transform(
+          sum, elemType, divideBy(elemType, denominator));
     } else {
       reduced = elementsBuilder.reduce(data, absoluteAxes, keepdims,
           elementwiseBinaryOpCombiner<ReduceOp>(elemType));
