@@ -322,10 +322,12 @@ Value ConstPropReduceAxes(PatternRewriter &rewriter, Value replacingValue,
       assert(data.size() % sum.size() == 0 &&
              "ReduceSum reduces tensor size by integer factor");
       int64_t factor = data.size() / sum.size();
-      WideNum wideFactor = WideNum::from<int64_t>(elemType, factor);
-      auto div = elementwiseBinaryOpCombiner<ONNXDivOp>(elemType);
-      reduced = elementsBuilder.transform(sum, elemType,
-          [wideFactor, div](WideNum n) { return div(n, wideFactor); });
+      auto div = wideZeroDispatch(elemType, [factor](auto wideZero) {
+        using WideCppType = decltype(wideZero);
+        return widenumWrapped<WideCppType, WideCppType>(
+            [factor](auto x) { return x / factor; });
+      });
+      reduced = elementsBuilder.transform(sum, elemType, div);
     } else {
       reduced = elementsBuilder.reduce(data, absoluteAxes, keepdims,
           elementwiseBinaryOpCombiner<ReduceOp>(elemType));

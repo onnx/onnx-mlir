@@ -176,6 +176,24 @@ using WideNumWrappedFunction =
 template <template <class OP, typename... T> class TemplateFunction, class OP>
 auto getWideNumWrappedTemplateFunction(mlir::Type type);
 
+// TODO: Document.
+template <typename Res, typename Arg>
+std::function<WideNum(WideNum)> widenumWrapped(std::function<Res(Arg)> lambda);
+
+// TODO: Document.
+template <typename Action>
+auto wideZeroDispatch(mlir::Type type, Action &&act) {
+  if (type.isa<mlir::FloatType>())
+    return act(static_cast<double>(0));
+  auto itype = type.cast<mlir::IntegerType>();
+  if (itype.getWidth() == 1)
+    return act(static_cast<bool>(0));
+  else if (itype.isUnsigned())
+    return act(static_cast<uint64_t>(0));
+  else
+    return act(static_cast<int64_t>(0));
+}
+
 // Include template implementations.
 #include "WideNum.hpp.inc"
 

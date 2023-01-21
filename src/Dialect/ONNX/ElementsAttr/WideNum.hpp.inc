@@ -39,16 +39,16 @@ struct FunctionWrapper<Res(Args...), Function> {
 
 template <template <class OP, typename... T> class TemplateFunction, class OP>
 inline auto getWideNumWrappedTemplateFunction(mlir::Type type) {
-  if (auto itype = type.dyn_cast<mlir::IntegerType>()) {
-    if (itype.getWidth() == 1) {
-      return WideNumWrappedFunction<TemplateFunction<OP, bool>>::eval;
-    } else if (itype.isUnsigned()) {
-      return WideNumWrappedFunction<TemplateFunction<OP, uint64_t>>::eval;
-    } else {
-      return WideNumWrappedFunction<TemplateFunction<OP, int64_t>>::eval;
-    }
-  } else {
-    assert(type.isa<mlir::FloatType>());
-    return WideNumWrappedFunction<TemplateFunction<OP, double>>::eval;
-  }
+  return wideZeroDispatch(type, [](auto wideZero) {
+    using WideCppType = decltype(wideZero);
+    return WideNumWrappedFunction<TemplateFunction<OP, WideCppType>>::eval;
+  });
+}
+
+template <typename Res, typename Arg>
+inline std::function<WideNum(WideNum)> widenumWrapped(
+    std::function<Res(Arg)> lambda) {
+  return [lambda = std::move(lambda)](detail::Packed<Arg> arg) -> WideNum {
+    return detail::pack<Res>(lambda(detail::unpack<Arg>(arg)));
+  };
 }
