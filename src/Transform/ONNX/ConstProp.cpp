@@ -264,7 +264,18 @@ Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for reduce ops.
+//
+// In the template helper methods ReduceOp is the corresponding element-wise op
+// (ONNXAddOp for ONNXReduceSumOp, ONNXMaxOp for ONNXReduceMaxOp, etc) for
+// ReduceSum/Prod/Min/Max, except it is ONNXReduceMeanOp for ONNXReduceMeanOp
+// which is constant propagated in a special way: it is computed with
+// ReduceSum followed by element-wise division to calculate the mean.
 //===----------------------------------------------------------------------===//
+
+int64_t intAttr(Operation *op, StringRef attrName, int64_t deflt) {
+  IntegerAttr iattr = op->getAttrOfType<IntegerAttr>(attrName);
+  return iattr ? iattr.getSInt() : deflt;
+}
 
 template <typename ReduceOp>
 Attribute getIdentity(Builder &builder, Type type) {
@@ -281,44 +292,44 @@ Attribute getIdentity(Builder &builder, Type type) {
   }
 }
 
-// ReduceOp is the corresponding element-wise op (ONNXAddOp for ONNXReduceSumOp,
-// ONNXMaxOp for ONNXReduceMaxOp, etc) for ReduceSum/Prod/Min/Max, and it is
-// ONNXReduceMeanOp for ONNXReduceMeanOp which is treated specially
-// (it first computes the same as ReduceSum and then divides element-wise).
 template <typename ReduceOp, typename AxesRange = std::initializer_list<APInt>>
 Value ConstPropReduceAxes(PatternRewriter &rewriter, Value replacingValue,
     Value dataValue, AxesRange axesRange) {
   ConstPropCounters::count("Reduce", {dataValue});
   Operation *op = replacingValue.getDefiningOp();
-  IntegerAttr keepdimsAttr = op->getAttrOfType<IntegerAttr>("keepdims");
-  bool keepdims = !keepdimsAttr || keepdimsAttr.getSInt() != 0;
-  IntegerAttr noopWithEmptyAxesAttr =
-      op->getAttrOfType<IntegerAttr>("noop_with_empty_axes");
-  bool noopWithEmptyAxes =
-      noopWithEmptyAxesAttr && noopWithEmptyAxesAttr.getSInt() != 0;
-  ElementsAttr data = getConstValueElements(dataValue);
+
+  // Find absoluteAxes, converting any negative axes to non-negative.
   SmallVector<unsigned, 4> absoluteAxes;
+  ElementsAttr data = getConstValueElements(dataValue);
   int64_t rank = data.getType().getRank();
   for (APInt a : axesRange) {
     int64_t axis = a.getSExtValue();
-    assert(-rank <= axis && axis < rank);
+    assert(-rank <= axis && axis < rank && "axis out of range");
     if (axis < 0)
       axis += rank;
+    assert(std::find(absoluteAxes.begin(), absoluteAxes.end(), axis) ==
+               absoluteAxes.end() &&
+           "duplicate axis");
     absoluteAxes.push_back(axis);
   }
+
+  // Comply with noop_with_empty_axes attribute.
   if (absoluteAxes.empty()) {
-    if (noopWithEmptyAxes)
+    if (intAttr(op, "noop_with_empty_axes", /*default=*/0) != 0)
       return replacingValue; // noop
     // Reduce over all the dimensions:
     for (int64_t axis = 0; axis < rank; ++axis)
       absoluteAxes.push_back(axis);
   }
+
+  // Compute the result.
   ElementsAttr reduced;
   if (data.empty()) {
     reduced = DenseElementsAttr::get(replacingValue.getType(),
         {getIdentity<ReduceOp>(rewriter, data.getElementType())});
   } else {
     Type elemType = data.getElementType();
+    bool keepdims = intAttr(op, "keepdims", /*default=*/1) != 0;
     OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
     if constexpr (std::is_same_v<ReduceOp, ONNXReduceMeanOp>) {
       ElementsAttr sum = elementsBuilder.reduce(data, absoluteAxes, keepdims,
@@ -337,6 +348,7 @@ Value ConstPropReduceAxes(PatternRewriter &rewriter, Value replacingValue,
           elementwiseBinaryOpCombiner<ReduceOp>(elemType));
     }
   }
+
   return createReplacingConstantOp(rewriter, replacingValue, reduced)
       .getResult();
 }
