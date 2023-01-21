@@ -263,16 +263,28 @@ Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
 }
 
 //===----------------------------------------------------------------------===//
-// Code to perform constant propagation for transpose.
+// Code to perform constant propagation for reduce ops.
 //===----------------------------------------------------------------------===//
 
-Attribute getOneAttr(Builder &builder, Type type) {
-  if (auto itype = type.dyn_cast<IntegerType>())
-    return builder.getIntegerAttr(type, APInt(itype.getWidth(), 1));
-  assert(type.isa<FloatType>() && "only supported types are integer, float");
-  return builder.getFloatAttr(type, 1.0);
+template <typename ReduceOp>
+Attribute getIdentity(Builder &builder, Type type) {
+  if constexpr (std::is_same_v<ReduceOp, ONNXAddOp>) {
+    return builder.getZeroAttr(type);
+  } else if constexpr (std::is_same_v<ReduceOp, ONNXMulOp>) {
+    if (auto itype = type.dyn_cast<IntegerType>())
+      return builder.getIntegerAttr(type, APInt(itype.getWidth(), 1));
+    assert(type.isa<FloatType>() && "only supported types are integer, float");
+    return builder.getFloatAttr(type, 1.0);
+  } else {
+    // Follow NumPy which doesn't support empty tensor for Min, Max, Mean.
+    llvm_unreachable("reduce op has no identify, zero-size tensor unsupported");
+  }
 }
 
+// ReduceOp is the corresponding element-wise op (ONNXAddOp for ONNXReduceSumOp,
+// ONNXMaxOp for ONNXReduceMaxOp, etc) for ReduceSum/Prod/Min/Max, and it is
+// ONNXReduceMeanOp for ONNXReduceMeanOp which is treated specially
+// (it first computes the same as ReduceSum and then divides element-wise).
 template <typename ReduceOp, typename AxesRange = std::initializer_list<APInt>>
 Value ConstPropReduceAxes(PatternRewriter &rewriter, Value replacingValue,
     Value dataValue, AxesRange axesRange) {
@@ -303,16 +315,8 @@ Value ConstPropReduceAxes(PatternRewriter &rewriter, Value replacingValue,
   }
   ElementsAttr reduced;
   if (data.empty()) {
-    if constexpr (std::is_same_v<ReduceOp, ONNXAddOp>) {
-      reduced = DenseElementsAttr::get(replacingValue.getType(),
-          {rewriter.getZeroAttr(data.getElementType())});
-    } else if constexpr (std::is_same_v<ReduceOp, ONNXMulOp>) {
-      reduced = DenseElementsAttr::get(replacingValue.getType(),
-          {getOneAttr(rewriter, data.getElementType())});
-    } else {
-      // Follow NumPy which doesn't support empty tensor for Min, Max, Mean.
-      llvm_unreachable("reduce op doesn't support zero-size tensor");
-    }
+    reduced = DenseElementsAttr::get(replacingValue.getType(),
+        {getIdentity<ReduceOp>(rewriter, data.getElementType())});
   } else {
     Type elemType = data.getElementType();
     OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
