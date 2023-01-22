@@ -176,11 +176,28 @@ using WideNumWrappedFunction =
 template <template <class OP, typename... T> class TemplateFunction, class OP>
 auto getWideNumWrappedTemplateFunction(mlir::Type type);
 
-// TODO: Document.
+// Returns a wrapped function with WideNum argument and return type.
+// It unpacks the argument to the arument type Arg, calls the lambda, and
+// takes the result of type Res and returns it packed as a WideNum.
+// Types Res and Arg must be double, int64_t, uint64_t, or bool.
 template <typename Res, typename Arg>
 std::function<WideNum(WideNum)> widenumWrapped(std::function<Res(Arg)> lambda);
 
-// TODO: Document.
+// Calls act with a zero of the C++ type corresponding to the given mlir type
+// (promotes to the nearest among the 4 types double, int64_t, uint64_t, bool).
+// The zero argument is a token which can be used to find the C++ type.
+// Use it similarly to dispatchByBType: call it with a generic lambda which
+// can read the C++ type of the argument with decltype. For instance, given
+// a signed integer factor and a WideNum packed according to an mlir type
+// you can multiply the WideNum with:
+//
+//   WideNum multiplyBy(int factor, WideNum n, Type type) {
+//     return wideZeroDispatch(type, [factor, n](auto wideZero) {
+//       using TAG = toBType(decltype(wideZero));
+//       return widen<TAG>(factor * narrow<TAG>(n));
+//     });
+//   }
+//
 template <typename Action>
 auto wideZeroDispatch(mlir::Type type, Action &&act) {
   if (type.isa<mlir::FloatType>())
