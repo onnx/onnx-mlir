@@ -322,9 +322,8 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
   }
 
   // Comply with noop_with_empty_axes attribute.
-  if (absoluteAxes.empty()) {
-    if (intAttr(op, "noop_with_empty_axes", /*default=*/0) != 0)
-      return replacingValue; // noop
+  if (absoluteAxes.empty() &&
+      intAttr(op, "noop_with_empty_axes", /*default=*/0) == 0) {
     // Reduce over all the dimensions:
     for (int64_t axis = 0; axis < rank; ++axis)
       absoluteAxes.push_back(axis);
@@ -333,7 +332,9 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
   // Compute the result.
   ElementsAttr reduced;
   Type elemType = data.getElementType();
-  if (data.empty()) {
+  if (absoluteAxes.empty()) {
+    reduced = data; // noop
+  } else if (data.empty()) {
     Attribute identity = getIdentity<ReduceOp>(rewriter, elemType);
     reduced = DenseElementsAttr::get(replacingValue.getType(), {identity});
   } else {
