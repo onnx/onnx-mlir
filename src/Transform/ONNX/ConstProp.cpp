@@ -301,7 +301,7 @@ std::function<WideNum(WideNum)> divideBy(Type type, int64_t denominator) {
 }
 
 template <typename ReduceOp, typename AxesRange = std::initializer_list<APInt>>
-Value ConstPropReduceAxes(PatternRewriter &rewriter, Value replacingValue,
+Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
     Value dataValue, AxesRange axesRange) {
   ConstPropCounters::count("Reduce", {dataValue});
   Operation *op = replacingValue.getDefiningOp();
@@ -365,10 +365,10 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
   if (axesValue && !axesValue.getType().isa<NoneType>()) {
     ElementsAttr axes = getConstValueElements(axesValue);
     auto axesRange = axes.getValues<APInt>();
-    return ConstPropReduceAxes<ReduceOp>(
+    return ConstPropReduceAxesRange<ReduceOp>(
         rewriter, replacingValue, dataValue, axesRange);
   } else {
-    return ConstPropReduceAxes<ReduceOp>(
+    return ConstPropReduceAxesRange<ReduceOp>(
         rewriter, replacingValue, dataValue, {});
   }
 }
@@ -378,10 +378,10 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
     Value dataValue, ArrayAttr axesArray) {
   if (axesArray) {
     auto axesRange = axesArray.getAsValueRange<IntegerAttr>();
-    return ConstPropReduceAxes<ReduceOp>(
+    return ConstPropReduceAxesRange<ReduceOp>(
         rewriter, replacingValue, dataValue, axesRange);
   } else {
-    return ConstPropReduceAxes<ReduceOp>(
+    return ConstPropReduceAxesRange<ReduceOp>(
         rewriter, replacingValue, dataValue, {});
   }
 }
