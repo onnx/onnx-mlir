@@ -408,6 +408,8 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     }
   }
 
+  // TODO: Explain the unusual "sparse" strided arrays and traverseStrides
+  //       invocations below.
   StridedArrayRef<WideNum> axesStrided(srcNums.get(), axesStrides);
   StridedArrayRef<WideNum> reducedStrided(srcNums.get(), reducedStrides);
   ShapedType reducedType = keepdims ? type : type.clone(reducedShape);
