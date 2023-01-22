@@ -216,7 +216,7 @@ struct Caster {
 template <typename SrcT, typename DstT>
 using WideCaster = WideNumWrappedFunction<Caster<SrcT, DstT>>;
 
-auto wideCaster(BType src, BType dst) {
+auto wideCaster(BType src, BType dst) -> WideNum (*)(WideNum) {
   constexpr BType DBL = BType::DOUBLE, I64 = BType::INT64, U64 = BType::UINT64;
   // clang-format off
   if (src == DBL && dst == I64) return WideCaster<double, int64_t>::eval;
