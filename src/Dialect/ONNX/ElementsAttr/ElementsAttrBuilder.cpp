@@ -391,10 +391,8 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
 
   SmallVector<int64_t, 4> strides;
   ArrayBuffer<WideNum> srcNums = getWideNumsAndStrides(elms, strides);
-  SmallVector<int64_t, 4> axesShape;
-  SmallVector<int64_t, 4> axesStrides;
-  SmallVector<int64_t, 4> reducedShape;
-  SmallVector<int64_t, 4> reducedStrides;
+  SmallVector<int64_t, 4> axesShape, reducedShape;
+  SmallVector<int64_t, 4> axesStrides, reducedStrides;
   auto it = sortedAxes.begin();
   for (unsigned axis = 0; axis < shape.size(); ++axis) {
     if (it != sortedAxes.end() && *it == axis) {
@@ -411,27 +409,40 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     }
   }
 
-  // TODO: Explain the unusual "sparse" strided arrays and traverseStrides
-  //       invocations below.
+  // StridedArrayRef and traverseStrides are used in an unusual way below.
+  // (axesShape, axesStrides) on one hand and (reducedShape, reducedStrides)
+  // on the other hand partition (shape, strides) into two partial mappings
+  // of srcNums to the tensor shape.
+  //
+  // (axesShape, axesStrides) describes all the elements to reduce for each
+  // result element, namely count == ShapedType::getNumElements(axesShape).
+  // The outer traverseStrides "loop" runs count many times, each time
+  // calculating the offset of the next element to reduce.
+  // (Note that offsets be repeated if there are any zeros in axesStrides.)
+  //
+  // The inner traverseStrides loop reduces the next reduce element into the
+  // result for each each element in the resulting reduced tensor (dstNums).
   StridedArrayRef<WideNum> axesStrided(srcNums.get(), axesStrides);
   StridedArrayRef<WideNum> reducedStrided(srcNums.get(), reducedStrides);
   ShapedType reducedType = type.clone(reducedShape);
   return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
+    // First copy the 1st element to reduce to each result element in dstNums.
+    WideNum *end = traverseStrides<WideNum *, WideNum>(reducedShape,
+        dstNums.begin(), reducedStrided,
+        [](WideNum *dst, const WideNum *src) { *dst = *src; });
+    assert(end == dstNums.end() && "traverses every dstNums element");
     int64_t count = traverseStrides<int64_t, WideNum>(
         axesShape, 0, axesStrided, [&](int64_t counter, const WideNum *iter) {
-          ptrdiff_t offset = iter - axesStrided.begin();
-          assert((counter > 0 || offset == 0) && "first offset is zero");
-          WideNum *end =
-              counter == 0
-                  ? traverseStrides<WideNum *, WideNum>(reducedShape,
-                        dstNums.begin(), reducedStrided,
-                        [](WideNum *dst, const WideNum *src) { *dst = *src; })
-                  : traverseStrides<WideNum *, WideNum>(reducedShape,
-                        dstNums.begin(), reducedStrided,
-                        [&reducer, offset](WideNum *dst, const WideNum *src) {
-                          *dst = reducer(*dst, *(src + offset));
-                        });
-          assert(end == dstNums.end() && "traverses every dstNums element");
+          // Skip if counter == 0 as 1st element is already copied to dstNums.
+          if (counter > 0) {
+            ptrdiff_t offset = iter - axesStrided.begin();
+            WideNum *end = traverseStrides<WideNum *, WideNum>(reducedShape,
+                dstNums.begin(), reducedStrided,
+                [&reducer, offset](WideNum *dst, const WideNum *src) {
+                  *dst = reducer(*dst, *(src + offset));
+                });
+            assert(end == dstNums.end() && "traverses every dstNums element");
+          }
         });
     assert(count == ShapedType::getNumElements(axesShape) &&
            "traverses all reduce axes");
