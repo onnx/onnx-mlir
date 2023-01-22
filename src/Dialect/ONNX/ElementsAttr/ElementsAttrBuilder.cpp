@@ -377,7 +377,60 @@ std::vector<ElementsAttr> ElementsAttrBuilder::split(
 ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     ArrayRef<unsigned> axes, bool keepdims,
     WideNum (*reducer)(WideNum, WideNum)) {
-  llvm_unreachable("TODO: implement ElementsAttrBuilder::reduce()");
+  if (axes.empty())
+    return elms;
+
+  SmallVector<unsigned, 4> sortedAxes(axes);
+  std::sort(sortedAxes.begin(), sortedAxes.end());
+  assert(
+      std::unique(sortedAxes.begin(), sortedAxes.end()) == sortedAxes.end() &&
+      "axes must be unique");
+
+  ShapedType type = elms.getType();
+  auto shape = type.getShape();
+
+  ElementsProperties props = getElementsProperties(elms);
+  SmallVector<int64_t, 4> strides;
+  ArrayBuffer<WideNum> srcNums = getWideNumsAndStrides(elms, strides);
+  SmallVector<int64_t, 4> axesShape;
+  SmallVector<int64_t, 4> axesStrides;
+  SmallVector<int64_t, 4> reducedShape;
+  SmallVector<int64_t, 4> reducedStrides;
+  auto it = sortedAxes.begin();
+  for (unsigned axis = 0; axis < shape.size(); ++axis) {
+    if (it != sortedAxes.end() && *it == axis) {
+      axesShape.push_back(shape[axis]);
+      axesStrides.push_back(props.strides[axis]);
+      ++it;
+    } else {
+      reducedShape.push_back(shape[axis]);
+      reducedStrides.push_back(props.strides[axis]);
+    }
+  }
+
+  StridedArrayRef<WideNum> axesStrided(srcNums.get(), axesStrides);
+  StridedArrayRef<WideNum> reducedStrided(srcNums.get(), reducedStrides);
+  ShapedType reducedType = keepdims ? type : type.clone(reducedShape);
+  return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
+    int64_t count = traverseStrides<int64_t, WideNum>(
+        axesShape, 0, axesStrided, [&](int64_t counter, const WideNum *iter) {
+          ptrdiff_t offset = iter - axesStrided.begin();
+          assert((counter > 0 || offset == 0) && "first offset is zero");
+          WideNum *end =
+              counter == 0
+                  ? traverseStrides<WideNum *, WideNum>(reducedShape,
+                        dstNums.begin(), reducedStrided,
+                        [](WideNum *dst, const WideNum *src) { *dst = *src; })
+                  : traverseStrides<WideNum *, WideNum>(reducedShape,
+                        dstNums.begin(), reducedStrided,
+                        [&reducer, offset](WideNum *dst, const WideNum *src) {
+                          *dst = reducer(*dst, *(src + offset));
+                        });
+          assert(end == dstNums.end() && "traverses every dstNums element");
+        });
+    assert(count == ShapedType::getNumElements(axesShape) &&
+           "traverses all reduce axes");
+  });
 }
 
 auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const

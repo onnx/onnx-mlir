@@ -145,6 +145,12 @@ private:
 
   ElementsProperties getElementsProperties(mlir::ElementsAttr elements) const;
 
+  ArrayBuffer<WideNum> getWideNumsAndStrides(
+      mlir::ElementsAttr elms, llvm::SmallVectorImpl<int64_t> &strides) const {
+    return getWideNumsAndExpandedStrides(
+        elms, elms.getType().getShape(), strides);
+  }
+
   ArrayBuffer<WideNum> getWideNumsAndExpandedStrides(mlir::ElementsAttr elms,
       llvm::ArrayRef<int64_t> expandedShape,
       llvm::SmallVectorImpl<int64_t> &expandedStrides) const;
