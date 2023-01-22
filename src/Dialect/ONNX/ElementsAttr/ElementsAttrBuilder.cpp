@@ -446,7 +446,7 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
     ShapedType type = dense.getType();
     SmallVector<int64_t, 4> strides;
     if (dense.isSplat()) {
-      strides.assign(type.getRank(), 0);
+      strides = getSplatStrides(type.getShape());
     } else {
       strides = getDefaultStrides(type.getShape());
     }
