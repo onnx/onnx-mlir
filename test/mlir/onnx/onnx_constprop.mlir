@@ -533,6 +533,16 @@ func.func @test_reduce_max_positive_axis() -> tensor<2x1xi32> {
   // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{.}}[2], [4]{{.}}> : tensor<2x1xi32>
 }
 
+// -----
+
+// CHECK-LABEL: @test_reduce_mean_positive_axis() -> tensor<2x1xi32>
+func.func @test_reduce_mean_positive_axis() -> tensor<2x1xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [4, 6]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.ReduceMean"(%0) {axes = [1]} : (tensor<2x2xi32>) -> tensor<2x1xi32>
+  "func.return"(%1) : (tensor<2x1xi32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{.}}[1], [5]{{.}}> : tensor<2x1xi32>
+}
+
 //===----------------------------------------------------------------------===//
 /// Unsqueeze tests
 
