@@ -493,6 +493,16 @@ func.func @test_reduce_sum_scalar() -> tensor<i32> {
   // CHECK: [[CONST:%.+]] = onnx.Constant dense<42> : tensor<i32>
 }
 
+// -----
+
+// CHECK-LABEL: @test_reduce_prod_positive_axis() -> tensor<2x1xi32>
+func.func @test_reduce_prod_positive_axis() -> tensor<2x1xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.ReduceProd"(%0) {axes = [1]} : (tensor<2x2xi32>) -> tensor<2x1xi32>
+  "func.return"(%1) : (tensor<2x1xi32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{.}}[2], [12]{{.}}> : tensor<2x1xi32>
+}
+
 //===----------------------------------------------------------------------===//
 /// Unsqueeze tests
 
