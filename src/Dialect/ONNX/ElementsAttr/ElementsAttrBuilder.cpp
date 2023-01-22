@@ -401,6 +401,10 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     if (it != sortedAxes.end() && *it == axis) {
       axesShape.push_back(shape[axis]);
       axesStrides.push_back(props.strides[axis]);
+      if (keepdims) {
+        reducedShape.push_back(1);
+        reducedStrides.push_back(0);
+      }
       ++it;
     } else {
       reducedShape.push_back(shape[axis]);
@@ -412,7 +416,7 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   //       invocations below.
   StridedArrayRef<WideNum> axesStrided(srcNums.get(), axesStrides);
   StridedArrayRef<WideNum> reducedStrided(srcNums.get(), reducedStrides);
-  ShapedType reducedType = keepdims ? type : type.clone(reducedShape);
+  ShapedType reducedType = type.clone(reducedShape);
   return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
     int64_t count = traverseStrides<int64_t, WideNum>(
         axesShape, 0, axesStrided, [&](int64_t counter, const WideNum *iter) {
