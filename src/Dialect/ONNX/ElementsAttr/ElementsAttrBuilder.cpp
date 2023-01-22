@@ -389,7 +389,6 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   ShapedType type = elms.getType();
   auto shape = type.getShape();
 
-  ElementsProperties props = getElementsProperties(elms);
   SmallVector<int64_t, 4> strides;
   ArrayBuffer<WideNum> srcNums = getWideNumsAndStrides(elms, strides);
   SmallVector<int64_t, 4> axesShape;
@@ -400,7 +399,7 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   for (unsigned axis = 0; axis < shape.size(); ++axis) {
     if (it != sortedAxes.end() && *it == axis) {
       axesShape.push_back(shape[axis]);
-      axesStrides.push_back(props.strides[axis]);
+      axesStrides.push_back(strides[axis]);
       if (keepdims) {
         reducedShape.push_back(1);
         reducedStrides.push_back(0);
@@ -408,7 +407,7 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
       ++it;
     } else {
       reducedShape.push_back(shape[axis]);
-      reducedStrides.push_back(props.strides[axis]);
+      reducedStrides.push_back(strides[axis]);
     }
   }
 
