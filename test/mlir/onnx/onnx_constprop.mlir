@@ -403,6 +403,75 @@ func.func @test_where_splat_branches() -> tensor<3x2xf32> {
 }
 
 //===----------------------------------------------------------------------===//
+/// Reduce tests
+
+// -----
+
+// CHECK-LABEL: @test_reduce_sum_positive_axis() -> tensor<2x1xi32>
+func.func @test_reduce_sum_positive_axis() -> tensor<2x1xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.Constant"() {value = dense<1> : tensor<i64>} : () -> tensor<i64>
+  %2 = "onnx.ReduceSum"(%0, %1) : (tensor<2x2xi32>, tensor<i64>) -> tensor<2x1xi32>
+  "func.return"(%2) : (tensor<2x1xi32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{.}}[3], [7]{{.}}> : tensor<2x1xi32>
+}
+
+// -----
+
+// CHECK-LABEL: @test_reduce_sum_negative_axis() -> tensor<1x2xi32>
+func.func @test_reduce_sum_negative_axis() -> tensor<1x2xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.Constant"() {value = dense<[-2]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %2 = "onnx.ReduceSum"(%0, %1) : (tensor<2x2xi32>, tensor<1xi64>) -> tensor<1x2xi32>
+  "func.return"(%2) : (tensor<1x2xi32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{.}}[4, 6]{{.}}> : tensor<1x2xi32>
+}
+
+// -----
+
+// CHECK-LABEL: @test_reduce_sum_all_axes() -> tensor<1x1xi32>
+func.func @test_reduce_sum_all_axes() -> tensor<1x1xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %2 = "onnx.ReduceSum"(%0, %1) : (tensor<2x2xi32>, tensor<2xi64>) -> tensor<1x1xi32>
+  "func.return"(%2) : (tensor<1x1xi32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<10> : tensor<1x1xi32>
+}
+
+// -----
+
+// CHECK-LABEL: @test_reduce_sum_keedims_false() -> tensor<2xi32>
+func.func @test_reduce_sum_keedims_false() -> tensor<2xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.Constant"() {value = dense<1> : tensor<i64>} : () -> tensor<i64>
+  %2 = "onnx.ReduceSum"(%0, %1) {keepdims = 0 : si64} : (tensor<2x2xi32>, tensor<i64>) -> tensor<2xi32>
+  "func.return"(%2) : (tensor<2xi32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<[3, 7]> : tensor<2xi32>
+}
+
+// -----
+
+// CHECK-LABEL: @test_reduce_sum_noop_with_empty_axes_unset() -> tensor<1x1xi32>
+func.func @test_reduce_sum_noop_with_empty_axes_unset() -> tensor<1x1xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.NoValue"() {value} : () -> none
+  %2 = "onnx.ReduceSum"(%0, %1) : (tensor<2x2xi32>, none) -> tensor<1x1xi32>
+  "func.return"(%2) : (tensor<1x1xi32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<10> : tensor<1x1xi32>
+}
+
+// -----
+
+// CHECK-LABEL: @test_reduce_sum_noop_with_empty_axes_true() -> tensor<2x2xi32>
+func.func @test_reduce_sum_noop_with_empty_axes_true() -> tensor<2x2xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.NoValue"() {value} : () -> none
+  %2 = "onnx.ReduceSum"(%0, %1) {noop_with_empty_axes = 1 : si64} : (tensor<2x2xi32>, none) -> tensor<2x2xi32>
+  "func.return"(%2) : (tensor<2x2xi32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{.}}[1, 2], [3, 4]{{.}}> : tensor<2x2xi32>
+}
+
+//===----------------------------------------------------------------------===//
 /// Unsqueeze tests
 
 // -----
