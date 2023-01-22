@@ -321,10 +321,9 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
     absoluteAxes.push_back(axis);
   }
 
-  // Comply with noop_with_empty_axes attribute.
+  // If axes are empty and !noop_with_empty_axes, reduce over all dimensions.
   if (absoluteAxes.empty() &&
       intAttr(op, "noop_with_empty_axes", /*default=*/0) == 0) {
-    // Reduce over all the dimensions:
     for (int64_t axis = 0; axis < rank; ++axis)
       absoluteAxes.push_back(axis);
   }
