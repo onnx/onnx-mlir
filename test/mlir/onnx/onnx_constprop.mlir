@@ -471,6 +471,17 @@ func.func @test_reduce_sum_noop_with_empty_axes_true() -> tensor<2x2xi32> {
   // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{.}}[1, 2], [3, 4]{{.}}> : tensor<2x2xi32>
 }
 
+// -----
+
+// CHECK-LABEL: @test_reduce_sum_empty() -> tensor<1x1xi32>
+func.func @test_reduce_sum_empty() -> tensor<1x1xi32> {
+  %0 = "onnx.Constant"() {value = dense<> : tensor<0x2xi32>} : () -> tensor<0x2xi32>
+  %1 = "onnx.NoValue"() {value} : () -> none
+  %2 = "onnx.ReduceSum"(%0, %1) : (tensor<0x2xi32>, none) -> tensor<1x1xi32>
+  "func.return"(%2) : (tensor<1x1xi32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<0> : tensor<1x1xi32>
+}
+
 //===----------------------------------------------------------------------===//
 /// Unsqueeze tests
 
