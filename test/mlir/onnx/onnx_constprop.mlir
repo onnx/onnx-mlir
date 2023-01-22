@@ -503,6 +503,16 @@ func.func @test_reduce_prod_positive_axis() -> tensor<2x1xi32> {
   // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{.}}[2], [12]{{.}}> : tensor<2x1xi32>
 }
 
+// -----
+
+// CHECK-LABEL: @test_reduce_prod_empty() -> tensor<1x1xi32>
+func.func @test_reduce_prod_empty() -> tensor<1x1xi32> {
+  %0 = "onnx.Constant"() {value = dense<> : tensor<0x2xi32>} : () -> tensor<0x2xi32>
+  %1 = "onnx.ReduceProd"(%0) : (tensor<0x2xi32>) -> tensor<1x1xi32>
+  "func.return"(%1) : (tensor<1x1xi32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<1> : tensor<1x1xi32>
+}
+
 //===----------------------------------------------------------------------===//
 /// Unsqueeze tests
 
