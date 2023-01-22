@@ -465,6 +465,9 @@ ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
   if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
     expandedStrides = expandStrides(disposable.getStrides(), expandedShape);
     return disposable.getBufferAsWideNums();
+  } else if (elms.isSplat()) {
+    expandedStrides = getSplatStrides(expandedShape);
+    return ArrayBuffer<WideNum>::Vector(1, getElementsSplatWideNum(elms));
   } else {
     auto strides = getDefaultStrides(elms.getType().getShape());
     expandedStrides = expandStrides(strides, expandedShape);
