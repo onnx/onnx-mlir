@@ -482,6 +482,17 @@ func.func @test_reduce_sum_empty() -> tensor<1x1xi32> {
   // CHECK: [[CONST:%.+]] = onnx.Constant dense<0> : tensor<1x1xi32>
 }
 
+// -----
+
+// CHECK-LABEL: @test_reduce_sum_scalar() -> tensor<i32>
+func.func @test_reduce_sum_scalar() -> tensor<i32> {
+  %0 = "onnx.Constant"() {value = dense<42> : tensor<i32>} : () -> tensor<i32>
+  %1 = "onnx.NoValue"() {value} : () -> none
+  %2 = "onnx.ReduceSum"(%0, %1) : (tensor<i32>, none) -> tensor<i32>
+  "func.return"(%2) : (tensor<i32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<42> : tensor<i32>
+}
+
 //===----------------------------------------------------------------------===//
 /// Unsqueeze tests
 
