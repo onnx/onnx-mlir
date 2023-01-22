@@ -188,7 +188,9 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
 
     WideNum *end = traverseStrides<WideNum *, WideNum, WideNum>(combinedShape,
         dstNums.begin(), stridedLhs, stridedRhs,
-        [](WideNum *res, WideNum x, WideNum y) { *res = res->u64 ? x : y; });
+        [](WideNum *res, const WideNum *x, const WideNum *y) {
+          *res = res->u64 ? *x : *y;
+        });
     assert(end == dstNums.end() && "traverses every dstNums element");
   });
 }

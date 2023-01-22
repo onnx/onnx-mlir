@@ -73,7 +73,7 @@ Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator begin,
   auto traverse = [=](const auto &recurse, unsigned axis, Iterator it,
                       const Args *... elms) -> Iterator {
     if (axis == shape.size()) {
-      act(it, *elms...);
+      act(it, elms...);
       it++;
     } else {
       for (int64_t i = 0; i < shape[axis]; ++i) {
@@ -90,7 +90,7 @@ template <typename Res, typename... Args, typename Action>
 void mapStrides(llvm::ArrayRef<int64_t> shape, llvm::MutableArrayRef<Res> dst,
     StridedArrayRef<Args>... src, Action &&act) {
   Res *end = traverseStrides<Res *, Args...>(shape, dst.begin(), src...,
-      [&act](Res *res, Args... args) { *res = act(args...); });
+      [&act](Res *res, const Args *... args) { *res = act(*args...); });
   assert(end == dst.end() && "traverses every dst element");
 }
 

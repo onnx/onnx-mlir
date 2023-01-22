@@ -117,7 +117,7 @@ struct StridedArrayRef : public llvm::ArrayRef<T> {
 };
 
 template <typename Iterator, typename... Args,
-    typename Action = llvm::function_ref<void(Iterator, Args...)>>
+    typename Action = llvm::function_ref<void(Iterator, const Args *...)>>
 Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator begin,
     StridedArrayRef<Args>... src, Action &&act);
 
