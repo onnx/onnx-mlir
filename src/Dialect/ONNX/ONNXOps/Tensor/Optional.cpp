@@ -23,7 +23,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOptionalOp::verify() {
-  if (type().has_value() != input().getType().isa<NoneType>())
+  if (type().has_value() != isFromNone(input()))
     return emitError(
         "Optional should have either type attribute or input value");
   return success();
@@ -36,8 +36,6 @@ LogicalResult ONNXOptionalOp::inferShapes(
     ty = typeAttr.value();
   } else {
     ty = input().getType();
-    // checked in verify()
-    assert(!ty.isa<NoneType>() && "type attribute or input value needed");
   }
   getResult().setType(OptType::get(ty));
   return success();

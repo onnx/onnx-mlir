@@ -93,7 +93,7 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape() {
   ONNXSplitOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   Value split = operandAdaptor.split();
   SmallVector<IndexExpr, 4> indexExprArray;
-  if (split.getType().template isa<NoneType>()) {
+  if (isFromNone(split)) {
     // None is fine, indexExprArray will be empty.
   } else {
     createIE->getIntFromArrayAsSymbols(split, indexExprArray);
