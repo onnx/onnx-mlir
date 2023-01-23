@@ -197,18 +197,15 @@ template <>
 Value emitScalarOpFor<ONNXIsNaNOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-
-  // Common information.
-  Type elementType = memRefType.getElementType();
-  Type f64Ty = rewriter.getF64Type();
-
+      
   Value result;
-  MathBuilder createMath(rewriter, loc);
 
 #if (__APPLE__)
 #include "TargetConditionals.h"
 #if (TARGET_OS_MAC)
   printf("MacOS\n");
+  Type f64Ty = rewriter.getF64Type();
+  MathBuilder createMath(rewriter, loc);
   // float f = x(d); convert a float to a double using casting
   result = createMath.cast(f64Ty, scalarOperands[0]);
   // Value result1 = createMath.constant(elementType,
