@@ -88,11 +88,8 @@ LogicalResult ONNXUniqueOp::verify() {
 
 LogicalResult ONNXUniqueOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  Type xType = getOperand().getType();
-  if (!xType.isa<RankedTensorType>())
-    return success();
-
-  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  Builder b = Builder(getContext());
+  Type elementType = b.getI64Type();
   ONNXUniqueOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
