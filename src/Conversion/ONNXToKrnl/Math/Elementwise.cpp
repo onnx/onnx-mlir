@@ -15,6 +15,7 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include <iostream>
 
 using namespace mlir;
 
@@ -203,13 +204,13 @@ Value emitScalarOpFor<ONNXIsNaNOp>(ConversionPatternRewriter &rewriter,
 #include "TargetConditionals.h"
 #if (TARGET_OS_MAC)
   printf("MacOS\n");
-  Type f64Ty = rewriter.getF64Type();
+  // Type f64Ty = rewriter.getF64Type();
   MathBuilder createMath(rewriter, loc);
   // float f = x(d); convert a float to a double using casting
-  result = createMath.cast(f64Ty, scalarOperands[0]);
-  // Value result1 = createMath.constant(elementType,
-  //       cast<ONNXIsNaNOp>(op).result1().convertToDouble());
-  printf("%d\n", result);
+  // result = createMath.cast(f64Ty, scalarOperands[0]);
+  Value result = createMath.constant(elementType,
+        cast<ONNXIsNaNOp>(op).result().convertToDouble());
+  cout << result;
 #endif
 #endif
   return result;
