@@ -198,18 +198,22 @@ Value emitScalarOpFor<ONNXIsNaNOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
 
+  // Common information.
+  Type elementType = memRefType.getElementType();
+  Type f64Ty = rewriter.getF64Type();
+
   Value result;
   MathBuilder createMath(rewriter, loc);
+
 #if (__APPLE__)
 #include "TargetConditionals.h"
 #if (TARGET_OS_MAC)
   printf("MacOS\n");
-  // float f = x(d); convert a double to a float by using casting
-  // change to f32 (??)
-  result = createMath.cast(elementType, scalarOperands[0]);
+  // float f = x(d); convert a float to a double using casting
+  result = createMath.cast(f64Ty, scalarOperands[0]);
+  // Value result1 = createMath.constant(elementType,
+  //       cast<ONNXIsNaNOp>(op).result1().convertToDouble());
   printf("%d\n", result);
-#else
-  printf("Not an Apple OS\n");
 #endif
 #endif
   return result;
