@@ -19,9 +19,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-// Check a Value's type is none or not.
-bool isNoneType(Value val) { return val.getType().isa<NoneType>(); }
-
 // Get a dimension of the tensor's shape.
 int64_t dimAt(Value val, int index) {
   return val.getType().cast<ShapedType>().getShape()[index];
@@ -35,7 +32,7 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
   IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
   IndexExprScope scope(createKrnlIE);
   Value alloc;
-  if (!isNoneType(output)) {
+  if (!isFromNone(output)) {
     SmallVector<IndexExpr, 4> dims;
     // Get seq_length from X.
     dims.emplace_back(createKrnlIE.getShapeAsDim(X, 0));
@@ -113,14 +110,14 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
           initialIVs.emplace_back(zeroIndex);
           initialIVs.emplace_back(loopInd[0]);
           initialIVs.emplace_back(loopInd[1]);
-          if (isNoneType(initialH))
+          if (isFromNone(initialH))
             createKrnl.store(zero, forwardHt, IVs);
           else {
             Value h = createKrnl.load(initialH, initialIVs);
             createKrnl.store(h, forwardHt, IVs);
           }
           if (!onlyHidden) {
-            if (isNoneType(initialC))
+            if (isFromNone(initialC))
               createKrnl.store(zero, forwardCt, IVs);
             else {
               Value c = createKrnl.load(initialC, initialIVs);
@@ -137,14 +134,14 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
             initialIVs.emplace_back(oneIndex);
           initialIVs.emplace_back(loopInd[0]);
           initialIVs.emplace_back(loopInd[1]);
-          if (isNoneType(initialH))
+          if (isFromNone(initialH))
             createKrnl.store(zero, reverseHt, IVs);
           else {
             Value h = createKrnl.load(initialH, initialIVs);
             createKrnl.store(h, reverseHt, IVs);
           }
           if (!onlyHidden) {
-            if (isNoneType(initialC))
+            if (isFromNone(initialC))
               createKrnl.store(zero, reverseCt, IVs);
             else {
               Value c = createKrnl.load(initialC, initialIVs);
@@ -163,7 +160,7 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
   IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
   IndexExprScope scope(createKrnlIE);
   Value alloc;
-  if (!isNoneType(output)) {
+  if (!isFromNone(output)) {
     SmallVector<IndexExpr, 3> dims;
     // Get num_directions from W.
     dims.emplace_back(createKrnlIE.getShapeAsDim(W, 0));
@@ -203,13 +200,13 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
   create.krnl.iterate(loops, loops, htLbs, htUbs,
       [&](KrnlBuilder &createKrnl, ValueRange indices) {
         Value hiddenVal = zero;
-        if (!isNoneType(initialH))
+        if (!isFromNone(initialH))
           hiddenVal = createKrnl.load(initialH, indices);
         createKrnl.store(hiddenVal, ht, indices);
 
         if (!onlyHidden) {
           Value cellVal = zero;
-          if (!isNoneType(initialC))
+          if (!isFromNone(initialC))
             cellVal = createKrnl.load(initialC, indices);
           createKrnl.store(cellVal, ct, indices);
         }

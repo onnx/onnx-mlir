@@ -482,7 +482,7 @@ bool isSuitableForZDNN<ONNXGemmOp>(
   ArrayRef<int64_t> bShape = bType.getShape();
   ArrayRef<int64_t> cShape;
 
-  bool hasC = !isNoneType(C);
+  bool hasC = !isFromNone(C);
   if (hasC) {
     cType = C.getType().cast<ShapedType>();
     cShape = cType.getShape();
@@ -587,19 +587,19 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
   if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_LSTM)
     return false;
   // zDNN does not support sequence_lens.
-  if (!isNoneType(op.sequence_lens()))
+  if (!isFromNone(op.sequence_lens()))
     return false;
   // check if B, initial_h and initial_c have static dimensions if given.
-  if (!isNoneType(B) && !B.getType().cast<ShapedType>().hasStaticShape())
+  if (!isFromNone(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
   // check if B's direction dim is 1 or 2.
-  if (!isNoneType(B)) {
+  if (!isFromNone(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
     if (bShape[0] != 1 && bShape[0] != 2)
       return false;
   }
   // zDNN does not support P(peepholes), activation_alpha and activation_beta.
-  if (!isNoneType(op.P()) || op.activation_alpha() || op.activation_beta())
+  if (!isFromNone(op.P()) || op.activation_alpha() || op.activation_beta())
     return false;
   // zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only.
   if ((activations && (activations.value().size() > 0) &&
@@ -659,13 +659,13 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_GRU)
     return false;
   // zDNN does not support sequence_lens.
-  if (!isNoneType(op.sequence_lens()))
+  if (!isFromNone(op.sequence_lens()))
     return false;
   // check if B and initial_h have static dimensions if given.
-  if (!isNoneType(B) && !B.getType().cast<ShapedType>().hasStaticShape())
+  if (!isFromNone(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
   // check if B's direction dim is 1 or 2.
-  if (!isNoneType(B)) {
+  if (!isFromNone(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
     if (bShape[0] != 1 && bShape[0] != 2)
       return false;
