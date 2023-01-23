@@ -208,8 +208,8 @@ Value emitScalarOpFor<ONNXIsNaNOp>(ConversionPatternRewriter &rewriter,
   MathBuilder createMath(rewriter, loc);
   // float f = x(d); convert a float to a double using casting
   // result = createMath.cast(f64Ty, scalarOperands[0]);
-  Value result = createMath.constant(elementType,
-        cast<ONNXIsNaNOp>(op).result().convertToDouble());
+  Value result = createMath.constant(
+      elementType, cast<ONNXIsNaNOp>(op).result().convertToDouble());
   cout << result;
 #endif
 #endif
