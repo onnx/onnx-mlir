@@ -199,16 +199,25 @@ std::function<WideNum(WideNum)> widenumWrapped(std::function<Res(Arg)> lambda);
 //   }
 //
 template <typename Action>
-auto wideZeroDispatch(mlir::Type type, Action &&act) {
+auto wideZeroDispatch(mlir::Type type, Action &&act);
+
+template <typename Action>
+auto wideZeroDispatchNonBool(mlir::Type type, Action &&act) {
   if (type.isa<mlir::FloatType>())
     return act(static_cast<double>(0));
   auto itype = type.cast<mlir::IntegerType>();
-  if (itype.getWidth() == 1)
-    return act(static_cast<bool>(0));
-  else if (itype.isUnsigned())
+  if (itype.isUnsigned())
     return act(static_cast<uint64_t>(0));
   else
     return act(static_cast<int64_t>(0));
+}
+
+template <typename Action>
+inline auto wideZeroDispatch(mlir::Type type, Action &&act) {
+  if (type.isInteger(1))
+    return act(static_cast<bool>(0));
+  else
+    return wideZeroDispatchNonBool(type, act);
 }
 
 // Include template implementations.

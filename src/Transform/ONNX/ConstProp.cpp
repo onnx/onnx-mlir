@@ -293,7 +293,7 @@ Attribute getIdentity(Builder &builder, Type type) {
 }
 
 std::function<WideNum(WideNum)> divideBy(Type type, int64_t denominator) {
-  return wideZeroDispatch(type, [denominator](auto wideZero) {
+  return wideZeroDispatchNonBool(type, [denominator](auto wideZero) {
     using WideCppType = decltype(wideZero);
     return widenumWrapped<WideCppType, WideCppType>(
         [denominator](auto x) { return x / denominator; });
