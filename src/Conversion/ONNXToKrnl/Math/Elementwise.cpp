@@ -205,13 +205,14 @@ Value emitScalarOpFor<ONNXIsNaNOp>(ConversionPatternRewriter &rewriter,
 #if (TARGET_OS_MAC)
   printf("MacOS\n");
   // float f = x(d); convert a double to a float by using casting
-  result = createMath.cast(f32Ty, scalarOperands[0]);
-  printf(result)
+  // change to f32 (??)
+  result = createMath.cast(elementType, scalarOperands[0]);
+  printf("%d\n", result);
 #else
   printf("Not an Apple OS\n");
 #endif
 #endif
-      return result;
+  return result;
 }
 
 //===----------------------------------------------------------------------===//
