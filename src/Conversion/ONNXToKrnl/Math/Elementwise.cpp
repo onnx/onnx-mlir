@@ -197,7 +197,6 @@ template <>
 Value emitScalarOpFor<ONNXIsNaNOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-      
   Value result;
 
 #if (__APPLE__)
