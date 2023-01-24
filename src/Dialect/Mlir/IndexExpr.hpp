@@ -485,6 +485,8 @@ public:
   // Helpers for list of IndexExpressions: given a (list of) IndexExpr, provide
   // the (list of) Shape/Value/OpFoldResult corresponding to the original (list
   // of) IndexExpr.
+  static void getLiteral(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
+      llvm::SmallVectorImpl<int64_t> &intList);
   static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
       llvm::SmallVectorImpl<int64_t> &intDimList,
       bool uniqueQuestionMark = false);
@@ -501,12 +503,15 @@ public:
   IndexExpr operator-(int64_t const b) const;
   IndexExpr operator*(IndexExpr const b) const;
   IndexExpr operator*(int64_t const b) const;
-  IndexExpr floorDiv(IndexExpr const b) const;
-  IndexExpr floorDiv(int64_t const b) const;
-  IndexExpr ceilDiv(IndexExpr const b) const;
-  IndexExpr ceilDiv(int64_t const b) const;
-  IndexExpr operator%(IndexExpr const b) const;
-  IndexExpr operator%(int64_t const b) const;
+  IndexExpr floorDiv(IndexExpr const b) const;  // Int only; float use `/`.
+  IndexExpr floorDiv(int64_t const b) const;    // Int only; float use `/`.
+  IndexExpr ceilDiv(IndexExpr const b) const;   // Int only; float use `/`.
+  IndexExpr ceilDiv(int64_t const b) const;     // Int only; float use `/`.
+  IndexExpr floor() const;                      // Float only.
+  IndexExpr ceil() const;                       // Float only.
+  IndexExpr operator/(IndexExpr const b) const; // Float; int ceil/floorDiv.
+  IndexExpr operator%(IndexExpr const b) const; // Int only.
+  IndexExpr operator%(int64_t const b) const;   // Int only.
   // Compare operations, return a new IndexExpr that is either a literal or a
   // value expression of type predType.
   IndexExpr operator==(IndexExpr const b) const;
@@ -561,6 +566,10 @@ public:
   bool retrieveAffineMinMax(bool &isMin,
       llvm::SmallVectorImpl<mlir::Value> &vals, mlir::AffineMap &map) const;
 
+  // Float related op. Note that float are currently MLIR f32.
+  IndexExpr convertToFloat() const; // Int input only.
+  IndexExpr convertToIndex() const; // Float input only.
+
   // Debug (enable running with --debug-only=index_expr, for example).
   void debugPrint(const std::string &msg) const;
   static void debugPrint(
@@ -578,6 +587,7 @@ protected:
   IndexExprKind getKind() const;
 
   // Support for operations: lambda function types.
+  using F1 = std::function<IndexExpr(IndexExpr const)>;
   using F2 = std::function<IndexExpr(IndexExpr const, IndexExpr const)>;
   using F2Self = std::function<IndexExpr(IndexExpr, IndexExpr const)>;
   using Flist =
@@ -586,12 +596,13 @@ protected:
       IndexExpr const, IndexExpr const, IndexExpr const)>;
   // Support for operations: common handling for multiple operations.
   // When hasNeutralA, if a==*this is neutral literal value, then result is b.
-  // When hasNeutralB, if b is neutral literal value, then result is a.
-  // Represent the neutral value using a double, as it's value (0.0 or 1.0) can
+  // When hasNeutralB, if b is neutral literal value, then result is a. We
+  // represent the neutral value using a double, as it's value (0.0 or 1.0) can
   // be safely converted to int too.
-  IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB,
-      bool affineExprCompatible, bool hasNeutralA, bool hasNeutralB,
-      double neutralVal, F2 fInteger, F2 fAffine, F2 fValue) const;
+  IndexExpr unaryOp(F1 litFct, F1 affineExprFct, F1 valueFct) const;
+  IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB, bool hasNeutralA,
+      bool hasNeutralB, double neutralVal, F2 fInteger, F2 fAffine,
+      F2 fValue) const;
   IndexExpr compareOp(
       mlir::arith::CmpIPredicate comparePred, IndexExpr const b) const;
   IndexExpr compareOp(

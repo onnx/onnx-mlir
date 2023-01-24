@@ -400,7 +400,6 @@ int64_t IndexExpr::getQuestionmark() const {
 }
 
 AffineExpr IndexExpr::getAffineExpr() const {
-  // hi alex
   assert(!isFloat() && "attempt to get affine expr of a float index expr");
   return getObj().getAffineExpr();
 }
@@ -504,6 +503,13 @@ void IndexExpr::debugPrint(
 // Helpers for IndexExpressions
 //===----------------------------------------------------------------------===//
 
+/*static*/ void IndexExpr::getLiteral(SmallVectorImpl<IndexExpr> &indexExprList,
+    SmallVectorImpl<int64_t> &intList) {
+  intList.clear();
+  llvm::transform(indexExprList, std::back_inserter(intList),
+      [](const auto &indexExpr) { return indexExpr.getLiteral(); });
+}
+
 /*static*/ void IndexExpr::getShape(SmallVectorImpl<IndexExpr> &indexExprList,
     SmallVectorImpl<int64_t> &intDimList, bool uniqueQuestionMark) {
   intDimList.clear();
@@ -558,16 +564,18 @@ static bool isIdentical(const IndexExpr litExpr, double dval) {
 
 // Used for add/sub/mult/ceilDiv/floorDiv
 IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
-    bool canBeAffine, bool hasNeutralA, bool hasNeutralB, double neutralVal,
-    F2 litFct, F2 affineExprFct, F2 valueFct) const {
+    bool hasNeutralA, bool hasNeutralB, double neutralVal, F2 litFct,
+    F2 affineExprFct, F2 valueFct) const {
+  assert(litFct && "expect lit function");
+  assert(valueFct && "expect value function");
   assert(canBeUsedInScope() && "a cannot be used in current scope");
   assert(b.canBeUsedInScope() && "b cannot be used in current scope");
   // Literal integer if a and b are literals. Affine if canBeAffine is true,
   // both a and b are affine, and possibly a and/or b are also constant.
   bool resIsLit = isLiteral() && b.isLiteral();
+  bool canBeAffine = (affineExprFct != nullptr);
   bool resIsAffine = resIsLit || (canBeAffine && isAffine() && b.isAffine() &&
                                      (!affineWithLitB || b.isLiteral()));
-
   // Test if we have a neutral value.
   if (hasNeutralA && isIdentical(*this, neutralVal))
     return b.deepCopy(); // Copy of the other value (use same questionmark).
@@ -583,13 +591,39 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
     // In shape analysis, if not constant: do noting, aka leave Values &
     // Affine expr undefined.
     return QuestionmarkIndexExpr();
-  if (resIsAffine) {
+  if (resIsAffine)
     // Use affine values.
-    assert(affineExprFct && "expected affine function");
     return affineExprFct(*this, b);
-  }
   // Use values.
   return valueFct(*this, b);
+}
+
+// Used for ceil/floor
+IndexExpr IndexExpr::unaryOp(F1 litFct, F1 affineExprFct, F1 valueFct) const {
+  assert(litFct && "expect lit function");
+  assert(valueFct && "expect value function");
+  assert(canBeUsedInScope() && "a cannot be used in current scope");
+  // Literal integer if is literal. Affine if canBeAffine is true,
+  // and a is affine.
+  bool resIsLit = isLiteral();
+  bool canBeAffine = (affineExprFct != nullptr);
+  bool resIsAffine = resIsLit || (canBeAffine && isAffine());
+
+  // We use now use the result of the above determination on whether the new
+  // index is literal and/or affine.
+  if (resIsLit)
+    // Constant, use constant computations.
+    return litFct(*this);
+  if (isShapeInferencePass())
+    // In shape analysis, if not constant: do noting, aka leave Values &
+    // Affine expr undefined.
+    return QuestionmarkIndexExpr();
+  if (resIsAffine) {
+    // Use affine values.
+    return affineExprFct(*this);
+  }
+  // Use values.
+  return valueFct(*this);
 }
 
 // Integer version/
@@ -637,8 +671,7 @@ IndexExpr IndexExpr::compareOp(
   // Cannot have affine results, disable and pass null lambda function.
   // Ignore possible neutral values.
   assert(!areFloat(b) && "integer compare");
-  return binaryOp(
-      b, false, false, false, false, 0.0, litFct, nullptr, valueFct);
+  return binaryOp(b, false, false, false, 0.0, litFct, nullptr, valueFct);
 }
 
 // Floating point version.
@@ -688,7 +721,7 @@ IndexExpr IndexExpr::compareOp(
   // Ignore possible neutral values.
   assert(areFloat(b) && "float compare");
   return binaryOp(
-      b, false, false, false, false, 0.0, litFloatFct, nullptr, valueFloatFct);
+      b, false, false, false, 0.0, litFloatFct, nullptr, valueFloatFct);
 }
 
 // Conjunction of two conditions: And
@@ -816,10 +849,8 @@ IndexExpr IndexExpr::operator+(IndexExpr const b) const {
   };
   // Neutral value: a + 0 = a, 0 + b = b.
   if (areFloat(b))
-    return binaryOp(
-        b, false, false, true, true, 0.0, litFloatFct, nullptr, valueFct);
-  return binaryOp(
-      b, false, true, true, true, 0.0, litFct, affineExprFct, valueFct);
+    return binaryOp(b, false, true, true, 0.0, litFloatFct, nullptr, valueFct);
+  return binaryOp(b, false, true, true, 0.0, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::operator-(IndexExpr const b) const {
@@ -838,10 +869,8 @@ IndexExpr IndexExpr::operator-(IndexExpr const b) const {
   };
   // Neutral value: a - 0 = a.
   if (areFloat(b))
-    return binaryOp(
-        b, false, false, false, true, 0.0, litFloatFct, nullptr, valueFct);
-  return binaryOp(
-      b, false, true, false, true, 0.0, litFct, affineExprFct, valueFct);
+    return binaryOp(b, false, false, true, 0.0, litFloatFct, nullptr, valueFct);
+  return binaryOp(b, false, false, true, 0.0, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr IndexExpr::operator*(IndexExpr const b) const {
@@ -852,8 +881,6 @@ IndexExpr IndexExpr::operator*(IndexExpr const b) const {
     return LiteralIndexExpr(aa.getFloatLiteral() * bb.getFloatLiteral());
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-          aa.debugPrint("hi alex, aa of mult");
-          bb.debugPrint("bb of mult");
     return AffineIndexExpr(aa.getAffineExpr() * bb.getAffineExpr());
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
@@ -862,31 +889,27 @@ IndexExpr IndexExpr::operator*(IndexExpr const b) const {
   };
   // Neutral value: a * 1 = a, 1 * b = b.
   if (areFloat(b))
-    return binaryOp(
-        b, false, false, true, true, 1.0, litFloatFct, nullptr, valueFct);
-  return binaryOp(
-      b, false, true, true, true, 1.0, litFct, affineExprFct, valueFct);
+    return binaryOp(b, false, true, true, 1.0, litFloatFct, nullptr, valueFct);
+  // For affine, requires one to be a literal, and in "b" (argument).
+  if (isLiteral())
+    return b.binaryOp(
+        *this, true, true, true, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(b, true, true, true, 1.0, litFct, affineExprFct, valueFct);
 }
 
+// Int operator
 IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    int64_t rval = floor((1.0 * aa.getLiteral()) / (1.0 * bb.getLiteral()));
+    int64_t rval =
+        std::floor((1.0 * aa.getLiteral()) / (1.0 * bb.getLiteral()));
     return LiteralIndexExpr(rval);
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
     int64_t bval = bb.getLiteral();
-    fprintf(stderr, "hi alex, floor div by %d\n", (int) bval);
     if (bval > 1) {
-      auto aaa = aa.getAffineExpr();
-      auto bbb = aaa.floorDiv(bval); 
-      auto res = AffineIndexExpr(bbb);
-      res.debugPrint("res of div");
-      return res;
-      // hi alex
-      //return AffineIndexExpr(aa.getAffineExpr().floorDiv(bval));
+      return AffineIndexExpr(aa.getAffineExpr().floorDiv(bval));
     }
-    fprintf(stderr, "hi alex, floor div by %d result in non-affine res\n", (int) bval);
     return NonAffineIndexExpr(aa.getRewriter().create<arith::FloorDivSIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
@@ -897,13 +920,13 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
   // Index b must be a literal.
   // Neutral value: a / 1 = a.
   assert(!areFloat(b) && "floor div only supports int");
-  return binaryOp(
-      b, true, true, false, true, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(b, true, false, true, 1.0, litFct, affineExprFct, valueFct);
 }
 
+// Int operator
 IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    int64_t rval = ceil((1.0 * aa.getLiteral()) / (1.0 * bb.getLiteral()));
+    int64_t rval = std::ceil((1.0 * aa.getLiteral()) / (1.0 * bb.getLiteral()));
     return LiteralIndexExpr(rval);
   };
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
@@ -921,10 +944,10 @@ IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
   // Index b must be a literal.
   // Neutral value: a / 1 = a.
   assert(!areFloat(b) && "floor div only supports int");
-  return binaryOp(
-      b, true, true, false, true, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(b, true, false, true, 1.0, litFct, affineExprFct, valueFct);
 }
 
+// Int operator
 IndexExpr IndexExpr::operator%(IndexExpr const b) const {
   F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     int64_t rval = mlir::mod(aa.getLiteral(), bb.getLiteral());
@@ -945,8 +968,88 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
   // Index b must be a literal.
   // Neutral value: ignore here that x % x = 0.
   assert(!areFloat(b) && "mod only supports int");
-  return binaryOp(
-      b, true, true, false, false, 1.0, litFct, affineExprFct, valueFct);
+  return binaryOp(b, true, false, false, 1.0, litFct, affineExprFct, valueFct);
+}
+
+// Float operator
+IndexExpr IndexExpr::operator/(IndexExpr const b) const {
+  F2 litFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
+    double rval = aa.getFloatLiteral() / bb.getFloatLiteral();
+    return LiteralIndexExpr(rval);
+  };
+  F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
+    MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    return NonAffineIndexExpr(createMath.div(aa.getValue(), bb.getValue()));
+  };
+  // Neutral value: x / 1 = x.
+  assert(areFloat(b) && "float only; int: use ceilDiv or floorDiv");
+  return binaryOp(b, false, false, true, 1.0, litFct, nullptr, valueFct);
+}
+
+// Float operator.
+IndexExpr IndexExpr::ceil() const {
+  F1 litFct = [](IndexExpr const aa) -> IndexExpr {
+    double rval = std::ceil(aa.getFloatLiteral());
+    return LiteralIndexExpr(rval);
+  };
+  F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
+    MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    return NonAffineIndexExpr(createMath.ceil(aa.getValue()));
+  };
+
+  // Neutral value: none.
+  assert(isFloat() && "float only; int: use ceilDiv or floorDiv");
+  return unaryOp(litFct, nullptr, valueFct);
+}
+
+// Float operator.
+IndexExpr IndexExpr::floor() const {
+  F1 litFct = [](IndexExpr const aa) -> IndexExpr {
+    double rval = std::floor(aa.getFloatLiteral());
+    return LiteralIndexExpr(rval);
+  };
+  F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
+    MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    return NonAffineIndexExpr(createMath.floor(aa.getValue()));
+  };
+
+  // Neutral value: none.
+  assert(isFloat() && "float only; int: use ceilDiv or floorDiv");
+  return unaryOp(litFct, nullptr, valueFct);
+}
+
+// Int operator.
+IndexExpr IndexExpr::convertToFloat() const {
+  F1 litFct = [](IndexExpr const aa) -> IndexExpr {
+    double rval = (double)aa.getLiteral();
+    return LiteralIndexExpr(rval);
+  };
+  F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
+    MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    Type f32Ty = aa.getRewriter().getF32Type();
+    return NonAffineIndexExpr(createMath.cast(f32Ty, aa.getValue()));
+  };
+
+  // Neutral value: none.
+  assert(!isFloat() && "convert to float expect an int as input");
+  return unaryOp(litFct, nullptr, valueFct);
+}
+
+// Float operator
+IndexExpr IndexExpr::convertToIndex() const {
+  F1 litFct = [](IndexExpr const aa) -> IndexExpr {
+    int64_t rval = (int64_t)aa.getFloatLiteral();
+    return LiteralIndexExpr(rval);
+  };
+  F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
+    MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    // hi alex
+    return NonAffineIndexExpr(createMath.castToIndex(aa.getValue()));
+  };
+
+  // Neutral value: none.
+  assert(!isFloat() && "convert to float expect an int as input");
+  return unaryOp(litFct, nullptr, valueFct);
 }
 
 IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
@@ -1150,14 +1253,22 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   };
   // Res is already defined, we are reducing into it.
   // Integer and Float version.
+#if 1
+  F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
+    IndexExpr compareIE = aa > res;
+    IndexExpr selectIE = select(compareIE, aa, res);
+    res.getObj().initAsKind(selectIE.getValue(), IndexExprKind::NonAffine);
+    return res;
+  };
+#else
   F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
     IndexExpr compare = res > aa;
-    // hi alex: fix the one below using IndexExpr::select
     Value resVal = res.getRewriter().create<arith::SelectOp>(
         res.getLoc(), compare.getValue(), aa.getValue(), res.getValue());
     res.getObj().initAsKind(resVal, IndexExprKind::NonAffine);
     return res;
   };
+#endif
   // Empty, treat as integer.
   if (vals.size() > 0 && vals[0].isFloat())
     return reductionOp(vals, litFct, nullptr, valueFct);

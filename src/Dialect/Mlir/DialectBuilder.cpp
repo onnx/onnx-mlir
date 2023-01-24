@@ -119,6 +119,16 @@ Value MathBuilder::pow(Value base, Value exp) const {
   return b().create<math::PowFOp>(loc(), base, exp);
 }
 
+Value MathBuilder::ceil(Value val) const {
+  assert(val.getType().isa<FloatType>() && "Data type must be float.");
+  return b().create<math::CeilOp>(loc(), val);
+}
+
+Value MathBuilder::floor(Value val) const {
+  assert(val.getType().isa<FloatType>() && "Data type must be float.");
+  return b().create<math::FloorOp>(loc(), val);
+}
+
 Value MathBuilder::min(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
