@@ -94,6 +94,35 @@ Value MathBuilder::div(Value lhs, Value rhs) const {
     return b().create<arith::DivSIOp>(loc(), lhs, rhs);
 }
 
+Value MathBuilder::rem(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<FloatType>())
+    return b().create<arith::RemFOp>(loc(), lhs, rhs);
+  else if (lhs.getType().isUnsignedInteger())
+    return b().create<arith::RemUIOp>(loc(), lhs, rhs);
+  else
+    return b().create<arith::RemSIOp>(loc(), lhs, rhs);
+}
+
+Value MathBuilder::ceilDiv(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  assert(!lhs.getType().isa<FloatType>() && "int only");
+  if (lhs.getType().isUnsignedInteger())
+    return b().create<arith::CeilDivUIOp>(loc(), lhs, rhs);
+  else
+    return b().create<arith::CeilDivSIOp>(loc(), lhs, rhs);
+}
+
+Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  assert(!lhs.getType().isa<FloatType>() && "int only");
+  if (lhs.getType().isUnsignedInteger()) {
+    // Using regular unsigned div is ok as it rounds toward zero.
+    return b().create<arith::DivUIOp>(loc(), lhs, rhs);
+  } else
+    return b().create<arith::FloorDivSIOp>(loc(), lhs, rhs);
+}
+
 Value MathBuilder::exp(Value val) const {
   assert(val.getType().isa<FloatType>() && "Data type must be float.");
   return b().create<math::ExpOp>(loc(), val);

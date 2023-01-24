@@ -745,9 +745,8 @@ IndexExpr IndexExpr::operator&(IndexExpr const b) const {
   // Not literals or questionmark, we must have predicates.
   assert(isPredType() && "expected predicate index expression");
   assert(b.isPredType() && "expected predicate index expression");
-  Value res =
-      getRewriter().create<arith::AndIOp>(getLoc(), getValue(), b.getValue());
-  return PredicateIndexExpr(res);
+  MathBuilder createMath(getRewriter(), getLoc());
+  return PredicateIndexExpr(createMath.andi(getValue(), b.getValue()));
 }
 
 // Conjunction of two conditions: Or
@@ -771,9 +770,8 @@ IndexExpr IndexExpr::operator|(IndexExpr const b) const {
   // Not literals or questionmark, we must have predicates.
   assert(isPredType() && "expected predicate index expression");
   assert(b.isPredType() && "expected predicate index expression");
-  Value res =
-      getRewriter().create<arith::OrIOp>(getLoc(), getValue(), b.getValue());
-  return PredicateIndexExpr(res);
+  MathBuilder createMath(getRewriter(), getLoc());
+  return PredicateIndexExpr(createMath.ori(getValue(), b.getValue()));
 }
 
 IndexExpr IndexExpr::operator!() const {
@@ -910,12 +908,14 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
     if (bval > 1) {
       return AffineIndexExpr(aa.getAffineExpr().floorDiv(bval));
     }
-    return NonAffineIndexExpr(aa.getRewriter().create<arith::FloorDivSIOp>(
-        aa.getLoc(), aa.getValue(), bb.getValue()));
+    MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    return NonAffineIndexExpr(
+        createMath.floorDiv(aa.getValue(), bb.getValue()));
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return NonAffineIndexExpr(aa.getRewriter().create<arith::FloorDivSIOp>(
-        aa.getLoc(), aa.getValue(), bb.getValue()));
+    MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    return NonAffineIndexExpr(
+        createMath.floorDiv(aa.getValue(), bb.getValue()));
   };
   // Index b must be a literal.
   // Neutral value: a / 1 = a.
@@ -934,16 +934,16 @@ IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
     int64_t bval = bb.getLiteral();
     if (bval > 1)
       return AffineIndexExpr(aa.getAffineExpr().ceilDiv(bval));
-    return NonAffineIndexExpr(aa.getRewriter().create<arith::CeilDivSIOp>(
-        aa.getLoc(), aa.getValue(), bb.getValue()));
+    MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    return NonAffineIndexExpr(createMath.ceilDiv(aa.getValue(), bb.getValue()));
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return NonAffineIndexExpr(aa.getRewriter().create<arith::CeilDivSIOp>(
-        aa.getLoc(), aa.getValue(), bb.getValue()));
+    MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    return NonAffineIndexExpr(createMath.ceilDiv(aa.getValue(), bb.getValue()));
   };
   // Index b must be a literal.
   // Neutral value: a / 1 = a.
-  assert(!areFloat(b) && "floor div only supports int");
+  assert(!areFloat(b) && "ceil div only supports int");
   return binaryOp(b, true, false, true, 1.0, litFct, affineExprFct, valueFct);
 }
 
@@ -958,12 +958,17 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
     int64_t bval = bb.getLiteral();
     if (bval >= 0)
       return AffineIndexExpr(aa.getAffineExpr() % bval);
-    return NonAffineIndexExpr(aa.getRewriter().create<arith::RemSIOp>(
-        aa.getLoc(), aa.getValue(), bb.getValue()));
+        MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    return NonAffineIndexExpr(createMath.ceilDiv(aa.getValue(), bb.getValue()));
+
+// hi alex    return NonAffineIndexExpr(aa.getRewriter().create<arith::RemSIOp>(
+//        aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return NonAffineIndexExpr(aa.getRewriter().create<arith::RemSIOp>(
-        aa.getLoc(), aa.getValue(), bb.getValue()));
+    MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    return NonAffineIndexExpr(createMath.ceilDiv(aa.getValue(), bb.getValue()));
+    // hi alex return NonAffineIndexExpr(aa.getRewriter().create<arith::RemSIOp>(
+    //     aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   // Index b must be a literal.
   // Neutral value: ignore here that x % x = 0.
@@ -1043,7 +1048,6 @@ IndexExpr IndexExpr::convertToIndex() const {
   };
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
-    // hi alex
     return NonAffineIndexExpr(createMath.castToIndex(aa.getValue()));
   };
 
@@ -1063,16 +1067,6 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     if (val.isLiteralAndGreaterThan(max))
       return max;
     return val;
-#if 0
-    int64_t smin = min.getLiteral();
-    int64_t smax = max.getLiteral();
-    int64_t res = val.getLiteral();
-    if (res < smin)
-      res = smin;
-    if (res > smax)
-      res = smax;
-    return LiteralIndexExpr(res);
-#endif
   };
   // Int or float.
   F3 valueFct = [](IndexExpr const val, IndexExpr const min,
@@ -1157,32 +1151,14 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   };
   // Res is already defined, we are reducing into it.
   // Integer version.
-#if 1
   F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
+    // Could use arith::min op.
     IndexExpr compareIE = aa < res;
     IndexExpr selectIE = select(compareIE, aa, res);
     res.getObj().initAsKind(selectIE.getValue(), IndexExprKind::NonAffine);
     return res;
   };
-#else
-  F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
-    Value compareVal = res.getRewriter().create<arith::CmpIOp>(
-        res.getLoc(), arith::CmpIPredicate::slt, aa.getValue(), res.getValue());
-    Value resVal = res.getRewriter().create<arith::SelectOp>(
-        res.getLoc(), compareVal, aa.getValue(), res.getValue());
-    res.getObj().initAsKind(resVal, IndexExprKind::NonAffine);
-    return res;
-  };
-  // Float version.
-  F2Self valueFloatFct = [](IndexExpr res, IndexExpr const aa) {
-    Value compareVal = res.getRewriter().create<arith::CmpFOp>(
-        res.getLoc(), arith::CmpIPredicate::olt, aa.getValue(), res.getValue());
-    Value resVal = res.getRewriter().create<arith::SelectOp>(
-        res.getLoc(), compareVal, aa.getValue(), res.getValue());
-    res.getObj().initAsKind(resVal, IndexExprKind::NonAffine);
-    return res;
-  };
-#endif
+
   // Empty, treat as integer.
   if (vals.size() > 0 && vals[0].isFloat())
     return reductionOp(vals, litFct, nullptr, valueFct);
@@ -1203,30 +1179,11 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
 
 /*static*/ IndexExpr IndexExpr::max(SmallVectorImpl<IndexExpr> &vals) {
   // Res is already an literal int, we are reducing into it.
-#if 1
   F2Self litFct = [](IndexExpr res, IndexExpr const aa) -> IndexExpr {
     if (aa.isLiteralAndGreaterThan(res))
       res.getObj().setLiteral(aa.getObj());
     return res;
   };
-#else
-  // Integer version.
-  F2Self litFct = [](IndexExpr res, IndexExpr const aa) -> IndexExpr {
-    int64_t rrr = res.getLiteral();
-    int64_t aaa = aa.getLiteral();
-    if (aaa > rrr)
-      res.getObj().setLiteral(aaa);
-    return res;
-  };
-  // Float version.
-  F2Self litFloatFct = [](IndexExpr res, IndexExpr const aa) -> IndexExpr {
-    double rrr = res.getFloatLiteral();
-    double aaa = aa.getFloatLiteral();
-    if (aaa > rrr)
-      res.getObj().setLiteral(aaa);
-    return res;
-  };
-#endif
   Flist affineExprFct = [&](IndexExpr res,
                             SmallVectorImpl<IndexExpr> &vvals) -> IndexExpr {
     // Create a list of affine expression
@@ -1253,22 +1210,14 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   };
   // Res is already defined, we are reducing into it.
   // Integer and Float version.
-#if 1
   F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
+    // Could use arith::max op.
     IndexExpr compareIE = aa > res;
     IndexExpr selectIE = select(compareIE, aa, res);
     res.getObj().initAsKind(selectIE.getValue(), IndexExprKind::NonAffine);
     return res;
   };
-#else
-  F2Self valueFct = [](IndexExpr res, IndexExpr const aa) {
-    IndexExpr compare = res > aa;
-    Value resVal = res.getRewriter().create<arith::SelectOp>(
-        res.getLoc(), compare.getValue(), aa.getValue(), res.getValue());
-    res.getObj().initAsKind(resVal, IndexExprKind::NonAffine);
-    return res;
-  };
-#endif
+
   // Empty, treat as integer.
   if (vals.size() > 0 && vals[0].isFloat())
     return reductionOp(vals, litFct, nullptr, valueFct);
