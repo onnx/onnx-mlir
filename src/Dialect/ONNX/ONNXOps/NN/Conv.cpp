@@ -633,9 +633,9 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   auto stridesOpt = strides();
   auto padsOpt = pads();
   auto outputPads = output_padding();
-  if (autoPad == "SAME_UPPER" || "SAME_LOWER") {
+  if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
     SmallVector<int64_t, 2> outputShapeVec;
-    for (unsigned int i = 0; i < spatialRank; ++i) {
+    for (int i = 0; i < spatialRank; ++i) {
       outputShapeVec.emplace_back(
           xShape[spatialOffset + i] * ArrayAttrIntVal(stridesOpt, i));
     }

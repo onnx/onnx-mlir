@@ -218,7 +218,7 @@ ArrayAttr getPadsConvTranspose2D(PatternRewriter &rewriter, Location loc,
   SmallVector<int64_t, 2> newKernel;
   // If `dilations` is not default one [1, 1], `kernel` is updated by inserting
   // spaces in kernel elements
-  //   ex. kernel [2, 3] and dilation [2, 2], then new `kernel` is [3, 4]
+  //   ex. kernel [2, 3] and dilation [2, 2], then new `kernel` is [3, 5]
   for (int i = 0; i < 2; ++i)
     newKernel.emplace_back(
         ArrayAttrIntVal(kernel, i) +
@@ -304,6 +304,39 @@ Value emitPads(PatternRewriter &rewriter, Location loc, Value input,
   return padOp.getResult();
 }
 
+Value emitPads0(PatternRewriter &rewriter, Location loc, Value input,
+    ArrayRef<int64_t> inputShape, int64_t axis, int64_t size) {
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+  //  ArrayRef<int64_t> inputShape = inputType.getShape();
+  SmallVector<int64_t> resultShape;
+  for (unsigned int i = 0; i < inputShape.size(); ++i) {
+    if (i == axis)
+      resultShape.emplace_back(inputShape[i] + size);
+    else
+      resultShape.emplace_back(inputShape[i]);
+  }
+  Type padType = RankedTensorType::get(resultShape, elementType);
+  SmallVector<int64_t> dims(1, (int64_t)resultShape.size() * 2);
+  Type tensorType =
+      RankedTensorType::get(dims, rewriter.getIntegerType(64)); // tensor<8xi64>
+  SmallVector<int64_t, 1> values((int64_t)inputShape.size() * 2, 0);
+  values[inputShape.size() + axis] =
+      size; // Add padding at the end of each axis.
+  DenseElementsAttr denseAttr =
+      DenseElementsAttr::get(tensorType, makeArrayRef(values));
+  Value pads = rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+  Type tensorTypeF32 =
+      RankedTensorType::get({}, rewriter.getF32Type()); // tensor<f32>
+  DenseElementsAttr denseAttrConst =
+      DenseElementsAttr::get(tensorTypeF32, ArrayRef<float>({0.0}));
+  Value constantValue =
+      rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttrConst);
+  ONNXPadOp padOp = rewriter.create<ONNXPadOp>(loc, padType, input, pads,
+      constantValue, rewriter.getStringAttr("constant"));
+  return padOp.getResult();
+}
+
 Value emitConcat(
     PatternRewriter &rewriter, Location loc, ValueRange inputs, int64_t axis) {
   ShapedType inputType = inputs[0].getType().cast<ShapedType>();
@@ -353,6 +386,35 @@ Value insertPadsConvTranspose2DInput(
   Value out1 = insertPadAxis(rewriter, loc, out0, /*axis*/ 2,
       /*padSize*/ ArrayAttrIntVal(strides, 0) - 1);
   return out1;
+}
+
+Value insertAdditionalPadsConvTranspose2D(PatternRewriter &rewriter,
+    Location loc, ONNXConvOp op, Value input, ArrayAttr outputPaddingAttr,
+    ArrayAttr outputShapeAttr) {
+
+  ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
+  shapeHelper.computeShapeAndAssertOnFailure();
+  int inputRank = shapeHelper.getOutputDims().size();
+  SmallVector<int64_t, 4> inputShape;
+  for (int i = 0; i < inputRank; ++i)
+    inputShape.emplace_back(shapeHelper.getOutputDims()[i].getLiteral());
+  SmallVector<int64_t, 2> padSize;
+  int64_t attrSize = ArrayAttrSize(outputShapeAttr);
+  int64_t offset = inputRank - attrSize;
+  for (int i = 0; i < attrSize; ++i) {
+    IntegerAttr attr = outputShapeAttr.getValue()[i].cast<IntegerAttr>();
+    int64_t size = attr.getValue().getSExtValue() - inputShape[offset + i];
+    assert(size >= 0 && "Invalid output_shape attribute");
+    padSize.emplace_back(size);
+  }
+  //    if (llvm::all_of(padSize, [](int64_t p) { return p == 0; }))
+  //      return input;
+  Value paddedInput0 = emitPads0(
+      rewriter, loc, input, makeArrayRef(inputShape), /*axis*/ 2, padSize[0]);
+  Value paddedInput1 =
+      emitPads(rewriter, loc, paddedInput0, /*axis*/ 3, padSize[1]);
+
+  return paddedInput1;
 }
 
 } // namespace onnx_mlir
