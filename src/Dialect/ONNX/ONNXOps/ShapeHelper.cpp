@@ -397,7 +397,7 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     refineDims(inferredDims, val);
     IndexExpr::getShape(inferredDims, inferredShape);
   } else {
-    for (int i = 0; i < shape.size(); ++i)
+    for (int i = 0; i < (int) shape.size(); ++i)
       inferredShape.emplace_back(shape[i]);
   }
 
