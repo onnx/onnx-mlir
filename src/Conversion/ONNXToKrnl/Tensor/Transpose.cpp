@@ -20,7 +20,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXTransposeOpLowering : public ConversionPattern {
-  using MDBuider = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, MathBuilder>;
 
   ONNXTransposeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
@@ -30,7 +30,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    MDBuider create(rewriter, loc);
+    MDBuilder create(rewriter, loc);
 
     // Operands and attributes.
     ONNXTransposeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
@@ -111,7 +111,7 @@ private:
 
   // Do transpose by copying elements one-by-one.
   void scalarTranspose(Value inputMemRef, Value outputMemRef,
-      Optional<ArrayAttr> permAttr, MDBuider *create) const {
+      Optional<ArrayAttr> permAttr, MDBuilder *create) const {
     uint64_t rank = outputMemRef.getType().cast<MemRefType>().getRank();
     ValueRange loopDef = create->krnl.defineLoops(rank);
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
@@ -134,7 +134,7 @@ private:
   // Do transpose by copying block of consecutive elements in the inner-most
   // dimensions.
   void blockTranspose(Value inputMemRef, Value outputMemRef,
-      Optional<ArrayAttr> permAttr, MDBuider *create, int numLastDims) const {
+      Optional<ArrayAttr> permAttr, MDBuilder *create, int numLastDims) const {
     Type i64Ty = create->math.getBuilder().getI64Type();
     MemRefType inMemRefType = inputMemRef.getType().cast<MemRefType>();
     uint64_t rank = inMemRefType.getRank();
