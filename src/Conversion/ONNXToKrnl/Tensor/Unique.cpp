@@ -59,7 +59,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-#if 0
+#if 0 // nonzero code for reference
     ONNXUniqueOpAdaptor operandAdaptor(operands);
     Location loc = op->getLoc();
     // Builder helper.
@@ -204,7 +204,6 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     rewriter.replaceOp(op, resMemRef);
 #endif
 
-#if 0
     Location loc = op->getLoc();
     ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     Value X = operandAdaptor.X();
@@ -227,35 +226,35 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Optional<int64_t> optionalAxis = operandAdaptor.axis();
     int64_t axis = -1;
     if (optionalAxis.has_value()) {
+      axis = optionalAxis.value();
       axis = axis < 0 ? axis + rank : axis;
       assert(axis >= 0 && axis < rank && "axis is out of bound");
     }
     int64_t sorted = operandAdaptor.sorted();
-
-    // Compute the output's dimension sizes.
-    ONNXUniqueOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
-    DimsExpr resDims = shapeHelper.getOutputDims();
-
     // Insert an allocation and deallocation for the results of this operation.
     bool insertDealloc = checkInsertDealloc(op, /*resultIndex=*/0);
+    ArrayRef<int64_t> xShape = getShape(X.getType());
+    MemRefType resMemrefForAllocType = MemRefType::get(xShape, i64Type);
+    DimsExpr resDims = DimsExpr(resMemrefForAllocType);
     Value resMemRef = insertAllocAndDeallocSimple(
-        rewriter, op, resMemRefType, loc, resDims, insertDealloc);
+        rewriter, op, resMemrefForAllocType, loc, resDims, insertDealloc);
     insertDealloc = checkInsertDealloc(op, /*resultIndex=*/1);
     Value resIndexMemRef = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(resMemRefType.getShape(), i64Type), loc, resDims,
+        MemRefType::get(resMemrefForAllocType.getShape(), i64Type), loc, resDims,
         insertDealloc);
+    Value indices;
+    Value reverse_indices;
+    Value counts;
 
     // Compute argUnique of X along axis.
     Value argUnique =
         emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted, indices, reverse_indices, counts, OMUNIQUE_FLAG_COUNTONLY);
-
     // Produce the final result.
     SmallVector<IndexExpr> zeroDims(rank, LiteralIndexExpr(0));
     ValueRange loopDef = create.krnl.defineLoops(rank);
     create.krnl.iterateIE(loopDef, loopDef, zeroDims, resDims,
         [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {
-          Value resInd = createKrnl.load(argSort, resLoopInd);
+          Value resInd = createKrnl.load(argUnique, resLoopInd);
           SmallVector<Value> resIndexLoopInd(resLoopInd);
           resIndexLoopInd[axis] = resInd;
           // Store value.
@@ -267,8 +266,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
           createKrnl.store(resIndI64, resIndexMemRef, resLoopInd);
         });
 
-    rewriter.replaceOp(op, {resMemRef, resIndexMemRef});
-#endif
+    rewriter.replaceOp(op, {resMemRef}); //, resIndexMemRef, resIndexMemref, resIndexMemref});
     return success();
   }
 };

@@ -557,6 +557,49 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   return order;
 }
 
+/// Emit function call to compute arg unique of a given MemRef along a given axis.
+/// The first output MemRef has the same shape as the input MemRef but is of
+/// IndexType. Shape of the second, third and fourth arguments depends on the
+/// input options.
+mlir::Value emitArgUnique(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Value input, int64_t axis, int64_t sorted,
+    mlir::Value indices, mlir::Value reverse_indices, mlir::Value counts,
+    int64_t flag) {
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
+      rewriter, loc);
+  IndexExprScope scope(create.krnl);
+
+  MemRefType inputMemRefType = input.getType().cast<MemRefType>();
+  Type indexType = rewriter.getIndexType();
+  int64_t rank = inputMemRefType.getRank();
+  assert(axis >= 0 && axis < rank && "axis is out of bound");
+  LiteralIndexExpr zeroIE(0), oneIE(1);
+
+  SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
+  SmallVector<IndexExpr, 4> ubs;
+  create.krnlIE.getShapeAsDims(input, ubs);
+
+  // Create and initialize the result.
+  Value order = insertAllocAndDeallocSimple(rewriter, nullptr,
+      MemRefType::get(inputMemRefType.getShape(), indexType), loc, ubs,
+      /*insertDealloc=*/true);
+  ValueRange initLoopDef = create.krnl.defineLoops(rank);
+  create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
+      [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        // order[axis_0, axis_1, ..., axis_k-1, k, axis_k+1, ....] = k
+        createKrnl.store(loopInd[axis], order, loopInd);
+      });
+
+  // Emit krnl.Call to call omTensorUnique API
+  Type intType = rewriter.getIntegerType(64);
+  Value valAxis = create.math.constant(intType, axis);
+  Value valSorted = create.math.constant(intType, sorted);
+  Value valFlag = create.math.constant(intType, flag);
+  SmallVector<Value, 4> operands = {input, valAxis, valSorted, valFlag};
+  rewriter.create<KrnlCallOp>(loc, "omTensorUnique", order, operands);
+  return order;
+}
+
 /// This function returns a scalar of type 'dtype' from an optional value.
 /// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>.
 /// Default value is used in case of NoneType.

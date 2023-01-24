@@ -41,7 +41,7 @@ ModelLibBuilder::~ModelLibBuilder() {
 
 bool ModelLibBuilder::compileAndLoad() {
   OwningOpRef<ModuleOp> moduleRef(module);
-  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) !=
+  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitONNXBasic) !=
       CompilerSuccess)
     return false;
   std::string libFilename =

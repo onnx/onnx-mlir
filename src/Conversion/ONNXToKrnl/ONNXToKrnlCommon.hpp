@@ -182,6 +182,15 @@ mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value input, int64_t axis,
     bool ascending = false);
 
+/// Emit krnl iterate to compute argsort of a given MemRef along a given axis.
+/// The first output MemRef has the same shape as the input MemRef but is of
+/// IndexType. Shape of the second, third and fourth arguments depends on the
+/// input options.
+mlir::Value emitArgUnique(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Value input, int64_t axis, int64_t sorted,
+    mlir::Value indices, mlir::Value reverse_indices, mlir::Value counts,
+    int64_t flag = false);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
