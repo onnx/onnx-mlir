@@ -190,7 +190,6 @@ private:
             DimIndexExpr srcIndex(indices[i]);
             srcOffsetIE =
                 srcOffsetIE + srcIndex * SymbolIndexExpr(inStrides[i]);
-
             // destination offset
             DimIndexExpr destIndex(indices[ArrayAttrIntVal(permAttr, i)]);
             // Note: index for outStrides is not the permuted index.
@@ -198,15 +197,14 @@ private:
                 destOffsetIE + destIndex * SymbolIndexExpr(outStrides[i]);
           }
           IndexExpr destOffsetInBytes = eltSizeInBytes * destOffsetIE;
-          // eltSizeInBytes, create.math.cast(i64Ty, destOffsetIE.getValue()));
           IndexExpr srcOffsetInBytes = eltSizeInBytes * srcOffsetIE;
           // call memcpy.
-          Value destOffsetVal =
+          Value destOffset =
               create.math.cast(i64Ty, destOffsetInBytes.getValue());
-          Value srcOffsetVal =
+          Value srcOffset =
               create.math.cast(i64Ty, srcOffsetInBytes.getValue());
-          create.krnl.memcpy(outputMemRef, inputMemRef, sizeInBytes,
-              destOffsetVal, srcOffsetVal);
+          create.krnl.memcpy(
+              outputMemRef, inputMemRef, sizeInBytes, destOffset, srcOffset);
         });
   }
 };
