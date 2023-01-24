@@ -26,6 +26,9 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
       target, patterns, typeConverter, ctx);
   populateLoweringONNXSoftmaxOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  // NN
+  populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
 }
 
 // Performs lowering to TOSA dialect
@@ -67,7 +70,8 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   });
 
   // Define legal dialects and operations
-  target.addLegalDialect<tosa::TosaDialect, func::FuncDialect>();
+  target.addLegalDialect<tosa::TosaDialect, func::FuncDialect,
+      mlir::arith::ArithDialect>();
 
   // Define patterns
   populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context);

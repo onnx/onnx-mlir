@@ -62,7 +62,7 @@ struct LstmBiasPack {
 template <>
 bool hasAllNoneOutput<ONNXLSTMOp>(ONNXLSTMOp *op) {
   return (
-      isNoneType(op->Y()) && isNoneType(op->Y_h()) && isNoneType(op->Y_c()));
+      isFromNone(op->Y()) && isFromNone(op->Y_h()) && isFromNone(op->Y_c()));
 }
 
 template <>
@@ -281,7 +281,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
   StringRef direction = op->direction();
 
   // Split B.
-  if (!isNoneType(B)) {
+  if (!isFromNone(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
     Type elementType = B.getType().cast<ShapedType>().getElementType();
     int64_t hiddenSize = bShape[1] / 8;
@@ -338,7 +338,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
   }
 
   // Split P.
-  if (!isNoneType(P)) {
+  if (!isFromNone(P)) {
     ArrayRef<int64_t> pShape = P.getType().cast<ShapedType>().getShape();
     Type elementType = P.getType().cast<ShapedType>().getElementType();
     int64_t hiddenSize = pShape[1] / 3;
@@ -581,7 +581,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
         // Store the intermediate Ht, Ct.
         createKrnl.store(nextCt, Ct, indices);
         createKrnl.store(nextHt, Ht, indices);
-        if (!isNoneType(state.allH))
+        if (!isFromNone(state.allH))
           createKrnl.store(
               nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
       });
@@ -595,9 +595,9 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
   auto direction = op->direction();
 
   // First output: all sequences.
-  outputs.emplace_back((isNoneType(op->Y()) ? noneValue : state.allH));
+  outputs.emplace_back((isFromNone(op->Y()) ? noneValue : state.allH));
   // Second output: hidden.
-  if (isNoneType(op->Y_h()))
+  if (isFromNone(op->Y_h()))
     outputs.emplace_back(noneValue);
   else {
     stateToOutputForHiddenOrCell(
@@ -605,7 +605,7 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
     outputs.emplace_back(state.ht);
   }
   // Third output: cell.
-  if (isNoneType(op->Y_c()))
+  if (isFromNone(op->Y_c()))
     outputs.emplace_back(noneValue);
   else {
     stateToOutputForHiddenOrCell(
