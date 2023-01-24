@@ -1052,7 +1052,7 @@ IndexExpr IndexExpr::convertToIndex() const {
   };
 
   // Neutral value: none.
-  assert(!isFloat() && "convert to float expect an int as input");
+  assert(isFloat() && "convert to int expect a float as input");
   return unaryOp(litFct, nullptr, valueFct);
 }
 

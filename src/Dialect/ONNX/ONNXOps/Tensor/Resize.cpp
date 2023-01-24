@@ -33,11 +33,32 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
 
   bool scalesFromNone = isFromNone(operandAdaptor.scales());
   if (!scalesFromNone) {
+#if 1
+    DimsExpr inputDims;
+    createIE->getShapeAsDims(input, inputDims);
+    DimsExpr floatScales;
+    createIE->getFloatFromArrayAsNonAffine(
+        operandAdaptor.scales(), floatScales);
+    if (inputDims.size() != floatScales.size())
+      return op->emitError("expected scales to have the same rank as input");
+    for (uint64_t i = 0; i < rank; ++i) {
+      // Maybe use special case for scale == 1.0 as no floor are then needed.
+      IndexExpr floatInputDim = inputDims[i].convertToFloat();
+      inputDims[i].debugPrint("input dims as int");
+      floatInputDim.debugPrint("input dims as float");
+      floatScales[i].debugPrint("scales as float");
+      IndexExpr floatProduct = floatInputDim * floatScales[i];
+      IndexExpr floatFloor = floatProduct.floor();
+      outputDims.emplace_back(floatFloor.convertToIndex());
+    }
+#else
+    // Old code that does not use float.
     createIE->getShapeAsDims(input, outputDims);
     DimsExpr scales;
     createIE->getIntFromArrayAsSymbols(operandAdaptor.scales(), scales);
     for (uint64_t i = 0; i < rank; ++i)
       outputDims[i] = outputDims[i] * scales[i];
+#endif
   } else {
     createIE->getIntFromArrayAsSymbols(operandAdaptor.sizes(), outputDims);
   }
@@ -64,6 +85,7 @@ LogicalResult ONNXResizeOp::verify() {
     else
       return emitError("scales() and sizes() can not be both defined");
   }
+  // Should test the sizes of scales or size to be the same as the rank of X.
   return success();
 }
 
@@ -76,10 +98,11 @@ LogicalResult ONNXResizeOp::inferShapes(
   if (!hasShapeAndRank(X()))
     return success();
 
+#if 0
   // TODO : Remove this if branch once floating point scales are handled in
   // ONNXResizeOpShapeHelper Issue number : #1958
   if (!isFromNone(scales())) {
-    auto inputTy = X().getType().cast<RankedTensorType>();
+    RankedTensorType inputTy = X().getType().cast<RankedTensorType>();
 
     // Output should at least has the same rank as X input
     if (!getResult().getType().isa<RankedTensorType>()) {
@@ -111,6 +134,7 @@ LogicalResult ONNXResizeOp::inferShapes(
     updateType(getResult(), dims, inputTy.getElementType());
     return success();
   }
+#endif
 
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();
   ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});
