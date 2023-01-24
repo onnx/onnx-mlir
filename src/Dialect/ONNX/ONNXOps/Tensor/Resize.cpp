@@ -52,7 +52,7 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXResizeOp::verify() {
-  if (!X().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X())) {
     return success();
   }
 
@@ -73,9 +73,8 @@ LogicalResult ONNXResizeOp::verify() {
 
 LogicalResult ONNXResizeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X()))
     return success();
-  }
 
   // TODO : Remove this if branch once floating point scales are handled in
   // ONNXResizeOpShapeHelper Issue number : #1958

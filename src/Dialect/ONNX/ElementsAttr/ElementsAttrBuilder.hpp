@@ -150,17 +150,11 @@ private:
   mlir::ElementsAttr expandAndTransform(mlir::ElementsAttr elms,
       mlir::ShapedType expandedTransformedType, Transformer transformer);
 
-  mlir::ElementsAttr fromRawBytes(
-      mlir::ShapedType type, BType bufferBType, llvm::ArrayRef<char> bytes);
-
   mlir::ElementsAttr fromRawBytes(mlir::ShapedType type, BType bufferBType,
       const Filler<char> &bytesFiller);
 
   mlir::ElementsAttr createWithDefaultStrides(mlir::ShapedType type,
       BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf);
-
-  mlir::ElementsAttr createSplat(mlir::ShapedType type, BType bufferBType,
-      std::unique_ptr<llvm::MemoryBuffer> membuf);
 
   // Create a DisposableElementsAttr and put it in disposablePool.
   mlir::ElementsAttr create(mlir::ShapedType type, BType bufferBType,

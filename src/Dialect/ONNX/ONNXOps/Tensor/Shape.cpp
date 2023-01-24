@@ -101,7 +101,7 @@ void ONNXShapeOpShapeHelper::computeSelectedDataShape(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXShapeOp::verify() {
-  if (!data().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(data()))
     return success();
   int64_t start, end;
   ONNXShapeOpShapeHelper::getStartEndValues(*this, start, end);
@@ -117,7 +117,7 @@ LogicalResult ONNXShapeOp::verify() {
 LogicalResult ONNXShapeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!data().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(data()))
     return success();
 
   // Output is an 1D int64 tensor containing the shape of the input tensor.

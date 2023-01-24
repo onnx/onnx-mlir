@@ -166,8 +166,7 @@ LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
 LogicalResult ONNXMatMulOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!A().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(A()) || !hasShapeAndRank(B()))
     return success();
 
   Type elementType = A().getType().cast<ShapedType>().getElementType();
@@ -182,8 +181,7 @@ LogicalResult ONNXMatMulOp::inferShapes(
 LogicalResult ONNXMatMulIntegerOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!A().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(A()) || !hasShapeAndRank(B()))
     return success();
 
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();
@@ -197,8 +195,7 @@ LogicalResult ONNXMatMulIntegerOp::inferShapes(
 
 LogicalResult ONNXQLinearMatMulOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!a().getType().isa<RankedTensorType>() ||
-      !b().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(a()) || !hasShapeAndRank(b()))
     return success();
 
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();

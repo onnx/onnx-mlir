@@ -23,34 +23,6 @@ using namespace mlir;
 namespace onnx_mlir {
 
 namespace {
-
-// Returns whether isSplat. Fails assert or llvm_unreachable if invalid.
-bool testBoolsValidityAndSplatness(ArrayRef<char> bytes) {
-  for (char c : bytes)
-    assert(c == 0 || c == 1);
-  return bytes.size() == 1;
-}
-
-// Returns whether isSplat. Fails assert or llvm_unreachable if invalid.
-bool testRawBytesValidityAndSplatness(
-    ShapedType type, BType bufferBType, ArrayRef<char> bytes) {
-  BType btype = btypeOfMlirType(type.getElementType());
-  assert(wideBTypeOfBType(btype) == wideBTypeOfBType(bufferBType));
-  if (bufferBType == BType::BOOL) {
-    size_t numElements = type.getNumElements();
-    assert(bytes.size() == numElements || bytes.size() == 1);
-    return testBoolsValidityAndSplatness(bytes);
-  }
-  ShapedType bufferType =
-      btype == bufferBType
-          ? type
-          : type.clone(mlirTypeOfBType(bufferBType, type.getContext()));
-  bool isSplat;
-  if (!DenseElementsAttr::isValidRawBuffer(bufferType, bytes, isSplat))
-    llvm_unreachable("invalid dense int or fps raw buffer");
-  return isSplat;
-}
-
 std::unique_ptr<llvm::MemoryBuffer> getMemoryBuffer(DenseElementsAttr dense) {
   if (dense.getElementType().isInteger(1)) {
     // Don't use dense.rawData() which is bit packed, whereas
@@ -77,7 +49,6 @@ std::unique_ptr<llvm::MemoryBuffer> getMemoryBuffer(DenseElementsAttr dense) {
         /*BufferName=*/"", /*RequiresNullTerminator=*/false);
   }
 }
-
 } // namespace
 
 struct ElementsAttrBuilder::ElementsProperties {
@@ -482,15 +453,6 @@ ElementsAttr ElementsAttrBuilder::expandAndTransform(ElementsAttr elms,
 }
 
 ElementsAttr ElementsAttrBuilder::fromRawBytes(
-    ShapedType type, BType bufferBType, ArrayRef<char> bytes) {
-  std::unique_ptr<llvm::MemoryBuffer> membuf =
-      llvm::MemoryBuffer::getMemBufferCopy(asStringRef(bytes));
-  return testRawBytesValidityAndSplatness(type, bufferBType, bytes)
-             ? createSplat(type, bufferBType, std::move(membuf))
-             : createWithDefaultStrides(type, bufferBType, std::move(membuf));
-}
-
-ElementsAttr ElementsAttrBuilder::fromRawBytes(
     ShapedType type, BType bufferBType, const Filler<char> &bytesFiller) {
   size_t size = type.getNumElements() * bytewidthOfBType(bufferBType);
   std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
@@ -504,12 +466,6 @@ ElementsAttr ElementsAttrBuilder::createWithDefaultStrides(ShapedType type,
     BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   auto strides = getDefaultStrides(type.getShape());
   return create(type, bufferBType, strides, std::move(membuf));
-}
-
-ElementsAttr ElementsAttrBuilder::createSplat(ShapedType type,
-    BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
-  SmallVector<int64_t, 4> zerosStrides(type.getRank(), 0);
-  return create(type, bufferBType, zerosStrides, std::move(membuf));
 }
 
 ElementsAttr ElementsAttrBuilder::create(ShapedType type, BType bufferBType,
