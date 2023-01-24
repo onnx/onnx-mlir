@@ -517,6 +517,7 @@ static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferredPads,
       outputPadsVal = ArrayAttrIntVal(outputPadsOpt, i);
     int64_t totalPadding = strideVal * (inputSize - 1) + outputPadsVal +
                            ((kernelSize - 1) * dilationVal + 1) - outputSize;
+    totalPadding = (totalPadding >= 0) ? totalPadding : 0;
     int64_t beginPad = totalPadding / 2;
     int64_t endPad = totalPadding - beginPad;
     if (autoPad != "SAME_UPPER") {
@@ -621,6 +622,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
       }
   }
 
+  auto autoPad = auto_pad();
   // Process strides, dilations, kernel_shape and pads.
   LogicalResult res =
       processConvTypeParams<ONNXConvTransposeOp>(this, X(), W());
@@ -631,7 +633,16 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   auto stridesOpt = strides();
   auto padsOpt = pads();
   auto outputPads = output_padding();
-  auto outputShape = output_shape();
+  if (autoPad == "SAME_UPPER" || "SAME_LOWER") {
+    SmallVector<int64_t, 2> outputShapeVec;
+    for (unsigned int i = 0; i < spatialRank; ++i) {
+      outputShapeVec.emplace_back(
+          xShape[spatialOffset + i] * ArrayAttrIntVal(stridesOpt, i));
+    }
+    output_shapeAttr(
+        builder.getI64ArrayAttr(llvm::makeArrayRef(outputShapeVec)));
+  }
+  Optional<ArrayAttr> outputShape = output_shape();
   llvm::SmallVector<int64_t, 4> outputShapeFinal;
 
   if (outputShape.has_value()) {
@@ -645,7 +656,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
     */
     SmallVector<int64_t, 4> inferredPads;
     // Determine padding values based on output shape.
-    auto autoPad = auto_pad();
+    // auto autoPad = auto_pad();
     insertConvTransposePads(inferredPads, autoPad, xShape, kernelShape, padsOpt,
         stridesOpt, outputPads, outputShape, dilationsOpt);
     padsAttr(builder.getI64ArrayAttr(inferredPads));
