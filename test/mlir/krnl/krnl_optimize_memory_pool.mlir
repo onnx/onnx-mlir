@@ -237,7 +237,7 @@ func.func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>,
       %19 = arith.addf %17, %18 : f32
       krnl.store %19, %7[%arg3, %arg4] : memref<10x5xf32>
     }
-    "krnl.memcpy"(%6, %7, %c200_i64) : (memref<5x10xf32>, memref<10x5xf32>, i64) -> ()
+    "krnl.memcpy"(%6, %7, %c200_i64, %c0_i64, %c0_i64) : (memref<5x10xf32>, memref<10x5xf32>, i64, i64, i64) -> ()
     %12:2 = krnl.define_loops 2
     krnl.iterate(%12#0, %12#1) with (%12#0 -> %arg3 = 0 to 5, %12#1 -> %arg4 = 0 to 10) {
       krnl.store %cst, %5[%arg3, %arg4] : memref<5x10xf32>
@@ -251,7 +251,7 @@ func.func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>,
         krnl.store %22, %5[%arg3, %arg4] : memref<5x10xf32>
       }
     }
-    "krnl.memcpy"(%4, %5, %c200_i64) : (memref<10x5xf32>, memref<5x10xf32>, i64) -> ()
+    "krnl.memcpy"(%4, %5, %c200_i64, %c0_i64, %c0_i64) : (memref<10x5xf32>, memref<5x10xf32>, i64, i64, i64) -> ()
     %14:2 = krnl.define_loops 2
     krnl.iterate(%14#0, %14#1) with (%14#0 -> %arg3 = 0 to 10, %14#1 -> %arg4 = 0 to 5) {
       %17 = krnl.load %4[%arg3, %arg4] : memref<10x5xf32>
@@ -339,7 +339,7 @@ func.func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>,
       %19 = arith.addf %17, %18 : f32
       krnl.store %19, %7[%arg3, %arg4] : memref<10x5xf32>
     }
-    "krnl.memcpy"(%6, %7, %c200_i64) : (memref<5x10xf32>, memref<10x5xf32>, i64) -> ()
+    "krnl.memcpy"(%6, %7, %c200_i64, %c0_i64, %c0_i64) : (memref<5x10xf32>, memref<10x5xf32>, i64, i64, i64) -> ()
     %12:2 = krnl.define_loops 2
     krnl.iterate(%12#0, %12#1) with (%12#0 -> %arg3 = 0 to 5, %12#1 -> %arg4 = 0 to 10) {
       krnl.store %cst, %5[%arg3, %arg4] : memref<5x10xf32>
@@ -353,7 +353,7 @@ func.func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>,
         krnl.store %22, %5[%arg3, %arg4] : memref<5x10xf32>
       }
     }
-    "krnl.memcpy"(%4, %5, %c200_i64) : (memref<10x5xf32>, memref<5x10xf32>, i64) -> ()
+    "krnl.memcpy"(%4, %5, %c200_i64, %c0_i64, %c0_i64) : (memref<10x5xf32>, memref<5x10xf32>, i64, i64, i64) -> ()
     %14:2 = krnl.define_loops 2
     krnl.iterate(%14#0, %14#1) with (%14#0 -> %arg3 = 0 to 10, %14#1 -> %arg4 = 0 to 5) {
       %17 = krnl.load %4[%arg3, %arg4] : memref<10x5xf32>

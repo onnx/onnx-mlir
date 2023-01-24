@@ -163,13 +163,12 @@ private:
     }
 
     // Block size to copy, computed for the last N dimensions.
-    Value eltSizeInBytes =
-        create->math.constant(i64Ty, getMemRefEltSizeInBytes(inMemRefType));
-    Value sizeInBytes = eltSizeInBytes;
-    for (uint64_t i = rank - numLastDims; i < rank; ++i) {
-      sizeInBytes = create->math.mul(
-          sizeInBytes, create->math.cast(i64Ty, inUBs[i].getValue()));
-    }
+    IndexExpr eltSizeInBytes =
+        LiteralIndexExpr(getMemRefEltSizeInBytes(inMemRefType));
+    IndexExpr sizeInBytesIE = eltSizeInBytes;
+    for (uint64_t i = rank - numLastDims; i < rank; ++i)
+      sizeInBytesIE = sizeInBytesIE * inUBs[i];
+    Value sizeInBytes = create->math.cast(i64Ty, sizeInBytesIE.getValue());
 
     // Remove the last N dimensions in strides and bounds.
     inStrides.truncate(outerRank);
@@ -198,13 +197,16 @@ private:
             destOffsetIE =
                 destOffsetIE + destIndex * SymbolIndexExpr(outStrides[i]);
           }
-          Value destOffsetInBytes = create.math.mul(
-              eltSizeInBytes, create.math.cast(i64Ty, destOffsetIE.getValue()));
-          Value srcOffsetInBytes = create.math.mul(
-              eltSizeInBytes, create.math.cast(i64Ty, srcOffsetIE.getValue()));
+          IndexExpr destOffsetInBytes = eltSizeInBytes * destOffsetIE;
+          // eltSizeInBytes, create.math.cast(i64Ty, destOffsetIE.getValue()));
+          IndexExpr srcOffsetInBytes = eltSizeInBytes * srcOffsetIE;
           // call memcpy.
+          Value destOffsetVal =
+              create.math.cast(i64Ty, destOffsetInBytes.getValue());
+          Value srcOffsetVal =
+              create.math.cast(i64Ty, srcOffsetInBytes.getValue());
           create.krnl.memcpy(outputMemRef, inputMemRef, sizeInBytes,
-              destOffsetInBytes, srcOffsetInBytes);
+              destOffsetVal, srcOffsetVal);
         });
   }
 };
