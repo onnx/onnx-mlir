@@ -230,7 +230,6 @@ test_convtranspose_kernel_shape_cpu
 test_convtranspose_output_shape_cpu
 test_convtranspose_pad_cpu
 test_convtranspose_pads_cpu
-test_convtranspose_with_kernel_cpu
 test_cos_cpu
 test_cos_example_cpu
 test_cosh_cpu
