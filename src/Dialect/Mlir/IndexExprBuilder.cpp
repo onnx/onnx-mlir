@@ -194,7 +194,7 @@ IndexExpr IndexExprBuilder::getValFromArray(
     else
       return DimIndexExpr(castedVal);
   }
-  return QuestionmarkIndexExpr();
+  return QuestionmarkIndexExpr(isFloat);
 }
 
 IndexExpr IndexExprBuilder::getIntAsSymbol(Value value) {

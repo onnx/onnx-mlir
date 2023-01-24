@@ -33,7 +33,7 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
 
   bool scalesFromNone = isFromNone(operandAdaptor.scales());
   if (!scalesFromNone) {
-#if 1
+#if 1 // hi alex
     DimsExpr inputDims;
     createIE->getShapeAsDims(input, inputDims);
     DimsExpr floatScales;
@@ -44,11 +44,14 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
     for (uint64_t i = 0; i < rank; ++i) {
       // Maybe use special case for scale == 1.0 as no floor are then needed.
       IndexExpr floatInputDim = inputDims[i].convertToFloat();
+      // hi alex
       inputDims[i].debugPrint("input dims as int");
       floatInputDim.debugPrint("input dims as float");
       floatScales[i].debugPrint("scales as float");
       IndexExpr floatProduct = floatInputDim * floatScales[i];
+      fprintf(stderr, "hi alex before floor\n");
       IndexExpr floatFloor = floatProduct.floor();
+      floatFloor.debugPrint("hi alex after floor");
       outputDims.emplace_back(floatFloor.convertToIndex());
     }
 #else
@@ -98,7 +101,7 @@ LogicalResult ONNXResizeOp::inferShapes(
   if (!hasShapeAndRank(X()))
     return success();
 
-#if 0
+#if 0 // hi alex
   // TODO : Remove this if branch once floating point scales are handled in
   // ONNXResizeOpShapeHelper Issue number : #1958
   if (!isFromNone(scales())) {

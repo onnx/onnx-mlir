@@ -52,9 +52,21 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
+#if 1
+    // Shape helper.
+    ONNXResizeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    if (hasAllConstantDimensions(memRefType)) {
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+    } else {
+      alloc = insertAllocAndDeallocSimple(
+          rewriter, op, memRefType, loc, shapeHelper.getOutputDims(), insertDealloc);
+    }
+
+#else
     SmallVector<Value, 4> scaleValues;
     bool fromScale = !isFromNone(resizeOp.scales());
-    IndexExprScope outerloopContex(&rewriter, loc);
+    IndexExprScope outerLoopContext(&rewriter, loc);
     DimsExpr outputDims(rank);
     if (fromScale) {
       // Get the scales
@@ -125,6 +137,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       alloc = insertAllocAndDeallocSimple(
           rewriter, op, memRefType, loc, outputDims, insertDealloc);
     }
+#endif
 
     // Call external function when the mode is not "nearest"
     // Create KrnlCallOp and replace the du chain
@@ -133,7 +146,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // and different function will be called accordingly.
     // Another issue is the attributes with default value.
     // Currently, it is assumed that all the optional attributes have
-    // the default value and does appear in the Attribute dictionry.
+    // the default value and does appear in the Attribute dictionary.
     // ToFix: Handle attributes for general case
     if (resizeOp.mode() != "nearest") {
       if (!isFromNone(resizeOp.scales())) {

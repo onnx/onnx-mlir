@@ -52,19 +52,20 @@ void IndexExprImpl::initAsUndefined() {
       IndexExprKind::NonAffine, 0, AffineExpr(nullptr), Value(nullptr));
 }
 
-void IndexExprImpl::initAsQuestionmark() {
+void IndexExprImpl::initAsQuestionmark(bool isFloatFlag) {
   // Question mark has value of -1 by default.
   // Question mark do not track float, set false as default.
-  init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ false,
+  init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ isFloatFlag,
       IndexExprKind::Questionmark, -1, AffineExpr(nullptr), Value(nullptr));
 }
 
-void IndexExprImpl::initAsQuestionmark(int64_t const val) {
+void IndexExprImpl::initAsQuestionmark(int64_t const val, bool isFloatFlag) {
   // Question mark do not track float, set false as default.
-  init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ false,
+  init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ isFloatFlag,
       IndexExprKind::Questionmark, val, AffineExpr(nullptr), Value(nullptr));
 }
 
+// Used for runtime dims; integer by default.
 void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   // Each question mark is assigned a unique integer that is obtained
   // by hashing the tensor/memref value and the target dimension index.
@@ -74,9 +75,9 @@ void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   // Question mark do not track float, set false as default.
   llvm::hash_code questionValue = llvm::hash_combine(
       mlir::hash_value(tensorOrMemref), llvm::hash_value(index));
-  init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ false,
-      IndexExprKind::Questionmark, questionValue, AffineExpr(nullptr),
-      Value(nullptr));
+  init(/*isDefined*/ true, /*literal*/ false,
+      /*isLitFloat, as this is for shapes*/ false, IndexExprKind::Questionmark,
+      questionValue, AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
@@ -135,13 +136,18 @@ static bool getFloatLiteralFromValue(Value value, double &floatLit) {
 }
 
 void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
-  if (newKind == IndexExprKind::Questionmark) {
-    initAsQuestionmark();
-    return;
-  }
   // Val should exist, because we come here only when passing an actual val, but
   // we might consider checking.
   assert(val != nullptr && "expected a defined value");
+  // Check that the value is of the right type.
+  auto type = val.getType();
+  bool valIsFloat = (type.isa<FloatType>());
+  // Questionmark
+  if (newKind == IndexExprKind::Questionmark) {
+    initAsQuestionmark(valIsFloat);
+    return;
+  }
+
   // Do we have a literal integer, if we do, handle it now.
   int64_t valIntLit = 0;
   if (getIntegerLiteralFromValue(val, valIntLit)) {
@@ -158,11 +164,9 @@ void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
   }
   // We have a value that is not a literal.
   if (scope->isShapeInferencePass()) {
-    initAsQuestionmark();
+    initAsQuestionmark(valIsFloat);
     return;
   }
-  // Check that the value is of the right type.
-  auto type = val.getType();
   Value newVal = val;
   if (type.isa<IntegerType>()) {
     if (newKind != IndexExprKind::Predicate) {

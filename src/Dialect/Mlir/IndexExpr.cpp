@@ -589,8 +589,8 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
     return litFct(*this, b);
   if (isShapeInferencePass())
     // In shape analysis, if not constant: do noting, aka leave Values &
-    // Affine expr undefined.
-    return QuestionmarkIndexExpr();
+    // Affine expr undefined. Result is float if both inputs are float.
+    return QuestionmarkIndexExpr(areFloat(b));
   if (resIsAffine)
     // Use affine values.
     return affineExprFct(*this, b);
@@ -599,7 +599,8 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
 }
 
 // Used for ceil/floor
-IndexExpr IndexExpr::unaryOp(F1 litFct, F1 affineExprFct, F1 valueFct) const {
+IndexExpr IndexExpr::unaryOp(
+    bool resIsFloat, F1 litFct, F1 affineExprFct, F1 valueFct) const {
   assert(litFct && "expect lit function");
   assert(valueFct && "expect value function");
   assert(canBeUsedInScope() && "a cannot be used in current scope");
@@ -617,7 +618,7 @@ IndexExpr IndexExpr::unaryOp(F1 litFct, F1 affineExprFct, F1 valueFct) const {
   if (isShapeInferencePass())
     // In shape analysis, if not constant: do noting, aka leave Values &
     // Affine expr undefined.
-    return QuestionmarkIndexExpr();
+    return QuestionmarkIndexExpr(resIsFloat);
   if (resIsAffine) {
     // Use affine values.
     return affineExprFct(*this);
@@ -741,7 +742,7 @@ IndexExpr IndexExpr::operator&(IndexExpr const b) const {
     return deepCopy();
   }
   if (isQuestionmark() || b.isQuestionmark())
-    return QuestionmarkIndexExpr();
+    return QuestionmarkIndexExpr(/*isFloat*/ false);
   // Not literals or questionmark, we must have predicates.
   assert(isPredType() && "expected predicate index expression");
   assert(b.isPredType() && "expected predicate index expression");
@@ -766,7 +767,7 @@ IndexExpr IndexExpr::operator|(IndexExpr const b) const {
     return deepCopy();
   }
   if (isQuestionmark() || b.isQuestionmark())
-    return QuestionmarkIndexExpr();
+    return QuestionmarkIndexExpr(/*isFloat*/ false);
   // Not literals or questionmark, we must have predicates.
   assert(isPredType() && "expected predicate index expression");
   assert(b.isPredType() && "expected predicate index expression");
@@ -814,7 +815,7 @@ IndexExpr IndexExpr::operator!() const {
   }
   if (vals[0].isShapeInferencePass()) {
     // Just set as undefined
-    return QuestionmarkIndexExpr();
+    return QuestionmarkIndexExpr(vals[0].isFloat());
   }
   if (resIsAffine) {
     // Affine handles the hole list
@@ -958,17 +959,12 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
     int64_t bval = bb.getLiteral();
     if (bval >= 0)
       return AffineIndexExpr(aa.getAffineExpr() % bval);
-        MathBuilder createMath(aa.getRewriter(), aa.getLoc());
+    MathBuilder createMath(aa.getRewriter(), aa.getLoc());
     return NonAffineIndexExpr(createMath.ceilDiv(aa.getValue(), bb.getValue()));
-
-// hi alex    return NonAffineIndexExpr(aa.getRewriter().create<arith::RemSIOp>(
-//        aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
     return NonAffineIndexExpr(createMath.ceilDiv(aa.getValue(), bb.getValue()));
-    // hi alex return NonAffineIndexExpr(aa.getRewriter().create<arith::RemSIOp>(
-    //     aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   // Index b must be a literal.
   // Neutral value: ignore here that x % x = 0.
@@ -1004,23 +1000,27 @@ IndexExpr IndexExpr::ceil() const {
 
   // Neutral value: none.
   assert(isFloat() && "float only; int: use ceilDiv or floorDiv");
-  return unaryOp(litFct, nullptr, valueFct);
+  return unaryOp(/*resIsFloat*/ true, litFct, nullptr, valueFct);
 }
 
 // Float operator.
 IndexExpr IndexExpr::floor() const {
   F1 litFct = [](IndexExpr const aa) -> IndexExpr {
     double rval = std::floor(aa.getFloatLiteral());
+    fprintf(stderr, "hi alex, float floor resulting in %f\n", rval);
     return LiteralIndexExpr(rval);
   };
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
-    return NonAffineIndexExpr(createMath.floor(aa.getValue()));
+    Value floorVal = createMath.floor(aa.getValue());
+    fprintf(stderr, "hi alex, float floor\n");
+    floorVal.dump();
+    return NonAffineIndexExpr(floorVal);
   };
 
   // Neutral value: none.
   assert(isFloat() && "float only; int: use ceilDiv or floorDiv");
-  return unaryOp(litFct, nullptr, valueFct);
+  return unaryOp(/*resIsFloat*/ true, litFct, nullptr, valueFct);
 }
 
 // Int operator.
@@ -1037,7 +1037,7 @@ IndexExpr IndexExpr::convertToFloat() const {
 
   // Neutral value: none.
   assert(!isFloat() && "convert to float expect an int as input");
-  return unaryOp(litFct, nullptr, valueFct);
+  return unaryOp(/*resIsFloat*/ true, litFct, nullptr, valueFct);
 }
 
 // Float operator
@@ -1053,7 +1053,7 @@ IndexExpr IndexExpr::convertToIndex() const {
 
   // Neutral value: none.
   assert(isFloat() && "convert to int expect a float as input");
-  return unaryOp(litFct, nullptr, valueFct);
+  return unaryOp(/*resIsFloat*/ false, litFct, nullptr, valueFct);
 }
 
 IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
@@ -1092,7 +1092,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   if (isShapeInferencePass())
     // In shape analysis, if not constant: do noting, aka leave Values &
     // Affine expr undefined.
-    return QuestionmarkIndexExpr();
+    return QuestionmarkIndexExpr(isFloat());
   // Use values.
   return valueFct(*this, min, max);
 }
@@ -1110,7 +1110,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   }
   // Dynamic value, just set as undefined during shape inference pass.
   if (compare.isShapeInferencePass())
-    return QuestionmarkIndexExpr();
+    return QuestionmarkIndexExpr(trueVal.isFloat());
   // Generate code for the select.
   MathBuilder createMath(compare.getRewriter(), compare.getLoc());
   Value results = createMath.select(
@@ -1480,7 +1480,8 @@ NonAffineIndexExpr::NonAffineIndexExpr(IndexExprImpl *otherObjPtr)
   // Depending on what kind of index expr we got, take different actions.
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
-    indexExprObj->initAsQuestionmark(otherObjPtr->getQuestionmark());
+    indexExprObj->initAsQuestionmark(
+        otherObjPtr->getQuestionmark(), otherObjPtr->isFloatType());
     return;
   }
   case IndexExprKind::NonAffine: {
@@ -1529,10 +1530,10 @@ NonAffineIndexExpr::NonAffineIndexExpr(SymbolIndexExpr const &o)
 // IndexExpr Subclasses for constructing QuestionmarkIndexExpr.
 //===----------------------------------------------------------------------===//
 
-QuestionmarkIndexExpr::QuestionmarkIndexExpr() : IndexExpr() {
+QuestionmarkIndexExpr::QuestionmarkIndexExpr(bool isFloatFlag) : IndexExpr() {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
-  indexExprObj->initAsQuestionmark();
+  indexExprObj->initAsQuestionmark(isFloatFlag);
 }
 
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(
@@ -1553,11 +1554,12 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExprImpl *otherObjPtr)
     return;
   // If the index expression is a question mark, just copy it.
   if (otherObjPtr->isQuestionmark()) {
-    indexExprObj->initAsQuestionmark(otherObjPtr->getQuestionmark());
+    indexExprObj->initAsQuestionmark(
+        otherObjPtr->getQuestionmark(), otherObjPtr->isFloatType());
     return;
   }
   // Don't care about otherObjPtr, just create a general question mark.
-  indexExprObj->initAsQuestionmark();
+  indexExprObj->initAsQuestionmark(otherObjPtr->isFloatType());
 }
 
 QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExpr const &o)
@@ -1681,7 +1683,8 @@ AffineIndexExpr::AffineIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   bool isSameScope = otherObjPtr->isInCurrentScope();
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
-    indexExprObj->initAsQuestionmark(otherObjPtr->getQuestionmark());
+    indexExprObj->initAsQuestionmark(
+        otherObjPtr->getQuestionmark(), otherObjPtr->isFloatType());
     return;
   }
   case IndexExprKind::NonAffine: {
@@ -1755,7 +1758,8 @@ DimIndexExpr::DimIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   bool isSameScope = otherObjPtr->isInCurrentScope();
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
-    indexExprObj->initAsQuestionmark(otherObjPtr->getQuestionmark());
+    indexExprObj->initAsQuestionmark(
+        otherObjPtr->getQuestionmark(), otherObjPtr->isFloatType());
     return;
   }
   case IndexExprKind::NonAffine: {
@@ -1829,7 +1833,8 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExprImpl *otherObjPtr) : IndexExpr() {
   bool isSameScope = otherObjPtr->isInCurrentScope();
   switch (otherObjPtr->getKind()) {
   case IndexExprKind::Questionmark: {
-    indexExprObj->initAsQuestionmark(otherObjPtr->getQuestionmark());
+    indexExprObj->initAsQuestionmark(
+        otherObjPtr->getQuestionmark(), otherObjPtr->isFloatType());
     return;
   }
   case IndexExprKind::NonAffine: {
@@ -1896,7 +1901,7 @@ void getIndexExprListFromShape(
     if (item >= 0)
       outputList.emplace_back(LiteralIndexExpr(item));
     else
-      outputList.emplace_back(QuestionmarkIndexExpr());
+      outputList.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
   }
 }
 

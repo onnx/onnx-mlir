@@ -130,7 +130,7 @@ ONNXGenericReductionOpShapeHelper<ONNXReduceSumOp>::computeShape() {
     }
     // Else set is as questionmarks. Output tensor should have the same rank as
     // the input. But size of dims is unknown.
-    DimsExpr outputDims(outputRank, QuestionmarkIndexExpr());
+    DimsExpr outputDims(outputRank, QuestionmarkIndexExpr(/*isFloat*/ false));
     setOutputDims(outputDims);
     return success();
   }

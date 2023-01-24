@@ -599,7 +599,9 @@ protected:
   // When hasNeutralB, if b is neutral literal value, then result is a. We
   // represent the neutral value using a double, as it's value (0.0 or 1.0) can
   // be safely converted to int too.
-  IndexExpr unaryOp(F1 litFct, F1 affineExprFct, F1 valueFct) const;
+  IndexExpr unaryOp(
+      bool resIsFloat, F1 litFct, F1 affineExprFct, F1 valueFct) const;
+  // Res is float is the same as a & b.
   IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB, bool hasNeutralA,
       bool hasNeutralB, double neutralVal, F2 fInteger, F2 fAffine,
       F2 fValue) const;
@@ -682,7 +684,8 @@ private:
 // Subclass to explicitly create Questionmark IndexExpr.
 class QuestionmarkIndexExpr : public IndexExpr {
 public:
-  QuestionmarkIndexExpr();
+  QuestionmarkIndexExpr() = default;
+  QuestionmarkIndexExpr(bool isFloat);
   // Construct a question mark for an unknown dimension in a Tensor/Memref.
   // This constructor is needed for symbolic shape analysis where each
   // question mark is assigned to a unique value hashed from the given
