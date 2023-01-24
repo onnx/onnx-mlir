@@ -106,7 +106,7 @@ private:
         break;
     }
 
-    return (numberOfUnchangedInnerDims > 0) ? numberOfUnchangedInnerDims : NULL;
+    return numberOfUnchangedInnerDims;
   }
 
   // Do transpose by copying elements one-by-one.
