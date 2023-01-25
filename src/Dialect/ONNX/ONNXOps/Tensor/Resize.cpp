@@ -24,47 +24,48 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-template <>
 LogicalResult ONNXResizeOpShapeHelper::computeShape() {
   ONNXResizeOpAdaptor operandAdaptor(operands);
-  Value input = operandAdaptor.X();
-  uint64_t rank = createIE->getShapedTypeRank(input);
-  DimsExpr outputDims;
-
+  uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.X());
+  DimsExpr inputDims, outputDims;
+  createIE->getShapeAsDims(operandAdaptor.X(), inputDims);
   bool scalesFromNone = isFromNone(operandAdaptor.scales());
+
   if (!scalesFromNone) {
-#if 1 // hi alex
-    DimsExpr inputDims;
-    createIE->getShapeAsDims(input, inputDims);
-    DimsExpr floatScales;
-    createIE->getFloatFromArrayAsNonAffine(
-        operandAdaptor.scales(), floatScales);
-    if (inputDims.size() != floatScales.size())
+    // Read and save scales as float.
+    createIE->getFloatFromArrayAsNonAffine(operandAdaptor.scales(), scales);
+    if (inputDims.size() != scales.size())
       return op->emitError("expected scales to have the same rank as input");
+    // Compute output dims = int(floor(float(input dims) * scales)).
     for (uint64_t i = 0; i < rank; ++i) {
-      // Maybe use special case for scale == 1.0 as no floor are then needed.
-      IndexExpr floatInputDim = inputDims[i].convertToFloat();
-      // hi alex
-      inputDims[i].debugPrint("input dims as int");
-      floatInputDim.debugPrint("input dims as float");
-      floatScales[i].debugPrint("scales as float");
-      IndexExpr floatProduct = floatInputDim * floatScales[i];
-      fprintf(stderr, "hi alex before floor\n");
-      IndexExpr floatFloor = floatProduct.floor();
-      floatFloor.debugPrint("hi alex after floor");
-      outputDims.emplace_back(floatFloor.convertToIndex());
+      // Special case for scale == 1.0 as converts are then needed.
+      if (scales[i].isLiteralAndIdenticalTo(1.0)) {
+        outputDims.emplace_back(inputDims[i]);
+      } else {
+        IndexExpr floatInputDim = inputDims[i].convertToFloat();
+        // hi alex
+        inputDims[i].debugPrint("input dims as int");
+        floatInputDim.debugPrint("input dims as float");
+        scales[i].debugPrint("scales as float");
+        IndexExpr floatProduct = floatInputDim * scales[i];
+        // Formula has a floor, but convert of positive number already rounds
+        // toward zero, so skip the floor. 
+        outputDims.emplace_back(floatProduct.convertToIndex());
+      }
     }
-#else
-    // Old code that does not use float.
-    createIE->getShapeAsDims(input, outputDims);
-    DimsExpr scales;
-    createIE->getIntFromArrayAsSymbols(operandAdaptor.scales(), scales);
-    for (uint64_t i = 0; i < rank; ++i)
-      outputDims[i] = outputDims[i] * scales[i];
-#endif
   } else {
+    // Output size is defined by input `sizes`.
     createIE->getIntFromArrayAsSymbols(operandAdaptor.sizes(), outputDims);
+    if (inputDims.size() != outputDims.size())
+      return op->emitError("expected scales to have the same rank as input");
+    // Compute scales as float(output dims) / float(input dims).
+    for (uint64_t i = 0; i < rank; ++i) {
+      IndexExpr floatInputDim = inputDims[i].convertToFloat();
+      IndexExpr floatOutputDim = outputDims[i].convertToFloat();
+      scales.emplace_back(floatOutputDim / floatInputDim);
+    }
   }
+  // Save output dims
   setOutputDims(outputDims);
   return success();
 }
@@ -143,11 +144,3 @@ LogicalResult ONNXResizeOp::inferShapes(
   ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
-
-//===----------------------------------------------------------------------===//
-// Template instantiation
-//===----------------------------------------------------------------------===//
-
-namespace onnx_mlir {
-template struct ONNXNonSpecificOpShapeHelper<ONNXResizeOp>;
-} // namespace onnx_mlir

@@ -708,7 +708,9 @@ struct ONNXResizeOpShapeHelper : public ONNXOpShapeHelper {
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXResizeOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
-  // Values set by computeShape.
+  // Values set by computeShape: scales is a float index expression. It is
+  // directly the `scale` argument when scale is provided by the op. When `size`
+  // is provided, then scale is float(`size`)/float(dim).
   llvm::SmallVector<IndexExpr, 4> scales;
 };
 

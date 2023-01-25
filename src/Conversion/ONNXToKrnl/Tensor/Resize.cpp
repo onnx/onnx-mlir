@@ -53,14 +53,14 @@ struct ONNXResizeOpLowering : public ConversionPattern {
         MemRefBuilder>
         create(rewriter, loc);
 #if 1
-    // Shape helper.
+    // Shape helper: compute output dims and scales.
     ONNXResizeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     if (hasAllConstantDimensions(memRefType)) {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     } else {
-      alloc = insertAllocAndDeallocSimple(
-          rewriter, op, memRefType, loc, shapeHelper.getOutputDims(), insertDealloc);
+      alloc = insertAllocAndDeallocSimple(rewriter, op, memRefType, loc,
+          shapeHelper.getOutputDims(), insertDealloc);
     }
 
 #else
@@ -160,6 +160,10 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       return success();
     }
     // It is much more efficient to generate codes directly if possible
+
+    // hi alex: new code
+    SmallVector<Value, 4> scaleValues;
+    IndexExpr::getValues(shapeHelper.scales, scaleValues);
 
     // Constants used in the loop body
     Value zero = create.math.constant(rewriter.getIntegerType(64), 0);
