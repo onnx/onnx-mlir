@@ -190,7 +190,6 @@ func.func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5x
 // CHECK: %3 = "mhlo.dynamic_broadcast_in_dim"(%arg0, %2) {broadcast_dimensions = dense<[0, 1, 2]> : tensor<3xi64>} : (tensor<?x4x5xf32>, tensor<3xindex>) -> tensor<?x4x5xf32>
 // CHECK: %4 = "mhlo.dynamic_broadcast_in_dim"(%arg1, %2) {broadcast_dimensions = dense<[0, 1, 2]> : tensor<3xi64>} : (tensor<1x?x1xf32>, tensor<3xindex>) -> tensor<?x4x5xf32>
 // CHECK: %5 = mhlo.compare LT, %3, %4, NOTYPE : (tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
-
 }
 
 // -----
@@ -232,4 +231,44 @@ func.func @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   "func.return"(%0) : (tensor<?x10xf32>) -> ()
 // CHECK-LABEL: func @test_sqrt
 // CHECK: %0 = mhlo.sqrt %arg0 : tensor<?x10xf32>
+}
+
+func.func @test_log(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
+  %0 = "onnx.Log"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
+  "func.return"(%0) : (tensor<?x10xf32>) -> ()
+// CHECK-LABEL: func @test_log
+// CHECK: %0 = mhlo.log %arg0 : tensor<?x10xf32>
+}
+
+func.func @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
+  %0 = "onnx.Tanh"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
+  "func.return"(%0) : (tensor<?x10xf32>) -> ()
+// CHECK-LABEL: func @test_tanh
+// CHECK: %0 = mhlo.tanh %arg0 : tensor<?x10xf32>
+}
+
+func.func @test_max(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Max"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_max
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = mhlo.maximum [[PARAM_0_]], [[PARAM_1_]] : tensor<10x10xf32>
+// CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xf32>
+}
+
+func.func @test_leakyrelu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
+  %0 = "onnx.LeakyRelu"(%arg0) {alpha=0.5:f32} : (tensor<?x10xf32>) -> tensor<?x10xf32>
+  "func.return"(%0) : (tensor<?x10xf32>) -> ()
+// CHECK-LABEL:  func @test_leakyrelu_dynamic
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xf32>) -> tensor<?x10xf32> {
+// CHECK-DAG:      [[VAR_0_:%.+]] = mhlo.constant dense<5.000000e-01> : tensor<f32>
+// CHECK-DAG:      [[VAR_1_:%.+]] = shape.shape_of [[PARAM_0_]] : tensor<?x10xf32> -> tensor<2xindex>
+// CHECK-DAG:      [[VAR_2_:%.+]] = "mhlo.dynamic_broadcast_in_dim"([[VAR_0_]], [[VAR_1_]]) {broadcast_dimensions = dense<> : tensor<0xi64>} : (tensor<f32>, tensor<2xindex>) -> tensor<?x10xf32>
+// CHECK-DAG:      [[VAR_3_:%.+]] = mhlo.multiply [[PARAM_0_]], [[VAR_2_]] : tensor<?x10xf32>
+// CHECK-DAG:      [[VAR_4_:%.+]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
+// CHECK-DAG:      [[VAR_5_:%.+]] = shape.shape_of [[PARAM_0_]] : tensor<?x10xf32> -> tensor<2xindex>
+// CHECK-DAG:      [[VAR_6_:%.+]] = "mhlo.dynamic_broadcast_in_dim"([[VAR_4_]], [[VAR_5_]]) {broadcast_dimensions = dense<> : tensor<0xi64>} : (tensor<f32>, tensor<2xindex>) -> tensor<?x10xf32>
+// CHECK-DAG:      [[VAR_7_:%.+]] = mhlo.compare  GT, %arg0, %6,  NOTYPE : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xi1>
+// CHECK-NEXT:     [[VAR_8_:%.+]] = mhlo.select [[VAR_7_]], [[PARAM_0_]], [[VAR_3_]] : tensor<?x10xi1>, tensor<?x10xf32>
+// CHECK-NEXT:     return [[VAR_8_]] : tensor<?x10xf32>
 }
