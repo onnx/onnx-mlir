@@ -210,7 +210,6 @@ private:
 void populateLoweringKrnlUnaryMathOpPattern(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(typeConverter, ctx);
-  patterns.insert<KrnlUnaryMathOpLowering<KrnlIsInfOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlIsNaNOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAcosOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAcoshOp>>(typeConverter, ctx);
