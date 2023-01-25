@@ -180,7 +180,8 @@ Value reverseWeightTensor4D(
     PatternRewriter &rewriter, Location loc, Value input) {
   // Transpose input because ReverseSequence op can reverse elements in the
   // first and second dimensions.
-  ArrayRef<int64_t> perms = SmallVector<int64_t, 4>({2, 3, 0, 1});
+  SmallVector<int64_t, 4> permsval({2, 3, 0, 1});
+  ArrayRef<int64_t> perms(permsval);
   Value transposedInput = emitONNXTranspose(loc, rewriter, input, perms);
 
   // Reverse elements using ReverseSequence op
@@ -202,7 +203,8 @@ Value reverseWeightTensor4D(
 
   // Transpose in order to reverse other elements in the tensor
   Value reverse2 = emitONNXTranspose(loc, rewriter, reverse1, perms);
-  ArrayRef<int64_t> perms1 = SmallVector<int64_t, 4>({1, 0, 2, 3});
+  SmallVector<int64_t, 4> permsval1({1, 0, 2, 3});
+  ArrayRef<int64_t> perms1(permsval1);
   Value result = emitONNXTranspose(loc, rewriter, reverse2, perms1);
 
   return result;
