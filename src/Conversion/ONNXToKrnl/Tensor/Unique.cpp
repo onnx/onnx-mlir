@@ -90,19 +90,19 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     ArrayRef<int64_t> xShape = getShape(X.getType());
     Type i64Type = rewriter.getI64Type();
     DimsExpr resDims;
-    //create.krnlIE.getShapeAsDims(X, resDims);
+    // create.krnlIE.getShapeAsDims(X, resDims);
     MemRefType resMemrefForAllocType = MemRefType::get(xShape, i64Type);
     insertDealloc = checkInsertDealloc(op, /*resultIndex=*/1);
     Value resIndexMemRef = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(resMemrefForAllocType.getShape(), i64Type), loc, resDims,
-        insertDealloc);
+        MemRefType::get(resMemrefForAllocType.getShape(), i64Type), loc,
+        resDims, insertDealloc);
     Value indices;
     Value reverse_indices;
     Value counts;
 
     // Compute argUnique of X along axis.
-    Value argUnique =
-        emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted, indices, reverse_indices, counts, OMUNIQUE_FLAG_COUNTONLY);
+    Value argUnique = emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted,
+        indices, reverse_indices, counts, OMUNIQUE_FLAG_COUNTONLY);
 #if 0
     // Produce the final result.
     SmallVector<IndexExpr> zeroDims(rank, LiteralIndexExpr(0));
@@ -124,7 +124,8 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 #endif
     Value resMemRef = insertAllocAndDeallocSimple(
         rewriter, op, resMemrefForAllocType, loc, resDims, insertDealloc);
-    rewriter.replaceOp(op, {resMemRef, resIndexMemRef, resIndexMemRef, resIndexMemRef});
+    rewriter.replaceOp(
+        op, {resMemRef, resIndexMemRef, resIndexMemRef, resIndexMemRef});
     return success();
   }
 };

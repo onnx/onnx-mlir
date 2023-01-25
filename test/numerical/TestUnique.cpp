@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====-- TestUnique.cpp - test Unique code -======================================//
+//====-- TestUnique.cpp - test Unique code
+//-======================================//
 //
 // Copyright 2022 The IBM Research Authors.
 //
@@ -55,13 +56,11 @@ void omPrintAsPython(OMTensor *tensor, std::string name) {
 // Returns whether onnx-mlir compiled Unique is producing the same results
 // as a naive implementation of Unique for a specific set of Unique
 // parameters/configuration.
-static bool isOMUniqueTheSameAsNaiveImplFor(
-    const int rank, const int I, const int J, const int K, const int axis,
-    const int sorted = 0) {
+static bool isOMUniqueTheSameAsNaiveImplFor(const int rank, const int I,
+    const int J, const int K, const int axis, const int sorted = 0) {
 
   UniqueLibBuilder unique(SHARED_LIB_BASE.str(), rank, I, J, axis, sorted);
-  return unique.build() &&
-         unique.compileAndLoad() &&
+  return unique.build() && unique.compileAndLoad() &&
 #if 0
          unique.prepareInputsFromEnv("TEST_DATARANGE") &&
          unique.run() &&
@@ -90,11 +89,11 @@ int main(int argc, char *argv[]) {
   if (true) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Unique implementation correctness", []() {
-      const int rank = 2; // *rc::gen::inRange(1, maxRank);
-      const int I = 2; // *rc::gen::inRange(1, maxRank);
-      const int J = 2; // *rc::gen::inRange(1, maxRank);
-      const int K = -1; // *rc::gen::inRange(1, maxRank);
-      const int axis = 0; // *rc::gen::inRange(1, maxRank);
+      const int rank = 2;   // *rc::gen::inRange(1, maxRank);
+      const int I = 2;      // *rc::gen::inRange(1, maxRank);
+      const int J = 2;      // *rc::gen::inRange(1, maxRank);
+      const int K = -1;     // *rc::gen::inRange(1, maxRank);
+      const int axis = 0;   // *rc::gen::inRange(1, maxRank);
       const int sorted = 0; // *rc::gen::inRange(1, maxRank);
       RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(rank, I, J, K, axis, sorted));
     });

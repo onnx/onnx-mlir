@@ -26,13 +26,13 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   Optional<int64_t> optionalAxis = operandAdaptor.axis();
   // Generate the output dims.
   DimsExpr outputDims;
-  if (!optionalAxis.has_value()) {     // if no axis given
+  if (!optionalAxis.has_value()) {                    // if no axis given
     outputDims.emplace_back(QuestionmarkIndexExpr()); // return 1D array
-  } else {                             // if axis given
+  } else {                                            // if axis given
     int64_t axis = optionalAxis.value();
     for (int64_t i = 0; i < rank; i++) {
-      outputDims.emplace_back(
-          (i == axis) ? QuestionmarkIndexExpr() : createIE->getShapeAsDim(X, i));
+      outputDims.emplace_back((i == axis) ? QuestionmarkIndexExpr()
+                                          : createIE->getShapeAsDim(X, i));
     }
   }
   setOutputDims(outputDims, 0);

@@ -27,7 +27,8 @@ namespace onnx_mlir {
 namespace test {
 
 UniqueLibBuilder::UniqueLibBuilder(const std::string &modelName, const int rank,
-    const int I, const int J, /*const int K, */const int axis, const int sorted)
+    const int I, const int J, /*const int K, */ const int axis,
+    const int sorted)
     : ModelLibBuilder(modelName), rank(rank), I(I), J(J), /*K(K),*/ axis(axis),
       sorted(sorted) {}
 

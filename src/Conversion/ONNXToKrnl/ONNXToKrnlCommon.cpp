@@ -557,9 +557,9 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   return order;
 }
 
-/// Emit function call to compute arg unique of a given MemRef along a given axis.
-/// The first output MemRef has the same shape as the input MemRef but is of
-/// IndexType. Shape of the second, third and fourth arguments depends on the
+/// Emit function call to compute arg unique of a given MemRef along a given
+/// axis. The first output MemRef has the same shape as the input MemRef but is
+/// of IndexType. Shape of the second, third and fourth arguments depends on the
 /// input options.
 mlir::Value emitArgUnique(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value input, int64_t axis, int64_t sorted,

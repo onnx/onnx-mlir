@@ -54,7 +54,7 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
     transposedDims.emplace_back(createIE->getShapeAsDim(data, inputIndex));
   }
 
-  setOutputDims(transposedDims, 0);
+  setOutputDims(transposedDims);
   return success();
 }
 

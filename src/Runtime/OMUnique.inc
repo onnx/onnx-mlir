@@ -153,7 +153,7 @@ int omTensorUnique(
         continue; // goto next dimPrevInUniqueAxis to check next axis
       }
       if (dimPrevInUniqueAxis == dimCurrInUniqueAxis) {
-        count++; // dimCurrInUniqueAxis is a unique dim in the unique axis 
+        count++; // dimCurrInUniqueAxis is a unique dim in the unique axis
         // TODO: Fill values of return variables, such as Y, indices,
         //       inverse_indices and counts
       }
