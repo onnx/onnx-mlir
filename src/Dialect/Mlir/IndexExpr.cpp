@@ -1007,13 +1007,11 @@ IndexExpr IndexExpr::ceil() const {
 IndexExpr IndexExpr::floor() const {
   F1 litFct = [](IndexExpr const aa) -> IndexExpr {
     double rval = std::floor(aa.getFloatLiteral());
-    fprintf(stderr, "hi alex, float floor resulting in %f\n", rval);
     return LiteralIndexExpr(rval);
   };
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
     Value floorVal = createMath.floor(aa.getValue());
-    fprintf(stderr, "hi alex, float floor\n");
     floorVal.dump();
     return NonAffineIndexExpr(floorVal);
   };

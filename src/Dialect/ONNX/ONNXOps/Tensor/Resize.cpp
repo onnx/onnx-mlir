@@ -43,13 +43,9 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
         outputDims.emplace_back(inputDims[i]);
       } else {
         IndexExpr floatInputDim = inputDims[i].convertToFloat();
-        // hi alex
-        inputDims[i].debugPrint("input dims as int");
-        floatInputDim.debugPrint("input dims as float");
-        scales[i].debugPrint("scales as float");
         IndexExpr floatProduct = floatInputDim * scales[i];
         // Formula has a floor, but convert of positive number already rounds
-        // toward zero, so skip the floor. 
+        // toward zero, so skip the floor.
         outputDims.emplace_back(floatProduct.convertToIndex());
       }
     }
@@ -101,44 +97,6 @@ LogicalResult ONNXResizeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(X()))
     return success();
-
-#if 0 // hi alex
-  // TODO : Remove this if branch once floating point scales are handled in
-  // ONNXResizeOpShapeHelper Issue number : #1958
-  if (!isFromNone(scales())) {
-    RankedTensorType inputTy = X().getType().cast<RankedTensorType>();
-
-    // Output should at least has the same rank as X input
-    if (!getResult().getType().isa<RankedTensorType>()) {
-      SmallVector<int64_t, 4> dims(inputTy.getRank(), -1);
-      getResult().setType(
-          RankedTensorType::get(dims, inputTy.getElementType()));
-    }
-
-    ElementsAttr scalesAttrs = getElementAttributeFromONNXValue(scales());
-    if (!scalesAttrs) {
-      return success();
-    }
-
-    SmallVector<float, 4> scalesConstant;
-    for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
-      scalesConstant.emplace_back(scaleAttr.getValueAsDouble());
-    }
-
-    SmallVector<int64_t, 4> dims;
-    for (int i = 0; i < inputTy.getRank(); i++) {
-      int newDim;
-      if (ShapedType::isDynamic(inputTy.getShape()[i]))
-        newDim = -1;
-      else
-        newDim = inputTy.getShape()[i] * scalesConstant[i];
-      dims.emplace_back(newDim);
-    }
-
-    updateType(getResult(), dims, inputTy.getElementType());
-    return success();
-  }
-#endif
 
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();
   ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});

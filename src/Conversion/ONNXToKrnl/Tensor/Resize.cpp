@@ -52,7 +52,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
-#if 1
+
     // Shape helper: compute output dims and scales.
     ONNXResizeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
@@ -62,82 +62,6 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       alloc = insertAllocAndDeallocSimple(rewriter, op, memRefType, loc,
           shapeHelper.getOutputDims(), insertDealloc);
     }
-
-#else
-    SmallVector<Value, 4> scaleValues;
-    bool fromScale = !isFromNone(resizeOp.scales());
-    IndexExprScope outerLoopContext(&rewriter, loc);
-    DimsExpr outputDims(rank);
-    if (fromScale) {
-      // Get the scales
-      // SymbolIndexExpr was tried but got runtime error
-      // Attribute::cast() const [with U = mlir::IntegerAttr]
-      // The reason seems to be that IntegerAttr is assumed
-      //
-      ElementsAttr scalesAttrs =
-          getElementAttributeFromONNXValue(resizeOp.scales());
-      SmallVector<float, 4> scalesConstant;
-      if (scalesAttrs) {
-        for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
-          Value scaleConstant = create.math.constant(
-              rewriter.getF32Type(), scaleAttr.getValueAsDouble());
-          scaleValues.emplace_back(scaleConstant);
-        }
-      } else {
-        for (decltype(rank) i = 0; i < rank; i++) {
-          Value indexValue = create.math.constantIndex(i);
-          Value scaleVal = create.krnl.load(scales, indexValue);
-          scaleValues.emplace_back(scaleVal);
-        }
-      }
-    } else {
-      for (decltype(rank) i = 0; i < rank; i++) {
-        Value indexValue = create.math.constantIndex(i);
-        Value resizedVal = create.krnl.load(sizes, indexValue);
-        Value resizedFVal = rewriter.create<arith::SIToFPOp>(
-            loc, rewriter.getF32Type(), resizedVal);
-        Value inputDim = create.krnlIE.getShapeAsDim(data, i).getValue();
-        Value inputDimFloat = create.math.cast(rewriter.getF32Type(), inputDim);
-        Value scaleVal = create.math.div(resizedFVal, inputDimFloat);
-        scaleValues.emplace_back(scaleVal);
-      }
-    }
-
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else if (fromScale) {
-      for (decltype(rank) i = 0; i < rank; i++) {
-        if (!memRefType.isDynamicDim(i)) {
-          outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
-        } else {
-          Value inputDim = create.krnlIE.getShapeAsDim(data, i).getValue();
-          Value inputDimFloat =
-              create.math.cast(rewriter.getF32Type(), inputDim);
-          Value outputDimFloat = create.math.mul(inputDimFloat, scaleValues[i]);
-          Value outDim = create.math.castToIndex(outputDimFloat);
-          SymbolIndexExpr outDimIE(outDim);
-          outputDims[i] = SymbolIndexExpr(outDimIE);
-        }
-      }
-      alloc = insertAllocAndDeallocSimple(
-          rewriter, op, memRefType, loc, outputDims, insertDealloc);
-    } else {
-      // Output is determined by sizes()
-      for (decltype(rank) i = 0; i < rank; i++) {
-        if (!memRefType.isDynamicDim(i)) {
-          outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
-        } else {
-          Value indexValue = create.math.constantIndex(i);
-          Value resizedVal = create.krnl.load(sizes, indexValue);
-          Value outDim = create.math.castToIndex(resizedVal);
-          SymbolIndexExpr outDimIE(outDim);
-          outputDims[i] = SymbolIndexExpr(outDimIE);
-        }
-      }
-      alloc = insertAllocAndDeallocSimple(
-          rewriter, op, memRefType, loc, outputDims, insertDealloc);
-    }
-#endif
 
     // Call external function when the mode is not "nearest"
     // Create KrnlCallOp and replace the du chain
@@ -161,7 +85,6 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     }
     // It is much more efficient to generate codes directly if possible
 
-    // hi alex: new code
     SmallVector<Value, 4> scaleValues;
     IndexExpr::getValues(shapeHelper.scales, scaleValues);
 
