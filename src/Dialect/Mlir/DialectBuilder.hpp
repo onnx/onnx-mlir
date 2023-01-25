@@ -109,6 +109,9 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value constant(mlir::Type type, double val) const;
   mlir::Value constantIndex(int64_t val) const;
 
+  mlir::Attribute negativeInfAttr(mlir::Type type) const;
+  mlir::Attribute positiveInfAttr(mlir::Type type) const;
+
   /// Emit a negative infinity constant of a specific type. Supported types:
   /// F16, F32, F64, Int8, Int16, Int32, Int64. In case of Float, emit the
   /// negative of the positive infinity. In case of Integer, emit the minimum

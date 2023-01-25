@@ -412,7 +412,7 @@ def SliceofConst :  Pat<
     (CreateSliceOfConst $resOp, $input),
     [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$starts),
      (IsFromDenseONNXConstantOp:$ends), (IsFromDenseONNXConstantOpOrNone:$axes),
-     (IsFromDenseONNXConstantOpOrNone:$steps)]>;
+     (IsFromDenseONNXConstantOpOrNone:$steps), (HasStaticShape:$resOp)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Concat operations.
