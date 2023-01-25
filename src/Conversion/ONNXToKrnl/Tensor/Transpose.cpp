@@ -63,8 +63,13 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
         insertAllocAndDeallocSimple(rewriter, op, outMemRefType, loc, outDims);
 
     // If the last N dimensions are not permuted, do block copying for the last
-    // N dimensions. Otherwise, do element-wise copying.
-    if (auto numLastDims = unchangedInnerDimensions(permAttr))
+    // N dimensions. Input and Output's MemRefs must use an identity layout to
+    // make sure the block's elements are consecutive.
+    //
+    // Otherwise, do element-wise copying.
+
+    if (auto numLastDims =
+            unchangedInnerDimensions(inMemRefType, outMemRefType, permAttr))
       blockTranspose(data, alloc, permAttr, &create, numLastDims);
     else
       scalarTranspose(data, alloc, permAttr, &create);
@@ -96,9 +101,19 @@ private:
   }
 
   // Determine how many consecutive inner-most dimensions are not permuted.
-  int unchangedInnerDimensions(Optional<ArrayAttr> permAttr) const {
-    uint64_t rank = permAttr.value().size();
+  int unchangedInnerDimensions(MemRefType inputMemRefType,
+      MemRefType outputMemRefType, Optional<ArrayAttr> permAttr) const {
+    // Verify that the input's affine layout is identity.
+    AffineMap im = inputMemRefType.getLayout().getAffineMap();
+    if (im.getNumResults() != 1 && !im.isIdentity())
+      return 0;
+    // Verify that the output's affine layout is identity.
+    AffineMap om = outputMemRefType.getLayout().getAffineMap();
+    if (om.getNumResults() != 1 && !om.isIdentity())
+      return 0;
+
     int numberOfUnchangedInnerDims = 0;
+    uint64_t rank = inputMemRefType.getRank();
     for (int i = rank - 1; i >= 0; --i) {
       if (ArrayAttrIntVal(permAttr, i) == i)
         numberOfUnchangedInnerDims++;
@@ -162,13 +177,12 @@ private:
       outStrides[i] = strideIE;
     }
 
-    // Block size to copy, computed for the last N dimensions.
-    IndexExpr eltSizeInBytes =
-        LiteralIndexExpr(getMemRefEltSizeInBytes(inMemRefType));
-    IndexExpr sizeInBytesIE = eltSizeInBytes;
+    // The number of elements in a block to copy, computed for the last N
+    // dimensions.
+    IndexExpr elemsToCopy = LiteralIndexExpr(1);
     for (uint64_t i = rank - numLastDims; i < rank; ++i)
-      sizeInBytesIE = sizeInBytesIE * inUBs[i];
-    Value sizeInBytes = create->math.cast(i64Ty, sizeInBytesIE.getValue());
+      elemsToCopy = elemsToCopy * inUBs[i];
+    Value elemsToCopyI64 = create->math.cast(i64Ty, elemsToCopy.getValue());
 
     // Remove the last N dimensions in strides and bounds.
     inStrides.truncate(outerRank);
@@ -196,15 +210,9 @@ private:
             destOffsetIE =
                 destOffsetIE + destIndex * SymbolIndexExpr(outStrides[i]);
           }
-          IndexExpr destOffsetInBytes = eltSizeInBytes * destOffsetIE;
-          IndexExpr srcOffsetInBytes = eltSizeInBytes * srcOffsetIE;
           // call memcpy.
-          Value destOffset =
-              create.math.cast(i64Ty, destOffsetInBytes.getValue());
-          Value srcOffset =
-              create.math.cast(i64Ty, srcOffsetInBytes.getValue());
-          create.krnl.memcpy(
-              outputMemRef, inputMemRef, sizeInBytes, destOffset, srcOffset);
+          create.krnl.memcpy(outputMemRef, inputMemRef, elemsToCopyI64,
+              destOffsetIE.getValue(), srcOffsetIE.getValue());
         });
   }
 };

@@ -65,8 +65,8 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
         rewriter, op, outputMemRefType, loc, dataDims);
 
     // Step1: copy the data array into the output array.
-    Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, data);
-    create.krnl.memcpy(output, data, sizeInBytes);
+    Value numOfElements = getDynamicMemRefSize(rewriter, loc, data);
+    create.krnl.memcpy(output, data, numOfElements);
 
     // Step2: scatter the updates array into the output array.
     //   index = indices[i][j]...[n]

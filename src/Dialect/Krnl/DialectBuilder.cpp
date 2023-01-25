@@ -231,16 +231,16 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
       alignment.value_or(nullptr));
 }
 
-void KrnlBuilder::memcpy(Value dest, Value src, Value size) const {
+void KrnlBuilder::memcpy(Value dest, Value src, Value numElems) const {
   MultiDialectBuilder<MathBuilder> create(*this);
-  Value zero = create.math.constant(b().getI64Type(), 0);
+  Value zero = create.math.constantIndex(0);
   b().create<KrnlMemcpyOp>(
-      loc(), dest, src, size, /*dest_offset=*/zero, /*src_offset=*/zero);
+      loc(), dest, src, numElems, /*dest_offset=*/zero, /*src_offset=*/zero);
 }
 
-void KrnlBuilder::memcpy(Value dest, Value src, Value size, Value destOffset,
-    Value srcOffset) const {
-  b().create<KrnlMemcpyOp>(loc(), dest, src, size, destOffset, srcOffset);
+void KrnlBuilder::memcpy(Value dest, Value src, Value numElems,
+    Value destOffset, Value srcOffset) const {
+  b().create<KrnlMemcpyOp>(loc(), dest, src, numElems, destOffset, srcOffset);
 }
 
 void KrnlBuilder::memset(Value dest, Value val, bool delayed) const {

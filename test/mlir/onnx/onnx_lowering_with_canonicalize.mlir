@@ -3791,11 +3791,11 @@ func.func @test_transpose_block_1_last_dim(%arg0: tensor<?x256x12x64xf32>) -> te
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2, d3)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 786432 + d1 * 256 + d2 * 65536)>
-// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 786432 + d1 * 3072 + d2 * 256)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 196608 + d1 * 64 + d2 * 16384)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 196608 + d1 * 768 + d2 * 64)>
 // CHECK-LABEL:  func.func @test_transpose_block_1_last_dim
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x256x12x64xf32>) -> memref<?x12x256x64xf32> {
-// CHECK-DAG:       [[CST_256_:%.+]] = arith.constant 256 : i64
+// CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : i64
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK:           [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x256x12x64xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x12x256x64xf32>
@@ -3805,10 +3805,7 @@ func.func @test_transpose_block_1_last_dim(%arg0: tensor<?x256x12x64xf32>) -> te
 // CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:         [[VAR_2_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2)
 // CHECK-DAG:         [[VAR_3_:%.+]] = affine.apply [[MAP_3_]]([[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2)
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_4_:%.+]] = arith.index_cast [[VAR_2_]] : index to i64
-// CHECK-DAG:         [[VAR_5_:%.+]] = arith.index_cast [[VAR_3_]] : index to i64
-// CHECK:             "krnl.memcpy"([[RES_]], [[PARAM_0_]], [[CST_256_]], [[VAR_4_]], [[VAR_5_]]) : (memref<?x12x256x64xf32>, memref<?x256x12x64xf32>, i64, i64, i64) -> ()
+// CHECK:             "krnl.memcpy"([[RES_]], [[PARAM_0_]], [[CST_64_]], [[VAR_2_]], [[VAR_3_]]) : (memref<?x12x256x64xf32>, memref<?x256x12x64xf32>, i64, index, index) -> ()
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x12x256x64xf32>
 // CHECK:         }
@@ -3821,21 +3818,18 @@ func.func @test_transpose_block_2_last_dims(%arg0: tensor<2x256x12x32x64xf32>) -
     return %1 : tensor<2x12x256x32x64xf32>
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3, d4) -> (d0, d1, d2, d3, d4)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 25165824 + d1 * 8192 + d2 * 2097152)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 25165824 + d1 * 98304 + d2 * 8192)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 6291456 + d1 * 2048 + d2 * 524288)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 6291456 + d1 * 24576 + d2 * 2048)>
 // CHECK-LABEL:  func.func @test_transpose_block_2_last_dims
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x256x12x32x64xf32>) -> memref<2x12x256x32x64xf32> {
-// CHECK-DAG:       [[CST_8192_:%.+]] = arith.constant 8192 : i64
+// CHECK-DAG:       [[CST_2048_:%.+]] = arith.constant 2048 : i64
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x12x256x32x64xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 256, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 12){
 // CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:         [[VAR_2_:%.+]] = affine.apply [[MAP_1_]]([[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2)
 // CHECK-DAG:         [[VAR_3_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2)
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_4_:%.+]] = arith.index_cast [[VAR_2_]] : index to i64
-// CHECK-DAG:         [[VAR_5_:%.+]] = arith.index_cast [[VAR_3_]] : index to i64
-// CHECK:             "krnl.memcpy"([[RES_]], [[PARAM_0_]], [[CST_8192_]], [[VAR_4_]], [[VAR_5_]]) : (memref<2x12x256x32x64xf32>, memref<2x256x12x32x64xf32>, i64, i64, i64) -> ()
+// CHECK:             "krnl.memcpy"([[RES_]], [[PARAM_0_]], [[CST_2048_]], [[VAR_2_]], [[VAR_3_]]) : (memref<2x12x256x32x64xf32>, memref<2x256x12x32x64xf32>, i64, index, index) -> ()
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<2x12x256x32x64xf32>
 // CHECK:         }

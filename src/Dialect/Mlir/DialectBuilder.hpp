@@ -198,7 +198,7 @@ struct MemRefBuilder final : DialectBuilder {
 };
 
 // Default alignment attribute for all allocation of memory. On most system, it
-// is 16 bytes.
+//numElems is 16 bytes.
 static constexpr int64_t gDefaultAllocAlign = 16;
 
 //===----------------------------------------------------------------------===//
@@ -415,6 +415,9 @@ struct LLVMBuilder final : DialectBuilder {
 
   // LoadOp
   mlir::Value load(mlir::Value addr) const;
+
+  // MulOp
+  mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
 
   // NullOp
   mlir::Value null(mlir::Type type) const;

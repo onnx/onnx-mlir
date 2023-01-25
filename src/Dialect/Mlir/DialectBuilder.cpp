@@ -1031,6 +1031,10 @@ Value LLVMBuilder::load(Value addr) const {
   return b().create<LLVM::LoadOp>(loc(), addr);
 }
 
+Value LLVMBuilder::mul(Value lhs, Value rhs) const {
+  return b().create<LLVM::MulOp>(loc(), lhs, rhs);
+}
+
 Value LLVMBuilder::null(Type type) const {
   return b().create<LLVM::NullOp>(loc(), type);
 }
