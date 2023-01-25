@@ -474,6 +474,8 @@ public:
   // Helpers for list of IndexExpressions: given a (list of) IndexExpr, provide
   // the (list of) Shape/Value/OpFoldResult corresponding to the original (list
   // of) IndexExpr.
+  static void getLiteral(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
+      llvm::SmallVectorImpl<int64_t> &intList);
   static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
       llvm::SmallVectorImpl<int64_t> &intDimList,
       bool uniqueQuestionMark = false);
