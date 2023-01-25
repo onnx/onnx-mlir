@@ -1521,6 +1521,7 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXCosOp:ONNX_Op<"Cos",
