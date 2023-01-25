@@ -22,6 +22,7 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
+#include <math.h>
 
 #define DEBUG_TYPE "krnl_to_llvm"
 
@@ -127,15 +128,7 @@ template <>
 struct MathFunctionName<KrnlIsNaNOp> {
   static std::string functionName(mlir::Type type) {
 
-#if (__APPLE__)
-    if (type.isF32())
-      return "__isnanf";
-#else
-    if (type.isF32())
-      return "isnanf";
-#endif
-
-    if (type.isF64())
+    if (type.isF32() || type.isF64())
       return "isnan";
     llvm_unreachable("Unsupported type for isnan");
   }
@@ -217,6 +210,7 @@ private:
 void populateLoweringKrnlUnaryMathOpPattern(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(typeConverter, ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlIsInfOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlIsNaNOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAcosOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAcoshOp>>(typeConverter, ctx);
