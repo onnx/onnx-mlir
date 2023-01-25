@@ -129,7 +129,7 @@ struct MathFunctionName<KrnlIsNaNOp> {
 
 #if (__APPLE__)
     if (type.isF32())
-      return "_isnanf";
+      return "__isnanf";
 #else
     if (type.isF32())
       return "isnanf";
