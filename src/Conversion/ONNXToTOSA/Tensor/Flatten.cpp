@@ -14,6 +14,7 @@
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
+#include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -32,18 +33,19 @@ public:
   LogicalResult matchAndRewrite(ONNXFlattenOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
+    auto loc = op->getLoc();
+    TosaBuilder tosaBuilder(rewriter, loc);
+
     Value input = adaptor.input();
     int64_t axis = adaptor.axis();
     auto inputType = input.getType().cast<ShapedType>();
-
-    auto resultType = op.getResult().getType();
 
     // onnx allows values beetween [-r, r-1] where r is the rank
     if (axis < 0) {
       axis += inputType.getRank();
     }
 
-    llvm::SmallVector<int64_t> newShape;
+    llvm::SmallVector<int64_t, 4> newShape;
     auto inputShape = inputType.getShape();
     if (axis == 0) {
       newShape.push_back(1);
@@ -64,10 +66,9 @@ public:
       }
       newShape.push_back(secondShape);
     }
-    ArrayAttr shapeAttr = rewriter.getI64ArrayAttr(newShape);
+    Value reshapeOp = tosaBuilder.reshape(input, newShape);
 
-    tosa::CreateReplaceOpAndInfer<mlir::tosa::ReshapeOp>(
-        rewriter, op, resultType, input, shapeAttr);
+    rewriter.replaceOp(op, reshapeOp);
 
     return success();
   }

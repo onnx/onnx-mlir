@@ -43,6 +43,10 @@ mlir::Value sliceTensor(mlir::PatternRewriter &rewriter, mlir::Operation *op,
 mlir::Value createTosaTransposedTensor(mlir::PatternRewriter &rewriter,
     mlir::Operation *op, mlir::Value &value, llvm::ArrayRef<int64_t> perm);
 
+// Create a RankedTensorType with shape and all elements being 1
+mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
+    mlir::Type elementType, mlir::Attribute encoding = {});
+
 // Create a 32-bit float constant operator from a float
 // The tensor will have the same rank as shape but with axis 1 (differs from
 // tensorflow impl.)

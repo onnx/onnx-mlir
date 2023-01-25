@@ -71,7 +71,7 @@ Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
 }
 
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
-    mlir::Type elementType, mlir::Attribute encoding = {}) {
+    mlir::Type elementType, mlir::Attribute encoding) {
   return mlir::RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(shape.size(), 1), elementType, encoding);
 }

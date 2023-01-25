@@ -30,6 +30,30 @@ namespace onnx_mlir {
 // IndexExpr Builder for Shape lowering
 // =============================================================================
 
+struct TosaBuilder : DialectBuilder {
+  TosaBuilder(mlir::Location loc) : DialectBuilder(loc) {}
+  TosaBuilder(mlir::PatternRewriter &b, mlir::Location loc)
+      : DialectBuilder(b, loc), patternRewriter(&b) {}
+  TosaBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  virtual ~TosaBuilder() {}
+
+  mlir::Value reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape);
+  mlir::Value transpose(mlir::Value &value, llvm::ArrayRef<int64_t> perm);
+  template <typename T>
+  mlir::Value getConst(llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape);
+  mlir::Value getConst(float val, llvm::ArrayRef<int64_t> shape);
+
+protected:
+  // Private getters of builder (concise version).
+  mlir::PatternRewriter &rewriter() const {
+    assert(patternRewriter && "rewriter is null");
+    return *patternRewriter;
+  }
+
+private:
+  mlir::PatternRewriter *patternRewriter;
+};
+
 struct IndexExprBuilderForTosa : IndexExprBuilder {
   IndexExprBuilderForTosa(mlir::Location loc) : IndexExprBuilder(loc) {}
   IndexExprBuilderForTosa(mlir::OpBuilder &b, mlir::Location loc)

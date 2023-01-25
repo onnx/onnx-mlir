@@ -82,7 +82,10 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     OpAdaptor adaptor(operands, op->getAttrDictionary());
+    auto loc = op->getLoc();
     auto convOp = llvm::cast<ONNXConvOp>(op);
+
+    TosaBuilder tosaBuilder(rewriter, loc);
 
     auto input = adaptor.X();
     auto weights = adaptor.W();
@@ -105,12 +108,10 @@ public:
     }
 
     // Convert input [N,IC,IH,IW] -> [N,IH,IW,IC]
-    Value newInput =
-        tosa::createTosaTransposedTensor(rewriter, convOp, input, {0, 2, 3, 1});
+    Value newInput = tosaBuilder.transpose(input, {0, 2, 3, 1});
 
     // Convert weights [OC,IC,KH,KW] -> [OC,KH,KW,IC]
-    Value newWeight = tosa::createTosaTransposedTensor(
-        rewriter, convOp, weights, {0, 2, 3, 1});
+    Value newWeight = tosaBuilder.transpose(weights, {0, 2, 3, 1});
 
     if (bias.getType().isa<NoneType>()) {
       DenseElementsAttr newBiasAttr = DenseElementsAttr::get(
@@ -144,8 +145,7 @@ public:
     }
 
     // Convert output [N,OH,OW,OC] -> [N,OC,OH,OW]
-    Value newOutput = tosa::createTosaTransposedTensor(
-        rewriter, convOp, conv2D, {0, 3, 1, 2});
+    Value newOutput = tosaBuilder.transpose(conv2D, {0, 3, 1, 2});
 
     rewriter.replaceOp(convOp, {newOutput});
     return success();

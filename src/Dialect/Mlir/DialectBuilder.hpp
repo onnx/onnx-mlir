@@ -45,7 +45,7 @@ struct DialectBuilder {
 protected:
   // Private getters of builder and location (concise version).
   mlir::OpBuilder &b() const {
-    assert(builder);
+    assert(builder && "builder is null");
     return *builder;
   }
   mlir::Location loc() const { return location; }
