@@ -351,6 +351,7 @@ OpsWithVerifier = [
     'ConcatFromSequence',
     'ConstantOfShape',
     'Conv',
+    'ConvTranspose',
     'DepthToSpace',
     'DequantizeLinear',
     'Div',
