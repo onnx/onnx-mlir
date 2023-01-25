@@ -101,6 +101,7 @@ private:
   }
 
   // Determine how many consecutive inner-most dimensions are not permuted.
+  // Only apply to MemRefs whose affine layout is identity.
   int unchangedInnerDimensions(MemRefType inputMemRefType,
       MemRefType outputMemRefType, Optional<ArrayAttr> permAttr) const {
     // Verify that the input's affine layout is identity.
