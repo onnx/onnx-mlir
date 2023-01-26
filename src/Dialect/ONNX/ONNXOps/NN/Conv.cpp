@@ -819,11 +819,13 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
 
   if (output_shape().has_value()) {
     SmallVector<int64_t, 4> inferredPads;
-    // Determine padding values based on output shape. `pads` and `output_padding` are ignored.
+    // Determine padding values based on output shape. `pads` and
+    // `output_padding` are ignored.
     auto outputShape = output_shape();
-    // auto_pad() is always NOTSET here becauae `processConvTypeParams()` update it as NOTSET.
-    // TODO: Merge insertConvTransposePads with processCOnvTypeParams(), or not use processConvTypeParams() in ConvTranspose
-    // auto autoPad = auto_pad(); 
+    // auto_pad() is always NOTSET here becauae `processConvTypeParams()` update
+    // it as NOTSET.
+    // TODO: Merge insertConvTransposePads with processCOnvTypeParams(), or not
+    // use processConvTypeParams() in ConvTranspose
     insertConvTransposePads(inferredPads, autoPad, xShape, kernelShape, padsOpt,
         stridesOpt, outputPads, outputShape, dilationsOpt);
     padsAttr(builder.getI64ArrayAttr(inferredPads));
