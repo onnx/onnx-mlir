@@ -128,9 +128,17 @@ template <>
 struct MathFunctionName<KrnlIsNaNOp> {
   static std::string functionName(mlir::Type type) {
 
-    if (type.isF32() || type.isF64())
-      return "isnan";
-    llvm_unreachable("Unsupported type for isnan");
+#if (__APPLE__)
+    if (type.isF32())
+      return "__isnanf";
+    if (type.isF64())
+      return "__isnand";
+#else
+    if (type.isF32())
+      return "isnanf";
+    if (type.isF64())
+      return "__isnan";
+#endif
   }
 };
 
