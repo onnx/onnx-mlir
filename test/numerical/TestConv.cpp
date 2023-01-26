@@ -91,17 +91,6 @@ int main(int argc, char *argv[]) {
     paddingType = "notset";
   }
 
-#if 1
-  printf("\nHi alex debug case.\n");
-  stride = 2;
-  dilation = 1;
-  isDynamic = 1;
-  assert(isOMConvTheSameAsNaiveImplFor(
-             1, 1, 1, 8, 11, 1, 3, 0, 0, 0, 0, ConvAutoPad::LOWER) &&
-         "failed test from test_inception_v1_cpu");
-  exit(1);
-#endif
-
   printf("\nTest cases seen in backend benchmarks.\n");
   // Set global settings.
   stride = dilation = 1;

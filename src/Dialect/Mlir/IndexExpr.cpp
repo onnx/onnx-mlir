@@ -959,11 +959,11 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
     if (bval >= 0)
       return AffineIndexExpr(aa.getAffineExpr() % bval);
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
-    return NonAffineIndexExpr(createMath.ceilDiv(aa.getValue(), bb.getValue()));
+    return NonAffineIndexExpr(createMath.rem(aa.getValue(), bb.getValue()));
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
-    return NonAffineIndexExpr(createMath.ceilDiv(aa.getValue(), bb.getValue()));
+    return NonAffineIndexExpr(createMath.rem(aa.getValue(), bb.getValue()));
   };
   // Index b must be a literal.
   // Neutral value: ignore here that x % x = 0.
