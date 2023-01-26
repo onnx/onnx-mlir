@@ -906,9 +906,8 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
   F2 affineExprFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     // Operand bb must be a literal.
     int64_t bval = bb.getLiteral();
-    if (bval > 1) {
+    if (bval > 1)
       return AffineIndexExpr(aa.getAffineExpr().floorDiv(bval));
-    }
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
     return NonAffineIndexExpr(
         createMath.floorDiv(aa.getValue(), bb.getValue()));
@@ -1012,7 +1011,6 @@ IndexExpr IndexExpr::floor() const {
   F1 valueFct = [](IndexExpr const aa) -> IndexExpr {
     MathBuilder createMath(aa.getRewriter(), aa.getLoc());
     Value floorVal = createMath.floor(aa.getValue());
-    floorVal.dump();
     return NonAffineIndexExpr(floorVal);
   };
 
@@ -1083,10 +1081,9 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   bool resIsLit = isLiteral() && min.isLiteral() && max.isLiteral();
   // We use now use the result of the above determination on whether the new
   // index is literal and/or affine.
-  if (resIsLit) {
+  if (resIsLit)
     // Constant, use constant computations.
     return litFct(*this, min, max);
-  }
   if (isShapeInferencePass())
     // In shape analysis, if not constant: do noting, aka leave Values &
     // Affine expr undefined.

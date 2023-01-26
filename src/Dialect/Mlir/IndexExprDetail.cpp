@@ -54,13 +54,11 @@ void IndexExprImpl::initAsUndefined() {
 
 void IndexExprImpl::initAsQuestionmark(bool isFloatFlag) {
   // Question mark has value of -1 by default.
-  // Question mark do not track float, set false as default.
   init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ isFloatFlag,
       IndexExprKind::Questionmark, -1, AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsQuestionmark(int64_t const val, bool isFloatFlag) {
-  // Question mark do not track float, set false as default.
   init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ isFloatFlag,
       IndexExprKind::Questionmark, val, AffineExpr(nullptr), Value(nullptr));
 }
@@ -72,7 +70,6 @@ void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   // According to `llvm/ADT/hashing.h`, a hash value is per execution of the
   // program. Thus, it should not be trusted to be stable or predictable across
   // processes or executions.
-  // Question mark do not track float, set false as default.
   llvm::hash_code questionValue = llvm::hash_combine(
       mlir::hash_value(tensorOrMemref), llvm::hash_value(index));
   init(/*isDefined*/ true, /*literal*/ false,
@@ -90,6 +87,7 @@ void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
 void IndexExprImpl::initAsLiteral(double const val, const IndexExprKind kind) {
   assert((kind != IndexExprKind::Questionmark) &&
          "literals are not question marks");
+  // Use union to get the bit pattern of the double into an int without changes.
   union {
     int64_t ival;
     double fval;
@@ -332,13 +330,13 @@ IndexExprKind IndexExprImpl::getKind() const { return kind; }
 
 int64_t IndexExprImpl::getLiteral() const {
   assert(isLiteral() && "expected a literal index expression");
-  assert(!isFloatType() && "literal is not integer");
+  assert(!isFloatType() && "expected integer literal");
   return intLit;
 }
 
 double IndexExprImpl::getFloatLiteral() const {
   assert(isLiteral() && "expected a literal index expression");
-  assert(isFloatType() && "literal is not a float");
+  assert(isFloatType() && "expected float literal");
   return floatLit;
 }
 

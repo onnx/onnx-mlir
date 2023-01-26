@@ -33,8 +33,6 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     ONNXResizeOp resizeOp = llvm::cast<ONNXResizeOp>(op);
     ONNXResizeOpAdaptor operandAdaptor(operands);
     Value data = operandAdaptor.X();
-    Value scales = operandAdaptor.scales();
-    Value sizes = operandAdaptor.sizes();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());

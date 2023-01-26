@@ -458,14 +458,14 @@ public:
   bool isLiteralAndDifferentThan(int64_t b) const;         // Values unequal.
   bool isLiteralAndDifferentThan(double b) const;          // Values unequal.
   bool isLiteralAndDifferentThan(IndexExpr const b) const; // Values unequal.
-  bool isLiteralAndGreaterThan(int b) const;               // Values unequal.
-  bool isLiteralAndGreaterThan(int64_t b) const;           // Values unequal.
-  bool isLiteralAndGreaterThan(double b) const;            // Values unequal.
-  bool isLiteralAndGreaterThan(IndexExpr const b) const;   // Values unequal.
-  bool isLiteralAndSmallerThan(int b) const;               // Values unequal.
-  bool isLiteralAndSmallerThan(int64_t b) const;           // Values unequal.
-  bool isLiteralAndSmallerThan(double b) const;            // Values unequal.
-  bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values unequal.
+  bool isLiteralAndGreaterThan(int b) const;               // Values greater.
+  bool isLiteralAndGreaterThan(int64_t b) const;           // Values greater.
+  bool isLiteralAndGreaterThan(double b) const;            // Values greater.
+  bool isLiteralAndGreaterThan(IndexExpr const b) const;   // Values greater.
+  bool isLiteralAndSmallerThan(int b) const;               // Values smaller.
+  bool isLiteralAndSmallerThan(int64_t b) const;           // Values smaller.
+  bool isLiteralAndSmallerThan(double b) const;            // Values smaller.
+  bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values smaller.
   // Test if all element in list are literals.
   static bool isLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
   static bool isNonNegativeLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
