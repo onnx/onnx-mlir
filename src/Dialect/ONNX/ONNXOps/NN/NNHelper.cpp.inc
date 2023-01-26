@@ -284,4 +284,23 @@ static LogicalResult verifyPadding(T *op, int64_t spatialRank) {
   return success();
 }
 
+template <class T>
+static LogicalResult verifyOutputShape(T *op, int64_t spatialRank) {
+  // 1) Get output shape attribute.
+  auto outputShape = op->output_shape();
+  if (!outputShape.has_value())
+    return success();
+  // 2) Verify that we have the right number.
+  if ((int64_t)ArrayAttrSize(outputShape) != spatialRank)
+    return op->emitError(
+        "output shape length incompatible with spatial dimensions");
+  // 3) Verify that they are all positive.
+  for (int i = 0; i < spatialRank; ++i) {
+    auto attrSize = ArrayAttrIntVal(outputShape, i);
+    if (attrSize < 1)
+      return op->emitError("Bad stride value: must be strictly positive");
+  }
+  return success();
+}
+
 } // namespace
