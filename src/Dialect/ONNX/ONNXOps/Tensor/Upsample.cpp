@@ -38,7 +38,7 @@ LogicalResult ONNXUpsampleOpShapeHelper::computeShape() {
   createIE->getShapeAsDims(operandAdaptor.X(), xShape);
   int64_t xRank = xShape.size();
   for (int64_t i = 0; i < xRank; ++i)
-    outputDims.emplace_back(QuestionmarkIndexExpr());
+    outputDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
 
   auto scalesConstOp = getONNXConstantOp(operandAdaptor.scales());
   if (scalesConstOp) {

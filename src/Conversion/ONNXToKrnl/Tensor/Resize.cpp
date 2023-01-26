@@ -33,8 +33,6 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     ONNXResizeOp resizeOp = llvm::cast<ONNXResizeOp>(op);
     ONNXResizeOpAdaptor operandAdaptor(operands);
     Value data = operandAdaptor.X();
-    Value scales = operandAdaptor.scales();
-    Value sizes = operandAdaptor.sizes();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -52,78 +50,15 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
-    SmallVector<Value, 4> scaleValues;
-    bool fromScale = !isFromNone(resizeOp.scales());
-    IndexExprScope outerloopContex(&rewriter, loc);
-    DimsExpr outputDims(rank);
-    if (fromScale) {
-      // Get the scales
-      // SymbolIndexExpr was tried but got runtime error
-      // Attribute::cast() const [with U = mlir::IntegerAttr]
-      // The reason seems to be that IntegerAttr is assumed
-      //
-      ElementsAttr scalesAttrs =
-          getElementAttributeFromONNXValue(resizeOp.scales());
-      SmallVector<float, 4> scalesConstant;
-      if (scalesAttrs) {
-        for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
-          Value scaleConstant = create.math.constant(
-              rewriter.getF32Type(), scaleAttr.getValueAsDouble());
-          scaleValues.emplace_back(scaleConstant);
-        }
-      } else {
-        for (decltype(rank) i = 0; i < rank; i++) {
-          Value indexValue = create.math.constantIndex(i);
-          Value scaleVal = create.krnl.load(scales, indexValue);
-          scaleValues.emplace_back(scaleVal);
-        }
-      }
-    } else {
-      for (decltype(rank) i = 0; i < rank; i++) {
-        Value indexValue = create.math.constantIndex(i);
-        Value resizedVal = create.krnl.load(sizes, indexValue);
-        Value resizedFVal = rewriter.create<arith::SIToFPOp>(
-            loc, rewriter.getF32Type(), resizedVal);
-        Value inputDim = create.krnlIE.getShapeAsDim(data, i).getValue();
-        Value inputDimFloat = create.math.cast(rewriter.getF32Type(), inputDim);
-        Value scaleVal = create.math.div(resizedFVal, inputDimFloat);
-        scaleValues.emplace_back(scaleVal);
-      }
-    }
 
-    if (hasAllConstantDimensions(memRefType))
+    // Shape helper: compute output dims and scales.
+    ONNXResizeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    if (hasAllConstantDimensions(memRefType)) {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else if (fromScale) {
-      for (decltype(rank) i = 0; i < rank; i++) {
-        if (!memRefType.isDynamicDim(i)) {
-          outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
-        } else {
-          Value inputDim = create.krnlIE.getShapeAsDim(data, i).getValue();
-          Value inputDimFloat =
-              create.math.cast(rewriter.getF32Type(), inputDim);
-          Value outputDimFloat = create.math.mul(inputDimFloat, scaleValues[i]);
-          Value outDim = create.math.castToIndex(outputDimFloat);
-          SymbolIndexExpr outDimIE(outDim);
-          outputDims[i] = SymbolIndexExpr(outDimIE);
-        }
-      }
-      alloc = insertAllocAndDeallocSimple(
-          rewriter, op, memRefType, loc, outputDims, insertDealloc);
     } else {
-      // Output is determined by sizes()
-      for (decltype(rank) i = 0; i < rank; i++) {
-        if (!memRefType.isDynamicDim(i)) {
-          outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
-        } else {
-          Value indexValue = create.math.constantIndex(i);
-          Value resizedVal = create.krnl.load(sizes, indexValue);
-          Value outDim = create.math.castToIndex(resizedVal);
-          SymbolIndexExpr outDimIE(outDim);
-          outputDims[i] = SymbolIndexExpr(outDimIE);
-        }
-      }
-      alloc = insertAllocAndDeallocSimple(
-          rewriter, op, memRefType, loc, outputDims, insertDealloc);
+      alloc = insertAllocAndDeallocSimple(rewriter, op, memRefType, loc,
+          shapeHelper.getOutputDims(), insertDealloc);
     }
 
     // Call external function when the mode is not "nearest"
@@ -133,7 +68,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // and different function will be called accordingly.
     // Another issue is the attributes with default value.
     // Currently, it is assumed that all the optional attributes have
-    // the default value and does appear in the Attribute dictionry.
+    // the default value and does appear in the Attribute dictionary.
     // ToFix: Handle attributes for general case
     if (resizeOp.mode() != "nearest") {
       if (!isFromNone(resizeOp.scales())) {
@@ -147,6 +82,9 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       return success();
     }
     // It is much more efficient to generate codes directly if possible
+
+    SmallVector<Value, 4> scaleValues;
+    IndexExpr::getValues(shapeHelper.scales, scaleValues);
 
     // Constants used in the loop body
     Value zero = create.math.constant(rewriter.getIntegerType(64), 0);

@@ -68,6 +68,20 @@ const static float omDefaultRangeBound = 1.0;
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
   The compileAndLoad function can also process compiler options, which will
   remain in effect until changed again.
+
+  ===========================================================================
+  Advice for debugging models. If you have a model that fails.
+
+  1 Isolate the failing model by changing the TestXXX.cpp to only generate that
+    one.
+  2 Execute the test while setting this env: TEST_ARGS="--preserveMLIR"
+    Debug/bin/TestXXX .
+  3 Then you should have a TestXXX_main_graph.input.mlir in the current
+    directory.
+  4 You should now be able to call "onnx-mlir -O3 -mlir-print-ir-after-all
+    TestXXX_main_graph.input.mlir" with a older good compiler and the newer
+    failing compiler, and hopefully find out where the issue might be.
+
 */
 
 class ModelLibBuilder {
