@@ -14,8 +14,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "src/Runtime/OMUnique.h"
-
+#include "onnx-mlir/Runtime/OMTensor.h"
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -59,24 +58,17 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
     ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    Value X = operandAdaptor.X();
-
-    // Builders.
+    ONNXUniqueOp uniqueOp = llvm::cast<ONNXUniqueOp>(op);
+    Location loc = op->getLoc();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
         rewriter, loc);
-
-    // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
-           "Failed to convert type to MemRefType");
-    MemRefType resMemRefType = convertedType.cast<MemRefType>();
-
-    // Common types.
-
-    // Op's Attributes.
-    int64_t rank = resMemRefType.getRank();
+    IndexExprScope scope(create.krnl);
+    ONNXUniqueOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    Value X = operandAdaptor.X();
+    int64_t rank = create.krnlIE.getShapedTypeRank(X);
+    ArrayRef<int64_t> xShape = getShape(X.getType());
+    int64_t sorted = operandAdaptor.sorted();
     Optional<int64_t> optionalAxis = operandAdaptor.axis();
     int64_t axis = -1;
     if (optionalAxis.has_value()) {
@@ -84,25 +76,52 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
       axis = axis < 0 ? axis + rank : axis;
       assert(axis >= 0 && axis < rank && "axis is out of bound");
     }
-    int64_t sorted = operandAdaptor.sorted();
+
+    // Convert the output type to MemRefType.
+    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType resMemRefType = convertedType.cast<MemRefType>();
+
+    // Calculate maximum output shapes for ouputs
+    DimsExpr outputYAllocateDims;
+    DimsExpr outputIndexAllocateDims;
+    uint64_t inputElementNum = 1;
+    for (int64_t i = 0; i < rank; i++) {
+      inputElementNum = inputElementNum * xShape[i];
+    }
+    if (axis < 0) {
+      outputYAllocateDims.emplace_back(LiteralIndexExpr(inputElementNum));
+      outputIndexAllocateDims.emplace_back(LiteralIndexExpr(inputElementNum));
+    } else {                                            // if axis given
+      for (int64_t i = 0; i < rank; i++) {
+        outputYAllocateDims.emplace_back(LiteralIndexExpr(xShape[i]));
+      }
+      outputIndexAllocateDims.emplace_back(LiteralIndexExpr(inputElementNum));
+    }
     // Insert an allocation and deallocation for the results of this operation.
-    bool insertDealloc = checkInsertDealloc(op, /*resultIndex=*/0);
-    ArrayRef<int64_t> xShape = getShape(X.getType());
+    // For Y output
+    bool insertDealloc = true;
     Type i64Type = rewriter.getI64Type();
-    DimsExpr resDims;
-    // create.krnlIE.getShapeAsDims(X, resDims);
-    MemRefType resMemrefForAllocType = MemRefType::get(xShape, i64Type);
-    insertDealloc = checkInsertDealloc(op, /*resultIndex=*/1);
-    Value resIndexMemRef = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(resMemrefForAllocType.getShape(), i64Type), loc,
-        resDims, insertDealloc);
-    Value indices;
-    Value reverse_indices;
-    Value counts;
+    Value total =  insertAllocAndDeallocSimple(rewriter, op,
+        MemRefType::get({}, i64Type), loc, outputYAllocateDims,
+        insertDealloc);
+    Value outputYBuf = insertAllocAndDeallocSimple(rewriter, op,
+        MemRefType::get(xShape, i64Type), loc, outputYAllocateDims,
+        insertDealloc);
+    Value indicesBuf = insertAllocAndDeallocSimple(rewriter, op,
+        MemRefType::get(xShape, i64Type), loc, outputIndexAllocateDims,
+        insertDealloc);
+    Value reverse_indicesBuf = insertAllocAndDeallocSimple(rewriter, op,
+        MemRefType::get(xShape, i64Type), loc, outputIndexAllocateDims,
+        insertDealloc);;
+    Value countsBuf = insertAllocAndDeallocSimple(rewriter, op,
+        MemRefType::get(xShape, i64Type), loc, outputIndexAllocateDims,
+        insertDealloc);;
 
     // Compute argUnique of X along axis.
-    Value argUnique = emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted,
-        indices, reverse_indices, counts, OMUNIQUE_FLAG_COUNTONLY);
+    Value argUnique = emitArgUnique(rewriter, loc, total, X, axis, /*sorted=*/sorted,
+        outputYBuf, indicesBuf, reverse_indicesBuf, countsBuf);
 #if 0
     // Produce the final result.
     SmallVector<IndexExpr> zeroDims(rank, LiteralIndexExpr(0));
@@ -122,10 +141,8 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
         });
 
 #endif
-    Value resMemRef = insertAllocAndDeallocSimple(
-        rewriter, op, resMemrefForAllocType, loc, resDims, insertDealloc);
     rewriter.replaceOp(
-        op, {resMemRef, resIndexMemRef, resIndexMemRef, resIndexMemRef});
+        op, {outputYBuf, indicesBuf, reverse_indicesBuf, countsBuf});
     return success();
   }
 };

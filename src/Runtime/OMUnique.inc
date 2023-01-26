@@ -13,7 +13,6 @@
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "onnx-mlir/Runtime/OnnxDataType.h"
-#include "src/Runtime/OMUnique.h"
 #ifdef __cplusplus
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
@@ -56,20 +55,18 @@ int elementTableRegister(elementTable *table, void *element) {
 
 uint64_t elementTable_count(elementTable *table) { return table->elementCount; }
 
-int omTensorUnique(
-    const OMTensor *inputTensor, uint64_t axis, uint64_t sorted, int flag) {
-  omTensorPrint("omTensorUnique: ", inputTensor);
+void omTensorUnique(
+    OMTensor *totalTensor, const OMTensor *inputTensor,
+    int64_t axis, uint64_t sorted, const OMTensor *Y, OMTensor *indices,
+    const OMTensor *reverse_indices, const OMTensor *counts) {
+  omTensorPrint("omTensorUnique: input=", inputTensor);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const uint64_t rank = omTensorGetRank(inputTensor);
   assert(rank <= 6 && "omTensorUnique assumes rank <= 6");
+  int64_t *totalPtr = (int64_t *) omTensorGetDataPtr(totalTensor);
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
   void *dataPtr = omTensorGetDataPtr(inputTensor);
-  int unique_elems = inputShape[axis];
-  // Uniqueing not necessary for array whose size <= 1
-  if (unique_elems <= 1)
-    return unique_elems;
-
   uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
 
   // To support input Tensor with various ranks in a uniform way.
@@ -159,5 +156,7 @@ int omTensorUnique(
       }
     }
   }
-  return count;
+  *totalPtr = count;
+  omTensorPrint("omTensorUnique: total =", inputTensor);
+  return;
 }
