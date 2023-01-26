@@ -68,7 +68,7 @@ void populateLoweringONNXSoftmaxOpToTOSAPattern(mlir::ConversionTarget &,
 void populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
     mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &,
     mlir::MLIRContext *);
-// `NN` directory methods:
+// `Tensor` directory methods:
 void populateLoweringONNXConstOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 } // namespace onnx_mlir

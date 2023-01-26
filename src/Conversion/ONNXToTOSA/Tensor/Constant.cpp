@@ -29,8 +29,8 @@ public:
   using OpAdaptor = typename ONNXConstantOp::Adaptor;
   LogicalResult matchAndRewrite(ONNXConstantOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
-    auto valueAttr = adaptor.value();
-    auto sparseAttr = adaptor.sparse_value();
+    llvm::Optional<Attribute> valueAttr = adaptor.value();
+    llvm::Optional<Attribute> sparseAttr = adaptor.sparse_value();
     // Only one of the attributes can/must be present. If
     // sparse is there, value is not present. Currently sparse doesn't seem to
     // be supported by TOSA.
@@ -38,14 +38,14 @@ public:
       return rewriter.notifyMatchFailure(
           op, "tosa.const does not support sparse value");
     }
-    ::mlir::Attribute currentAttr = valueAttr.value();
+    Attribute currentAttr = valueAttr.value();
     if (!currentAttr.isa<ElementsAttr>()) {
       return rewriter.notifyMatchFailure(
           op, "tosa.const does not support non-tensor types");
     }
-    mlir::Type resultType =
+    Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
-    rewriter.replaceOpWithNewOp<mlir::tosa::ConstOp>(
+    rewriter.replaceOpWithNewOp<tosa::ConstOp>(
         op, resultType, currentAttr);
     return success();
   }
