@@ -19,6 +19,7 @@
 #include "mlir/Support/LogicalResult.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
+#include <src/Conversion/ONNXToTOSA/DialectBuilder.hpp>
 
 using namespace mlir;
 
@@ -123,13 +124,12 @@ public:
 static LogicalResult LegalizeFloatingPointPrelu(Operation *op,
     PatternRewriter &rewriter, Value input, float alpha,
     TensorType outputType) {
-  Value constZero = tosa::getTosaConstTensorSingleF32(
-      rewriter, op, 0.0, outputType.getShape());
+  auto loc = op->getLoc();
+  TosaBuilder tosaBuilder(rewriter, loc);
+  Value constZero = tosaBuilder.getConst(0.0, outputType.getShape());
 
   auto mul = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, op->getLoc(),
-      outputType, input,
-      tosa::getTosaConstTensorSingleF32(
-          rewriter, op, alpha, outputType.getShape()),
+      outputType, input, tosaBuilder.getConst(alpha, outputType.getShape()),
       /*shift=*/0);
 
   auto greaterEqual =

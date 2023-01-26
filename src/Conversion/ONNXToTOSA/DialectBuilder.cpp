@@ -25,42 +25,57 @@ using namespace mlir;
 namespace onnx_mlir {
 
 template <typename T>
-Value TosaBuilder::getConst(ArrayRef<T> vec, ArrayRef<int64_t> shape) {
-  uint64_t num_total_elements = 1;
+bool testNumberOfElementsMatch(ArrayRef<T> vec, ArrayRef<int64_t> shape) {
+  uint64_t numTotalElements = 1;
   for (int64_t a : shape) {
-    num_total_elements *= a;
+    numTotalElements *= a;
   }
+  return (vec.size() == numTotalElements);
+}
 
-  assert((vec.size() == num_total_elements) &&
+template <typename T>
+Value TosaBuilder::createConstFromRankedTensorAndVec(
+    ArrayRef<T> vec, RankedTensorType &constType) {
+  auto constAttr = DenseElementsAttr::get(constType, vec);
+
+  Value constOp =
+      rewriter().create<mlir::tosa::ConstOp>(loc(), constType, constAttr);
+  return constOp;
+}
+
+Value TosaBuilder::getConst(ArrayRef<int64_t> vec, ArrayRef<int64_t> shape) {
+
+  assert(testNumberOfElementsMatch(vec, shape) &&
          "getConstTensor(): number of elements mismatch.");
 
-  auto const_type =
-      RankedTensorType::get(shape, rewriter().getIntegerType(sizeof(T) * 8));
-  auto const_attr = DenseElementsAttr::get(const_type, vec);
+  auto constType = RankedTensorType::get(
+      shape, rewriter().getIntegerType(sizeof(int64_t) * 8));
 
-  auto const_op =
-      rewriter().create<mlir::tosa::ConstOp>(loc(), const_type, const_attr);
-  return const_op;
+  Value constOp = this->createConstFromRankedTensorAndVec(vec, constType);
+  return constOp;
+}
+
+Value TosaBuilder::getConst(ArrayRef<int32_t> vec, ArrayRef<int64_t> shape) {
+
+  assert(testNumberOfElementsMatch(vec, shape) &&
+         "getConstTensor(): number of elements mismatch.");
+
+  auto constType = RankedTensorType::get(
+      shape, rewriter().getIntegerType(sizeof(int32_t) * 8));
+
+  Value constOp = this->createConstFromRankedTensorAndVec(vec, constType);
+  return constOp;
 }
 
 // Template specialization for float
-template <>
-Value TosaBuilder::getConst<float>(
-    ArrayRef<float> vec, ArrayRef<int64_t> shape) {
-  uint64_t num_total_elements = 1;
-  for (int64_t a : shape) {
-    num_total_elements *= a;
-  }
-
-  assert((vec.size() == num_total_elements) &&
+Value TosaBuilder::getConst(ArrayRef<float> vec, ArrayRef<int64_t> shape) {
+  assert(testNumberOfElementsMatch(vec, shape) &&
          "getConstTensor(): number of elements mismatch.");
 
-  auto const_type = RankedTensorType::get(shape, rewriter().getF32Type());
-  auto const_attr = DenseElementsAttr::get(const_type, vec);
+  auto constType = RankedTensorType::get(shape, rewriter().getF32Type());
 
-  auto const_op =
-      rewriter().create<mlir::tosa::ConstOp>(loc(), const_type, const_attr);
-  return const_op;
+  Value constOp = this->createConstFromRankedTensorAndVec(vec, constType);
+  return constOp;
 }
 
 Value TosaBuilder::getConst(float val, llvm::ArrayRef<int64_t> shape) {
@@ -84,7 +99,7 @@ Value TosaBuilder::reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape) {
 
 Value TosaBuilder::transpose(mlir::Value &value, llvm::ArrayRef<int64_t> perm) {
   // Create Permutation Const
-  Value permList = this->getConst<int64_t>(
+  Value permList = this->getConst(
       perm, {value.getType().cast<RankedTensorType>().getRank()});
   auto valueType = value.getType().cast<ShapedType>();
   // get new value type
@@ -95,6 +110,18 @@ Value TosaBuilder::transpose(mlir::Value &value, llvm::ArrayRef<int64_t> perm) {
   Value newValue = tosa::CreateOpAndInfer<mlir::tosa::TransposeOp>(
       rewriter(), loc(), newValueType, value, permList);
   return newValue;
+}
+
+Value TosaBuilder::slice(Value &inputConst, llvm::ArrayRef<int64_t> size,
+    llvm::ArrayRef<int64_t> start) {
+  ArrayAttr sizeAttr = rewriter().getI64ArrayAttr(size);
+  ArrayAttr startAttr = rewriter().getI64ArrayAttr(start);
+  Value newSliceInput =
+      tosa::CreateOpAndInfer<mlir::tosa::SliceOp>(rewriter(), loc(),
+          RankedTensorType::get(llvm::SmallVector<int64_t, 4>(size.size(), -1),
+              inputConst.getType().cast<ShapedType>().getElementType()),
+          inputConst, startAttr, sizeAttr);
+  return newSliceInput;
 }
 
 // =============================================================================

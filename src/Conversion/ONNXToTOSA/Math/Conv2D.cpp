@@ -29,9 +29,10 @@ namespace {
 /// where the input, kernel and bias is a slice of the original inputs.
 /// Afterwards we have to concat the results into a single tensor
 Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
-    Type &resultType, const llvm::ArrayRef<int64_t> weightShape,
-    Value &newInput, Value &newWeight, Value &bias, const int64_t groups,
-    ArrayAttr &pads, ArrayAttr &strides, ArrayAttr &dilations) {
+    TosaBuilder &tosaBuilder, Type &resultType,
+    const llvm::ArrayRef<int64_t> weightShape, Value &newInput,
+    Value &newWeight, Value &bias, const int64_t groups, ArrayAttr &pads,
+    ArrayAttr &strides, ArrayAttr &dilations) {
   // Set up constants outside of loop
   const int64_t sizeOfSliceInput = weightShape[1];
   const int64_t sizeOfSliceKernel = weightShape[0] / groups;
@@ -45,16 +46,16 @@ Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
 
   for (int64_t i = 0; i < groups; i++) {
     // Slice input
-    Value newSliceInput = tosa::sliceTensor(
-        rewriter, op, newInput, inputSize, {0, 0, 0, i * sizeOfSliceInput});
+    Value newSliceInput =
+        tosaBuilder.slice(newInput, inputSize, {0, 0, 0, i * sizeOfSliceInput});
 
     // Slice kernel
-    Value newSliceWeight = tosa::sliceTensor(
-        rewriter, op, newWeight, kernelSize, {i * sizeOfSliceKernel, 0, 0, 0});
+    Value newSliceWeight = tosaBuilder.slice(
+        newWeight, kernelSize, {i * sizeOfSliceKernel, 0, 0, 0});
 
     // Slice bias
-    Value newSliceBias = tosa::sliceTensor(
-        rewriter, op, bias, {sizeOfSliceKernel}, {i * sizeOfSliceKernel});
+    Value newSliceBias =
+        tosaBuilder.slice(bias, {sizeOfSliceKernel}, {i * sizeOfSliceKernel});
 
     // Create conv
     Type newConvOutputType = RankedTensorType::get(
@@ -140,8 +141,9 @@ public:
           convOp->getLoc(), newConvOutputType, newInput, newWeight, bias,
           newPads, strides, dilations);
     } else {
-      conv2D = createConvInGroups(rewriter, convOp, resultType, weightShape,
-          newInput, newWeight, bias, group, newPads, strides, dilations);
+      conv2D = createConvInGroups(rewriter, convOp, tosaBuilder, resultType,
+          weightShape, newInput, newWeight, bias, group, newPads, strides,
+          dilations);
     }
 
     // Convert output [N,OH,OW,OC] -> [N,OC,OH,OW]

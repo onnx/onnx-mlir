@@ -32,6 +32,8 @@ public:
   LogicalResult matchAndRewrite(ONNXReduceMeanOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
+    auto loc = op->getLoc();
+    TosaBuilder tosaBuilder(rewriter, loc);
     Value input = adaptor.data();
     auto axes = adaptor.axes();
     auto keepDims = adaptor.keepdims();
@@ -55,8 +57,8 @@ public:
         RankedTensorType::get({vecValuesSize}, rewriter.getI64Type()),
         vecValues);
 
-    auto output = tosa::convertReduceMeanOp(
-        rewriter, op, resultType, input, newAxesAttr, keepDims);
+    auto output = tosa::convertReduceMeanOp(rewriter, op, tosaBuilder,
+        resultType, input, newAxesAttr, (bool)keepDims);
 
     if (!output) {
       return rewriter.notifyMatchFailure(op, "could not be converted");

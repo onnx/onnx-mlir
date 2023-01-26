@@ -97,7 +97,7 @@ llvm::Optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
 
 // Lowers ReduceMean to a sequence of TOSA ops.
 llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
-    Operation *op, RankedTensorType output_type, Value input_value,
+    Operation *op, TosaBuilder& tosaBuilder, RankedTensorType output_type, Value input_value,
     ElementsAttr axes_elems, bool keep_dims) {
   // reduce_mean is lowered as followed:
   // op1 = reduce_sum(input)
@@ -165,7 +165,7 @@ llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
     return llvm::None;
 
   if (!input_is_qtype) {
-    Value div_const = getTosaConstTensorSingleF32(rewriter, op, div_scale);
+    Value div_const = tosaBuilder.getConst(div_scale);
     return CreateOpAndInfer<mlir::tosa::MulOp>(
         rewriter, op->getLoc(), output_type, val.value(), div_const, 0)
         .getResult();

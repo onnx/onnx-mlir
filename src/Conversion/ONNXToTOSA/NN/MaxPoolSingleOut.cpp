@@ -79,6 +79,8 @@ public:
         op, operands, &createTosaIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
+    TosaBuilder tosaBuilder(rewriter, loc);
+
     Value input = adaptor.X();
 
     // The attributes storage_order and dilations are unsupported
@@ -114,8 +116,7 @@ public:
 
     // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a
     // transpose to change the format
-    input = tosa::createTosaTransposedTensor(
-        rewriter, maxpoolOp, input, {0, 2, 3, 1});
+    input = tosaBuilder.transpose(input, {0, 2, 3, 1});
 
     // When ceil mode is 1, we need to add values to the padding
     const llvm::SmallVector<int64_t, 4> ceilConstants =
@@ -134,16 +135,9 @@ public:
 
     // Revert to original shape (NCHW)
     // Construct the old result shape out of the new one
-    auto newInputType = input.getType().cast<RankedTensorType>().getShape();
-    Value sourceTensor =
-        tosa::getConstTensor<int32_t>(rewriter, maxpoolOp, {0, 3, 1, 2}, {4})
-            .value();
+    Value transpose = tosaBuilder.transpose(input, {0, 3, 1, 2});
 
-    Type transposedResultType = RankedTensorType::get(
-        llvm::SmallVector<int64_t, 4>(newInputType.size(), -1),
-        inputType.getElementType());
-    tosa::CreateReplaceOpAndInfer<mlir::tosa::TransposeOp>(
-        rewriter, maxpoolOp, transposedResultType, input, sourceTensor);
+    rewriter.replaceOp(op, transpose);
     return success();
   }
 };
