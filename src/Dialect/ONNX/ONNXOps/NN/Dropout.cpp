@@ -34,7 +34,7 @@ LogicalResult ONNXDropoutOpShapeHelper::computeShape() {
   createIE->getShapeAsDims(operandAdaptor.data(), outputDims);
   setOutputDims(outputDims, 0);
   // Optional Mask has also the same size as data. If none, size is empty.
-  if (dropout.mask().getType().isa<NoneType>())
+  if (isFromNone(dropout.mask()))
     outputDims.clear();
   setOutputDims(outputDims, 1);
   return success();
@@ -52,7 +52,7 @@ LogicalResult ONNXDropoutOpShapeHelper::computeShape() {
 
 LogicalResult ONNXDropoutOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!data().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(data()))
     return success();
 
   Type outputElementType =

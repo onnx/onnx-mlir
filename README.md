@@ -28,6 +28,8 @@ Current levels of support for the code generation of ONNX operations are listed 
 ## Interacting with the community.
 
 For ongoing discussions, we use an [`#onnx-mlir-discussion`](https://lfaifoundation.slack.com/archives/C01J4NAL4A2) slack channel established under the Linux Foundation AI and Data Workspace.
+Join this workspace using this [link](https://join.slack.com/t/lfaifoundation/shared_invite/zt-o65errpw-gMTbwNr7FnNbVXNVFkmyNA).
+
 We use GitHub Issues for request for comments, questions, or bug reports.
 Security-related issues are reported using the channels listed in the [SECURITY](SECURITY.md) page.
 

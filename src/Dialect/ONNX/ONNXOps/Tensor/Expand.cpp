@@ -101,9 +101,7 @@ LogicalResult ONNXExpandOp::verify() {
 
 LogicalResult ONNXExpandOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!input().getType().isa<RankedTensorType>())
-    return success();
-  if (!shape().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(input()) || !hasShapeAndRank(shape()))
     return success();
 
   Type elementType = input().getType().cast<ShapedType>().getElementType();

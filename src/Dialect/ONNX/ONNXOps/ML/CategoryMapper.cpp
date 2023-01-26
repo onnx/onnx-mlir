@@ -74,7 +74,7 @@ LogicalResult ONNXCategoryMapperOp::verify() {
 LogicalResult ONNXCategoryMapperOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()))
     return success();
 
   Type inputElementType = X().getType().cast<ShapedType>().getElementType();

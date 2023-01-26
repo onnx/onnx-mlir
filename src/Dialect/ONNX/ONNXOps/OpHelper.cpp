@@ -327,18 +327,17 @@ Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
 }
 
 // Returns true if the Value is defined by a unit constant.
+// The unit constant can  be 1. NoneType, or 2. 1D tensor with 0 length
+// For example, NoneType, tensor<0xf32>
+// Some onnx model uses 0 length tensor for unit constant.
 bool isFromNone(Value v) {
-  if (auto op = v.getDefiningOp()) {
-    if (isa<ONNXNoneOp>(op))
-      return true;
+  if (v.getType().isa<NoneType>())
+    return true;
 
-    if (auto c = dyn_cast<ONNXConstantOp>(op))
-      if (c.value().has_value())
-        if (auto e = c.valueAttr().dyn_cast<ElementsAttr>()) {
-          auto shape = e.getType().getShape();
-          if (shape.size() == 1 && shape[0] == 0)
-            return true;
-        }
+  if (auto ty = v.getType().dyn_cast<ShapedType>()) {
+    auto shape = ty.getShape();
+    if (shape.size() == 1 && shape[0] == 0)
+      return true;
   }
 
   return false;

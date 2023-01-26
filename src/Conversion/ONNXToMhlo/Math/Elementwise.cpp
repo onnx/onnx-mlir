@@ -57,6 +57,16 @@ struct MhloDialectOp<ONNXExpOp> {
 };
 
 template <>
+struct MhloDialectOp<ONNXLogOp> {
+  using Op = mhlo::LogOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXMaxOp> {
+  using Op = mhlo::MaxOp;
+};
+
+template <>
 struct MhloDialectOp<ONNXMulOp> {
   using Op = mhlo::MulOp;
 };
@@ -79,6 +89,11 @@ struct MhloDialectOp<ONNXSqrtOp> {
 template <>
 struct MhloDialectOp<ONNXSubOp> {
   using Op = mhlo::SubtractOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXTanhOp> {
+  using Op = mhlo::TanhOp;
 };
 
 namespace {
@@ -156,6 +171,34 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>
     Value broadcastedZero = getShapedZero(loc, rewriter, inp);
     Value resultOp =
         rewriter.create<mhlo::MaxOp>(loc, resultType, inp, broadcastedZero);
+    rewriter.replaceOp(op, resultOp);
+    return success();
+  }
+};
+
+// ONNXLeakyReluOp(x) = alpha * x if x < 0 else x.
+template <>
+struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXLeakyReluOp>
+    : public ConversionPattern {
+  ONNXElementwiseUnaryOpLoweringToMhlo(MLIRContext *ctx)
+      : ConversionPattern(ONNXLeakyReluOp::getOperationName(), 1, ctx) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+    ONNXLeakyReluOpAdaptor adaptor(operands, op->getAttrDictionary());
+    Value inp = adaptor.X();
+    llvm::APFloat alpha = adaptor.alpha();
+    ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
+    if (inpType == nullptr)
+      return failure();
+    Type resultType = *op->result_type_begin();
+    Value alphaVal = getShapedFloat(loc, rewriter, alpha, inp);
+    Value leakyActivationVal = rewriter.create<mhlo::MulOp>(loc, inp, alphaVal);
+    Value broadcastedZero = getShapedZero(loc, rewriter, inp);
+    Value compareGtZero = rewriter.create<mhlo::CompareOp>(
+        loc, inp, broadcastedZero, mhlo::ComparisonDirection::GT);
+    Value resultOp = rewriter.create<mhlo::SelectOp>(
+        loc, resultType, compareGtZero, inp, leakyActivationVal);
     rewriter.replaceOp(op, resultOp);
     return success();
   }
@@ -276,9 +319,12 @@ void populateLoweringONNXElementwiseOpToMhloPattern(
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCeilOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCosOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXExpOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXLeakyReluOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXLogOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSqrtOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXTanhOp>,
       ONNXElementwiseCompareBinaryOpLoweringToMhlo<ONNXEqualOp>,
       ONNXElementwiseCompareBinaryOpLoweringToMhlo<ONNXGreaterOp>,
       ONNXElementwiseCompareBinaryOpLoweringToMhlo<ONNXGreaterOrEqualOp>,
@@ -288,6 +334,7 @@ void populateLoweringONNXElementwiseOpToMhloPattern(
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAddOp>,
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAndOp>,
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXDivOp>,
+      ONNXElementwiseVariadicOpLoweringToMhlo<ONNXMaxOp>,
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXMulOp>,
       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXSubOp>>(ctx);
 }

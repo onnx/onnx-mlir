@@ -100,8 +100,7 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
   // Y :: [batch_size, seq_length, num_dir, hidden_size] if batchwiseLayout
   // Y :: [seq_length, num_dir, batch_size, hidden_size] otherwise
   DimsExpr yOutputDims;
-  Type yTy = op->getResult(0).getType();
-  if (!yTy.isa<NoneType>()) {
+  if (!isFromNone(op->getResult(0))) {
     if (batchwiseLayout) {
       yOutputDims = {batchSize, seqLength, numDir, hiddenSize};
     } else {
@@ -113,8 +112,7 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
   // Y_h :: [batch_size, num_dir, hidden_size] if batchwiseLayout
   // Y_h :: [num_dir, batch_size, hidden_size] otherwise
   DimsExpr yHOutputDims;
-  Type yhTy = op->getResult(1).getType();
-  if (!yhTy.isa<NoneType>()) {
+  if (!isFromNone(op->getResult(1))) {
     if (batchwiseLayout) {
       yHOutputDims = {batchSize, numDir, hiddenSize};
     } else {
@@ -127,8 +125,7 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
     // Y_c :: [batch_size, num_dir, hidden_size] if batchwiseLayout
     // Y_c :: [num_dir, batch_size, hidden_size] otherwise
     DimsExpr yCOutputDims;
-    Type ycTy = op->getResult(2).getType();
-    if (!ycTy.isa<NoneType>()) {
+    if (!isFromNone(op->getResult(2))) {
       if (batchwiseLayout) {
         yCOutputDims = {batchSize, numDir, hiddenSize};
       } else {
@@ -167,9 +164,7 @@ mlir::LogicalResult ONNXRNNOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGRUOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      !R().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) || !hasShapeAndRank(R())) {
     return success();
   }
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();
@@ -183,9 +178,7 @@ LogicalResult ONNXGRUOp::inferShapes(
 
 LogicalResult ONNXLSTMOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      !R().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) || !hasShapeAndRank(R())) {
     return success();
   }
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();
@@ -199,9 +192,7 @@ LogicalResult ONNXLSTMOp::inferShapes(
 
 LogicalResult ONNXRNNOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      !R().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) || !hasShapeAndRank(R())) {
     return success();
   }
   Type elementType = X().getType().cast<RankedTensorType>().getElementType();

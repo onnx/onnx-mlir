@@ -419,6 +419,13 @@ void IndexExpr::debugPrint(
 // Helpers for IndexExpressions
 //===----------------------------------------------------------------------===//
 
+/*static*/ void IndexExpr::getLiteral(SmallVectorImpl<IndexExpr> &indexExprList,
+    SmallVectorImpl<int64_t> &intList) {
+  intList.clear();
+  llvm::transform(indexExprList, std::back_inserter(intList),
+      [](const auto &indexExpr) { return indexExpr.getLiteral(); });
+}
+
 /*static*/ void IndexExpr::getShape(SmallVectorImpl<IndexExpr> &indexExprList,
     SmallVectorImpl<int64_t> &intDimList, bool uniqueQuestionMark) {
   intDimList.clear();
