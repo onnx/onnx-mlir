@@ -23,9 +23,11 @@ include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/IR/PatternBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "src/Interface/ShapeHelperOpInterface.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
+include "src/IR/AttrBase.td"
 
 //===----------------------------------------------------------------------===//
 // Definition of the ONNX dialect.
@@ -36,7 +38,7 @@ def ONNX_Dialect : Dialect {
   let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
-  let useDefaultAttributePrinterParser = 1;
+  let useDefaultAttributePrinterParser = 0;
   let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
   let dependentDialects = ["func::FuncDialect"];
   let extraClassDeclaration = [{
@@ -46,6 +48,10 @@ def ONNX_Dialect : Dialect {
     // Register the builtin Types.
     void registerTypes();
   public:
+    ::mlir::Attribute parseAttribute(::mlir::DialectAsmParser &parser,
+                                     ::mlir::Type type) const override;
+    void printAttribute(::mlir::Attribute attr,
+                        ::mlir::DialectAsmPrinter &printer) const override;
   }];
 }
 
@@ -54,12 +60,11 @@ def ONNX_Dialect : Dialect {
 //===----------------------------------------------------------------------===//
 
 // Attribute for Tensors that have a different data layout than normal ONNX tensors.
-class ONNX_Attr<string name, list<Trait> traits = []>
-	: AttrDef<ONNX_Dialect, name, traits>;
+class ONNX_LayoutAttr<string name, list<Trait> traits = []>
+	: BaseLayoutAttr<ONNX_Dialect, name, traits>;
 
 // ONNX tensor encoding attribute.
-def ONNXTensorEncodingAttr : ONNX_Attr<"ONNXTensorEncoding"> {
-  let mnemonic = "encoding";
+def ONNXTensorEncodingAttr : ONNX_LayoutAttr<"ONNXTensorEncoding"> {
   let hasCustomAssemblyFormat = 1;
   let description = [{
     An attribute to encode information on properties of ONNX tensors. A tensor with

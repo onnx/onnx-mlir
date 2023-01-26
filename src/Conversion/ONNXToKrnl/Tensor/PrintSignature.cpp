@@ -28,7 +28,7 @@ struct ONNXPrintSignatureLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
     ONNXPrintSignatureOp printSignatureOp =
         llvm::dyn_cast<ONNXPrintSignatureOp>(op);

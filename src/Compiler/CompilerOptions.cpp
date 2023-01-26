@@ -189,6 +189,10 @@ llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> onnxConstPropReport("onnx-const-prop-report",
+    llvm::cl::desc("Report diagnostic info for constant propagation passes."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> enableParallel("parallel",
     llvm::cl::desc("Enable parallelization (default=false)\n"
                    "Set to 'true' if you want to enable parallelization."),
@@ -209,6 +213,18 @@ llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
 llvm::cl::opt<bool> allowSorting("allowSorting",
     llvm::cl::desc("Perform topological sort on onnx graph"),
     llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<std::string> reportHeapBefore("report-heap-before",
+    llvm::cl::desc("Comma separated list of names of passes.\n"
+                   "Before each heap statistics are dumped to "
+                   "<output-files-base-path>.heap.log"),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<std::string> reportHeapAfter("report-heap-after",
+    llvm::cl::desc("Comma separated list of names of passes.\n"
+                   "After each heap statistics are dumped to "
+                   "<output-files-base-path>.heap.log"),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register

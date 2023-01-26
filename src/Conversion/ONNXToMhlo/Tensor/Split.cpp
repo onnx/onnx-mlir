@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -45,13 +46,13 @@ struct ONNXSplitOpLoweringToMhlo : public ConversionPattern {
       dimIndex += rank;
     int64_t inputDimSize = inputType.getDimSize(dimIndex);
 
-    // Get a shape helper.
-    ONNXSplitOpShapeHelper shapeHelper(&splitOp);
-    auto shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Get a shape helper (not used?)
+    IndexExprBuilderForMhlo createIE(rewriter, loc);
+    ONNXSplitOpShapeHelper shapeHelper(op, operands, &createIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     SmallVector<int64_t, 4> splitSizes;
-    if (auto splitAttr = getDenseElementAttributeFromONNXValue(split)) {
+    if (auto splitAttr = getElementAttributeFromONNXValue(split)) {
       for (IntegerAttr value : splitAttr.getValues<IntegerAttr>()) {
         int64_t splitSize = value.cast<IntegerAttr>().getInt();
         splitSizes.push_back(splitSize);

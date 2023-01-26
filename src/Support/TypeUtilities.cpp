@@ -76,4 +76,18 @@ int64_t getSizeInBytes(Type ty) {
   return ShapedType::getNumElements(shape) * getEltSizeInBytes(ty);
 }
 
+/// Check if two RankedTensorTypes have the same encoding attribute or not.
+bool sameEncodingAttr(Type t1, Type t2) {
+  if (auto rtp1 = llvm::dyn_cast<RankedTensorType>(t1))
+    if (auto rtp2 = llvm::dyn_cast<RankedTensorType>(t2)) {
+      return rtp1.getEncoding() == rtp2.getEncoding();
+    }
+  return false;
+}
+
+/// Get the byte width of an int or float type.
+unsigned getIntOrFloatByteWidth(Type ty) {
+  return llvm::divideCeil(ty.getIntOrFloatBitWidth(), 8);
+}
+
 } // namespace onnx_mlir

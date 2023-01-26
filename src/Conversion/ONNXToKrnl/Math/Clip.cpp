@@ -14,7 +14,6 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -47,7 +46,7 @@ struct ONNXClipOpLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     // Get shape.
-    NewONNXClipOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ONNXClipOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -59,12 +58,12 @@ struct ONNXClipOpLowering : public ConversionPattern {
                   memRefType, loc, rewriter, insertDealloc, input);
 
     auto computeResult = [&](LocalDialectBuilder &create,
-                             const ValueRange &indices) {
-      Value loadedVal = create.krnl.load(input, indices);
+                             const ValueRange &indices) { // indices={i,j,k}
+      Value loadedVal = create.krnl.load(input, indices); // load input[i,j,k]
       Value res = loadedVal;
       if (!min.getType().isa<NoneType>()) {
-        Value minVal = create.krnl.load(min);
-        Value lessThanMin = create.math.slt(res, minVal);
+        Value minVal = create.krnl.load(min);             // load min
+        Value lessThanMin = create.math.slt(res, minVal); // (input[i,j,k]<min)
         res = create.math.select(lessThanMin, minVal, res);
       }
       if (!max.getType().isa<NoneType>()) {

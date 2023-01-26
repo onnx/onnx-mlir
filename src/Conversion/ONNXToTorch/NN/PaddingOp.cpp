@@ -90,13 +90,13 @@ public:
     auto pads = op.pads();
     Value constValue = op.constant_value(); 
 
-    // creating the DenseElementsAttr using pads values.
-    DenseElementsAttr denseAttr = onnx_mlir::getDenseElementAttributeFromONNXValue(pads);
+    // creating the ElementsAttr using pads values.
+    ElementsAttr elemAttr = onnx_mlir::getElementAttributeFromONNXValue(pads);
 
     // Reading the ONNX side pads values and store in the array.
     std::vector<APInt> intValues;
     bool paddingNeeded = false;
-    for (auto n : denseAttr.getValues<APInt>()) {
+    for (auto n : elemAttr.getValues<APInt>()) {
       intValues.push_back(n);
       if (!n.isZero())
         paddingNeeded = true;   
@@ -139,8 +139,8 @@ public:
     }
 
     
-    DenseElementsAttr valueAttr =
-        onnx_mlir::getDenseElementAttributeFromONNXValue(constValue);
+    ElementsAttr valueAttr =
+        onnx_mlir::getElementAttributeFromONNXValue(constValue);
     auto valueIt = valueAttr.getValues<FloatAttr>().begin();
     double valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
     FloatAttr floatVal =

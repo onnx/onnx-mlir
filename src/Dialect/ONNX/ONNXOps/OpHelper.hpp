@@ -4,7 +4,7 @@
 
 //===------- ONNXOpsHelper.hpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -64,9 +64,8 @@ llvm::StringRef convertONNXTensorDataLayoutToString(
 // Add ONNX tensor encoding to ranked & shaped types. Return type only has the
 // encoding if the layout is custom, Currently assert for non ranked/shaped
 // type.
-mlir::Type convertTensorTypeToTensorTypeWithONNXTensorEncoding(
-    mlir::Builder &builder, const mlir::Type inputType,
-    mlir::StringAttr layoutAttr);
+mlir::Type convertTensorTypeToTensorTypeWithEncoding(
+    const mlir::Type inputType, mlir::Attribute encodingAttr);
 
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
 bool isONNXTensor(const mlir::Type type);
@@ -159,13 +158,10 @@ size_t ArrayAttrSize(llvm::Optional<mlir::ArrayAttr> a);
 int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
 
-// This function satisfies the ArrayValueIndexCapture::DenseElementsAttr
-// lambda type, using ONNX operations only.
-mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
-    mlir::Value value);
+mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
-mlir::Value createONNXConstantOpWithDenseAttr(
+mlir::ONNXConstantOp createONNXConstantOpWithDenseAttr(
     mlir::OpBuilder &builder, mlir::Location loc, mlir::Attribute dense);
 mlir::Value createNoneIntegerConstant(
     mlir::PatternRewriter &rewriter, mlir::Location loc);
@@ -199,6 +195,7 @@ bool AreTheSameConstantOpDenseAttr(
 
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(mlir::Value val);
+bool hasShapeAndRank(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
@@ -208,10 +205,6 @@ bool hasShapeAndRank(mlir::Value val);
 mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::FloatAttr attr);
-
-/// Create a DenseElementsAttr from a raw buffer.
-mlir::DenseElementsAttr createDenseElementsAttrFromRawBuffer(
-    mlir::Type resType, char *buf);
 
 mlir::Value normalizeConstantOp(
     mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
@@ -234,7 +227,7 @@ bool isDenseONNXConstant(mlir::Value result);
 
 // Get scalar value when it is a constant.
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(mlir::DenseElementsAttr &denseAttr, mlir::Type type);
+RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
 
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp, mlir::Type type);

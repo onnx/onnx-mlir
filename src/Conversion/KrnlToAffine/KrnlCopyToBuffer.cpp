@@ -39,7 +39,12 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     // Get info from operands.
-    auto copyToBufferOp = cast<KrnlCopyToBufferOp>(op);
+    KrnlCopyToBufferOp copyToBufferOp = cast<KrnlCopyToBufferOp>(op);
+    Location loc = copyToBufferOp.getLoc();
+    MultiDialectBuilder<AffineBuilderKrnlMem, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
+    IndexExprScope indexScope(create.affineKMem);
+
     KrnlCopyToBufferOpAdaptor operandAdaptor(copyToBufferOp);
     Value buffMemref(operandAdaptor.buffer());
     Value sourceMemref(operandAdaptor.source());
@@ -51,15 +56,15 @@ public:
         buffMemref.getType().cast<MemRefType>().getShape().size();
     int64_t srcOffset = srcRank - buffRank;
     assert(srcOffset >= 0 && "offset expected non negative");
-    Location loc = copyToBufferOp.getLoc();
-    AffineBuilderKrnlMem createAffine(rewriter, loc);
-    IndexExprScope indexScope(createAffine);
-    SmallVector<IndexExpr, 4> starts, bufferReadUBs, bufferPadUBs;
-    MemRefBoundsIndexCapture buffBounds(buffMemref);
-    MemRefBoundsIndexCapture sourceBounds(sourceMemref);
+    SmallVector<IndexExpr, 4> starts, bufferReadUBs, bufferPadUBs, pads,
+        readSize, buffBounds, sourceBounds;
+    create.krnlIE.getShapeAsSymbols(buffMemref, buffBounds);
+    create.krnlIE.getShapeAsSymbols(sourceMemref, sourceBounds);
     getIndexExprList<DimIndexExpr>(startVals, starts);
-    ArrayAttributeIndexCapture padCapture(copyToBufferOp.padToNextAttr(), 1);
-    ArrayAttributeIndexCapture readSizeCapture(copyToBufferOp.tileSizeAttr());
+    create.krnlIE.getIntFromArrayAsLiterals(
+        copyToBufferOp.padToNextAttr(), 1, pads, buffRank);
+    create.krnlIE.getIntFromArrayAsLiterals(
+        copyToBufferOp.tileSizeAttr(), readSize);
     // Handle possible transpose by having an indirect array for indices
     // used in conjunction with source.
     SmallVector<int64_t, 4> srcIndexMap, srcLoopMap;
@@ -68,23 +73,20 @@ public:
 
     // Overread not currently used, will if we simdize reads or
     // unroll and jam loops.
-    // ArrayAttributeIndexCapture overCapture(op.overreadToNextAttr(), 1);
 
     // Determine here bufferReadUBs, which determine how many values of source
-    // memeref to copy into the buffer. Also determine bufferPadUBs, which is
+    // memref to copy into the buffer. Also determine bufferPadUBs, which is
     // the upper bound past bufferReadUBs that must be padded.
     // This is only done on the dimensions shared between src memref and buffer.
     LiteralIndexExpr zeroIE(0);
     for (long buffIndex = 0; buffIndex < buffRank; ++buffIndex) {
       long srcIndex = srcIndexMap[srcOffset + buffIndex];
       // Compute how many values to read.
-      IndexExpr sourceBound =
-          sourceBounds.getSymbol(srcIndex); // Source memref size.
-      IndexExpr blockSize =
-          buffBounds.getSymbol(buffIndex); // Buffer memref size.
-      if (readSizeCapture.size()) {
+      IndexExpr sourceBound = sourceBounds[srcIndex]; // Source memref size.
+      IndexExpr blockSize = buffBounds[buffIndex];    // Buffer memref size.
+      if (readSize.size()) {
         int64_t memSize = blockSize.getLiteral();
-        blockSize = readSizeCapture.getLiteral(buffIndex); // Size from param.
+        blockSize = readSize[buffIndex]; // Size from param.
         assert(blockSize.getLiteral() <= memSize &&
                "readTileSize cannot be larger than the buffer size");
       }
@@ -94,7 +96,7 @@ public:
       bufferRead.debugPrint("buffer read");
       bufferReadUBs.emplace_back(bufferRead);
       // Determine the UB until which to pad
-      IndexExpr padToNext = padCapture.getLiteral(buffIndex);
+      IndexExpr padToNext = pads[buffIndex];
       int64_t padToNextLit =
           padToNext.getLiteral(); // Will assert if undefined.
       int64_t blockSizeLit = blockSize.getLiteral(); // Will assert if not lit.
@@ -119,7 +121,7 @@ public:
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(createAffine, &indexScope, buffMemref, sourceMemref,
+    genCopyLoops(create.affineKMem, &indexScope, buffMemref, sourceMemref,
         srcLoopMap, padVal, zeroIE, starts, bufferReadUBs, bufferPadUBs,
         loopIndices, 0, buffRank, false);
     rewriter.eraseOp(op);
