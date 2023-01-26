@@ -285,23 +285,22 @@ void KrnlBuilder::printf(Value input, Type inputType) const {
 // =============================================================================
 
 // Return null if none is found.
-// Copy from getDenseElementAttributeFromConstantValue
-DenseElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
+ElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
   auto definingOp = value.getDefiningOp();
   if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
     if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+      return globalOp.valueAttr().dyn_cast<ElementsAttr>();
   } else if (auto globalOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
     if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+      return globalOp.valueAttr().dyn_cast<ElementsAttr>();
   }
   return nullptr;
 }
 
 Value IndexExprBuilderForKrnl::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(*this);
-  uint64_t rank = getTypeRank(intArrayVal);
+  uint64_t rank = getShapedTypeRank(intArrayVal);
   if (rank == 0)
     return create.krnl.load(intArrayVal, {});
   uint64_t size = getArraySize(intArrayVal);

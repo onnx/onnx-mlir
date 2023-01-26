@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------ Clip.cpp - ONNX Operations ---------------------===//
+//===-------------------- Clip.cpp - ONNX Operations ----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -26,9 +26,9 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXClipOpShapeHelper::computeShape() {
+LogicalResult ONNXClipOpShapeHelper::computeShape() {
   ONNXClipOpAdaptor operandAdaptor(operands);
-  return computeShapeFromOperand(operandAdaptor.input());
+  return setOutputDimsFromOperand(operandAdaptor.input());
 }
 
 } // namespace onnx_mlir
@@ -44,14 +44,14 @@ LogicalResult NewONNXClipOpShapeHelper::computeShape() {
 LogicalResult ONNXClipOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Look at input.
-  if (!input().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(input()))
     return success();
   RankedTensorType inputTy = input().getType().cast<RankedTensorType>();
   Type elementType = inputTy.getElementType();
   // Look at optional min.
   if (!min().getType().isa<NoneType>()) {
     // Has a min, make sure its of the right type.
-    if (!min().getType().isa<RankedTensorType>())
+    if (!hasShapeAndRank(min()))
       return success();
     // And size.
     RankedTensorType minTy = min().getType().cast<RankedTensorType>();
@@ -63,7 +63,7 @@ LogicalResult ONNXClipOp::inferShapes(
   // Look at optional max
   if (!max().getType().isa<NoneType>()) {
     // Has a max, make sure its of the right type.
-    if (!max().getType().isa<RankedTensorType>())
+    if (!hasShapeAndRank(max()))
       return success();
     // And size.
     RankedTensorType maxTy = max().getType().cast<RankedTensorType>();
@@ -73,7 +73,7 @@ LogicalResult ONNXClipOp::inferShapes(
       return emitError("Min tensor ranked with nonzero size");
   }
 
-  NewONNXClipOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXClipOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -82,5 +82,5 @@ LogicalResult ONNXClipOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXClipOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXClipOp>;
 } // namespace onnx_mlir

@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -57,10 +58,10 @@ struct ONNXTransposeOpLoweringToMhlo : public ConversionPattern {
       permAxis = DenseIntElementsAttr::get(permAxisType, permAxisList);
     }
 
-    // Get a shape helper.
-    ONNXTransposeOpShapeHelper shapeHelper(&transposeOp);
-    LogicalResult shapecomputed = shapeHelper.computeShape(operandAdaptor);
-    assert(succeeded(shapecomputed) && "Could not compute output shape");
+    // Get a shape helper: unused, needed?
+    IndexExprBuilderForAnalysis createIE(loc);
+    ONNXTransposeOpShapeHelper shapeHelper(op, operands, &createIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
 
     Value transposeValue =
         rewriter.create<mhlo::TransposeOp>(loc, outputType, data, permAxis);

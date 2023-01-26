@@ -57,6 +57,8 @@ def print_usage():
     dprint(" * If good, save fix for X:  \"fixLitTest -prf X test.mlir > test.mlir\".")
     dprint("   - Create a new FileCheck version for function X (\"-rf X\"),")
     dprint("     and print the other tests unmodified (\"p\").")
+    dprint(" * When all failures are similar, the \"-r\" alone will fix all models that failed, ")
+    dprint("   and print the models that succeeded. Please use sparingly.")
     dprint("")
     sys.exit()
 
@@ -66,6 +68,7 @@ def print_usage():
 run_command = ""
 fix_fct_name = ""
 debug = 0
+debug_command_str = ""
 test_error_functions = []
 
 # File names.
@@ -84,14 +87,13 @@ segment_mlir2FileCheck_command = []
 # Run commands.
 
 def run_onnx_mlir_opt(code_file_name, omo_command, output_file_name):
-    global debug
+    global debug, debug_command_str
 
     # Gen command from string.
     command = omo_command.split()
     command.append(code_file_name)
     if debug:
-        print("//  Commands:")
-        print("//    ", ' '.join(command))
+        debug_command_str += "//    " + ' '.join(command) + "\n"
     res = subprocess.run(command, capture_output=True, text=True).stdout
     # Write command output
     with open(output_file_name, 'w') as f:
@@ -99,7 +101,7 @@ def run_onnx_mlir_opt(code_file_name, omo_command, output_file_name):
 
 def run_mlir2FileCheck(model_file_name, compiled_file_name, 
         m2fc_command, output_file_name):
-    global debug
+    global debug, debug_command_str
 
     if not m2fc_command:
         m2fc_command = "mlir2FileCheck.py"
@@ -115,28 +117,34 @@ def run_mlir2FileCheck(model_file_name, compiled_file_name,
     command.extend(["-i", compiled_file_name])
     command.extend(["-m", model_file_name])
     if debug:
-        print("//    ", ' '.join(command))
+        debug_command_str += "//    " + ' '.join(command) + "\n"
     res = subprocess.run(command, capture_output=True, text=True).stdout
     # Write command output
     with open(output_file_name, 'w') as f:
         f.write(res)
 
-def run_FileCheck(test_name, compiled_file_name, model_file_name):
-    global debug, test_error_functions
+# return True on success
+def run_FileCheck(test_name, compiled_file_name, model_file_name, silent):
+    global debug, debug_command_str, test_error_functions
     command = ['FileCheck', '--input-file='+compiled_file_name,
         model_file_name]
     if debug:
-        print("//    ", ' '.join(command))
+        debug_command_str += "//    " + ' '.join(command) + "\n"
     res = subprocess.run(command, capture_output=True, text=True).stderr
     if len(res) == 0:
-        dprint(">> Successful test of \"" + test_name + "\".")
-    else:
+        # Success.
+        if not silent:
+            dprint("// >> Successful test of \"" + test_name + "\".")
+        return True
+    # Failure
+    if not silent:
         test_error_functions.append(test_name)
-        dprint(">> Start failure report of test \"" + test_name + "\".")
+        dprint("// >> Start failure report of test \"" + test_name + "\".")
         dprint(res)
-        dprint(">> Stop failure report of test \"" + test_name + "\".")
-        dprint(">> run again with option \"-t -f " + test_name + 
+        dprint("// >> Stop failure report of test \"" + test_name + "\".")
+        dprint("// >> run again with option \"-tdf " + test_name +
             "\" to focus on this test.")
+    return False
 
 def print_file(file_name):
     with open(file_name, 'r') as f:
@@ -175,25 +183,29 @@ def emit_modified_segment(i, has_test):
         if re.match(r'\s*//', l) is not None and re.match(r'\s*// CHECK', l) is None:
             # Has comment, print.
             print(l)
-    
+    print()
     gen_orig_model(i, flt_orig_model_file_name)
     run_onnx_mlir_opt(flt_orig_model_file_name, run_command, flt_compiled_file_name)
+
+    # either we fix in all cases, or we failed the original test.       
     run_mlir2FileCheck(flt_orig_model_file_name, flt_compiled_file_name, 
         segment_mlir2FileCheck_command[i], flt_new_model_file_name)
     print_file(flt_new_model_file_name)
+
     if has_test:
         run_FileCheck(segment_fct_name[i], flt_compiled_file_name, 
-          flt_new_model_file_name)
+          flt_new_model_file_name, silent=False)
 
 
-def test_orig_model(i):
+# return true on success
+def test_orig_model(i, silent):
     global run_command, debug
     global flt_orig_model_file_name, flt_compiled_file_name
 
     gen_orig_model(i, flt_orig_model_file_name)
     run_onnx_mlir_opt(flt_orig_model_file_name, run_command, flt_compiled_file_name)
-    run_FileCheck(segment_fct_name[i], flt_compiled_file_name, 
-      flt_orig_model_file_name)
+    return run_FileCheck(segment_fct_name[i], flt_compiled_file_name, 
+      flt_orig_model_file_name, silent)
 
 
 ################################################################################
@@ -207,6 +219,7 @@ def main(argv):
     has_repair = False
     has_test = False
     has_print = False
+    has_repair_all = False;
     try:
         opts, args = getopt.gnu_getopt(
             argv, "rtdf:hp", ["repair", "test", "debug", "func=", "help", "print"])
@@ -231,14 +244,20 @@ def main(argv):
     if not has_repair and not has_test:
         dprint('Need "--repair" or "--test" option')
         print_usage();
-
+    
     if len(args) != 1:
         # All commands after the file name seems to be added here!!!
         dprint("Need an single input file as last option: ", args, ".")
         return
     lit_test_filename = args[0]
+    if not os.path.exists(lit_test_filename):
+        # If don't find the path, try in the test/mlir sub directory.
+        directory = os.path.dirname(sys.argv[0])
+        # This file is in onnx-mlir/utils... tests are in onnx-mlir/test/mlir.
+        directory += "/../test/mlir/"
+        lit_test_filename = directory + lit_test_filename
     if debug:
-        print('// Process lit test file "' + lit_test_filename + '".')
+        dprint('// Process lit test file "' + lit_test_filename + '".')
 
     # Process the lit test file. 
     # Segments are all of the text between "// -----".
@@ -290,7 +309,7 @@ def main(argv):
             if has_fct and curr_segment_fct_name == fix_fct_name:
                 found_fct_to_fix = True
                 if debug:
-                    print("//  Found function to fix:", curr_segment_fct_name)
+                    dprint("// Found function to fix: " + curr_segment_fct_name)
             continue
          # Handle mlir2FileCheck command
         m = re.match(r'\s*//\s*(mlir2FileCheck.py.*)$', line)
@@ -313,23 +332,37 @@ def main(argv):
         print_usage()
     
     # Process segments.
-    dprint(">> File runs \"" + run_command + "\" ")
+    dprint("// File runs \"" + run_command + "\" ")
     if has_repair:
         emit_unmodified_segment(0)
     for i in range(1, len(segment_text)):
-        if not has_fct or segment_fct_name[i] == fix_fct_name:
-            # We have the selected function or we do them all
-            if has_repair:
-                sys.stderr.write("// > repair "+ segment_fct_name[i] + "\n")
-                emit_modified_segment(i, has_test)
-            elif has_test:
-                test_orig_model(i)
-        elif has_fct and segment_fct_name[i] != fix_fct_name:
-            # Specified a function, but does not have it.
-            # Print through if requested
-            if has_print:
-                sys.stderr.write("// > print "+ segment_fct_name[i] + "\n")
+        if has_fct:
+            if segment_fct_name[i] == fix_fct_name:
+                # We have the selected function.
+                if has_repair:
+                    dprint("// > repair "+ segment_fct_name[i])
+                    emit_modified_segment(i, has_test)
+                elif has_test:
+                    test_orig_model(i, silent=False)
+            elif has_print:
+                # We don't have the selected function but we want to print the others.
+                if debug:
+                    dprint("// > print "+ segment_fct_name[i])
                 emit_unmodified_segment(i)
+        elif has_repair:
+            # Has repair for all (failing) tests.
+            if test_orig_model(i, silent=True):
+                dprint(" // > successful test; print "+ segment_fct_name[i])
+                emit_unmodified_segment(i)
+            else:
+                dprint(" // > failed test; repair"+ segment_fct_name[i])
+                emit_modified_segment(i, has_test)
+        elif has_test:
+            test_orig_model(i, silent=False)
+
+    if debug:
+        dprint("// Commands used:")
+        dprint(debug_command_str)
 
     test_error_num = len(test_error_functions)
     if has_test:

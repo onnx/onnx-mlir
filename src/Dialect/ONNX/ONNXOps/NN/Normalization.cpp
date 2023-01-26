@@ -22,16 +22,26 @@ using namespace onnx_mlir;
 // BatchNormalizationInferenceMode
 //===----------------------------------------------------------------------===//
 
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXBatchNormalizationInferenceModeOpShapeHelper::computeShape() {
+  // Single output in inference mode, Y same shape as X.
+  ONNXBatchNormalizationInferenceModeOpAdaptor operandAdaptor(operands);
+  return setOutputDimsFromOperand(operandAdaptor.X());
+}
+
+} // namespace onnx_mlir
+
 LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>() ||
-      !scale().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>() ||
-      !mean().getType().isa<RankedTensorType>() ||
-      !var().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(scale()) ||
+      !hasShapeAndRank(B()) || !hasShapeAndRank(mean()) ||
+      !hasShapeAndRank(var()))
     return success();
 
+  // Verifier code.
   auto inputTensorTy = X().getType().cast<RankedTensorType>();
   auto scaleTensorTy = scale().getType().cast<RankedTensorType>();
   auto biasTensorTy = B().getType().cast<RankedTensorType>();
@@ -67,9 +77,16 @@ LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
   }
 
   // The output tensor of the same shape as the input.
-  getResult().setType(X().getType());
-  return success();
+  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  ONNXBatchNormalizationInferenceModeOpShapeHelper shapeHelper(
+      getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<
+    ONNXBatchNormalizationInferenceModeOp>;
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // InstanceNormalization
@@ -127,3 +144,5 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
 
   return success();
 }
+
+// TODO: should there be a shape inference for this one?

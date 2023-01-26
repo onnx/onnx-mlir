@@ -16,7 +16,7 @@
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include <src/Dialect/Mlir/IndexExpr.hpp>
 
 using namespace mlir;
@@ -97,7 +97,7 @@ public:
 
     // Get shapehelper for autopad attributes
     IndexExprBuilderForTosa createTosaIE(rewriter, convOp->getLoc());
-    NewONNXConvOpShapeHelper shapeHelper(op, operands, &createTosaIE);
+    ONNXConvOpShapeHelper shapeHelper(op, operands, &createTosaIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     auto weightShape = weightType.getShape();

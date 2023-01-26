@@ -18,7 +18,7 @@
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include <src/Dialect/Mlir/IndexExpr.hpp>
 
@@ -31,9 +31,9 @@ namespace {
 // This calculates the values that need to be added to the padding in order to
 // simulate the ceil mode
 llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
-    const NewONNXMaxPoolSingleOutOpShapeHelper &shapeHelper) {
+    const ONNXMaxPoolSingleOutOpShapeHelper &shapeHelper, int64_t ceilMode) {
   // This avoids having more if statements when creating the padding const.
-  if (!shapeHelper.ceilMode)
+  if (ceilMode == 0)
     return llvm::SmallVector<int64_t>{0, 0};
 
   SmallVector<int64_t, 2> kernelShapeVec =
@@ -75,8 +75,7 @@ public:
     OpAdaptor adaptor(operands, op->getAttrDictionary());
     // Get shape.
     IndexExprBuilderForTosa createTosaIE(rewriter, loc);
-    NewONNXMaxPoolSingleOutOpShapeHelper shapeHelper(
-        op, operands, &createTosaIE);
+    ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(op, operands, &createTosaIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     TosaBuilder tosaBuilder(rewriter, loc);
@@ -87,7 +86,7 @@ public:
     mlir::IntegerAttr storageOrder = adaptor.storage_orderAttr();
     mlir::ArrayAttr dilations = adaptor.dilationsAttr();
     mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
-    mlir::ArrayAttr strides = adaptor.stridesAttr();
+    const int64_t ceilMode = adaptor.ceil_mode();
 
     if (input.getType().isa<MemRefType>()) {
       return rewriter.notifyMatchFailure(
@@ -120,7 +119,7 @@ public:
 
     // When ceil mode is 1, we need to add values to the padding
     const llvm::SmallVector<int64_t, 4> ceilConstants =
-        getCeilConstants(inputType.getShape(), shapeHelper);
+        getCeilConstants(inputType.getShape(), shapeHelper, ceilMode);
     llvm::SmallVector<int64_t, 4> pads =
         tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
 
@@ -128,7 +127,7 @@ public:
     mlir::ArrayAttr newPads = rewriter.getI64ArrayAttr({pads[0],
         pads[2] + ceilConstants[0], pads[1], pads[3] + ceilConstants[1]});
 
-    strides = rewriter.getI64ArrayAttr(shapeHelper.strides);
+    mlir::ArrayAttr strides = rewriter.getI64ArrayAttr(shapeHelper.strides);
 
     input = tosa::CreateOpAndInfer<mlir::tosa::MaxPool2dOp>(
         rewriter, loc, newResultType, input, kernelShape, strides, newPads);

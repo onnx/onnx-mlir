@@ -20,6 +20,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Value.h"
 
+// Please do not add dependences on ONNX or KRNL dialects.
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 
 namespace onnx_mlir {
@@ -218,8 +219,7 @@ struct SCFBuilder final : DialectBuilder {
 
   void parallelLoop(mlir::ValueRange lowerBounds, mlir::ValueRange upperBounds,
       mlir::ValueRange steps,
-      mlir::function_ref<void(DialectBuilder &, mlir::ValueRange)> bodyFn)
-      const;
+      mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
   void yield() const;
 };
 

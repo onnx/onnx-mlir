@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -45,7 +44,7 @@ std::pair<Value, Value> matMulInputs(
 }
 
 template <typename OP_TYPE>
-LogicalResult NewONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
+LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
   typename OP_TYPE::Adaptor operandAdaptor(operands);
 
   // Output dims of result.
@@ -56,8 +55,8 @@ LogicalResult NewONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
   std::tie(A, B) = matMulInputs(operandAdaptor);
 
   // Size all the arrays to padded length.
-  uint64_t aRank = createIE->getTypeRank(A);
-  uint64_t bRank = createIE->getTypeRank(B);
+  uint64_t aRank = createIE->getShapedTypeRank(A);
+  uint64_t bRank = createIE->getShapedTypeRank(B);
   int paddedRank = std::max(aRank, bRank);
   paddedRank = std::max(paddedRank, 2);
   aDims.resize(paddedRank);
@@ -165,14 +164,13 @@ LogicalResult NewONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXMatMulOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!A().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(A()) || !hasShapeAndRank(B()))
     return success();
 
-  auto elementType = A().getType().cast<ShapedType>().getElementType();
-  NewONNXMatMulOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = A().getType().cast<ShapedType>().getElementType();
+  ONNXMatMulOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -181,14 +179,13 @@ LogicalResult ONNXMatMulOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXMatMulIntegerOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!A().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(A()) || !hasShapeAndRank(B()))
     return success();
 
-  auto elementType = getResult().getType().cast<ShapedType>().getElementType();
-  NewONNXMatMulIntegerOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
+  ONNXMatMulIntegerOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -197,13 +194,12 @@ LogicalResult ONNXMatMulIntegerOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXQLinearMatMulOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  if (!a().getType().isa<RankedTensorType>() ||
-      !b().getType().isa<RankedTensorType>())
+    std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(a()) || !hasShapeAndRank(b()))
     return success();
 
-  auto elementType = getResult().getType().cast<ShapedType>().getElementType();
-  NewONNXQLinearMatMulOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
+  ONNXQLinearMatMulOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -213,8 +209,8 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
 
 namespace onnx_mlir {
 
-template struct NewONNXGenericMatMulOpShapeHelper<ONNXMatMulOp>;
-template struct NewONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp>;
-template struct NewONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulOp>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXMatMulIntegerOp>;
+template struct ONNXGenericMatMulOpShapeHelper<ONNXQLinearMatMulOp>;
 
 } // namespace onnx_mlir

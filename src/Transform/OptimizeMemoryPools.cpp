@@ -478,7 +478,7 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlGetRefOp firstGetRef, PatternRewriter &rewriter) const override {
-    auto loc = firstGetRef.getLoc();
+    Location loc = firstGetRef.getLoc();
     auto memRefType = firstGetRef.getResult().getType().dyn_cast<MemRefType>();
 
     // Only handle krnl.getref ops that return a constant shaped MemRef.
@@ -725,7 +725,7 @@ public:
 
   LogicalResult matchAndRewrite(
       memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
-    auto loc = allocOp.getLoc();
+    Location loc = allocOp.getLoc();
 
     auto memPoolType = allocOp.getResult().getType().dyn_cast<MemRefType>();
     auto memPoolShape = memPoolType.getShape();

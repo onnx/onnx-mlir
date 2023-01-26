@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 
-######################### zipmap.py #########################################
+################################## x_data.py ###################################
 #
 # Generates raw/external/nonraw_data models in test/mlir/onnx/parse/
 #
@@ -19,8 +19,10 @@ from google.protobuf.json_format import MessageToJson
 import numpy as np
 
 parser = argparse.ArgumentParser()
-parser.add_argument('data_format', choices=['raw', 'external', 'nonraw'], help="Save model as .onnx")
-parser.add_argument('--save_dot_onnx', action='store_true', help="Save model as .onnx")
+parser.add_argument('data_format', choices=['raw', 'external', 'nonraw'],
+    help="Tensor data representation")
+parser.add_argument('--save_dot_onnx', action='store_true',
+    help="Save model as .onnx")
 args = parser.parse_args()
 
 nptypes = [
@@ -37,7 +39,9 @@ nptypes = [
     np.dtype('uint32'),
     np.dtype('uint64'),
 ]
-assert all(ty == onnx.mapping.TENSOR_TYPE_TO_NP_TYPE[onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[ty]] for ty in nptypes)
+assert all(ty == onnx.mapping.TENSOR_TYPE_TO_NP_TYPE
+                   [onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[ty]]
+           for ty in nptypes)
 
 # formats nptensor for make_tensor vals arg: bytes if raw else np.ndarray
 def tensor_vals(nptensor, ty, raw):
@@ -75,19 +79,20 @@ def main():
         for i, ty in enumerate(nptypes)
     ]
     inputs = []
-    graph = helper.make_graph(nodes, "rawdata", inputs, outputs)
+    name = f"{args.data_format}_data"
+    graph = helper.make_graph(nodes, name, inputs, outputs)
     model = helper.make_model(graph)
     onnx.checker.check_model(model)
     if args.data_format == "external":
-        onnx.save_model(model, f"{args.data_format}_data.onnx",
+        onnx.save_model(model, f"{name}.onnx",
             save_as_external_data=True,
-            location=f"{args.data_format}_data.external",
+            location=f"{name}.external",
             size_threshold=0,
             convert_attribute=True
         )
         onnx.checker.check_model(model)
     elif args.save_dot_onnx:
-        onnx.save_model(model, f"{args.data_format}_data.onnx")
+        onnx.save_model(model, f"{name}.onnx")
     print(MessageToJson(model))
 
 if __name__ == '__main__':

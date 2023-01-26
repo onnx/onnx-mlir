@@ -13,13 +13,19 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
+
+#include "src/Dialect/ONNX/ONNXOps/NN/NNHelper.cpp.inc"
+
+// Currently, QLinearConv has no lit tests. The shape inference was moved to the
+// new scheme, but there is no way to ensure it is correct. So I suggest that we
+// keep the old code until we get actual tests. Once it is verified, we can
+// delete all of the code guarded by this #define.
+#define PRESERVE_UNTESTED_OLD_QLINEARCONV_CODE 0
 
 //===----------------------------------------------------------------------===//
 // Support
@@ -33,7 +39,7 @@ namespace {
 
 template <class T>
 LogicalResult processConvDilationParam(T *op, Optional<ArrayAttr> kernelShape) {
-  auto builder = mlir::Builder(op->getContext());
+  auto builder = Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
   auto dilationsOpt = op->dilations();
@@ -75,7 +81,7 @@ LogicalResult processConvKernelParam(
       defaultVals.emplace_back(weightShape[spatialOffset + i]);
     // Convert to ArrayRef, then build attribute, then store attribute.
     ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(op->getContext());
+    auto builder = Builder(op->getContext());
     op->kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
   }
   return success();
@@ -89,7 +95,7 @@ template <class T>
 LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
     Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> stridesOpt,
     Optional<ArrayAttr> dilationsOpt = llvm::None) {
-  auto builder = mlir::Builder(op->getContext());
+  auto builder = Builder(op->getContext());
 
   auto inputRank = inputShape.size();
   auto kernelRank = ArrayAttrSize(kernelShape);
@@ -190,7 +196,7 @@ LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
 
 template <class T>
 LogicalResult processConvStrideParam(T *op, Optional<ArrayAttr> kernelShape) {
-  auto builder = mlir::Builder(op->getContext());
+  auto builder = Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
   auto stridesOpt = op->strides();
@@ -252,6 +258,7 @@ LogicalResult processConvTypeParams(T *op, Value inputOperand, Value W) {
       op, inputShape, kernelShape, stridesOpt, dilationsOpt);
 }
 
+#if PRESERVE_UNTESTED_OLD_QLINEARCONV_CODE
 //===----------------------------------------------------------------------===//
 // Compute spatial dimensions given dilations, strides, pads, and ceil mode.
 //===----------------------------------------------------------------------===//
@@ -308,23 +315,37 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
     outputDims->emplace_back(res);
   }
 }
+#endif // PRESERVE_UNTESTED_OLD_QLINEARCONV_CODE
 
 } // namespace
 
 namespace onnx_mlir {
 
-NewONNXConvOpShapeHelper::NewONNXConvOpShapeHelper(Operation *op,
-    ArrayRef<Value> operands, IndexExprBuilder *ieBuilder,
-    IndexExprScope *scope)
-    : NewONNXPoolOpShapeHelper(op, operands, ieBuilder, /*hasFilter*/ true,
-          /*ceil mode*/ false, scope) {}
-
-LogicalResult NewONNXConvOpShapeHelper::computeShape() {
+template <>
+LogicalResult ONNXConvOpShapeHelper::computeShape() {
   ONNXConvOp poolOp = llvm::cast<ONNXConvOp>(op);
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(operands);
   return customComputeShape(operandAdaptor.X(), operandAdaptor.W(),
       poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
-      poolOp.dilations());
+      poolOp.dilations(), /*hasFilter*/ true, /*ceil mode*/ false);
+}
+
+template <>
+LogicalResult ONNXConvIntegerOpShapeHelper::computeShape() {
+  ONNXConvIntegerOp poolOp = llvm::cast<ONNXConvIntegerOp>(op);
+  ONNXConvIntegerOpAdaptor operandAdaptor = ONNXConvIntegerOpAdaptor(operands);
+  return customComputeShape(operandAdaptor.x(), operandAdaptor.w(),
+      poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
+      poolOp.dilations(), /*hasFilter*/ true, /*ceil mode*/ false);
+}
+
+template <>
+LogicalResult ONNXQLinearConvOpShapeHelper::computeShape() {
+  ONNXQLinearConvOp poolOp = llvm::cast<ONNXQLinearConvOp>(op);
+  ONNXQLinearConvOpAdaptor operandAdaptor = ONNXQLinearConvOpAdaptor(operands);
+  return customComputeShape(operandAdaptor.x(), operandAdaptor.w(),
+      poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
+      poolOp.dilations(), /*hasFilter*/ true, /*ceil mode*/ false);
 }
 
 } // namespace onnx_mlir
@@ -413,7 +434,7 @@ LogicalResult ONNXConvOp::verify() {
 //   -  pads: set to proper value
 
 LogicalResult ONNXConvOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Generic shape for data input X, weight tensor W, and optional bias B
   // X: (N x C x D1 x D2 ... x Dn)
   // W: (M x C/group x k1 x k2 x ... x kn)
@@ -421,13 +442,12 @@ LogicalResult ONNXConvOp::inferShapes(
 
   // Cannot infer shape if no shape exists.
   bool hasBias = !B().getType().isa<NoneType>();
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      (hasBias && !B().getType().isa<RankedTensorType>()))
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) ||
+      (hasBias && !hasShapeAndRank(B())))
     return success();
 
-  auto elementType = X().getType().cast<ShapedType>().getElementType();
-  NewONNXConvOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXConvOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -466,7 +486,7 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
   }
 }
 
-static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferedPads,
+static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferredPads,
     llvm::StringRef autoPad, ArrayRef<int64_t> xShape,
     Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> padsOpt,
     Optional<ArrayAttr> stridesOpt, Optional<ArrayAttr> outputPadsOpt,
@@ -484,7 +504,7 @@ static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferedPads,
   // pads[end_i] = total_padding[i] - (total_padding[i]/2)
   // Else: pads[start_i] = total_padding[i] - (total_padding[i]/2);
   // pads[end_i] = (total_padding[i]/2)
-  inferedPads.resize(spatialRank * 2);
+  inferredPads.resize(spatialRank * 2);
   for (unsigned int i = 0; i < spatialRank; ++i) {
     auto inputSize = xShape[spatialOffset + i];
     auto outputSize = ArrayAttrIntVal(outputShapeOpt, spatialOffset + i);
@@ -501,8 +521,8 @@ static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferedPads,
     if (autoPad != "SAME_UPPER") {
       std::swap(beginPad, endPad);
     }
-    inferedPads[i] = beginPad;
-    inferedPads[spatialRank + i] = endPad;
+    inferredPads[i] = beginPad;
+    inferredPads[spatialRank + i] = endPad;
   }
 }
 
@@ -516,7 +536,7 @@ static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferedPads,
 //   -  pads: set to proper value, 0 if not defined by user.
 
 LogicalResult ONNXConvTransposeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Generic shape for data input X, weight tensor W, and optional bias B
   // X: (N x C x D1 x D2 ... x Dn)
   // W: (C x M/group x k1 x k2 x ... x kn)
@@ -525,9 +545,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   bool hasBias = !B().getType().isa<NoneType>();
 
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>() ||
-      (hasBias && !B().getType().isa<RankedTensorType>())) {
+  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) ||
+      (hasBias && !hasShapeAndRank(B()))) {
     return success();
   }
 
@@ -535,7 +554,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   auto xShape = xTy.getShape();
   auto weightTy = W().getType().cast<RankedTensorType>();
   auto weightShape = weightTy.getShape();
-  auto builder = mlir::Builder(this->getContext());
+  auto builder = Builder(this->getContext());
 
   // Lowest supported convolution is a one dimensional convolution.
   if (xShape.size() < 3) {
@@ -621,12 +640,12 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
     if (outChannels != ArrayAttrIntVal(outputShape, 1)) {
       return emitOpError("mismatch in output channel size");
     }
-    SmallVector<int64_t, 4> inferedPads;
+    SmallVector<int64_t, 4> inferredPads;
     // Determine padding values based on output shape.
     auto autoPad = auto_pad();
-    insertConvTransposePads(inferedPads, autoPad, xShape, kernelShape, padsOpt,
+    insertConvTransposePads(inferredPads, autoPad, xShape, kernelShape, padsOpt,
         stridesOpt, outputPads, outputShape, dilationsOpt);
-    padsAttr(builder.getI64ArrayAttr(inferedPads));
+    padsAttr(builder.getI64ArrayAttr(inferredPads));
     for (uint64_t i = 0; i < xShape.size(); ++i) {
       outputShapeFinal.emplace_back(ArrayAttrIntVal(outputShape, i));
     }
@@ -653,8 +672,30 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
 // QLinearConv
 //===----------------------------------------------------------------------===//
 
+// Enable this one default; but keep the else code as there is currently no lit
+// test of any kind to very functionality.
+
 LogicalResult ONNXQLinearConvOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
+  // Generic shape for data input X, weight tensor W, and optional bias B
+  // X: (N x C x D1 x D2 ... x Dn)
+  // W: (M x C/group x k1 x k2 x ... x kn)
+  // B: (M) Optional
+
+  // Cannot infer shape if no shape exists.
+  bool hasBias = !B().getType().isa<NoneType>();
+  if (!hasShapeAndRank(x()) || !hasShapeAndRank(w()) ||
+      (hasBias && !hasShapeAndRank(B())))
+    return success();
+
+  Type elementType = x().getType().cast<ShapedType>().getElementType();
+  ONNXQLinearConvOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+}
+
+#if PRESERVE_UNTESTED_OLD_QLINEARCONV_CODE
+LogicalResult ONNXQLinearConvOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
   // Generic shape for data input X, weight tensor W, and optional bias B
   // X: (N x C x D1 x D2 ... x Dn)
   // W: (M x C/group x k1 x k2 x ... x kn)
@@ -672,7 +713,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   auto xShape = xTy.getShape();
   auto weightTy = w().getType().cast<RankedTensorType>();
   auto weightShape = weightTy.getShape();
-  auto builder = mlir::Builder(this->getContext());
+  auto builder = Builder(this->getContext());
 
   // Lowest supported convolution is a one dimensional convolution.
   if (xShape.size() < 3)
@@ -749,104 +790,35 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
 }
+#endif // PRESERVE_UNTESTED_OLD_QLINEARCONV_CODE
 
 //===----------------------------------------------------------------------===//
 // ConvInteger - copied almost exactly from Conv (X -> x, W -> w, no bias)
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConvIntegerOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Generic shape for data input X, weight tensor W
+    std::function<void(Region &)> doShapeInference) {
+  // Generic shape for data input X, weight tensor W, and optional bias B
   // X: (N x C x D1 x D2 ... x Dn)
   // W: (M x C/group x k1 x k2 x ... x kn)
+  // B: (M) Optional
 
   // Cannot infer shape if no shape exists.
-  if (!x().getType().isa<RankedTensorType>() ||
-      !w().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(x()) || !hasShapeAndRank(w()))
     return success();
-  }
 
-  auto xTy = x().getType().cast<RankedTensorType>();
-  if (!xTy.getElementType().isInteger(8)) {
-    return emitOpError("Invalid input type");
-  }
-  auto xShape = xTy.getShape();
-  auto weightTy = w().getType().cast<RankedTensorType>();
-  if (!weightTy.getElementType().isInteger(8)) {
-    return emitOpError("Invalid input type");
-  }
-  auto weightShape = weightTy.getShape();
-  auto builder = mlir::Builder(this->getContext());
-
-  // Lowest supported convolution is a one dimensional convolution.
-  if (xShape.size() < 3) {
-    return emitOpError("Data input shape must be at least (NxCxD1)");
-  }
-
-  // Check that shape of weight and data have same length.
-  if (xShape.size() != weightShape.size()) {
-    return emitError("Weight size not compatible with data size");
-  }
-
-  // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvIntegerOp::group();
-
-  // Check if the attribute actually exists. If it does not then add it.
-  if (!groupAttr())
-    groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, 1, /*isSigned=*/true)));
-
-  // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
-  if (!ShapedType::isDynamic(xShape[1]) &&
-      !ShapedType::isDynamic(weightShape[1]) &&
-      xShape[1] != (weightShape[1] * group)) {
-    return emitOpError("Channel dimension mismatch");
-  }
-
-  // Note: the value of the group attribute only impacts the way the
-  // computation is carried out and not the actual output size.
-
-  // Number of spatial dimensions.
-  auto spatialOffset = 2;
-  int32_t spatialRank = xShape.size() - spatialOffset;
-
-  // Use kernel_shape attribute if present otherwise use size from weight
-  // argument.
-  auto kernelShape = kernel_shape();
-  if (kernelShape.has_value()) {
-    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank) {
-      return emitOpError(
-          "kernel_shape length incompatible with spatial dimensions");
-    }
-    // Have the right number of values, check them.
-    for (int i = 0; i < spatialRank; ++i)
-      if (ArrayAttrIntVal(kernelShape, i) < 1) {
-        return emitError("bad kernel_shape value");
-      }
-  }
-
-  // Process strides, dilations, kernel_shape and pads.
-  LogicalResult res = processConvTypeParams<ONNXConvIntegerOp>(this, x(), w());
-  assert(succeeded(res));
-  kernelShape = kernel_shape();
-
-  auto dilationsOpt = dilations();
-  auto stridesOpt = strides();
-  auto padsOpt = pads();
-
-  // First two output dimensions consist of the number of batches and the
-  // number of kernels being applied.
-  SmallVector<int64_t, 4> outputDims;
-  // Insert batch size.
-  outputDims.emplace_back(xShape[0]);
-  // Insert number of filters being applied (number of output channels).
-  outputDims.emplace_back(weightShape[0]);
-  // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
-      stridesOpt, dilationsOpt);
-
-  // ONNX spec specifies the output type as an int32
   Type outputElementType = IntegerType::get(getContext(), 32);
-  updateType(getResult(), outputDims, outputElementType);
-  return success();
+  ONNXConvIntegerOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(outputElementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation; keep at the end of the file.
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template struct ONNXGenericPoolOpShapeHelper<ONNXConvOp>;
+template struct ONNXGenericPoolOpShapeHelper<ONNXConvIntegerOp>;
+
+} // namespace onnx_mlir

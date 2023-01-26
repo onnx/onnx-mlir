@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXReshapeOpShapeHelper::computeShape() {
+LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   ONNXReshapeOpAdaptor operandAdaptor(operands);
   DimsExpr outputDims;
 
@@ -99,12 +98,9 @@ LogicalResult NewONNXReshapeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReshapeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape tensor is specified.
-  if (!data().getType().isa<RankedTensorType>())
-    return success();
-
-  if (!shape().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(data()) || !hasShapeAndRank(shape()))
     return success();
 
   // Only rank 1 shape tensors are supported.
@@ -117,8 +113,8 @@ LogicalResult ONNXReshapeOp::inferShapes(
   if (outputRank < 0)
     return emitError("Shape tensor must have constant shape");
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
-  NewONNXReshapeOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXReshapeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -127,5 +123,5 @@ LogicalResult ONNXReshapeOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXReshapeOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXReshapeOp>;
 } // namespace onnx_mlir

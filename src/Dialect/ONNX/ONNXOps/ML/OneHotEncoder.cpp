@@ -19,6 +19,41 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXOneHotEncoderOpShapeHelper::computeShape() {
+  ONNXOneHotEncoderOp oneHotOp = llvm::cast<ONNXOneHotEncoderOp>(op);
+  ONNXOneHotEncoderOpAdaptor operandAdaptor(operands);
+  Value X = operandAdaptor.X();
+  ShapedType inputType = X.getType().dyn_cast<RankedTensorType>();
+  assert(inputType && "expected ranked type");
+
+  // If the input is a tensor of float, int32, or double,
+  // the data will be cast to integers and
+  // the cats_int64s category list will be used for the lookups.
+  int64_t outDim;
+  if (inputType.getElementType().isIntOrFloat()) {
+    outDim = ArrayAttrSize(oneHotOp.cats_int64s());
+  } else {
+    outDim = ArrayAttrSize(oneHotOp.cats_strings());
+  }
+
+  // Encoded output data, having one more dimension than X
+  // total category count will determine the size of the extra dimension
+  DimsExpr outputDims;
+  createIE->getShapeAsDims(X, outputDims);
+  outputDims.emplace_back(LiteralIndexExpr(outDim));
+
+  // Save the final result.
+  setOutputDims(outputDims);
+  return success();
+}
+} // namespace onnx_mlir
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
@@ -56,29 +91,19 @@ LogicalResult ONNXOneHotEncoderOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOneHotEncoderOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  ShapedType inputType = X().getType().dyn_cast<RankedTensorType>();
-  if (!inputType)
+    std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(X()))
     return success();
-  auto shape = inputType.getShape();
-  int64_t outDim = 0;
 
-  // If the input is a tensor of float, int32, or double,
-  // the data will be cast to integers and
-  // the cats_int64s category list will be used for the lookups.
-  if (inputType.getElementType().isIntOrFloat()) {
-    outDim = ArrayAttrSize(cats_int64s());
-  } else {
-    outDim = ArrayAttrSize(cats_strings());
-  }
-
-  // Encoded output data, having one more dimension than X
-  // total category count will determine the size of the extra dimension
-  SmallVector<int64_t, 2> dims;
-  for (unsigned int i = 0; i != shape.size(); ++i)
-    dims.emplace_back(shape[i]);
-  dims.emplace_back(outDim);
-
-  updateType(getResult(), dims, FloatType::getF32(getContext()));
+  ONNXOneHotEncoderOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(FloatType::getF32(getContext()));
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXOneHotEncoderOp>;
+} // namespace onnx_mlir

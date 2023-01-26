@@ -162,9 +162,9 @@ def  ElementTypeIsNotUnsigned: Constraint<
     CPred<"!$_self.getType().dyn_cast<ShapedType>().getElementType().isUnsignedInteger()">,
     "element type is not unsigned int">;
 
-def HaveSameONNXTensorDataLayout : Constraint<
-    CPred<"identicalONNXTensorDataLayout($0.getType(), $0.getType())">,
-    "have same ONNX Tensor Data Layouts">;
+def HaveSameEncodingAttr: Constraint<
+    CPred<"sameEncodingAttr($0.getType(), $1.getType())">,
+    "have same RankedTensorType's encoding attribute">;
 
 def IsStaticShapeTensor:
   Constraint<
@@ -227,6 +227,13 @@ def Equal: Constraint<CPred<"$0 == $1">, "are equal">;
 
 class EqualString<string s> : Constraint<CPred<"$0 == \"" # s # "\"">>;
 
+def AxisIsTheLastDim: Constraint<
+  CPred<"($1.getValue().getSExtValue() == -1) ||"
+        "(onnx_mlir::hasShapeAndRank($0) &&"
+        " ($0.getType().cast<ShapedType>().getRank() == $1.getValue().getSExtValue() + 1))">,
+  "Axis is the last dimension of the input"
+>;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -245,9 +252,9 @@ def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),
                                  (ONNXGemmOp $m1, $m2, $m3, (GemmAlpha), (GemmBeta), (GemmTransA), (GemmTransB)),
                                  [(HasOneUse $res), (HasRankOf<2> $m1), (HasRankOf<2> $m2)]>;
 
-// onnx.add(onnx.Gemm(%X, %Y, None), %Z) = onnx.Gemm(%X, %Y, %Z)
+// onnx.add(onnx.Gemm(%X, %Y, None), %Z) = onnx.Gemm(%X, %Y, %Z) {beta=1.0}
 def FuseGemmFollowedByAddition : Pat<(ONNXAddOp (ONNXGemmOp:$res $m1, $m2, $none, $alpha, $beta, $transA, $transB), $bias),
-                                     (ONNXGemmOp $m1, $m2, $bias, $alpha, $beta, $transA, $transB),
+                                     (ONNXGemmOp $m1, $m2, $bias, $alpha, (GemmBeta), $transA, $transB),
                                      [(HasOneUse $res), (HasNoneType $none)]>;
 
 //===----------------------------------------------------------------------===//
@@ -397,9 +404,9 @@ def FuseCastCastPattern : Pat<
 // ONNX_Op (onnx.ONNXLayoutTransformOp (%X)) = ONNX_Op (%X) when input and
 // output layouts are identical
 def ONNXLayoutTransformEliminationPattern : Pat<
-	(ONNXLayoutTransformOp:$res $arg, $target_layout),
-	(replaceWithValue $arg),
-  [(HaveSameONNXTensorDataLayout $res, $arg),
+  (ONNXLayoutTransformOp:$res $arg, $target_layout),
+  (replaceWithValue $arg),
+  [(HaveSameEncodingAttr $res, $arg),
    (HaveSameElementType $res, $arg)]>;
 
 //===----------------------------------------------------------------------===//
@@ -931,6 +938,18 @@ def DimOpToConstantPattern: Pat<
       (GetNullArrayAttr), (GetNullStringAttr), (GetNullArrayAttr)
    ),
    [(DimAtIndexIsConstant $input, $axis)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXSoftmaxV11 to the latest version
+//===----------------------------------------------------------------------===//
+
+// When axis is the last dimension of the input tensor, the semantics of V11 is
+// the same as that of V13 (the latest version).
+def SoftmaxV11ToLatestPattern: Pat<
+   (ONNXSoftmaxV11Op $input, $axisAttr),
+   (ONNXSoftmaxOp $input, $axisAttr),
+   [(AxisIsTheLastDim $input, $axisAttr)]
 >;
 
 #endif // ONNX_REWRITE

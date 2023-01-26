@@ -31,6 +31,7 @@
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
+#include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Pass/Passes.hpp"
@@ -42,8 +43,7 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
-    bool transformReport, bool targetCPU, bool enableSimdDataLayoutOpt) {
+void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THEN
   // with the static iteration.
@@ -55,6 +55,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
 
+  pm.addInstrumentation(
+      std::make_unique<DisposableGarbageCollector>(pm.getContext()));
+
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
@@ -62,32 +65,36 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, int transformThreshold,
   // Convolution Optimization for CPU: enable when there are no accelerators.
   if (targetCPU) {
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createConvOptONNXToONNXPass(enableSimdDataLayoutOpt));
+        onnx_mlir::createConvOptONNXToONNXPass(enableSimdDataLayout));
     pm.addPass(onnx_mlir::createShapeInferencePass());
   }
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createConstPropONNXToONNXPass(onnxConstPropReport));
 
-  if (transformThreshold > 0) {
+  if (onnxOpTransformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
-    pm.addPass(onnx_mlir::createONNXOpTransformPass(transformThreshold,
-        transformReport, targetCPU, enableSimdDataLayoutOpt));
+    pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
+        onnxOpTransformReport, targetCPU, enableSimdDataLayout));
   } else {
     // Statically add extra passes
     for (int i = 0; i < repeatOnnxTransform; i++) {
       pm.addPass(mlir::createCanonicalizerPass());
       pm.addPass(onnx_mlir::createShapeInferencePass());
       pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConstPropONNXToONNXPass());
+          onnx_mlir::createConstPropONNXToONNXPass(onnxConstPropReport));
     }
   }
 
   // Simplify shape-related ops.
-  pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
+  pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(onnxConstPropReport));
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
+
+  // Replace every DisposableElementsAttr with DenseElementsAttr.
+  pm.addPass(createScrubDisposablePass());
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
@@ -204,12 +211,12 @@ static llvm::cl::opt<bool> RunTorchPass("run-torch-pass", llvm::cl::Hidden,
     llvm::cl::init(false), llvm::cl::desc("Run ONNX to Torch Conversion"));
 
 void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
-  if (! RunTorchPass)
+  if (!RunTorchPass)
     return;
   // pm.addNestedPass<FuncOp>(mlir::createONNXPreKrnlVerifyPass());
   // Add instrumentation for Onnx Ops
   pm.addNestedPass<ModuleOp>(createInstrumentPass());
-  
+
   pm.addPass(createONNXToAtenModifyMainFunctionPass());
   pm.addPass(createLowerToTorchPass(optLevel));
 
@@ -226,12 +233,11 @@ void addONNXToTorchPasses(mlir::PassManager &pm, int optLevel) {
 void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType emissionTarget) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
-  
-    // NOTE: FlexML sets the targetCPU flag to false, as we do not want to run
-    //       the CPU specific transformations.
+
+  // NOTE: FlexML sets the targetCPU flag to false, as we do not want to run
+  //       the CPU specific transformations.
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm, onnxOpTransformThreshold, onnxOpTransformReport,
-        /*target CPU*/ false, enableSimdDataLayout);
+    addONNXToMLIRPasses(pm, /*target CPU*/ false);
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)

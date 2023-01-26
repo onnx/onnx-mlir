@@ -45,7 +45,7 @@ exposed and easily propagated through other ops. For example, the above
 %4 = "onnx.Reshape"(%arg0, %3) : (tensor<?x256xf32>,  tensor<3xi64>) -> tensor<?x?x?xf32>
 ```
 
-Now, it's straighforward to update the output shape of Reshape from
+Now, it's straightforward to update the output shape of Reshape from
 `<?x?x?xf32>` to `<?x256x1xf32>` by looking at the inputs of Concat.
 
 */
@@ -64,7 +64,6 @@ Now, it's straighforward to update the output shape of Reshape from
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -80,7 +79,7 @@ void getDimsInt64(Value val, SmallVectorImpl<int64_t> &result) {
   getDims(val, dims);
   for (Value v : dims) {
     if (auto constOp = dyn_cast<ONNXConstantOp>(v.getDefiningOp())) {
-      auto valueAttr = constOp.valueAttr().cast<DenseElementsAttr>();
+      auto valueAttr = constOp.valueAttr().cast<ElementsAttr>();
       int64_t dim = valueAttr.getSplatValue<int64_t>();
       result.emplace_back(dim);
     } else {
@@ -179,7 +178,7 @@ public:
     ArrayRef<int64_t> dims = onnx_mlir::getShape(data.getType());
 
     // Get start and end values.
-    NewONNXShapeOpShapeHelper shapeHelper(shapeOp.getOperation(), {});
+    ONNXShapeOpShapeHelper shapeHelper(shapeOp.getOperation(), {});
     LogicalResult shapeComputed = shapeHelper.computeShape();
     if (failed(shapeComputed)) {
       shapeOp.emitError("Failed to scan " + ONNXShapeOp::getOperationName() +
@@ -262,8 +261,7 @@ public:
     // Indices are constants.
     if (!definedBy<ONNXConstantOp>(indices))
       return failure();
-    DenseElementsAttr indicesAttr =
-        getDenseElementAttributeFromONNXValue(indices);
+    ElementsAttr indicesAttr = getElementAttributeFromONNXValue(indices);
     if (!indicesAttr)
       return failure();
 
@@ -321,7 +319,7 @@ public:
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
 
     // Get starts, ends, axes and steps via ShapeHelper.
-    NewONNXSliceOpShapeHelper shapeHelper(sliceOp.getOperation(), {});
+    ONNXSliceOpShapeHelper shapeHelper(sliceOp.getOperation(), {});
     if (failed(shapeHelper.computeShape())) {
       sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
                         " parameters successfully");
@@ -486,10 +484,14 @@ struct SimplifyShapeRelatedOpsPass
     return "Perform ONNX to ONNX optimizations for shape-related operations";
   }
 
+  SimplifyShapeRelatedOpsPass(bool report) : report(report) {}
+
   void runOnOperation() final;
 
 private:
   void topDownShapeSimplification(MLIRContext *context, ModuleOp moduleOp);
+
+  bool report;
 };
 
 void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
@@ -539,7 +541,7 @@ void SimplifyShapeRelatedOpsPass::runOnOperation() {
   for (unsigned i = 0; i < 3; ++i) {
     topDownShapeSimplification(context, moduleOp);
     OpPassManager pm("builtin.module");
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass(report));
     pm.addPass(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
     if (failed(runPipeline(pm, moduleOp)))
@@ -554,8 +556,8 @@ namespace onnx_mlir {
 /*!
  * Create a SimplifyShapeRelatedOps pass.
  */
-std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass() {
-  return std::make_unique<SimplifyShapeRelatedOpsPass>();
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(bool report) {
+  return std::make_unique<SimplifyShapeRelatedOpsPass>(report);
 }
 
 } // namespace onnx_mlir

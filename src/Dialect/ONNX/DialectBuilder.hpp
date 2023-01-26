@@ -47,7 +47,6 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXConstantOp
   mlir::Value constant(mlir::Attribute denseAttr) const;
   mlir::Value constantInt64(const mlir::ArrayRef<int64_t> intVals) const;
-  mlir::Value constantFromRawBuffer(mlir::Type resultType, char *buf) const;
 
   // ONNXDivOp
   mlir::Value div(mlir::Value A, mlir::Value B) const;
@@ -105,7 +104,7 @@ struct OnnxBuilder : DialectBuilder {
   // Convert a Value to TensorType if it is of MemRefType.
   mlir::Value toTensor(mlir::Value input) const;
   // Convert a Type to TensorType if it is of MemRefType.
-  mlir::Type toTensor(mlir::Type input) const;
+  mlir::TensorType toTensor(mlir::Type input) const;
   // Convert a Value to MemrefType if it is of TensorType.
   mlir::Value toMemref(mlir::Value input) const;
 
@@ -137,18 +136,21 @@ struct MultiDialectBuilder<OnnxBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 // =============================================================================
 
 // This class is not meant to work with the MultiDialectBuilder as it is not
-// used for building, only for analysis.
+// used for building, only for analysis. We force OpBuilder to be null as
+// missing builder is used within IndexExpr as a sign that we are in shape
+// inference analysis. Be mindful not to expect builder to then be passed to
+// other builders.
 
 struct IndexExprBuilderForAnalysis : IndexExprBuilder {
   IndexExprBuilderForAnalysis(mlir::Location loc) : IndexExprBuilder(loc) {}
   IndexExprBuilderForAnalysis(mlir::OpBuilder &b, mlir::Location loc)
-      : IndexExprBuilder(b, loc) {}
+      : IndexExprBuilder(loc) {} // Builder omitted during analysis.
   IndexExprBuilderForAnalysis(const DialectBuilder &db)
-      : IndexExprBuilder(db) {}
+      : IndexExprBuilder(db.getLoc()) {} // Builder omitted during analysis.
   virtual ~IndexExprBuilderForAnalysis() {}
 
 protected:
-  mlir::DenseElementsAttr getConst(mlir::Value value) final;
+  mlir::ElementsAttr getConst(mlir::Value value) final;
   mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
   mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };

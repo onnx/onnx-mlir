@@ -10,15 +10,15 @@
 // =============================================================================
 //
 // This file contains common utils shared by the functions performing the
-// lowering to the TOSA dialect.
+// lowering to the TOSA dialect. It is also used by TensorFlow and torch-mlir.
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNXMLIR_CONVERSION_ONNXTOTOSA_TOSALEGALIZEUTILS_H
 #define ONNXMLIR_CONVERSION_ONNXTOTOSA_TOSALEGALIZEUTILS_H
 
-#include "mlir/Dialect/Quant/QuantTypes.h" // from @llvm-project
-#include "mlir/Dialect/Tosa/IR/TosaOps.h"
+#include "mlir/Dialect/Quant/QuantTypes.h"        // from @llvm-project
+#include "mlir/Dialect/Tosa/IR/TosaOps.h"         // from @llvm-project
 #include "mlir/Dialect/Tosa/Utils/ShapeUtils.h"   // from @llvm-project
 #include "mlir/IR/BuiltinAttributes.h"            // from @llvm-project
 #include "mlir/IR/BuiltinTypes.h"                 // from @llvm-project
@@ -26,6 +26,7 @@
 #include "mlir/Interfaces/InferTypeOpInterface.h" // from @llvm-project
 #include "mlir/Support/LLVM.h"                    // from @llvm-project
 #include <src/Dialect/Mlir/IndexExpr.hpp>
+#include <src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp>
 
 namespace onnx_mlir {
 namespace tosa {
@@ -47,7 +48,7 @@ T getValueFromTosaConst(mlir::Value &val) {
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>
 TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
-    mlir::Type result_ty, Args &&...args) {
+    mlir::Type result_ty, Args &&... args) {
   auto op = rewriter.create<TosaOp>(loc, result_ty, args...);
 
   mlir::InferShapedTypeOpInterface shapeInterface =
@@ -67,33 +68,16 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
   // the new result shaped type. This is because rescale can include a cast to
   // different bit-width types and does not have a TypeAttr to define the
   // target type.
-  auto result = op->getResult(0);
   auto predictedShape = returnedShapes[0];
-  auto currentKnowledge =
-      mlir::tosa::ValueKnowledge::getKnowledgeFromType(result_ty);
-
-  // Compute the knowledge based on the inferred type.
-  auto inferredKnowledge =
-      mlir::tosa::ValueKnowledge::getPessimisticValueState();
-  inferredKnowledge.dtype = result_ty.cast<mlir::ShapedType>().getElementType();
-  inferredKnowledge.hasRank = predictedShape.hasRank();
-  if (predictedShape.hasRank()) {
-    for (auto dim : predictedShape.getDims()) {
-      inferredKnowledge.sizes.push_back(dim);
-    }
-  }
-
-  // Compute the new type based on the joined version.
-  auto newKnowledge =
-      mlir::tosa::ValueKnowledge::join(currentKnowledge, inferredKnowledge);
-  auto new_ty = newKnowledge.getType();
-  result.setType(new_ty);
+  if (predictedShape.hasRank())
+    updateType(op, predictedShape.getDims(),
+        result_ty.cast<mlir::ShapedType>().getElementType());
   return op;
 }
 
 template <typename TosaOp, typename... Args>
 void CreateReplaceOpAndInfer(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::Type result_ty, Args &&...args) {
+    mlir::Operation *op, mlir::Type result_ty, Args &&... args) {
   auto result =
       CreateOpAndInfer<TosaOp>(rewriter, op->getLoc(), result_ty, args...);
   rewriter.replaceOp(op, result->getResults());

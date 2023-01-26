@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -27,7 +26,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXConcatOpShapeHelper::computeShape() {
+LogicalResult ONNXConcatOpShapeHelper::computeShape() {
   ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
   ONNXConcatOpAdaptor operandAdaptor(operands);
   unsigned numInputs = op->getNumOperands();
@@ -87,9 +86,8 @@ LogicalResult NewONNXConcatOpShapeHelper::computeShape() {
 LogicalResult ONNXConcatOp::verify() {
   // Cannot verify semantics if the operands do not have a known shape yet.
   ONNXConcatOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   auto commonType =
       operandAdaptor.getOperands().front().getType().cast<ShapedType>();
@@ -137,14 +135,11 @@ LogicalResult ONNXConcatOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConcatOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // The check of constraints is kept
   // However, current check handles dynamic dim only for the concat dim
-  int inputNum = getNumOperands();
-  for (int i = 0; i < inputNum; ++i) {
-    if (!getOperand(i).getType().isa<RankedTensorType>())
-      return success();
-  }
+  if (!hasShapeAndRank(getOperation()))
+    return success();
   // Checking value of axis parameter.
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   auto commonShape = commonType.getShape();
@@ -156,12 +151,12 @@ LogicalResult ONNXConcatOp::inferShapes(
     // Tong Chen:
     // TOFIX: attribute modification should be into canonicalization
     // I did not move the code into ShapeHelper
-    auto builder = mlir::Builder(getContext());
+    auto builder = Builder(getContext());
     axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
-  NewONNXConcatOpShapeHelper shapeHelper(getOperation(), {});
+  ONNXConcatOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(commonType.getElementType());
 }
 
@@ -170,5 +165,5 @@ LogicalResult ONNXConcatOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXConcatOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXConcatOp>;
 } // namespace onnx_mlir
