@@ -14,7 +14,10 @@
 
 #pragma once
 
+#include "llvm/ADT/StringRef.h"
+
 #include <memory>
+#include <string>
 
 namespace mlir {
 class MLIRContext;
