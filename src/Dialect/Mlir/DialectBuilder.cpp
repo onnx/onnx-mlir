@@ -928,7 +928,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 //===----------------------------------------------------------------------===//
 
 Value LLVMBuilder::add(Value lhs, Value rhs) const {
-    return b().create<LLVM::AddOp>(loc(), lhs, rhs);
+  return b().create<LLVM::AddOp>(loc(), lhs, rhs);
 }
 
 Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {

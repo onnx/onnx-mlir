@@ -372,19 +372,19 @@ struct ZHighLayoutPropagationPass
     // only data movement operators like Concat.
 
     // Add
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXAddOp>>(ctx);
+    // patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXAddOp>>(ctx);
     // Div
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXDivOp>>(ctx);
+    // patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXDivOp>>(ctx);
     // Mul
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXMulOp>>(ctx);
+    // patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXMulOp>>(ctx);
     // Sub
-    patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXSubOp>>(ctx);
+    // patterns.insert<ONNXBinaryOpLayoutPropPattern<ONNXSubOp>>(ctx);
     // Reciprocal
     // ERROR: aiu_ops_func_specific() (aiu_ops.c:155):
     // ZDNN_ELEMENT_RANGE_VIOLATION: Range violation on tensor data
     // patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReciprocalOp>>(ctx);
     // Sqrt
-    patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(ctx);
+    // patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(ctx);
     // Relu for testing purpose as it is simple.
     // patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReluOp>>(ctx);
 

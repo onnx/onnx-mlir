@@ -1539,68 +1539,29 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    // TODO: could we avoid using temp buffers by getting points directly from
-    // MemRef?
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
     ZLowConvertDLF16ToF32Op::Adaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();
-    Type llvmI8Ty = rewriter.getI8Type();
-    Type llvmI16Ty = rewriter.getI16Type();
-    Type llvmI64Ty = rewriter.getI64Type();
-    Type llvmF32Ty = rewriter.getF32Type();
-    Type llvmI8PtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
-    Type llvmI16PtrTy = LLVM::LLVMPointerType::get(llvmI16Ty);
-    Type llvmF32PtrTy = LLVM::LLVMPointerType::get(llvmF32Ty);
+    Type i16Ty = rewriter.getI16Type();
     Type i32Ty = rewriter.getI32Type();
     Type f32Ty = rewriter.getF32Type();
 
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-    bool usePointerVersion = false;
-    Value output;
-    if (usePointerVersion) {
-      Value one = create.llvm.constant(llvmI64Ty, (int64_t)1);
-      // I16 is used as a container for DLF16.
-      Value inputPtr;
-      if (!input.isa<BlockArgument>() &&
-          isa<LLVM::LoadOp>(input.getDefiningOp())) {
-        // If input is from a `llvm.load memref_ptr`, use the `memref_ptr`
-        // directly without a temp buffer.
-        Value memrefPtr = input.getDefiningOp()->getOperand(0);
-        inputPtr = create.llvm.bitcast(llvmI16PtrTy, memrefPtr);
-      } else {
-        // Alloca a temp buffer for i16 inputs
-        // inputPtr = create.llvm._alloca(llvmI16PtrTy, one, /*alignment=*/0);
-        // TODO: free the buffer.
-        auto mallocSym = getOrInsertMalloc(rewriter, module);
-        Value two = create.llvm.constant(llvmI64Ty, (int64_t)2);
-        inputPtr =
-            create.llvm.call(llvmI8PtrTy, mallocSym, ArrayRef<Value>(two));
-        inputPtr = create.llvm.bitcast(llvmI16PtrTy, inputPtr);
-        Value inputI16 = create.llvm.bitcast(llvmI16Ty, input);
-        create.llvm.store(inputI16, inputPtr);
-      }
+    Value outputF32;
+    Value inputI16 = create.llvm.bitcast(i16Ty, input);
 
-      // Alloca a temp buffer for f32 output.
-      // TODO: free the buffer.
-      auto mallocSym = getOrInsertMalloc(rewriter, module);
-      Value four = create.llvm.constant(llvmI64Ty, (int64_t)4);
-      Value outputPtr =
-          create.llvm.call(llvmI8PtrTy, mallocSym, ArrayRef<Value>(four));
-      outputPtr = create.llvm.bitcast(llvmF32PtrTy, outputPtr);
-      callApi(rewriter, loc, module, apiRegistry, API::DLF16_TO_F32,
-          {inputPtr, outputPtr, one});
-      output = create.llvm.load(outputPtr);
+    bool useFuncCall = false;
+    if (useFuncCall) {
+      outputF32 = callApi(
+          rewriter, loc, module, apiRegistry, API::DLF16_TO_F32, {inputI16});
     } else {
-      Value inputI16 = create.llvm.bitcast(llvmI16Ty, input);
-      // output = callApi(
-      //     rewriter, loc, module, apiRegistry, API::DLF16_TO_F32, {inputI16});
       // Test generating LLVM instruction here.
       Value inputI32 = create.llvm.zext(i32Ty, inputI16);
       // ~DLF16_SIGN
-      Value i32767 = create.llvm.constant(i32Ty, (int64_t)32767);
+      // Value i32767 = create.llvm.constant(i32Ty, (int64_t)32767);
       // dlf16 & ~DLF16_SIGN
-      Value dlf16NSIGN = create.llvm.andi(inputI32, i32767);
+      // Value dlf16NSIGN = create.llvm.andi(inputI32, i32767);
       // Emit code for converting non-inf dlfl16.
       Value c14 = create.llvm.constant(i32Ty, (int64_t)14);
       Value c16 = create.llvm.constant(i32Ty, (int64_t)16);
@@ -1616,10 +1577,10 @@ public:
       Value v28 = create.llvm.ori(v27, v24);
       Value v29 = create.llvm.andi(v25, c8372224);
       Value v30 = create.llvm.ori(v28, v29);
-      output = create.llvm.bitcast(f32Ty, v30);
+      outputF32 = create.llvm.bitcast(f32Ty, v30);
     }
 
-    rewriter.replaceOp(op, {output});
+    rewriter.replaceOp(op, {outputF32});
     return success();
   }
 
