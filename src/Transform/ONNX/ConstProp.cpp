@@ -362,14 +362,14 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
 template <typename ReduceOp>
 Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
     Value dataValue, Value axesValue) {
-  if (axesValue && !axesValue.getType().isa<NoneType>()) {
+  if (isFromNone(axesValue)) {
+    return ConstPropReduceAxesRange<ReduceOp>(
+        rewriter, replacingValue, dataValue, {});
+  } else {
     ElementsAttr axes = getConstValueElements(axesValue);
     auto axesRange = axes.getValues<APInt>();
     return ConstPropReduceAxesRange<ReduceOp>(
         rewriter, replacingValue, dataValue, axesRange);
-  } else {
-    return ConstPropReduceAxesRange<ReduceOp>(
-        rewriter, replacingValue, dataValue, {});
   }
 }
 
