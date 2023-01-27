@@ -84,44 +84,58 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     MemRefType resMemRefType = convertedType.cast<MemRefType>();
 
     // Calculate maximum output shapes for ouputs
-    DimsExpr outputYAllocateDims;
-    DimsExpr outputIndexAllocateDims;
+    DimsExpr outputYBufDims;
+    DimsExpr outputIndexBufDims;
     uint64_t inputElementNum = 1;
     for (int64_t i = 0; i < rank; i++) {
       inputElementNum = inputElementNum * xShape[i];
     }
     if (axis < 0) {
-      outputYAllocateDims.emplace_back(LiteralIndexExpr(inputElementNum));
-      outputIndexAllocateDims.emplace_back(LiteralIndexExpr(inputElementNum));
-    } else {                                            // if axis given
+      outputYBufDims.emplace_back(LiteralIndexExpr(inputElementNum));
+      outputIndexBufDims.emplace_back(LiteralIndexExpr(inputElementNum));
+    } else {
       for (int64_t i = 0; i < rank; i++) {
-        outputYAllocateDims.emplace_back(LiteralIndexExpr(xShape[i]));
+        outputYBufDims.emplace_back(LiteralIndexExpr(xShape[i]));
       }
-      outputIndexAllocateDims.emplace_back(LiteralIndexExpr(inputElementNum));
+      outputIndexBufDims.emplace_back(LiteralIndexExpr(inputElementNum));
     }
     // Insert an allocation and deallocation for the results of this operation.
     // For Y output
     bool insertDealloc = true;
     Type i64Type = rewriter.getI64Type();
-    Value total =  insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get({}, i64Type), loc, outputYAllocateDims,
-        insertDealloc);
+
     Value outputYBuf = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(xShape, i64Type), loc, outputYAllocateDims,
+        MemRefType::get(xShape, i64Type), loc, outputYBufDims,
         insertDealloc);
     Value indicesBuf = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(xShape, i64Type), loc, outputIndexAllocateDims,
+        MemRefType::get(xShape, i64Type), loc, outputIndexBufDims,
         insertDealloc);
     Value reverse_indicesBuf = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(xShape, i64Type), loc, outputIndexAllocateDims,
+        MemRefType::get(xShape, i64Type), loc, outputIndexBufDims,
         insertDealloc);;
     Value countsBuf = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(xShape, i64Type), loc, outputIndexAllocateDims,
+        MemRefType::get(xShape, i64Type), loc, outputIndexBufDims,
         insertDealloc);;
 
     // Compute argUnique of X along axis.
-    Value argUnique = emitArgUnique(rewriter, loc, total, X, axis, /*sorted=*/sorted,
+    Value total = emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted,
         outputYBuf, indicesBuf, reverse_indicesBuf, countsBuf);
+      
+    // Calculate output shapes for ouputs according to the results
+    DimIndexExpr totalDimExpr = DimIndexExpr(total);
+    DimsExpr outputYDims;
+    DimsExpr outputIndexDims;
+    if (axis < 0) {
+      outputYBufDims.emplace_back(totalDimExpr);
+      outputIndexBufDims.emplace_back(totalDimExpr);
+    } else {
+      for (int64_t i = 0; i < rank; i++) {
+        DimIndexExpr tDimExpr = LiteralIndexExpr(xShape[i]);
+        if (i == axis)
+          tDimExpr = totalDimExpr;
+        outputIndexDims.emplace_back(tDimExpr);
+      }
+    }
 #if 0
     // Produce the final result.
     SmallVector<IndexExpr> zeroDims(rank, LiteralIndexExpr(0));

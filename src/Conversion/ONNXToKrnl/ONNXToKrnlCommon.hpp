@@ -187,7 +187,7 @@ mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
 /// IndexType. Shape of the second, third and fourth arguments depends on the
 /// input options.
 mlir::Value emitArgUnique(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Value total, mlir::Value input, int64_t axis, int64_t sorted,
+    mlir::Location loc, mlir::Value input, int64_t axis, int64_t sorted,
     mlir::Value Y, mlir::Value indices, mlir::Value reverse_indices,
     mlir::Value counts);
 

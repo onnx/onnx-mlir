@@ -562,7 +562,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 /// of IndexType. Shape of the second, third and fourth arguments depends on the
 /// input options.
 mlir::Value emitArgUnique(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Value total, mlir::Value input, int64_t axis, int64_t sorted,
+    mlir::Location loc, mlir::Value input, int64_t axis, int64_t sorted,
     mlir::Value Y, mlir::Value indices, mlir::Value reverse_indices,
     mlir::Value counts) {
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
@@ -580,24 +580,27 @@ mlir::Value emitArgUnique(mlir::ConversionPatternRewriter &rewriter,
   create.krnlIE.getShapeAsDims(input, ubs);
 
   // Create and initialize the result.
-  Value order = insertAllocAndDeallocSimple(rewriter, nullptr,
-      MemRefType::get(inputMemRefType.getShape(), indexType), loc, ubs,
-      /*insertDealloc=*/true);
+  ArrayRef<int64_t> totalShape = {1};
+
+  Value total = insertAllocAndDeallocSimple(rewriter, nullptr,
+      MemRefType::get(totalShape, indexType), loc, ubs,
+    /*insertDealloc=*/true);
+#if 0
   ValueRange initLoopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
       [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
         // order[axis_0, axis_1, ..., axis_k-1, k, axis_k+1, ....] = k
-        createKrnl.store(loopInd[axis], order, loopInd);
+        createKrnl.store(loopInd[axis], total, loopInd);
       });
-
+#endif
   // Emit krnl.Call to call omTensorUnique API
   Type int_type = rewriter.getIntegerType(64);
   Value val_axis = create.math.constant(int_type, axis);
   Value val_sorted = create.math.constant(int_type, sorted);
   SmallVector<Value, 4> operands = {input, val_axis, val_sorted, Y, indices,
       reverse_indices, counts};
-  rewriter.create<KrnlCallOp>(loc, "omTensorUnique", order, operands);
-  return order;
+  rewriter.create<KrnlCallOp>(loc, "omTensorUnique", total, operands);
+  return total;
 }
 
 /// This function returns a scalar of type 'dtype' from an optional value.
