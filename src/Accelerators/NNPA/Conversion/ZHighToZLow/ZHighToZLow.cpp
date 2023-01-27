@@ -204,9 +204,9 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
         stickifiedConstant.getOperation()
             ->getDialect()
             ->getNamespace(), // use the dialect as the blob "hint"
-        HeapAsmResourceBlob::allocateAndCopy(
+        HeapAsmResourceBlob::allocateAndCopyWithAlign(
             llvm::ArrayRef(rawData, sizeInBytes), alignof(char)));
-    stickifiedConstant.valueAttr(valueAttr);
+    stickifiedConstant.setValueAttr(valueAttr);
     free(rawData);
 
     res = stickifiedConstant.getResult();
@@ -498,7 +498,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
 
     ZHighStickOpAdaptor operandAdaptor(operands);
-    StringAttr layout = cast<ZHighStickOp>(op).layoutAttr();
+    StringAttr layout = cast<ZHighStickOp>(op).getLayoutAttr();
 
     IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
     ZHighStickOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
@@ -517,7 +517,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       layout = getNCHWLayoutAttr(rewriter);
 
     // Emit a ZLow operation.
-    rewriter.create<ZLowStickOp>(loc, operandAdaptor.In(), alloc, layout);
+    rewriter.create<ZLowStickOp>(loc, operandAdaptor.getIn(), alloc, layout);
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -552,9 +552,9 @@ struct ZHighToZLowStickForLSTMOpLowering : public ConversionPattern {
         zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Emit a ZLow operation.
-    rewriter.create<ZLowStickForLSTMOp>(loc, operandAdaptor.f_gate(),
-        operandAdaptor.i_gate(), operandAdaptor.c_gate(),
-        operandAdaptor.o_gate(), alloc);
+    rewriter.create<ZLowStickForLSTMOp>(loc, operandAdaptor.getFGate(),
+        operandAdaptor.getIGate(), operandAdaptor.getCGate(),
+        operandAdaptor.getOGate(), alloc);
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -589,8 +589,8 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
         zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Emit a ZLow operation.
-    rewriter.create<ZLowStickForGRUOp>(loc, operandAdaptor.z_gate(),
-        operandAdaptor.r_gate(), operandAdaptor.h_gate(), alloc);
+    rewriter.create<ZLowStickForGRUOp>(loc, operandAdaptor.getZGate(),
+        operandAdaptor.getRGate(), operandAdaptor.getHGate(), alloc);
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -611,7 +611,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
 
     ZHighUnstickOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.In();
+    Value input = operandAdaptor.getIn();
 
     // Get layout attribute. Do not get it from the input in OpAdaptor since
     // that input is the converted type, i.e. MemRefType. Get directly from
@@ -672,7 +672,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
     // Get dense resource attribute.
-    auto blob = stickifiedConstOp.value()
+    auto blob = stickifiedConstOp.getValue()
                     .value()
                     .cast<DenseResourceElementsAttr>()
                     .getRawHandle()
@@ -696,7 +696,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
                 "constant_stickify_" + std::to_string(constantID)),
             /*value=*/stickifiedConstOp.getValueAttr(),
             /*offset=*/nullptr,
-            /*alignment=*/stickifiedConstOp.alignmentAttr());
+            /*alignment=*/stickifiedConstOp.getAlignmentAttr());
 
     // Increment constant ID:
     constantID++;
@@ -890,7 +890,7 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
 
     // Emit ZLow.softmax.
     rewriter.create<ZLowSoftmaxOp>(
-        loc, input, workArea, shape, alloc, softmaxOp.act_funcAttr());
+        loc, input, workArea, shape, alloc, softmaxOp.getActFuncAttr());
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -908,7 +908,7 @@ struct ZHighToZLowMeanReduce2DOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ZHighMeanReduce2DOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
 
     // Helper builders.
     MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
@@ -971,9 +971,9 @@ struct ZHighToZLowPool2DOpLowering : public ConversionPattern {
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
     // Create a zLow op.
-    rewriter.create<ZLOW_POOLOP>(loc, operandAdaptor.input(), shapeMemRef,
-        alloc, pool2dOp.kernel_shapeAttr(), pool2dOp.stridesAttr(),
-        pool2dOp.padding_typeAttr());
+    rewriter.create<ZLOW_POOLOP>(loc, operandAdaptor.getInput(), shapeMemRef,
+        alloc, pool2dOp.getKernelShapeAttr(), pool2dOp.getStridesAttr(),
+        pool2dOp.getPaddingTypeAttr());
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -1027,7 +1027,7 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
     // Prepare optional bias.
-    Value bias = operandAdaptor.B();
+    Value bias = operandAdaptor.getB();
     if (bias.getType().isa<NoneType>()) {
       SmallVector<IndexExpr, 4> resDims, biasDims;
       create.krnlIE.getShapeAsDims(alloc, resDims);
@@ -1056,8 +1056,9 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
         rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), stacked);
 
     // Emit zlow.matmul.
-    rewriter.create<ZLowMatMulOp>(loc, operandAdaptor.X(), operandAdaptor.Y(),
-        bias, shapeMemRef, alloc, is_bcastAttr, is_stackedAttr);
+    rewriter.create<ZLowMatMulOp>(loc, operandAdaptor.getX(),
+        operandAdaptor.getY(), bias, shapeMemRef, alloc, is_bcastAttr,
+        is_stackedAttr);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -1108,10 +1109,10 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
     // Prepare optional values: input_bias, hidden_bias, initial_h, initial_c.
-    Value initial_h = operandAdaptor.h0();
-    Value initial_c = operandAdaptor.c0();
-    Value input_bias = operandAdaptor.input_bias();
-    Value hidden_bias = operandAdaptor.hidden_bias();
+    Value initial_h = operandAdaptor.getH0();
+    Value initial_c = operandAdaptor.getC0();
+    Value input_bias = operandAdaptor.getInputBias();
+    Value hidden_bias = operandAdaptor.getHiddenBias();
     if (initial_h.getType().isa<NoneType>()) {
       initial_h = insertAllocOrEmitZeroConstant(shapeHelper.hc0Shape,
           ZTensorEncodingAttr::DataLayout::_3DS, op, rewriter, loc);
@@ -1130,19 +1131,20 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
     }
 
     // Prepare work area. Double the area for the bidirectional mode.
-    bool isDouble =
-        lstmOp.directionAttr().getValue().equals_insensitive("bidirectional");
-    Value workArea = insertAllocAndDeallocWorkAreaForRNNOps(create.krnlIE,
-        rewriter, loc, operandAdaptor.input(), operandAdaptor.hidden_weights(),
-        /*numOfGates=*/4,
-        /*isDouble=*/isDouble);
+    bool isDouble = lstmOp.getDirectionAttr().getValue().equals_insensitive(
+        "bidirectional");
+    Value workArea =
+        insertAllocAndDeallocWorkAreaForRNNOps(create.krnlIE, rewriter, loc,
+            operandAdaptor.getInput(), operandAdaptor.getHiddenWeights(),
+            /*numOfGates=*/4,
+            /*isDouble=*/isDouble);
 
     // Emit zlow.lstm.
-    rewriter.create<ZLowLSTMOp>(loc, operandAdaptor.input(), initial_h,
-        initial_c, operandAdaptor.input_weights(), input_bias,
-        operandAdaptor.hidden_weights(), hidden_bias, workArea, shapeMemRef,
-        allocHnOutput, allocCfOutput, lstmOp.directionAttr(),
-        lstmOp.return_all_stepsAttr(), rewriter.getStringAttr("none"));
+    rewriter.create<ZLowLSTMOp>(loc, operandAdaptor.getInput(), initial_h,
+        initial_c, operandAdaptor.getInputWeights(), input_bias,
+        operandAdaptor.getHiddenWeights(), hidden_bias, workArea, shapeMemRef,
+        allocHnOutput, allocCfOutput, lstmOp.getDirectionAttr(),
+        lstmOp.getReturnAllStepsAttr(), rewriter.getStringAttr("none"));
     std::vector<Value> outputs = {allocHnOutput, allocCfOutput};
     rewriter.replaceOp(op, outputs);
     return success();
@@ -1190,9 +1192,9 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
     // Prepare optional values: input_bias, hidden_bias, initial_h.
-    Value initial_h = operandAdaptor.h0();
-    Value input_bias = operandAdaptor.input_bias();
-    Value hidden_bias = operandAdaptor.hidden_bias();
+    Value initial_h = operandAdaptor.getH0();
+    Value input_bias = operandAdaptor.getInputBias();
+    Value hidden_bias = operandAdaptor.getHiddenBias();
     if (initial_h.getType().isa<NoneType>()) {
       initial_h = insertAllocOrEmitZeroConstant(shapeHelper.h0Shape,
           ZTensorEncodingAttr::DataLayout::_3DS, op, rewriter, loc);
@@ -1208,17 +1210,18 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
 
     // Prepare work area. Double the area for the bidirectional mode.
     bool isDouble =
-        gruOp.directionAttr().getValue().equals_insensitive("bidirectional");
-    Value workArea = insertAllocAndDeallocWorkAreaForRNNOps(create.krnlIE,
-        rewriter, loc, operandAdaptor.input(), operandAdaptor.hidden_weights(),
-        /*numOfGates=*/3,
-        /*isDouble=*/isDouble);
+        gruOp.getDirectionAttr().getValue().equals_insensitive("bidirectional");
+    Value workArea =
+        insertAllocAndDeallocWorkAreaForRNNOps(create.krnlIE, rewriter, loc,
+            operandAdaptor.getInput(), operandAdaptor.getHiddenWeights(),
+            /*numOfGates=*/3,
+            /*isDouble=*/isDouble);
 
     // Emit zlow.gru.
-    rewriter.create<ZLowGRUOp>(loc, operandAdaptor.input(), initial_h,
-        operandAdaptor.input_weights(), input_bias,
-        operandAdaptor.hidden_weights(), hidden_bias, workArea, shapeMemRef,
-        allocHnOutput, gruOp.directionAttr(), gruOp.return_all_stepsAttr(),
+    rewriter.create<ZLowGRUOp>(loc, operandAdaptor.getInput(), initial_h,
+        operandAdaptor.getInputWeights(), input_bias,
+        operandAdaptor.getHiddenWeights(), hidden_bias, workArea, shapeMemRef,
+        allocHnOutput, gruOp.getDirectionAttr(), gruOp.getReturnAllStepsAttr(),
         rewriter.getStringAttr("none"));
     rewriter.replaceOp(op, allocHnOutput);
     return success();
@@ -1258,7 +1261,7 @@ struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
     // Prepare optional values: input_bias.
-    Value bias = operandAdaptor.input_bias();
+    Value bias = operandAdaptor.getInputBias();
     if (bias.getType().isa<NoneType>()) {
       // Bias's shape is [Channel_out].
       SmallVector<IndexExpr> dims(1, shapeHelper.allOriginalDims[4]);
@@ -1267,10 +1270,10 @@ struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
     }
 
     // Create a zLow op.
-    rewriter.create<ZLowConv2DOp>(loc, operandAdaptor.input(),
-        operandAdaptor.input_kernel(), bias, shapeMemRef, alloc,
-        conv2dOp.kernel_shapeAttr(), conv2dOp.stridesAttr(),
-        conv2dOp.padding_typeAttr(), conv2dOp.act_funcAttr());
+    rewriter.create<ZLowConv2DOp>(loc, operandAdaptor.getInput(),
+        operandAdaptor.getInputKernel(), bias, shapeMemRef, alloc,
+        conv2dOp.getKernelShapeAttr(), conv2dOp.getStridesAttr(),
+        conv2dOp.getPaddingTypeAttr(), conv2dOp.getActFuncAttr());
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -1307,8 +1310,8 @@ struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
     // Get the original shape before it is vanished by lower passes.
     Value shape = insertShapeMemRefI64(rewriter, loc, dims);
 
-    rewriter.create<ZLowBatchNormOp>(loc, operandAdaptor.input(),
-        operandAdaptor.a(), operandAdaptor.b(), shape, alloc);
+    rewriter.create<ZLowBatchNormOp>(loc, operandAdaptor.getInput(),
+        operandAdaptor.getA(), operandAdaptor.getB(), shape, alloc);
     rewriter.replaceOp(op, alloc);
     return success();
   }

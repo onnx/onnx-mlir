@@ -59,7 +59,7 @@ void ZHighUnstickOp::build(
 
 LogicalResult ZHighUnstickOpShapeHelper::computeShape() {
   ZHighUnstickOp::Adaptor operandAdaptor(operands);
-  Value input = operandAdaptor.In();
+  Value input = operandAdaptor.getIn();
 
   // Output dims of result.
   DimsExpr outputDims;
@@ -100,11 +100,11 @@ LogicalResult ZHighUnstickOpShapeHelper::computeShape() {
 
 LogicalResult ZHighUnstickOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(In()))
+  if (!hasRankedType(getIn()))
     return success();
 
   ZHighUnstickOpShapeHelper shapeHelper(getOperation());
-  Type elementType = getElementType(In().getType());
+  Type elementType = getElementType(getIn().getType());
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

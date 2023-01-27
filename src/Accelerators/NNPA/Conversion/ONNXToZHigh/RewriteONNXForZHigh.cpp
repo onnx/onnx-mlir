@@ -186,7 +186,7 @@ bool isDefinedByONNXConstantOp(Value v) {
 }
 
 bool CanExpandPowOpToMul(ONNXPowOp op) {
-  Value exponent = op.Y();
+  Value exponent = op.getY();
   if (!isDefinedByONNXConstantOp(exponent))
     return false;
 
@@ -218,7 +218,7 @@ bool CanExpandPowOpToMul(ONNXPowOp op) {
 bool canInferencePadsForNNPAConv(ONNXConvOp op) {
   ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
-  RankedTensorType inputType = op.X().getType().cast<RankedTensorType>();
+  RankedTensorType inputType = op.getX().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   // dimension of inferenced pads should be 4D
   if (shapeHelper.pads.size() != 4)
@@ -228,7 +228,7 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
           shapeHelper.pads, [](IndexExpr val) { return !val.isLiteral(); }))
     return false;
   // auto_pad should not be "VALID"
-  if (op.auto_pad().equals_insensitive("VALID"))
+  if (op.getAutoPad().equals_insensitive("VALID"))
     return false;
   // image dimensions of input shape should be static
   if ((inputShape[2] <= 0) || (inputShape[3] <= 0))
@@ -328,13 +328,13 @@ struct ExpandPowToMulPattern : public ConversionPattern {
 
     // Rewrite
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    Value input = powOp.X();
+    Value input = powOp.getX();
     int64_t exponent;
 
     // Get the scalar integer exponent.
-    // powOp.Y() is exponent that must be a scalar integer tensor by the Match
+    // powOp.getY() is exponent that must be a scalar integer tensor by the Match
     // phase.
-    auto constOp = dyn_cast<ONNXConstantOp>(powOp.Y().getDefiningOp());
+    auto constOp = dyn_cast<ONNXConstantOp>(powOp.getY().getDefiningOp());
     auto dataAttr = constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
     Type elementType = dataAttr.getElementType();
     if (elementType.isa<FloatType>()) {
@@ -350,7 +350,7 @@ struct ExpandPowToMulPattern : public ConversionPattern {
       return failure();
 
     Value result;
-    Type resultType = powOp.Z().getType();
+    Type resultType = powOp.getZ().getType();
     if (exponent == 0) {
       DenseElementsAttr valAttr;
       if (elementType.isa<FloatType>())
@@ -427,28 +427,28 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // This is preferred for NNPA because NNPA BinaryOp does not support
   // broadcasting.
   target.addDynamicallyLegalOp<ONNXAddOp>([](ONNXAddOp op) {
-    return !((isDefinedByONNXConstantOp(op.A()) &&
-                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
-             (isDefinedByONNXConstantOp(op.B()) &&
-                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
+    return !((isDefinedByONNXConstantOp(op.getA()) &&
+                 isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
+             (isDefinedByONNXConstantOp(op.getB()) &&
+                 isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
   });
   target.addDynamicallyLegalOp<ONNXDivOp>([](ONNXDivOp op) {
-    return !((isDefinedByONNXConstantOp(op.A()) &&
-                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
-             (isDefinedByONNXConstantOp(op.B()) &&
-                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
+    return !((isDefinedByONNXConstantOp(op.getA()) &&
+                 isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
+             (isDefinedByONNXConstantOp(op.getB()) &&
+                 isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
   });
   target.addDynamicallyLegalOp<ONNXMulOp>([](ONNXMulOp op) {
-    return !((isDefinedByONNXConstantOp(op.A()) &&
-                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
-             (isDefinedByONNXConstantOp(op.B()) &&
-                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
+    return !((isDefinedByONNXConstantOp(op.getA()) &&
+                 isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
+             (isDefinedByONNXConstantOp(op.getB()) &&
+                 isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
   });
   target.addDynamicallyLegalOp<ONNXSubOp>([](ONNXSubOp op) {
-    return !((isDefinedByONNXConstantOp(op.A()) &&
-                 isUniBroadcatableFirstToSecond(op.A(), op.B())) ||
-             (isDefinedByONNXConstantOp(op.B()) &&
-                 isUniBroadcatableFirstToSecond(op.B(), op.A())));
+    return !((isDefinedByONNXConstantOp(op.getA()) &&
+                 isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
+             (isDefinedByONNXConstantOp(op.getB()) &&
+                 isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
   });
 
   // Illegalize MatMulOp if
@@ -457,8 +457,8 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // Rewrite patterns will be added to turn this MatMulOp into the one where N-D
   // will become 3-D.
   target.addDynamicallyLegalOp<ONNXMatMulOp>([&dimAnalysis](ONNXMatMulOp op) {
-    Type aType = op.A().getType();
-    Type bType = op.B().getType();
+    Type aType = op.getA().getType();
+    Type bType = op.getB().getType();
     if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
       return true;
 
@@ -479,7 +479,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
       for (int64_t i = 0; i < aRank - 2; ++i) {
         sameBatchDims &= (aShape[i] == bShape[i]);
         if (sameBatchDims && ShapedType::isDynamic(aShape[i]))
-          sameBatchDims = dimAnalysis.sameUnknownDim(op.A(), i, op.B(), i);
+          sameBatchDims = dimAnalysis.sameUnknownDim(op.getA(), i, op.getB(), i);
       }
       return !sameBatchDims;
     }
@@ -499,10 +499,10 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // - axis is the last dimension.
   // This SoftmaxOp will be rewritten in which its input is reshaped to 3D.
   target.addDynamicallyLegalOp<ONNXSoftmaxOp>([](ONNXSoftmaxOp op) {
-    Value input = op.input();
+    Value input = op.getInput();
     if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
       if ((shapedType.getRank() > 3) &&
-          ((op.axis() == shapedType.getRank() - 1) || (op.axis() == -1))) {
+          ((op.getAxis() == shapedType.getRank() - 1) || (op.getAxis() == -1))) {
         return false;
       }
     }
