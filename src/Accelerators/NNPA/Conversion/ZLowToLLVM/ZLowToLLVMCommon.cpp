@@ -35,8 +35,6 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
   auto int64Ty = IntegerType::get(context, 64);
   auto float32Ty = FloatType::getF32(context);
   auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
-  auto int16PtrTy = LLVM::LLVMPointerType::get(int16Ty);
-  auto float32PtrTy = LLVM::LLVMPointerType::get(float32Ty);
 
   // Declare API type as an enum value, its string name and an LLVM Type
   // specifying its signature.
