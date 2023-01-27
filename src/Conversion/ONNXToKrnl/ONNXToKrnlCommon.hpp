@@ -256,18 +256,6 @@ public:
   // the given type. E.g. some special types for accelerators requires
   // 4K-aligned buffers.
   static int64_t getDefaultAllocAlignment(mlir::Type type);
-
-  // Convert a value in an unsupported type into a support type. Mainly used for
-  // accelerators in which custom types are defined and values are converted to
-  // supported types so that CPU operations can work with the values.
-  // Accelerators relies on `tensorType` to know if the type is its type or not.
-  static mlir::Value convertToHostType(mlir::PatternRewriter &rewriter,
-      mlir::Location loc, mlir::Type tensorOrMemRefType,
-      mlir::Value scalarValue);
-  // Convert a value in a supported type into an unsupport type.
-  static mlir::Value convertToAcceleratorType(mlir::PatternRewriter &rewriter,
-      mlir::Location loc, mlir::Type tensorOrMemRefType,
-      mlir::Value scalarValue);
 };
 
 //===----------------------------------------------------------------------===//

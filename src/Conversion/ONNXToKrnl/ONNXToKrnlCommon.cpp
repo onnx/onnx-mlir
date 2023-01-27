@@ -666,8 +666,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
     // Accelerators may have special versions of TensorType. Call the
     // conversions of accelerators.
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      MemRefType memRefType = accel->convertTensorTypeToMemRefType(
-          tensorType.cast<RankedTensorType>());
+      MemRefType memRefType = accel->convertTensorTypeToMemRefType(tensorType);
       if (memRefType)
         return memRefType;
     }
@@ -715,7 +714,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
 
 int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
   int64_t alignment = -1;
-  if (auto tensorType = type.dyn_cast<RankedTensorType>()) {
+  if (auto tensorType = type.dyn_cast<TensorType>()) {
     // Accelerators may have special versions of TensorType. Call the
     // conversions of accelerators.
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
@@ -728,41 +727,6 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
     }
   }
   return alignment;
-}
-
-Value KrnlTypeConverter::convertToHostType(mlir::PatternRewriter &rewriter,
-    Location loc, Type tensorOrMemRefType, Value scalarValue) {
-  // By default, there is no conversion.
-  Value res = scalarValue;
-  // Accelerators may have special types.
-  if (auto tensorType = llvm::dyn_cast<RankedTensorType>(tensorOrMemRefType)) {
-    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      // The accelerator knows whether `tensorType` is its target or not to
-      // decide whether a value needs a conversion or not.
-      // -1 means the accelerator does not have a specific alignment.
-      res = accel->convertToHostType(rewriter, loc, tensorType, scalarValue);
-    }
-  }
-  return res;
-}
-
-Value KrnlTypeConverter::convertToAcceleratorType(
-    mlir::PatternRewriter &rewriter, Location loc, Type tensorOrMemRefType,
-    Value scalarValue) {
-  // By default, there is no conversion.
-  Value res = scalarValue;
-
-  // Accelerators may have special types.
-  if (auto tensorType = llvm::dyn_cast<RankedTensorType>(tensorOrMemRefType)) {
-    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
-      // The accelerator knows whether `tensorType` is its target or not to
-      // decide whether a value needs a conversion or not.
-      // -1 means the accelerator does not have a specific alignment.
-      res = accel->convertToAcceleratorType(
-          rewriter, loc, tensorType, scalarValue);
-    }
-  }
-  return res;
 }
 
 } // namespace onnx_mlir
