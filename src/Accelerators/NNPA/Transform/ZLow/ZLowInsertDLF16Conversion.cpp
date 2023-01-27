@@ -2,13 +2,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------- ZLowRewrite.cpp - ZLow Rewrite Patterns ---------------------===//
+//===-------- ZLowInsertDLF16ConversionPass.cpp - ZLow Rewrite Patterns ---===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This pass implements optimizations for ZLow operations.
+// This passs removes zlow.unstick and zlow.stick by inserting dlf16 conversion
+// directly into affine-for loops;
 //
 //===----------------------------------------------------------------------===//
 
@@ -131,7 +132,7 @@ public:
 
   StringRef getDescription() const override {
     return "Replacing zlow.unstick and zlow.stick by inserting dlf16 "
-           "conversion directly into for-loops";
+           "conversion directly into affine-for loops";
   }
 
   void runOnOperation() override {
