@@ -440,7 +440,7 @@ struct LLVMBuilder final : DialectBuilder {
 
   // ZExtOp
   mlir::Value zext(mlir::Type type, mlir::Value val) const;
- 
+
   //===--------------------------------------------------------------------===//
   // Helper functions
   //===--------------------------------------------------------------------===//
