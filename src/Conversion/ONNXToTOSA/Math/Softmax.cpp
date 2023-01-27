@@ -83,9 +83,7 @@ public:
     int64_t axis = adaptor.axis();
     // Tosa only supports positive values
     int64_t inputRank = inputType.getRank();
-    if (axis < 0) {
-      axis += inputRank;
-    }
+    axis = tosa::convertNegativeAxis(axis, inputRank);
     // The legalization below is based on convertSoftmaxOp in
     // tensorflow tosa/transforms/legalize_common.cc, with the
     // addition of handling for axis.
