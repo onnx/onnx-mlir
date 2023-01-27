@@ -132,12 +132,12 @@ struct MathFunctionName<KrnlIsNaNOp> {
     if (type.isF32())
       return "__isnanf";
     if (type.isF64())
-      return "__isnand";
+      return "isnan";
 #else
     if (type.isF32())
       return "isnanf";
     if (type.isF64())
-      return "__isnan";
+      return "isnan";
 #endif
   }
 };

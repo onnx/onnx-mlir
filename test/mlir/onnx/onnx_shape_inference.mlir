@@ -3224,12 +3224,12 @@ func.func @test_maxroipool(%arg0: tensor<1x3x64x64xf32>, %arg1: tensor<1x5xf32>)
 
 /// Test shape inference for IsNaNOp.
 //===----------------------------------------------------------------------===//
-func.func @test_isnan(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi1> {
-  %0 = "onnx.IsNaN"(%arg0) : (tensor<2x3x4xf32>) -> tensor<*xi1>
+func.func @test_isnan(%arg0 : tensor<2x3x4xf64>) -> tensor<*xi1> {
+  %0 = "onnx.IsNaN"(%arg0) : (tensor<2x3x4xf64>) -> tensor<*xi1>
   return %0 : tensor<*xi1>
 
   // CHECK-LABEL: func @test_isnan
-  // CHECK: [[RES:%.+]] = "onnx.IsNaN"(%arg0) : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  // CHECK: [[RES:%.+]] = "onnx.IsNaN"(%arg0) : (tensor<2x3x4xf64>) -> tensor<2x3x4xi1>
   // CHECK: return [[RES]] : tensor<2x3x4xi1>
 }
 
