@@ -94,7 +94,7 @@ RankedTensorType forceShape(
 
 Type ModelInputShaper::reshape(int inputIndex, Type inputType) const {
   if (auto tensorTy = inputType.dyn_cast<TensorType>()) {
-    // Make dims unknown (ShapedType::kDynamic) if applicable.
+    // Update the input dimensions based on internal information.
     if (force_dim_dynamic_enabled_ && tensorTy.hasRank()) {
       auto rankedTensorTy = tensorTy.cast<RankedTensorType>();
       auto it = forced_inputs_dims_.find(-1);
