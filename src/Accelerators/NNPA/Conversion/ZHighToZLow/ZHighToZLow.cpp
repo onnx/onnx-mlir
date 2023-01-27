@@ -49,7 +49,7 @@ Value insertAllocAndDeallocZMemRefByDim(ArrayRef<IndexExpr> dims,
   // Construct a MemRefType for the given dimensions and element type.
   SmallVector<int64_t, 4> shape;
   for (IndexExpr d : dims)
-    shape.emplace_back((d.isLiteral() ? d.getLiteral() : -1));
+    shape.emplace_back((d.isLiteral() ? d.getLiteral() : ShapedType::kDynamic));
   RankedTensorType tensorType =
       RankedTensorType::get(shape, rewriter.getF32Type(),
           ZTensorEncodingAttr::get(op->getContext(), layout));
@@ -159,7 +159,7 @@ static Value insertAllocAndDeallocWorkAreaForRNNOps(
     sizeExpr = sizeExpr * Lit2;
 
   // Emit alloc and dealloc ops.
-  int64_t size = sizeExpr.isLiteral() ? sizeExpr.getLiteral() : -1;
+  int64_t size = sizeExpr.isLiteral() ? sizeExpr.getLiteral() : ShapedType::kDynamic;
   MemRefType resultType = MemRefType::get({size}, rewriter.getIntegerType(8));
   SmallVector<IndexExpr> dims(1, sizeExpr);
   alloc = insertAllocAndDeallocSimple(rewriter, nullptr, resultType, loc, dims,
