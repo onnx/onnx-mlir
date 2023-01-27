@@ -124,6 +124,24 @@ struct MathFunctionName<KrnlAtanhOp> {
 };
 
 template <>
+struct MathFunctionName<KrnlIsInfOp> {
+  static std::string functionName(mlir::Type type) {
+
+#if (__APPLE__)
+    if (type.isF32())
+      return "__isinf";
+#else
+    if (type.isF32())
+      return "isinf";
+#endif
+
+    if (type.isF64())
+      return "isinf";
+    llvm_unreachable("Unsupported type for isinf");
+  }
+};
+
+template <>
 struct MathFunctionName<KrnlIsNaNOp> {
   static std::string functionName(mlir::Type type) {
 
@@ -217,6 +235,7 @@ private:
 void populateLoweringKrnlUnaryMathOpPattern(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(typeConverter, ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlIsInfOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlIsNaNOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAcosOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAcoshOp>>(typeConverter, ctx);

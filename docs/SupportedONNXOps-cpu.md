@@ -88,8 +88,8 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitatio
 | **If** |16 |Sequence and Optional outputs are not supported. | |
 | **Imputer** | |unsupported | |
 | **InstanceNormalization** |6 | | |
-| **IsInf** | |unsupported | |
-| **IsNaN** | |unsupported | |
+| **IsInf** | |13 | |
+| **IsNaN** | |9, 13 | |
 | **LRN** |13 | | |
 | **LSTM** |14 | | |
 | **LabelEncoder** | |unsupported | |
