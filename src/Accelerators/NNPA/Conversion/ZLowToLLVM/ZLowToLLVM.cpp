@@ -1612,7 +1612,7 @@ public:
       Value v24 = create.llvm.andi(v23, cm2147483648);
       Value v25 = create.llvm.shl(inputI32, c14);
       Value v26 = create.llvm.andi(v25, c528482304);
-      Value v27 = create.llvm.andi(v26, c805306368);
+      Value v27 = create.llvm.add(v26, c805306368);
       Value v28 = create.llvm.ori(v27, v24);
       Value v29 = create.llvm.andi(v25, c8372224);
       Value v30 = create.llvm.ori(v28, v29);

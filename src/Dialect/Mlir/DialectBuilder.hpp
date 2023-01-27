@@ -357,6 +357,9 @@ struct LLVMBuilder final : DialectBuilder {
   LLVMBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~LLVMBuilder() {}
 
+  // AddOp
+  mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
+
   // AddressOfOp
   mlir::Value addressOf(mlir::LLVM::GlobalOp op) const;
 

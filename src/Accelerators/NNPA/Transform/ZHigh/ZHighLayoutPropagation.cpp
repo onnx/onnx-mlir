@@ -386,7 +386,7 @@ struct ZHighLayoutPropagationPass
     // Sqrt
     patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXSqrtOp>>(ctx);
     // Relu for testing purpose as it is simple.
-    patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReluOp>>(ctx);
+    // patterns.insert<ONNXUnaryOpLayoutPropPattern<ONNXReluOp>>(ctx);
 
     // Concat
     patterns.insert<ONNXConcatLayoutPropagatePattern>(ctx);
