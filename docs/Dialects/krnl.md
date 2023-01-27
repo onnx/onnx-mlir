@@ -362,9 +362,9 @@ given two arrays of int32_t values (G and V), which are used to represent a perf
 hash table for a dictionary, returns the index corresponding to the input value.
 The index returned is valid only if 'input' is in the dictionary described by G and V.
 
-Traits: MemRefsNormalizable
+Traits: AlwaysSpeculatableImplTrait, MemRefsNormalizable
 
-Interfaces: Pure (MemoryEffectOpInterface)
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -450,9 +450,9 @@ Operation for holding global data values. A global constant can have a
 meaningful name recorded as its `name` attribute. Its content is stored
 in the `value` dense/opaque element attribute.
 
-Traits: MemRefsNormalizable
+Traits: AlwaysSpeculatableImplTrait, MemRefsNormalizable
 
-Interfaces: Pure (MemoryEffectOpInterface)
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -1216,7 +1216,9 @@ Compute the length of a string.
 
 Krnl operation that computes the length of a string.
 
-Interfaces: Pure (MemoryEffectOpInterface)
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -1238,7 +1240,9 @@ Perform string comparison up to N bytes.
 
 Krnl operation that performs a string comparison up to N bytes.
 
-Interfaces: Pure (MemoryEffectOpInterface)
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
 
 Effects: MemoryEffects::Effect{}
 
@@ -1332,9 +1336,9 @@ corresponding dimension for target memref type.
 %AV = vector_type_cast %A : memref<?x?xf32> to memref<?x?xvector<8xf32>>
 ```
 
-Traits: MemRefsNormalizable
+Traits: AlwaysSpeculatableImplTrait, MemRefsNormalizable
 
-Interfaces: CastOpInterface, Pure (MemoryEffectOpInterface), ViewLikeOpInterface
+Interfaces: CastOpInterface, ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ViewLikeOpInterface
 
 Effects: MemoryEffects::Effect{}
 

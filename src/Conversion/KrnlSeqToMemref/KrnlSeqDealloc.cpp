@@ -42,7 +42,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     KrnlSeqDeallocOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
 
     auto input_sequence = operandAdaptor.input_sequence();

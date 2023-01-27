@@ -112,7 +112,7 @@ private:
       llvm::SmallVector<Type, 4> &parameterTypeList,
       llvm::SmallVector<Value, 4> &parameterList) {
     auto *context = op->getContext();
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
 

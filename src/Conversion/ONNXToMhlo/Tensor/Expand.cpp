@@ -14,7 +14,6 @@
 
 #include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -40,7 +39,7 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     // inputs, and Mhlo conversion has already removed them.
 
     // IndexExprBuilderForMhlo createIE(rewriter, loc);
-    // NewONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);
+    // ONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);
     // LogicalResult shapeComputed = shapeHelper.computeShape();
     // assert(succeeded(shapeComputed) && "Failed to compute shape");
 

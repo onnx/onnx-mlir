@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -26,7 +25,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 template <>
-LogicalResult NewONNXGatherNDOpShapeHelper::computeShape() {
+LogicalResult ONNXGatherNDOpShapeHelper::computeShape() {
   ONNXGatherNDOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   Value data = operandAdaptor.data();
   Value indices = operandAdaptor.indices();
@@ -87,9 +86,8 @@ LogicalResult NewONNXGatherNDOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGatherNDOp::verify() {
   ONNXGatherNDOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   // Get operands and attributes.
   Value data = operandAdaptor.data();
@@ -143,8 +141,7 @@ LogicalResult ONNXGatherNDOp::verify() {
 
   // All values in 'indices' are expected to satisfy the inequality:
   //   -data.shape[b + i] <= indices[...,i] <= (data.shape[b + i]-1)].
-  if (DenseElementsAttr valueAttribute =
-          getDenseElementAttributeFromONNXValue(indices)) {
+  if (ElementsAttr valueAttribute = getElementAttributeFromONNXValue(indices)) {
     int flatIndex = 0;
     for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
       int64_t indexValue = value.getInt();
@@ -170,10 +167,9 @@ LogicalResult ONNXGatherNDOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGatherNDOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer the shape of the output if the inputs shape is not yet known.
-  if (llvm::any_of(
-          this->getOperands(), [](Value op) { return !hasShapeAndRank(op); }))
+  if (!hasShapeAndRank(getOperation()))
     return success();
 
   // The output rank is given by:
@@ -186,8 +182,8 @@ LogicalResult ONNXGatherNDOp::inferShapes(
   if (indicesShape[indicesRank - 1] < 0)
     return success(); // cannot infer the oputput shape yet.
 
-  auto elementType = data().getType().cast<ShapedType>().getElementType();
-  NewONNXGatherNDOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXGatherNDOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -196,5 +192,5 @@ LogicalResult ONNXGatherNDOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct NewONNXNonSpecificOpShapeHelper<ONNXGatherNDOp>;
+template struct ONNXNonSpecificOpShapeHelper<ONNXGatherNDOp>;
 } // namespace onnx_mlir

@@ -18,7 +18,7 @@
 #include "mlir/IR/Location.h"
 #include "mlir/IR/Value.h"
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mhlo/IR/hlo_ops.h"
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
@@ -38,7 +38,7 @@ struct IndexExprBuilderForMhlo : IndexExprBuilder {
   virtual ~IndexExprBuilderForMhlo() {}
 
 protected:
-  mlir::DenseElementsAttr getConst(mlir::Value value) final;
+  mlir::ElementsAttr getConst(mlir::Value value) final;
   mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
   mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };

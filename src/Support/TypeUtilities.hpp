@@ -34,5 +34,9 @@ int64_t getNumberOfElements(mlir::Type ty);
 int64_t getEltSizeInBytes(mlir::Type ty);
 /// Get the size of a tensor from its ranked type in bytes.
 int64_t getSizeInBytes(mlir::Type ty);
+/// Check if two RankedTensorTypes have the same encoding attribute or not.
+bool sameEncodingAttr(mlir::Type t1, mlir::Type t2);
+/// Get the byte width of an int or float type.
+unsigned getIntOrFloatByteWidth(mlir::Type ty);
 
 } // namespace onnx_mlir

@@ -72,7 +72,7 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlDimOp krnlDimOp, PatternRewriter &rewriter) const override {
-    auto loc = krnlDimOp.getLoc();
+    Location loc = krnlDimOp.getLoc();
 
     // If index is not constant, return failure.
     arith::ConstantOp indexOp =

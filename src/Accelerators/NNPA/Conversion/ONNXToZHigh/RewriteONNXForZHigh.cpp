@@ -28,7 +28,6 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps/NewShapeHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
@@ -217,7 +216,7 @@ bool CanExpandPowOpToMul(ONNXPowOp op) {
 // Check if pads can be inferenced for ONNXConv op.
 //
 bool canInferencePadsForNNPAConv(ONNXConvOp op) {
-  NewONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
+  ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
   RankedTensorType inputType = op.X().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
@@ -241,7 +240,7 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
 // This function is used for padding attribute in Conv.
 ArrayAttr getPadsForNNPAConv(PatternRewriter &rewriter, Value ret) {
   ONNXConvOp op = dyn_cast<ONNXConvOp>(ret.getDefiningOp());
-  NewONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
+  ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
   SmallVector<int64_t, 4> vals;
   IndexExpr::getShape(shapeHelper.pads, vals);

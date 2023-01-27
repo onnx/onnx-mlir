@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
-func.func @should_lower_to_zlow(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
-  %0 = "zhigh.Max"(%arg0, %arg1) : (tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<3x4x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
+func.func @should_lower_to_zlow(%arg0: tensor<3x4x5xf32, #zhigh.layout<{dataLayout = "3D"}>>, %arg1: tensor<3x4x5xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+  %0 = "zhigh.Max"(%arg0, %arg1) : (tensor<3x4x5xf32, #zhigh.layout<{dataLayout = "3D"}>>, tensor<3x4x5xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 // CHECK-DAG: #map = affine_map<(d0, d1, d2) -> (0, d2 floordiv 64, d0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-LABEL:  func @should_lower_to_zlow
@@ -24,8 +24,8 @@ func.func @should_lower_to_zlow(%arg0: tensor<3x4x5xf32, #zhigh.encoding<{dataLa
 
 // -----
 
-func.func @should_lower_to_zlow_unknown_dims(%arg0: tensor<3x?x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, %arg1: tensor<3x?x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
-  %0 = "zhigh.Max"(%arg0, %arg1) : (tensor<3x?x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>, tensor<3x?x5xf32, #zhigh.encoding<{dataLayout = "3D"}>>) -> tensor<*xf32>
+func.func @should_lower_to_zlow_unknown_dims(%arg0: tensor<3x?x5xf32, #zhigh.layout<{dataLayout = "3D"}>>, %arg1: tensor<3x?x5xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<*xf32> { 
+  %0 = "zhigh.Max"(%arg0, %arg1) : (tensor<3x?x5xf32, #zhigh.layout<{dataLayout = "3D"}>>, tensor<3x?x5xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2) -> (0, d2 floordiv 64, d0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
@@ -38,9 +38,10 @@ func.func @should_lower_to_zlow_unknown_dims(%arg0: tensor<3x?x5xf32, #zhigh.enc
 // CHECK-DAG:       [[VAR_c3_i64_:%.+]] = arith.constant 3 : i64
 // CHECK:           [[VAR_0_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<3x?x5xf16, #map>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_0_]]) {{.*}}: memref<3x?x5xf16, #map>
+// CHECK:           [[VAR_1_:%.+]] = memref.dim [[PARAM_0_]], [[VAR_c1_]] : memref<3x?x5xf16, #map>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
 // CHECK:           krnl.store [[VAR_c3_i64_]], [[RES_1_]]{{.}}[[VAR_c0_]]{{.}} : memref<3xi64>
-// CHECK:           [[VAR_3_:%.+]] = arith.index_cast [[VAR_0_]] : index to i64
+// CHECK:           [[VAR_3_:%.+]] = arith.index_cast [[VAR_1_]] : index to i64
 // CHECK:           krnl.store [[VAR_3_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c5_i64_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
 // CHECK:           "zlow.max"([[PARAM_0_]], [[PARAM_1_]], [[RES_1_]], [[RES_]]) {layout = "3D"} : (memref<3x?x5xf16, #map>, memref<3x?x5xf16, #map>, memref<3xi64>, memref<3x?x5xf16, #map>) -> ()

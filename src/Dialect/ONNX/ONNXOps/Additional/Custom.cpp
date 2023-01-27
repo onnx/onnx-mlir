@@ -27,7 +27,13 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCustomOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
+  // TODO: This does not appear to be implemented, set to return an error.
   // getResult().setType(getOperand().getType());
-  return success();
+  // return success();
+  return emitOpError(
+      "op is not supported at this time. Please open an issue on "
+      "https://github.com/onnx/onnx-mlir and/or consider contributing "
+      "code. "
+      "Error encountered in shape inference.");
 }

@@ -27,12 +27,14 @@ struct ONNXRangeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXRangeOpAdaptor operandAdaptor(operands);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
 
     // Create an index expression scope.
     // Scope for krnl ops
-    IndexExprScope ieScope(&rewriter, loc);
-    KrnlBuilder createKrnl(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
+        create(rewriter, loc);
+    IndexExprScope ieScope(create.krnl);
 
     Value start = operandAdaptor.start();
     Value limit = operandAdaptor.limit();
@@ -52,21 +54,19 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     // Allocate result.
     Value alloc;
-    MathBuilder createMath(rewriter, loc);
-    Value zero = createMath.constant(rewriter.getIndexType(), 0);
-
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
+    Value zero = create.math.constant(rewriter.getIndexType(), 0);
 
     // Load values depending on shape.
-    Value loadedStart = (startShape.size() == 0) ? createKrnl.load(start)
-                                                 : createKrnl.load(start, zero);
+    Value loadedStart = (startShape.size() == 0)
+                            ? create.krnl.load(start)
+                            : create.krnl.load(start, zero);
     assert((startShape.size() == 0 ||
                (startShape.size() == 1 && startShape[0] == 1)) &&
            "start shape must be 0 or if 1, size must be 1");
 
-    Value loadedDelta = (deltaShape.size() == 0) ? createKrnl.load(delta)
-                                                 : createKrnl.load(delta, zero);
+    Value loadedDelta = (deltaShape.size() == 0)
+                            ? create.krnl.load(delta)
+                            : create.krnl.load(delta, zero);
     assert((deltaShape.size() == 0 ||
                (deltaShape.size() == 1 && deltaShape[0] == 1)) &&
            "delta shape must be 0 or if 1, size must be 1");
@@ -76,8 +76,8 @@ struct ONNXRangeOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
       Value loadedLimit = (limitShape.size() == 0)
-                              ? createKrnl.load(limit)
-                              : createKrnl.load(limit, zero);
+                              ? create.krnl.load(limit)
+                              : create.krnl.load(limit, zero);
       assert((limitShape.size() == 0 ||
                  (limitShape.size() == 1 && limitShape[0] == 1)) &&
              "limit shape must be 0 or if 1, size must be 1");
@@ -154,13 +154,12 @@ struct ONNXRangeOpLowering : public ConversionPattern {
     accIndex.emplace_back(LiteralIndexExpr(0));
 
     // Initialize accumulator with value:
-    createKrnl.storeIE(loadedStart, acc, accIndex);
+    create.krnl.storeIE(loadedStart, acc, accIndex);
 
-    ValueRange loopDef = createKrnl.defineLoops(1);
-    MemRefBoundsIndexCapture allocBounds(alloc);
+    ValueRange loopDef = create.krnl.defineLoops(1);
     SmallVector<IndexExpr, 4> ubs;
-    allocBounds.getDimList(ubs);
-    createKrnl.iterateIE(loopDef, loopDef, {LiteralIndexExpr(0)}, ubs,
+    create.krnlIE.getShapeAsDims(alloc, ubs);
+    create.krnl.iterateIE(loopDef, loopDef, {LiteralIndexExpr(0)}, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Emit body of the loop:
           // output[i] = start + (i * delta);
@@ -178,7 +177,6 @@ struct ONNXRangeOpLowering : public ConversionPattern {
         });
 
     rewriter.replaceOp(op, alloc);
-
     return success();
   }
 };

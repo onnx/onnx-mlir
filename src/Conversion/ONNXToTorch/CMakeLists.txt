@@ -23,7 +23,6 @@ add_onnx_mlir_library(OMONNXToTorch
   NN/Reshape.cpp
 
   LINK_LIBS PUBLIC
-  OMConstPropHelper
   OMONNXOps
   OMSupport
   MLIRFuncDialect

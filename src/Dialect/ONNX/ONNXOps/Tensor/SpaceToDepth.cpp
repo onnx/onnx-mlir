@@ -26,15 +26,15 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-LogicalResult ONNXSpaceToDepthOpShapeHelper::computeShape(
-    ONNXSpaceToDepthOpAdaptor operandAdaptor) {
+template <>
+LogicalResult ONNXSpaceToDepthOpShapeHelper::computeShape() {
   // Get info about input data operand and blocksize.
+  ONNXSpaceToDepthOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   Value input = operandAdaptor.input();
-  int64_t blocksize = op->blocksize();
-  assert(input.getType().isa<ShapedType>() && "Input should have a shape");
+  int64_t blocksize = operandAdaptor.blocksize();
   assert(blocksize > 0 && "blocksize should be strictly positive");
 
-  int64_t inputRank = input.getType().cast<ShapedType>().getShape().size();
+  int64_t inputRank = createIE->getShapedTypeRank(input);
   assert(inputRank == 4 && "Unexpected input tensor rank");
 
   // Compute outputDims.
@@ -43,11 +43,10 @@ LogicalResult ONNXSpaceToDepthOpShapeHelper::computeShape(
   // shape [N, C * blocksize * blocksize, H/blocksize, W/blocksize].
   DimsExpr outputDims;
   outputDims.resize(inputRank);
-  MemRefBoundsIndexCapture inputBounds(input);
-  DimIndexExpr N(inputBounds.getDim(0));
-  DimIndexExpr C(inputBounds.getDim(1));
-  DimIndexExpr H(inputBounds.getDim(2));
-  DimIndexExpr W(inputBounds.getDim(3));
+  DimIndexExpr N(createIE->getShapeAsDim(input, 0));
+  DimIndexExpr C(createIE->getShapeAsDim(input, 1));
+  DimIndexExpr H(createIE->getShapeAsDim(input, 2));
+  DimIndexExpr W(createIE->getShapeAsDim(input, 3));
 
   outputDims[0] = N;
   outputDims[1] = C * blocksize * blocksize;
@@ -102,12 +101,20 @@ LogicalResult ONNXSpaceToDepthOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSpaceToDepthOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
+    std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no input shape exists.
-  if (!input().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(input()))
     return success();
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
-  return shapeHelperInferShapes<ONNXSpaceToDepthOpShapeHelper,
-      ONNXSpaceToDepthOp, ONNXSpaceToDepthOpAdaptor>(*this, elementType);
+  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  ONNXSpaceToDepthOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXSpaceToDepthOp>;
+} // namespace onnx_mlir
