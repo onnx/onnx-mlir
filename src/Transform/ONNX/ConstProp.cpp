@@ -272,7 +272,7 @@ Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
 // ReduceSum followed by element-wise division to calculate the mean.
 //===----------------------------------------------------------------------===//
 
-int64_t intAttr(Operation *op, StringRef attrName, int64_t deflt) {
+int64_t getSIntAttr(Operation *op, StringRef attrName, int64_t deflt) {
   IntegerAttr iattr = op->getAttrOfType<IntegerAttr>(attrName);
   return iattr ? iattr.getSInt() : deflt;
 }
@@ -323,7 +323,7 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
 
   // If axes are empty and !noop_with_empty_axes, reduce over all dimensions.
   if (absoluteAxes.empty() &&
-      intAttr(op, "noop_with_empty_axes", /*default=*/0) == 0) {
+      getSIntAttr(op, "noop_with_empty_axes", /*default=*/0) == 0) {
     for (int64_t axis = 0; axis < rank; ++axis)
       absoluteAxes.push_back(axis);
   }
@@ -337,7 +337,7 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
     Attribute identity = getIdentity<ReduceOp>(rewriter, elemType);
     reduced = DenseElementsAttr::get(replacingValue.getType(), {identity});
   } else {
-    bool keepdims = intAttr(op, "keepdims", /*default=*/1) != 0;
+    bool keepdims = getSIntAttr(op, "keepdims", /*default=*/1) != 0;
     OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
     if constexpr (std::is_same_v<ReduceOp, ONNXReduceMeanOp>) {
       // sum = ReduceSum(data)
