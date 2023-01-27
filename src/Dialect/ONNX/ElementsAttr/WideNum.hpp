@@ -37,28 +37,6 @@ union WideNum {
   int64_t i64;  // Signed ints up to bitwidth 64.
   uint64_t u64; // Unsigned ints up to bitwidth 64, including bool.
 
-  template <typename T>
-  T to(mlir::Type ttag) const {
-    BType tag = btypeOfMlirType(ttag);
-    if constexpr (std::is_same_v<T, llvm::APFloat>)
-      return toAPFloat(tag);
-    else if constexpr (std::is_same_v<T, llvm::APInt>)
-      return toAPInt(tag);
-    else
-      return to<T>(tag);
-  }
-
-  template <typename T>
-  static WideNum from(mlir::Type ttag, T x) {
-    BType tag = btypeOfMlirType(ttag);
-    if constexpr (std::is_same_v<T, llvm::APFloat>)
-      return fromAPFloat(tag, x);
-    else if constexpr (std::is_same_v<T, llvm::APInt>)
-      return fromAPInt(tag, x);
-    else
-      return from<T>(tag, x);
-  }
-
   llvm::APFloat toAPFloat(BType tag) const;
 
   static WideNum fromAPFloat(BType tag, llvm::APFloat x);
