@@ -133,11 +133,16 @@ struct MathFunctionName<KrnlIsNaNOp> {
       return "__isnanf";
     if (type.isF64())
       return "isnan";
-#else
+#elif (__linux__)
     if (type.isF32())
       return "isnanf";
     if (type.isF64())
       return "isnan";
+#else
+    if (type.isF32())
+      return "_isnanf";
+    if (type.isF64())
+      return "_isnan";
 #endif
   }
 };
