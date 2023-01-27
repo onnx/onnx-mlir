@@ -897,6 +897,11 @@ Value LLVMBuilder::_alloca(
   return b().create<LLVM::AllocaOp>(loc(), resultType, size, alignment);
 }
 
+Value LLVMBuilder::andi(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  return b().create<LLVM::AndOp>(loc(), lhs, rhs);
+}
+
 Value LLVMBuilder::bitcast(Type type, Value val) const {
   return b().create<LLVM::BitcastOp>(loc(), type, val);
 }
@@ -1038,12 +1043,30 @@ Value LLVMBuilder::nullI8Ptr() const {
   return b().create<LLVM::NullOp>(loc(), I8PtrTy);
 }
 
+Value LLVMBuilder::ori(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  return b().create<LLVM::OrOp>(loc(), lhs, rhs);
+}
+
 void LLVMBuilder::_return(Value val) const {
   b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({val}));
 }
 
+Value LLVMBuilder::select(Value cmp, Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  return b().create<LLVM::SelectOp>(loc(), cmp, lhs, rhs);
+}
+
+Value LLVMBuilder::shl(Value lhs, Value rhs) const {
+  return b().create<LLVM::ShlOp>(loc(), lhs, rhs);
+}
+
 void LLVMBuilder::store(Value val, Value addr) const {
   b().create<LLVM::StoreOp>(loc(), val, addr);
+}
+
+Value LLVMBuilder::zext(Type type, Value val) const {
+  return b().create<LLVM::ZExtOp>(loc(), type, val);
 }
 
 FlatSymbolRefAttr LLVMBuilder::getOrInsertSymbolRef(ModuleOp module,

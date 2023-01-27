@@ -361,6 +361,9 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value _alloca(
       mlir::Type resultType, mlir::Value size, int64_t alignment) const;
 
+  // AndOp
+  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;
+
   // BitcastOp
   mlir::Value bitcast(mlir::Type type, mlir::Value val) const;
   mlir::Value bitcastI8Ptr(mlir::Value val) const;
@@ -417,12 +420,24 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value null(mlir::Type type) const;
   mlir::Value nullI8Ptr() const;
 
+  // OrOp
+  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;
+
   // ReturnOp
   void _return(mlir::Value val) const;
+
+  // SelectOp
+  mlir::Value select(mlir::Value cmp, mlir::Value lhs, mlir::Value rhs) const;
+
+  // ShlOp
+  mlir::Value shl(mlir::Value lhs, mlir::Value rhs) const;
 
   // StoreOp
   void store(mlir::Value val, mlir::Value addr) const;
 
+  // ZExtOp
+  mlir::Value zext(mlir::Type type, mlir::Value val) const;
+ 
   //===--------------------------------------------------------------------===//
   // Helper functions
   //===--------------------------------------------------------------------===//

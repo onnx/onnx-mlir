@@ -1552,6 +1552,8 @@ public:
     Type llvmI8PtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
     Type llvmI16PtrTy = LLVM::LLVMPointerType::get(llvmI16Ty);
     Type llvmF32PtrTy = LLVM::LLVMPointerType::get(llvmF32Ty);
+    Type i32Ty = rewriter.getI32Type();
+    Type f32Ty = rewriter.getF32Type();
 
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
     bool usePointerVersion = false;
@@ -1591,8 +1593,30 @@ public:
       output = create.llvm.load(outputPtr);
     } else {
       Value inputI16 = create.llvm.bitcast(llvmI16Ty, input);
-      output = callApi(
-          rewriter, loc, module, apiRegistry, API::DLF16_TO_F32, {inputI16});
+      // output = callApi(
+      //     rewriter, loc, module, apiRegistry, API::DLF16_TO_F32, {inputI16});
+      // Test generating LLVM instruction here.
+      Value inputI32 = create.llvm.zext(i32Ty, inputI16);
+      // ~DLF16_SIGN
+      Value i32767 = create.llvm.constant(i32Ty, (int64_t)32767);
+      // dlf16 & ~DLF16_SIGN
+      Value dlf16NSIGN = create.llvm.andi(inputI32, i32767);
+      // Emit code for converting non-inf dlfl16.
+      Value c14 = create.llvm.constant(i32Ty, (int64_t)14);
+      Value c16 = create.llvm.constant(i32Ty, (int64_t)16);
+      Value cm2147483648 = create.llvm.constant(i32Ty, (int64_t)-2147483648);
+      Value c528482304 = create.llvm.constant(i32Ty, (int64_t)528482304);
+      Value c805306368 = create.llvm.constant(i32Ty, (int64_t)805306368);
+      Value c8372224 = create.llvm.constant(i32Ty, (int64_t)8372224);
+      Value v23 = create.llvm.shl(inputI32, c16);
+      Value v24 = create.llvm.andi(v23, cm2147483648);
+      Value v25 = create.llvm.shl(inputI32, c14);
+      Value v26 = create.llvm.andi(v25, c528482304);
+      Value v27 = create.llvm.andi(v26, c805306368);
+      Value v28 = create.llvm.ori(v27, v24);
+      Value v29 = create.llvm.andi(v25, c8372224);
+      Value v30 = create.llvm.ori(v28, v29);
+      output = create.llvm.bitcast(f32Ty, v30);
     }
 
     rewriter.replaceOp(op, {output});
