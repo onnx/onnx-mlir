@@ -435,6 +435,8 @@ public:
   bool isDefined() const;
   bool isUndefined() const;
   bool isLiteral() const;
+  bool isFloat() const;
+  bool areFloat(IndexExpr b) const; // True if both float; assert if different.
   bool isQuestionmark() const;
   bool isAffine() const;
   bool isSymbol() const;
@@ -448,14 +450,22 @@ public:
   bool hasValue() const;
 
   // Value/values has/have to be literal and satisfy the test.
+  bool isLiteralAndIdenticalTo(int b) const;               // Values equal.
   bool isLiteralAndIdenticalTo(int64_t b) const;           // Values equal.
+  bool isLiteralAndIdenticalTo(double b) const;            // Values equal.
   bool isLiteralAndIdenticalTo(IndexExpr const b) const;   // Values equal.
+  bool isLiteralAndDifferentThan(int b) const;             // Values unequal.
   bool isLiteralAndDifferentThan(int64_t b) const;         // Values unequal.
+  bool isLiteralAndDifferentThan(double b) const;          // Values unequal.
   bool isLiteralAndDifferentThan(IndexExpr const b) const; // Values unequal.
-  bool isLiteralAndGreaterThan(int64_t b) const;           // Values unequal.
-  bool isLiteralAndGreaterThan(IndexExpr const b) const;   // Values unequal.
-  bool isLiteralAndSmallerThan(int64_t b) const;           // Values unequal.
-  bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values unequal.
+  bool isLiteralAndGreaterThan(int b) const;               // Values greater.
+  bool isLiteralAndGreaterThan(int64_t b) const;           // Values greater.
+  bool isLiteralAndGreaterThan(double b) const;            // Values greater.
+  bool isLiteralAndGreaterThan(IndexExpr const b) const;   // Values greater.
+  bool isLiteralAndSmallerThan(int b) const;               // Values smaller.
+  bool isLiteralAndSmallerThan(int64_t b) const;           // Values smaller.
+  bool isLiteralAndSmallerThan(double b) const;            // Values smaller.
+  bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values smaller.
   // Test if all element in list are literals.
   static bool isLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
   static bool isNonNegativeLiteral(llvm::SmallVectorImpl<IndexExpr> &list);
@@ -465,6 +475,7 @@ public:
   mlir::OpBuilder &getRewriter() const { return getScope().getRewriter(); }
   mlir::Location getLoc() const { return getScope().getLoc(); }
   int64_t getLiteral() const;
+  double getFloatLiteral() const;
   int64_t getQuestionmark() const;
   mlir::AffineExpr getAffineExpr() const;
   void getAffineMapAndOperands(
@@ -492,12 +503,15 @@ public:
   IndexExpr operator-(int64_t const b) const;
   IndexExpr operator*(IndexExpr const b) const;
   IndexExpr operator*(int64_t const b) const;
-  IndexExpr floorDiv(IndexExpr const b) const;
-  IndexExpr floorDiv(int64_t const b) const;
-  IndexExpr ceilDiv(IndexExpr const b) const;
-  IndexExpr ceilDiv(int64_t const b) const;
-  IndexExpr operator%(IndexExpr const b) const;
-  IndexExpr operator%(int64_t const b) const;
+  IndexExpr floorDiv(IndexExpr const b) const;  // Int only; float use `/`.
+  IndexExpr floorDiv(int64_t const b) const;    // Int only; float use `/`.
+  IndexExpr ceilDiv(IndexExpr const b) const;   // Int only; float use `/`.
+  IndexExpr ceilDiv(int64_t const b) const;     // Int only; float use `/`.
+  IndexExpr floor() const;                      // Float only.
+  IndexExpr ceil() const;                       // Float only.
+  IndexExpr operator/(IndexExpr const b) const; // Float; int ceil/floorDiv.
+  IndexExpr operator%(IndexExpr const b) const; // Int only.
+  IndexExpr operator%(int64_t const b) const;   // Int only.
   // Compare operations, return a new IndexExpr that is either a literal or a
   // value expression of type predType.
   IndexExpr operator==(IndexExpr const b) const;
@@ -552,6 +566,10 @@ public:
   bool retrieveAffineMinMax(bool &isMin,
       llvm::SmallVectorImpl<mlir::Value> &vals, mlir::AffineMap &map) const;
 
+  // Float related op. Note that float are currently MLIR f32.
+  IndexExpr convertToFloat() const; // Int input only.
+  IndexExpr convertToIndex() const; // Float input only.
+
   // Debug (enable running with --debug-only=index_expr, for example).
   void debugPrint(const std::string &msg) const;
   static void debugPrint(
@@ -569,6 +587,7 @@ protected:
   IndexExprKind getKind() const;
 
   // Support for operations: lambda function types.
+  using F1 = std::function<IndexExpr(IndexExpr const)>;
   using F2 = std::function<IndexExpr(IndexExpr const, IndexExpr const)>;
   using F2Self = std::function<IndexExpr(IndexExpr, IndexExpr const)>;
   using Flist =
@@ -577,12 +596,19 @@ protected:
       IndexExpr const, IndexExpr const, IndexExpr const)>;
   // Support for operations: common handling for multiple operations.
   // When hasNeutralA, if a==*this is neutral literal value, then result is b.
-  // When hasNeutralB, if b is neutral literal value, then result is a.
-  IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB,
-      bool affineExprCompatible, bool hasNeutralA, bool hasNeutralB,
-      int64_t neutralVal, F2 fInteger, F2 fAffine, F2 fValue) const;
+  // When hasNeutralB, if b is neutral literal value, then result is a. We
+  // represent the neutral value using a double, as it's value (0.0 or 1.0) can
+  // be safely converted to int too.
+  IndexExpr unaryOp(
+      bool resIsFloat, F1 litFct, F1 affineExprFct, F1 valueFct) const;
+  // Res is float is the same as a & b.
+  IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB, bool hasNeutralA,
+      bool hasNeutralB, double neutralVal, F2 fInteger, F2 fAffine,
+      F2 fValue) const;
   IndexExpr compareOp(
       mlir::arith::CmpIPredicate comparePred, IndexExpr const b) const;
+  IndexExpr compareOp(
+      mlir::arith::CmpFPredicate comparePred, IndexExpr const b) const;
   static IndexExpr reductionOp(llvm::SmallVectorImpl<IndexExpr> &vals,
       F2Self litRed, Flist affineRed, F2Self valueRed);
   // Data: pointer to implemented object.
@@ -606,7 +632,11 @@ public:
 class LiteralIndexExpr : public IndexExpr {
 public:
   LiteralIndexExpr() = default;
-  LiteralIndexExpr(int64_t const value); // Make an index constant value.
+  LiteralIndexExpr(int const value);          // Make an index constant value.
+  LiteralIndexExpr(unsigned int const value); // Make an index constant value.
+  LiteralIndexExpr(int64_t const value);      // Make an index constant value.
+  LiteralIndexExpr(uint64_t const value);     // Make an index constant value.
+  LiteralIndexExpr(double const value);       // Make an index constant value.
   LiteralIndexExpr(IndexExpr const &o);
   LiteralIndexExpr(UndefinedIndexExpr const &o);
   LiteralIndexExpr(LiteralIndexExpr const &o);
@@ -624,6 +654,7 @@ public:
 
 private:
   void init(int64_t const value);
+  void init(double const value);
 };
 
 // Subclass to explicitly create non affine IndexExpr.
@@ -653,7 +684,8 @@ private:
 // Subclass to explicitly create Questionmark IndexExpr.
 class QuestionmarkIndexExpr : public IndexExpr {
 public:
-  QuestionmarkIndexExpr();
+  QuestionmarkIndexExpr() = default;
+  QuestionmarkIndexExpr(bool isFloat);
   // Construct a question mark for an unknown dimension in a Tensor/Memref.
   // This constructor is needed for symbolic shape analysis where each
   // question mark is assigned to a unique value hashed from the given
