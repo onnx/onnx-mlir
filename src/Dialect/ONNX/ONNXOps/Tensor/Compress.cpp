@@ -47,7 +47,7 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape() {
   // TODO: if cond is constant, the compute the actual value.
   IndexExpr dynDim;
   if (scope->isShapeInferencePass())
-    dynDim = QuestionmarkIndexExpr(); // Value for runtime dim.
+    dynDim = QuestionmarkIndexExpr(/*isFloat*/ false); // Value for runtime dim.
   else
     dynDim = LiteralIndexExpr(-1); // Dummy value to be replaced in lowering.
 
