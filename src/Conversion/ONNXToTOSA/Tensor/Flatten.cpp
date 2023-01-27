@@ -39,9 +39,7 @@ public:
     auto resultType = op.getResult().getType();
 
     // onnx allows values beetween [-r, r-1] where r is the rank
-    if (axis < 0) {
-      axis += inputType.getRank();
-    }
+    axis = tosa::convertNegativeAxis(axis, inputType.getRank());
 
     llvm::SmallVector<int64_t> newShape;
     auto inputShape = inputType.getShape();

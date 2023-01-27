@@ -30,6 +30,10 @@
 namespace onnx_mlir {
 namespace tosa {
 
+// ONNX can use negative indices for axis while TOSA cannot. This functions
+// makes sure the axis is in the right range for TOSA.
+int64_t convertNegativeAxis(int64_t axis, int64_t inputRank);
+
 // Get a vector of indexExpr and extract the Int64 values
 llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
     llvm::ArrayRef<IndexExpr> indexVector);

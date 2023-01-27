@@ -42,13 +42,7 @@ public:
     int64_t inputRank = onnx_mlir::getRank(inputs[0].getType());
 
     // onnx allows values beetween [-r, r-1] where r is the rank.
-    if (axis < 0)
-      axis += inputRank;
-
-    // Check if axis is in correct range.
-    if (axis < 0 || axis >= inputRank)
-      return rewriter.notifyMatchFailure(
-          op, "axis attribute not in correct range");
+    axis = tosa::convertNegativeAxis(axis, inputRank);
 
     Type newConcatOutputType =
         RankedTensorType::get(llvm::SmallVector<int64_t, 4>(inputRank, -1),

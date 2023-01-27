@@ -33,6 +33,17 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace tosa {
 
+int64_t convertNegativeAxis(int64_t axis, int64_t inputRank) {
+  if (axis < 0)
+    axis += inputRank;
+
+  // Check if axis is in correct range.
+  assert(
+      (axis >= 0 && axis < inputRank) && "axis attribute not in correct range");
+
+  return axis;
+}
+
 llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
     llvm::ArrayRef<IndexExpr> indexVector) {
   llvm::SmallVector<int64_t, 4> literalVector(indexVector.size());

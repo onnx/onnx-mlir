@@ -75,11 +75,9 @@ public:
     int32_t inputRank = inputType.getShape().size();
 
     // Get ONNX softmax axis
-    int axis = axisAttr.getSInt();
+    int64_t axis = axisAttr.getSInt();
     // Tosa only supports positive values
-    if (axis < 0) {
-      axis += inputRank;
-    }
+    axis = tosa::convertNegativeAxis(axis, inputRank);
     // The legalization below is based on convertSoftmaxOp in
     // tensorflow tosa/transforms/legalize_common.cc, with the
     // addition of handling for axis.
