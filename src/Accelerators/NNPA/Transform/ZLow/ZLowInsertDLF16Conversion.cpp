@@ -58,24 +58,23 @@ namespace zlow {
 
 // clang-format on
 
-class DLF16ConversionForLoadPattern : public OpRewritePattern<AffineLoadOp> {
+class DLF16ConversionForLoadPattern : public OpRewritePattern<ZLowUnstickOp> {
 public:
-  using OpRewritePattern<AffineLoadOp>::OpRewritePattern;
+  using OpRewritePattern<ZLowUnstickOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      AffineLoadOp loadOp, PatternRewriter &rewriter) const override {
-    Location loc = loadOp.getLoc();
-    Value memref = loadOp.getMemRef();
-    ValueRange indices = loadOp.getIndices();
+      ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
+    Location loc = unstickOp.getLoc();
+
+    Operation *op = unstickOp.getOperation();
+    Value zMemRef = unstickOp.X();
+    Value cpuMemRef = unstickOp.Out();
+    std::string layout = unstickOp.layout().value().str();
 
     // 1. Match
 
-    // Don't handle block argument.
-    if (memref.isa<BlockArgument>())
-      return failure();
-
-    // Only support fp32 and identity affine layout.
-    if (auto type = dyn_cast<MemRefType>(memref.getType())) {
+    // Only support fp32 and identity affine layout in the CPU MemRef.
+    if (auto type = dyn_cast<MemRefType>(cpuMemRef.getType())) {
       if (!type.getElementType().isa<Float32Type>())
         return failure();
       AffineMap m = type.getLayout().getAffineMap();
@@ -83,38 +82,36 @@ public:
         return failure();
     }
 
-    // Check if memref is unstickified from a zTensor or not.
-    // If yes, get UnstickOp that unstickifies the zTensor.
-    // There is only one UnstickOp per buffer, so stop searching when we get
-    // one.
-    ZLowUnstickOp unstickOp;
-    for (Operation *user : memref.getUsers()) {
-      if (auto userOp = llvm::dyn_cast<ZLowUnstickOp>(user)) {
-        // UnstickOp must be before the load operation.
-        if (userOp.Out() == memref) {
-          unstickOp = userOp;
-          break;
-        }
-      }
-    }
-    // Memref does not come from a zTensor. Nothing to do.
-    if (!unstickOp)
-      return failure();
-
     // Do not support layout 1D and 2DS since their access index functions are
     // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
-    std::string layout = unstickOp.layout().value().str();
     if ((layout == LAYOUT_1D) || (layout == LAYOUT_2DS))
+      return failure();
+
+    // All users except zlow.unstick must be affine.load, so that zlow.unstick
+    // will be dangling and can be totally removed at the end of this pass.
+    SmallVector<AffineLoadOp, 4> affineLoads;
+    for (Operation *user : cpuMemRef.getUsers()) {
+      if (user == op)
+        continue;
+      if (auto affineLoad = llvm::dyn_cast<AffineLoadOp>(user))
+        affineLoads.emplace_back(affineLoad);
+      else
+        return failure();
+    }
+    if (affineLoads.size() == 0)
       return failure();
 
     // 2. Rewrite
     MultiDialectBuilder<AffineBuilder> create(rewriter, loc);
-
-    // Load a dfl16 directly from zTensor and convert it to fp32.
-    Value zTensor = unstickOp.X();
-    Value loadDLF16 = create.affine.load(zTensor, indices);
-    Value toFP32 = rewriter.create<ZLowConvertDLF16ToF32Op>(loc, loadDLF16);
-    rewriter.replaceOp(loadOp, {toFP32});
+    for (AffineLoadOp loadOp : affineLoads) {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointAfter(loadOp);
+      ValueRange indices = loadOp.getIndices();
+      // Load a dfl16 directly from zTensor and convert it to fp32.
+      Value loadDLF16 = create.affine.load(zMemRef, indices);
+      Value toFP32 = rewriter.create<ZLowConvertDLF16ToF32Op>(loc, loadDLF16);
+      rewriter.replaceOp(loadOp, {toFP32});
+    }
     return success();
   }
 };
