@@ -149,8 +149,18 @@ struct ElementWiseBinaryOpImpl<ONNXDivOp, T, EnableNotBool<T>> {
   static T eval(T lhs, T rhs) { return lhs / rhs; }
 };
 
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXMinOp, T> {
+  static T eval(T lhs, T rhs) { return std::min<T>(lhs, rhs); }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXMaxOp, T> {
+  static T eval(T lhs, T rhs) { return std::max<T>(lhs, rhs); }
+};
+
 template <typename ElementwiseBinaryOp>
-constexpr auto combinerOfElementwiseBinaryOp(Type elemType) {
+constexpr auto elementwiseBinaryOpCombiner(Type elemType) {
   return getWideNumWrappedTemplateFunction<ElementWiseBinaryOpImpl,
       ElementwiseBinaryOp>(elemType);
 }
@@ -170,7 +180,7 @@ Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
          "all element-wise binary ops have matching operands element types");
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr resultElements = elementsBuilder.combine(lhs, rhs, replacingType,
-      combinerOfElementwiseBinaryOp<ElementwiseBinaryOp>(operandsElemType));
+      elementwiseBinaryOpCombiner<ElementwiseBinaryOp>(operandsElemType));
   return createReplacingConstantOp(rewriter, replacingValue, resultElements)
       .getResult();
 }
@@ -200,10 +210,9 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
 };
 
 template <typename ElementwiseUnaryOp>
-ElementsAttrBuilder::Transformer transformElementWiseUnaryOp(Type elemType) {
-  return ElementsAttrBuilder::functionTransformer(
-      getWideNumWrappedTemplateFunction<ElementWiseUnaryOpImpl,
-          ElementwiseUnaryOp>(elemType));
+auto elementwiseUnaryOpFunction(Type elemType) {
+  return getWideNumWrappedTemplateFunction<ElementWiseUnaryOpImpl,
+      ElementwiseUnaryOp>(elemType);
 }
 
 /// Do element-wise unary calculation of 'input' value and create an
@@ -221,7 +230,7 @@ Value ConstPropElementwiseUnary(
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr transposedElements =
       elementsBuilder.transform(constElements, replacingElemType,
-          transformElementWiseUnaryOp<ElementwiseUnaryOp>(replacingElemType));
+          elementwiseUnaryOpFunction<ElementwiseUnaryOp>(replacingElemType));
   return createReplacingConstantOp(rewriter, replacingValue, transposedElements)
       .getResult();
 }
@@ -251,6 +260,130 @@ Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
       elementsBuilder.where(cond, lhs, rhs, replacingType);
   return createReplacingConstantOp(rewriter, replacingValue, resultElements)
       .getResult();
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for reduce ops.
+//
+// In the template helper methods ReduceOp is the corresponding element-wise op
+// (ONNXAddOp for ONNXReduceSumOp, ONNXMaxOp for ONNXReduceMaxOp, etc) for
+// ReduceSum/Prod/Min/Max, except it is ONNXReduceMeanOp for ONNXReduceMeanOp
+// which is constant propagated in a special way: it is computed with
+// ReduceSum followed by element-wise division to calculate the mean.
+//===----------------------------------------------------------------------===//
+
+int64_t getSIntAttr(Operation *op, StringRef attrName, int64_t deflt) {
+  IntegerAttr iattr = op->getAttrOfType<IntegerAttr>(attrName);
+  return iattr ? iattr.getSInt() : deflt;
+}
+
+template <typename ReduceOp>
+Attribute getIdentity(Builder &builder, Type type) {
+  if constexpr (std::is_same_v<ReduceOp, ONNXAddOp>) {
+    return builder.getZeroAttr(type);
+  } else if constexpr (std::is_same_v<ReduceOp, ONNXMulOp>) {
+    if (auto itype = type.dyn_cast<IntegerType>())
+      return builder.getIntegerAttr(type, APInt(itype.getWidth(), 1));
+    assert(type.isa<FloatType>() && "only supported types are integer, float");
+    return builder.getFloatAttr(type, 1.0);
+  } else {
+    // Follow NumPy which doesn't support empty tensor for Min, Max, Mean.
+    llvm_unreachable("reduce op has no identify, zero-size tensor unsupported");
+  }
+}
+
+std::function<WideNum(WideNum)> divideBy(Type type, int64_t denominator) {
+  return wideZeroDispatchNonBool(type, [denominator](auto wideZero) {
+    using WideCppType = decltype(wideZero);
+    return widenumWrapped<WideCppType, WideCppType>(
+        [denominator](auto x) { return x / denominator; });
+  });
+}
+
+template <typename ReduceOp, typename AxesRange = std::initializer_list<APInt>>
+Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
+    Value dataValue, AxesRange axesRange) {
+  ConstPropCounters::count("Reduce", {dataValue});
+  Operation *op = replacingValue.getDefiningOp();
+
+  // Find absoluteAxes, converting any negative axes to non-negative.
+  SmallVector<unsigned, 4> absoluteAxes;
+  ElementsAttr data = getConstValueElements(dataValue);
+  int64_t rank = data.getType().getRank();
+  for (APInt a : axesRange) {
+    int64_t axis = a.getSExtValue();
+    assert(-rank <= axis && axis < rank && "axis out of range");
+    if (axis < 0)
+      axis += rank;
+    assert(std::find(absoluteAxes.begin(), absoluteAxes.end(), axis) ==
+               absoluteAxes.end() &&
+           "duplicate axis");
+    absoluteAxes.push_back(axis);
+  }
+
+  // If axes are empty and !noop_with_empty_axes, reduce over all dimensions.
+  if (absoluteAxes.empty() &&
+      getSIntAttr(op, "noop_with_empty_axes", /*default=*/0) == 0) {
+    for (int64_t axis = 0; axis < rank; ++axis)
+      absoluteAxes.push_back(axis);
+  }
+
+  // Compute the result.
+  ElementsAttr reduced;
+  Type elemType = data.getElementType();
+  if (absoluteAxes.empty()) {
+    reduced = data; // noop
+  } else if (data.empty()) {
+    Attribute identity = getIdentity<ReduceOp>(rewriter, elemType);
+    reduced = DenseElementsAttr::get(replacingValue.getType(), {identity});
+  } else {
+    bool keepdims = getSIntAttr(op, "keepdims", /*default=*/1) != 0;
+    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    if constexpr (std::is_same_v<ReduceOp, ONNXReduceMeanOp>) {
+      // sum = ReduceSum(data)
+      ElementsAttr sum = elementsBuilder.reduce(data, absoluteAxes, keepdims,
+          elementwiseBinaryOpCombiner<ONNXAddOp>(elemType));
+      assert(data.size() % sum.size() == 0 &&
+             "ReduceSum reduces tensor size by integer factor");
+      int64_t denominator = data.size() / sum.size();
+      // reduced = sum / denominator
+      reduced = elementsBuilder.transform(
+          sum, elemType, divideBy(elemType, denominator));
+    } else {
+      reduced = elementsBuilder.reduce(data, absoluteAxes, keepdims,
+          elementwiseBinaryOpCombiner<ReduceOp>(elemType));
+    }
+  }
+
+  return createReplacingConstantOp(rewriter, replacingValue, reduced)
+      .getResult();
+}
+
+template <typename ReduceOp>
+Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
+    Value dataValue, Value axesValue) {
+  if (isFromNone(axesValue)) {
+    return ConstPropReduceAxesRange<ReduceOp>(
+        rewriter, replacingValue, dataValue, {});
+  } else {
+    ElementsAttr axes = getConstValueElements(axesValue);
+    auto axesRange = axes.getValues<APInt>();
+    return ConstPropReduceAxesRange<ReduceOp>(
+        rewriter, replacingValue, dataValue, axesRange);
+  }
+}
+
+template <typename ReduceOp>
+Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
+    Value dataValue, ArrayAttr axesArray) {
+  if (axesArray) {
+    auto axesRange = axesArray.getAsValueRange<IntegerAttr>();
+    return ConstPropReduceAxesRange<ReduceOp>(
+        rewriter, replacingValue, dataValue, axesRange);
+  } else {
+    return ConstPropReduceAxesRange<ReduceOp>(
+        rewriter, replacingValue, dataValue, {});
+  }
 }
 
 //===----------------------------------------------------------------------===//
