@@ -390,7 +390,9 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     IndexExprScope scope(nullptr, val.getLoc());
     DimsExpr inferredDims;
     for (int64_t d : shape) {
-      if (ShapedType::isDynamic(d))
+      // TODO: "-1" may be used if "shape" is coming from e.g. the parameters of
+      // an `onnx.Reshape` op?
+      if (ShapedType::isDynamic(d) || d == -1)
         inferredDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
       else
         inferredDims.emplace_back(LiteralIndexExpr(d));
@@ -398,8 +400,11 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     refineDims(inferredDims, val);
     IndexExpr::getShape(inferredDims, inferredShape);
   } else {
+    // TODO: "-1" may be used if "shape" is coming from e.g. the parameters of
+    // an `onnx.Reshape` op?
     for (size_t i = 0; i < shape.size(); ++i)
-      inferredShape.emplace_back(shape[i]);
+      inferredShape.emplace_back(
+          shape[i] != -1 ? shape[i] : ShapedType::kDynamic);
   }
 
   // Get element type.

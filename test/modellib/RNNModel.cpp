@@ -42,9 +42,9 @@ bool RNNLibBuilder::build() {
   D = abs(direction);
   int S1 = S, B1 = B;
   if (isDynamicS)
-    S1 = -1;
+    S1 = ShapedType::kDynamic;
   if (isDynamicB)
-    B1 = -1;
+    B1 = ShapedType::kDynamic;
 
   xShape = perm3(S, B, I);
   SmallVector<int64_t, 3> xShapeSymbol = perm3(S1, B1, I);
