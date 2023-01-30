@@ -120,9 +120,10 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     // Compute argUnique of X along axis.
     Value total = emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted,
         outputYBuf, indicesBuf, reverse_indicesBuf, countsBuf);
-      
+
     // Calculate output shapes for ouputs according to the results
-    DimIndexExpr totalDimExpr = DimIndexExpr(total);
+#if 0
+    NonAffineIndexExpr totalDimExpr = NonAffineIndexExpr(total);
     DimsExpr outputYDims;
     DimsExpr outputIndexDims;
     if (axis < 0) {
@@ -136,6 +137,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
         outputIndexDims.emplace_back(tDimExpr);
       }
     }
+#endif
 #if 0
     // Produce the final result.
     SmallVector<IndexExpr> zeroDims(rank, LiteralIndexExpr(0));
@@ -155,8 +157,14 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
         });
 
 #endif
+#if 1
     rewriter.replaceOp(
         op, {outputYBuf, indicesBuf, reverse_indicesBuf, countsBuf});
+#else
+    Value noneValue;
+    rewriter.replaceOp(
+        op, {outputYBuf, noneValue, noneValue, noneValue});
+#endif
     return success();
   }
 };
