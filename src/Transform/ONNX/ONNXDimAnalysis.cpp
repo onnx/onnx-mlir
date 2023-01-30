@@ -86,6 +86,48 @@ static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
 /// Given an unknown dimension, find the same unknown dimensions in the inputs.
 /// This function uses ShapeHelper to explore the same unknown dimensions.
 /// Use this function for operations that use adaptor to compute shape.
+void exploreSameInputDims_new(const onnx_mlir::DimAnalysis::DimT &dim,
+    mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
+
+  auto shape_op = llvm::dyn_cast<mlir::ShapeHelper>(*op);
+  if (!shape_op) {
+    fprintf(stderr, "hi alex: op does not have a shape helper");
+    return;
+  }
+
+  onnx_mlir::ONNXOpShapeHelper *shapeHelper =
+      shape_op.getShapeHelper(op, {}, nullptr, nullptr);
+  if (!shapeHelper) {
+    fprintf(stderr, "hi alex: failed to create shape helper");
+    return;
+  }
+  if (failed(shapeHelper->computeShape())) {
+    fprintf(stderr, "hi alex: failed to compute shape");
+    delete shapeHelper;
+    return;
+  }
+  // The operation may have multiple outputs, find the index of the processing
+  // output.
+  Value outputTensor = dim.first;
+  uint64_t tensorIndex = 0;
+  for (uint64_t i = 0; i < op->getNumResults(); ++i) {
+    if (op->getResult(i) == outputTensor) {
+      tensorIndex = i;
+      break;
+    }
+  }
+  // Find the unknown input dimensions that were transferred to the unknown
+  // output dimension.
+  uint64_t dimIndex = dim.second;
+  onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
+      shapeHelper->getOutputDims(tensorIndex)[dimIndex];
+  findAndAddSameDim(qmOuputIE, op, op->getOperands(), sameDims);
+  delete shapeHelper;
+}
+
+/// Given an unknown dimension, find the same unknown dimensions in the inputs.
+/// This function uses ShapeHelper to explore the same unknown dimensions.
+/// Use this function for operations that use adaptor to compute shape.
 template <typename ONNX_OP, typename SHAPE_HELPER>
 void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
     onnx_mlir::DimAnalysis::DimSetT &sameDims) {
@@ -365,19 +407,7 @@ void DimAnalysis::visitDim(
     return;
   }
 
-  // AveragePoolOp
-  if (auto poolOp = dyn_cast<ONNXAveragePoolOp>(op)) {
-    exploreSameInputDims<ONNXAveragePoolOp, ONNXAveragePoolOpShapeHelper>(
-        dim, poolOp, sameDims);
-    return;
-  }
-
-  // ArgMaxOp
-  if (auto argmaxOp = dyn_cast<ONNXArgMaxOp>(op)) {
-    exploreSameInputDims<ONNXArgMaxOp, ONNXArgMaxOpShapeHelper>(
-        dim, argmaxOp, sameDims);
-    return;
-  }
+  // special cases
 
   // ConstantOfShapeOp
   if (auto constOp = dyn_cast<ONNXConstantOfShapeOp>(op)) {
@@ -390,24 +420,10 @@ void DimAnalysis::visitDim(
     return;
   }
 
-  // ConvOp
-  if (auto convOp = dyn_cast<ONNXConvOp>(op)) {
-    exploreSameInputDims<ONNXConvOp, ONNXConvOpShapeHelper>(
-        dim, convOp, sameDims);
-    return;
-  }
-
   // DimOp
   if (auto dimOp = dyn_cast<ONNXDimOp>(op)) {
     DimT newSameDim(dimOp.data(), dimOp.axis());
     sameDims.insert(newSameDim);
-    return;
-  }
-
-  // GemmOp
-  if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
-    exploreSameInputDims<ONNXGemmOp, ONNXGemmOpShapeHelper>(
-        dim, gemmOp, sameDims);
     return;
   }
 
@@ -437,19 +453,6 @@ void DimAnalysis::visitDim(
           sameUnknownDim(A, aDimIndex, B, bDimIndex))
         sameDims.insert(DimT(A, aDimIndex));
     }
-    return;
-  }
-
-  // MaxPoolSingleOutOp
-  if (auto poolOp = dyn_cast<ONNXMaxPoolSingleOutOp>(op)) {
-    exploreSameInputDims<ONNXMaxPoolSingleOutOp,
-        ONNXMaxPoolSingleOutOpShapeHelper>(dim, poolOp, sameDims);
-    return;
-  }
-
-  // PadOp
-  if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
-    exploreSameInputDims<ONNXPadOp, ONNXPadOpShapeHelper>(dim, padOp, sameDims);
     return;
   }
 
@@ -540,6 +543,118 @@ void DimAnalysis::visitDim(
     return;
   }
 
+// Generic cases
+#if 1
+
+  // AveragePoolOp
+  if (auto poolOp = dyn_cast<ONNXAveragePoolOp>(op)) {
+    exploreSameInputDims_new(dim, op, sameDims);
+    return;
+  }
+
+  // ArgMaxOp
+  if (auto argmaxOp = dyn_cast<ONNXArgMaxOp>(op)) {
+    exploreSameInputDims_new(dim, op, sameDims);
+    return;
+  }
+
+  // ConvOp
+  if (auto convOp = dyn_cast<ONNXConvOp>(op)) {
+    exploreSameInputDims_new(dim, op, sameDims);
+    return;
+  }
+
+  // GemmOp
+  if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
+    exploreSameInputDims_new(dim, op, sameDims);
+    return;
+  }
+
+  // MaxPoolSingleOutOp
+  if (auto poolOp = dyn_cast<ONNXMaxPoolSingleOutOp>(op)) {
+    exploreSameInputDims_new(dim, op, sameDims);
+    return;
+  }
+
+  // PadOp
+  if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
+    exploreSameInputDims_new(dim, op, sameDims);
+    return;
+  }
+
+  // SliceOp
+  if (auto sliceOp = dyn_cast<ONNXSliceOp>(op)) {
+    exploreSameInputDims_new(dim, op, sameDims);
+    return;
+  }
+
+  // SplitOp
+  if (auto splitOp = dyn_cast<ONNXSplitOp>(op)) {
+    exploreSameInputDims_new(dim, op, sameDims);
+    return;
+  }
+
+  // SqueezeOp
+  if (auto squeezeOp = dyn_cast<ONNXSqueezeOp>(op)) {
+    exploreSameInputDims_new(dim, op, sameDims);
+    return;
+  }
+
+  // TransposeOp
+  if (auto transposeOp = dyn_cast<ONNXTransposeOp>(op)) {
+    exploreSameInputDims_new(dim, op, sameDims);
+    return;
+  }
+
+  // Unsqueeze
+  if (auto unsqueezeOp = dyn_cast<ONNXUnsqueezeOp>(op)) {
+    exploreSameInputDims_new(dim, op, sameDims);
+    return;
+  }
+
+#else
+
+  // AveragePoolOp
+  if (auto poolOp = dyn_cast<ONNXAveragePoolOp>(op)) {
+    exploreSameInputDims<ONNXAveragePoolOp, ONNXAveragePoolOpShapeHelper>(
+        dim, poolOp, sameDims);
+    return;
+  }
+
+  // ArgMaxOp
+  if (auto argmaxOp = dyn_cast<ONNXArgMaxOp>(op)) {
+    exploreSameInputDims<ONNXArgMaxOp, ONNXArgMaxOpShapeHelper>(
+        dim, argmaxOp, sameDims);
+    return;
+  }
+
+  // ConvOp
+  if (auto convOp = dyn_cast<ONNXConvOp>(op)) {
+    exploreSameInputDims<ONNXConvOp, ONNXConvOpShapeHelper>(
+        dim, convOp, sameDims);
+    return;
+  }
+
+  // GemmOp
+  if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
+    exploreSameInputDims<ONNXGemmOp, ONNXGemmOpShapeHelper>(
+        dim, gemmOp, sameDims);
+    return;
+  }
+
+  // MaxPoolSingleOutOp
+  if (auto poolOp = dyn_cast<ONNXMaxPoolSingleOutOp>(op)) {
+    exploreSameInputDims<ONNXMaxPoolSingleOutOp,
+        ONNXMaxPoolSingleOutOpShapeHelper>(dim, poolOp, sameDims);
+    return;
+  }
+
+  // PadOp
+  if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
+    exploreSameInputDims<ONNXPadOp, ONNXPadOpShapeHelper>(dim, padOp, sameDims);
+    return;
+  }
+
   // SliceOp
   if (auto sliceOp = dyn_cast<ONNXSliceOp>(op)) {
     exploreSameInputDims<ONNXSliceOp, ONNXSliceOpShapeHelper>(
@@ -574,6 +689,7 @@ void DimAnalysis::visitDim(
         dim, unsqueezeOp, sameDims);
     return;
   }
+#endif
 
   // Unsupported operations, just stop the analysis.
   return;
