@@ -99,3 +99,14 @@ add_onnx_mlir_library(OMONNXReplaceNoValue
   MLIRPass
   MLIRTransforms
   )
+
+add_onnx_mlir_library(OMONNXLayerNameToDebugInfo
+  LayerNameToDebugInfoPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMONNXRewrite
+  MLIRFuncDialect
+  MLIRPass
+  MLIRTransforms
+  )

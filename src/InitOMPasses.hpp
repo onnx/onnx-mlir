@@ -120,6 +120,10 @@ void initOMPasses(int optLevel) {
     return createReplaceNoValuePass();
   });
 
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createLayerNameToDebugInfoPass();
+  });
+
 #ifdef ONNX_MLIR_ENABLE_MHLO
   mlir::registerPass(
       []() -> std::unique_ptr<mlir::Pass> { return createLowerToMhloPass(); });
