@@ -1009,7 +1009,7 @@ def ONNXClipOp:ONNX_Op<"Clip",
   let description = [{
   Clip operator limits the given input within an interval. The interval is
   specified by the inputs 'min' and 'max'. They default to
-  numeric_limits::lowest() and numeric_limits::getMax(), respectively.
+  numeric_limits::lowest() and numeric_limits::max(), respectively.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$min,
@@ -1042,7 +1042,7 @@ def ONNXClipV12Op:ONNX_Op<"ClipV12",
   let description = [{
   Clip operator limits the given input within an interval. The interval is
   specified by the inputs 'min' and 'max'. They default to
-  numeric_limits::lowest() and numeric_limits::getMax(), respectively.
+  numeric_limits::lowest() and numeric_limits::max(), respectively.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$min,
@@ -1075,7 +1075,7 @@ def ONNXClipV11Op:ONNX_Op<"ClipV11",
   let description = [{
   Clip operator limits the given input within an interval. The interval is
   specified by the inputs 'min' and 'max'. They default to
-  numeric_limits::lowest() and numeric_limits::getMax(), respectively.
+  numeric_limits::lowest() and numeric_limits::max(), respectively.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$min,
@@ -1108,7 +1108,7 @@ def ONNXClipV6Op:ONNX_Op<"ClipV6",
   let description = [{
   Clip operator limits the given input within an interval. The interval is
   specified with arguments 'min' and 'max'. They default to
-  numeric_limits::lowest() and numeric_limits::getMax() respectively.
+  numeric_limits::lowest() and numeric_limits::max() respectively.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
     DefaultValuedAttr<F32Attr, "(3.402823e+38)">:$max,
@@ -4455,10 +4455,10 @@ def ONNXModOp:ONNX_Op<"Mod",
   Performs element-wise binary modulus (with Numpy-style broadcasting support).
       The sign of the remainder is the same as that of the Divisor.
   
-      Mod operator can also behave like C getFmod() or numpy.fmod. In this case, the sign of the remainder however, will be the same as the Dividend
-      (in contrast to integer mod). To force a behavior like numpy.getFmod() an 'fmod' Attribute is provided.
+      Mod operator can also behave like C fmod() or numpy.fmod. In this case, the sign of the remainder however, will be the same as the Dividend
+      (in contrast to integer mod). To force a behavior like numpy.fmod() an 'fmod' Attribute is provided.
       This attribute is set to 0 by default causing the behavior to be like integer mod.
-      Setting this attribute to 1 causes the remainder to be calculated similar to that of numpy.getFmod().
+      Setting this attribute to 1 causes the remainder to be calculated similar to that of numpy.fmod().
   
       If the input type is floating point, then `fmod` attribute must be set to 1.
   

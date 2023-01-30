@@ -415,7 +415,7 @@ OpsWithHelpers = {
     mlir::Operation::result_range scan_outputs();
   """,
   "Scan": """
-    mlir::Operation::operand_range v_initial();
+    mlir::Operation::operand_range getVInitial();
     mlir::Operation::result_range v_final();
     mlir::Operation::operand_range scan_inputs();
     mlir::Operation::result_range scan_outputs();
@@ -429,13 +429,13 @@ OpsWithResultTypeInference = {
   "Constant":
   '''if (auto attr = getValueAttr()) {
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
-      } else if (auto attr = sparse_valueAttr()) {
+      } else if (auto attr = getSparseValueAttr()) {
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
       }''',
   "Cast":
     '''resultTypes.push_back(mlir::UnrankedTensorType::get(getTo()));''',
   "ConstantOfShape":
-  '''if (auto attr = getValueattr()) {
+  '''if (auto attr = getValueAttr()) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
           attr.cast<TypedAttr>().getType().cast<ShapedType>().getElementType()));
       } else {
