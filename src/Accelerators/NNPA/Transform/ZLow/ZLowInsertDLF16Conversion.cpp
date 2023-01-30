@@ -116,6 +116,70 @@ public:
   }
 };
 
+class DLF16ConversionForStorePattern : public OpRewritePattern<ZLowStickOp> {
+public:
+  using OpRewritePattern<ZLowStickOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
+    Location loc = stickOp.getLoc();
+
+    Operation *op = stickOp.getOperation();
+    Value cpuMemRef = stickOp.X();
+    Value zMemRef = stickOp.Out();
+    std::string layout = stickOp.layout().value().str();
+
+    // 1. Match
+
+    // Only support fp32 and identity affine layout in the CPU MemRef.
+    if (auto type = dyn_cast<MemRefType>(cpuMemRef.getType())) {
+      if (!type.getElementType().isa<Float32Type>())
+        return failure();
+      AffineMap m = type.getLayout().getAffineMap();
+      if (m.getNumResults() != 1 && !m.isIdentity())
+        return failure();
+    }
+
+    // Do not support layout 1D and 2DS since their access index functions are
+    // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
+    if ((layout == LAYOUT_1D) || (layout == LAYOUT_2DS))
+      return failure();
+
+    // All users except zlow.stick must be affine.load, so that zlow.stick
+    // will be dangling and can be totally removed at the end of this pass.
+    SmallVector<AffineStoreOp, 4> affineStores;
+    for (Operation *user : cpuMemRef.getUsers()) {
+      if (user == op)
+        continue;
+      if (auto affineStore = llvm::dyn_cast<AffineStoreOp>(user))
+        affineStores.emplace_back(affineStore);
+      else
+        return failure();
+    }
+    if (affineStores.size() == 0)
+      return failure();
+
+    // 2. Rewrite
+    // Move up the allocation of zMemRef so that it dominates the following
+    // stores.
+    zMemRef.getDefiningOp()->moveBefore(&op->getBlock()->front());
+
+    // Replace AffineStoreOp.
+    MultiDialectBuilder<AffineBuilder> create(rewriter, loc);
+    for (AffineStoreOp storeOp : affineStores) {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointAfter(storeOp);
+      ValueRange indices = storeOp.getIndices();
+      Value f32 = storeOp.getValue();
+      // Convert the value to dlf16 and store it to zTensor directly.
+      Value dlf16 = rewriter.create<ZLowConvertF32ToDLF16Op>(loc, f32);
+      create.affine.store(dlf16, zMemRef, indices);
+      // Remove the old AffineStore.
+      rewriter.eraseOp(storeOp);
+    }
+    return success();
+  }
+};
 /*!
  *  Function pass that optimizes ZLowIR.
  */
@@ -138,15 +202,16 @@ public:
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<DLF16ConversionForLoadPattern>(&getContext());
+    patterns.insert<DLF16ConversionForStorePattern>(&getContext());
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();
 
-    // Clean up ZLowStick and ZLowUnstick if their ztensors have no other use
-    // rather than themselves.
+    // Clean up ZLowStick and ZLowUnstick if their tensors/ztensors have no
+    // other use rather than themselves.
     SmallVector<Operation *, 4> canBeRemoved;
     function->walk([&canBeRemoved](Operation *op) {
       if (auto stickOp = dyn_cast<ZLowStickOp>(op)) {
-        if (stickOp.Out().hasOneUse())
+        if (stickOp.X().hasOneUse())
           canBeRemoved.emplace_back(op);
       }
       if (auto unstickOp = dyn_cast<ZLowUnstickOp>(op)) {
