@@ -561,10 +561,10 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 /// axis. The first output MemRef has the same shape as the input MemRef but is
 /// of IndexType. Shape of the second, third and fourth arguments depends on the
 /// input options.
-mlir::Value emitArgUnique(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Value input, int64_t axis, int64_t sorted,
-    mlir::Value Y, mlir::Value indices, mlir::Value reverse_indices,
-    mlir::Value counts) {
+Value emitArgUnique(ConversionPatternRewriter &rewriter,
+    Location loc, Value input, int64_t axis, int64_t sorted,
+    Value Y, Value indices, Value reverse_indices,
+    Value counts) {
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
       rewriter, loc);
   IndexExprScope scope(create.krnl);
@@ -581,10 +581,10 @@ mlir::Value emitArgUnique(mlir::ConversionPatternRewriter &rewriter,
 
   // Create and initialize the result.
   ArrayRef<int64_t> totalShape = {1};
-
   Value total = insertAllocAndDeallocSimple(rewriter, nullptr,
       MemRefType::get(totalShape, indexType), loc, ubs,
     /*insertDealloc=*/true);
+
 #if 0
   ValueRange initLoopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
@@ -597,8 +597,12 @@ mlir::Value emitArgUnique(mlir::ConversionPatternRewriter &rewriter,
   Type int_type = rewriter.getIntegerType(64);
   Value val_axis = create.math.constant(int_type, axis);
   Value val_sorted = create.math.constant(int_type, sorted);
-  SmallVector<Value, 4> operands = {input, val_axis, val_sorted, Y, indices,
+#if 0
+  SmallVector<Value, 6> operands = {input, val_axis, val_sorted, Y, indices,
       reverse_indices, counts};
+#else
+  SmallVector<Value, 1> operands = {input};
+#endif
   rewriter.create<KrnlCallOp>(loc, "omTensorUnique", total, operands);
   return total;
 }

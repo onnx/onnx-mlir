@@ -31,8 +31,12 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   } else {                                            // if axis given
     int64_t axis = optionalAxis.value();
     for (int64_t i = 0; i < rank; i++) {
+#if 0
       outputDims.emplace_back((i == axis) ? QuestionmarkIndexExpr()
                                           : createIE->getShapeAsDim(X, i));
+#else
+      outputDims.emplace_back(createIE->getShapeAsDim(X, i));
+#endif
     }
   }
   setOutputDims(outputDims, 0);

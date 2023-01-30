@@ -54,11 +54,11 @@ int elementTableRegister(elementTable *table, void *element) {
 }
 
 uint64_t elementTable_count(elementTable *table) { return table->elementCount; }
-
+#if 0
 void omTensorUnique(
     OMTensor *totalTensor, const OMTensor *inputTensor,
-    int64_t axis, uint64_t sorted, const OMTensor *Y, OMTensor *indices,
-    const OMTensor *reverse_indices, const OMTensor *counts) {
+    int64_t axis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
+    OMTensor *reverse_indices, OMTensor *counts) {
   omTensorPrint("omTensorUnique: input=", inputTensor);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const uint64_t rank = omTensorGetRank(inputTensor);
@@ -160,3 +160,9 @@ void omTensorUnique(
   omTensorPrint("omTensorUnique: total =", inputTensor);
   return;
 }
+#else
+void omTensorUnique(
+    OMTensor *totalTensor, const OMTensor *inputTensor) {
+  return;
+}
+#endif

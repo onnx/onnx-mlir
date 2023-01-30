@@ -101,7 +101,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     }
     // Insert an allocation and deallocation for the results of this operation.
     // For Y output
-    bool insertDealloc = true;
+    bool insertDealloc = false; // XXX = true;
     Type i64Type = rewriter.getI64Type();
 
     Value outputYBuf = insertAllocAndDeallocSimple(rewriter, op,
@@ -163,7 +163,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 #else
     Value noneValue;
     rewriter.replaceOp(
-        op, {outputYBuf, noneValue, noneValue, noneValue});
+        op, {X, noneValue, noneValue, noneValue});
 #endif
     return success();
   }
