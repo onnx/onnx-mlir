@@ -162,7 +162,7 @@ public:
     // 2. Rewrite
     // Move up the allocation of zMemRef so that it dominates the following
     // stores.
-    zMemRef.getDefiningOp()->moveBefore(&op->getBlock()->front());
+    zMemRef.getDefiningOp()->moveAfter(cpuMemRef.getDefiningOp());
 
     // Replace AffineStoreOp.
     MultiDialectBuilder<AffineBuilder> create(rewriter, loc);
