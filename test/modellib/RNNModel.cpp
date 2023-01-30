@@ -40,7 +40,7 @@ RNNLibBuilder::~RNNLibBuilder() {
 
 bool RNNLibBuilder::build() {
   D = abs(direction);
-  int S1 = S, B1 = B;
+  int64_t S1 = S, B1 = B;
   if (isDynamicS)
     S1 = ShapedType::kDynamic;
   if (isDynamicB)

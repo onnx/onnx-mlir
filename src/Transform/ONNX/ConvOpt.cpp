@@ -153,8 +153,8 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     int64_t rank = xShape.size();
     int64_t spatialRank = rank - 2;
     // Get dimensions.
-    int batchSize = xShape[0];
-    int Cout = wShape[0];
+    int64_t batchSize = xShape[0];
+    int64_t Cout = wShape[0];
     // Start transforming.
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
         rewriter, loc);
@@ -168,8 +168,8 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
         create.onnx.reshapeToNDim(W, 2, /*collapseMostSignificant*/ false);
     // Perform the matrix multiplication on WW * XX. Leave last dim runtime so
     // that its actual H*W size can be generated during shape inference.
-    RankedTensorType MMOutputType =
-        RankedTensorType::get({batchSize, Cout, ShapedType::kDynamic}, elementType);
+    RankedTensorType MMOutputType = RankedTensorType::get(
+        {batchSize, Cout, ShapedType::kDynamic}, elementType);
     Value MM = create.onnx.matmul(MMOutputType, WW, XX, /*gemm*/ false);
     if (hasBias) {
       // Reshape BB from <CO> to <1, CO, 1> for broadcast.
@@ -200,7 +200,8 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     for (int i = 0; i < rank; ++i)
       outputDims.emplace_back(xShape[i]);
     outputDims[1] = Cout;
-    Value res = create.onnx.reshape(convOp.getY().getType(), MM, outputShapeVals);
+    Value res =
+        create.onnx.reshape(convOp.getY().getType(), MM, outputShapeVals);
     // Replace op and declare success.
     rewriter.replaceOp(convOp, res);
     return success();
