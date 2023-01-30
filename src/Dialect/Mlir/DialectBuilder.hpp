@@ -419,6 +419,9 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value insertValue(mlir::Type resultType, mlir::Value container,
       mlir::Value val, llvm::ArrayRef<int64_t> position) const;
 
+  // LShrOp
+  mlir::Value lshr(mlir::Value lhs, mlir::Value rhs) const;
+
   // LoadOp
   mlir::Value load(mlir::Value addr) const;
 
@@ -440,6 +443,9 @@ struct LLVMBuilder final : DialectBuilder {
 
   // StoreOp
   void store(mlir::Value val, mlir::Value addr) const;
+
+  // TruncOp
+  mlir::Value trunc(mlir::Type type, mlir::Value val) const;
 
   // ZExtOp
   mlir::Value zext(mlir::Type type, mlir::Value val) const;

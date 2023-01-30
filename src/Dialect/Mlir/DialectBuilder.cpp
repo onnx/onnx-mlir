@@ -1073,6 +1073,10 @@ Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
       loc(), resultType, container, val, position);
 }
 
+Value LLVMBuilder::lshr(Value lhs, Value rhs) const {
+  return b().create<LLVM::LShrOp>(loc(), lhs, rhs);
+}
+
 Value LLVMBuilder::load(Value addr) const {
   return b().create<LLVM::LoadOp>(loc(), addr);
 }
@@ -1106,6 +1110,10 @@ Value LLVMBuilder::shl(Value lhs, Value rhs) const {
 
 void LLVMBuilder::store(Value val, Value addr) const {
   b().create<LLVM::StoreOp>(loc(), val, addr);
+}
+
+Value LLVMBuilder::trunc(Type type, Value val) const {
+  return b().create<LLVM::TruncOp>(loc(), type, val);
 }
 
 Value LLVMBuilder::zext(Type type, Value val) const {
