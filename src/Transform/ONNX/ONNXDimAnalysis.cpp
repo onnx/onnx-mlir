@@ -86,28 +86,28 @@ static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
 /// Given an unknown dimension, find the same unknown dimensions in the inputs.
 /// This function uses ShapeHelper to explore the same unknown dimensions.
 /// Use this function for operations that use adaptor to compute shape.
-void exploreSameInputDims_new(const onnx_mlir::DimAnalysis::DimT &dim,
+bool exploreSameInputDims_new(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
 
   auto shape_op = llvm::dyn_cast<mlir::ShapeHelper>(*op);
   if (!shape_op) {
     fprintf(stderr, "hi alex: op does not have a shape helper");
-    return;
+    return false;
   }
 
-  mlir::ArrayRef<mlir::Value> operands;
-  onnx_mlir::IndexExprBuilder *builder=nullptr;
-  onnx_mlir::IndexExprScope* scope=nullptr;
+  llvm::ArrayRef<mlir::Value> operands;
+  onnx_mlir::IndexExprBuilder *builder = nullptr;
+  onnx_mlir::IndexExprScope *scope = nullptr;
   onnx_mlir::ONNXOpShapeHelper *shapeHelper =
       shape_op.getShapeHelper(op, operands, builder, scope);
   if (!shapeHelper) {
     fprintf(stderr, "hi alex: failed to create shape helper");
-    return;
+    return false;
   }
   if (failed(shapeHelper->computeShape())) {
     fprintf(stderr, "hi alex: failed to compute shape");
     delete shapeHelper;
-    return;
+    return false;
   }
   // The operation may have multiple outputs, find the index of the processing
   // output.
@@ -126,6 +126,7 @@ void exploreSameInputDims_new(const onnx_mlir::DimAnalysis::DimT &dim,
       shapeHelper->getOutputDims(tensorIndex)[dimIndex];
   findAndAddSameDim(qmOuputIE, op, op->getOperands(), sameDims);
   delete shapeHelper;
+  return true;
 }
 
 /// Given an unknown dimension, find the same unknown dimensions in the inputs.
@@ -374,6 +375,7 @@ void DimAnalysis::visitDim(
   // possible.
   Operation *op = tensor.getDefiningOp();
 
+#if 0 // handled by generic 
   // UnaryOp
   if (isa<ONNXCastOp>(op) || isa<ONNXPowOp>(op) || isa<ONNXReluOp>(op) ||
       isa<ONNXReciprocalOp>(op) || isa<ONNXTanhOp>(op) ||
@@ -381,32 +383,41 @@ void DimAnalysis::visitDim(
     exploreSameInputDimsUnaryOp(dim, op, sameDims);
     return;
   }
+#endif
 
   // BinaryOp
   if (isa<ONNXAddOp>(op) || isa<ONNXDivOp>(op) || isa<ONNXMulOp>(op) ||
       isa<ONNXSubOp>(op)) {
+#if 1
+    if (exploreSameInputDims_new(dim, op, sameDims)) {
+#else
     exploreSameInputDimsBinaryOp(dim, op, sameDims);
-    // If we know by this analysis that two unknown dims at the same index are
-    // the same, then the output dim must be the same too.
-    Value A = op->getOperands()[0];
-    Value B = op->getOperands()[1];
-    Type aType = A.getType();
-    Type bType = B.getType();
-    uint64_t aRank = onnx_mlir::getRank(aType);
-    uint64_t bRank = onnx_mlir::getRank(bType);
-    uint64_t maxRank = std::max(aRank, bRank);
-    if ((aRank != 0) && (bRank != 0)) {
-      ArrayRef<int64_t> aShape = onnx_mlir::getShape(aType);
-      ArrayRef<int64_t> bShape = onnx_mlir::getShape(bType);
-      // aDim == bDim (unknown), there is no broadcasting and aDim == outputDim.
-      int64_t aDimIndex = dimIndex - (maxRank - aRank);
-      int64_t bDimIndex = dimIndex - (maxRank - bRank);
-      if ((aDimIndex >= 0) && (bDimIndex >= 0) &&
-          ShapedType::isDynamic(aShape[aDimIndex]) &&
-          ShapedType::isDynamic(bShape[bDimIndex]) &&
-          onnx_mlir::DimAnalysis::sameUnknownDim(A, aDimIndex, B, bDimIndex))
-        sameDims.insert(onnx_mlir::DimAnalysis::DimT(A, aDimIndex));
+#endif
+      // If we know by this analysis that two unknown dims at the same index are
+      // the same, then the output dim must be the same too.
+      Value A = op->getOperands()[0];
+      Value B = op->getOperands()[1];
+      Type aType = A.getType();
+      Type bType = B.getType();
+      uint64_t aRank = onnx_mlir::getRank(aType);
+      uint64_t bRank = onnx_mlir::getRank(bType);
+      uint64_t maxRank = std::max(aRank, bRank);
+      if ((aRank != 0) && (bRank != 0)) {
+        ArrayRef<int64_t> aShape = onnx_mlir::getShape(aType);
+        ArrayRef<int64_t> bShape = onnx_mlir::getShape(bType);
+        // aDim == bDim (unknown), there is no broadcasting and aDim ==
+        // outputDim.
+        int64_t aDimIndex = dimIndex - (maxRank - aRank);
+        int64_t bDimIndex = dimIndex - (maxRank - bRank);
+        if ((aDimIndex >= 0) && (bDimIndex >= 0) &&
+            ShapedType::isDynamic(aShape[aDimIndex]) &&
+            ShapedType::isDynamic(bShape[bDimIndex]) &&
+            onnx_mlir::DimAnalysis::sameUnknownDim(A, aDimIndex, B, bDimIndex))
+          sameDims.insert(onnx_mlir::DimAnalysis::DimT(A, aDimIndex));
+      }
+#if 1
     }
+#endif
     return;
   }
 
@@ -432,30 +443,38 @@ void DimAnalysis::visitDim(
 
   // MatMulOp
   if (auto matmulOp = dyn_cast<ONNXMatMulOp>(op)) {
+#if 1
+    if (exploreSameInputDims_new(dim, op, sameDims)) {
+#else
     exploreSameInputDims<ONNXMatMulOp, ONNXMatMulOpShapeHelper>(
         dim, matmulOp, sameDims);
-    // If we know by this analysis that two unknown dims at the same index in
-    // the batchsize space are the same, then the output dim must be the same
-    // too.
-    Value A = matmulOp.A();
-    Value B = matmulOp.B();
-    Type aType = A.getType();
-    Type bType = B.getType();
-    uint64_t aRank = getRank(aType);
-    uint64_t bRank = getRank(bType);
-    uint64_t maxRank = std::max(aRank, bRank);
-    if (dimIndex <= maxRank - 2) { // In the batchsize space.
-      ArrayRef<int64_t> aShape = getShape(aType);
-      ArrayRef<int64_t> bShape = getShape(bType);
-      // aDim == bDim (unknown), there is no broadcasting and aDim == outputDim.
-      int64_t aDimIndex = dimIndex - (maxRank - aRank);
-      int64_t bDimIndex = dimIndex - (maxRank - bRank);
-      if ((aDimIndex >= 0) && (bDimIndex >= 0) &&
-          ShapedType::isDynamic(aShape[aDimIndex]) &&
-          ShapedType::isDynamic(bShape[bDimIndex]) &&
-          sameUnknownDim(A, aDimIndex, B, bDimIndex))
-        sameDims.insert(DimT(A, aDimIndex));
+#endif
+      // If we know by this analysis that two unknown dims at the same index in
+      // the batchsize space are the same, then the output dim must be the same
+      // too.
+      Value A = matmulOp.A();
+      Value B = matmulOp.B();
+      Type aType = A.getType();
+      Type bType = B.getType();
+      uint64_t aRank = getRank(aType);
+      uint64_t bRank = getRank(bType);
+      uint64_t maxRank = std::max(aRank, bRank);
+      if (dimIndex <= maxRank - 2) { // In the batchsize space.
+        ArrayRef<int64_t> aShape = getShape(aType);
+        ArrayRef<int64_t> bShape = getShape(bType);
+        // aDim == bDim (unknown), there is no broadcasting and aDim ==
+        // outputDim.
+        int64_t aDimIndex = dimIndex - (maxRank - aRank);
+        int64_t bDimIndex = dimIndex - (maxRank - bRank);
+        if ((aDimIndex >= 0) && (bDimIndex >= 0) &&
+            ShapedType::isDynamic(aShape[aDimIndex]) &&
+            ShapedType::isDynamic(bShape[bDimIndex]) &&
+            sameUnknownDim(A, aDimIndex, B, bDimIndex))
+          sameDims.insert(DimT(A, aDimIndex));
+      }
+#if 1
     }
+#endif
     return;
   }
 
@@ -549,71 +568,7 @@ void DimAnalysis::visitDim(
 // Generic cases
 #if 1
 
-  // AveragePoolOp
-  if (auto poolOp = dyn_cast<ONNXAveragePoolOp>(op)) {
-    exploreSameInputDims_new(dim, op, sameDims);
-    return;
-  }
-
-  // ArgMaxOp
-  if (auto argmaxOp = dyn_cast<ONNXArgMaxOp>(op)) {
-    exploreSameInputDims_new(dim, op, sameDims);
-    return;
-  }
-
-  // ConvOp
-  if (auto convOp = dyn_cast<ONNXConvOp>(op)) {
-    exploreSameInputDims_new(dim, op, sameDims);
-    return;
-  }
-
-  // GemmOp
-  if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
-    exploreSameInputDims_new(dim, op, sameDims);
-    return;
-  }
-
-  // MaxPoolSingleOutOp
-  if (auto poolOp = dyn_cast<ONNXMaxPoolSingleOutOp>(op)) {
-    exploreSameInputDims_new(dim, op, sameDims);
-    return;
-  }
-
-  // PadOp
-  if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
-    exploreSameInputDims_new(dim, op, sameDims);
-    return;
-  }
-
-  // SliceOp
-  if (auto sliceOp = dyn_cast<ONNXSliceOp>(op)) {
-    exploreSameInputDims_new(dim, op, sameDims);
-    return;
-  }
-
-  // SplitOp
-  if (auto splitOp = dyn_cast<ONNXSplitOp>(op)) {
-    exploreSameInputDims_new(dim, op, sameDims);
-    return;
-  }
-
-  // SqueezeOp
-  if (auto squeezeOp = dyn_cast<ONNXSqueezeOp>(op)) {
-    exploreSameInputDims_new(dim, op, sameDims);
-    return;
-  }
-
-  // TransposeOp
-  if (auto transposeOp = dyn_cast<ONNXTransposeOp>(op)) {
-    exploreSameInputDims_new(dim, op, sameDims);
-    return;
-  }
-
-  // Unsqueeze
-  if (auto unsqueezeOp = dyn_cast<ONNXUnsqueezeOp>(op)) {
-    exploreSameInputDims_new(dim, op, sameDims);
-    return;
-  }
+  exploreSameInputDims_new(dim, op, sameDims);
 
 #else
 

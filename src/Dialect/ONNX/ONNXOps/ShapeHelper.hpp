@@ -803,19 +803,6 @@ using ONNXUpsampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampl
 // clang-format on
 
 //===----------------------------------------------------------------------===//
-// Helper function for getShapeHelper
-//===----------------------------------------------------------------------===//
-
-template <class SHAPE_HELPER_TYPE>
-ONNXOpShapeHelper *getNewShapeHelper(mlir::Operation *op,
-    mlir::ArrayRef<mlir::Value> oper, IndexExprBuilder *ieb,
-    IndexExprScope *scope) {
-  ONNXOpShapeHelper *shapeHelper = new SHAPE_HELPER_TYPE(op, oper, ieb, scope);
-  assert(shapeHelper && "failed to allocate shape helper");
-  return shapeHelper;
-}
-
-//===----------------------------------------------------------------------===//
 // Setting a new constant or attribute value.
 //===----------------------------------------------------------------------===//
 
