@@ -1553,25 +1553,80 @@ public:
       // https://github.com/tungld/onnx-mlir-tools/blob/main/convert_dlf16_to_f32.cpp
       Value inputI32 = create.llvm.zext(i32Ty, inputI16);
       // ~DLF16_SIGN
-      // Value i32767 = create.llvm.constant(i32Ty, (int64_t)32767);
+      Value c32767 = create.llvm.constant(i32Ty, (int64_t)32767);
       // dlf16 & ~DLF16_SIGN
-      // Value dlf16NSIGN = create.llvm.andi(inputI32, i32767);
-      // Emit code for converting non-inf dlfl16.
-      Value c14 = create.llvm.constant(i32Ty, (int64_t)14);
-      Value c16 = create.llvm.constant(i32Ty, (int64_t)16);
-      Value cm2147483648 = create.llvm.constant(i32Ty, (int64_t)-2147483648);
-      Value c528482304 = create.llvm.constant(i32Ty, (int64_t)528482304);
-      Value c805306368 = create.llvm.constant(i32Ty, (int64_t)805306368);
-      Value c8372224 = create.llvm.constant(i32Ty, (int64_t)8372224);
-      Value v23 = create.llvm.shl(inputI32, c16);
-      Value v24 = create.llvm.andi(v23, cm2147483648);
-      Value v25 = create.llvm.shl(inputI32, c14);
-      Value v26 = create.llvm.andi(v25, c528482304);
-      Value v27 = create.llvm.add(v26, c805306368);
-      Value v28 = create.llvm.ori(v27, v24);
-      Value v29 = create.llvm.andi(v25, c8372224);
-      Value v30 = create.llvm.ori(v28, v29);
-      outputF32 = create.llvm.bitcast(f32Ty, v30);
+      Value v19 = create.llvm.andi(inputI32, c32767);
+      Value c0 = create.llvm.constant(i32Ty, (int64_t)0);
+
+      // Split the block right before the current op into two blocks.
+      Block *currentBlock = rewriter.getInsertionBlock();
+      // New block contains the terminator of the current block.
+      Block *newBlock = currentBlock->splitBlock(rewriter.getInsertionPoint());
+
+      // Add a block for zero case.
+      Block *trueBlock = rewriter.createBlock(
+          currentBlock->getParent(), std::next(Region::iterator(currentBlock)));
+
+      // Add a block for non-zero case.
+      Block *falseBlock = rewriter.createBlock(
+          trueBlock->getParent(), std::next(Region::iterator(trueBlock)));
+
+      // Add a new block that acts as a phi node.
+      Block *endBlock = rewriter.createBlock(
+          newBlock->getParent(), Region::iterator(newBlock), f32Ty, loc);
+      rewriter.mergeBlocks(newBlock, endBlock, {});
+
+      // Emit `if (v19 == 0) then trueBlock else falseBlock`
+      rewriter.setInsertionPointToEnd(currentBlock);
+      Value v19Zero = create.llvm.icmp(LLVM::ICmpPredicate::eq, v19, c0);
+      create.llvm.condBr(v19Zero, trueBlock, {}, falseBlock, {});
+
+      // Emit code for zero case.
+      rewriter.setInsertionPointToEnd(trueBlock);
+      Value cf0 = create.llvm.constant(f32Ty, (float)0.000000e+00);
+      Value cfm0 = create.llvm.constant(f32Ty, (float)-0.000000e+00);
+      Value c32768 = create.llvm.constant(i32Ty, (int64_t)32768);
+      Value v20 = create.llvm.andi(inputI32, c32768);
+      Value v21 = create.llvm.icmp(LLVM::ICmpPredicate::eq, v20, c0);
+      Value v22 = create.llvm.select(v21, cf0, cfm0);
+      create.llvm.br({v22}, endBlock);
+
+      // Emit code for non-zero case.
+      rewriter.setInsertionPointToEnd(falseBlock);
+      {
+        Block *condBlock = rewriter.getInsertionBlock();
+        Block *defaultBlock =
+            condBlock->splitBlock(rewriter.getInsertionPoint());
+
+        rewriter.setInsertionPointToEnd(condBlock);
+        Value nan = create.llvm.constant(f32Ty, (float)0x7FC00000);
+        Value inf = create.llvm.constant(i32Ty, (int64_t)32767);
+        Value v19Inf = create.llvm.icmp(LLVM::ICmpPredicate::eq, v19, inf);
+        // Emit `if (v19 == inf) then endBlock(nan) else defaultBlock`
+        create.llvm.condBr(v19Inf, endBlock, {nan}, defaultBlock, {});
+
+        // Emit code for non-infinity case.
+        rewriter.setInsertionPointToEnd(defaultBlock);
+        Value c14 = create.llvm.constant(i32Ty, (int64_t)14);
+        Value c16 = create.llvm.constant(i32Ty, (int64_t)16);
+        Value cm2147483648 = create.llvm.constant(i32Ty, (int64_t)-2147483648);
+        Value c528482304 = create.llvm.constant(i32Ty, (int64_t)528482304);
+        Value c805306368 = create.llvm.constant(i32Ty, (int64_t)805306368);
+        Value c8372224 = create.llvm.constant(i32Ty, (int64_t)8372224);
+        Value v23 = create.llvm.shl(inputI32, c16);
+        Value v24 = create.llvm.andi(v23, cm2147483648);
+        Value v25 = create.llvm.shl(inputI32, c14);
+        Value v26 = create.llvm.andi(v25, c528482304);
+        Value v27 = create.llvm.add(v26, c805306368);
+        Value v28 = create.llvm.ori(v27, v24);
+        Value v29 = create.llvm.andi(v25, c8372224);
+        Value v30 = create.llvm.ori(v28, v29);
+        Value v31 = create.llvm.bitcast(f32Ty, v30);
+        create.llvm.br({v31}, endBlock);
+      }
+
+      rewriter.setInsertionPoint(op);
+      outputF32 = endBlock->getArgument(0);
     }
 
     rewriter.replaceOp(op, {outputF32});
@@ -1656,8 +1711,7 @@ public:
       Block *trueBlock = rewriter.createBlock(
           currentBlock->getParent(), std::next(Region::iterator(currentBlock)));
 
-      // Add a block argument by creating an empty block with the argument type
-      // and then merging the block into the empty block.
+      // Add a new block that acts as a phi node.
       Block *endBlock = rewriter.createBlock(newBlock->getParent(),
           Region::iterator(newBlock), v32.getType(), loc);
       rewriter.mergeBlocks(newBlock, endBlock, {});
