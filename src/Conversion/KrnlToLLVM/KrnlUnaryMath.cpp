@@ -128,11 +128,11 @@ struct MathFunctionName<KrnlIsInfOp> {
   static std::string functionName(mlir::Type type) {
 
 #if (__APPLE__)
-  if (type.isF32())
-    return "__isinff";
+    if (type.isF32())
+      return "__isinff";
 #else
-  if (type.isF32())
-    return "isinff";
+    if (type.isF32())
+      return "isinff";
 #endif
 
     if (type.isF64())
