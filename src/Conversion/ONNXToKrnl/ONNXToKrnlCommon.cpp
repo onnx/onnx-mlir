@@ -597,12 +597,8 @@ Value emitArgUnique(ConversionPatternRewriter &rewriter,
   Type int_type = rewriter.getIntegerType(64);
   Value val_axis = create.math.constant(int_type, axis);
   Value val_sorted = create.math.constant(int_type, sorted);
-#if 0
   SmallVector<Value, 6> operands = {input, val_axis, val_sorted, Y, indices,
       reverse_indices, counts};
-#else
-  SmallVector<Value, 1> operands = {input};
-#endif
   rewriter.create<KrnlCallOp>(loc, "omTensorUnique", total, operands);
   return total;
 }

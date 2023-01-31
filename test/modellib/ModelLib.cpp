@@ -79,6 +79,7 @@ bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
 }
 
 bool ModelLibBuilder::run() {
+  printf("XXX ModelLibBuilder::run: called\n"); fflush(stdout);
   assert(inputs && exec && "expected successful compile and load");
   if (outputs) {
     omTensorListDestroy(outputs);
@@ -91,6 +92,7 @@ bool ModelLibBuilder::run() {
     return false;
   }
   assert(outputs && "when no exception are issued, output should exist");
+  printf("XXX ModelLibBuilder::run: return\n"); fflush(stdout);
   return true;
 }
 

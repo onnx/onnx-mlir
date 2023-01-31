@@ -97,6 +97,7 @@ bool UniqueLibBuilder::build() {
 }
 
 bool UniqueLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
+  printf("XXX UniqueLibBuilder::prepareInputs: called\n"); fflush(stdout);
   constexpr int num = 1;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
@@ -104,6 +105,7 @@ bool UniqueLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   list[0] = omTensorCreateWithRandomData<float>(
       llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
+  printf("XXX UniqueLibBuilder::prepareInputs: return\n"); fflush(stdout);
   return inputs && list[0];
 }
 

@@ -54,15 +54,14 @@ int elementTableRegister(elementTable *table, void *element) {
 }
 
 uint64_t elementTable_count(elementTable *table) { return table->elementCount; }
-#if 0
 void omTensorUnique(
     OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t axis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
     OMTensor *reverse_indices, OMTensor *counts) {
   omTensorPrint("omTensorUnique: input=", inputTensor);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
-  const uint64_t rank = omTensorGetRank(inputTensor);
-  assert(rank <= 6 && "omTensorUnique assumes rank <= 6");
+  const uint64_t inputRank = omTensorGetRank(inputTensor);
+  assert(inputRank <= 6 && "omTensorUnique assumes inputRank <= 6");
   int64_t *totalPtr = (int64_t *) omTensorGetDataPtr(totalTensor);
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
@@ -77,12 +76,23 @@ void omTensorUnique(
   int64_t shapeInUniqueAxis[6] = {1, 1, 1, 1, 1, 1};
   int64_t strides[6] = {0, 0, 0, 0, 0, 0};
   uint64_t elementnum = 1;
-  for (uint64_t i = 0; i < rank; i++) {
-    shape[i + (6 - rank)] = inputShape[i];
-    shapeInUniqueAxis[i + (6 - rank)] = (i == axis) ? 1 : inputShape[i];
-    strides[i + (6 - rank)] = inputStrides[i];
+  int64_t rank = 6;
+  for (uint64_t i = 0; i < inputRank; i++) {
+    shape[i + (rank - inputRank)] = inputShape[i];
+    shapeInUniqueAxis[i + (rank - inputRank)] = (i == axis) ? 1 : inputShape[i];
+    strides[i + (rank - inputRank)] = inputStrides[i];
     elementnum *= inputShape[i];
   }
+  printf("XXXX input shape (inputRank=%ld, axis=%ld) [\n", inputRank, axis);
+  for (int i = 0; i < inputRank; i++) {
+    printf("%ld,", inputShape[i]);
+  }
+  printf("]\n");
+  printf("XXXX shape (rank=%ld) [\n", rank);
+  for (int i = 0; i < rank; i++) {
+    printf("%ld,", shape[i]);
+  }
+  printf("]\n");
 
   int count = 0;
   if (axis < 0) { // manage the inputTensor as flatten one
@@ -160,9 +170,3 @@ void omTensorUnique(
   omTensorPrint("omTensorUnique: total =", inputTensor);
   return;
 }
-#else
-void omTensorUnique(
-    OMTensor *totalTensor, const OMTensor *inputTensor) {
-  return;
-}
-#endif
