@@ -57,9 +57,10 @@ void omPrintAsPython(OMTensor *tensor, std::string name) {
 // as a naive implementation of Unique for a specific set of Unique
 // parameters/configuration.
 static bool isOMUniqueTheSameAsNaiveImplFor(const int rank, const int I,
-    const int J, const int K, const int axis, const int sorted = 0) {
+    const int J, const int K, const int axis, const int sorted = 0,
+    const int isNoneIndexOutput = 0) {
 
-  UniqueLibBuilder unique(SHARED_LIB_BASE.str(), rank, I, J, axis, sorted);
+  UniqueLibBuilder unique(SHARED_LIB_BASE.str(), rank, I, J, axis, sorted, isNoneIndexOutput);
   return unique.build() && unique.compileAndLoad() &&
 #if 0
          unique.prepareInputsFromEnv("TEST_DATARANGE") &&
@@ -94,8 +95,10 @@ int main(int argc, char *argv[]) {
       const int J = 2;      // *rc::gen::inRange(1, maxRank);
       const int K = -1;     // *rc::gen::inRange(1, maxRank);
       const int axis = 0;   // *rc::gen::inRange(1, maxRank);
-      const int sorted = 0; // *rc::gen::inRange(1, maxRank);
-      RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(rank, I, J, K, axis, sorted));
+      const int sorted = 0; // *rc::gen::inRange(0, 1);
+      const int isNoneIndexOutput = 1; // *rc::gen::inRange(0, 1);
+      RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(rank, I, J, K, axis, sorted,
+          isNoneIndexOutput));
     });
     if (!success)
       return 1;

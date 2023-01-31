@@ -28,9 +28,9 @@ namespace test {
 
 UniqueLibBuilder::UniqueLibBuilder(const std::string &modelName, const int rank,
     const int I, const int J, /*const int K, */ const int axis,
-    const int sorted)
+    const int sorted, const int isNoneIndexOutput)
     : ModelLibBuilder(modelName), rank(rank), I(I), J(J), /*K(K),*/ axis(axis),
-      sorted(sorted) {}
+      sorted(sorted), isNoneIndexOutput(isNoneIndexOutput) {}
 
 bool UniqueLibBuilder::build() {
   if (rank != 2) { // XXX TODO support rank==3
@@ -50,15 +50,22 @@ bool UniqueLibBuilder::build() {
     yShape[axis] = -1;
   }
 
-  Type xType = RankedTensorType::get(xShape, builder.getF32Type());
+  Type xType = RankedTensorType::get(xShape, builder.getI64Type());
   Type yType = UnrankedTensorType::get(builder.getI64Type());
-  Type IndexOutputType = UnrankedTensorType::get(builder.getI64Type());
+  Type noneType = builder.getNoneType();
+  Type IndexOutputType = (isNoneIndexOutput) ? noneType : UnrankedTensorType::get(builder.getI64Type());
 
   llvm::SmallVector<Type, 1> inputsType{xType};
-  llvm::SmallVector<Type, 4> outputsType{
-      yType, IndexOutputType, IndexOutputType, IndexOutputType};
 
-  func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
+  func::FuncOp funcOp;
+  if (isNoneIndexOutput) {
+    llvm::SmallVector<Type, 1> outputsType{yType};
+    funcOp = createEmptyTestFunction(inputsType, outputsType);
+  } else {
+    llvm::SmallVector<Type, 4> outputsType{
+        yType, IndexOutputType, IndexOutputType, IndexOutputType};
+    funcOp = createEmptyTestFunction(inputsType, outputsType);
+  }
   Block &entryBlock = funcOp.getBody().front();
 
   auto xVal = entryBlock.getArgument(0);
@@ -75,12 +82,16 @@ bool UniqueLibBuilder::build() {
   uniqueOp.getResults()[2].setType(IndexOutputType);
   uniqueOp.getResults()[3].setType(IndexOutputType);
 
-  llvm::SmallVector<Value, 4> results = {uniqueOp.getResults()[0],
-      uniqueOp.getResults()[1], uniqueOp.getResults()[2],
-      uniqueOp.getResults()[3]};
-  builder.create<func::ReturnOp>(loc, results);
+  if (isNoneIndexOutput) {
+    llvm::SmallVector<Value, 1> results = {uniqueOp.getResults()[0]};
+    builder.create<func::ReturnOp>(loc, results);
+  } else {
+    llvm::SmallVector<Value, 4> results = {uniqueOp.getResults()[0],
+          uniqueOp.getResults()[1], uniqueOp.getResults()[2],
+              uniqueOp.getResults()[3]};
+    builder.create<func::ReturnOp>(loc, results);
+  }
   module.push_back(funcOp);
-
   createEntryPoint(funcOp);
   return true;
 }

@@ -157,14 +157,8 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
         });
 
 #endif
-#if 1
     rewriter.replaceOp(
         op, {outputYBuf, indicesBuf, reverse_indicesBuf, countsBuf});
-#else
-    Value noneValue;
-    rewriter.replaceOp(
-        op, {X, noneValue, noneValue, noneValue});
-#endif
     return success();
   }
 };
