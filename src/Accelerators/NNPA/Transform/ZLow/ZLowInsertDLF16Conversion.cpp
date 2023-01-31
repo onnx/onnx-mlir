@@ -112,6 +112,8 @@ public:
       Value toFP32 = rewriter.create<ZLowConvertDLF16ToF32Op>(loc, loadDLF16);
       rewriter.replaceOp(loadOp, {toFP32});
     }
+
+    rewriter.eraseOp(unstickOp);
     return success();
   }
 };
@@ -177,6 +179,8 @@ public:
       // Remove the old AffineStore.
       rewriter.eraseOp(storeOp);
     }
+
+    rewriter.eraseOp(stickOp);
     return success();
   }
 };
@@ -202,25 +206,9 @@ public:
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<DLF16ConversionForLoadPattern>(&getContext());
-    patterns.insert<DLF16ConversionForStorePattern>(&getContext());
+    // patterns.insert<DLF16ConversionForStorePattern>(&getContext());
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();
-
-    // Clean up ZLowStick and ZLowUnstick if their tensors/ztensors have no
-    // other use rather than themselves.
-    SmallVector<Operation *, 4> canBeRemoved;
-    function->walk([&canBeRemoved](Operation *op) {
-      if (auto stickOp = dyn_cast<ZLowStickOp>(op)) {
-        if (stickOp.X().hasOneUse())
-          canBeRemoved.emplace_back(op);
-      }
-      if (auto unstickOp = dyn_cast<ZLowUnstickOp>(op)) {
-        if (unstickOp.Out().hasOneUse())
-          canBeRemoved.emplace_back(op);
-      }
-    });
-    for (auto op : canBeRemoved)
-      op->erase();
   }
 };
 
