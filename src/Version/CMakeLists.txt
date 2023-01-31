@@ -59,6 +59,7 @@ add_onnx_mlir_library(OMVersion
 
   LINK_LIBS PUBLIC
     LLVMSupport
+    LLVMTargetParser
 )
 
 # Obtain the commit hash of a specific repo. You must specify the path and the variable name.
