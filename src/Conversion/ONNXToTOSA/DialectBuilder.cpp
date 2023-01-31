@@ -97,7 +97,7 @@ Value TosaBuilder::reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape) {
       rewriter(), loc(), newValueType, value, shapeAttr);
 }
 
-Value TosaBuilder::transpose(mlir::Value &value, llvm::ArrayRef<int64_t> perm) {
+Value TosaBuilder::transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm) {
   // Create Permutation Const
   Value permList = this->getConst(
       perm, {value.getType().cast<RankedTensorType>().getRank()});
