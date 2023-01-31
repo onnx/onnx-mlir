@@ -67,7 +67,6 @@ Value TosaBuilder::getConst(ArrayRef<int32_t> vec, ArrayRef<int64_t> shape) {
   return constOp;
 }
 
-// Template specialization for float
 Value TosaBuilder::getConst(ArrayRef<float> vec, ArrayRef<int64_t> shape) {
   assert(testNumberOfElementsMatch(vec, shape) &&
          "getConstTensor(): number of elements mismatch.");
