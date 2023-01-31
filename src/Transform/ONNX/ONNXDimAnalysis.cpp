@@ -95,8 +95,11 @@ void exploreSameInputDims_new(const onnx_mlir::DimAnalysis::DimT &dim,
     return;
   }
 
+  mlir::ArrayRef<mlir::Value> operands;
+  onnx_mlir::IndexExprBuilder *builder=nullptr;
+  onnx_mlir::IndexExprScope* scope=nullptr;
   onnx_mlir::ONNXOpShapeHelper *shapeHelper =
-      shape_op.getShapeHelper(op, {}, nullptr, nullptr);
+      shape_op.getShapeHelper(op, operands, builder, scope);
   if (!shapeHelper) {
     fprintf(stderr, "hi alex: failed to create shape helper");
     return;
