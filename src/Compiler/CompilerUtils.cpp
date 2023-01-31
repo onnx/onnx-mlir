@@ -15,10 +15,15 @@
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
+#include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
@@ -140,23 +145,8 @@ static std::string getLibraryPath() {
   return llvm::StringRef(instDir).str();
 }
 
-// onnx-mlir currently requires llvm tools llc and opt and they are assumed
-// to be under llvm-project/build/bin. This doesn't work with the case where
-// llvm-project has been installed system wide (typically under /usr/local/...)
-// and its source has been removed.
-//
-// To account for this scenario, we first search for the tools in the same
-// directory where onnx-mlir is run. If they are found, it means both onnx-mlir
-// and llvm-project have been installed system wide under the same directory,
-// so we get them from that directory (typically /usr/local/bin). Otherwise,
-// at least one of onnx-mlir and llvm-project has not been installed system
-// wide. In this case, getToolPath returns an empty string and we will fallback
-// to llvm-project/build/bin.
-//
-// Note that this will not work if both onnx-mlir and llvm-project have been
-// installed system wide but to different places and their sources have been
-// removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
-// llvm-project.
+// Look for the tool binary in the parent path.  If it isn't found, return
+// `systemToolPath`.
 std::string getToolPath(
     const std::string &tool, const std::string &systemToolPath) {
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
@@ -374,88 +364,114 @@ std::string getTargetFilename(
   llvm_unreachable("all cases should be handled in switch");
 }
 
+// Apply optimization passes specified by `optPipeline` on the LLVM IR module
+// for the specified target machine and write the resulting bitcode to
+// `outputStream`.
+static int runOptPasses(llvm::Module *llvmModule, llvm::TargetMachine *target,
+    std::optional<StringRef> optPipeline, llvm::raw_fd_ostream &outputStream) {
+  llvm::PipelineTuningOptions pipelineOptions;
+  pipelineOptions.LoopUnrolling = false;
+  auto passBuilder = llvm::PassBuilder(target, pipelineOptions);
+
+  llvm::LoopAnalysisManager LAM;
+  llvm::FunctionAnalysisManager FAM;
+  llvm::CGSCCAnalysisManager CGAM;
+  llvm::ModuleAnalysisManager MAM;
+
+  passBuilder.registerModuleAnalyses(MAM);
+  passBuilder.registerCGSCCAnalyses(CGAM);
+  passBuilder.registerFunctionAnalyses(FAM);
+  passBuilder.registerLoopAnalyses(LAM);
+  passBuilder.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+  llvm::ModulePassManager MPM;
+  MPM.addPass(llvm::VerifierPass());
+
+  if (optPipeline && passBuilder.parsePassPipeline(MPM, *optPipeline))
+    return CompilerFailureInLLVMOpt;
+
+  MPM.addPass(llvm::VerifierPass());
+  MPM.addPass(llvm::BitcodeWriterPass(
+      outputStream, /* ShouldPreserveUseListOrder */ true));
+  MPM.run(*llvmModule, MAM);
+  return CompilerSuccess;
+}
+
 // Write LLVM optimized bitcode.
 // Returns 0 on success, error code on failure.
-static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
-    const std::string &outputNameNoExt,
+static int genLLVMBitcode(llvm::Module *llvmModule,
+    llvm::TargetMachine *targetMachine,
     const std::string &optimizedBitcodeNameWithExt) {
+  // Tailor LLVMIR to add features that cannot be done with MLIR LLVMIR.
+  tailorLLVMIR(*llvmModule);
+
   std::error_code error;
+  llvm::raw_fd_ostream optimizedBitcodeStream(
+      optimizedBitcodeNameWithExt, error, llvm::sys::fs::OF_None);
 
-  // Write bitcode to a file.
-  std::string unoptimizedBitcodeNameWithExt =
-      outputNameNoExt + ".unoptimized.bc";
-  llvm::FileRemover unoptimizedBitcodeRemover(
-      unoptimizedBitcodeNameWithExt, !keepFiles(KeepFilesOfType::Bitcode));
-
-  // outputNameNoExt might contain a directory, which must exist.
-  // Otherwise, a "No such file or directory" error will be returned.
-  llvm::raw_fd_ostream moduleBitcodeStream(
-      unoptimizedBitcodeNameWithExt, error, llvm::sys::fs::OF_None);
   if (error) {
-    llvm::errs() << unoptimizedBitcodeNameWithExt << ": " << error.message()
+    llvm::errs() << optimizedBitcodeNameWithExt << ": " << error.message()
                  << "\n";
     return InvalidTemporaryFileAccess;
   }
 
-  llvm::LLVMContext llvmContext;
-  mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
-  std::unique_ptr<llvm::Module> llvmModule =
-      mlir::translateModuleToLLVMIR(*module, llvmContext);
-  if (!llvmModule) {
-    llvm::errs() << "Failed to translate module to LLVMIR.\n";
-    return CompilerFailureInMLIRToLLVM;
+  // Translate the optimization level to a form that is understood by the pass
+  // pipeline.
+  auto getOptimizationLevel = []() -> std::optional<StringRef> {
+    switch (OptimizationLevel) {
+    case OptLevel::O0:
+      return "default<O0>";
+    case OptLevel::O1:
+      return "default<O1>";
+    case OptLevel::O2:
+      return "default<O2>";
+    case OptLevel::O3:
+      return "default<O3>";
+    }
+    return std::nullopt;
+  };
+
+  auto opt = getOptimizationLevel();
+  return runOptPasses(llvmModule, targetMachine, opt, optimizedBitcodeStream);
+}
+
+// Assemble the LLVM IR module for the specified target machine and write the
+// resulting object file to `outputStream`.
+static int runLlcPasses(llvm::Module *llvmModule,
+    llvm::TargetMachine *targetMachine, llvm::raw_fd_ostream &outputStream) {
+  if (verifyModule(*llvmModule, &llvm::errs())) {
+    // verifyModule will print error message to stderr.
+    return CompilerFailureInLLVMToObj;
   }
 
-  // Tailor LLVMIR to add features that cannot be done with MLIR LLVMIR.
-  tailorLLVMIR(*llvmModule);
+  llvm::legacy::PassManager PM;
+  auto triple = llvm::Triple(llvmModule->getTargetTriple());
+  PM.add(new llvm::TargetLibraryInfoWrapperPass(
+      llvm::TargetLibraryInfoImpl(triple)));
 
-  // Write LLVMIR to a file.
-  std::string llvmirNameWithExt = outputNameNoExt + ".ll";
-  llvm::FileRemover llvmirRemover(
-      llvmirNameWithExt, !keepFiles(KeepFilesOfType::LLVMIR));
-  llvm::raw_fd_ostream moduleLLVMIRStream(
-      llvmirNameWithExt, error, llvm::sys::fs::OF_None);
-  if (error) {
-    llvm::errs() << llvmirNameWithExt << ": " << error.message() << "\n";
-    return InvalidTemporaryFileAccess;
-  }
-  llvmModule->print(moduleLLVMIRStream, nullptr);
-  moduleLLVMIRStream.flush();
+  if (targetMachine->addPassesToEmitFile(PM, outputStream, /* DwoOut */ nullptr,
+          llvm::CGFT_ObjectFile, /* DisbleVerify */ false))
+    return CompilerFailureInLLVMToObj;
 
-  // Write unoptimized bitcode to a file.
-  llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
-  moduleBitcodeStream.flush();
-
-  // Use the LLVM's 'opt' command to optimize the bitcode.
-  std::string optPath = getToolPath("opt", kOptPath);
-  Command optBitcode(/*exePath=*/optPath);
-  int rc = optBitcode.appendStr(getOptimizationLevelOption())
-               .appendStr("--mtriple=" + getTargetTriple())
-               .appendStr("--march=" + getTargetArch())
-               .appendStr("--mcpu=" + getTargetCPU())
-               .appendList({"-o", optimizedBitcodeNameWithExt})
-               .appendStr(unoptimizedBitcodeNameWithExt)
-               .exec();
-  return rc != 0 ? CompilerFailureInLLVMOpt : CompilerSuccess;
+  PM.run(*llvmModule);
+  return CompilerSuccess;
 }
 
 // Compile LLVM bitcode to object file.
 // Return 0 on success, error code on failure.
-static int genModelObject(
-    const std::string &bitcodeNameWithExt, std::string &modelObjNameWithExt) {
+static int genModelObject(llvm::Module *llvmModule,
+    llvm::TargetMachine *targetMachine,
+    const std::string &modelObjNameWithExt) {
 
-  std::string llcPath = getToolPath("llc", kLlcPath);
-  Command llvmToObj(/*exePath=*/llcPath);
-  int rc = llvmToObj.appendStr(getOptimizationLevelOption())
-               .appendStr("--mtriple=" + getTargetTriple())
-               .appendStr("--march=" + getTargetArch())
-               .appendStr("--mcpu=" + getTargetCPU())
-               .appendStr("-filetype=obj")
-               .appendStr("-relocation-model=pic")
-               .appendList({"-o", modelObjNameWithExt})
-               .appendStr(bitcodeNameWithExt)
-               .exec();
-  return rc != 0 ? CompilerFailureInLLVMToObj : CompilerSuccess;
+  std::error_code error;
+  llvm::raw_fd_ostream objectStream(
+      modelObjNameWithExt, error, llvm::sys::fs::OF_None);
+  if (error) {
+    llvm::errs() << modelObjNameWithExt << ": " << error.message() << "\n";
+    return InvalidTemporaryFileAccess;
+  }
+
+  return runLlcPasses(llvmModule, targetMachine, objectStream);
 }
 
 // Return 0 on success, error code on failure.
@@ -531,17 +547,64 @@ static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
   return rc != 0 ? CompilerFailureInGenJni : CompilerSuccess;
 }
 
+// Get the LLVM Target Machine for the specified target triple, cpu, and arch.
+static llvm::TargetMachine *getTargetMachine() {
+  auto normalizedTriple = llvm::Triple::normalize(getTargetTriple());
+  auto triple = llvm::Triple(normalizedTriple);
+  auto mattrs = SmallVector<std::string>{};
+
+  auto builder = llvm::EngineBuilder();
+  builder.setRelocationModel(llvm::Reloc::PIC_);
+
+  // Translate the optimization level to a form that is understood by the
+  // target machine builder.
+  auto getOptimizationLevel = []() -> std::optional<llvm::CodeGenOpt::Level> {
+    switch (OptimizationLevel) {
+    case OptLevel::O0:
+      return llvm::CodeGenOpt::None;
+    case OptLevel::O1:
+      return llvm::CodeGenOpt::Less;
+    case OptLevel::O2:
+      return llvm::CodeGenOpt::Default;
+    case OptLevel::O3:
+      return llvm::CodeGenOpt::Aggressive;
+    }
+    return std::nullopt;
+  };
+
+  auto opt = getOptimizationLevel();
+  if (opt)
+    builder.setOptLevel(*opt);
+
+  return builder.selectTarget(triple, getTargetArch(), getTargetCPU(), mattrs);
+}
+
 // Return 0 on success, error code on failure
 static int compileModuleToObject(const mlir::OwningOpRef<ModuleOp> &module,
     const std::string &outputNameWithoutExt, std::string &objectNameWithExt) {
-  std::string bitcodeNameWithExt = outputNameWithoutExt + ".bc";
-  int rc = genLLVMBitcode(module, outputNameWithoutExt, bitcodeNameWithExt);
+  mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
+
+  llvm::LLVMContext llvmContext;
+  std::unique_ptr<llvm::Module> llvmModule =
+      mlir::translateModuleToLLVMIR(*module, llvmContext);
+  if (!llvmModule) {
+    llvm::errs() << "Failed to translate module to LLVMIR.\n";
+    return CompilerFailureInMLIRToLLVM;
+  }
+
+  auto triple = getTargetTriple();
+  if (triple != "")
+    llvmModule->setTargetTriple(llvm::Triple::normalize(triple));
+
+  auto targetMachine = getTargetMachine();
+  auto bitcodeNameWithExt = outputNameWithoutExt + ".bc";
+  int rc = genLLVMBitcode(llvmModule.get(), targetMachine, bitcodeNameWithExt);
   if (rc != CompilerSuccess)
     return rc;
   llvm::FileRemover bitcodeRemover(
       bitcodeNameWithExt, !keepFiles(KeepFilesOfType::Bitcode));
   objectNameWithExt = getTargetFilename(outputNameWithoutExt, EmitObj);
-  return genModelObject(bitcodeNameWithExt, objectNameWithExt);
+  return genModelObject(llvmModule.get(), targetMachine, objectNameWithExt);
 }
 
 // Return 0 on success, error code on failure
@@ -795,18 +858,8 @@ static int emitOutputFiles(const std::string &outputNameNoExt,
   return CompilerSuccess;
 } // end anonymous namespace
 
-/// Get the LLVM Target Machine for the specified target triple, cpu, and arch.
-static llvm::TargetMachine *getTargetMachine() {
-  auto normalizedTriple = llvm::Triple::normalize(getTargetTriple());
-  auto triple = llvm::Triple(normalizedTriple);
-  auto mattrs = SmallVector<std::string>{};
-  auto builder = llvm::EngineBuilder();
-  builder.setRelocationModel(llvm::Reloc::PIC_);
-  return builder.selectTarget(triple, getTargetArch(), getTargetCPU(), mattrs);
-}
-
-/// Return the module datalayout string. The datalayout string is determined
-/// by creating a target machine using the target triple and target cpu.
+// Return the module datalayout string. The datalayout string is determined by
+// creating a target machine using the target triple and target cpu.
 static std::string getDataLayout() {
   auto targetMachine = std::unique_ptr<llvm::TargetMachine>{getTargetMachine()};
   if (!targetMachine)

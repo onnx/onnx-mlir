@@ -30,10 +30,6 @@ ARG KEEPSRC
 
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
-# Install llc, opt, and libraries
-    && cp ${LLVM_PROJECT_ROOT}/build/bin/llc /usr/local/bin \
-    && cp ${LLVM_PROJECT_ROOT}/build/bin/opt /usr/local/bin \
-    && cp -a ${LLVM_PROJECT_ROOT}/build/lib/* /usr/local/lib \
 # Build onnx-mlir, run tests, and install
     && cd ${ONNX_MLIR_ROOT} \
     && rm -rf build && mkdir -p build && cd build \

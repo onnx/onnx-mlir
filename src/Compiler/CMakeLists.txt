@@ -133,8 +133,6 @@ add_onnx_mlir_library(OMCompilerUtils
   DEPENDS
   ExternalUtil
   MLIRIR
-  llc
-  opt
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
@@ -156,8 +154,13 @@ add_onnx_mlir_library(OMCompilerUtils
   AllTargetsCodeGens
   AllTargetsDescs
   AllTargetsInfos
+  Analysis
+  BitWriter
+  CodeGen
+  Core
   ExecutionEngine
   MC
+  Passes
   )
 
 # CompilerUtils does not require cruntime or jniruntime to build,

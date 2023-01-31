@@ -210,7 +210,6 @@ def get_runtime_vars():
         import test_config_compilerlib
 
         CXX = test_config_compilerlib.CXX_PATH
-        LLC = test_config_compilerlib.LLC_PATH
         RUNTIME_DIR = test_config_compilerlib.TEST_DRIVER_RUNTIME_PATH
         TEST_DRIVER = test_config_compilerlib.TEST_DRIVER_PATH
     # No need to depend on test_config if we are simply listing nodes/models
@@ -218,7 +217,6 @@ def get_runtime_vars():
         import test_config
 
         CXX = test_config.CXX_PATH
-        LLC = test_config.LLC_PATH
         RUNTIME_DIR = test_config.TEST_DRIVER_RUNTIME_PATH
         TEST_DRIVER = test_config.TEST_DRIVER_PATH
 

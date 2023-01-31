@@ -1,4 +1,5 @@
 // RUN: onnx-mlir --preserveLLVMIR %s -o %t
+// RUN: llvm-dis %t.bc -o %t.ll
 // RUN: cat %t.ll | FileCheck %s
 
 // REQUIRES: system-windows
