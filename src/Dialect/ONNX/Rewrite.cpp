@@ -225,36 +225,39 @@ Value reverseWeightTensor4D(
     permsval.emplace_back(i);
   ArrayRef<int64_t> perms(permsval);
   Value transposedInput = emitONNXTranspose(loc, rewriter, input, perms);
-  Value reverse0 =
-      reverseAllElements(rewriter, loc, transposedInput, /*dimension*/ 0);
-  Value reverse1 = reverseAllElements(rewriter, loc, reverse0, /*dimension*/ 1);
-  Value reverse2;
-  if (spatialRank == 3) {
-    // Transpose D0xD1xD2x ... xNxC to D2xD0xD1x...xNxC
-    SmallVector<int64_t, 4> permsval3d({2, 0, 1, 3, 4}); // for 5D wieight
-    ArrayRef<int64_t> perms3d(permsval3d);
-    Value reverse11 = emitONNXTranspose(loc, rewriter, reverse1, perms3d);
-    Value reverse12 =
-        reverseAllElements(rewriter, loc, reverse11, /*dimension*/ 0);
-
-    // Transpose in order to reverse other elements in the tensor
-    // Transpose D2xD0xD1xD2x...xNxC to NxCxD0xD1xD2x...
-    SmallVector<int64_t, 4> permsval3dinit({3, 4, 1, 2, 0}); // for 5D wieight
-    reverse2 = emitONNXTranspose(loc, rewriter, reverse12, permsval3dinit);
-  } else {
-    // Transpose in order to reverse other elements in the tensor
-    reverse2 = emitONNXTranspose(loc, rewriter, reverse1, perms);
+  Value reversedSpatialDim = transposedInput;
+  for (int i = 0; i < spatialRank / 2; i += 2) {
+    Value reverse0 =
+        reverseAllElements(rewriter, loc, transposedInput, /*dimension*/ 0);
+    Value reverse1 =
+        reverseAllElements(rewriter, loc, reverse0, /*dimension*/ 1);
+    SmallVector<int64_t, 4> permsval0;
+    for (int j = 0; j < inputType.getRank() - 2; ++j)
+      permsval0.emplace_back(j + 2);
+    for (int j = 0; j < 2; ++j)
+      permsval0.emplace_back(j);
+    ArrayRef<int64_t> perms(permsval0);
+    reversedSpatialDim = emitONNXTranspose(loc, rewriter, reverse1, permsval0);
   }
-
+  for (int i = (spatialRank / 2) * 2; i < spatialRank; ++i) {
+    Value reverse0 =
+        reverseAllElements(rewriter, loc, reversedSpatialDim, /*dimension*/ 0);
+    SmallVector<int64_t, 4> permsval1;
+    for (int j = 0; j < inputType.getRank() - 1; ++j)
+      permsval1.emplace_back(j + 1);
+    for (int j = 0; j < 1; ++j)
+      permsval1.emplace_back(j);
+    ArrayRef<int64_t> perms(permsval1);
+    reversedSpatialDim = emitONNXTranspose(loc, rewriter, reverse0, permsval1);
+  }
   // SmallVector<int64_t, 4> permsval1({1, 0, 2, 3});
-  SmallVector<int64_t, 4> permsval1;
+  SmallVector<int64_t, 4> permsval2;
   for (int i = 0; i < spatialOffset; ++i)
-    permsval1.emplace_back(spatialOffset - 1 - i);
+    permsval2.emplace_back(spatialOffset - 1 - i);
   for (int i = 0; i < spatialRank; ++i)
-    permsval1.emplace_back(spatialOffset + i);
-  ArrayRef<int64_t> perms1(permsval1);
-  Value result = emitONNXTranspose(loc, rewriter, reverse2, perms1);
-
+    permsval2.emplace_back(spatialOffset + i);
+  ArrayRef<int64_t> perms2(permsval2);
+  Value result = emitONNXTranspose(loc, rewriter, reversedSpatialDim, perms2);
   return result;
 }
 
@@ -273,9 +276,11 @@ ArrayAttr getPadsConvTranspose2D(PatternRewriter &rewriter, Location loc,
     newKernel.emplace_back(
         ArrayAttrIntVal(kernel, i) +
         (ArrayAttrIntVal(kernel, i) - 1) * (ArrayAttrIntVal(dilation, i) - 1));
+
   // 2D `kernel` is updated to 4D to calculate `new_pads`
   for (unsigned int i = 0; i < kernel.size() * 2; ++i)
-    newPads.emplace_back(newKernel[i % 2] - ArrayAttrIntVal(pads, i) - 1);
+    newPads.emplace_back(
+        newKernel[i % kernel.size()] - ArrayAttrIntVal(pads, i) - 1);
   return rewriter.getI64ArrayAttr(newPads);
 }
 
