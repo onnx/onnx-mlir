@@ -433,8 +433,6 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
                .appendStr("--mtriple=" + getTargetTriple())
                .appendStr("--march=" + getTargetArch())
                .appendStr("--mcpu=" + getTargetCPU())
-               .appendList(getXoptOption())
-               .appendStr(getLLVMOption())
                .appendList({"-o", optimizedBitcodeNameWithExt})
                .appendStr(unoptimizedBitcodeNameWithExt)
                .exec();
@@ -452,8 +450,6 @@ static int genModelObject(
                .appendStr("--mtriple=" + getTargetTriple())
                .appendStr("--march=" + getTargetArch())
                .appendStr("--mcpu=" + getTargetCPU())
-               .appendList(getXllcOption())
-               .appendStr(getLLVMOption())
                .appendStr("-filetype=obj")
                .appendStr("-relocation-model=pic")
                .appendList({"-o", modelObjNameWithExt})

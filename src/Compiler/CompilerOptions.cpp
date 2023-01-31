@@ -108,24 +108,6 @@ llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
 llvm::cl::opt<bool> VerboseOutput("v", llvm::cl::desc("Use verbose output"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::list<std::string> Xopt("Xopt",
-    llvm::cl::desc("Arguments to forward to LLVM's 'opt' option processing"),
-    llvm::cl::value_desc("A valid LLVM's 'opt' option"),
-    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired,
-    llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
-
-llvm::cl::list<std::string> Xllc("Xllc",
-    llvm::cl::desc("Arguments to forward to LLVM's 'llc' option processing"),
-    llvm::cl::value_desc("A valid LLVM's 'llc' option"),
-    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired,
-    llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated);
-
-llvm::cl::opt<std::string> mllvm("mllvm",
-    llvm::cl::desc(
-        "Arguments to forward to LLVM's 'opt' and 'llc' option processing"),
-    llvm::cl::value_desc("A valid LLVM's 'opt' and 'llc' option"),
-    llvm::cl::cat(OnnxMlirOptions), llvm::cl::Hidden, llvm::cl::ValueRequired);
-
 llvm::cl::opt<OptLevel> OptimizationLevel(llvm::cl::desc("Levels:"),
     llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default):"),
         clEnumVal(O1, "Optimization level 1,"),
@@ -393,49 +375,6 @@ std::string getOptimizationLevelOption() {
   return "";
 }
 
-// Support for Xopt.
-void setXoptOption(const std::vector<std::string> &flags) {
-  for (const std::string &flag : flags)
-    Xllc.addValue(flag);
-}
-
-void clearXoptOption() { Xopt.clear(); }
-
-std::vector<std::string> getXoptOption() {
-  if (Xopt.empty())
-    return std::vector<std::string>();
-
-  std::vector<std::string> flags;
-  for (std::string flag : Xopt)
-    flags.push_back(flag);
-
-  return flags;
-}
-
-// Support for Xllc.
-void setXllcOption(const std::vector<std::string> &flags) {
-  for (const std::string &flag : flags)
-    Xllc.addValue(flag);
-}
-
-void clearXllcOption() { Xllc.clear(); }
-
-std::vector<std::string> getXllcOption() {
-  if (Xllc.empty())
-    return std::vector<std::string>();
-
-  std::vector<std::string> flags;
-  for (std::string flag : Xllc)
-    flags.push_back(flag);
-
-  return flags;
-}
-
-// Support for LLVM.
-void setLLVMOption(const std::string &flag) { mllvm = flag; }
-void clearLLVMOption() { mllvm.clear(); }
-std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
-
 // Support for Verbose Option
 void setVerboseOption() { VerboseOutput = true; }
 void clearVerboseOption() { VerboseOutput = false; }
@@ -467,15 +406,6 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
       return InvalidCompilerOption;
     setOptLevel((OptLevel)level);
   } break;
-  case OptionKind::OPTFlag:
-    setXoptOption({val});
-    break;
-  case OptionKind::LLCFlag:
-    setXllcOption({val});
-    break;
-  case OptionKind::LLVMFlag:
-    setLLVMOption(val);
-    break;
   case OptionKind::Verbose:
     setVerboseOption();
     break;
@@ -501,15 +431,6 @@ void clearCompilerOption(const OptionKind kind) {
   case OptionKind::CompilerOptLevel:
     clearOptLevel();
     break;
-  case OptionKind::OPTFlag:
-    clearXoptOption();
-    break;
-  case OptionKind::LLCFlag:
-    clearXllcOption();
-    break;
-  case OptionKind::LLVMFlag:
-    clearLLVMOption();
-    break;
   case OptionKind::Verbose:
     clearVerboseOption();
     break;
@@ -529,20 +450,6 @@ std::string getCompilerOption(const OptionKind kind) {
     return getTargetAccel();
   case OptionKind::CompilerOptLevel:
     return getOptimizationLevelOption();
-  case OptionKind::OPTFlag:
-  case OptionKind::LLCFlag: {
-    std::vector<std::string> flags =
-        (kind == OptionKind::OPTFlag) ? getXoptOption() : getXllcOption();
-    std::stringstream ss;
-    for (int i = 0, n = flags.size(); i < n; ++i) {
-      ss << flags.at(i);
-      if (i != n - 1)
-        ss << ' ';
-    }
-    return ss.str();
-  }
-  case OptionKind::LLVMFlag:
-    return getLLVMOption();
   case OptionKind::Verbose:
     return getVerboseOption();
   }

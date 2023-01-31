@@ -55,9 +55,6 @@ extern llvm::cl::opt<std::string> mcpu;
 extern llvm::cl::opt<std::string> march;
 extern llvm::cl::list<onnx_mlir::accel::Accelerator::Kind> maccel;
 extern llvm::cl::opt<bool> VerboseOutput;
-extern llvm::cl::list<std::string> Xopt;
-extern llvm::cl::list<std::string> Xllc;
-extern llvm::cl::opt<std::string> mllvm;
 extern llvm::cl::opt<bool> verifyInputTensors;
 extern llvm::cl::opt<bool> allowSorting;
 extern llvm::cl::opt<std::string> reportHeapBefore;
@@ -102,18 +99,6 @@ std::string getTargetAccel();
 void setOptLevel(const onnx_mlir::OptLevel level);
 void clearOptLevel();
 std::string getOptimizationLevelOption();
-
-void setXoptOption(const std::vector<std::string> &flags);
-void clearXoptOption();
-std::vector<std::string> getXoptOption();
-
-void setXllcOption(const std::vector<std::string> &flags);
-void clearXllcOption();
-std::vector<std::string> getXllcOption();
-
-void setLLVMOption(const std::string &flag);
-void clearLLVMOption();
-std::string getLLVMOption();
 
 // Options support for OMCompilerOptions.
 using CompilerOptionList =

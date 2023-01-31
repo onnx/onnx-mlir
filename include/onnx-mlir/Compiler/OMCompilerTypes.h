@@ -39,9 +39,6 @@ typedef enum {
   TargetCPU,        /* Kind for mcpu string. */
   TargetAccel,      /* Kind for maccel string. */
   CompilerOptLevel, /* Kind for '0'...'3' string describing OptLevel. */
-  OPTFlag,          /* Kind for -Xopt string. */
-  LLCFlag,          /* Kind for -Xllc string. */
-  LLVMFlag,         /* Kind for -mllvm string. */
   Verbose,          /* Kind for enabling -v verbose mode (boolean option)*/
 } OptionKind;
 
