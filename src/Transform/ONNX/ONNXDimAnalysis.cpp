@@ -156,6 +156,7 @@ void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
       qmOuputIE, op.getOperation(), op.getOperation()->getOperands(), sameDims);
 }
 
+#if 0
 /// Given an unknown dimension, find the same unknown dimensions in the inputs.
 /// This function uses ShapeHelper to explore the same unknown dimensions.
 /// Use this function for unary operations.
@@ -188,6 +189,7 @@ void exploreSameInputDimsBinaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
       shapeHelper.getOutputDims()[dim.second];
   findAndAddSameDim(qmOuputIE, op, op->getOperands(), sameDims);
 }
+#endif
 
 } // namespace
 
@@ -375,24 +377,10 @@ void DimAnalysis::visitDim(
   // possible.
   Operation *op = tensor.getDefiningOp();
 
-#if 0 // handled by generic 
-  // UnaryOp
-  if (isa<ONNXCastOp>(op) || isa<ONNXPowOp>(op) || isa<ONNXReluOp>(op) ||
-      isa<ONNXReciprocalOp>(op) || isa<ONNXTanhOp>(op) ||
-      isa<ONNXSigmoidOp>(op) || isa<ONNXSoftmaxOp>(op) || isa<ONNXSqrtOp>(op)) {
-    exploreSameInputDimsUnaryOp(dim, op, sameDims);
-    return;
-  }
-#endif
-
   // BinaryOp
   if (isa<ONNXAddOp>(op) || isa<ONNXDivOp>(op) || isa<ONNXMulOp>(op) ||
       isa<ONNXSubOp>(op)) {
-#if 1
     if (exploreSameInputDims_new(dim, op, sameDims)) {
-#else
-    exploreSameInputDimsBinaryOp(dim, op, sameDims);
-#endif
       // If we know by this analysis that two unknown dims at the same index are
       // the same, then the output dim must be the same too.
       Value A = op->getOperands()[0];
@@ -415,9 +403,7 @@ void DimAnalysis::visitDim(
             onnx_mlir::DimAnalysis::sameUnknownDim(A, aDimIndex, B, bDimIndex))
           sameDims.insert(onnx_mlir::DimAnalysis::DimT(A, aDimIndex));
       }
-#if 1
     }
-#endif
     return;
   }
 
@@ -443,12 +429,7 @@ void DimAnalysis::visitDim(
 
   // MatMulOp
   if (auto matmulOp = dyn_cast<ONNXMatMulOp>(op)) {
-#if 1
     if (exploreSameInputDims_new(dim, op, sameDims)) {
-#else
-    exploreSameInputDims<ONNXMatMulOp, ONNXMatMulOpShapeHelper>(
-        dim, matmulOp, sameDims);
-#endif
       // If we know by this analysis that two unknown dims at the same index in
       // the batchsize space are the same, then the output dim must be the same
       // too.
@@ -472,9 +453,7 @@ void DimAnalysis::visitDim(
             sameUnknownDim(A, aDimIndex, B, bDimIndex))
           sameDims.insert(DimT(A, aDimIndex));
       }
-#if 1
     }
-#endif
     return;
   }
 
@@ -565,91 +544,8 @@ void DimAnalysis::visitDim(
     return;
   }
 
-// Generic cases
-#if 1
-
+  // Generic cases
   exploreSameInputDims_new(dim, op, sameDims);
-
-#else
-
-  // AveragePoolOp
-  if (auto poolOp = dyn_cast<ONNXAveragePoolOp>(op)) {
-    exploreSameInputDims<ONNXAveragePoolOp, ONNXAveragePoolOpShapeHelper>(
-        dim, poolOp, sameDims);
-    return;
-  }
-
-  // ArgMaxOp
-  if (auto argmaxOp = dyn_cast<ONNXArgMaxOp>(op)) {
-    exploreSameInputDims<ONNXArgMaxOp, ONNXArgMaxOpShapeHelper>(
-        dim, argmaxOp, sameDims);
-    return;
-  }
-
-  // ConvOp
-  if (auto convOp = dyn_cast<ONNXConvOp>(op)) {
-    exploreSameInputDims<ONNXConvOp, ONNXConvOpShapeHelper>(
-        dim, convOp, sameDims);
-    return;
-  }
-
-  // GemmOp
-  if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
-    exploreSameInputDims<ONNXGemmOp, ONNXGemmOpShapeHelper>(
-        dim, gemmOp, sameDims);
-    return;
-  }
-
-  // MaxPoolSingleOutOp
-  if (auto poolOp = dyn_cast<ONNXMaxPoolSingleOutOp>(op)) {
-    exploreSameInputDims<ONNXMaxPoolSingleOutOp,
-        ONNXMaxPoolSingleOutOpShapeHelper>(dim, poolOp, sameDims);
-    return;
-  }
-
-  // PadOp
-  if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
-    exploreSameInputDims<ONNXPadOp, ONNXPadOpShapeHelper>(dim, padOp, sameDims);
-    return;
-  }
-
-  // SliceOp
-  if (auto sliceOp = dyn_cast<ONNXSliceOp>(op)) {
-    exploreSameInputDims<ONNXSliceOp, ONNXSliceOpShapeHelper>(
-        dim, sliceOp, sameDims);
-    return;
-  }
-
-  // SplitOp
-  if (auto splitOp = dyn_cast<ONNXSplitOp>(op)) {
-    exploreSameInputDims<ONNXSplitOp, ONNXSplitOpShapeHelper>(
-        dim, splitOp, sameDims);
-    return;
-  }
-
-  // SqueezeOp
-  if (auto squeezeOp = dyn_cast<ONNXSqueezeOp>(op)) {
-    exploreSameInputDims<ONNXSqueezeOp, ONNXSqueezeOpShapeHelper>(
-        dim, squeezeOp, sameDims);
-    return;
-  }
-
-  // TransposeOp
-  if (auto transposeOp = dyn_cast<ONNXTransposeOp>(op)) {
-    exploreSameInputDims<ONNXTransposeOp, ONNXTransposeOpShapeHelper>(
-        dim, transposeOp, sameDims);
-    return;
-  }
-
-  // Unsqueeze
-  if (auto unsqueezeOp = dyn_cast<ONNXUnsqueezeOp>(op)) {
-    exploreSameInputDims<ONNXUnsqueezeOp, ONNXUnsqueezeOpShapeHelper>(
-        dim, unsqueezeOp, sameDims);
-    return;
-  }
-#endif
-
-  // Unsupported operations, just stop the analysis.
   return;
 }
 
