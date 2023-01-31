@@ -75,6 +75,8 @@ public:
     Location loc = op->getLoc();
     OpAdaptor adaptor(operands, op->getAttrDictionary());
 
+    TosaBuilder tosaBuilder(rewriter, loc);
+
     Value input = adaptor.X();
     auto inputType = input.getType().dyn_cast<RankedTensorType>();
 
@@ -116,8 +118,7 @@ public:
     }
 
     // Convert input [N,IC,IH,IW] -> [N,IH,IW,IC]
-    Value newInput = tosa::createTosaTransposedTensor(
-        rewriter, resizeOp, input, {0, 2, 3, 1});
+    Value newInput = tosaBuilder.transpose(input, {0, 2, 3, 1});
 
     bool alignCorners = coordinateTransformationMode == "align_corners";
     bool halfPixel = coordinateTransformationMode == "half_pixel";
@@ -199,8 +200,7 @@ public:
         newOutputType, newInput, scale, offset, border, resizeModeAttr);
 
     // Convert output [N,OH,OW,OC] -> [N,OC,OH,OW]
-    Value newOutput = tosa::createTosaTransposedTensor(
-        rewriter, resizeOp, resize, {0, 3, 1, 2});
+    Value newOutput = tosaBuilder.transpose(resize, {0, 3, 1, 2});
 
     rewriter.replaceOp(resizeOp, newOutput);
 

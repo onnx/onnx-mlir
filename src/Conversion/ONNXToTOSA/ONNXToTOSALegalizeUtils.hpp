@@ -39,28 +39,9 @@ int64_t convertNegativeAxis(int64_t axis, int64_t inputRank);
 llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
     llvm::ArrayRef<IndexExpr> indexVector);
 
-// Slices a TOSA Tensor with the specific size and start values
-mlir::Value sliceTensor(mlir::PatternRewriter &rewriter, mlir::Operation *op,
-    mlir::Value &inputConst, const llvm::ArrayRef<int64_t> &size,
-    const llvm::ArrayRef<int64_t> &start);
-
-// Transpose a given TOSA Tensor
-mlir::Value createTosaTransposedTensor(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::Value &value, llvm::ArrayRef<int64_t> perm);
-
-// Create a 32-bit float constant operator from a float
-// The tensor will have the same rank as shape but with axis 1 (differs from
-// tensorflow impl.)
-mlir::Value getTosaConstTensorSingleF32(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, float val, llvm::ArrayRef<int64_t> shape = {});
-
-// Templated function to create a constant op for given type and shape.
-// T: storage C type.
-// Default template creates a constant tensor in T.
-// To create INT48 TOSA constant, need to pass in llvm::APInt instead.
-template <typename T>
-llvm::Optional<mlir::Value> getConstTensor(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape);
+// Create a RankedTensorType with shape and all elements being 1
+mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
+    mlir::Type elementType, mlir::Attribute encoding = {});
 
 template <typename T>
 T getValueFromTosaConst(mlir::Value &val) {

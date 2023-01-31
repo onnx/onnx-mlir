@@ -29,9 +29,10 @@ namespace {
 /// where the input, kernel and bias is a slice of the original inputs.
 /// Afterwards we have to concat the results into a single tensor
 Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
-    Type &resultType, const llvm::ArrayRef<int64_t> weightShape,
-    Value &newInput, Value &newWeight, Value &bias, const int64_t groups,
-    ArrayAttr &pads, ArrayAttr &strides, ArrayAttr &dilations) {
+    TosaBuilder &tosaBuilder, Type &resultType,
+    const llvm::ArrayRef<int64_t> weightShape, Value &newInput,
+    Value &newWeight, Value &bias, const int64_t groups, ArrayAttr &pads,
+    ArrayAttr &strides, ArrayAttr &dilations) {
   // Set up constants outside of loop
   const int64_t sizeOfSliceInput = weightShape[1];
   const int64_t sizeOfSliceKernel = weightShape[0] / groups;
@@ -45,16 +46,16 @@ Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
 
   for (int64_t i = 0; i < groups; i++) {
     // Slice input
-    Value newSliceInput = tosa::sliceTensor(
-        rewriter, op, newInput, inputSize, {0, 0, 0, i * sizeOfSliceInput});
+    Value newSliceInput =
+        tosaBuilder.slice(newInput, inputSize, {0, 0, 0, i * sizeOfSliceInput});
 
     // Slice kernel
-    Value newSliceWeight = tosa::sliceTensor(
-        rewriter, op, newWeight, kernelSize, {i * sizeOfSliceKernel, 0, 0, 0});
+    Value newSliceWeight = tosaBuilder.slice(
+        newWeight, kernelSize, {i * sizeOfSliceKernel, 0, 0, 0});
 
     // Slice bias
-    Value newSliceBias = tosa::sliceTensor(
-        rewriter, op, bias, {sizeOfSliceKernel}, {i * sizeOfSliceKernel});
+    Value newSliceBias =
+        tosaBuilder.slice(bias, {sizeOfSliceKernel}, {i * sizeOfSliceKernel});
 
     // Create conv
     Type newConvOutputType = RankedTensorType::get(
@@ -82,7 +83,10 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     OpAdaptor adaptor(operands, op->getAttrDictionary());
+    auto loc = op->getLoc();
     auto convOp = llvm::cast<ONNXConvOp>(op);
+
+    TosaBuilder tosaBuilder(rewriter, loc);
 
     auto input = adaptor.X();
     auto weights = adaptor.W();
@@ -105,12 +109,10 @@ public:
     }
 
     // Convert input [N,IC,IH,IW] -> [N,IH,IW,IC]
-    Value newInput =
-        tosa::createTosaTransposedTensor(rewriter, convOp, input, {0, 2, 3, 1});
+    Value newInput = tosaBuilder.transpose(input, {0, 2, 3, 1});
 
     // Convert weights [OC,IC,KH,KW] -> [OC,KH,KW,IC]
-    Value newWeight = tosa::createTosaTransposedTensor(
-        rewriter, convOp, weights, {0, 2, 3, 1});
+    Value newWeight = tosaBuilder.transpose(weights, {0, 2, 3, 1});
 
     if (bias.getType().isa<NoneType>()) {
       DenseElementsAttr newBiasAttr = DenseElementsAttr::get(
@@ -139,13 +141,13 @@ public:
           convOp->getLoc(), newConvOutputType, newInput, newWeight, bias,
           newPads, strides, dilations);
     } else {
-      conv2D = createConvInGroups(rewriter, convOp, resultType, weightShape,
-          newInput, newWeight, bias, group, newPads, strides, dilations);
+      conv2D = createConvInGroups(rewriter, convOp, tosaBuilder, resultType,
+          weightShape, newInput, newWeight, bias, group, newPads, strides,
+          dilations);
     }
 
     // Convert output [N,OH,OW,OC] -> [N,OC,OH,OW]
-    Value newOutput = tosa::createTosaTransposedTensor(
-        rewriter, convOp, conv2D, {0, 3, 1, 2});
+    Value newOutput = tosaBuilder.transpose(conv2D, {0, 3, 1, 2});
 
     rewriter.replaceOp(convOp, {newOutput});
     return success();

@@ -17,6 +17,7 @@
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
+#include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -34,6 +35,9 @@ public:
   using OpAdaptor = typename ONNXReshapeOp::Adaptor;
   LogicalResult matchAndRewrite(ONNXReshapeOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
+    auto loc = op.getLoc();
+    TosaBuilder tosaBuilder(rewriter, loc);
+    Value input = adaptor.data();
 
     auto outputType = op.getResult().getType().dyn_cast<TensorType>();
 
@@ -61,10 +65,11 @@ public:
     for (int i = 0; i < outputType.getShape().size(); i++) {
       shapeValues.push_back(outputType.getShape()[i]);
     }
-    ArrayAttr shapeAttr = rewriter.getI64ArrayAttr(shapeValues);
 
-    tosa::CreateReplaceOpAndInfer<mlir::tosa::ReshapeOp>(
-        rewriter, op, outputType, adaptor.data(), shapeAttr);
+    Value reshapeOp = tosaBuilder.reshape(input, shapeValues);
+
+    rewriter.replaceOp(op, reshapeOp);
+
     return success();
   }
 };

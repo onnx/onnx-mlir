@@ -26,6 +26,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
+#include <src/Conversion/ONNXToTOSA/DialectBuilder.hpp>
 
 //===----------------------------------------------------------------------===//
 // Functions to add lowering patterns for frontend operations.
@@ -35,8 +36,9 @@ namespace tosa {
 // Lowers ReduceMean to a sequence of TOSA ops.
 // Originates from the TorchToTosa conversion
 llvm::Optional<mlir::Value> convertReduceMeanOp(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::RankedTensorType output_type,
-    mlir::Value input_value, mlir::ElementsAttr axes_elems, bool keep_dims);
+    mlir::Operation *op, TosaBuilder &tosaBuilder,
+    mlir::RankedTensorType output_type, mlir::Value input_value,
+    mlir::ElementsAttr axes_elems, bool keep_dims);
 
 } // namespace tosa
 } // namespace onnx_mlir
