@@ -811,7 +811,7 @@ static llvm::TargetMachine *getTargetMachine() {
 
 /// Return the module datalayout string. The datalayout string is determined
 /// by creating a target machine using the target triple and target cpu.
-static std::string getDataLayout(const Location &loc) {
+static std::string getDataLayout() {
   auto targetMachine = std::unique_ptr<llvm::TargetMachine>{getTargetMachine()};
   if (!targetMachine)
     return nullptr;
@@ -834,11 +834,10 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
 
   // Set the module target triple and datalayout.
   Operation &moduleOp = *(module->getOperation());
-  Location loc = moduleOp.getLoc();
   moduleOp.setAttr(LLVM::LLVMDialect::getTargetTripleAttrName(),
       StringAttr::get(&context, getTargetTriple()));
   moduleOp.setAttr(LLVM::LLVMDialect::getDataLayoutAttrName(),
-      StringAttr::get(&context, getDataLayout(loc)));
+      StringAttr::get(&context, getDataLayout()));
 
   // Set the module target accelerators.
   SmallVector<Attribute, 2> accelsAttr;
