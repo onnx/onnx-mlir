@@ -1685,7 +1685,7 @@ public:
       Value c8388607 = create.llvm.constant(i32Ty, (int64_t)8388607);
       Value c8380415 = create.llvm.constant(i32Ty, (int64_t)8380415);
       Value c1342152704 = create.llvm.constant(i32Ty, (int64_t)1342152704);
-      Value c2147475456 = create.llvm.constant(i32Ty, (int64_t)2147483648);
+      Value c2147475456 = create.llvm.constant(i32Ty, (int64_t)2147475456);
       Value cm1 = create.llvm.constant(i32Ty, (int64_t)-1);
       Value cm95 = create.llvm.constant(i32Ty, (int64_t)-95);
       Value cm96 = create.llvm.constant(i32Ty, (int64_t)-96);

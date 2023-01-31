@@ -206,7 +206,7 @@ public:
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<DLF16ConversionForLoadPattern>(&getContext());
-    // patterns.insert<DLF16ConversionForStorePattern>(&getContext());
+    patterns.insert<DLF16ConversionForStorePattern>(&getContext());
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();
   }
