@@ -15,6 +15,7 @@
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -276,7 +277,7 @@ static void loadMLIR(const std::string &inputFilename,
 static void tailorLLVMIR(llvm::Module &llvmModule) {
   llvm::LLVMContext &ctx = llvmModule.getContext();
   // Emit metadata "zos_le_char_mode" for z/OS. Use EBCDIC codepage by default.
-  if (llvm::Triple(getTargetTripleOption()).isOSzOS()) {
+  if (llvm::Triple(getTargetTriple()).isOSzOS()) {
     StringRef charModeKey = "zos_le_char_mode";
     if (!llvmModule.getModuleFlag(charModeKey)) {
       auto val = llvm::MDString::get(ctx, "ebcdic");
@@ -429,9 +430,9 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   std::string optPath = getToolPath("opt", kOptPath);
   Command optBitcode(/*exePath=*/optPath);
   int rc = optBitcode.appendStr(getOptimizationLevelOption())
-               .appendStr(getTargetTripleOption())
-               .appendStr(getTargetArchOption())
-               .appendStr(getTargetCPUOption())
+               .appendStr("--mtriple=" + getTargetTriple())
+               .appendStr("--march=" + getTargetArch())
+               .appendStr("--mcpu=" + getTargetCPU())
                .appendList(getXoptOption())
                .appendStr(getLLVMOption())
                .appendList({"-o", optimizedBitcodeNameWithExt})
@@ -448,9 +449,9 @@ static int genModelObject(
   std::string llcPath = getToolPath("llc", kLlcPath);
   Command llvmToObj(/*exePath=*/llcPath);
   int rc = llvmToObj.appendStr(getOptimizationLevelOption())
-               .appendStr(getTargetTripleOption())
-               .appendStr(getTargetArchOption())
-               .appendStr(getTargetCPUOption())
+               .appendStr("--mtriple=" + getTargetTriple())
+               .appendStr("--march=" + getTargetArch())
+               .appendStr("--mcpu=" + getTargetCPU())
                .appendList(getXllcOption())
                .appendStr(getLLVMOption())
                .appendStr("-filetype=obj")
@@ -798,41 +799,22 @@ static int emitOutputFiles(const std::string &outputNameNoExt,
   return CompilerSuccess;
 } // end anonymous namespace
 
-// Get the LLVM Target object corresponding to the target triple (if valid).
-static const llvm::Target *getLLVMTarget(
-    const std::string &targetTriple, const Location &loc) {
-  std::string error;
-  const llvm::Target *LLVMTarget =
-      llvm::TargetRegistry::lookupTarget(targetTriple, error);
-  if (!LLVMTarget) {
-    emitError(loc, Twine("Target architecture is unknown: ") + error);
-    return nullptr;
-  }
-
-  return LLVMTarget;
-}
-
-static std::string getTargetTriple() {
-  return (mtriple != "") ? mtriple.getValue() : kDefaultTriple;
-}
-static std::string getTargetCpu() {
-  return (mcpu != "") ? mcpu.getValue() : "";
+/// Get the LLVM Target Machine for the specified target triple, cpu, and arch.
+static llvm::TargetMachine *getTargetMachine() {
+  auto normalizedTriple = llvm::Triple::normalize(getTargetTriple());
+  auto triple = llvm::Triple(normalizedTriple);
+  auto mattrs = SmallVector<std::string>{};
+  auto builder = llvm::EngineBuilder();
+  builder.setRelocationModel(llvm::Reloc::PIC_);
+  return builder.selectTarget(triple, getTargetArch(), getTargetCPU(), mattrs);
 }
 
 /// Return the module datalayout string. The datalayout string is determined
 /// by creating a target machine using the target triple and target cpu.
 static std::string getDataLayout(const Location &loc) {
-  const std::string targetTriple = getTargetTriple();
-  const std::string targetCpu = getTargetCpu();
-  const llvm::Target &LLVMTarget = *getLLVMTarget(targetTriple, loc);
-  llvm::TargetOptions ops;
-  auto targetMachine =
-      std::unique_ptr<llvm::TargetMachine>{LLVMTarget.createTargetMachine(
-          targetTriple, targetCpu, "" /*features*/, ops, None)};
-  if (!targetMachine) {
-    emitError(loc, "failed to create target machine");
+  auto targetMachine = std::unique_ptr<llvm::TargetMachine>{getTargetMachine()};
+  if (!targetMachine)
     return nullptr;
-  }
 
   const llvm::DataLayout &dl = targetMachine->createDataLayout();
   std::string dataLayoutString = dl.getStringRepresentation();

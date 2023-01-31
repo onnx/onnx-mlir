@@ -84,15 +84,15 @@ std::string getCustomEnvVarOption();
 
 void setTargetTriple(const std::string &triple);
 void clearTargetTriple();
-std::string getTargetTripleOption();
+std::string getTargetTriple();
 
 void setTargetArch(const std::string &arch);
 void clearTargetArch();
-std::string getTargetArchOption();
+std::string getTargetArch();
 
 void setTargetCPU(const std::string &cpu);
 void clearTargetCPU();
-std::string getTargetCPUOption();
+std::string getTargetCPU();
 
 int setTargetAccel(const std::string &str);
 void setTargetAccel(const accel::Accelerator::Kind accel);

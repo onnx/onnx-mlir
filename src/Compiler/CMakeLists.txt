@@ -156,6 +156,7 @@ add_onnx_mlir_library(OMCompilerUtils
   AllTargetsCodeGens
   AllTargetsDescs
   AllTargetsInfos
+  ExecutionEngine
   MC
   )
 

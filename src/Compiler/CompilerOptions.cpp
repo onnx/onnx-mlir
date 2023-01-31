@@ -295,14 +295,12 @@ void setTargetTriple(const std::string &triple) {
 
 void clearTargetTriple() { mtriple.clear(); }
 
-std::string getTargetTripleOption() {
-  std::string targetOptions = "";
-  // Command cannot tolerate extra spaces. Add only when needed.
+std::string getTargetTriple() {
   if (mtriple != "")
-    targetOptions = "--mtriple=" + mtriple;
-  else if (kDefaultTriple != "")
-    targetOptions = "--mtriple=" + kDefaultTriple;
-  return targetOptions;
+    return mtriple;
+  if (kDefaultTriple != "")
+    return kDefaultTriple;
+  return "";
 }
 
 // Support for Arch.
@@ -314,9 +312,7 @@ void setTargetArch(const std::string &arch) {
 
 void clearTargetArch() { march.clear(); }
 
-std::string getTargetArchOption() {
-  return (march != "") ? "--march=" + march : "";
-}
+std::string getTargetArch() { return march; }
 
 // Support for CPU.
 void setTargetCPU(const std::string &cpu) {
@@ -327,9 +323,7 @@ void setTargetCPU(const std::string &cpu) {
 
 void clearTargetCPU() { mcpu.clear(); }
 
-std::string getTargetCPUOption() {
-  return (mcpu != "") ? "--mcpu=" + mcpu : "";
-}
+std::string getTargetCPU() { return mcpu; }
 
 // Support for Accel.
 static bool getAccelKindFromString(
@@ -526,11 +520,11 @@ void clearCompilerOption(const OptionKind kind) {
 std::string getCompilerOption(const OptionKind kind) {
   switch (kind) {
   case OptionKind::TargetTriple:
-    return getTargetTripleOption();
+    return getTargetTriple();
   case OptionKind::TargetArch:
-    return getTargetArchOption();
+    return getTargetArch();
   case OptionKind::TargetCPU:
-    return getTargetCPUOption();
+    return getTargetCPU();
   case OptionKind::TargetAccel:
     return getTargetAccel();
   case OptionKind::CompilerOptLevel:
