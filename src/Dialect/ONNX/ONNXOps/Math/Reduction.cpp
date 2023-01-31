@@ -85,8 +85,7 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
 
 // ComputeShape that is specific to ReduceSumOp.
 template <>
-LogicalResult
-ONNXReduceSumOpShapeHelper::computeShape() {
+LogicalResult ONNXReduceSumOpShapeHelper::computeShape() {
   ONNXReduceSumOp reduceOp = llvm::cast<ONNXReduceSumOp>(op);
   ONNXReduceSumOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr axes;
