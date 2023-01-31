@@ -390,7 +390,7 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     DimsExpr inferredDims;
     for (int64_t d : shape) {
       if (ShapedType::isDynamic(d))
-        inferredDims.emplace_back(QuestionmarkIndexExpr());
+        inferredDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
       else
         inferredDims.emplace_back(LiteralIndexExpr(d));
     }
