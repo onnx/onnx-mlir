@@ -520,6 +520,16 @@ def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
   let results = (outs AnyFloat:$out);
 }
 
+def KrnlIsInfOp : Op<Krnl_Dialect, "isinf"> {
+  let summary = "Krnl isinf scalar operation";
+  let description = [{
+    Krnl isinf scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs I1:$out);
+}
+
 def KrnlIsNaNOp : Op<Krnl_Dialect, "isnan"> {
   let summary = "Krnl isnan scalar operation";
   let description = [{

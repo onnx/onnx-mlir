@@ -9,7 +9,7 @@ the tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -33,7 +33,7 @@ Calculates the arccosine (inverse of cosine) of the given input tensor, element-
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -57,7 +57,7 @@ Calculates the hyperbolic arccosine of the given input tensor element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -130,7 +130,7 @@ Compute one iteration of ADAGRAD, a stochastic gradient based optimization
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -224,7 +224,7 @@ Compute one iteration of Adam, a stochastic gradient based optimization
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -264,7 +264,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -292,7 +292,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -323,7 +323,7 @@ The type of the output tensor is integer.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -361,7 +361,7 @@ The type of the output tensor is integer.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -394,7 +394,7 @@ Select elements of the input tensor based on the indices passed.<br>
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -419,7 +419,7 @@ Calculates the arcsine (inverse of sine) of the given input tensor, element-wise
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -443,7 +443,7 @@ Calculates the hyperbolic arcsine of the given input tensor element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -467,7 +467,7 @@ Calculates the arctangent (inverse of tangent) of the given input tensor, elemen
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -491,7 +491,7 @@ Calculates the hyperbolic arctangent of the given input tensor element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -543,7 +543,7 @@ AveragePool consumes an input tensor X and applies average pooling across
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -593,7 +593,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -668,7 +668,7 @@ This operator has **optional** inputs/outputs. See [the doc](IR.md) for more det
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -711,7 +711,7 @@ implementations (even if a seed is specified).
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -742,7 +742,7 @@ Maps the values of the input tensor to either 0 or 1, element-wise, based on the
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -783,7 +783,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -817,7 +817,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -842,7 +842,7 @@ Returns the bitwise not of the input tensor element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -869,7 +869,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -897,7 +897,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -922,7 +922,7 @@ Generates a Blackman window as described in the paper https://ieeexplore.ieee.or
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -971,7 +971,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: MemRefsNormalizable
 
-Interfaces: CallOpInterface, SymbolUserOpInterface
+Interfaces: CallOpInterface, ShapeHelper, SymbolUserOpInterface
 
 #### Attributes:
 
@@ -1001,7 +1001,7 @@ See documentation of the Cast operator for further details.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1028,7 +1028,7 @@ Converts a map to a tensor.<br>The map key must be an int64 and the values will 
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1094,7 +1094,7 @@ signed types). For example, 200 (int16) -> -56 (int8).
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1131,7 +1131,7 @@ Converts strings to integers and vice versa.<br>
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1166,7 +1166,7 @@ the tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1196,7 +1196,7 @@ max(0,x) + min(0,alpha*(exp(x/alpha)-1))
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1233,7 +1233,7 @@ so that the input is centered in the output.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1266,7 +1266,7 @@ numeric_limits::lowest() and numeric_limits::max(), respectively.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1294,7 +1294,7 @@ numeric_limits::lowest() and numeric_limits::max(), respectively.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1322,7 +1322,7 @@ numeric_limits::lowest() and numeric_limits::max(), respectively.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1350,7 +1350,7 @@ numeric_limits::lowest() and numeric_limits::max() respectively.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1390,7 +1390,7 @@ NOTE: Although specifying image_shape looks redundant because it could be calcul
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1427,7 +1427,7 @@ Selects slices from an input tensor along a given axis where condition evaluates
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1461,7 +1461,7 @@ When 'new_axis' is 1, the behavior is similar to numpy.stack.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1492,7 +1492,7 @@ Concatenate a list of tensors into a single tensor. All input tensors must have 
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1525,7 +1525,7 @@ v3 = onnx.transpose(v1)
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1559,7 +1559,7 @@ Generate a tensor with given value and shape.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1590,7 +1590,7 @@ or value_* must be specified.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1622,7 +1622,7 @@ and computes the output. The production MUST never overflow. The accumulation ma
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1661,7 +1661,7 @@ computes the output.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1711,7 +1711,7 @@ output_shape can also be explicitly specified in which case pads values are auto
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1750,7 +1750,7 @@ Calculates the cosine of the given input tensor, element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1774,7 +1774,7 @@ Calculates the hyperbolic cosine of the given input tensor element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1817,7 +1817,7 @@ output = [5, 3, 0]
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1854,7 +1854,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1884,7 +1884,7 @@ Computes the discrete Fourier transform of input.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1943,7 +1943,7 @@ y = np.reshape(tmp, [b, c // (blocksize ** 2), h * blocksize, w * blocksize])
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -1978,7 +1978,7 @@ there's no zero point (zero point is supposed to be 0).
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2014,7 +2014,7 @@ e.g., When the input is 2-D, the output is a scalar(shape is empty: `[]`).
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2049,7 +2049,7 @@ Uses an index mapping to convert a dictionary to an array.<br>
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2123,7 +2123,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2157,7 +2157,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2193,7 +2193,7 @@ This operator has **optional** inputs/outputs. See [the doc](IR.md) for more det
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2247,7 +2247,7 @@ y = saturate (round (x / y_scale) + y_zero_point)
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2295,7 +2295,7 @@ beginning of the output. The equation string may contain space (U+0020) characte
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2328,7 +2328,7 @@ Elu takes one input data (Tensor<T>) and produces one output data
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2375,7 +2375,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2400,7 +2400,7 @@ Computes the error function of the given input tensor element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2424,7 +2424,7 @@ Calculates the exponential of the given input tensor, element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2455,7 +2455,7 @@ or the shape.ndim < input.shape.ndim.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2486,7 +2486,7 @@ TensorProto message and be valid as an output type.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2520,7 +2520,7 @@ Concatenates input tensors into one continuous output.<br>
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2552,7 +2552,7 @@ Flattens the input tensor into a 2D matrix. If input tensor has shape
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2584,7 +2584,7 @@ the tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2680,7 +2680,7 @@ This operator has **optional** inputs/outputs. See [the doc](IR.md) for more det
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2773,7 +2773,7 @@ Example 2:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2894,7 +2894,7 @@ This operator is the inverse of `ScatterND`.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -2979,7 +2979,7 @@ output[j_{0}, i_{0}, ..., i_{q-1}, j_{1}, ..., j_{r-2\}\] = input[j_{0}, k, j_{1
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3022,7 +3022,7 @@ This operator has **optional** inputs/outputs. See [the doc](IR.md) for more det
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3059,7 +3059,7 @@ GlobalAveragePool consumes an input tensor X and applies average pooling across
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3085,7 +3085,7 @@ GlobalLpPool consumes an input tensor X and applies lp pool pooling across
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3117,7 +3117,7 @@ GlobalMaxPool consumes an input tensor X and applies max pooling across
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3263,7 +3263,7 @@ auto-differentiation.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3298,7 +3298,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3326,7 +3326,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3363,7 +3363,7 @@ See also in [torch.nn.functional.grid_sample](https://pytorch.org/docs/master/ge
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3410,7 +3410,7 @@ is equivalent to LayerNormalization.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3443,7 +3443,7 @@ Generates a Hamming window as described in the paper https://ieeexplore.ieee.org
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3474,7 +3474,7 @@ Generates a Hann window as described in the paper https://ieeexplore.ieee.org/do
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3507,7 +3507,7 @@ is applied to the tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3540,7 +3540,7 @@ where alpha = 1/6 and beta = 0.5, is applied to the tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3570,7 +3570,7 @@ and contains the Hardmax values of the corresponding input.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3600,7 +3600,7 @@ Identity operator
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3624,7 +3624,7 @@ If conditional
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3655,7 +3655,7 @@ Replaces inputs that equal one value with another, leaving all other elements al
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3693,7 +3693,7 @@ where mean and variance are computed per instance per channel.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3725,7 +3725,7 @@ Map infinity to true and other values to false.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3756,7 +3756,7 @@ Returns which elements of the input are NaN.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3789,7 +3789,7 @@ Y[n, c, d1, ..., dk] = X[n, c, d1, ..., dk] / (bias + alpha / size * square_sum[
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3902,7 +3902,7 @@ This operator has **optional** inputs/outputs. See [the doc](IR.md) for more det
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -3964,7 +3964,7 @@ Maps each element in the input tensor to another value.<br>
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4040,7 +4040,7 @@ This is layer normalization defined in ONNX as function.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4088,7 +4088,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4123,7 +4123,7 @@ output data (Tensor<T>) where the function `f(x) = alpha * x for x < 0`,
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4156,7 +4156,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4184,7 +4184,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4209,7 +4209,7 @@ Linear classifier
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4250,7 +4250,7 @@ Generalized linear regression evaluation.<br>
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4283,7 +4283,7 @@ Calculates the natural log of the given input tensor, element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4313,7 +4313,7 @@ and contains the LogSoftmax values of the corresponding input.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4477,7 +4477,7 @@ The input/output of subgraph (produced by loop node) matching is based on order 
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4503,7 +4503,7 @@ Given a matrix, apply Lp-normalization along the provided axis.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4538,7 +4538,7 @@ LpPool consumes an input tensor X and applies Lp pooling across
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4573,7 +4573,7 @@ The production MUST never overflow. The accumulation may overflow if and only if
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4600,7 +4600,7 @@ Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4627,7 +4627,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4679,7 +4679,7 @@ MaxPool consumes an input tensor X and applies max pooling across
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4719,7 +4719,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4757,7 +4757,7 @@ ROI max pool consumes an input tensor X and region of interests (RoIs) to
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4806,7 +4806,7 @@ In addition to the inputs, MaxUnpool takes three attributes, namely kernel_shape
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4842,7 +4842,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4867,7 +4867,7 @@ A MeanVarianceNormalization Function: Perform mean variance normalization
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4904,7 +4904,7 @@ The returned MelWeightMatrix can be used to right-multiply a spectrogram S of sh
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4940,7 +4940,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -4970,7 +4970,7 @@ mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + e^{x}))
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5006,7 +5006,7 @@ Performs element-wise binary modulus (with Numpy-style broadcasting support).
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5096,7 +5096,7 @@ Compute one iteration of stochastic gradient update with momentum.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5135,7 +5135,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5161,7 +5161,7 @@ of each of the possible outcomes.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5195,7 +5195,7 @@ the tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5304,7 +5304,7 @@ Example 3:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5343,7 +5343,7 @@ The bounding box coordinates corresponding to the selected indices can then be o
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5381,7 +5381,7 @@ Returns the indices of the elements that are non-zero
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5447,7 +5447,7 @@ Normalize the input.  There are three normalization modes, which have the corres
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5477,7 +5477,7 @@ Returns the negation of the input tensor element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5508,7 +5508,7 @@ Replace each input element with an array of ones and zeros, where a single
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5558,7 +5558,7 @@ Produces a one-hot tensor based on inputs.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5592,7 +5592,7 @@ It is an error if the input is an empty optional-type (i.e. does not have an ele
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5618,7 +5618,7 @@ If the input is not provided or is an empty optional-type, this op returns false
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5643,7 +5643,7 @@ or a non-empty value containing the input element.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5676,7 +5676,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5707,7 +5707,7 @@ This operator supports **unidirectional broadcasting** (tensor slope should be u
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5806,7 +5806,7 @@ Example 3 (`edge` mode):
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5912,7 +5912,7 @@ Example 3 (`edge` mode):
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5959,7 +5959,7 @@ Example:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -5994,7 +5994,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6046,7 +6046,7 @@ zero point as 0.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6099,7 +6099,7 @@ Production must never overflow, and accumulation may overflow if and only if in 
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6134,7 +6134,7 @@ For (x / y_scale), it's rounding to nearest ties to even. Refer to https://en.wi
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6226,7 +6226,7 @@ This operator has **optional** inputs/outputs. See [the doc](IR.md) for more det
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6274,7 +6274,7 @@ TensorProto message, and be valid as an output type.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6313,7 +6313,7 @@ TensorProto message.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6347,7 +6347,7 @@ TensorProto message and be valid as an output type.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6385,7 +6385,7 @@ TensorProto message.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6437,7 +6437,7 @@ Output: [10, 8, 6]
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6465,7 +6465,7 @@ the tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6494,7 +6494,7 @@ False instead of True.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6530,7 +6530,7 @@ False instead of True.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6566,7 +6566,7 @@ False instead of True.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6602,7 +6602,7 @@ False instead of True.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6638,7 +6638,7 @@ False instead of True.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6674,7 +6674,7 @@ False instead of True.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6710,7 +6710,7 @@ False instead of True.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6746,7 +6746,7 @@ False instead of True.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6782,7 +6782,7 @@ False instead of True.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6819,7 +6819,7 @@ False instead of True.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6855,7 +6855,7 @@ False instead of True.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6888,7 +6888,7 @@ the tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6924,7 +6924,7 @@ to -1 cannot be determined uniquely.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6957,7 +6957,7 @@ Each dimension value of the output tensor is:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6997,7 +6997,7 @@ Each dimension value of the output tensor is:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7030,7 +7030,7 @@ Each dimension value of the output tensor is:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7128,7 +7128,7 @@ Example 2:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7170,7 +7170,7 @@ through bilinear interpolation.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7219,7 +7219,7 @@ round([-4.5]) = [-4.0]
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7243,7 +7243,7 @@ Computes the Short-time Fourier Transform of the signal.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7276,7 +7276,7 @@ Support Vector Machine classifier
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7317,7 +7317,7 @@ Support Vector Machine regression prediction and one-class SVM anomaly detection
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7354,7 +7354,7 @@ Rescale input data, for example to standardize features by removing the mean and
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7505,7 +7505,7 @@ values are computed in the outer graph, they need to be passed in as extra state
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7601,7 +7601,7 @@ Example 2:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7704,7 +7704,7 @@ Example 2:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7788,7 +7788,7 @@ Example 2:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7823,7 +7823,7 @@ is applied to the tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7856,7 +7856,7 @@ Negative value means counting positions from the back.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7882,7 +7882,7 @@ All tensors in 'inputs' must have the same data type.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7906,7 +7906,7 @@ Construct an empty tensor sequence, with given data type.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7933,7 +7933,7 @@ Negative value means counting positions from the back.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7962,7 +7962,7 @@ Negative value means counting positions from the back.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -7988,7 +7988,7 @@ Produces a scalar(tensor of empty shape) containing the number of tensors in 'in
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8025,7 +8025,7 @@ or in any order. Users cannot expect any specific ordering in which each subgrap
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8078,7 +8078,7 @@ Output: [3]
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8112,7 +8112,7 @@ If x > lambd, y = x - bias; Otherwise, y = 0.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8145,7 +8145,7 @@ tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8170,7 +8170,7 @@ If input > 0, output 1. if input < 0, output -1. if input == 0, output 0.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8194,7 +8194,7 @@ Calculates the sine of the given input tensor, element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8218,7 +8218,7 @@ Calculates the hyperbolic sine of the given input tensor element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8242,7 +8242,7 @@ Takes a tensor as input and outputs a int64 scalar that equals to the total numb
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8320,7 +8320,7 @@ Example 2:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8378,7 +8378,7 @@ where tensor W is of shape (N, D1, D2, ..., Dk) and W[n][d1][d2]...[dk] = weight
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8418,7 +8418,7 @@ and contains the Softmax values of the corresponding input.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8461,7 +8461,7 @@ and contains the softmax values of the corresponding input.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8493,7 +8493,7 @@ the tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8517,7 +8517,7 @@ Calculates the softsign (x/(1+|x|)) of the given input tensor element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8543,7 +8543,7 @@ are moved to the depth dimension.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8575,7 +8575,7 @@ Otherwise, the tensor is split to equal sized parts.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8615,7 +8615,7 @@ dimension size of input tensor on 'axis'.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8649,7 +8649,7 @@ Otherwise, the tensor is split to equal sized parts.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8682,7 +8682,7 @@ the tensor elementwise. If x is negative, then it will return NaN.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8709,7 +8709,7 @@ the shape. If an axis is selected with shape entry not equal to one, an error is
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8737,7 +8737,7 @@ the shape. If an axis is selected with shape entry not equal to one, an error is
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8775,7 +8775,7 @@ if input shape is [C] and shape [1, 1] if input shape is [1, C].
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8812,7 +8812,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8839,7 +8839,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8863,7 +8863,7 @@ Calculates the tangent of the given input tensor, element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8887,7 +8887,7 @@ Calculates the hyperbolic tangent of the given input tensor element-wise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8937,7 +8937,7 @@ If pool_strings is set, the input must be a string tensor.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -8977,7 +8977,7 @@ is applied to the tensor elementwise.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9009,7 +9009,7 @@ For example A = [[1, 2], [3, 4]], B = [1, 2], tile(A, B) = [[1, 2, 1, 2], [3, 4,
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9047,7 +9047,7 @@ Given two equivalent values, this operator uses the indices along the axis as
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9083,7 +9083,7 @@ will be (2, 1, 3).
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9121,7 +9121,7 @@ Tree Ensemble classifier.  Returns the top class for each of N inputs.<br>
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9177,7 +9177,7 @@ Tree Ensemble regressor.  Returns the regressed values for each input in N.<br>
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9234,7 +9234,7 @@ A negative k value excludes the main diagonal and (|k|-1) diagonals below it.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9339,7 +9339,7 @@ Example 4:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9384,7 +9384,7 @@ The order of values in `axes` does not matter and can come in any order.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9420,7 +9420,7 @@ The order of values in `axes` does not matter and can come in any order.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9452,7 +9452,7 @@ Each dimension value of the output tensor is:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9485,7 +9485,7 @@ Each dimension value of the output tensor is:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9524,7 +9524,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9553,7 +9553,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -9581,7 +9581,7 @@ Creates a map from the input and the attributes.<br>
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
