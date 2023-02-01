@@ -192,7 +192,7 @@ def IsNotFromONNXConstantOp: Constraint<
 
 def IsFromONNXConstantOpWithDenseElementsAttr: Constraint<
     And<[CPred<" isa<ONNXConstantOp>($_self.getDefiningOp()) ">,
-         CPred<" onnx_mlir::getONNXConstantOp($_self).valueAttr().isa<DenseElementsAttr>() ">
+         CPred<" onnx_mlir::getONNXConstantOp($_self).getValueAttr().isa<DenseElementsAttr>() ">
         ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr">;
 
 def AreTheSameConstantOpDenseAttr: Constraint<

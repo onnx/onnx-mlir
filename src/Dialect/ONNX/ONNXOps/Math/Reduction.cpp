@@ -28,7 +28,7 @@ template <typename OP_TYPE>
 LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &axes, int noopWithEmptyAxes) {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
-  Value data = operandAdaptor.data();
+  Value data = operandAdaptor.getData();
   int64_t rank = createIE->getShapedTypeRank(data);
   // Normalize the axes: at present, we only support compile time axes, but
   // with keep_dim on, it might not be too difficult to generate the code.
@@ -58,7 +58,7 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::customComputeShape(
         std::find(uniqueAxes.begin(), uniqueAxes.end(), i) != uniqueAxes.end();
 
   // Generate the output dims.
-  bool isKeepDims = (operandAdaptor.keepdims() == 1) ? true : false;
+  bool isKeepDims = (operandAdaptor.getKeepdims() == 1) ? true : false;
   DimsExpr outputDims;
   LiteralIndexExpr one(1);
   for (int64_t i = 0; i < rank; ++i) {
@@ -79,7 +79,7 @@ template <typename OP_TYPE>
 LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr axes;
-  createIE->getIntFromArrayAsLiterals(operandAdaptor.axesAttr(), axes);
+  createIE->getIntFromArrayAsLiterals(operandAdaptor.getAxesAttr(), axes);
   return customComputeShape(axes, /*noopWithEmptyAxes*/ false);
 }
 
@@ -89,15 +89,15 @@ LogicalResult ONNXReduceSumOpShapeHelper::computeShape() {
   ONNXReduceSumOp reduceOp = llvm::cast<ONNXReduceSumOp>(op);
   ONNXReduceSumOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr axes;
-  if (isFromNone(operandAdaptor.axes())) {
+  if (isFromNone(operandAdaptor.getAxes())) {
     // Default will be used.
-  } else if (getONNXConstantOp(operandAdaptor.axes())) {
-    createIE->getIntFromArrayAsSymbols(operandAdaptor.axes(), axes);
+  } else if (getONNXConstantOp(operandAdaptor.getAxes())) {
+    createIE->getIntFromArrayAsSymbols(operandAdaptor.getAxes(), axes);
   } else {
     // When the axis is dynamic, try to infer the rank of output tensor
-    int64_t dataRank = createIE->getShapedTypeRank(operandAdaptor.data());
-    int64_t axlesSize = createIE->getArraySize(operandAdaptor.axes());
-    if (!operandAdaptor.keepdims() && axlesSize < 0 /*undef shape*/) {
+    int64_t dataRank = createIE->getShapedTypeRank(operandAdaptor.getData());
+    int64_t axlesSize = createIE->getArraySize(operandAdaptor.getAxes());
+    if (!operandAdaptor.getKeepdims() && axlesSize < 0 /*undef shape*/) {
       // Even though we did not compute the shape in ShapeHelper, return success
       // as we gen code for dyn sizes too. Ideally, we would have the code here
       // to compte the shape, it is currently residing in Krnl lowering.
@@ -113,7 +113,7 @@ LogicalResult ONNXReduceSumOpShapeHelper::computeShape() {
     // With keep dim, by def the output has the same rank as the input; without
     // keep dim, we remove 1 rank per value in the 1D axes tensor.
     int64_t outputRank =
-        operandAdaptor.keepdims() ? dataRank : dataRank - axlesSize;
+        operandAdaptor.getKeepdims() ? dataRank : dataRank - axlesSize;
     assert(outputRank >= 0 && "expected to keep at least one dim");
 
     // Interesting idea below, namely to reuse info from output, or if not
@@ -133,7 +133,7 @@ LogicalResult ONNXReduceSumOpShapeHelper::computeShape() {
     setOutputDims(outputDims);
     return success();
   }
-  bool noopWithEmptyAxes = operandAdaptor.noop_with_empty_axes() != 0;
+  bool noopWithEmptyAxes = operandAdaptor.getNoopWithEmptyAxes() != 0;
   return customComputeShape(axes, noopWithEmptyAxes);
 }
 
@@ -146,11 +146,11 @@ namespace {
 template <class OP_TYPE>
 static LogicalResult inferShapeForReductionOps(OP_TYPE &op) {
   typename OP_TYPE::Adaptor operandAdaptor(op);
-  if (!hasShapeAndRank(operandAdaptor.data()))
+  if (!hasShapeAndRank(operandAdaptor.getData()))
     return success();
 
   ShapedType dataType =
-      operandAdaptor.data().getType().template cast<ShapedType>();
+      operandAdaptor.getData().getType().template cast<ShapedType>();
   ONNXGenericReductionOpShapeHelper<OP_TYPE> shapeHelper(op.getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(dataType.getElementType());
 }
@@ -234,13 +234,13 @@ LogicalResult ONNXReduceProdOp::inferShapes(
 
 LogicalResult ONNXReduceSumOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(data()))
+  if (!hasShapeAndRank(getData()))
     return success();
   // Has an interesting axes but not yet shaped, wait for later.
-  if (!isFromNone(axes()) && !hasShapeAndRank(axes()))
+  if (!isFromNone(getAxes()) && !hasShapeAndRank(getAxes()))
     return success();
 
-  ShapedType dataType = data().getType().template cast<ShapedType>();
+  ShapedType dataType = getData().getType().template cast<ShapedType>();
   ONNXReduceSumOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(dataType.getElementType());
 }

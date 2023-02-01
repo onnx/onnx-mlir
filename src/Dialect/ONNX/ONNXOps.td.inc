@@ -846,7 +846,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      resultTypes.push_back(mlir::UnrankedTensorType::get(to()));
+      resultTypes.push_back(mlir::UnrankedTensorType::get(getTo()));
       return resultTypes;
     }
   }];
@@ -1309,9 +1309,9 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      if (auto attr = valueAttr()) {
+      if (auto attr = getValueAttr()) {
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
-      } else if (auto attr = sparse_valueAttr()) {
+      } else if (auto attr = getSparseValueAttr()) {
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
       }
       return resultTypes;
@@ -1361,7 +1361,7 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      if (auto attr = valueAttr()) {
+      if (auto attr = getValueAttr()) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
           attr.cast<TypedAttr>().getType().cast<ShapedType>().getElementType()));
       } else {
@@ -5669,14 +5669,14 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      if (auto attr = dtypeAttr()) {
-      if (dtype() == 0) {
+      if (auto attr = getDtypeAttr()) {
+      if (getDtype() == 0) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
             FloatType::getF16(getContext())));
-      } else if (dtype() == 1) {
+      } else if (getDtype() == 1) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
             FloatType::getF32(getContext())));
-      } else if (dtype() == 2) {
+      } else if (getDtype() == 2) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
             FloatType::getF64(getContext())));
       } else {
@@ -6871,7 +6871,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
       return {20};
     }
 
-    mlir::Operation::operand_range v_initial();
+    mlir::Operation::operand_range getVInitial();
     mlir::Operation::result_range v_final();
     mlir::Operation::operand_range scan_inputs();
     mlir::Operation::result_range scan_outputs();

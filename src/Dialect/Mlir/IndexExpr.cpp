@@ -523,7 +523,7 @@ void IndexExpr::debugPrint(
       if (uniqueQuestionMark)
         intDimList.emplace_back(expr.getQuestionmark());
       else
-        intDimList.emplace_back(-1);
+        intDimList.emplace_back(ShapedType::kDynamic);
     }
   }
 }
@@ -1579,7 +1579,7 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(SymbolIndexExpr const &o)
 bool QuestionmarkIndexExpr::specificQuestionmark() const {
   assert((getKind() == IndexExprKind::Questionmark) &&
          "Expected QuestionMarkIndexExpr");
-  return (getQuestionmark() != -1);
+  return (getQuestionmark() != ShapedType::kDynamic);
 }
 
 bool QuestionmarkIndexExpr::sameQuestionmark(IndexExpr const &o) const {

@@ -29,7 +29,7 @@ using namespace onnx_mlir;
 LogicalResult ONNXScanOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto &loopBody = getRegion();
-  assert(!scan_input_axes().has_value());
+  assert(!getScanInputAxes().has_value());
 
   // We proceed to set types for loop body function inputs.
   // Set types for loop carried dependencies (i.e., set these loop carried
@@ -37,13 +37,13 @@ LogicalResult ONNXScanOp::inferShapes(
   // the same type as their counterpart in LoopOp inputs).
   auto bodyInputs = loopBody.getArguments();
   auto bodyVRange = llvm::make_range(bodyInputs.begin(), bodyInputs.end());
-  for (auto opVToBodyVTy : llvm::zip(v_initial(), bodyVRange)) {
+  for (auto opVToBodyVTy : llvm::zip(getVInitial(), bodyVRange)) {
     auto opVTy = std::get<0>(opVToBodyVTy).getType();
     std::get<1>(opVToBodyVTy).setType(opVTy);
   }
 
   auto bodyScanInputs = llvm::make_range(
-      bodyInputs.begin() + v_initial().size(), bodyInputs.end());
+      bodyInputs.begin() + getVInitial().size(), bodyInputs.end());
   for (auto vScanOutputValToTy : llvm::zip(scan_inputs(), bodyScanInputs)) {
     auto rankedScanTy =
         std::get<0>(vScanOutputValToTy).getType().cast<RankedTensorType>();
@@ -70,7 +70,7 @@ LogicalResult ONNXScanOp::inferShapes(
   // Compute the type range corresponding to the final values of
   // loop-carried dependencies/scan outputs in the body function output
   // types.
-  auto scanStartItr = std::next(bodyResultTys.begin(), v_initial().size());
+  auto scanStartItr = std::next(bodyResultTys.begin(), getVInitial().size());
   auto bodyResVFinalTys = llvm::make_range(bodyResultTys.begin(), scanStartItr);
   auto bodyResScanTys = llvm::make_range(scanStartItr, bodyResultTys.end());
 
@@ -108,14 +108,14 @@ LogicalResult ONNXScanOp::inferShapes(
 // Helper functions
 //===----------------------------------------------------------------------===//
 
-Operation::operand_range ONNXScanOp::v_initial() {
-  auto numVInit = initial_state_and_scan_inputs().size() - num_scan_inputs();
+Operation::operand_range ONNXScanOp::getVInitial() {
+  auto numVInit = getInitialStateAndScanInputs().size() - getNumScanInputs();
   auto operands = getOperands();
   return llvm::make_range(operands.begin(), operands.begin() + numVInit);
 }
 
 Operation::operand_range ONNXScanOp::scan_inputs() {
-  auto numVInit = initial_state_and_scan_inputs().size() - num_scan_inputs();
+  auto numVInit = getInitialStateAndScanInputs().size() - getNumScanInputs();
   auto operands = getOperands();
   return llvm::make_range(operands.begin() + numVInit, operands.end());
 }
@@ -125,12 +125,13 @@ Operation::operand_range ONNXScanOp::scan_inputs() {
 Operation::result_range ONNXScanOp::v_final() {
   auto results = getResults();
   return llvm::make_range(
-      results.begin(), results.begin() + v_initial().size());
+      results.begin(), results.begin() + getVInitial().size());
 }
 
 // Helper function to obtain subset of op results corresponding to the scan
 // outputs.
 Operation::result_range ONNXScanOp::scan_outputs() {
   auto results = getResults();
-  return llvm::make_range(results.begin() + v_initial().size(), results.end());
+  return llvm::make_range(
+      results.begin() + getVInitial().size(), results.end());
 }

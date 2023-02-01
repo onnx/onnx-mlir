@@ -33,8 +33,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Operands and attributes.
-    Value data = operandAdaptor.data();
-    auto permAttr = transposeOp.perm();
+    Value data = operandAdaptor.getData();
+    auto permAttr = transposeOp.getPerm();
 
     MemRefType inMemRefType = data.getType().cast<MemRefType>();
     uint64_t inRank = inMemRefType.getShape().size();

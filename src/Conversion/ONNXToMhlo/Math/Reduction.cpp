@@ -67,7 +67,7 @@ Value getIdentityValue<ONNXReduceMeanOp>(
 template <typename ONNXReductionOp>
 llvm::SmallVector<int64_t, 4> getDefinedAxes(Operation *op) {
   llvm::SmallVector<int64_t, 4> definedAxes;
-  ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).axesAttr();
+  ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).getAxesAttr();
   if (axisAttrs) {
     for (Attribute axisAttr : axisAttrs.getValue()) {
       int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
@@ -81,14 +81,14 @@ template <>
 llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
   llvm::SmallVector<int64_t, 4> definedAxes;
   ONNXReduceSumOp reduceSumOp = cast<ONNXReduceSumOp>(op);
-  Value axesValue = reduceSumOp.axes();
+  Value axesValue = reduceSumOp.getAxes();
 
   // Assume it is verified that axes are known. Convert DenseElementsAttr to
   // ArrayAttr.
   if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
     mlir::DenseElementsAttr constAxes =
         getONNXConstantOp(axesValue)
-            .valueAttr()
+            .getValueAttr()
             .dyn_cast_or_null<mlir::DenseElementsAttr>();
     for (mlir::IntegerAttr element : constAxes.getValues<IntegerAttr>())
       definedAxes.push_back(element.getInt());
@@ -104,7 +104,7 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
   assert(inputType != nullptr && outputType != nullptr &&
          "not implemented for dynamic axes when either input or output is not "
          "ranked");
-  bool keepDims = reduceSumOp.keepdims() == 1;
+  bool keepDims = reduceSumOp.getKeepdims() == 1;
   int64_t inputRank = inputType.getRank();
   int64_t outputRank = outputType.getRank();
   llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
@@ -295,7 +295,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
         axes.push_back(i);
 
     // KeepDims
-    int64_t keepdims = llvm::dyn_cast<ONNXReductionOp>(op).keepdims();
+    int64_t keepdims = llvm::dyn_cast<ONNXReductionOp>(op).getKeepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
 
     SmallVector<int64_t> reducedShape =

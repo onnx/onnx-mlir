@@ -19,7 +19,7 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
@@ -682,7 +682,7 @@ Value MemRefBuilder::dim(Value val, Value index) const {
   //           val.getType().isa<UnrankedMemRefType>()) &&
   //       "memref::DimOp expects input operand to have MemRefType or "
   //       "UnrankedMemRefType");
-  return b().createOrFold<memref::DimOp>(loc(), val, index);
+  return Value(b().createOrFold<memref::DimOp>(loc(), val, index));
 }
 
 //===----------------------------------------------------------------------===//

@@ -78,7 +78,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
     llvm::ArrayRef<int64_t> memRefShape = memRefType.getShape();
     uint64_t outputRank = memRefShape.size();
 
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
@@ -126,10 +126,10 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
         rewriter, loc);
 
     // get input operands, shapes, and rank
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
     auto inputShape = input.getType().cast<MemRefType>().getShape();
     int64_t inputRank = inputShape.size();
-    Value repeats = operandAdaptor.repeats();
+    Value repeats = operandAdaptor.getRepeats();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -164,7 +164,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
 
     // Create the loops
     KrnlIterateOp iterateOp = create.krnl.iterate(pack);
-    Block &iterationBlock = iterateOp.bodyRegion().front();
+    Block &iterationBlock = iterateOp.getBodyRegion().front();
 
     // Now perform the insertions into the body of the just generated loops.
     // Insert instructions inside the KernelIterateOp body.

@@ -31,7 +31,7 @@ struct ONNXSequenceLengthOpLowering : public ConversionPattern {
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
-    auto input = operandAdaptor.input_sequence();
+    auto input = operandAdaptor.getInputSequence();
     auto outputVal = create.mem.dim(input, 0);
 
     rewriter.replaceOp(op, outputVal);

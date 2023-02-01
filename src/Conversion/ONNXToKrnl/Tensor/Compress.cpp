@@ -39,9 +39,9 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Get input shape.
-    Value inputMemRef = operandAdaptor.input();
+    Value inputMemRef = operandAdaptor.getInput();
     int64_t inputRank = create.krnlIE.getShapedTypeRank(inputMemRef);
-    Optional<int64_t> axis = compressOp.axis();
+    Optional<int64_t> axis = compressOp.getAxis();
 
     // Create a few constants.
     auto bitType = rewriter.getIntegerType(1);
@@ -57,7 +57,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     Value sumMemRef = create.mem.alloca(indexMemRefType);
     create.krnl.store(zeroIE.getValue(), sumMemRef);
     // Now create a loop to iterate over all conditions.
-    Value condMemRef = operandAdaptor.condition();
+    Value condMemRef = operandAdaptor.getCondition();
     IndexExpr condShapeFirstRank = create.krnlIE.getShapeAsDim(condMemRef, 0);
     ValueRange loopDef = create.krnl.defineLoops(1);
     create.krnl.iterateIE(loopDef, loopDef, {zeroIE}, {condShapeFirstRank},

@@ -776,7 +776,7 @@ void SaveOnnxConstInOp(mlir::Operation *op, mlir::MutableOperandRange operand,
 
    Example:
      SaveOnnxAttrInOp<ONNXUnsqueezeV11Op>(op, unsqueezedAxes,
-       [](ONNXUnsqueezeV11Op op, ArrayAttr attr) { op.axesAttr(attr); });
+       [](ONNXUnsqueezeV11Op op, ArrayAttr attr) { op.setAxesAttr(attr); });
 */
 
 template <typename OP_TYPE>

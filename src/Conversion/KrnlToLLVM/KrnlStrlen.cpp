@@ -51,8 +51,8 @@ public:
     MLIRContext *ctx = module.getContext();
     Type i8Type = IntegerType::get(ctx, 8);
     Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
-    Value strPtr =
-        rewriter.create<LLVM::IntToPtrOp>(loc, i8PtrType, operandAdaptor.str());
+    Value strPtr = rewriter.create<LLVM::IntToPtrOp>(
+        loc, i8PtrType, operandAdaptor.getStr());
 
     // Strlen call.
     // TODO: should return a size_t

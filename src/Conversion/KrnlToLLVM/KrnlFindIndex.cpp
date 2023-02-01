@@ -40,39 +40,43 @@ public:
     // Get a symbol reference to the runtime function to use, creating one if
     // necessary.
     ModuleOp module = findIndexOp->getParentOfType<ModuleOp>();
-    FlatSymbolRefAttr findIndexRef =
-        getOrInsertFindIndex(rewriter, module, findIndexOp.input().getType());
+    FlatSymbolRefAttr findIndexRef = getOrInsertFindIndex(
+        rewriter, module, findIndexOp.getInput().getType());
 
     // Select the value to pass to as the first argument based on the operator
     // input type.
     Value firstOperand;
-    TypeSwitch<Type>(findIndexOp.input().getType())
+    TypeSwitch<Type>(findIndexOp.getInput().getType())
         .Case<IntegerType>([&](IntegerType type) {
           assert(type.getWidth() == 64 && "expecting an i64 type");
-          firstOperand = operandAdaptor.input();
+          firstOperand = operandAdaptor.getInput();
         })
         .Case<StringType>([&](StringType type) {
           Type i8Type = IntegerType::get(ctx, 8);
           Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
           firstOperand = rewriter.create<LLVM::IntToPtrOp>(
-              loc, i8PtrType, operandAdaptor.input());
+              loc, i8PtrType, operandAdaptor.getInput());
         })
         .Default([](Type type) {
           llvm::errs() << "type: " << type << "\n";
           llvm_unreachable("unexpected inputType");
         });
 
-    Type GType =
-        operandAdaptor.G().getType().cast<LLVM::LLVMStructType>().getBody()[1];
-    Type VType =
-        operandAdaptor.V().getType().cast<LLVM::LLVMStructType>().getBody()[1];
+    Type GType = operandAdaptor.getG()
+                     .getType()
+                     .cast<LLVM::LLVMStructType>()
+                     .getBody()[1];
+    Type VType = operandAdaptor.getV()
+                     .getType()
+                     .cast<LLVM::LLVMStructType>()
+                     .getBody()[1];
 
     // Remaining operands.
     Value extractedGPtr =
-        create.llvm.extractValue(GType, operandAdaptor.G(), {1});
+        create.llvm.extractValue(GType, operandAdaptor.getG(), {1});
     Value extractedVPtr =
-        create.llvm.extractValue(VType, operandAdaptor.V(), {1});
-    Value length = operandAdaptor.len();
+        create.llvm.extractValue(VType, operandAdaptor.getV(), {1});
+    Value length = operandAdaptor.getLen();
 
     // Generate the call to the runtime function.
     Type retType = IntegerType::get(ctx, 64);

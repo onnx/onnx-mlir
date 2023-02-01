@@ -32,7 +32,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     bool insertDealloc = checkInsertDealloc(op);
     ONNXResizeOp resizeOp = llvm::cast<ONNXResizeOp>(op);
     ONNXResizeOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.X();
+    Value data = operandAdaptor.getX();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -42,9 +42,9 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     int64_t rank = memRefType.getShape().size();
 
     // Check implementation constraints
-    if (resizeOp.mode() == "nearest" &&
-        (resizeOp.coordinate_transformation_mode() != "asymmetric" &&
-            resizeOp.coordinate_transformation_mode() != "half_pixel"))
+    if (resizeOp.getMode() == "nearest" &&
+        (resizeOp.getCoordinateTransformationMode() != "asymmetric" &&
+            resizeOp.getCoordinateTransformationMode() != "half_pixel"))
       return emitError(loc, "not implemented yet");
 
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
@@ -63,15 +63,15 @@ struct ONNXResizeOpLowering : public ConversionPattern {
 
     // Call external function when the mode is not "nearest"
     // Create KrnlCallOp and replace the du chain
-    // One of inputs, scales() and size(), has to be None.
+    // One of inputs, getScales() and size(), has to be None.
     // For now, None input is picked out by KrnlCall builder,
     // and different function will be called accordingly.
     // Another issue is the attributes with default value.
     // Currently, it is assumed that all the optional attributes have
     // the default value and does appear in the Attribute dictionary.
     // ToFix: Handle attributes for general case
-    if (resizeOp.mode() != "nearest") {
-      if (!isFromNone(resizeOp.scales())) {
+    if (resizeOp.getMode() != "nearest") {
+      if (!isFromNone(resizeOp.getScales())) {
         rewriter.create<KrnlCallOp>(
             loc, "Resize_Scales", alloc, op, operands, true);
       } else {
@@ -108,9 +108,9 @@ struct ONNXResizeOpLowering : public ConversionPattern {
                 create.math.cast(rewriter.getF32Type(), outIndexInteger);
 
             // Handle coordinate transformation
-            if (resizeOp.coordinate_transformation_mode() == "asymmetric") {
+            if (resizeOp.getCoordinateTransformationMode() == "asymmetric") {
               inIndexFloat = create.math.div(outIndexFloat, scaleValues[i]);
-            } else if (resizeOp.coordinate_transformation_mode() ==
+            } else if (resizeOp.getCoordinateTransformationMode() ==
                        "half_pixel") {
               // If coordinate_transformation_mode is "half_pixel",
               // x_original = (x_resized + 0.5) / scale - 0.5,
@@ -123,23 +123,23 @@ struct ONNXResizeOpLowering : public ConversionPattern {
             }
 
             // Handle nearest_mode
-            if (resizeOp.nearest_mode() == "round_prefer_floor") {
+            if (resizeOp.getNearestMode() == "round_prefer_floor") {
               // round_prefer_floor will round 2.5 to 2, not 3
               Value deltaConstant =
                   create.math.constant(rewriter.getF32Type(), 0.499999);
               inIndexFloat = create.math.add(inIndexFloat, deltaConstant);
-            } else if (resizeOp.nearest_mode() == "round_prefer_ceil") {
+            } else if (resizeOp.getNearestMode() == "round_prefer_ceil") {
               Value deltaConstant =
                   create.math.constant(rewriter.getF32Type(), 0.5);
               inIndexFloat = create.math.add(inIndexFloat, deltaConstant);
-            } else if (resizeOp.nearest_mode() == "floor") {
+            } else if (resizeOp.getNearestMode() == "floor") {
               // Not supported by create.math
               inIndexFloat = rewriter.create<math::FloorOp>(loc, inIndexFloat);
-            } else if (resizeOp.nearest_mode() == "ceil") {
+            } else if (resizeOp.getNearestMode() == "ceil") {
               // Not supported by create.math
               inIndexFloat = rewriter.create<math::CeilOp>(loc, inIndexFloat);
             } else {
-              llvm_unreachable("Unexpected nearest_mode() for ResizeOp");
+              llvm_unreachable("Unexpected getNearestMode() for ResizeOp");
             }
 
             // FPToSIOp is round-to-zero, same as floor for positive

@@ -24,17 +24,17 @@ using namespace onnx_mlir;
 
 LogicalResult ONNXConcatFromSequenceOp::verify() {
   ONNXConcatFromSequenceOpAdaptor operandAdaptor(*this);
-  if (!hasShapeAndRank(operandAdaptor.input_sequence()))
+  if (!hasShapeAndRank(operandAdaptor.getInputSequence()))
     return success(); // Won't be able to do any checking at this stage.
 
-  Value inputSequence = operandAdaptor.input_sequence();
+  Value inputSequence = operandAdaptor.getInputSequence();
   assert(inputSequence.getType().isa<SeqType>() &&
          "Incorrect type for a sequence");
   auto seqType = inputSequence.getType().cast<SeqType>();
   auto elemType = seqType.getElementType().cast<ShapedType>();
   int64_t rank = elemType.getShape().size();
-  int64_t axisIndex = axis();
-  int64_t newAxisIndex = new_axis();
+  int64_t axisIndex = getAxis();
+  int64_t newAxisIndex = getNewAxis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
   // When `new_axis` is 1, accepted range is [-r-1,r].

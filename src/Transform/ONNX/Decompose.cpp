@@ -47,7 +47,7 @@ DenseElementsAttr createDenseArrayAttr(
 
     return DenseElementsAttr::get(
         RankedTensorType::get(wrapper.size(), elementType),
-        llvm::makeArrayRef(wrapper));
+        llvm::ArrayRef(wrapper));
   }
 
   if (origAttrs.getValue()[0].dyn_cast<IntegerAttr>()) {
@@ -59,7 +59,7 @@ DenseElementsAttr createDenseArrayAttr(
 
     return DenseElementsAttr::get(
         RankedTensorType::get(wrapper.size(), elementType),
-        llvm::makeArrayRef(wrapper));
+        llvm::ArrayRef(wrapper));
   }
 
   llvm_unreachable("unexpected attribute type");
@@ -74,7 +74,7 @@ DenseElementsAttr createScalarDenseAttr(
     SmallVector<float, 1> wrapper;
     wrapper.emplace_back(attr.cast<FloatAttr>().getValueAsDouble());
     return DenseElementsAttr::get(
-        RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
+        RankedTensorType::get({}, elementType), llvm::ArrayRef(wrapper));
   }
 
   if (attr.dyn_cast<IntegerAttr>()) {
@@ -82,7 +82,7 @@ DenseElementsAttr createScalarDenseAttr(
     SmallVector<int64_t, 1> wrapper;
     wrapper.emplace_back(attr.cast<IntegerAttr>().getInt());
     return DenseElementsAttr::get(
-        RankedTensorType::get({}, elementType), llvm::makeArrayRef(wrapper));
+        RankedTensorType::get({}, elementType), llvm::ArrayRef(wrapper));
   }
 
   llvm_unreachable("unexpected attribute type");
@@ -107,7 +107,7 @@ DenseElementsAttr createDenseArrayAttrOrEmpty(
 
   return DenseElementsAttr::get(
       RankedTensorType::get(wrapper.size(), elementType),
-      llvm::makeArrayRef(wrapper));
+      llvm::ArrayRef(wrapper));
 }
 
 Value createSequenceConstructOp(
@@ -158,7 +158,7 @@ struct SoftmaxPattern : public ConversionPattern {
 
     // Match
     ONNXSoftmaxOp softmaxOp = ::llvm::dyn_cast<ONNXSoftmaxOp>(op0);
-    Value input = softmaxOp.input();
+    Value input = softmaxOp.getInput();
     Type inputType = input.getType();
     axis = op0->getAttrOfType<IntegerAttr>("axis");
     if (!axis)
@@ -244,8 +244,8 @@ struct ConcatFusePattern : public ConversionPattern {
     outputTypes.emplace_back(transposeOp.getResult().getType());
 
     auto fusedV = rewriter.create<ONNXConcatShapeTransposeOp>(op->getLoc(),
-        outputTypes, operands, concatOp.axisAttr(), shapeOp.endAttr(),
-        shapeOp.startAttr(), transposeOp.permAttr());
+        outputTypes, operands, concatOp.getAxisAttr(), shapeOp.getEndAttr(),
+        shapeOp.getStartAttr(), transposeOp.getPermAttr());
     rewriter.replaceOp(shapeOp.getOperation(), fusedV.getResults()[0]);
     rewriter.replaceOp(transposeOp.getOperation(), fusedV.getResults()[1]);
     rewriter.eraseOp(op);

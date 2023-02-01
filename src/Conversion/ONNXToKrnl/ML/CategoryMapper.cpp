@@ -56,9 +56,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Operands and attributes.
-    Value X = operandAdaptor.X();
-    ArrayAttr cats_int64sAttr = categoryMapperOp.cats_int64sAttr();
-    ArrayAttr cats_stringsAttr = categoryMapperOp.cats_stringsAttr();
+    Value X = operandAdaptor.getX();
+    ArrayAttr cats_int64sAttr = categoryMapperOp.getCatsInt64sAttr();
+    ArrayAttr cats_stringsAttr = categoryMapperOp.getCatsStringsAttr();
 
     DenseElementsAttr cats_int64s = mlir::DenseElementsAttr::get(
         RankedTensorType::get(
@@ -69,13 +69,13 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
             krnl::StringType::get(rewriter.getContext())),
         cats_stringsAttr.getValue());
 
-    IntegerAttr default_int64 = categoryMapperOp.default_int64Attr();
+    IntegerAttr default_int64 = categoryMapperOp.getDefaultInt64Attr();
     DenseElementsAttr default_string =
-        (categoryMapperOp.default_stringAttr())
+        (categoryMapperOp.getDefaultStringAttr())
             ? mlir::DenseElementsAttr::get(
                   RankedTensorType::get(
                       {}, krnl::StringType::get(rewriter.getContext())),
-                  categoryMapperOp.default_stringAttr().getValue())
+                  categoryMapperOp.getDefaultStringAttr().getValue())
             : nullptr;
 
     // Convert the output type to MemRefType.
