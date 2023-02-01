@@ -33,7 +33,7 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
     auto spaceToDepthOp = llvm::cast<ONNXDepthToSpaceOp>(op);
     // assert(spaceToDepthOp && "Expecting op to have type ONNXDepthToSpaceOp");
     ONNXDepthToSpaceOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
     Location loc = op->getLoc();
     MultiDialectBuilder<IndexExprBuilderForKrnl, OnnxToKrnlBuilder> create(
         rewriter, loc);
@@ -42,8 +42,8 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
     ONNXDepthToSpaceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    int64_t bs = spaceToDepthOp.blocksize();
-    StringRef mode = spaceToDepthOp.mode();
+    int64_t bs = spaceToDepthOp.getBlocksize();
+    StringRef mode = spaceToDepthOp.getMode();
     assert(create.krnlIE.getShapedTypeRank(input) == 4 &&
            "Input tensor should have rank equal to 4");
 

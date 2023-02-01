@@ -90,7 +90,7 @@ public:
     Location loc = op->getLoc();
 
     ZLowStickOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.X()
+    Type llvmElementTy = operandAdaptor.getX()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -104,24 +104,24 @@ public:
     // used for creating a zTensor. For 'zLow.stick', the original shape is
     // obtained from the first argument.
     SmallVector<Value, 3> dims;
-    getDimsFromMemRef(rewriter, loc, module, operandAdaptor.X(), dims);
+    getDimsFromMemRef(rewriter, loc, module, operandAdaptor.getX(), dims);
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
 
     // Get zDNN data layout.
     zdnn_data_layouts zDNNDataLayout = convertLayoutAttrToZDNNDataLayout(
-        dims.size(), dyn_cast_or_null<ZLowStickOp>(op).layoutAttr());
+        dims.size(), dyn_cast_or_null<ZLowStickOp>(op).getLayoutAttr());
 
     // Create a zTensor.
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.Out());
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
     ZTensor zTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/zDNNDataLayout, /*originalDims=*/dims,
             /*isTransformed=*/false);
 
     // Ready to stickify.
-    Value unstickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.X());
+    Value unstickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getX());
     callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ZTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr});
 
@@ -148,7 +148,7 @@ public:
     Location loc = op->getLoc();
 
     ZLowStickForLSTMOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.f_gate()
+    Type llvmElementTy = operandAdaptor.getFGate()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -162,7 +162,7 @@ public:
     // used for creating a zTensor. F, I, C, O gates have the same shape. Thus,
     // they share the dimensions.
     SmallVector<Value, 3> dims;
-    getDimsFromMemRef(rewriter, loc, module, operandAdaptor.f_gate(), dims);
+    getDimsFromMemRef(rewriter, loc, module, operandAdaptor.getFGate(), dims);
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
@@ -171,7 +171,7 @@ public:
     zdnn_data_layouts zDNNDataLayout;
     zdnn_concat_info zDNNConcatInfo;
     StringRef prevLayerStr =
-        dyn_cast_or_null<ZLowStickForLSTMOp>(op).prev_layer();
+        dyn_cast_or_null<ZLowStickForLSTMOp>(op).getPrevLayer();
     int64_t prevLayer = -1;
     if (prevLayerStr.equals_insensitive("none")) {
       prevLayer = PREV_LAYER_NONE;
@@ -198,7 +198,7 @@ public:
     }
 
     // Create a zTensor.
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.out());
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
     ZTensor zTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/zDNNDataLayout, /*originalDims=*/dims,
@@ -206,10 +206,10 @@ public:
             /*concatInfo=*/zDNNConcatInfo);
 
     // Ready to stickify.
-    Value fGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.f_gate());
-    Value iGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.i_gate());
-    Value cGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.c_gate());
-    Value oGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.o_gate());
+    Value fGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getFGate());
+    Value iGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getIGate());
+    Value cGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getCGate());
+    Value oGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOGate());
     callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ZTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), fGatePtr, iGatePtr,
             cGatePtr, oGatePtr});
@@ -237,7 +237,7 @@ public:
     Location loc = op->getLoc();
 
     ZLowStickForGRUOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.z_gate()
+    Type llvmElementTy = operandAdaptor.getZGate()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -251,7 +251,7 @@ public:
     // used for creating a zTensor. Z, R, H gates have the same shape. Thus,
     // they share the dimensions.
     SmallVector<Value, 3> dims;
-    getDimsFromMemRef(rewriter, loc, module, operandAdaptor.z_gate(), dims);
+    getDimsFromMemRef(rewriter, loc, module, operandAdaptor.getZGate(), dims);
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
@@ -260,7 +260,7 @@ public:
     zdnn_data_layouts zDNNDataLayout;
     zdnn_concat_info zDNNConcatInfo;
     StringRef prevLayerStr =
-        dyn_cast_or_null<ZLowStickForGRUOp>(op).prev_layer();
+        dyn_cast_or_null<ZLowStickForGRUOp>(op).getPrevLayer();
     int64_t prevLayer = -1;
     if (prevLayerStr.equals_insensitive("none")) {
       prevLayer = PREV_LAYER_NONE;
@@ -286,7 +286,7 @@ public:
     }
 
     // Create a zTensor.
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.out());
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
     ZTensor zTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/zDNNDataLayout, /*originalDims=*/dims,
@@ -294,9 +294,9 @@ public:
             /*concatInfo=*/zDNNConcatInfo);
 
     // Ready to stickify.
-    Value zGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.z_gate());
-    Value rGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.r_gate());
-    Value hGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.h_gate());
+    Value zGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getZGate());
+    Value rGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getRGate());
+    Value hGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHGate());
     callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ZTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), zGatePtr, rGatePtr,
             hGatePtr});
@@ -325,7 +325,7 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowLSTMOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.input()
+    Type llvmElementTy = operandAdaptor.getInput()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -342,7 +342,7 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/5);
+        rewriter, loc, module, operandAdaptor.getShape(), /*size=*/5);
     // direction
     Value D = dims[0];
     // timestep
@@ -354,7 +354,7 @@ public:
     // hidden size
     Value H = dims[4];
 
-    StringRef prevLayerStr = dyn_cast_or_null<ZLowLSTMOp>(op).prev_layer();
+    StringRef prevLayerStr = dyn_cast_or_null<ZLowLSTMOp>(op).getPrevLayer();
     int64_t prevLayer = -1;
     if (prevLayerStr.equals_insensitive("none")) {
       prevLayer = PREV_LAYER_NONE;
@@ -369,14 +369,14 @@ public:
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
 
     // Create a zTensor for input.
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input());
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInput());
     ZTensor inputZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{T, B, F},
             /*isTransformed=*/true);
 
     // Create zTensor for h0.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.h0());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getH0());
     ZTensor h0ZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{D, B, H},
@@ -384,7 +384,7 @@ public:
 
     // Create zTensor for c0. Reuse descriptors from h0 because h0 and c0 have
     // the same shape.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.c0());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getC0());
     ZTensor c0ZTensor = zTensorHelper.getZTensor(
         /*preTransformedDescPtr=*/h0ZTensor.preTransformedDescPtr,
         /*transformedDescPtr=*/h0ZTensor.transformedDescPtr,
@@ -393,7 +393,8 @@ public:
         /*isTransformed=*/true);
 
     // Create zTensor for input_weights.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input_weights());
+    stickI8Ptr =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInputWeights());
     ZTensor inputWeightsZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{D, F, H},
@@ -401,7 +402,7 @@ public:
             /*concatInfo=*/RNN_TYPE_LSTM | USAGE_WEIGHTS | prevLayer);
 
     // Create zTensor for input_bias.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input_bias());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInputBias());
     ZTensor inputBiasZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_2DS, /*originalDims=*/{D, H},
@@ -409,7 +410,8 @@ public:
             /*concatInfo=*/RNN_TYPE_LSTM | USAGE_BIASES | prevLayer);
 
     // Create zTensor for hidden_weights.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_weights());
+    stickI8Ptr =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHiddenWeights());
     ZTensor hiddenWeightsZTensor = zTensorHelper.getZTensor(stickI8Ptr,
         /*dataType=*/zDNNDataType,
         /*layout=*/ZDNN_3DS, /*originalDims=*/{D, H, H},
@@ -417,7 +419,7 @@ public:
         /*concatInfo=*/RNN_TYPE_LSTM | USAGE_HIDDEN_WEIGHTS | prevLayer);
 
     // Create zTensor for hidden_bias.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_bias());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHiddenBias());
     ZTensor hiddenBiasZTensor = zTensorHelper.getZTensor(stickI8Ptr,
         /*dataType=*/zDNNDataType,
         /*layout=*/ZDNN_2DS, /*originalDims=*/{D, H},
@@ -426,7 +428,7 @@ public:
 
     // Direction input.
     Value direction;
-    StringRef directionStr = dyn_cast_or_null<ZLowLSTMOp>(op).direction();
+    StringRef directionStr = dyn_cast_or_null<ZLowLSTMOp>(op).getDirection();
     if (directionStr.equals_insensitive("forward")) {
       direction = create.llvm.constant(llvmI64Ty, (int64_t)FWD);
     } else if (directionStr.equals_insensitive("reverse")) {
@@ -437,12 +439,13 @@ public:
       llvm_unreachable("Unsupported direction");
 
     // work_area.
-    Value workArea = zTensorHelper.getAlignedI8Ptr(operandAdaptor.work_area());
+    Value workArea =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWorkArea());
 
     // Create zTensor for hn_output.
     Value preTransformedDescPtr;
 
-    if (dyn_cast_or_null<ZLowLSTMOp>(op).return_all_steps() == -1)
+    if (dyn_cast_or_null<ZLowLSTMOp>(op).getReturnAllSteps() == -1)
       // all steps.
       preTransformedDescPtr = zTensorHelper.getPreTransformedDescPtr(
           zDNNDataType, ZDNN_4DS, {T, D, B, H});
@@ -459,7 +462,7 @@ public:
     // Buffer size.
     Value bufferSize = zTensorHelper.getBufferSize(transformedDescPtr);
     // Buffer pointer.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hn_output());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHnOutput());
     ZTensor hnOutputZTensor = zTensorHelper.getZTensor(
         /*preTransformedDescPtr=*/preTransformedDescPtr,
         /*transformedDescPtr=*/transformedDescPtr,
@@ -470,8 +473,8 @@ public:
     // Create zTensor for cf_output. Reuse descriptors from hn_output if
     // hn_output is the last step output.
     ZTensor cfOutputZTensor;
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.cf_output());
-    if (dyn_cast_or_null<ZLowLSTMOp>(op).return_all_steps() != -1)
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getCfOutput());
+    if (dyn_cast_or_null<ZLowLSTMOp>(op).getReturnAllSteps() != -1)
       cfOutputZTensor = zTensorHelper.getZTensor(
           /*preTransformedDescPtr=*/hnOutputZTensor.preTransformedDescPtr,
           /*transformedDescPtr=*/hnOutputZTensor.transformedDescPtr,
@@ -521,7 +524,7 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowGRUOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.input()
+    Type llvmElementTy = operandAdaptor.getInput()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -538,7 +541,7 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/5);
+        rewriter, loc, module, operandAdaptor.getShape(), /*size=*/5);
     // direction
     Value D = dims[0];
     // timestep
@@ -554,21 +557,22 @@ public:
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
 
     // Create a zTensor for input.
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input());
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInput());
     ZTensor inputZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{T, B, F},
             /*isTransformed=*/true);
 
     // Create zTensor for h0.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.h0());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getH0());
     ZTensor h0ZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{D, B, H},
             /*isTransformed=*/true);
 
     // Create zTensor for input_weights.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input_weights());
+    stickI8Ptr =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInputWeights());
     ZTensor inputWeightsZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{D, F, H},
@@ -576,7 +580,7 @@ public:
             /*concatInfo=*/RNN_TYPE_GRU | USAGE_WEIGHTS | PREV_LAYER_NONE);
 
     // Create zTensor for input_bias.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input_bias());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInputBias());
     ZTensor inputBiasZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_2DS, /*originalDims=*/{D, H},
@@ -584,7 +588,8 @@ public:
             /*concatInfo=*/RNN_TYPE_GRU | USAGE_BIASES | PREV_LAYER_NONE);
 
     // Create zTensor for hidden_weights.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_weights());
+    stickI8Ptr =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHiddenWeights());
     ZTensor hiddenWeightsZTensor = zTensorHelper.getZTensor(stickI8Ptr,
         /*dataType=*/zDNNDataType,
         /*layout=*/ZDNN_3DS, /*originalDims=*/{D, H, H},
@@ -592,7 +597,7 @@ public:
         /*concatInfo=*/RNN_TYPE_GRU | USAGE_HIDDEN_WEIGHTS | PREV_LAYER_NONE);
 
     // Create zTensor for hidden_bias.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hidden_bias());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHiddenBias());
     ZTensor hiddenBiasZTensor = zTensorHelper.getZTensor(stickI8Ptr,
         /*dataType=*/zDNNDataType,
         /*layout=*/ZDNN_2DS, /*originalDims=*/{D, H},
@@ -601,7 +606,7 @@ public:
 
     // Direction input.
     Value direction;
-    StringRef directionStr = dyn_cast_or_null<ZLowGRUOp>(op).direction();
+    StringRef directionStr = dyn_cast_or_null<ZLowGRUOp>(op).getDirection();
     if (directionStr.equals_insensitive("forward")) {
       direction = create.llvm.constant(llvmI64Ty, (int64_t)FWD);
     } else if (directionStr.equals_insensitive("reverse")) {
@@ -612,11 +617,12 @@ public:
       llvm_unreachable("Unsupported direction");
 
     // work_area.
-    Value workArea = zTensorHelper.getAlignedI8Ptr(operandAdaptor.work_area());
+    Value workArea =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWorkArea());
 
     // Create zTensor for hn_output.
     Value preTransformedDescPtr;
-    if (dyn_cast_or_null<ZLowGRUOp>(op).return_all_steps() == -1)
+    if (dyn_cast_or_null<ZLowGRUOp>(op).getReturnAllSteps() == -1)
       // all steps.
       preTransformedDescPtr = zTensorHelper.getPreTransformedDescPtr(
           zDNNDataType, ZDNN_4DS, {T, D, B, H});
@@ -633,7 +639,7 @@ public:
     // Buffer size.
     Value bufferSize = zTensorHelper.getBufferSize(transformedDescPtr);
     // Buffer pointer.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.hn_output());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHnOutput());
     ZTensor hnOutputZTensor = zTensorHelper.getZTensor(
         /*preTransformedDescPtr=*/preTransformedDescPtr,
         /*transformedDescPtr=*/transformedDescPtr,
@@ -675,7 +681,7 @@ public:
     Location loc = op->getLoc();
 
     ZLowUnstickOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.Out()
+    Type llvmElementTy = operandAdaptor.getOut()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -689,24 +695,24 @@ public:
     // used for creating a zTensor. For 'zLow.unstick', the original shape is
     // obtained from the second argument.
     SmallVector<Value, 3> dims;
-    getDimsFromMemRef(rewriter, loc, module, operandAdaptor.Out(), dims);
+    getDimsFromMemRef(rewriter, loc, module, operandAdaptor.getOut(), dims);
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
 
     // Get zDNN data layout.
     zdnn_data_layouts zDNNDataLayout = convertLayoutAttrToZDNNDataLayout(
-        dims.size(), dyn_cast_or_null<ZLowUnstickOp>(op).layoutAttr());
+        dims.size(), dyn_cast_or_null<ZLowUnstickOp>(op).getLayoutAttr());
 
     // Create a zTensor.
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.X());
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getX());
     ZTensor zTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/zDNNDataLayout, /*originalDims=*/dims,
             /*isTransformed=*/true);
 
     // Ready to unstickify.
-    Value unstickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.Out());
+    Value unstickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
     callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ORIGTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr});
 
@@ -752,7 +758,7 @@ public:
 
     // Get zDNN data layout.
     zdnn_data_layouts zDNNDataLayout =
-        convertLayoutAttrToZDNNDataLayout(0, unaryOp.layoutAttr());
+        convertLayoutAttrToZDNNDataLayout(0, unaryOp.getLayoutAttr());
 
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating a zTensor.
@@ -832,7 +838,7 @@ public:
 
     // Get zDNN data layout.
     zdnn_data_layouts zDNNDataLayout =
-        convertLayoutAttrToZDNNDataLayout(0, binaryOp.layoutAttr());
+        convertLayoutAttrToZDNNDataLayout(0, binaryOp.getLayoutAttr());
 
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating a zTensor.
@@ -895,7 +901,7 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowSoftmaxOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.X()
+    Type llvmElementTy = operandAdaptor.getX()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -913,11 +919,11 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating a zTensor.
     std::vector<Value> dims =
-        getDimsFromShapeMemRef(rewriter, loc, module, operandAdaptor.shape(),
+        getDimsFromShapeMemRef(rewriter, loc, module, operandAdaptor.getShape(),
             /*layout=*/zDNNDataLayout);
 
     // Create the input zTensor.
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.X());
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getX());
     ZTensor inputZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/zDNNDataLayout, /*originalDims=*/dims,
@@ -925,7 +931,7 @@ public:
 
     // Create activation function type.
     nnpa_softmax_act actType;
-    StringRef actFuncStr = llvm::dyn_cast<ZLowSoftmaxOp>(op).act_func();
+    StringRef actFuncStr = llvm::dyn_cast<ZLowSoftmaxOp>(op).getActFunc();
     if (actFuncStr.equals_insensitive("act_none"))
       actType = NNPA_SOFTMAX_NONE;
     else if (actFuncStr.equals_insensitive("act_log"))
@@ -936,7 +942,7 @@ public:
         create.llvm.constant(rewriter.getI64Type(), (int64_t)actType);
 
     // Create the output zTensor.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.Out());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
     ZTensor outputZTensor = zTensorHelper.getZTensor(
         /*preTransformedDescPtr=*/inputZTensor.preTransformedDescPtr,
         /*transformedDescPtr=*/inputZTensor.transformedDescPtr,
@@ -945,7 +951,8 @@ public:
         /*isTransformed=*/true);
 
     // work_area.
-    Value workArea = zTensorHelper.getAlignedI8Ptr(operandAdaptor.work_area());
+    Value workArea =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWorkArea());
 
     // Call zDNN softmax.
     callApi(rewriter, loc, module, apiRegistry, API::ZDNN_SOFTMAX,
@@ -980,7 +987,7 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMatMulOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.X()
+    Type llvmElementTy = operandAdaptor.getX()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -988,11 +995,11 @@ public:
                              .getElementType();
 
     bool stacked, broadcasting;
-    if (dyn_cast_or_null<ZLowMatMulOp>(op).is_stacked() == -1)
+    if (dyn_cast_or_null<ZLowMatMulOp>(op).getIsStacked() == -1)
       stacked = true;
     else
       stacked = false;
-    if (dyn_cast_or_null<ZLowMatMulOp>(op).is_bcast() == -1)
+    if (dyn_cast_or_null<ZLowMatMulOp>(op).getIsBcast() == -1)
       broadcasting = true;
     else
       broadcasting = false;
@@ -1009,7 +1016,7 @@ public:
     if (stacked || broadcasting)
       dimCount = 4;
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/dimCount);
+        rewriter, loc, module, operandAdaptor.getShape(), /*size=*/dimCount);
     // Dimensions: s, m, n, p;
     Value S, M, N, P;
     if (stacked || broadcasting) {
@@ -1029,7 +1036,7 @@ public:
     // Create zTensors.
     ZTensor xZTensor, yZTensor, biasZTensor, outputZTensor;
     // X
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.X());
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getX());
     if (stacked || broadcasting)
       xZTensor = zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
           /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, N},
@@ -1039,7 +1046,7 @@ public:
           /*layout=*/ZDNN_2D, /*originalDims=*/{M, N},
           /*isTransformed=*/true);
     // Y
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.Y());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getY());
     if (stacked)
       yZTensor = zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
           /*layout=*/ZDNN_3DS, /*originalDims=*/{S, N, P},
@@ -1049,7 +1056,7 @@ public:
           /*layout=*/ZDNN_2D, /*originalDims=*/{N, P},
           /*isTransformed=*/true);
     // Bias
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.Bias());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getBias());
     if (stacked)
       biasZTensor =
           zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
@@ -1069,7 +1076,7 @@ public:
       op_type =
           create.llvm.constant(llvmI64Ty, (int64_t)NNPA_MATMUL_OP_ADDITION);
     // Output
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.Out());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
     if (stacked || broadcasting)
       outputZTensor =
           zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
@@ -1121,7 +1128,7 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowConv2DOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.input()
+    Type llvmElementTy = operandAdaptor.getInput()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -1137,7 +1144,7 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/7);
+        rewriter, loc, module, operandAdaptor.getShape(), /*size=*/7);
     // batch size
     Value N = dims[0];
     // channel in
@@ -1153,7 +1160,8 @@ public:
     // width out
     Value WOut = dims[6];
     // kernel shape
-    ArrayRef<Attribute> kernelShapeArrayAttr = convOp.kernel_shape().getValue();
+    ArrayRef<Attribute> kernelShapeArrayAttr =
+        convOp.getKernelShape().getValue();
     // kernel height
     Value KH = create.llvm.constant(llvmI64Ty,
         (int64_t)kernelShapeArrayAttr[0].cast<IntegerAttr>().getInt());
@@ -1165,21 +1173,21 @@ public:
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
 
     // Create a zTensor for input.
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input());
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInput());
     ZTensor inputZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_NHWC, /*originalDims=*/{N, HIn, WIn, CIn},
             /*isTransformed=*/true);
 
     // Create zTensor for input kernel.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input_kernel());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInputKernel());
     ZTensor kernelZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_HWCK, /*originalDims=*/{KH, KW, CIn, COut},
             /*isTransformed=*/true);
 
     // Create zTensor for bias.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input_bias());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInputBias());
     ZTensor biasZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_1D, /*originalDims=*/{COut},
@@ -1187,17 +1195,17 @@ public:
 
     // Padding type.
     Value paddingType;
-    if (convOp.padding_type().equals_insensitive("SAME_PADDING"))
+    if (convOp.getPaddingType().equals_insensitive("SAME_PADDING"))
       paddingType = create.llvm.constant(
           llvmI64Ty, (int64_t)zdnn_pool_padding::SAME_PADDING);
-    else if (convOp.padding_type().equals_insensitive("VALID_PADDING"))
+    else if (convOp.getPaddingType().equals_insensitive("VALID_PADDING"))
       paddingType = create.llvm.constant(
           llvmI64Ty, (int64_t)zdnn_pool_padding::VALID_PADDING);
     else
       llvm_unreachable("Unsupported padding type");
 
     // Strides
-    ArrayRef<Attribute> strideArrayAttr = convOp.strides().getValue();
+    ArrayRef<Attribute> strideArrayAttr = convOp.getStrides().getValue();
     Value strideHeight = create.llvm.constant(
         llvmI64Ty, (int64_t)strideArrayAttr[0].cast<IntegerAttr>().getInt());
     Value strideWidth = create.llvm.constant(
@@ -1205,17 +1213,17 @@ public:
 
     // Activation function.
     Value actFunc;
-    if (convOp.act_func().equals_insensitive("ACT_NONE"))
+    if (convOp.getActFunc().equals_insensitive("ACT_NONE"))
       actFunc = create.llvm.constant(
           llvmI64Ty, (int64_t)zdnn_conv2d_act::CONV2D_ACT_NONE);
-    else if (convOp.act_func().equals_insensitive("ACT_RELU"))
+    else if (convOp.getActFunc().equals_insensitive("ACT_RELU"))
       actFunc = create.llvm.constant(
           llvmI64Ty, (int64_t)zdnn_conv2d_act::CONV2D_ACT_RELU);
     else
       llvm_unreachable("Unsupported activation function");
 
     // Create zTensor for output.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.output());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOutput());
     ZTensor outputZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_NHWC, /*originalDims=*/{N, HOut, WOut, COut},
@@ -1302,7 +1310,8 @@ public:
     // width out
     Value WOut = dims[5];
     // kernel shape
-    ArrayRef<Attribute> kernelShapeArrayAttr = poolOp.kernel_shape().getValue();
+    ArrayRef<Attribute> kernelShapeArrayAttr =
+        poolOp.getKernelShape().getValue();
     // kernel height
     Value KH = create.llvm.constant(llvmI64Ty,
         (int64_t)kernelShapeArrayAttr[0].cast<IntegerAttr>().getInt());
@@ -1322,17 +1331,17 @@ public:
 
     // Padding type.
     Value paddingType;
-    if (poolOp.padding_type().equals_insensitive("SAME_PADDING"))
+    if (poolOp.getPaddingType().equals_insensitive("SAME_PADDING"))
       paddingType = create.llvm.constant(
           llvmI64Ty, (int64_t)zdnn_pool_padding::SAME_PADDING);
-    else if (poolOp.padding_type().equals_insensitive("VALID_PADDING"))
+    else if (poolOp.getPaddingType().equals_insensitive("VALID_PADDING"))
       paddingType = create.llvm.constant(
           llvmI64Ty, (int64_t)zdnn_pool_padding::VALID_PADDING);
     else
       llvm_unreachable("Unsupported padding type");
 
     // Strides
-    ArrayRef<Attribute> strideArrayAttr = poolOp.strides().getValue();
+    ArrayRef<Attribute> strideArrayAttr = poolOp.getStrides().getValue();
     Value strideHeight = create.llvm.constant(
         llvmI64Ty, (int64_t)strideArrayAttr[0].cast<IntegerAttr>().getInt());
     Value strideWidth = create.llvm.constant(
@@ -1375,7 +1384,7 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMeanReduce2DOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.input()
+    Type llvmElementTy = operandAdaptor.getInput()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -1392,7 +1401,7 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/4);
+        rewriter, loc, module, operandAdaptor.getShape(), /*size=*/4);
     // batch size
     Value N = dims[0];
     // height in
@@ -1405,14 +1414,14 @@ public:
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
 
     // Create a zTensor for input.
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input());
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInput());
     ZTensor inputZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_NHWC, /*originalDims=*/{N, H, W, C},
             /*isTransformed=*/true);
 
     // Create zTensor for output.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.output());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOutput());
     ZTensor outputZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_NHWC, /*originalDims=*/{N, oneI64, oneI64, C},
@@ -1446,7 +1455,7 @@ public:
     Location loc = op->getLoc();
 
     ZLowBatchNormOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.input()
+    Type llvmElementTy = operandAdaptor.getInput()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -1459,7 +1468,7 @@ public:
     // Get the dimensions of the original shape (the shape before stickifying)
     // used for creating zTensors.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.shape(), /*size=*/4);
+        rewriter, loc, module, operandAdaptor.getShape(), /*size=*/4);
     // batch size
     Value N = dims[0];
     // height in
@@ -1473,28 +1482,28 @@ public:
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
 
     // Create a zTensor for input.
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.input());
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInput());
     ZTensor inputZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_NHWC, /*originalDims=*/{N, H, W, C},
             /*isTransformed=*/true);
 
     // Create a zTensor for A.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.A());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getA());
     ZTensor aZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_1D, /*originalDims=*/{C},
             /*isTransformed=*/true);
 
     // Create a zTensor for B.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.B());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getB());
     ZTensor bZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_1D, /*originalDims=*/{C},
             /*isTransformed=*/true);
 
     // Create zTensor for output.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.output());
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOutput());
     ZTensor outputZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_NHWC, /*originalDims=*/{N, H, W, C},

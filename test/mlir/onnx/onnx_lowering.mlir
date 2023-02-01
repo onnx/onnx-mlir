@@ -2225,7 +2225,6 @@ func.func private @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) ->
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1) -> (d1)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0, d1, d2) -> (d2)>
 // CHECK-LABEL:  func.func private @test_constant_of_shape_dynamic_dims
@@ -2921,7 +2920,6 @@ func.func @test_resize2(%arg0 : tensor<3x4xf32>, %scale : tensor<2xf32>) -> tens
   "func.return"(%2) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (d0, d1)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1) -> (d1)>
 // CHECK-LABEL:  func.func @test_resize2
@@ -2998,7 +2996,6 @@ func.func @test_resize3(%arg0 : tensor<?x?xf32>) -> tensor<*xf32> {
   "func.return"(%2) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (d0, d1)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1) -> (d1)>
 // CHECK-LABEL:  func.func @test_resize3

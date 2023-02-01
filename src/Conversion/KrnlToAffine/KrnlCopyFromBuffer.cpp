@@ -46,9 +46,9 @@ public:
     IndexExprScope indexScope(create.affineKMem);
 
     KrnlCopyFromBufferOpAdaptor operandAdaptor(copyFromBufferOp);
-    Value buffMemref(operandAdaptor.buffer());
-    Value destMemref(operandAdaptor.dest());
-    ValueRange startVals(operandAdaptor.starts());
+    Value buffMemref(operandAdaptor.getBuffer());
+    Value destMemref(operandAdaptor.getDest());
+    ValueRange startVals(operandAdaptor.getStarts());
     int64_t destRank =
         destMemref.getType().cast<MemRefType>().getShape().size();
     int64_t buffRank =
@@ -56,7 +56,7 @@ public:
     int64_t destOffset = destRank - buffRank;
     assert(destOffset >= 0 && "offset expected non negative");
 
-    auto writeSizeAttr = copyFromBufferOp.tileSizeAttr();
+    auto writeSizeAttr = copyFromBufferOp.getTileSizeAttr();
     SmallVector<IndexExpr, 4> starts, bufferWriteUBs;
     getIndexExprList<DimIndexExpr>(startVals, starts);
     SmallVector<Value, 4> loopIndices;

@@ -58,12 +58,12 @@ add_onnx_mlir_library(OMAccelerator
   EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
-    AcceleratorsInc
-    MLIRIR
+    AcceleratorsInc    
 
   INCLUDE_DIRS PUBLIC
     ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
     LLVMSupport
+    MLIRIR
   )

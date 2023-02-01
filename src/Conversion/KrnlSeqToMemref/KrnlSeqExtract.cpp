@@ -46,15 +46,15 @@ public:
     MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
 
     auto output = rewriter
-                      .create<memref::LoadOp>(
-                          loc, operandAdaptor.seq(), operandAdaptor.index())
+                      .create<memref::LoadOp>(loc, operandAdaptor.getSeq(),
+                          operandAdaptor.getIndex())
                       .getResult();
 
     // TODO: overwrite the element in seq so that runtime error can be detected
     // if the element is read from seq after extracted, or deep deallocation
     // is added when seq is freed
 
-    if (thisOp.copy() == 0) {
+    if (thisOp.getCopy() == 0) {
       rewriter.replaceOp(op, output);
       return success();
     } else {

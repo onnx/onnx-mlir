@@ -81,11 +81,11 @@ struct ONNXConvTransposeOpLoweringToMhlo : public ConversionPattern {
     bool needOutputPadding = std::any_of(outputPadding.begin(),
         outputPadding.end(), [](int64_t i) { return i != 0; });
 
-    Value inputOperand = operandAdaptor.X();
-    Value filterOperand = operandAdaptor.W();
-    Value biasOperand = operandAdaptor.B();
+    Value inputOperand = operandAdaptor.getX();
+    Value filterOperand = operandAdaptor.getW();
+    Value biasOperand = operandAdaptor.getB();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
-    int64_t groupNum = convOp.group();
+    int64_t groupNum = convOp.getGroup();
 
     assert(isRankedShapedType(inputOperand.getType()) &&
            "Expected Ranked ShapedType");
@@ -109,7 +109,7 @@ struct ONNXConvTransposeOpLoweringToMhlo : public ConversionPattern {
         if (dimsNoOutputPadding[i].isLiteral())
           convOutputShape.emplace_back(dimsNoOutputPadding[i].getLiteral());
         else
-          convOutputShape.emplace_back(ShapedType::kDynamicSize);
+          convOutputShape.emplace_back(ShapedType::kDynamic);
       }
       convOutputType = RankedTensorType::get(convOutputShape, elemType);
     }

@@ -28,11 +28,11 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   OP_TYPE splitOp = llvm::cast<OP_TYPE>(op);
   IndexExprBuilderForKrnl createIE(rewriter, loc);
 
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   uint64_t rank = createIE.getShapedTypeRank(input);
-  // splitOp.input().getType().template cast<ShapedType>().getRank();
+  // splitOp.getInput().getType().template cast<ShapedType>().getRank();
   unsigned outputNum = splitOp.getNumResults();
-  unsigned axis = splitOp.axis();
+  unsigned axis = splitOp.getAxis();
 
   // Get shape.
   ONNXCommonSplitOpShapeHelper<OP_TYPE> shapeHelper(op, operands, &createIE);
@@ -44,7 +44,7 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
     checkInsertDealloc(op, i);
     // Convert the output type to MemRefType.
     Type convertedType =
-        typeConverter->convertType(splitOp.outputs()[i].getType());
+        typeConverter->convertType(splitOp.getOutputs()[i].getType());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();

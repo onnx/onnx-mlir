@@ -38,7 +38,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     ONNXConcatOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    auto axis = concatOp.axis();
+    auto axis = concatOp.getAxis();
     assert(axis >= 0 && "negative axis is supposed to have been normalized");
     unsigned int inputNum = operands.size();
 

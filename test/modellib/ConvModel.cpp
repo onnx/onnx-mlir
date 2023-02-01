@@ -52,16 +52,17 @@ bool Conv2DLibBuilder::build() {
   }
 
   // We use the Ns for the shape of the input, and the N1s for the construction
-  // of the model. That way, when the shape is dynamic, we set the N1s to "-1"
-  // (dynamic value) so that the compiler may not infer the size of the model,
-  // and instead generate code to figure the sizes at run time.
-  int N1 = N;
-  int CIn1 = CIn;
-  int COut1 = COut;
-  int H1 = H;
-  int W1 = W;
+  // of the model. That way, when the shape is dynamic, we set the N1s to
+  // "ShapedType::kDynamic" (dynamic value) so that the compiler may not infer
+  // the size of the model, and instead generate code to figure the sizes at run
+  // time.
+  int64_t N1 = N;
+  int64_t CIn1 = CIn;
+  int64_t COut1 = COut;
+  int64_t H1 = H;
+  int64_t W1 = W;
   if (isDynamic)
-    N1 = CIn1 = COut1 = H1 = W1 = -1;
+    N1 = CIn1 = COut1 = H1 = W1 = ShapedType::kDynamic;
 
   llvm::SmallVector<int64_t, 4> xShape = {N, CIn, H, W};
   llvm::SmallVector<int64_t, 3> xShapeSymbol = {N1, CIn1, H1, W1};
@@ -99,7 +100,7 @@ bool Conv2DLibBuilder::build() {
 
   // Use the convOp shape inference method to compute output shape, and unset
   // the shape so that we don't leave IR in a inconsistent state.
-  convOp.X().setType(xType); // Use static dims to infer shape.
+  convOp.getX().setType(xType); // Use static dims to infer shape.
   LogicalResult res = convOp.inferShapes([](mlir::Region &) {});
   if (failed(res))
     return false;
@@ -110,7 +111,7 @@ bool Conv2DLibBuilder::build() {
   modelHOut = outputShape[2];
   modelWOut = outputShape[3];
   convOp.getResult().setType(yType);
-  convOp.X().setType(xTypeSymbol);
+  convOp.getX().setType(xTypeSymbol);
 
   llvm::SmallVector<Value, 1> results = {convOp.getResult()};
   builder.create<func::ReturnOp>(loc, results);

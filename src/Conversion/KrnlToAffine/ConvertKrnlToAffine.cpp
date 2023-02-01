@@ -281,7 +281,7 @@ private:
  */
 static void markLoopBodyAsMovable(
     KrnlIterateOp root, OpBuilder builder, LoopBodyMover &mover) {
-  Region &bodyRegion = root.bodyRegion();
+  Region &bodyRegion = root.getBodyRegion();
   if (root.getNumOptimizedLoops() == 0)
     return;
 
@@ -301,7 +301,7 @@ static void markLoopBodyAsMovable(
 
       MultiDialectBuilder<KrnlBuilder> create(builder, delimeterOp->getLoc());
       KrnlMovableOp movableOp = create.krnl.movable();
-      Region &movableRegion = movableOp.region();
+      Region &movableRegion = movableOp.getRegion();
       Block *entryBlock = new Block();
       movableRegion.push_back(entryBlock);
       entryBlock->getOperations().splice(entryBlock->end(),
@@ -367,23 +367,23 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
   // single krnl.iterate to those introduced by multiple affine.for
   // operations.
   for (int64_t i = 0; i < (int64_t)currentNestedForOps.size() - 1; i++) {
-    auto iterateIV = iterateOp.bodyRegion().front().getArgument(0);
+    auto iterateIV = iterateOp.getBodyRegion().front().getArgument(0);
     BlockArgument forIV =
         currentNestedForOps[i].second.getBody()->getArgument(0);
     iterateIV.replaceAllUsesWith(forIV);
-    iterateOp.bodyRegion().front().eraseArgument(0);
+    iterateOp.getBodyRegion().front().eraseArgument(0);
   }
 
   // Pop krnl.iterate body region block arguments, leave the last one
   // for convenience (it'll be taken care of by region inlining).
-  while (iterateOp.bodyRegion().front().getNumArguments() > 1)
-    iterateOp.bodyRegion().front().eraseArgument(0);
+  while (iterateOp.getBodyRegion().front().getNumArguments() > 1)
+    iterateOp.getBodyRegion().front().eraseArgument(0);
 
   if (currentNestedForOps.empty()) {
     // If no loops are involved, simply move operations from within iterateOp
     // body region to the parent region of iterateOp.
     Block *parentBlock = iterateOp->getBlock();
-    Block &iterateOpEntryBlock = iterateOp.bodyRegion().front();
+    Block &iterateOpEntryBlock = iterateOp.getBodyRegion().front();
     // Transfer body region operations to parent region, without the terminator
     // op.
     parentBlock->getOperations().splice(iterateOp->getIterator(),
@@ -396,7 +396,7 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     innermostForOp.getRegion().getBlocks().clear();
     Region &innerMostRegion = innermostForOp.getRegion();
     innerMostRegion.getBlocks().splice(
-        innerMostRegion.end(), iterateOp.bodyRegion().getBlocks());
+        innerMostRegion.end(), iterateOp.getBodyRegion().getBlocks());
   }
 
   for (const auto &pair : currentNestedForOps)
@@ -490,10 +490,10 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     LLVM_DEBUG(llvm::dbgs()
                << DEBUG_TYPE << " interpret block op " << blockOp << "\n");
     SmallVector<AffineForOp, 2> tiledLoops;
-    SmallVector<AffineForOp, 1> loopsToTile = {loopRefToOp[blockOp.loop()]};
+    SmallVector<AffineForOp, 1> loopsToTile = {loopRefToOp[blockOp.getLoop()]};
 
     if (failed(tilePerfectlyNested(
-            loopsToTile, blockOp.tile_sizeAttr().getInt(), &tiledLoops))) {
+            loopsToTile, blockOp.getTileSizeAttr().getInt(), &tiledLoops))) {
       return failure();
     }
 
@@ -502,7 +502,7 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
 
     // Record the tiled loop references, and their corresponding tiled
     // for loops in loopRefToLoop.
-    loopRefToOp.erase(loopRefToOp.find_as(blockOp.loop()));
+    loopRefToOp.erase(loopRefToOp.find_as(blockOp.getLoop()));
     loopRefToOp[blockOp.getResult(0)] = tiledLoops[0];
     loopRefToOp[blockOp.getResult(1)] = tiledLoops[1];
 
@@ -521,7 +521,7 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
 
     // Construct permutation map from integer array attribute.
     SmallVector<unsigned int, 4> permuteMap;
-    for (const auto &attr : permuteOp.map().getAsRange<IntegerAttr>())
+    for (const auto &attr : permuteOp.getMap().getAsRange<IntegerAttr>())
       permuteMap.emplace_back(attr.getValue().getSExtValue());
 
     // Perform loop permutation.
@@ -533,7 +533,7 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     LLVM_DEBUG(llvm::dbgs()
                << DEBUG_TYPE << " interpret unroll op " << unrollOp << "\n");
     // Unroll the affine for loop fully.
-    Value loopRef = unrollOp.loop();
+    Value loopRef = unrollOp.getLoop();
     auto loopToUnroll = loopRefToOp[loopRef];
 
     mover.moveOne(loopRef, loopRefToOp);
@@ -575,7 +575,7 @@ AffineTypeConverter::AffineTypeConverter() {
                                ValueRange inputs,
                                Location loc) -> Optional<Value> {
     if (inputs.size() != 1)
-      return llvm::None;
+      return std::nullopt;
 
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
@@ -585,7 +585,7 @@ AffineTypeConverter::AffineTypeConverter() {
                                ValueRange inputs,
                                Location loc) -> Optional<Value> {
     if (inputs.size() != 1)
-      return llvm::None;
+      return std::nullopt;
 
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);

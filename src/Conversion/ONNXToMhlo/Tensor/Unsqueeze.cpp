@@ -33,8 +33,8 @@ struct ONNXUnsqueezeOpLoweringToMhlo : public ConversionPattern {
     ONNXUnsqueezeOpAdaptor operandAdaptor(operands);
     ONNXUnsqueezeOp unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
     Location loc = op->getLoc();
-    Value data = unsqueezeOp.data();
-    Value axes = unsqueezeOp.axes();
+    Value data = unsqueezeOp.getData();
+    Value axes = unsqueezeOp.getAxes();
     assert(isRankedShapedType(data.getType()) &&
            "data must be ranked Shaped Type");
     ShapedType dataType = data.getType().cast<ShapedType>();

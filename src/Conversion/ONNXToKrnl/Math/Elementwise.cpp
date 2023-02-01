@@ -283,9 +283,9 @@ Value emitScalarOpFor<ONNXHardSigmoidOp>(ConversionPatternRewriter &rewriter,
   //                                  Constant 1)
   Value operand = scalarOperands[0];
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXHardSigmoidOp>(op).alpha().convertToFloat());
+      llvm::dyn_cast<ONNXHardSigmoidOp>(op).getAlpha().convertToFloat());
   auto betaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXHardSigmoidOp>(op).beta().convertToFloat());
+      llvm::dyn_cast<ONNXHardSigmoidOp>(op).getBeta().convertToFloat());
 
   MathBuilder createMath(rewriter, loc);
   Value zero = createMath.constant(elementType, 0);
@@ -315,7 +315,7 @@ Value emitScalarOpFor<ONNXEluOp>(ConversionPatternRewriter &rewriter,
   Value operand = scalarOperands[0];
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXEluOp>(op).alpha().convertToFloat());
+      llvm::dyn_cast<ONNXEluOp>(op).getAlpha().convertToFloat());
   MathBuilder createMath(rewriter, loc);
   Value zero = createMath.constant(elementType, 0);
   Value one = createMath.constant(elementType, 1);
@@ -355,7 +355,7 @@ Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
   Value operand = scalarOperands[0];
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXLeakyReluOp>(op).alpha().convertToFloat());
+      llvm::dyn_cast<ONNXLeakyReluOp>(op).getAlpha().convertToFloat());
   MathBuilder createMath(rewriter, loc);
   Value zero = createMath.constant(elementType, 0);
   auto alpha = rewriter.create<arith::ConstantOp>(loc, alphaAttribute);
@@ -411,9 +411,9 @@ Value emitScalarOpFor<ONNXSeluOp>(ConversionPatternRewriter &rewriter,
   //                                         alpha)))
   Value operand = scalarOperands[0];
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXSeluOp>(op).alpha().convertToFloat());
+      llvm::dyn_cast<ONNXSeluOp>(op).getAlpha().convertToFloat());
   auto gammaAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXSeluOp>(op).gamma().convertToFloat());
+      llvm::dyn_cast<ONNXSeluOp>(op).getGamma().convertToFloat());
 
   MathBuilder createMath(rewriter, loc);
   Value zero = createMath.constant(elementType, 0);
@@ -493,7 +493,7 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
   if (elementType.isa<IntegerType>()) {
     // %Y = SelectOP(CmpIOp(GT, %X, ConstantOp 0),
     //               ConstantOp 1,
-    //               COnstantOp -1)
+    //               COnstantOp ShapedType::kDynamic)
     // ONNXSignOp(%X) = SelectOP(CmpIOp(EQ, %X, ConstantOp 0),
     //                           ConstantOp 0,
     //                           %Y)
@@ -506,7 +506,7 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
   } else if (elementType.isa<FloatType>()) {
     // %Y = SelectOP(CmpFOp(OGT, %X, ConstantOp 0),
     //               ConstantOp 1,
-    //               ConstantOp -1)
+    //               ConstantOp ShapedType::kDynamic)
     // ONNXSignOp(%X) = SelectOP(CmpFOp(OEQ, %X, ConstantOp 0),
     //                           ConstantOp 0,
     //                           %Y)
@@ -1130,25 +1130,27 @@ struct ONNXWhereOpLowering : public ConversionPattern {
             // Load the condition value.
             SmallVector<IndexExpr, 4> condAccessExprs;
             LogicalResult res =
-                shapeHelper.getAccessExprs(operandAdaptor.condition(), 0,
+                shapeHelper.getAccessExprs(operandAdaptor.getCondition(), 0,
                     outputAccessExprs, condAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
-            Value cond =
-                createKrnl.loadIE(operandAdaptor.condition(), condAccessExprs);
+            Value cond = createKrnl.loadIE(
+                operandAdaptor.getCondition(), condAccessExprs);
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
             res = shapeHelper.getAccessExprs(
-                operandAdaptor.X(), 1, outputAccessExprs, lhsAccessExprs);
+                operandAdaptor.getX(), 1, outputAccessExprs, lhsAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
-            Value lhs = createKrnl.loadIE(operandAdaptor.X(), lhsAccessExprs);
+            Value lhs =
+                createKrnl.loadIE(operandAdaptor.getX(), lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
             res = shapeHelper.getAccessExprs(
-                operandAdaptor.Y(), 2, outputAccessExprs, rhsAccessExprs);
+                operandAdaptor.getY(), 2, outputAccessExprs, rhsAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
-            Value rhs = createKrnl.loadIE(operandAdaptor.Y(), rhsAccessExprs);
+            Value rhs =
+                createKrnl.loadIE(operandAdaptor.getY(), rhsAccessExprs);
 
             // Return lhs if cond is true else rhs.
             Value result =
@@ -1159,13 +1161,13 @@ struct ONNXWhereOpLowering : public ConversionPattern {
           });
     } else {
       // Load the condition value.
-      Value cond = create.krnl.load(operandAdaptor.condition());
+      Value cond = create.krnl.load(operandAdaptor.getCondition());
 
       // Load the first value.
-      Value lhs = create.krnl.load(operandAdaptor.X());
+      Value lhs = create.krnl.load(operandAdaptor.getX());
 
       // Load the second value.
-      Value rhs = create.krnl.load(operandAdaptor.Y());
+      Value rhs = create.krnl.load(operandAdaptor.getY());
 
       // Return lhs if cond is true else rhs.
       Value result = rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);

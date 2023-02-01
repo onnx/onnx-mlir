@@ -163,7 +163,7 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ONNXReluOpAdaptor adaptor(operands, op->getAttrDictionary());
-    Value inp = adaptor.X();
+    Value inp = adaptor.getX();
     ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
     if (inpType == nullptr)
       return failure();
@@ -186,8 +186,8 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXLeakyReluOp>
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ONNXLeakyReluOpAdaptor adaptor(operands, op->getAttrDictionary());
-    Value inp = adaptor.X();
-    llvm::APFloat alpha = adaptor.alpha();
+    Value inp = adaptor.getX();
+    llvm::APFloat alpha = adaptor.getAlpha();
     ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
     if (inpType == nullptr)
       return failure();
@@ -213,8 +213,8 @@ struct ONNXElementwiseUnaryOpLoweringToMhlo<ONNXCastOp>
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ONNXCastOpAdaptor adaptor(operands, op->getAttrDictionary());
-    Value inp = adaptor.input();
-    Type elementToType = adaptor.to();
+    Value inp = adaptor.getInput();
+    Type elementToType = adaptor.getTo();
     ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
     if (inpType == nullptr)
       return failure();
