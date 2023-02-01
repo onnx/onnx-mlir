@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --onnx-layer-name-debug-info --mlir-print-debuginfo %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --onnx-layer-name-location --mlir-print-debuginfo %s -split-input-file | FileCheck %s
 
 func.func @test_debug_info(%arg0: tensor<5x3x1024x1024xf32>, %arg1 : tensor<2x3x64x64xf32>, %arg2: none) ->  tensor<5x2x965x967xf32> {
   %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {onnx_node_name = "foobar", pads = [1, 2, 3, 4], dilations = [1, 1]} : (tensor<5x3x1024x1024xf32>, tensor<2x3x64x64xf32>, none) ->  tensor<5x2x965x967xf32> loc(#convLoc)

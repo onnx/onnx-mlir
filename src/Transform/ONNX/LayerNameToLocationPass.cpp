@@ -14,28 +14,28 @@ using namespace llvm;
 
 namespace onnx_mlir {
 namespace {
-struct LayerNameToDebugInfoPass
-    : public PassWrapper<LayerNameToDebugInfoPass, OperationPass<>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LayerNameToDebugInfoPass)
+struct LayerNameToLocationPass
+    : public PassWrapper<LayerNameToLocationPass, OperationPass<>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LayerNameToLocationPass)
 
-  LayerNameToDebugInfoPass() = default;
-  LayerNameToDebugInfoPass(const LayerNameToDebugInfoPass &pass) = default;
+  LayerNameToLocationPass() = default;
+  LayerNameToLocationPass(const LayerNameToLocationPass &pass) = default;
 
   [[nodiscard]] StringRef getArgument() const override {
-    return "onnx-layer-name-debug-info";
+    return "onnx-layer-name-location";
   }
 
   [[nodiscard]] StringRef getDescription() const override {
-    return "Inserts the ONNX layer name of each operation into the debug info "
-           "associated with it.";
+    return "Inserts the ONNX layer name of each operation into the location "
+           "info associated with it.";
   }
 
   void runOnOperation() final;
 };
 
-void LayerNameToDebugInfoPass::runOnOperation() {
+void LayerNameToLocationPass::runOnOperation() {
   // Check whether op has a onnx_node_name attribute and put that on the
-  // existing debug info.
+  // existing location info.
   Operation *op = getOperation();
 
   op->walk([](Operation *nestedOp) {
@@ -50,7 +50,7 @@ void LayerNameToDebugInfoPass::runOnOperation() {
 
 } // namespace
 
-std::unique_ptr<Pass> createLayerNameToDebugInfoPass() {
-  return std::make_unique<LayerNameToDebugInfoPass>();
+std::unique_ptr<Pass> createLayerNameToLocationPass() {
+  return std::make_unique<LayerNameToLocationPass>();
 }
 } // namespace onnx_mlir

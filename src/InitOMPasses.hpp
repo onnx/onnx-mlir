@@ -121,7 +121,7 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createLayerNameToDebugInfoPass();
+    return createLayerNameToLocationPass();
   });
 
 #ifdef ONNX_MLIR_ENABLE_MHLO
