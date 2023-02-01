@@ -240,7 +240,6 @@ def get_test_models():
         # ConvInteger
 
         # ==OP== ConvTranspose
-        # ==LIM==
         # ConvTranspose
         "test_convtranspose_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{1}},
         "test_convtranspose_3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{1}},
