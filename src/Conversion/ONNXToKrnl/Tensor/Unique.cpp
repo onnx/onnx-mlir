@@ -116,7 +116,6 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value countsBuf = insertAllocAndDeallocSimple(rewriter, op,
         MemRefType::get(xShape, i64Type), loc, outputIndexBufDims,
         insertDealloc);;
-
     // Compute argUnique of X along axis.
     Value total = emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted,
         outputYBuf, indicesBuf, reverse_indicesBuf, countsBuf);

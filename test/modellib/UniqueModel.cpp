@@ -28,9 +28,9 @@ namespace test {
 
 UniqueLibBuilder::UniqueLibBuilder(const std::string &modelName, const int rank,
     const int I, const int J, /*const int K, */ const int axis,
-    const int sorted, const int isNoneIndexOutput)
+        const int sorted, const int isNoneAxis, const int isNoneIndexOutput)
     : ModelLibBuilder(modelName), rank(rank), I(I), J(J), /*K(K),*/ axis(axis),
-      sorted(sorted), isNoneIndexOutput(isNoneIndexOutput) {}
+      sorted(sorted), isNoneAxis(isNoneAxis), isNoneIndexOutput(isNoneIndexOutput) {}
 
 bool UniqueLibBuilder::build() {
   if (rank != 2) { // XXX TODO support rank==3
@@ -41,15 +41,14 @@ bool UniqueLibBuilder::build() {
   }
   xShape = {I, J};
   yShape = {I, J};
-  if (axis < 0) {
+  if (isNoneAxis) {
     yRank = 1;
     yShape = {-1};
-  } else { // axis >= 0
+  } else {
     yRank = rank;
     yShape = {I, J};
     yShape[axis] = -1;
   }
-
   Type xType = RankedTensorType::get(xShape, builder.getI64Type());
   Type yType = UnrankedTensorType::get(builder.getI64Type());
   Type noneType = builder.getNoneType();
@@ -72,6 +71,10 @@ bool UniqueLibBuilder::build() {
 
   IntegerAttr axisAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true), axis);
+#if 0 // XXX WORKTODO Support isNoneAxis
+  if (isNoneAxis)
+        axisAttr = IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true), axis);
+#endif
   IntegerAttr sortedAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true), sorted);
   auto uniqueOp = builder.create<ONNXUniqueOp>(loc, /*Y=*/yType,
@@ -97,15 +100,13 @@ bool UniqueLibBuilder::build() {
 }
 
 bool UniqueLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
-  printf("XXX UniqueLibBuilder::prepareInputs: called\n"); fflush(stdout);
   constexpr int num = 1;
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] = omTensorCreateWithRandomData<float>(
+  list[0] = omTensorCreateWithRandomData<int64_t>(
       llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
-  printf("XXX UniqueLibBuilder::prepareInputs: return\n"); fflush(stdout);
   return inputs && list[0];
 }
 

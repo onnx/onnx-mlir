@@ -167,6 +167,6 @@ void omTensorUnique(
     }
   }
   *totalPtr = count;
-  omTensorPrint("omTensorUnique: total =", inputTensor);
+  omTensorPrint("omTensorUnique: total =", totalTensor);
   return;
 }

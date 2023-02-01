@@ -58,11 +58,12 @@ void omPrintAsPython(OMTensor *tensor, std::string name) {
 // parameters/configuration.
 static bool isOMUniqueTheSameAsNaiveImplFor(const int rank, const int I,
     const int J, const int K, const int axis, const int sorted = 0,
-    const int isNoneIndexOutput = 0) {
+    const int isNoneAxis = 0, const int isNoneIndexOutput = 0) {
 
-  UniqueLibBuilder unique(SHARED_LIB_BASE.str(), rank, I, J, axis, sorted, isNoneIndexOutput);
+  UniqueLibBuilder unique(SHARED_LIB_BASE.str(), rank, I, J, axis, sorted, isNoneAxis, isNoneIndexOutput);
   return unique.build() && unique.compileAndLoad() &&
-         unique.prepareInputsFromEnv("TEST_DATARANGE") &&
+    unique.prepareInputs(0.0, 4.0) &&
+    //unique.prepareInputsFromEnv("TEST_DATARANGE") &&
          unique.run() &&
 #if 0
          unique.verifyOutputs() &&
@@ -96,9 +97,10 @@ int main(int argc, char *argv[]) {
       const int K = -1;     // *rc::gen::inRange(1, maxRank);
       const int axis = 0;   // *rc::gen::inRange(1, maxRank);
       const int sorted = 0; // *rc::gen::inRange(0, 1);
+      const int isNoneAxis = 0; // *rc::gen::inRange(0, 1);
       const int isNoneIndexOutput = 1; // *rc::gen::inRange(0, 1);
       RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(rank, I, J, K, axis, sorted,
-          isNoneIndexOutput));
+          isNoneAxis, isNoneIndexOutput));
     });
     if (!success)
       return 1;
