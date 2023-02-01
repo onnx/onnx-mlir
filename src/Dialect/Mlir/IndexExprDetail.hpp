@@ -33,7 +33,7 @@ public:
 
   // Basic initialization calls.
   void initAsUndefined();
-  // Initialize a question mark with the default value of -1.
+  // Initialize a question mark with the default value of ShapedType::kDynamic.
   void initAsQuestionmark(bool isFloat);
   // Initialize a question mark with a given value.
   void initAsQuestionmark(int64_t const val, bool isFloat);

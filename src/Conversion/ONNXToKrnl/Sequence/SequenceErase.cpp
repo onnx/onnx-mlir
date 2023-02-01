@@ -36,7 +36,7 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
         rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
-    auto input_sequence = operandAdaptor.input_sequence();
+    auto input_sequence = operandAdaptor.getInputSequence();
     auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
 
@@ -53,11 +53,12 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
     // Fill the output sequence
 
     IndexExpr positionIE;
-    if (isFromNone(operandAdaptor.position())) {
+    if (isFromNone(operandAdaptor.getPosition())) {
       // Erase the end of the sequence
       positionIE = boundIE - 1;
     } else {
-      positionIE = SymbolIndexExpr(create.krnl.load(operandAdaptor.position()));
+      positionIE =
+          SymbolIndexExpr(create.krnl.load(operandAdaptor.getPosition()));
       // Handle the negative position
       auto correctionIE = positionIE + boundIE;
       auto conditionIE = positionIE < 0;
@@ -74,7 +75,7 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
     createKrnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
         [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           auto element = createKrnl.load(
-              operandAdaptor.input_sequence(), indicesLoopInd[0]);
+              operandAdaptor.getInputSequence(), indicesLoopInd[0]);
           createKrnl.seqstore(element, alloc, positionIE);
           // createKrnl.store(element, alloc, indicesLoopInd[0]);
         });
@@ -88,7 +89,7 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
     createKrnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
         [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
           auto element = createKrnl.load(
-              operandAdaptor.input_sequence(), indicesLoopInd[0]);
+              operandAdaptor.getInputSequence(), indicesLoopInd[0]);
           auto oneIndex = create.math.constantIndex(1);
           auto outputIndex = create.math.sub(indicesLoopInd[0], oneIndex);
           createKrnl.seqstore(element, alloc, outputIndex);

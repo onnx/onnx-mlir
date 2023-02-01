@@ -139,7 +139,7 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
 
     RNNOp rnnOp = llvm::dyn_cast<RNNOp>(op);
     typename RNNOp::Adaptor operandAdaptor(operands);
-    mlir::Value X = operandAdaptor.X();
+    mlir::Value X = operandAdaptor.getX();
 
     if (hasAllNoneOutput<RNNOp>(&rnnOp)) {
       rewriter.eraseOp(op);
@@ -165,8 +165,8 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
     std::tie(biasForward, biasReverse) =
         getBiasPack<RNNOp, B>(rewriter, loc, &rnnOp);
 
-    int64_t sequenceDimSize = dimAt(rnnOp.X(), 0);
-    auto direction = rnnOp.direction();
+    int64_t sequenceDimSize = dimAt(rnnOp.getX(), 0);
+    auto direction = rnnOp.getDirection();
 
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
         MathBuilder>

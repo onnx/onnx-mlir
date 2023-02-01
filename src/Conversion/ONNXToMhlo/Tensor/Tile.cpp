@@ -41,8 +41,8 @@ struct ONNXTileOpLoweringToMhlo : public ConversionPattern {
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
 
-    Value input = tileOp.input();
-    Value multiples = tileOp.repeats();
+    Value input = tileOp.getInput();
+    Value multiples = tileOp.getRepeats();
     assert(isRankedShapedType(input.getType()) && "Expected Ranked ShapedType");
     ShapedType inputType = input.getType().cast<ShapedType>();
     Type elementType = inputType.getElementType();
@@ -52,7 +52,7 @@ struct ONNXTileOpLoweringToMhlo : public ConversionPattern {
 
     for (int64_t i = 0; i < inputRank; ++i) {
       int64_t dim_size = inputType.getDimSize(i);
-      if (dim_size == ShapedType::kDynamicSize) {
+      if (dim_size == ShapedType::kDynamic) {
         Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, input);
         Value dimSizeExtent =
             rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
@@ -107,7 +107,7 @@ struct ONNXTileOpLoweringToMhlo : public ConversionPattern {
             {static_cast<int64_t>(outDimSize.size())}, indexType),
         outDimSize, IntegerAttr::get(rewriter.getIntegerType(64), 0));
     SmallVector<int64_t, 4> broadcast_shape(
-        inputRank * 2, ShapedType::kDynamicSize);
+        inputRank * 2, ShapedType::kDynamic);
     RankedTensorType broadcast_type =
         RankedTensorType::get(broadcast_shape, elementType);
     Value broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(

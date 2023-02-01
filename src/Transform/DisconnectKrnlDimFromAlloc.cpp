@@ -76,7 +76,7 @@ public:
 
     // If index is not constant, return failure.
     arith::ConstantOp indexOp =
-        dyn_cast<arith::ConstantOp>(krnlDimOp.index().getDefiningOp());
+        dyn_cast<arith::ConstantOp>(krnlDimOp.getIndex().getDefiningOp());
     if (!indexOp)
       return failure();
 
@@ -84,7 +84,7 @@ public:
     int64_t index = indexOp->getAttrOfType<IntegerAttr>("value").getInt();
 
     // Get the shape of the MemRef argument.
-    auto memRefType = krnlDimOp.alloc().getType().dyn_cast<MemRefType>();
+    auto memRefType = krnlDimOp.getAlloc().getType().dyn_cast<MemRefType>();
     auto memRefShape = memRefType.getShape();
     int64_t rank = memRefShape.size();
     assert(index >= 0 && index < rank && "Index must be in bounds");
@@ -93,18 +93,18 @@ public:
     // If this operation is not an alloc, and the value comes from the
     // list of input arguments, the support is limited to MemRefs without
     // maps.
-    auto firstArgDefOp = krnlDimOp.alloc().getDefiningOp();
+    auto firstArgDefOp = krnlDimOp.getAlloc().getDefiningOp();
 
     MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
 
     Value result;
-    if (memRefShape[index] > -1) {
+    if (!memRefType.isDynamicDim(index)) {
       // If dimension is static, then we can just emit the constant value.
       result = create.math.constantIndex(memRefShape[index]);
     } else if (firstArgDefOp && isa<memref::AllocOp>(firstArgDefOp)) {
       // Get defining operation for the MemRef argument.
       memref::AllocOp allocOp =
-          dyn_cast<memref::AllocOp>(krnlDimOp.alloc().getDefiningOp());
+          dyn_cast<memref::AllocOp>(krnlDimOp.getAlloc().getDefiningOp());
 
       // If dimension is dynamic we need to return the input alloc Value which
       // corresponds to it.
@@ -115,7 +115,7 @@ public:
       result = allocOp.getOperands()[dynDimIdx];
     } else if (memRefType.getLayout().isIdentity()) {
       // Use a standard DimOp since no map is present.
-      result = create.mem.dim(krnlDimOp.alloc(), krnlDimOp.index());
+      result = create.mem.dim(krnlDimOp.getAlloc(), krnlDimOp.getIndex());
     } else
       llvm_unreachable(
           "dynamic sized MemRef with map must be defined by an AllocOp");

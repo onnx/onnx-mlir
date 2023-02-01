@@ -29,12 +29,12 @@ LogicalResult ONNXTopKOpShapeHelper::computeShape() {
   DimsExpr outputDims;
   ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   // Get info about X and K operands.
-  Value X = operandAdaptor.X();
-  Value K = operandAdaptor.K();
+  Value X = operandAdaptor.getX();
+  Value K = operandAdaptor.getK();
   int64_t rank = createIE->getShapedTypeRank(X);
 
   // Axis to compute TopK.
-  int64_t axis = operandAdaptor.axis();
+  int64_t axis = operandAdaptor.getAxis();
   axis = axis < 0 ? axis + rank : axis;
   assert(axis >= 0 && axis < rank && "axis is out of bound");
 
@@ -71,7 +71,7 @@ LogicalResult ONNXTopKOpShapeHelper::computeShape() {
 LogicalResult ONNXTopKOp::verify() {
   ONNXTopKOpAdaptor operandAdaptor(*this);
 
-  Value K = operandAdaptor.K();
+  Value K = operandAdaptor.getK();
   if (hasShapeAndRank(K)) {
     // K's rank must be zero or one.
     int64_t KRank = K.getType().cast<ShapedType>().getRank();
@@ -81,10 +81,10 @@ LogicalResult ONNXTopKOp::verify() {
   }
 
   // axis attribute must be in the range [-r,r-1], where r = rank(X).
-  Value X = operandAdaptor.X();
+  Value X = operandAdaptor.getX();
   if (hasShapeAndRank(X)) {
     int64_t Xrank = X.getType().cast<ShapedType>().getRank();
-    int64_t axis = this->axis();
+    int64_t axis = this->getAxis();
 
     if (axis < -Xrank || axis >= Xrank)
       return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
@@ -106,7 +106,7 @@ LogicalResult ONNXTopKOp::inferShapes(
     return success();
 
   Builder b(getContext());
-  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXTopKOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateTypes({elementType, b.getI64Type()});
 }

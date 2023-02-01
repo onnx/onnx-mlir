@@ -33,10 +33,10 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Operands and attributes.
-    Value data = operandAdaptor.data();
-    Value updates = operandAdaptor.updates();
-    Value indices = operandAdaptor.indices();
-    int64_t axis = scatterElements.axis();
+    Value data = operandAdaptor.getData();
+    Value updates = operandAdaptor.getUpdates();
+    Value indices = operandAdaptor.getIndices();
+    int64_t axis = scatterElements.getAxis();
     int64_t dataRank = data.getType().cast<MemRefType>().getRank();
     int64_t updatesRank = updates.getType().cast<MemRefType>().getRank();
     int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();

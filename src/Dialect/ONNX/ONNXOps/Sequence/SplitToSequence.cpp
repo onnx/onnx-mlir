@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -23,7 +24,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXSplitToSequenceOp::verify() {
-  Value inputValue = input();
+  Value inputValue = getInput();
   if (!hasShapeAndRank(inputValue))
     return success(); // Won't be able to do any checking at this stage.
 
@@ -31,7 +32,7 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
   ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputShape.size();
 
-  int64_t axisIndex = axis();
+  int64_t axisIndex = getAxis();
   // axis attribute must be in the range [-r,r-1], where r = rank(input).
   if (axisIndex < -inputRank || axisIndex >= inputRank)
     return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
@@ -40,10 +41,10 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
   if (axisIndex < 0)
     axisIndex += inputRank;
 
-  Value splitValue = split();
+  Value splitValue = getSplit();
   if (isFromNone(splitValue)) {
     // since split is not specified, check the keepdims attribute
-    int64_t keep = keepdims();
+    int64_t keep = getKeepdims();
     // keepdims must be 0 or 1
     if (keep < 0 || keep > 1)
       return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
@@ -85,7 +86,7 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
 
 LogicalResult ONNXSplitToSequenceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  Value inputValue = input();
+  Value inputValue = getInput();
   if (!hasShapeAndRank(inputValue))
     return success(); // Cannot infer output shape if input shape isn't known.
 
@@ -94,22 +95,22 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
   auto inputType = inputValue.getType().cast<ShapedType>();
   ArrayRef<int64_t> shape = inputType.getShape();
   int64_t rank = shape.size();
-  int64_t axisIndex = axis();
+  int64_t axisIndex = getAxis();
   assert((-rank <= axisIndex && axisIndex < rank) && "axis out of range");
   if (axisIndex < 0)
     axisIndex += rank;
   int64_t dimSize = shape[axisIndex];
 
   // start with length unknown and dims == shape with unknown dimension size
-  // for axis (-1 is ShapedType::kDynamicSize), and edit it as needed below
-  int64_t length = -1;
+  // for axis, and edit it as needed below
+  int64_t length = ShapedType::kDynamic;
   SmallVector<int64_t, 4> dims(shape.begin(), shape.end());
-  dims[axisIndex] = -1;
+  dims[axisIndex] = ShapedType::kDynamic;
 
-  Value splitValue = split();
+  Value splitValue = getSplit();
   if (isFromNone(splitValue)) {
     // since split is not specified, check the keepdims attribute
-    int64_t keep = keepdims();
+    int64_t keep = getKeepdims();
     assert(0 <= keep && keep <= 1 && "keepdims out of range");
     length = dimSize;
     if (keep == 1) {
@@ -153,7 +154,7 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
       if (length > 0 && dimSize == 0)
         dims[axisIndex] = 0;
       // if length and dimSize are both zero, we can choose any value,
-      // leaving it be -1 is fine
+      // leaving it be ShapedType::kDynamic is fine
     }
   }
   getResult().setType(SeqType::get(

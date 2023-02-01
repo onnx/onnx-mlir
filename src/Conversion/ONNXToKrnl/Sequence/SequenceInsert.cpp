@@ -40,7 +40,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
-    auto input_sequence = operandAdaptor.input_sequence();
+    auto input_sequence = operandAdaptor.getInputSequence();
     auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
     auto outputBound = boundIE + 1;
@@ -50,7 +50,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
 
     // Handle Optional and negative position
     IndexExpr positionIE;
-    if (isFromNone(operandAdaptor.position())) {
+    if (isFromNone(operandAdaptor.getPosition())) {
       // Insert at the end of the sequence
       // Could be optimized as: Copy the input sequence and attach input tensor
       // at the end But the size for KrnlMemcpy is integer, not Value
@@ -58,7 +58,8 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
       // ToDo (chentong): backward shape inference may help
       positionIE = boundIE;
     } else {
-      positionIE = SymbolIndexExpr(create.krnl.load(operandAdaptor.position()));
+      positionIE =
+          SymbolIndexExpr(create.krnl.load(operandAdaptor.getPosition()));
       // Handle the negative position
       IndexExpr condIE = positionIE < 0;
       IndexExpr fixedPosition = positionIE + boundIE;
@@ -84,7 +85,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
       createKrnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
           [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
             auto element = createKrnl.load(
-                operandAdaptor.input_sequence(), indicesLoopInd[0]);
+                operandAdaptor.getInputSequence(), indicesLoopInd[0]);
             createKrnl.seqstore(element, alloc, positionIE);
             // createKrnl.store(element, alloc, indicesLoopInd[0]);
           });
@@ -98,7 +99,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
       createKrnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
           [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
             auto element = createKrnl.load(
-                operandAdaptor.input_sequence(), indicesLoopInd[0]);
+                operandAdaptor.getInputSequence(), indicesLoopInd[0]);
             auto oneIndex = create.math.constantIndex(1);
             auto outputIndex = create.math.add(indicesLoopInd[0], oneIndex);
             createKrnl.seqstore(element, alloc, outputIndex);
@@ -106,7 +107,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
     }
 
     // Insert the element at the position
-    createKrnl.seqstore(operandAdaptor.tensor(), alloc, positionIE);
+    createKrnl.seqstore(operandAdaptor.getTensor(), alloc, positionIE);
 
     rewriter.replaceOp(op, alloc);
     return success();

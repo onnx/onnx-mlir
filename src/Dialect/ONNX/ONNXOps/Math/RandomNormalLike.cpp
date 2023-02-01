@@ -24,17 +24,17 @@ using namespace onnx_mlir;
 
 LogicalResult ONNXRandomNormalLikeOp::verify() {
   ONNXRandomNormalLikeOpAdaptor operandAdaptor(*this);
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   if (!hasShapeAndRank(input))
     return success();
-  Value output = this->output();
+  Value output = this->getOutput();
   if (!hasShapeAndRank(output))
     return success();
 
   auto inputType = input.getType().cast<RankedTensorType>().getElementType();
   auto outputType = output.getType().cast<RankedTensorType>().getElementType();
 
-  auto elementTypeIDDType = operandAdaptor.dtype();
+  auto elementTypeIDDType = operandAdaptor.getDtype();
   if (elementTypeIDDType) {
     int64_t elementTypeID = elementTypeIDDType.value();
     if (elementTypeID < 0 || elementTypeID > 2) {
@@ -61,10 +61,10 @@ LogicalResult ONNXRandomNormalLikeOp::verify() {
 
 LogicalResult ONNXRandomNormalLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
-  auto inputType = input().getType().cast<RankedTensorType>();
-  auto elementTypeIDDType = dtype();
+  auto inputType = getInput().getType().cast<RankedTensorType>();
+  auto elementTypeIDDType = getDtype();
 
   // Default output tensor type in all cases is the input tensor type.
   Type elementType;

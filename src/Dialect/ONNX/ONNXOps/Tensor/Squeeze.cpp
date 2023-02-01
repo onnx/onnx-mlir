@@ -41,7 +41,7 @@ LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &squeezedDims, bool axesFromShape) {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr outputDims;
-  Value data = operandAdaptor.data();
+  Value data = operandAdaptor.getData();
   int64_t dataRank = createIE->getShapedTypeRank(data);
 
   // Init state.
@@ -108,19 +108,19 @@ void ONNXSqueezeOpShapeHelper::saveAxes() {
   // should never encounter a "saveAxles" situation during lowering.
 
   ONNXSqueezeOp squeezeOp = llvm::cast<ONNXSqueezeOp>(op);
-  SaveOnnxConstInOp(op, squeezeOp.axesMutable(), squeezedAxes);
+  SaveOnnxConstInOp(op, squeezeOp.getAxesMutable(), squeezedAxes);
 }
 
 template <>
 void ONNXSqueezeV11OpShapeHelper::saveAxes() {
   SaveOnnxAttrInOp<ONNXSqueezeV11Op>(op, squeezedAxes,
-      [](ONNXSqueezeV11Op op, ArrayAttr attr) { op.axesAttr(attr); });
+      [](ONNXSqueezeV11Op op, ArrayAttr attr) { op.setAxesAttr(attr); });
 }
 
 template <>
 LogicalResult ONNXSqueezeOpShapeHelper::computeShape() {
   ONNXSqueezeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-  Value axes = operandAdaptor.axes();
+  Value axes = operandAdaptor.getAxes();
   SmallVector<IndexExpr, 4> squeezedDims;
   bool squeezeFromShape = false;
   if (isFromNone(axes))
@@ -133,7 +133,7 @@ LogicalResult ONNXSqueezeOpShapeHelper::computeShape() {
 template <>
 LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape() {
   ONNXSqueezeV11OpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-  auto axesAttr = operandAdaptor.axesAttr();
+  auto axesAttr = operandAdaptor.getAxesAttr();
   SmallVector<IndexExpr, 4> squeezedDims;
   bool squeezeFromShape = false;
   if (axesAttr)
@@ -155,7 +155,7 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape() {
 
 LogicalResult ONNXSqueezeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto dataType = data().getType().dyn_cast<RankedTensorType>();
+  auto dataType = getData().getType().dyn_cast<RankedTensorType>();
   if (!dataType)
     return success();
 
@@ -166,7 +166,7 @@ LogicalResult ONNXSqueezeOp::inferShapes(
 
 LogicalResult ONNXSqueezeV11Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto dataType = data().getType().dyn_cast<RankedTensorType>();
+  auto dataType = getData().getType().dyn_cast<RankedTensorType>();
   if (!dataType)
     return success();
 
