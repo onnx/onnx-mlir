@@ -1559,27 +1559,19 @@ public:
         Type vecTypeF32 = LLVM::getFixedVectorType(f32Ty, 4);
 
         // SIMD instruction in string.
-        const char *asmStr = ".insn vrr,0xe60000000056,$0,$2,0,2,0,0 \n\t "
-                             ".insn vrr,0xe6000000005E,$1,$2,0,2,0,0 \n\t";
-        const char *asmConstraints = "=&v,=v,v";
+        const char *asmStr = ".insn vrr,0xe60000000056,$0,$1,0,2,0,0 \n\t ";
+        const char *asmConstraints = "=&v,v";
 
-        SmallVector<Type> asmTypes{vecTypeI32, vecTypeI32};
-        Type resType = LLVM::LLVMStructType::getLiteral(
-            rewriter.getContext(), asmTypes, false);
-
-        // Prepare the input vector
+        // Prepare the input vector.
+        // Only care about the first element.
         Value inputVecI16 = rewriter.create<LLVM::UndefOp>(loc, vecTypeI16);
         inputVecI16 = create.llvm.insertElement(inputVecI16, inputI16, 0);
-        Value zeroI16 = create.llvm.constant(i16Ty, (int64_t)0);
-        for (int64_t i = 1; i < 8; ++i) {
-          inputVecI16 = create.llvm.insertElement(inputVecI16, zeroI16, i);
-        }
         SmallVector<Value> asmVals{inputVecI16};
 
         // Emit SIMD instruction for conversion.
-        Value outStruct =
+        Value outVec =
             rewriter
-                .create<LLVM::InlineAsmOp>(loc, resType,
+                .create<LLVM::InlineAsmOp>(loc, vecTypeI32,
                     /*operands=*/asmVals,
                     /*asm_string=*/asmStr,
                     /*constraints=*/asmConstraints, /*has_side_effects=*/true,
@@ -1587,7 +1579,6 @@ public:
                     /*asm_dialect=*/LLVM::AsmDialectAttr(),
                     /*operand_attrs=*/ArrayAttr())
                 .getResult(0);
-        Value outVec = create.llvm.extractValue(vecTypeI32, outStruct, {0});
         Value outVecF32 = create.llvm.bitcast(vecTypeF32, outVec);
         outputF32 = create.llvm.extractElement(f32Ty, outVecF32, 0);
       } else {
