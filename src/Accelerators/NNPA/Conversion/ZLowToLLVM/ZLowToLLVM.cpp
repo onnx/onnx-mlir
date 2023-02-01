@@ -1695,7 +1695,6 @@ public:
     Type i16Ty = rewriter.getI16Type();
     Type f16Ty = rewriter.getF16Type();
     Type i32Ty = rewriter.getI32Type();
-    Type f32Ty = rewriter.getF32Type();
 
     ZLowConvertF32ToDLF16Op::Adaptor operandAdaptor(operands);
     Value input = operandAdaptor.input();

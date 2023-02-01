@@ -457,7 +457,7 @@ def ZLowDummyOp:ZLow_Op<"dummy", [MemRefsNormalizable]> {
   let hasCanonicalizer = 1;
 }
 
-def ZLowConvertDLF16ToF32Op:ZLow_Op<"dlf16_to_f32", []> {
+def ZLowConvertDLF16ToF32Op:ZLow_Op<"dlf16_to_f32", [Pure]> {
   let summary = "Convert a dlfloat16 value to a float32 value";
   let description = [{
   This operation converts a dlfloat16 value to a float32 value. 
@@ -471,7 +471,7 @@ def ZLowConvertDLF16ToF32Op:ZLow_Op<"dlf16_to_f32", []> {
   ];
 }
 
-def ZLowConvertF32ToDLF16Op:ZLow_Op<"f32_to_dlf16", []> {
+def ZLowConvertF32ToDLF16Op:ZLow_Op<"f32_to_dlf16", [Pure]> {
   let summary = "Convert a float32 value to a dlfloat16 value";
   let description = [{
   This operation converts a float32 value to a dlfloat16 value. 
@@ -484,6 +484,7 @@ def ZLowConvertF32ToDLF16Op:ZLow_Op<"f32_to_dlf16", []> {
       build($_builder, $_state, $_builder.getF16Type(), input);
     }]>
   ];
+  let hasCanonicalizer = 1;
 }
 
 #endif // ZLOW_OPS
