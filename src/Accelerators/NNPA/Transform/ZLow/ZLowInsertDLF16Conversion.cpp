@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -80,6 +81,9 @@ public:
       AffineMap m = type.getLayout().getAffineMap();
       if (m.getNumResults() != 1 && !m.isIdentity())
         return failure();
+      Optional<uint64_t> sizeInBytes = getMemRefSizeInBytes(type);
+      if (!sizeInBytes.has_value() || (sizeInBytes.value() > 256 * 4))
+        return failure();
     }
 
     // Do not support layout 1D and 2DS since their access index functions are
@@ -139,6 +143,9 @@ public:
         return failure();
       AffineMap m = type.getLayout().getAffineMap();
       if (m.getNumResults() != 1 && !m.isIdentity())
+        return failure();
+      Optional<uint64_t> sizeInBytes = getMemRefSizeInBytes(type);
+      if (!sizeInBytes.has_value() || (sizeInBytes.value() > 256 * 4))
         return failure();
     }
 
