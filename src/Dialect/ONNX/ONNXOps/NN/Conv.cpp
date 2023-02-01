@@ -415,8 +415,7 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
       outputShapeVec.emplace_back(
           I.getLiteral() * ArrayAttrIntVal(strideOpt, i));
     }
-    outputShapeOpt =
-        builder.getI64ArrayAttr(llvm::makeArrayRef(outputShapeVec));
+    outputShapeOpt = builder.getI64ArrayAttr(llvm::ArrayRef(outputShapeVec));
   }
 
   LiteralIndexExpr zeroIE(0);
@@ -813,7 +812,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
       }
   }
 
-  auto autoPad = auto_pad();
+  auto autoPad = getAutoPad();
   // Process strides, dilations, kernel_shape and pads.
   LogicalResult res =
       processConvTypeParams<ONNXConvTransposeOp>(this, getX(), getW());
@@ -831,8 +830,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
       outputShapeVec.emplace_back(
           xShape[spatialOffset + i] * ArrayAttrIntVal(stridesOpt, i));
     }
-    output_shapeAttr(
-        builder.getI64ArrayAttr(llvm::makeArrayRef(outputShapeVec)));
+    setOutputShapeAttr(builder.getI64ArrayAttr(llvm::ArrayRef(outputShapeVec)));
   }
 
   if (getOutputShape().has_value()) {

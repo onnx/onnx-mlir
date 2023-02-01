@@ -312,7 +312,7 @@ ValueRange emitSplitAxisOutputLength1(
       RankedTensorType::get(dims, rewriter.getIntegerType(64)); // tensor<3xi64>
   SmallVector<int64_t, 1> values(inputShape[axis], 1);
   DenseElementsAttr denseAttr =
-      DenseElementsAttr::get(tensorType, makeArrayRef(values));
+      DenseElementsAttr::get(tensorType, ArrayRef(values));
   Value split = rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
   SmallVector<int64_t> splitShape;
   for (int i = 0; i < inputType.getRank(); ++i) {
@@ -348,7 +348,7 @@ Value emitPads(PatternRewriter &rewriter, Location loc, Value input,
   values[inputShape.size() + axis] =
       size; // Add padding at the end of each axis.
   DenseElementsAttr denseAttr =
-      DenseElementsAttr::get(tensorType, makeArrayRef(values));
+      DenseElementsAttr::get(tensorType, ArrayRef(values));
   Value pads = rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
   Type tensorTypeF32 =
       RankedTensorType::get({}, rewriter.getF32Type()); // tensor<f32>
@@ -381,7 +381,7 @@ Value emitPads0(PatternRewriter &rewriter, Location loc, Value input,
   values[inputShape.size() + axis] =
       size; // Add padding at the end of each axis.
   DenseElementsAttr denseAttr =
-      DenseElementsAttr::get(tensorType, makeArrayRef(values));
+      DenseElementsAttr::get(tensorType, ArrayRef(values));
   Value pads = rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
   Type tensorTypeF32 =
       RankedTensorType::get({}, rewriter.getF32Type()); // tensor<f32>
@@ -470,7 +470,7 @@ Value insertAdditionalPadsConvTranspose2D(PatternRewriter &rewriter,
   //    if (llvm::all_of(padSize, [](int64_t p) { return p == 0; }))
   //      return input;
   Value paddedInput = emitPads0(
-      rewriter, loc, input, makeArrayRef(inputShape), /*axis*/ 2, padSize[0]);
+      rewriter, loc, input, ArrayRef(inputShape), /*axis*/ 2, padSize[0]);
   for (int i = 1; i < attrSize; ++i)
     paddedInput =
         emitPads(rewriter, loc, paddedInput, /*axis*/ 2 + i, padSize[i]);
