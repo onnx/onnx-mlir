@@ -419,6 +419,10 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value icmp(
       mlir::LLVM::ICmpPredicate cond, mlir::Value lhs, mlir::Value rhs) const;
 
+  // InsertElementOp
+  mlir::Value insertElement(
+      mlir::Value vec, mlir::Value val, int64_t position) const;
+
   // InsertValueOp
   mlir::Value insertValue(mlir::Type resultType, mlir::Value container,
       mlir::Value val, llvm::ArrayRef<int64_t> position) const;

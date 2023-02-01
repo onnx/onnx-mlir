@@ -1551,24 +1551,40 @@ public:
         // clang-format off
         // tail call <4 x i32> asm sideeffect ".insn vrr,0xe60000000056,$0,$1,0,2,0,0", "=&v,v"(i16 %input)
         // clang-format on
-        // auto asmDialectAttr = LLVM::AsmDialectAttr::get(
-        //     rewriter.getContext(), LLVM::AsmDialect::AD_ATT);
-        SmallVector<Value> asmVals{inputI16};
-        const char *asmStr = ".insn vrr,0xe60000000056,$0,$2,0,2,0,0 \n\t .insn vrr,0xe6000000005E,$1,$2,0,2,0,0     \n\t";
-        const char *asmConstraints = "=&v,=v,v";
 
+        // a vector of 8 elements of i16 - for input
+        Type vecTypeI16 = LLVM::getFixedVectorType(i16Ty, 8);
+        // a vector of 4 elements of i32 - for output
         Type vecTypeI32 = LLVM::getFixedVectorType(i32Ty, 4);
         Type vecTypeF32 = LLVM::getFixedVectorType(f32Ty, 4);
+
+        // SIMD instruction in string.
+        const char *asmStr = ".insn vrr,0xe60000000056,$0,$2,0,2,0,0 \n\t "
+                             ".insn vrr,0xe6000000005E,$1,$2,0,2,0,0 \n\t";
+        const char *asmConstraints = "=&v,=v,v";
+
         SmallVector<Type> asmTypes{vecTypeI32, vecTypeI32};
-        Type resType = LLVM::LLVMStructType::getLiteral(rewriter.getContext(), asmTypes, false);
+        Type resType = LLVM::LLVMStructType::getLiteral(
+            rewriter.getContext(), asmTypes, false);
+
+        // Prepare the input vector
+        Value inputVecI16 = rewriter.create<LLVM::UndefOp>(loc, vecTypeI16);
+        inputVecI16 = create.llvm.insertElement(inputVecI16, inputI16, 0);
+        Value zeroI16 = create.llvm.constant(i16Ty, (int64_t)0);
+        for (int64_t i = 1; i < 8; ++i) {
+          inputVecI16 = create.llvm.insertElement(inputVecI16, zeroI16, i);
+        }
+        SmallVector<Value> asmVals{inputVecI16};
+
+        // Emit SIMD instruction for conversion.
         Value outStruct =
             rewriter
-                .create<LLVM::InlineAsmOp>(loc,
-                    resType,
+                .create<LLVM::InlineAsmOp>(loc, resType,
                     /*operands=*/asmVals,
                     /*asm_string=*/asmStr,
                     /*constraints=*/asmConstraints, /*has_side_effects=*/true,
-                    /*is_align_stack=*/false, /*asm_dialect=*/LLVM::AsmDialectAttr(),
+                    /*is_align_stack=*/false,
+                    /*asm_dialect=*/LLVM::AsmDialectAttr(),
                     /*operand_attrs=*/ArrayAttr())
                 .getResult(0);
         Value outVec = create.llvm.extractValue(vecTypeI32, outStruct, {0});

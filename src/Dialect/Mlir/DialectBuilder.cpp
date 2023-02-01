@@ -1074,6 +1074,11 @@ Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
   return b().create<LLVM::ICmpOp>(loc(), cond, lhs, rhs);
 }
 
+Value LLVMBuilder::insertElement(Value vec, Value val, int64_t position) const {
+  Value posVal = constant(b().getI64Type(), position);
+  return b().create<LLVM::InsertElementOp>(loc(), vec, val, posVal);
+}
+
 Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
     llvm::ArrayRef<int64_t> position) const {
   return b().create<LLVM::InsertValueOp>(
