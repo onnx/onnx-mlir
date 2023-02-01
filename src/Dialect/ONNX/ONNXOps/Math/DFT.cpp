@@ -28,17 +28,17 @@ template <>
 LogicalResult ONNXDFTOpShapeHelper::computeShape() {
   ONNXDFTOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   // Get info about input data operand.
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   // Get the rank to compensate for N dimensions.
   int64_t rank = createIE->getShapedTypeRank(input);
 
   // Axis is a required attribute and should have default value of 1.
-  int64_t axis = operandAdaptor.axis();
+  int64_t axis = operandAdaptor.getAxis();
 
   // OneSided is a required attribute and should have default value of 0.
   // However oneSided can also be a value of 1 and if so a specific shape is
   // expected Values can be 0 or 1.
-  int64_t oneSided = operandAdaptor.onesided();
+  int64_t oneSided = operandAdaptor.getOnesided();
   bool isOneSided = (oneSided == 0);
 
   // Compute outputDims for DFT.
@@ -71,10 +71,10 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape() {
 LogicalResult ONNXDFTOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape is not yet known.
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXDFTOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

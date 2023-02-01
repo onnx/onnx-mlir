@@ -26,7 +26,7 @@ struct ONNXIdentityOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXIdentityOpAdaptor operandAdaptor(operands);
-    rewriter.replaceOp(op, operandAdaptor.input());
+    rewriter.replaceOp(op, operandAdaptor.getInput());
     return success();
   }
 };

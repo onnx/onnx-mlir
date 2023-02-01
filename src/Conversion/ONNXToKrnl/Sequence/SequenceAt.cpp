@@ -31,13 +31,13 @@ struct ONNXSequenceAtOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
-    Value input_sequence = operandAdaptor.input_sequence();
+    Value input_sequence = operandAdaptor.getInputSequence();
     Type outputMemRefType =
         input_sequence.getType().cast<MemRefType>().getElementType();
     auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
     IndexExpr positionIE =
-        SymbolIndexExpr(create.krnl.load(operandAdaptor.position()));
+        SymbolIndexExpr(create.krnl.load(operandAdaptor.getPosition()));
     // Handle the negative position
     IndexExpr condIE = positionIE < 0;
     IndexExpr fixedPosition = positionIE + boundIE;

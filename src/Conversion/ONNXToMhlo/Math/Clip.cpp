@@ -38,9 +38,9 @@ struct ONNXClipOpLoweringToMhlo : public ConversionPattern {
     auto shapeComputed = shapeHelper.computeShape();
     assert(succeeded(shapeComputed) && "Could not compute output shape");
 
-    Value input = operandAdaptor.input();
-    Value min = operandAdaptor.min();
-    Value max = operandAdaptor.max();
+    Value input = operandAdaptor.getInput();
+    Value min = operandAdaptor.getMin();
+    Value max = operandAdaptor.getMax();
 
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");

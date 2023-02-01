@@ -37,16 +37,16 @@ LogicalResult ONNXScatterElementsOp::verify() {
     return success();
 
   // Get operands and attributes.
-  Value data = operandAdaptor.data();
-  Value indices = operandAdaptor.indices();
-  Value updates = operandAdaptor.updates();
+  Value data = operandAdaptor.getData();
+  Value indices = operandAdaptor.getIndices();
+  Value updates = operandAdaptor.getUpdates();
   auto dataType = data.getType().cast<ShapedType>();
   auto indicesType = indices.getType().cast<ShapedType>();
   auto updatesType = updates.getType().cast<ShapedType>();
   int64_t dataRank = dataType.getRank();
   int64_t indicesRank = indicesType.getRank();
   int64_t updatesRank = updatesType.getRank();
-  int64_t axis = this->axis();
+  int64_t axis = this->getAxis();
 
   // All inputs must have the same rank, and the rank must be strictly greater
   // than zero.
@@ -107,9 +107,9 @@ LogicalResult ONNXScatterNDOp::verify() {
     return success();
 
   // Get operands and attributes.
-  Value data = operandAdaptor.data();
-  Value indices = operandAdaptor.indices();
-  Value updates = operandAdaptor.updates();
+  Value data = operandAdaptor.getData();
+  Value indices = operandAdaptor.getIndices();
+  Value updates = operandAdaptor.getUpdates();
   auto dataType = data.getType().cast<ShapedType>();
   auto indicesType = indices.getType().cast<ShapedType>();
   auto updatesType = updates.getType().cast<ShapedType>();

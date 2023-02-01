@@ -28,12 +28,12 @@ LogicalResult ZHighConv2DOpShapeHelper::computeShape() {
   ZHighConv2DOp::Adaptor operandAdaptor(operands);
   // Get operands.
   // X: [B, HI, WI, CI]
-  Value X = operandAdaptor.input();
+  Value X = operandAdaptor.getInput();
   // W: [KH, KW, CI, CO]
-  Value W = operandAdaptor.input_kernel();
+  Value W = operandAdaptor.getInputKernel();
   // Get attributes.
-  ArrayAttr strides = convOp.strides();
-  StringRef paddingType = convOp.padding_type();
+  ArrayAttr strides = convOp.getStrides();
+  StringRef paddingType = convOp.getPaddingType();
 
   // Get bounds
   SmallVector<IndexExpr, 4> XDims, WDims;
@@ -91,17 +91,17 @@ LogicalResult ZHighConv2DOpShapeHelper::computeShape() {
 LogicalResult ZHighConv2DOp::verify() {
   ZHighConv2DOpAdaptor operandAdaptor(*this);
   // Get operands.
-  Value K = operandAdaptor.input_kernel();
-  Value B = operandAdaptor.input_bias();
+  Value K = operandAdaptor.getInputKernel();
+  Value B = operandAdaptor.getInputBias();
 
   // Verify attributes.
   // - padding_type must be SAME_PADDING or VALID_PADDING.
-  StringRef paddingType = padding_type();
+  StringRef paddingType = getPaddingType();
   if (!(paddingType.equals_insensitive("SAME_PADDING") ||
           paddingType.equals_insensitive("VALID_PADDING")))
     return failure();
   // - act_func must be ACT_NONE or ACT_RELU.
-  StringRef actFunc = act_func();
+  StringRef actFunc = getActFunc();
   if (!(actFunc.equals_insensitive("ACT_NONE") ||
           actFunc.equals_insensitive("ACT_RELU")))
     return failure();
@@ -116,7 +116,7 @@ LogicalResult ZHighConv2DOp::verify() {
   }
 
   // Verify kernel shape.
-  ArrayAttr kernelShape = kernel_shape();
+  ArrayAttr kernelShape = getKernelShape();
   int64_t attrKH = kernelShape[0].cast<IntegerAttr>().getInt();
   int64_t attrKW = kernelShape[1].cast<IntegerAttr>().getInt();
   if (hasRankedType(K)) {
@@ -137,10 +137,10 @@ LogicalResult ZHighConv2DOp::verify() {
 
 LogicalResult ZHighConv2DOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(input()) || !hasRankedType(input_kernel()))
+  if (!hasRankedType(getInput()) || !hasRankedType(getInputKernel()))
     return success();
 
-  RankedTensorType inputType = input().getType().cast<RankedTensorType>();
+  RankedTensorType inputType = getInput().getType().cast<RankedTensorType>();
   ZHighConv2DOpShapeHelper shapeHelper(getOperation());
   return shapeHelper.computeShapeAndUpdateType(
       inputType.getElementType(), inputType.getEncoding());

@@ -25,7 +25,7 @@ namespace zhigh {
 
 LogicalResult ZHighStickForLSTMOpShapeHelper::computeShape() {
   ZHighStickForLSTMOp::Adaptor operandAdaptor(operands);
-  Value fGate = operandAdaptor.f_gate();
+  Value fGate = operandAdaptor.getFGate();
 
   // Output dims of result.
   DimsExpr outputDims;
@@ -51,8 +51,8 @@ LogicalResult ZHighStickForLSTMOpShapeHelper::computeShape() {
 
 LogicalResult ZHighStickForLSTMOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(f_gate()) && !hasRankedType(i_gate()) &&
-      !hasRankedType(c_gate()) && !hasRankedType(o_gate()))
+  if (!hasRankedType(getFGate()) && !hasRankedType(getIGate()) &&
+      !hasRankedType(getCGate()) && !hasRankedType(getOGate()))
     return success();
 
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();

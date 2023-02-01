@@ -29,11 +29,11 @@ LogicalResult ZHighPoolingOpShapeHelper<OP>::computeShape() {
   typename OP::Adaptor operandAdaptor(operands);
   // Get operands.
   // X: [B, HI, WI, CI]
-  Value X = operandAdaptor.input();
+  Value X = operandAdaptor.getInput();
   // Get attributes.
-  ArrayAttr kernelShape = poolOp.kernel_shape();
-  ArrayAttr strides = poolOp.strides();
-  StringRef paddingType = poolOp.padding_type();
+  ArrayAttr kernelShape = poolOp.getKernelShape();
+  ArrayAttr strides = poolOp.getStrides();
+  StringRef paddingType = poolOp.getPaddingType();
 
   // Get bounds
   SmallVector<IndexExpr, 4> XDims;
@@ -95,10 +95,10 @@ template struct ZHighPoolingOpShapeHelper<ZHighAvgPool2DOp>;
 
 LogicalResult ZHighMaxPool2DOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(input()))
+  if (!hasRankedType(getInput()))
     return success();
 
-  RankedTensorType inputType = input().getType().cast<RankedTensorType>();
+  RankedTensorType inputType = getInput().getType().cast<RankedTensorType>();
   ZHighPoolingOpShapeHelper<ZHighMaxPool2DOp> shapeHelper(getOperation());
   return shapeHelper.computeShapeAndUpdateType(
       inputType.getElementType(), inputType.getEncoding());
@@ -110,10 +110,10 @@ LogicalResult ZHighMaxPool2DOp::inferShapes(
 
 LogicalResult ZHighAvgPool2DOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(input()))
+  if (!hasRankedType(getInput()))
     return success();
 
-  RankedTensorType inputType = input().getType().cast<RankedTensorType>();
+  RankedTensorType inputType = getInput().getType().cast<RankedTensorType>();
   ZHighPoolingOpShapeHelper<ZHighAvgPool2DOp> shapeHelper(getOperation());
   return shapeHelper.computeShapeAndUpdateType(
       inputType.getElementType(), inputType.getEncoding());

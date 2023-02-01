@@ -37,7 +37,7 @@ public:
   LogicalResult matchAndRewrite(ElementwiseUnaryOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     rewriter.replaceOpWithNewOp<TOSAOp<ElementwiseUnaryOp>>(
-        op, op.getType(), adaptor.X());
+        op, op.getType(), adaptor.getX());
     return success();
   }
 };
@@ -51,10 +51,10 @@ public:
   LogicalResult matchAndRewrite(ONNXOpT op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    Value lhs = adaptor.A();
+    Value lhs = adaptor.getA();
     auto lhsType = lhs.getType().dyn_cast<TensorType>();
 
-    Value rhs = adaptor.B();
+    Value rhs = adaptor.getB();
     auto rhsType = rhs.getType().dyn_cast<TensorType>();
 
     auto resultType = op.getResult().getType().template dyn_cast<TensorType>();
@@ -82,12 +82,13 @@ public:
   LogicalResult matchAndRewrite(ONNXFloorOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    auto scalarType = getElementTypeOrSelf(adaptor.X());
+    auto scalarType = getElementTypeOrSelf(adaptor.getX());
     if (!isTOSAFloat(scalarType))
       return rewriter.notifyMatchFailure(
           op, "`tosa.floor` only supports float types");
 
-    rewriter.replaceOpWithNewOp<tosa::FloorOp>(op, op.getType(), adaptor.X());
+    rewriter.replaceOpWithNewOp<tosa::FloorOp>(
+        op, op.getType(), adaptor.getX());
     return success();
   }
 };
@@ -98,7 +99,7 @@ public:
   LogicalResult matchAndRewrite(ONNXReluOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    Value input = adaptor.X();
+    Value input = adaptor.getX();
 
     // Quantized types are not supported right now (in type conversion).
     // Once they are, the input should be rescaled for quantized types. (TBD)

@@ -29,9 +29,12 @@ LogicalResult ONNXRangeOpShapeHelper::computeShape() {
   ONNXRangeOpAdaptor operandAdaptor(operands);
 
   // Get values.
-  IndexExpr start = createIE->getIntFromArrayAsDim(operandAdaptor.start(), 0);
-  IndexExpr limit = createIE->getIntFromArrayAsDim(operandAdaptor.limit(), 0);
-  IndexExpr delta = createIE->getIntFromArrayAsDim(operandAdaptor.delta(), 0);
+  IndexExpr start =
+      createIE->getIntFromArrayAsDim(operandAdaptor.getStart(), 0);
+  IndexExpr limit =
+      createIE->getIntFromArrayAsDim(operandAdaptor.getLimit(), 0);
+  IndexExpr delta =
+      createIE->getIntFromArrayAsDim(operandAdaptor.getDelta(), 0);
   // Dim = max(ceil((limit-start)/delta), 0).
   IndexExpr num = limit - start;
   num.ceilDiv(delta);
@@ -50,13 +53,13 @@ LogicalResult ONNXRangeOpShapeHelper::computeShape() {
 
 LogicalResult ONNXRangeOp::verify() {
   // All inputs must be valid ranked tensors.
-  if (!hasShapeAndRank(start()) || !hasShapeAndRank(limit()) ||
-      !hasShapeAndRank(delta()))
+  if (!hasShapeAndRank(getStart()) || !hasShapeAndRank(getLimit()) ||
+      !hasShapeAndRank(getDelta()))
     return success();
 
-  auto startTensorTy = start().getType().cast<RankedTensorType>();
-  auto limitTensorTy = limit().getType().cast<RankedTensorType>();
-  auto deltaTensorTy = delta().getType().cast<RankedTensorType>();
+  auto startTensorTy = getStart().getType().cast<RankedTensorType>();
+  auto limitTensorTy = getLimit().getType().cast<RankedTensorType>();
+  auto deltaTensorTy = getDelta().getType().cast<RankedTensorType>();
 
   // Only rank 0 or 1 input tensors are supported.
   if (startTensorTy.getShape().size() > 1)
@@ -101,15 +104,15 @@ LogicalResult ONNXRangeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // All inputs must be valid ranked tensors.
 
-  if (!hasShapeAndRank(start()))
+  if (!hasShapeAndRank(getStart()))
     return success();
-  if (!hasShapeAndRank(limit()))
+  if (!hasShapeAndRank(getLimit()))
     return success();
-  if (!hasShapeAndRank(delta()))
+  if (!hasShapeAndRank(getDelta()))
     return success();
 
   Type elementType =
-      start().getType().cast<RankedTensorType>().getElementType();
+      getStart().getType().cast<RankedTensorType>().getElementType();
   ONNXRangeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

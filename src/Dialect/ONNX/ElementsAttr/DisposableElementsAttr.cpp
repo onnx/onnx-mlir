@@ -218,7 +218,7 @@ WideNum DisposableElementsAttr::atFlatIndex(size_t flatIndex) const {
   ArrayRef<char> bytes =
       getBufferBytes().slice(pos * bufBytewidth, bufBytewidth);
   WideNum n;
-  readBytesAsWideNums(bytes, llvm::makeMutableArrayRef(n));
+  readBytesAsWideNums(bytes, llvm::MutableArrayRef(n));
   return n;
 }
 

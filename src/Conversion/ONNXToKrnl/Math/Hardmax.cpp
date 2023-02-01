@@ -41,7 +41,8 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   outputUBS[axis] = LiteralIndexExpr(1);
   SmallVector<int64_t, 4> outputShape;
   for (const IndexExpr &dim : outputUBS)
-    outputShape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
+    outputShape.push_back(
+        dim.isLiteral() ? dim.getLiteral() : ShapedType::kDynamic);
   Value resMemRef = insertAllocAndDeallocSimple(rewriter, nullptr,
       MemRefType::get(outputShape, indexType), loc, outputUBS,
       /*insertDealloc=*/true);
@@ -88,7 +89,7 @@ struct ONNXHardmaxOpLowering : public ConversionPattern {
     IndexExprScope scope(create.krnl);
 
     ONNXHardmaxOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -100,7 +101,7 @@ struct ONNXHardmaxOpLowering : public ConversionPattern {
     Value zero = create.math.constantIndex(0);
 
     int64_t rank = memRefType.getRank();
-    int64_t axis = llvm::dyn_cast<ONNXHardmaxOp>(op).axis();
+    int64_t axis = llvm::dyn_cast<ONNXHardmaxOp>(op).getAxis();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
 
