@@ -86,26 +86,22 @@ static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
 /// Given an unknown dimension, find the same unknown dimensions in the inputs.
 /// This function uses ShapeHelper to explore the same unknown dimensions.
 /// Use this function for operations that use adaptor to compute shape.
-bool exploreSameInputDims_new(const onnx_mlir::DimAnalysis::DimT &dim,
+bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
 
+  // Has this op a ShapeHelper interface?
   auto shape_op = llvm::dyn_cast<mlir::ShapeHelper>(*op);
-  if (!shape_op) {
-    fprintf(stderr, "hi alex: op does not have a shape helper");
+  if (!shape_op)
     return false;
-  }
 
-  llvm::ArrayRef<mlir::Value> operands;
-  onnx_mlir::IndexExprBuilder *builder = nullptr;
-  onnx_mlir::IndexExprScope *scope = nullptr;
+  // Get its shape interface.
   onnx_mlir::ONNXOpShapeHelper *shapeHelper =
-      shape_op.getShapeHelper(op, operands, builder, scope);
-  if (!shapeHelper) {
-    fprintf(stderr, "hi alex: failed to create shape helper");
+      shape_op.getShapeHelper(op, {}, nullptr, nullptr);
+  if (!shapeHelper)
     return false;
-  }
+
+  // Compute shape.
   if (failed(shapeHelper->computeShape())) {
-    fprintf(stderr, "hi alex: failed to compute shape");
     delete shapeHelper;
     return false;
   }
@@ -128,68 +124,6 @@ bool exploreSameInputDims_new(const onnx_mlir::DimAnalysis::DimT &dim,
   delete shapeHelper;
   return true;
 }
-
-/// Given an unknown dimension, find the same unknown dimensions in the inputs.
-/// This function uses ShapeHelper to explore the same unknown dimensions.
-/// Use this function for operations that use adaptor to compute shape.
-template <typename ONNX_OP, typename SHAPE_HELPER>
-void exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim, ONNX_OP op,
-    onnx_mlir::DimAnalysis::DimSetT &sameDims) {
-  SHAPE_HELPER shapeHelper(op.getOperation(), {});
-  shapeHelper.computeShapeAndAssertOnFailure();
-  // The operation may have multiple outputs, find the index of the processing
-  // output.
-  Value outputTensor = dim.first;
-  uint64_t tensorIndex = 0;
-  for (uint64_t i = 0; i < op->getNumResults(); ++i) {
-    if (op->getResult(i) == outputTensor) {
-      tensorIndex = i;
-      break;
-    }
-  }
-  // Find the unknown input dimensions that were transferred to the unknown
-  // output dimension.
-  uint64_t dimIndex = dim.second;
-  onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
-      shapeHelper.getOutputDims(tensorIndex)[dimIndex];
-  findAndAddSameDim(
-      qmOuputIE, op.getOperation(), op.getOperation()->getOperands(), sameDims);
-}
-
-#if 0
-/// Given an unknown dimension, find the same unknown dimensions in the inputs.
-/// This function uses ShapeHelper to explore the same unknown dimensions.
-/// Use this function for unary operations.
-void exploreSameInputDimsUnaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
-    mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
-  onnx_mlir::ONNXUnaryOpShapeHelper shapeHelper(op, {});
-  shapeHelper.computeShapeAndAssertOnFailure();
-  // Find the unknown input dimensions that were transferred to the unknown
-  // output dimension.
-  onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
-      shapeHelper.getOutputDims()[dim.second];
-  findAndAddSameDim(qmOuputIE, op, op->getOperands(), sameDims);
-}
-
-/// Given an unknown dimension, find the same unknown dimensions in the inputs.
-/// This function uses ShapeHelper to explore the same unknown dimensions.
-/// Use this function for binary operations.
-void exploreSameInputDimsBinaryOp(const onnx_mlir::DimAnalysis::DimT &dim,
-    mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
-  Value A = op->getOperands()[0];
-  Value B = op->getOperands()[1];
-
-  // Build shape helper
-  onnx_mlir::ONNXBroadcastOpShapeHelper shapeHelper(
-      op, ArrayRef<Value>({A, B}));
-  shapeHelper.computeShapeAndAssertOnFailure();
-  // Find the unknown input dimensions that were transferred to the unknown
-  // output dimension.
-  onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
-      shapeHelper.getOutputDims()[dim.second];
-  findAndAddSameDim(qmOuputIE, op, op->getOperands(), sameDims);
-}
-#endif
 
 } // namespace
 
@@ -377,10 +311,37 @@ void DimAnalysis::visitDim(
   // possible.
   Operation *op = tensor.getDefiningOp();
 
-  // BinaryOp
-  if (isa<ONNXAddOp>(op) || isa<ONNXDivOp>(op) || isa<ONNXMulOp>(op) ||
-      isa<ONNXSubOp>(op)) {
-    if (exploreSameInputDims_new(dim, op, sameDims)) {
+  ////////////////////////////////////////////////////
+  // Special cases.
+
+  // BinaryOp (alphabetical list, same as under ShapeHelper
+  // ONNXBroadcastOpShapeHelper).
+  // clang-format off
+  if (isa<ONNXAddOp>(op) || 
+      isa<ONNXAndOp>(op) ||
+      isa<ONNXBitShiftOp>(op) ||
+      isa<ONNXBitwiseAndOp>(op) ||
+      isa<ONNXBitwiseOrOp>(op) ||
+      isa<ONNXBitwiseXorOp>(op) ||
+      isa<ONNXBitShiftOp>(op) ||
+      isa<ONNXDivOp>(op) || 
+      isa<ONNXEqualOp>(op) ||
+      isa<ONNXGreaterOp>(op) ||
+      isa<ONNXGreaterOrEqualOp>(op) ||
+      isa<ONNXLessOp>(op) ||
+      isa<ONNXLessOrEqualOp>(op) ||
+      isa<ONNXMeanOp>(op) ||
+      isa<ONNXMinOp>(op) ||
+      isa<ONNXModOp>(op) ||
+      isa<ONNXMulOp>(op) ||
+      isa<ONNXOrOp>(op) ||
+      isa<ONNXPowOp>(op) ||
+      isa<ONNXSubOp>(op) ||
+      isa<ONNXSumOp>(op) ||
+      isa<ONNXWhereOp>(op) ||
+      isa<ONNXXorOp>(op)) {
+    // c lang-format on
+    if (exploreSameInputDims(dim, op, sameDims)) {
       // If we know by this analysis that two unknown dims at the same index are
       // the same, then the output dim must be the same too.
       Value A = op->getOperands()[0];
@@ -407,8 +368,6 @@ void DimAnalysis::visitDim(
     return;
   }
 
-  // special cases
-
   // ConstantOfShapeOp
   if (auto constOp = dyn_cast<ONNXConstantOfShapeOp>(op)) {
     if (!areDimsFromConcat(constOp.input()))
@@ -429,7 +388,7 @@ void DimAnalysis::visitDim(
 
   // MatMulOp
   if (auto matmulOp = dyn_cast<ONNXMatMulOp>(op)) {
-    if (exploreSameInputDims_new(dim, op, sameDims)) {
+    if (exploreSameInputDims(dim, op, sameDims)) {
       // If we know by this analysis that two unknown dims at the same index in
       // the batchsize space are the same, then the output dim must be the same
       // too.
@@ -520,10 +479,6 @@ void DimAnalysis::visitDim(
   if (auto reduceMeanOp = dyn_cast<ONNXReduceMeanOp>(op)) {
     // TODO: replace the code here by the following code once ReduceMean uses
     // IndexExpr for its shape inference.
-    // ```c
-    // exploreSameInputDims<ONNXReduceMeanOp, ONNXReduceMeanOpShapeHelper>(
-    //    dim, reduceMeanOp, sameDims);
-    // ```
 
     // Only support keepdims at this moment.
     if (reduceMeanOp.keepdims() != 1)
@@ -544,9 +499,9 @@ void DimAnalysis::visitDim(
     return;
   }
 
+  ////////////////////////////////////////////////////
   // Generic cases
-  exploreSameInputDims_new(dim, op, sameDims);
-  return;
+  exploreSameInputDims(dim, op, sameDims);
 }
 
 } // namespace onnx_mlir
