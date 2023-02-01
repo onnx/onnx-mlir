@@ -1041,6 +1041,13 @@ Value LLVMBuilder::constant(Type type, double val) const {
   return constant;
 }
 
+Value LLVMBuilder::extractElement(
+    Type resultType, Value container, int64_t position) const {
+  Value posVal = constant(b().getI64Type(), position);
+  return b().create<LLVM::ExtractElementOp>(
+      loc(), resultType, container, posVal);
+}
+
 Value LLVMBuilder::extractValue(
     Type resultType, Value container, ArrayRef<int64_t> position) const {
   return b().create<LLVM::ExtractValueOp>(
