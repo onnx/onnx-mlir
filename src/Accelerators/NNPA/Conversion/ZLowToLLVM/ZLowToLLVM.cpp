@@ -1551,24 +1551,28 @@ public:
         // clang-format off
         // tail call <4 x i32> asm sideeffect ".insn vrr,0xe60000000056,$0,$1,0,2,0,0", "=&v,v"(i16 %input)
         // clang-format on
-        auto asmDialectAttr = LLVM::AsmDialectAttr::get(
-            rewriter.getContext(), LLVM::AsmDialect::AD_ATT);
+        // auto asmDialectAttr = LLVM::AsmDialectAttr::get(
+        //     rewriter.getContext(), LLVM::AsmDialect::AD_ATT);
         SmallVector<Value> asmVals{inputI16};
-        const char *asmStr = ".insn vrr,0xe60000000056,$0,$1,0,2,0,0 \n\t";
-        const char *asmConstraints = "=&v,v";
+        const char *asmStr = ".insn vrr,0xe60000000056,$0,$2,0,2,0,0 \n\t .insn vrr,0xe6000000005E,$1,$2,0,2,0,0     \n\t";
+        const char *asmConstraints = "=&v,=v,v";
 
-        Value outVec =
+        Type vecTypeI32 = LLVM::getFixedVectorType(i32Ty, 4);
+        Type vecTypeF32 = LLVM::getFixedVectorType(f32Ty, 4);
+        SmallVector<Type> asmTypes{vecTypeI32, vecTypeI32};
+        Type resType = LLVM::LLVMStructType::getLiteral(rewriter.getContext(), asmTypes, false);
+        Value outStruct =
             rewriter
                 .create<LLVM::InlineAsmOp>(loc,
-                    LLVM::getFixedVectorType(i32Ty, 4), // <4xi32>
+                    resType,
                     /*operands=*/asmVals,
                     /*asm_string=*/asmStr,
                     /*constraints=*/asmConstraints, /*has_side_effects=*/true,
-                    /*is_align_stack=*/false, /*asm_dialect=*/asmDialectAttr,
+                    /*is_align_stack=*/false, /*asm_dialect=*/LLVM::AsmDialectAttr(),
                     /*operand_attrs=*/ArrayAttr())
                 .getResult(0);
-        Value outVecF32 =
-            create.llvm.bitcast(LLVM::getFixedVectorType(f32Ty, 4), outVec);
+        Value outVec = create.llvm.extractValue(vecTypeI32, outStruct, {0});
+        Value outVecF32 = create.llvm.bitcast(vecTypeF32, outVec);
         outputF32 = create.llvm.extractElement(f32Ty, outVecF32, 0);
       } else {
         // Generating LLVM instruction here.
