@@ -168,12 +168,9 @@ bool LSTMLibBuilder::verifyOutputs() {
   if (!inputs || !outputs)
     return false;
 
-  auto refY =
-      omTensorCreateWithShape<float>(llvm::ArrayRef(perm4(S, D, B, H)));
-  auto refYh =
-      omTensorCreateWithShape<float>(llvm::ArrayRef(perm3(D, B, H)));
-  auto refYc =
-      omTensorCreateWithShape<float>(llvm::ArrayRef(perm3(D, B, H)));
+  auto refY = omTensorCreateWithShape<float>(llvm::ArrayRef(perm4(S, D, B, H)));
+  auto refYh = omTensorCreateWithShape<float>(llvm::ArrayRef(perm3(D, B, H)));
+  auto refYc = omTensorCreateWithShape<float>(llvm::ArrayRef(perm3(D, B, H)));
   // Naive LSTM implementation.
   // Equations for LSTM.
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)

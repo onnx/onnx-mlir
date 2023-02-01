@@ -311,8 +311,7 @@ Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
   SmallVector<int64_t, 1> dims(1, 0);
   SmallVector<int64_t> values;
   auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  auto denseAttr =
-      DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
+  auto denseAttr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
@@ -321,8 +320,7 @@ Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
   SmallVector<int64_t, 1> dims(1, 0);
   SmallVector<float> values;
   auto tensorType = RankedTensorType::get(dims, rewriter.getF32Type());
-  auto denseAttr =
-      DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
+  auto denseAttr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 

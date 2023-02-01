@@ -8,8 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 
 #include "mlir/IR/Builders.h"
 

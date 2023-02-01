@@ -146,10 +146,8 @@ bool GRULibBuilder::verifyOutputs() {
   if (!inputs || !outputs)
     return false;
 
-  auto refY =
-      omTensorCreateWithShape<float>(llvm::ArrayRef(perm4(S, D, B, H)));
-  auto refYh =
-      omTensorCreateWithShape<float>(llvm::ArrayRef(perm3(D, B, H)));
+  auto refY = omTensorCreateWithShape<float>(llvm::ArrayRef(perm4(S, D, B, H)));
+  auto refYh = omTensorCreateWithShape<float>(llvm::ArrayRef(perm3(D, B, H)));
   // Naive GRU implementation.
   // Equations for GRU.
   // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)

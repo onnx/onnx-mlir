@@ -393,7 +393,8 @@ public:
         /*isTransformed=*/true);
 
     // Create zTensor for input_weights.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInputWeights());
+    stickI8Ptr =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInputWeights());
     ZTensor inputWeightsZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{D, F, H},
@@ -409,7 +410,8 @@ public:
             /*concatInfo=*/RNN_TYPE_LSTM | USAGE_BIASES | prevLayer);
 
     // Create zTensor for hidden_weights.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHiddenWeights());
+    stickI8Ptr =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHiddenWeights());
     ZTensor hiddenWeightsZTensor = zTensorHelper.getZTensor(stickI8Ptr,
         /*dataType=*/zDNNDataType,
         /*layout=*/ZDNN_3DS, /*originalDims=*/{D, H, H},
@@ -437,7 +439,8 @@ public:
       llvm_unreachable("Unsupported direction");
 
     // work_area.
-    Value workArea = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWorkArea());
+    Value workArea =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWorkArea());
 
     // Create zTensor for hn_output.
     Value preTransformedDescPtr;
@@ -568,7 +571,8 @@ public:
             /*isTransformed=*/true);
 
     // Create zTensor for input_weights.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInputWeights());
+    stickI8Ptr =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getInputWeights());
     ZTensor inputWeightsZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{D, F, H},
@@ -584,7 +588,8 @@ public:
             /*concatInfo=*/RNN_TYPE_GRU | USAGE_BIASES | PREV_LAYER_NONE);
 
     // Create zTensor for hidden_weights.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHiddenWeights());
+    stickI8Ptr =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHiddenWeights());
     ZTensor hiddenWeightsZTensor = zTensorHelper.getZTensor(stickI8Ptr,
         /*dataType=*/zDNNDataType,
         /*layout=*/ZDNN_3DS, /*originalDims=*/{D, H, H},
@@ -612,7 +617,8 @@ public:
       llvm_unreachable("Unsupported direction");
 
     // work_area.
-    Value workArea = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWorkArea());
+    Value workArea =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWorkArea());
 
     // Create zTensor for hn_output.
     Value preTransformedDescPtr;
@@ -945,7 +951,8 @@ public:
         /*isTransformed=*/true);
 
     // work_area.
-    Value workArea = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWorkArea());
+    Value workArea =
+        zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWorkArea());
 
     // Call zDNN softmax.
     callApi(rewriter, loc, module, apiRegistry, API::ZDNN_SOFTMAX,
@@ -1153,7 +1160,8 @@ public:
     // width out
     Value WOut = dims[6];
     // kernel shape
-    ArrayRef<Attribute> kernelShapeArrayAttr = convOp.getKernelShape().getValue();
+    ArrayRef<Attribute> kernelShapeArrayAttr =
+        convOp.getKernelShape().getValue();
     // kernel height
     Value KH = create.llvm.constant(llvmI64Ty,
         (int64_t)kernelShapeArrayAttr[0].cast<IntegerAttr>().getInt());
@@ -1302,7 +1310,8 @@ public:
     // width out
     Value WOut = dims[5];
     // kernel shape
-    ArrayRef<Attribute> kernelShapeArrayAttr = poolOp.getKernelShape().getValue();
+    ArrayRef<Attribute> kernelShapeArrayAttr =
+        poolOp.getKernelShape().getValue();
     // kernel height
     Value KH = create.llvm.constant(llvmI64Ty,
         (int64_t)kernelShapeArrayAttr[0].cast<IntegerAttr>().getInt());

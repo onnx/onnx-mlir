@@ -52,9 +52,10 @@ bool Conv2DLibBuilder::build() {
   }
 
   // We use the Ns for the shape of the input, and the N1s for the construction
-  // of the model. That way, when the shape is dynamic, we set the N1s to "ShapedType::kDynamic"
-  // (dynamic value) so that the compiler may not infer the size of the model,
-  // and instead generate code to figure the sizes at run time.
+  // of the model. That way, when the shape is dynamic, we set the N1s to
+  // "ShapedType::kDynamic" (dynamic value) so that the compiler may not infer
+  // the size of the model, and instead generate code to figure the sizes at run
+  // time.
   int64_t N1 = N;
   int64_t CIn1 = CIn;
   int64_t COut1 = COut;

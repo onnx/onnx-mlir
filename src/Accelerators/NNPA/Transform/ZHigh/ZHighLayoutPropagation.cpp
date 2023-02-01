@@ -45,7 +45,8 @@ std::pair<bool, StringAttr> areProducedByUnstickOpSameLayout(
   Value first = values[0];
   if (first.isa<BlockArgument>() || !isa<ZHighUnstickOp>(first.getDefiningOp()))
     return std::make_pair(false, nullptr);
-  Value firstStickifiedVal = cast<ZHighUnstickOp>(first.getDefiningOp()).getIn();
+  Value firstStickifiedVal =
+      cast<ZHighUnstickOp>(first.getDefiningOp()).getIn();
   StringAttr firstLayout = convertZTensorDataLayoutToStringAttr(
       rewriter, getZTensorLayout(firstStickifiedVal.getType()));
 

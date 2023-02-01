@@ -159,7 +159,8 @@ static Value insertAllocAndDeallocWorkAreaForRNNOps(
     sizeExpr = sizeExpr * Lit2;
 
   // Emit alloc and dealloc ops.
-  int64_t size = sizeExpr.isLiteral() ? sizeExpr.getLiteral() : ShapedType::kDynamic;
+  int64_t size =
+      sizeExpr.isLiteral() ? sizeExpr.getLiteral() : ShapedType::kDynamic;
   MemRefType resultType = MemRefType::get({size}, rewriter.getIntegerType(8));
   SmallVector<IndexExpr> dims(1, sizeExpr);
   alloc = insertAllocAndDeallocSimple(rewriter, nullptr, resultType, loc, dims,

@@ -44,7 +44,8 @@ LogicalResult ONNXReverseSequenceOp::verify() {
 
   auto sequence_lensTy =
       operandAdaptor.getSequenceLens().getType().dyn_cast<RankedTensorType>();
-  auto inputTy = operandAdaptor.getInput().getType().dyn_cast<RankedTensorType>();
+  auto inputTy =
+      operandAdaptor.getInput().getType().dyn_cast<RankedTensorType>();
 
   // sequence_lens should be 1D tensor
   if (sequence_lensTy) {

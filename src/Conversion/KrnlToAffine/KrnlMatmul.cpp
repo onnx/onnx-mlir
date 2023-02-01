@@ -97,7 +97,8 @@ public:
 
     // Gather A, B, C tile sizes.
     SmallVector<IndexExpr, 2> aTileSize, bTileSize, cTileSize;
-    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), C(operandAdaptor.getC());
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()),
+        C(operandAdaptor.getC());
     SmallVector<IndexExpr, 4> aBounds, bBounds, cBounds, aTileSizeFromAttr,
         bTileSizeFromAttr, cTileSizeFromAttr, computeTileSizeFromAttr;
     create.krnlIE.getShapeAsSymbols(A, aBounds);

@@ -40,8 +40,8 @@ public:
     // Get a symbol reference to the runtime function to use, creating one if
     // necessary.
     ModuleOp module = findIndexOp->getParentOfType<ModuleOp>();
-    FlatSymbolRefAttr findIndexRef =
-        getOrInsertFindIndex(rewriter, module, findIndexOp.getInput().getType());
+    FlatSymbolRefAttr findIndexRef = getOrInsertFindIndex(
+        rewriter, module, findIndexOp.getInput().getType());
 
     // Select the value to pass to as the first argument based on the operator
     // input type.
@@ -62,10 +62,14 @@ public:
           llvm_unreachable("unexpected inputType");
         });
 
-    Type GType =
-        operandAdaptor.getG().getType().cast<LLVM::LLVMStructType>().getBody()[1];
-    Type VType =
-        operandAdaptor.getV().getType().cast<LLVM::LLVMStructType>().getBody()[1];
+    Type GType = operandAdaptor.getG()
+                     .getType()
+                     .cast<LLVM::LLVMStructType>()
+                     .getBody()[1];
+    Type VType = operandAdaptor.getV()
+                     .getType()
+                     .cast<LLVM::LLVMStructType>()
+                     .getBody()[1];
 
     // Remaining operands.
     Value extractedGPtr =

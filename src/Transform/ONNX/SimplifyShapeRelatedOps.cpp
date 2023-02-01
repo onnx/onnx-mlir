@@ -73,7 +73,8 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-/// Get all dimensions in I64 (ShapedType::kDynamic for unknown) that are stored by the value.
+/// Get all dimensions in I64 (ShapedType::kDynamic for unknown) that are stored
+/// by the value.
 void getDimsInt64(Value val, SmallVectorImpl<int64_t> &result) {
   SmallVector<Value, 4> dims;
   getDims(val, dims);

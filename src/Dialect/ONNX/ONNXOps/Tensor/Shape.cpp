@@ -89,8 +89,8 @@ void ONNXShapeOpShapeHelper::computeSelectedDataShape(
   // dimensions from the back.
   startVal = operandAdaptor.getStart();
   startVal = normalizeClampedPerSpec(startVal, rank);
-  endVal =
-      operandAdaptor.getEnd().has_value() ? operandAdaptor.getEnd().value() : rank;
+  endVal = operandAdaptor.getEnd().has_value() ? operandAdaptor.getEnd().value()
+                                               : rank;
   endVal = normalizeClampedPerSpec(endVal, rank);
 }
 

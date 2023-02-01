@@ -57,7 +57,8 @@ struct ONNXSequenceEraseOpLowering : public ConversionPattern {
       // Erase the end of the sequence
       positionIE = boundIE - 1;
     } else {
-      positionIE = SymbolIndexExpr(create.krnl.load(operandAdaptor.getPosition()));
+      positionIE =
+          SymbolIndexExpr(create.krnl.load(operandAdaptor.getPosition()));
       // Handle the negative position
       auto correctionIE = positionIE + boundIE;
       auto conditionIE = positionIE < 0;

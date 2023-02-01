@@ -163,8 +163,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
       // Copy intermediate values of scan carried dependencies to MemRef
       // outside the iteration scope so next iteration can have use them as
       // init value.
-      auto vIntermediate = llvm::make_range(
-          bodyOutputs.begin(), bodyOutputs.begin() + scanOp.getVInitial().size());
+      auto vIntermediate = llvm::make_range(bodyOutputs.begin(),
+          bodyOutputs.begin() + scanOp.getVInitial().size());
       for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
         emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
             std::get<1>(vIntermediateToFinal));
@@ -204,7 +204,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
       Operation *op, ONNXScanOpAdaptor scanOpAdapter,
       SmallVectorImpl<mlir::Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
-    for (const auto &ioPair : llvm::zip(scanOp.getVInitial(), scanOp.v_final())) {
+    for (const auto &ioPair :
+        llvm::zip(scanOp.getVInitial(), scanOp.v_final())) {
       auto vInit = std::get<0>(ioPair);
       auto vFinal = std::get<1>(ioPair);
 

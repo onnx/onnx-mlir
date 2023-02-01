@@ -332,8 +332,8 @@ struct ExpandPowToMulPattern : public ConversionPattern {
     int64_t exponent;
 
     // Get the scalar integer exponent.
-    // powOp.getY() is exponent that must be a scalar integer tensor by the Match
-    // phase.
+    // powOp.getY() is exponent that must be a scalar integer tensor by the
+    // Match phase.
     auto constOp = dyn_cast<ONNXConstantOp>(powOp.getY().getDefiningOp());
     auto dataAttr = constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
     Type elementType = dataAttr.getElementType();
@@ -479,7 +479,8 @@ void RewriteONNXForZHighPass::runOnOperation() {
       for (int64_t i = 0; i < aRank - 2; ++i) {
         sameBatchDims &= (aShape[i] == bShape[i]);
         if (sameBatchDims && ShapedType::isDynamic(aShape[i]))
-          sameBatchDims = dimAnalysis.sameUnknownDim(op.getA(), i, op.getB(), i);
+          sameBatchDims =
+              dimAnalysis.sameUnknownDim(op.getA(), i, op.getB(), i);
       }
       return !sameBatchDims;
     }
@@ -502,7 +503,8 @@ void RewriteONNXForZHighPass::runOnOperation() {
     Value input = op.getInput();
     if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
       if ((shapedType.getRank() > 3) &&
-          ((op.getAxis() == shapedType.getRank() - 1) || (op.getAxis() == -1))) {
+          ((op.getAxis() == shapedType.getRank() - 1) ||
+              (op.getAxis() == -1))) {
         return false;
       }
     }

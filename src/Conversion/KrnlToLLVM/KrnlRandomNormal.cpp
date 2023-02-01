@@ -58,8 +58,9 @@ public:
 
     // Memcpy call
     create.llvm.call({}, randomNormalFuncRef,
-        {alignedOutput, operandAdaptor.getNumberOfValues(), operandAdaptor.getMean(),
-            operandAdaptor.getScale(), operandAdaptor.getSeed()});
+        {alignedOutput, operandAdaptor.getNumberOfValues(),
+            operandAdaptor.getMean(), operandAdaptor.getScale(),
+            operandAdaptor.getSeed()});
 
     rewriter.eraseOp(op);
     return success();

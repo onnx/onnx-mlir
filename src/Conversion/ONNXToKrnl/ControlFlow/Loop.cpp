@@ -402,7 +402,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           }
           assert(!loopOpAdaptor.getM().getType().isa<NoneType>());
           Value maxTripCount =
-              rewriter.create<KrnlLoadOp>(loc, loopOpAdaptor.getM()).getResult();
+              rewriter.create<KrnlLoadOp>(loc, loopOpAdaptor.getM())
+                  .getResult();
           allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
               loc, rewriter.getIndexType(), maxTripCount));
         }

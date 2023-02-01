@@ -59,7 +59,8 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
       assert(shapeOp.getData().getType().isa<ShapedType>() &&
              "ShapeOp's input data should be of ShapedType");
-      int64_t shapeRank = shapeOp.getData().getType().cast<ShapedType>().getRank();
+      int64_t shapeRank =
+          shapeOp.getData().getType().cast<ShapedType>().getRank();
       SmallVector<int64_t, 4> onesShape(shapeRank, ShapedType::kDynamic);
       RankedTensorType onesType = RankedTensorType::get(onesShape, elementType);
       broadcastedOnes = rewriter.create<mhlo::DynamicBroadcastInDimOp>(

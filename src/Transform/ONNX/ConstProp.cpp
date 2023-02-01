@@ -603,13 +603,16 @@ public:
     if (!isDenseONNXConstant(scatterNdOp.getUpdates()))
       return failure();
 
-    ConstPropCounters::count("Scatter",
-        {scatterNdOp.getData(), scatterNdOp.getIndices(), scatterNdOp.getUpdates()});
+    ConstPropCounters::count(
+        "Scatter", {scatterNdOp.getData(), scatterNdOp.getIndices(),
+                       scatterNdOp.getUpdates()});
 
     OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
     ElementsAttr dataElements = getConstValueElements(scatterNdOp.getData());
-    ElementsAttr indicesElements = getConstValueElements(scatterNdOp.getIndices());
-    ElementsAttr updatesElements = getConstValueElements(scatterNdOp.getUpdates());
+    ElementsAttr indicesElements =
+        getConstValueElements(scatterNdOp.getIndices());
+    ElementsAttr updatesElements =
+        getConstValueElements(scatterNdOp.getUpdates());
     ElementsAttr scatteredElements = elementsBuilder.fromWideNums(
         dataElements.getType(), [&](MutableArrayRef<WideNum> dst) {
           ScatterNDImpl(dataElements, indicesElements, updatesElements, dst);

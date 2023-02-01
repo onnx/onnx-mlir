@@ -107,8 +107,7 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
     auto tensorType = RankedTensorType::get(dims, elementType);
 
     llvm::SmallVector<float, 1> values(1, 0.);
-    setValueAttr(
-        DenseElementsAttr::get(tensorType, llvm::ArrayRef(values)));
+    setValueAttr(DenseElementsAttr::get(tensorType, llvm::ArrayRef(values)));
   }
 
   ONNXConstantOfShapeOpShapeHelper shapeHelper(getOperation(), {});

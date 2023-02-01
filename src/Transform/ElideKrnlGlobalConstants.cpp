@@ -53,7 +53,8 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
   bool elide = false;
 
   if (op.getValue()->isa<DenseElementsAttr>()) {
-    const auto &valAttr = op.getValueAttr().dyn_cast_or_null<DenseElementsAttr>();
+    const auto &valAttr =
+        op.getValueAttr().dyn_cast_or_null<DenseElementsAttr>();
     if (valAttr.getNumElements() > elisionThreshold && !valAttr.isSplat()) {
       elide = true;
     }
@@ -67,7 +68,8 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
 
   if (elide) {
     IntegerAttr offsetAttr = op.getOffset() ? op.getOffsetAttr() : nullptr;
-    IntegerAttr alignmentAttr = op.getAlignment() ? op.getAlignmentAttr() : nullptr;
+    IntegerAttr alignmentAttr =
+        op.getAlignment() ? op.getAlignmentAttr() : nullptr;
     auto newGlobalOp =
         create.krnl.constant(op.getResult().getType().cast<MemRefType>(),
             op.getName(), std::nullopt, offsetAttr, alignmentAttr);

@@ -41,7 +41,8 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   outputUBS[axis] = LiteralIndexExpr(1);
   SmallVector<int64_t, 4> outputShape;
   for (const IndexExpr &dim : outputUBS)
-    outputShape.push_back(dim.isLiteral() ? dim.getLiteral() : ShapedType::kDynamic);
+    outputShape.push_back(
+        dim.isLiteral() ? dim.getLiteral() : ShapedType::kDynamic);
   Value resMemRef = insertAllocAndDeallocSimple(rewriter, nullptr,
       MemRefType::get(outputShape, indexType), loc, outputUBS,
       /*insertDealloc=*/true);

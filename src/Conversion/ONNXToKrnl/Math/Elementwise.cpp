@@ -1127,22 +1127,24 @@ struct ONNXWhereOpLowering : public ConversionPattern {
                 shapeHelper.getAccessExprs(operandAdaptor.getCondition(), 0,
                     outputAccessExprs, condAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
-            Value cond =
-                createKrnl.loadIE(operandAdaptor.getCondition(), condAccessExprs);
+            Value cond = createKrnl.loadIE(
+                operandAdaptor.getCondition(), condAccessExprs);
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
             res = shapeHelper.getAccessExprs(
                 operandAdaptor.getX(), 1, outputAccessExprs, lhsAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
-            Value lhs = createKrnl.loadIE(operandAdaptor.getX(), lhsAccessExprs);
+            Value lhs =
+                createKrnl.loadIE(operandAdaptor.getX(), lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
             res = shapeHelper.getAccessExprs(
                 operandAdaptor.getY(), 2, outputAccessExprs, rhsAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
-            Value rhs = createKrnl.loadIE(operandAdaptor.getY(), rhsAccessExprs);
+            Value rhs =
+                createKrnl.loadIE(operandAdaptor.getY(), rhsAccessExprs);
 
             // Return lhs if cond is true else rhs.
             Value result =

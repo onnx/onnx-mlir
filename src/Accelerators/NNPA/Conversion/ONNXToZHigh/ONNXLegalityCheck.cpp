@@ -599,7 +599,8 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
       return false;
   }
   // zDNN does not support P(peepholes), activation_alpha and activation_beta.
-  if (!isFromNone(op.getP()) || op.getActivationAlpha() || op.getActivationBeta())
+  if (!isFromNone(op.getP()) || op.getActivationAlpha() ||
+      op.getActivationBeta())
     return false;
   // zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only.
   if ((activations && (activations.value().size() > 0) &&

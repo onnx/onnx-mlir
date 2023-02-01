@@ -132,5 +132,6 @@ Operation::result_range ONNXScanOp::v_final() {
 // outputs.
 Operation::result_range ONNXScanOp::scan_outputs() {
   auto results = getResults();
-  return llvm::make_range(results.begin() + getVInitial().size(), results.end());
+  return llvm::make_range(
+      results.begin() + getVInitial().size(), results.end());
 }

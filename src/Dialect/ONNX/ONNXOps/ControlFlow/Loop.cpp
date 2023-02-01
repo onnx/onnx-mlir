@@ -63,7 +63,8 @@ LogicalResult ONNXLoopOp::inferShapes(
   // Compute the type range corresponding to the final values of
   // loop-carried dependencies/scan outputs in the body function output
   // types.
-  auto scanStartItr = std::next(bodyResultTys.begin(), 1 + getVInitial().size());
+  auto scanStartItr =
+      std::next(bodyResultTys.begin(), 1 + getVInitial().size());
   auto bodyResVFinalTys =
       llvm::make_range(std::next(bodyResultTys.begin(), 1), scanStartItr);
   auto bodyResScanTys = llvm::make_range(scanStartItr, bodyResultTys.end());
@@ -112,5 +113,6 @@ Operation::result_range ONNXLoopOp::v_final() {
 // outputs.
 Operation::result_range ONNXLoopOp::scan_outputs() {
   auto results = getResults();
-  return llvm::make_range(results.begin() + getVInitial().size(), results.end());
+  return llvm::make_range(
+      results.begin() + getVInitial().size(), results.end());
 }

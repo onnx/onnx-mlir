@@ -87,7 +87,8 @@ public:
       return rewriter.notifyMatchFailure(
           op, "`tosa.floor` only supports float types");
 
-    rewriter.replaceOpWithNewOp<tosa::FloorOp>(op, op.getType(), adaptor.getX());
+    rewriter.replaceOpWithNewOp<tosa::FloorOp>(
+        op, op.getType(), adaptor.getX());
     return success();
   }
 };
