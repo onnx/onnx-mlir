@@ -71,10 +71,8 @@ bool UniqueLibBuilder::build() {
 
   IntegerAttr axisAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true), axis);
-#if 0 // XXX WORKTODO Support isNoneAxis
   if (isNoneAxis)
-        axisAttr = IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true), axis);
-#endif
+    axisAttr = nullptr;
   IntegerAttr sortedAttr =
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true), sorted);
   auto uniqueOp = builder.create<ONNXUniqueOp>(loc, /*Y=*/yType,

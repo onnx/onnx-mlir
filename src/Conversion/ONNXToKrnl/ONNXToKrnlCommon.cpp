@@ -572,7 +572,7 @@ Value emitArgUnique(ConversionPatternRewriter &rewriter,
   MemRefType inputMemRefType = input.getType().cast<MemRefType>();
   Type indexType = rewriter.getIndexType();
   int64_t rank = inputMemRefType.getRank();
-  assert(axis >= 0 && axis < rank && "axis is out of bound");
+  assert(axis < rank && "axis is out of bound");
   LiteralIndexExpr zeroIE(0), oneIE(1);
 
   SmallVector<IndexExpr, 4> lbs(rank, zeroIE);

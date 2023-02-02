@@ -69,7 +69,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     int64_t rank = create.krnlIE.getShapedTypeRank(X);
     ArrayRef<int64_t> xShape = getShape(X.getType());
     int64_t sorted = operandAdaptor.sorted();
-    Optional<int64_t> optionalAxis = operandAdaptor.axis();
+    Optional<int64_t> optionalAxis = uniqueOp.axis();
     int64_t axis = -1;
     if (optionalAxis.has_value()) {
       axis = optionalAxis.value();

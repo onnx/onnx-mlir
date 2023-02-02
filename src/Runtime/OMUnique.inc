@@ -37,7 +37,7 @@ void elementTableInit(
 
 int elementTableRegister(elementTable *table, void *element) {
   char *tablePtr = (char *)table->tablePointer;
-  int i;
+  uint64_t i;
   for (i = 0; i < table->elementCount; i++) {
     void *elementInTable = (void *)(tablePtr + table->elementSize * i);
     if (!memcmp(elementInTable, element, table->elementSize)) {
@@ -54,75 +54,56 @@ int elementTableRegister(elementTable *table, void *element) {
 }
 
 uint64_t elementTable_count(elementTable *table) { return table->elementCount; }
-void omTensorUnique(
-    OMTensor *totalTensor, const OMTensor *inputTensor,
-    int64_t axis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
+void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
+    int64_t inputAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
     OMTensor *reverse_indices, OMTensor *counts) {
   omTensorPrint("omTensorUnique: input=", inputTensor);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
-  const uint64_t inputRank = omTensorGetRank(inputTensor);
+  const int64_t inputRank = omTensorGetRank(inputTensor);
   assert(inputRank <= 6 && "omTensorUnique assumes inputRank <= 6");
-  int64_t *totalPtr = (int64_t *) omTensorGetDataPtr(totalTensor);
+  int64_t *totalPtr = (int64_t *)omTensorGetDataPtr(totalTensor);
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
   void *dataPtr = omTensorGetDataPtr(inputTensor);
   uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
 
-  // To support input Tensor with various ranks in a uniform way.
-  // If the input rank < 6, upgrade the rank to 6 virtually without changing
-  // the physical memory layout by inserting length=1 ranks at lower ranks.
-  // The 5th axis becomes the unique axis.
-  int64_t shape[6] = {1, 1, 1, 1, 1, 1};
-  int64_t shapeInUniqueAxis[6] = {1, 1, 1, 1, 1, 1};
-  int64_t strides[6] = {0, 0, 0, 0, 0, 0};
-  uint64_t elementnum = 1;
-  int64_t rank = 6;
-  for (uint64_t i = 0; i < inputRank; i++) {
-    shape[i + (rank - inputRank)] = inputShape[i];
-    shapeInUniqueAxis[i + (rank - inputRank)] = (i == axis) ? 1 : inputShape[i];
-    strides[i + (rank - inputRank)] = inputStrides[i];
-    elementnum *= inputShape[i];
-  }
-  printf("XXXX input shape (inputRank=%ld, axis=%ld) [\n", inputRank, axis);
-  for (int i = 0; i < inputRank; i++) {
-    printf("%ld,", inputShape[i]);
-  }
-  printf("]\n");
-  printf("XXXX shape (rank=%ld) [\n", rank);
-  for (int i = 0; i < rank; i++) {
-    printf("%ld,", shape[i]);
-  }
-  printf("]\n");
-
   int count = 0;
-  if (axis < 0) { // manage the inputTensor as flatten one
+  if (inputAxis < 0) { // manage the inputTensor as flatten one
+    uint64_t elementNum = 1;
+    for (int64_t i = 0; i < inputRank; i++) {
+      elementNum *= inputShape[i];
+    }
     elementTable elementTable;
-    elementTableInit(&elementTable, elementnum, dataSize);
-    for (int dim0 = 0; dim0 < shape[0]; dim0++) {
-      for (int dim1 = 0; dim1 < shape[1]; dim1++) {
-        for (int dim2 = 0; dim2 < shape[2]; dim2++) {
-          for (int dim3 = 0; dim3 < shape[3]; dim3++) {
-            for (int dim4 = 0; dim4 < shape[4]; dim4++) {
-              for (int dim5 = 0; dim5 < shape[5]; dim5++) {
-                uint64_t off = dim0 * strides[0] + dim1 * strides[1] +
-                               dim2 * strides[2] + dim3 * strides[3] +
-                               dim4 * strides[4] + dim5 * strides[5];
-                void *data = ((char *)dataPtr) + dataSize * off;
-                if (elementTableRegister(&elementTable, data) == 0) {
-                  count++;
-                }
-              }
-            }
-          }
-        }
+    elementTableInit(&elementTable, elementNum, dataSize);
+    for (uint64_t off = 0; off < elementNum; off++) {
+      void *data = ((char *)dataPtr) + dataSize * off;
+      if (elementTableRegister(&elementTable, data) == 0) {
+        count++;
       }
     }
   } else {
+    // To support input Tensor with various ranks in a uniform way.
+    // If the input rank < 6, upgrade the rank to 6 virtually without changing
+    // the physical memory layout by inserting length=1 ranks at lower ranks.
+    // The 5th axis becomes the unique axis.
+    int64_t shape[6] = {1, 1, 1, 1, 1, 1};
+    int64_t shapeInUniqueAxis[6] = {1, 1, 1, 1, 1, 1};
+    int64_t strides[6] = {0, 0, 0, 0, 0, 0};
+    int64_t rank = 6;
+    int64_t axis = inputAxis + (rank - inputRank);
+    for (int64_t i = 0; i < inputRank; i++) {
+      shape[i + (rank - inputRank)] = inputShape[i];
+      shapeInUniqueAxis[i + (rank - inputRank)] =
+          (i == axis) ? 1 : inputShape[i];
+      strides[i + (rank - inputRank)] = inputStrides[i];
+    }
     int dimCurrInUniqueAxis, dimPrevInUniqueAxis;
     for (dimCurrInUniqueAxis = 0; dimCurrInUniqueAxis < shape[axis];
          dimCurrInUniqueAxis++) {
       for (dimPrevInUniqueAxis = 0; dimPrevInUniqueAxis < dimCurrInUniqueAxis;
            dimPrevInUniqueAxis++) {
+        // compare prev and curr values to check if the curr values are unique
+        // or not.
         int dim[6];
         for (dim[0] = 0; dim[0] < shapeInUniqueAxis[0]; dim[0]++) {
           for (dim[1] = 0; dim[1] < shapeInUniqueAxis[1]; dim[1]++) {
@@ -157,7 +138,10 @@ void omTensorUnique(
           }
         }
       mismatch_element_found:
-        continue; // goto next dimPrevInUniqueAxis to check next axis
+        if (dim[0] == shapeInUniqueAxis[0]) {
+          // the previous and curr values in the specified axis are the same
+          break;
+        }
       }
       if (dimPrevInUniqueAxis == dimCurrInUniqueAxis) {
         count++; // dimCurrInUniqueAxis is a unique dim in the unique axis
@@ -168,5 +152,6 @@ void omTensorUnique(
   }
   *totalPtr = count;
   omTensorPrint("omTensorUnique: total =", totalTensor);
+  printf("======================================================================\n");
   return;
 }
