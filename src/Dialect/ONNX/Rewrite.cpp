@@ -252,7 +252,6 @@ Value reverseWeightTensor4D(
     ArrayRef<int64_t> perms(permsval1);
     reversedSpatialDim = emitONNXTranspose(loc, rewriter, reverse0, permsval1);
   }
-  // SmallVector<int64_t, 4> permsval1({1, 0, 2, 3});
   SmallVector<int64_t, 4> permsval2;
   for (int i = 0; i < spatialOffset; ++i)
     permsval2.emplace_back(spatialOffset - 1 - i);
