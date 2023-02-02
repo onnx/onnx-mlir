@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
@@ -37,7 +37,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       return rewriteWithSCFWhile(op, operands, rewriter);
     }
 
-    auto &loopBody = loopOp.body();
+    auto &loopBody = loopOp.getBody();
 
     // Allocate memory for two kinds of outputs:
     // - final values of loop carried dependencies, and
@@ -67,19 +67,19 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // Copy content of vInit to vFinal, which is used to host intermediate
     // values produced by loop body function invocation in a scope accessible by
     // all loop iterations.
-    for (unsigned long i = 0; i < loopOpAdaptor.v_initial().size(); i++) {
-      Value origInput = loopOp.v_initial()[i];
+    for (unsigned long i = 0; i < loopOpAdaptor.getVInitial().size(); i++) {
+      Value origInput = loopOp.getVInitial()[i];
       if (origInput.getType().isa<SeqType>()) {
         Value zero = create.math.constantIndex(0);
-        create.krnl.store(loopOpAdaptor.v_initial()[i], outputs[i], zero);
+        create.krnl.store(loopOpAdaptor.getVInitial()[i], outputs[i], zero);
       } else {
-        emitCopy(rewriter, loc, loopOpAdaptor.v_initial()[i], outputs[i]);
+        emitCopy(rewriter, loc, loopOpAdaptor.getVInitial()[i], outputs[i]);
       }
     }
 
     // Convert the cond type to MemRefType.
     Type convertedType =
-        typeConverter->convertType(loopOpAdaptor.cond().getType());
+        typeConverter->convertType(loopOpAdaptor.getCond().getType());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType condMemRefTy = convertedType.cast<MemRefType>();
@@ -90,12 +90,12 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(condMemRefTy))
       cond = insertAllocAndDealloc(
           condMemRefTy, loc, rewriter, /*insertDealloc=*/true);
-    emitCopy(rewriter, loc, loopOpAdaptor.cond(), cond);
+    emitCopy(rewriter, loc, loopOpAdaptor.getCond(), cond);
 
     // Create the loop iteration.
     IndexExprScope childScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
-    Value maxTripCount = createKrnl.load(loopOpAdaptor.M());
+    Value maxTripCount = createKrnl.load(loopOpAdaptor.getM());
     maxTripCount = rewriter.create<arith::IndexCastOp>(
         loc, rewriter.getIndexType(), maxTripCount);
     ValueRange loopDef = createKrnl.defineLoops(1);
@@ -111,7 +111,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // Contain the ThenRegion with KrnlRegionOp
           // The krnl loop inside may use symbol computed in LoopOp body
           KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
-          rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
+          rewriter.setInsertionPointToStart(&regionOp.getBodyRegion().front());
 
           // Create a scalar tensor out of loop iteration variable, as the first
           // argument passed to the body graph function.
@@ -126,11 +126,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           createKrnl.store(iv, ivMemRef);
 
           // Make the call to loop body function.
-          SmallVector<Value, 4> params = {ivMemRef, loopOpAdaptor.cond()};
+          SmallVector<Value, 4> params = {ivMemRef, loopOpAdaptor.getCond()};
 
           // For SeqType, load the value for the storage
-          for (unsigned long i = 0; i < loopOp.v_initial().size(); i++) {
-            if (loopOp.v_initial()[i].getType().isa<SeqType>()) {
+          for (unsigned long i = 0; i < loopOp.getVInitial().size(); i++) {
+            if (loopOp.getVInitial()[i].getType().isa<SeqType>()) {
               Value seqValue = create.krnl.load(outputs[i], zero);
               params.emplace_back(seqValue);
             } else {
@@ -139,7 +139,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           }
 
           Block &loopBodyEntryBlock = loopBody.front();
-          BlockAndValueMapping mapper;
+          IRMapping mapper;
           for (unsigned i = 0, e = params.size(); i != e; ++i) {
             // Verify that the types of the provided values match the function
             // argument types.
@@ -213,11 +213,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // slice in the loop scan output tensor.
           // Intermediate value with SeqType should not in scan output
           auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
-              bodyOutputs.begin() + 1 + loopOpAdaptor.v_initial().size());
+              bodyOutputs.begin() + 1 + loopOpAdaptor.getVInitial().size());
           auto scanIntermediate =
               llvm::make_range(vIntermediate.end(), bodyOutputs.end());
           auto scanOutputs = llvm::make_range(
-              outputs.begin() + loopOpAdaptor.v_initial().size(),
+              outputs.begin() + loopOpAdaptor.getVInitial().size(),
               outputs.end());
           for (auto scanIntermediateToFinal :
               llvm::zip(scanIntermediate, scanOutputs)) {
@@ -240,8 +240,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // Copy intermediate values of loop carried dependencies to MemRef
           // outside the iteration scope so next iteration can use them as init
           // value.
-          for (unsigned long i = 0; i < loopOp.v_initial().size(); i++) {
-            if (loopOp.v_initial()[i].getType().isa<SeqType>()) {
+          for (unsigned long i = 0; i < loopOp.getVInitial().size(); i++) {
+            if (loopOp.getVInitial()[i].getType().isa<SeqType>()) {
               create.krnl.store(bodyOutputs[i + 1], outputs[i], zero);
             } else {
               emitCopy(rewriter, loc, bodyOutputs[i + 1], outputs[i]);
@@ -257,8 +257,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           rewriter.eraseBlock(postInsertBlock);
 
           // Merge the loop body block into the RegionOp.
-          regionOp.bodyRegion().front().getOperations().splice(
-              regionOp.bodyRegion().front().end(),
+          regionOp.getBodyRegion().front().getOperations().splice(
+              regionOp.getBodyRegion().front().end(),
               loopBodyBlock.getOperations());
           rewriter.eraseBlock(&loopBodyBlock);
         });
@@ -309,7 +309,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
                 // SeqExtract for loop bound.
                 KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
                 rewriter.setInsertionPointToStart(
-                    &regionOp.bodyRegion().front());
+                    &regionOp.getBodyRegion().front());
                 Value origIV = loopInd[0];
                 auto src = rewriter.create<KrnlSeqExtractOp>(loc,
                     seqElementType, output, origIV,
@@ -334,7 +334,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       SmallVectorImpl<mlir::Value> &outputs) const {
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     for (const auto &ioPair :
-        llvm::zip(loopOpAdaptor.v_initial(), loopOp.v_final())) {
+        llvm::zip(loopOpAdaptor.getVInitial(), loopOp.v_final())) {
       auto vInit = std::get<0>(ioPair);
       auto vFinal = std::get<1>(ioPair);
 
@@ -400,9 +400,10 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           if (isWhile) {
             llvm_unreachable("Scan output for while loop is not supported");
           }
-          assert(!loopOpAdaptor.M().getType().isa<NoneType>());
+          assert(!loopOpAdaptor.getM().getType().isa<NoneType>());
           Value maxTripCount =
-              rewriter.create<KrnlLoadOp>(loc, loopOpAdaptor.M()).getResult();
+              rewriter.create<KrnlLoadOp>(loc, loopOpAdaptor.getM())
+                  .getResult();
           allocParams.emplace_back(rewriter.create<arith::IndexCastOp>(
               loc, rewriter.getIndexType(), maxTripCount));
         }
@@ -427,7 +428,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           // seqElementType: memref<d2, ..., dnxT>
           Type elementType = rankedScanOutTy.getElementType();
           ArrayRef<int64_t> shape1 =
-              llvm::makeArrayRef(rankedScanOutTy.getShape().begin() + 1,
+              llvm::ArrayRef(rankedScanOutTy.getShape().begin() + 1,
                   rankedScanOutTy.getShape().end());
           auto seqElementType = MemRefType::get(shape1, elementType);
           auto seqType =
@@ -494,11 +495,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // Code copied from src/Dialect/ONNX/Rewrite.cpp
 
     // Check whether the condition is optional
-    if (isFromNone(onnxLoopOp.cond()))
+    if (isFromNone(onnxLoopOp.getCond()))
       return false;
 
     // Get the loop region.
-    Region &loopBody = onnxLoopOp.body();
+    Region &loopBody = onnxLoopOp.getBody();
     // Make sure the region has only one block.
     if (!loopBody.hasOneBlock())
       return true;
@@ -546,24 +547,24 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     Value c0 = create.math.constant(rewriter.getI64Type(), 0);
     Value c1 = create.math.constant(rewriter.getI64Type(), 1);
     Value ubV;
-    if (!isFromNone(loopOp.M())) {
+    if (!isFromNone(loopOp.getM())) {
       hasM = true;
       Value mInitial = c0;
       whileInputValues.emplace_back(mInitial);
       whileInputTypes.emplace_back(mInitial.getType());
-      ubV = create.krnl.load(loopOpAdaptor.M());
+      ubV = create.krnl.load(loopOpAdaptor.getM());
       locs.emplace_back(loc);
     }
 
-    if (!isFromNone(loopOp.cond())) {
+    if (!isFromNone(loopOp.getCond())) {
       hasCond = true;
-      whileInputValues.emplace_back(loopOpAdaptor.cond());
-      whileInputTypes.emplace_back(loopOpAdaptor.cond().getType());
+      whileInputValues.emplace_back(loopOpAdaptor.getCond());
+      whileInputTypes.emplace_back(loopOpAdaptor.getCond().getType());
       locs.emplace_back(loc);
     }
 
     // add v_initial
-    for (auto v : loopOpAdaptor.v_initial()) {
+    for (auto v : loopOpAdaptor.getVInitial()) {
       whileInputValues.emplace_back(v);
       whileInputTypes.emplace_back(v.getType());
       locs.emplace_back(loc);
@@ -635,7 +636,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // Contain the ThenRegion with KrnlRegionOp
       // The krnl loop inside may use symbol computed in LoopOp body
       KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
-      rewriter.setInsertionPointToStart(&regionOp.bodyRegion().front());
+      rewriter.setInsertionPointToStart(&regionOp.getBodyRegion().front());
 
       SmallVector<Value, 4> params;
       int argIndex = 0;
@@ -654,9 +655,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         params.emplace_back(v);
       }
 
-      Region &loopBody = loopOp.body();
+      Region &loopBody = loopOp.getBody();
       Block &loopBodyEntryBlock = loopBody.front();
-      BlockAndValueMapping mapper;
+      IRMapping mapper;
       for (unsigned i = 0, e = params.size(); i != e; ++i) {
         // Verify that the types of the provided values match the function
         // argument types.
@@ -664,7 +665,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         mapper.map(regionArg, params[i]);
       }
 
-      Region &containRegion = regionOp.bodyRegion();
+      Region &containRegion = regionOp.getBodyRegion();
       Block &firstBlock = containRegion.front();
       assert(loopBody.getBlocks().size() == 1 &&
              "Currently only support loop body with 1 block.");
@@ -729,11 +730,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // Copy intermediate values of scan outputs to their corresponding
       // slice in the loop scan output tensor.
       auto vIntermediate = llvm::make_range(bodyOutputs.begin() + condIndex,
-          bodyOutputs.begin() + condIndex + loopOpAdaptor.v_initial().size());
+          bodyOutputs.begin() + condIndex + loopOpAdaptor.getVInitial().size());
       auto scanIntermediate =
           llvm::make_range(vIntermediate.end(), bodyOutputs.end());
       auto scanOutputs = llvm::make_range(
-          outputs.begin() + loopOpAdaptor.v_initial().size(), outputs.end());
+          outputs.begin() + loopOpAdaptor.getVInitial().size(), outputs.end());
 
       for (auto scanIntermediateToFinal :
           llvm::zip(scanIntermediate, scanOutputs)) {

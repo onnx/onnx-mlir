@@ -296,12 +296,12 @@ void KrnlBuilder::printf(Value input, Type inputType) const {
 ElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
   auto definingOp = value.getDefiningOp();
   if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
-    if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<ElementsAttr>();
+    if (globalOp.getValue().has_value())
+      return globalOp.getValueAttr().dyn_cast<ElementsAttr>();
   } else if (auto globalOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
-    if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<ElementsAttr>();
+    if (globalOp.getValue().has_value())
+      return globalOp.getValueAttr().dyn_cast<ElementsAttr>();
   }
   return nullptr;
 }

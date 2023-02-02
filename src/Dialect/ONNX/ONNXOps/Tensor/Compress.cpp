@@ -29,11 +29,11 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape() {
   // Check that input and condition are ranked.
   ONNXCompressOp compressOp = llvm::cast<ONNXCompressOp>(op);
   ONNXCompressOpAdaptor operandAdaptor(operands);
-  Value input = operandAdaptor.input();
-  Value cond = operandAdaptor.condition();
+  Value input = operandAdaptor.getInput();
+  Value cond = operandAdaptor.getCondition();
   int64_t inputRank = createIE->getShapedTypeRank(input);
   createIE->assertHasShapeAndRank(cond);
-  Optional<int64_t> optionalAxis = compressOp.axis();
+  Optional<int64_t> optionalAxis = compressOp.getAxis();
 
   // axis attribute (if specified) must be in the range [-r,r-1], where r =
   // rank(input).
@@ -47,7 +47,7 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape() {
   // TODO: if cond is constant, the compute the actual value.
   IndexExpr dynDim;
   if (scope->isShapeInferencePass())
-    dynDim = QuestionmarkIndexExpr(); // Value for runtime dim.
+    dynDim = QuestionmarkIndexExpr(/*isFloat*/ false); // Value for runtime dim.
   else
     dynDim = LiteralIndexExpr(-1); // Dummy value to be replaced in lowering.
 
@@ -86,8 +86,8 @@ LogicalResult ONNXCompressOp::verify() {
   if (!hasShapeAndRank(getOperation()))
     return success();
 
-  int64_t inputRank = input().getType().cast<ShapedType>().getRank();
-  Optional<int64_t> optionalAxis = axis();
+  int64_t inputRank = getInput().getType().cast<ShapedType>().getRank();
+  Optional<int64_t> optionalAxis = getAxis();
 
   if (optionalAxis.has_value()) {
     // axis attribute must be in the range [-r,r-1], where r = rank(input).
@@ -98,7 +98,7 @@ LogicalResult ONNXCompressOp::verify() {
           onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
   }
 
-  int64_t condRank = condition().getType().cast<ShapedType>().getRank();
+  int64_t condRank = getCondition().getType().cast<ShapedType>().getRank();
   if (condRank != 1)
     return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
         *this->getOperation(), "condition", condRank,
@@ -114,10 +114,10 @@ LogicalResult ONNXCompressOp::verify() {
 LogicalResult ONNXCompressOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape is not yet knwon.
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXCompressOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

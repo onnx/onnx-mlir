@@ -28,7 +28,7 @@ template <>
 LogicalResult ONNXReverseSequenceOpShapeHelper::computeShape() {
   // Get info about input data operand.
   ONNXReverseSequenceOpAdaptor operandAdaptor(operands);
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   return setOutputDimsFromOperand(input);
 }
 
@@ -43,8 +43,9 @@ LogicalResult ONNXReverseSequenceOp::verify() {
       ONNXReverseSequenceOpAdaptor(*this);
 
   auto sequence_lensTy =
-      operandAdaptor.sequence_lens().getType().dyn_cast<RankedTensorType>();
-  auto inputTy = operandAdaptor.input().getType().dyn_cast<RankedTensorType>();
+      operandAdaptor.getSequenceLens().getType().dyn_cast<RankedTensorType>();
+  auto inputTy =
+      operandAdaptor.getInput().getType().dyn_cast<RankedTensorType>();
 
   // sequence_lens should be 1D tensor
   if (sequence_lensTy) {
@@ -59,7 +60,7 @@ LogicalResult ONNXReverseSequenceOp::verify() {
   }
 
   if (sequence_lensTy && inputTy) {
-    int64_t batchAxis = batch_axis();
+    int64_t batchAxis = getBatchAxis();
     if (!sequence_lensTy.isDynamicDim(0) && !inputTy.isDynamicDim(batchAxis)) {
       if (sequence_lensTy.getShape()[0] != inputTy.getShape()[batchAxis]) {
         return emitOpError("Length of sequence_lens should match the sizeof  "
@@ -77,10 +78,10 @@ LogicalResult ONNXReverseSequenceOp::verify() {
 
 LogicalResult ONNXReverseSequenceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXReverseSequenceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

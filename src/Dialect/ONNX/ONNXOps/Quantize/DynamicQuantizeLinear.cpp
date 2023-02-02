@@ -32,7 +32,7 @@ LogicalResult ONNXDynamicQuantizeLinearOpShapeHelper::computeShape() {
 
   // Dim of y are the same as x.
   DimsExpr outputDims;
-  createIE->getShapeAsDims(operandAdaptor.x(), outputDims);
+  createIE->getShapeAsDims(operandAdaptor.getX(), outputDims);
   setOutputDims(outputDims, 0);
 
   // y_scale and y_zero_point are scalar outputs...
@@ -55,7 +55,7 @@ LogicalResult ONNXDynamicQuantizeLinearOpShapeHelper::computeShape() {
 
 LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto inTy = x().getType().dyn_cast<RankedTensorType>();
+  auto inTy = getX().getType().dyn_cast<RankedTensorType>();
   if (!inTy)
     return success();
 

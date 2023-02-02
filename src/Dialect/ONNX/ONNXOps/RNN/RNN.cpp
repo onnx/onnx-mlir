@@ -30,10 +30,10 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
   OP_TYPE rnnOp = llvm::cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
 
-  Value X = operandAdaptor.X();
-  Value W = operandAdaptor.W();
-  Value R = operandAdaptor.R();
-  bool batchwiseLayout = operandAdaptor.layout() == 1;
+  Value X = operandAdaptor.getX();
+  Value W = operandAdaptor.getW();
+  Value R = operandAdaptor.getR();
+  bool batchwiseLayout = operandAdaptor.getLayout() == 1;
 
   // xShape :: [batch_size, seq_length, input_size] if batchwiseLayout
   // xShape :: [seq_length, batch_size, input_size] otherwise
@@ -57,8 +57,8 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
 
   // Get hidden size from hidden_size attribute.
   IndexExpr hiddenSize;
-  if (operandAdaptor.hidden_size().has_value()) {
-    hiddenSize = LiteralIndexExpr(operandAdaptor.hidden_size().value());
+  if (operandAdaptor.getHiddenSize().has_value()) {
+    hiddenSize = LiteralIndexExpr(operandAdaptor.getHiddenSize().value());
   } else {
     // Infer hidden_size from wShape and rShape if possible.
     if (rDims[2].isLiteral())
@@ -76,16 +76,16 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
       auto hiddenSizeAttr =
           IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
               APInt(64, /*value=*/hiddenSize.getLiteral(), /*isSigned=*/true));
-      rnnOp.hidden_sizeAttr(hiddenSizeAttr);
+      rnnOp.setHiddenSizeAttr(hiddenSizeAttr);
     }
   }
 
   // Get direction.
   IndexExpr numDir;
-  if ((operandAdaptor.direction() == "forward") ||
-      (operandAdaptor.direction() == "reverse"))
+  if ((operandAdaptor.getDirection() == "forward") ||
+      (operandAdaptor.getDirection() == "reverse"))
     numDir = LiteralIndexExpr(1);
-  else if (operandAdaptor.direction() == "bidirectional")
+  else if (operandAdaptor.getDirection() == "bidirectional")
     numDir = LiteralIndexExpr(2);
   else
     return op->emitError(
@@ -164,10 +164,11 @@ mlir::LogicalResult ONNXRNNOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGRUOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) || !hasShapeAndRank(R())) {
+  if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getW()) ||
+      !hasShapeAndRank(getR())) {
     return success();
   }
-  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
   ONNXGRUOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -178,10 +179,11 @@ LogicalResult ONNXGRUOp::inferShapes(
 
 LogicalResult ONNXLSTMOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) || !hasShapeAndRank(R())) {
+  if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getW()) ||
+      !hasShapeAndRank(getR())) {
     return success();
   }
-  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
   ONNXLSTMOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -192,10 +194,11 @@ LogicalResult ONNXLSTMOp::inferShapes(
 
 LogicalResult ONNXRNNOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X()) || !hasShapeAndRank(W()) || !hasShapeAndRank(R())) {
+  if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getW()) ||
+      !hasShapeAndRank(getR())) {
     return success();
   }
-  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
   ONNXRNNOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

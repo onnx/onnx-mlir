@@ -30,9 +30,9 @@ struct ONNXScatterNDOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
 
     // Operands and attributes.
-    Value data = operandAdaptor.data();
-    Value updates = operandAdaptor.updates();
-    Value indices = operandAdaptor.indices();
+    Value data = operandAdaptor.getData();
+    Value updates = operandAdaptor.getUpdates();
+    Value indices = operandAdaptor.getIndices();
     auto dataType = data.getType().cast<ShapedType>();
     auto indicesType = indices.getType().cast<ShapedType>();
     auto updatesType = updates.getType().cast<ShapedType>();

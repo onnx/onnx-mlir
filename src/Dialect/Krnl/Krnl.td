@@ -29,8 +29,7 @@ include "src/Interface/SpecializedKernelOpInterface.td"
 def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
-  let useDefaultTypePrinterParser = 1;
-  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
+  let useDefaultTypePrinterParser = 1;  
   let dependentDialects = [
     "AffineDialect",
     "arith::ArithDialect",
@@ -146,7 +145,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   let builders = [
     // Main builder.
     OpBuilder<(ins "onnx_mlir::krnl::KrnlIterateOperandPack":$operandPack,
-      CArg<"ValueRange", "llvm::None">:$iterArgs,
+      CArg<"ValueRange", "std::nullopt">:$iterArgs,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op.
     OpBuilder<(ins
@@ -637,13 +636,10 @@ def KrnlLoadOp : Op<Krnl_Dialect, "load",
   let assemblyFormat = [{$memref `[` $indices `]` attr-dict `:` type($memref)}];
 
   let extraClassDeclaration = [{
-    Value getMemRef() { return getOperand(0); }
     void setMemRef(Value value) { setOperand(0, value); }
     MemRefType getMemRefType() {
-      return getMemRef().getType().cast<MemRefType>();
+      return getMemref().getType().cast<MemRefType>();
     }
-
-    operand_range getIndices() { return {operand_begin() + 1, operand_end()}; }
   }];
 }
 
@@ -676,16 +672,9 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
   }];
 
   let extraClassDeclaration = [{
-      Value getValueToStore() { return getOperand(0); }
-
-      Value getMemRef() { return getOperand(1); }
       void setMemRef(Value value) { setOperand(1, value); }
       MemRefType getMemRefType() {
-        return getMemRef().getType().cast<MemRefType>();
-      }
-
-      operand_range getIndices() {
-        return {operand_begin() + 2, operand_end()};
+        return getMemref().getType().cast<MemRefType>();
       }
   }];
 }
@@ -763,11 +752,8 @@ def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [Pure,
   }];
 
   let extraClassDeclaration = [{
-    /// The result of a vector_type_cast is always a memref.
-    MemRefType getType() { return getResult().getType().cast<MemRefType>(); }
-
     /// Return the view source.
-    Value getViewSource() { return source(); }
+    Value getViewSource() { return getSource(); }
   }];
 }
 

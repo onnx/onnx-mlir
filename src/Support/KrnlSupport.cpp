@@ -128,10 +128,10 @@ bool usedBySameKrnlMemcpy(
   bool sameKrnlMemcpy = false;
   topBlock->walk(
       [&sameKrnlMemcpy, firstGetRef, secondGetRef](KrnlMemcpyOp memcpyOp) {
-        if ((memcpyOp.dest() == firstGetRef->getResult() &&
-                memcpyOp.src() == secondGetRef->getResult()) ||
-            (memcpyOp.dest() == secondGetRef->getResult() &&
-                memcpyOp.src() == firstGetRef->getResult()))
+        if ((memcpyOp.getDest() == firstGetRef->getResult() &&
+                memcpyOp.getSrc() == secondGetRef->getResult()) ||
+            (memcpyOp.getDest() == secondGetRef->getResult() &&
+                memcpyOp.getSrc() == firstGetRef->getResult()))
           sameKrnlMemcpy = true;
       });
 
@@ -296,7 +296,7 @@ Value getDynamicMemRefSizeInBytes(
   int64_t staticSizeInBytes = getMemRefEltSizeInBytes(memRefType);
   bool allStaticDimensions = true;
   for (unsigned i = 0; i < shape.size(); i++) {
-    if (shape[i] != -1)
+    if (shape[i] != ShapedType::kDynamic)
       staticSizeInBytes *= shape[i];
     else
       allStaticDimensions = false;

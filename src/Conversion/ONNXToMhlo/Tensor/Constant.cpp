@@ -29,11 +29,11 @@ struct ONNXConstantOpLoweringToMhlo : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXConstantOp constantOp = cast<ONNXConstantOp>(op);
 
-    if (constantOp.sparse_value().has_value())
+    if (constantOp.getSparseValue().has_value())
       return constantOp.emitWarning("Only support dense values at this time");
-    assert(constantOp.value().has_value() && "Value is not set");
+    assert(constantOp.getValue().has_value() && "Value is not set");
     Value result =
-        rewriter.create<mhlo::ConstantOp>(loc, constantOp.value().value());
+        rewriter.create<mhlo::ConstantOp>(loc, constantOp.getValue().value());
     rewriter.replaceOp(op, result);
     return success();
   }

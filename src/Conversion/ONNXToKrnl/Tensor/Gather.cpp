@@ -47,9 +47,9 @@ struct ONNXGatherOpLowering : public ConversionPattern {
         rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Operands and attributes.
-    Value data = operandAdaptor.data();
-    Value indices = operandAdaptor.indices();
-    int64_t axisLit = gatherOp.axis();
+    Value data = operandAdaptor.getData();
+    Value indices = operandAdaptor.getIndices();
+    int64_t axisLit = gatherOp.getAxis();
     int64_t dataRank = data.getType().cast<MemRefType>().getRank();
     int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
 

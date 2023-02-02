@@ -47,11 +47,11 @@ public:
 
     // Get operands.
     KrnlMemcpyOpAdaptor operandAdaptor(operands);
-    Value src = operandAdaptor.src();
-    Value dest = operandAdaptor.dest();
-    Value srcOffset = operandAdaptor.src_offset();
-    Value dstOffset = operandAdaptor.dest_offset();
-    Value elemsToCopy = operandAdaptor.num_elems();
+    Value src = operandAdaptor.getSrc();
+    Value dest = operandAdaptor.getDest();
+    Value srcOffset = operandAdaptor.getSrcOffset();
+    Value dstOffset = operandAdaptor.getDestOffset();
+    Value elemsToCopy = operandAdaptor.getNumElems();
 
     // Common types.
     Type i1Ty = IntegerType::get(context, 1);

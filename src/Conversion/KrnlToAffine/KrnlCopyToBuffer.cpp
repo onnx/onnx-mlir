@@ -46,10 +46,10 @@ public:
     IndexExprScope indexScope(create.affineKMem);
 
     KrnlCopyToBufferOpAdaptor operandAdaptor(copyToBufferOp);
-    Value buffMemref(operandAdaptor.buffer());
-    Value sourceMemref(operandAdaptor.source());
-    ValueRange startVals(operandAdaptor.starts());
-    Value padVal(operandAdaptor.padValue());
+    Value buffMemref(operandAdaptor.getBuffer());
+    Value sourceMemref(operandAdaptor.getSource());
+    ValueRange startVals(operandAdaptor.getStarts());
+    Value padVal(operandAdaptor.getPadValue());
     int64_t srcRank =
         sourceMemref.getType().cast<MemRefType>().getShape().size();
     int64_t buffRank =
@@ -62,14 +62,14 @@ public:
     create.krnlIE.getShapeAsSymbols(sourceMemref, sourceBounds);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     create.krnlIE.getIntFromArrayAsLiterals(
-        copyToBufferOp.padToNextAttr(), 1, pads, buffRank);
+        copyToBufferOp.getPadToNextAttr(), 1, pads, buffRank);
     create.krnlIE.getIntFromArrayAsLiterals(
-        copyToBufferOp.tileSizeAttr(), readSize);
+        copyToBufferOp.getTileSizeAttr(), readSize);
     // Handle possible transpose by having an indirect array for indices
     // used in conjunction with source.
     SmallVector<int64_t, 4> srcIndexMap, srcLoopMap;
-    generateIndexMap(srcIndexMap, srcRank, copyToBufferOp.transpose());
-    generateIndexMap(srcLoopMap, buffRank, copyToBufferOp.transpose());
+    generateIndexMap(srcIndexMap, srcRank, copyToBufferOp.getTranspose());
+    generateIndexMap(srcLoopMap, buffRank, copyToBufferOp.getTranspose());
 
     // Overread not currently used, will if we simdize reads or
     // unroll and jam loops.

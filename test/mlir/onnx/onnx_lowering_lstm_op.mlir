@@ -156,9 +156,6 @@ func.func private @test_lstm_forward_mode_constant_weight_and_bias(%arg0: tensor
 
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %w, %r, %b, %cst, %arg1, %arg2, %p) {hidden_size = 4 : si64} : (tensor<7x2x3xf32>, tensor<1x16x3xf32>, tensor<1x16x4xf32>, tensor<1x32xf32>, none, tensor<1x2x4xf32>, tensor<1x2x4xf32>, tensor<1x12xf32>) -> (none, tensor<*xf32>, none)
   return %Y_h : tensor<*xf32>
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (d0, d1)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0] -> (s0 + 8)>
 // CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<()[s0] -> (s0 + 12)>
 // CHECK-DAG:   [[MAP_5_:#.+]] = affine_map<()[s0] -> (s0 + 4)>

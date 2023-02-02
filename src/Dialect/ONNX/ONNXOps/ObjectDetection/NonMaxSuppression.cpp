@@ -43,11 +43,11 @@ LogicalResult ONNXNonMaxSuppressionOp::verify() {
   ONNXNonMaxSuppressionOpAdaptor operandAdaptor =
       ONNXNonMaxSuppressionOpAdaptor(*this);
   // Get operands.
-  auto boxes = operandAdaptor.boxes();
-  auto scores = operandAdaptor.scores();
-  auto MOPC = operandAdaptor.max_output_boxes_per_class();
-  auto scoreThreshold = operandAdaptor.score_threshold();
-  auto iouThreshold = operandAdaptor.iou_threshold();
+  auto boxes = operandAdaptor.getBoxes();
+  auto scores = operandAdaptor.getScores();
+  auto MOPC = operandAdaptor.getMaxOutputBoxesPerClass();
+  auto scoreThreshold = operandAdaptor.getScoreThreshold();
+  auto iouThreshold = operandAdaptor.getIouThreshold();
 
   // Check operands.
   if (hasShapeAndRank(boxes)) {

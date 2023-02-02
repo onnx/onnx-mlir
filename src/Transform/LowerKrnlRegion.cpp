@@ -38,7 +38,7 @@ public:
       KrnlRegionOp krnlRegionOp, PatternRewriter &rewriter) const override {
 
     // Special traversal is used because the op being traversed is moved.
-    Block &regionBlock = krnlRegionOp.bodyRegion().front();
+    Block &regionBlock = krnlRegionOp.getBodyRegion().front();
 
     for (Operation &op : llvm::make_early_inc_range(regionBlock)) {
       op.moveBefore(krnlRegionOp);
