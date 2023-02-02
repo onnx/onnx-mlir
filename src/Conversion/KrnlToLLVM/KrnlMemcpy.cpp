@@ -57,8 +57,8 @@ public:
     Type i1Ty = IntegerType::get(context, 1);
     Type i64Ty = IntegerType::get(context, 64);
     Type elementType = src.getType().cast<LLVM::LLVMStructType>().getBody()[1];
-    int64_t eltSize = getMemRefEltSizeInBytes(
-        memcpyOp.src().getType().dyn_cast<MemRefType>());
+    int64_t eltSize =
+        getMemRefEltSizeInBytes(src.getType().dyn_cast<MemRefType>());
     Value eltSizeInBytes = create.llvm.constant(i64Ty, eltSize);
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.

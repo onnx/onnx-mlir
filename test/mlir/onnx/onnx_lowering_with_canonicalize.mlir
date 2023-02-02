@@ -3784,8 +3784,6 @@ func.func @test_transpose_block_1_last_dim(%arg0: tensor<?x256x12x64xf32>) -> te
     %1 = "onnx.Transpose"(%arg0) {perm = [0, 2, 1, 3] } : (tensor<?x256x12x64xf32>) -> tensor<?x12x256x64xf32>
     return %1 : tensor<?x12x256x64xf32>
 
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2, d3)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 196608 + d1 * 64 + d2 * 16384)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 196608 + d1 * 768 + d2 * 64)>
 // CHECK-LABEL:  func.func @test_transpose_block_1_last_dim
@@ -3812,7 +3810,6 @@ func.func @test_transpose_block_2_last_dims(%arg0: tensor<2x256x12x32x64xf32>) -
     %1 = "onnx.Transpose"(%arg0) {perm = [0, 2, 1, 3, 4] } : (tensor<2x256x12x32x64xf32>) -> tensor<2x12x256x32x64xf32>
     return %1 : tensor<2x12x256x32x64xf32>
 
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3, d4) -> (d0, d1, d2, d3, d4)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 6291456 + d1 * 2048 + d2 * 524288)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 6291456 + d1 * 24576 + d2 * 2048)>
 // CHECK-LABEL:  func.func @test_transpose_block_2_last_dims

@@ -261,7 +261,7 @@ Value getDynamicMemRefSize(PatternRewriter &rewriter, Location loc, Value val) {
   int64_t staticSizeInBytes = 1;
   bool allStaticDimensions = true;
   for (unsigned i = 0; i < shape.size(); i++) {
-    if (shape[i] != -1)
+    if (shape[i] != ShapedType::kDynamic)
       staticSizeInBytes *= shape[i];
     else
       allStaticDimensions = false;

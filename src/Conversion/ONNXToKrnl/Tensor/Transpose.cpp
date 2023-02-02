@@ -35,7 +35,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     // Operands and attributes.
     ONNXTransposeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     Value data = operandAdaptor.getData();
-    auto permAttr = transposeOp.getPerm();
+    auto permAttr = operandAdaptor.getPerm();
 
     // Input and output types.
     MemRefType inMemRefType = data.getType().cast<MemRefType>();
