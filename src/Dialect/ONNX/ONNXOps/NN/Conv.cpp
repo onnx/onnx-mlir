@@ -995,5 +995,6 @@ namespace onnx_mlir {
 
 template struct ONNXGenericPoolOpShapeHelper<ONNXConvOp>;
 template struct ONNXGenericPoolOpShapeHelper<ONNXConvIntegerOp>;
+template struct ONNXGenericPoolOpShapeHelper<ONNXQLinearConvOp>;
 
 } // namespace onnx_mlir
