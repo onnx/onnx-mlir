@@ -1,3 +1,4 @@
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "mlir/IR/Builders.h"
@@ -37,14 +38,40 @@ void LayerNameToLocationPass::runOnOperation() {
   // Check whether op has a onnx_node_name attribute and put that on the
   // existing location info.
   Operation *op = getOperation();
+  MLIRContext *context = op->getContext();
+  Dialect *onnxDialect = context->getLoadedDialect("onnx");
+  if (!onnxDialect) {
+    op->emitError("failed to load ONNX dialect");
+    return signalPassFailure();
+  }
 
-  op->walk([](Operation *nestedOp) {
+  // Counter and names to make invalid locations unique
+  unsigned invLocSeq = 0;
+  StringRef invLocName = "INVALID:FXML-1477:";
+
+  op->walk([&](Operation *nestedOp) {
+    Location loc = nestedOp->getLoc();
+    NameLoc nameLoc;
+
+    // Extend the existing location with the layer name, if available
     if (auto layerName =
             nestedOp->getAttrOfType<StringAttr>("onnx_node_name")) {
-      Location loc = nestedOp->getLoc();
-      auto nameLoc = NameLoc::get(layerName, loc);
-      nestedOp->setLoc(nameLoc);
+      nameLoc = NameLoc::get(layerName, loc);
     }
+
+    // All onnx ops (except constants) are expected to have an onnx_node_name.
+    // If onnx_node_name is not available and this is an onnx operation, extend
+    // the location with a name to indicate a missing location.
+    else if (nestedOp->getDialect() == onnxDialect &&
+             !isa<ONNXConstantOp>(nestedOp)) {
+      auto invalidName =
+          StringAttr::get(context, invLocName + std::to_string(invLocSeq++));
+      nameLoc = NameLoc::get(invalidName, loc);
+    }
+
+    // Do not modify location if we ignored the op
+    if (nameLoc)
+      nestedOp->setLoc(nameLoc);
   });
 }
 
