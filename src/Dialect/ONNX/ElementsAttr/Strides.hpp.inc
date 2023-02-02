@@ -4,49 +4,47 @@
 // Strides template implementations
 //===----------------------------------------------------------------------===//
 
-#if defined(_MSC_VER)
-
-// MSVC cannot figure out the parameter packs in the variadic
-// implementations of traverseStrides and mapStrides, so here we
-// implement them manually for unary and binary cases.
-
 template <typename Iterator, typename Arg0, typename Action>
-Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator begin,
+Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator dst,
     StridedArrayRef<Arg0> src0, Action &&act) {
-  auto traverse = [=](const auto &recurse, unsigned axis, Iterator it,
-                      const Arg0 *elm0) -> Iterator {
-    if (axis == shape.size()) {
-      act(it, elm0);
-      it++;
-    } else {
-      for (int64_t i = 0; i < shape[axis]; ++i) {
-        it = recurse(recurse, axis + 1, it, elm0);
-        elm0 += src0.strides[axis];
-      }
-    }
-    return it;
-  };
-  return traverse(traverse, /*axis=*/0, begin, src0.begin());
+  for (StridesIterator<1> it(shape, {src0.strides}), end(shape); it != end;
+       ++it, ++dst)
+    act(dst, src0.begin() + it->pos[0]);
+  return dst;
 }
 
 template <typename Iterator, typename Arg0, typename Arg1, typename Action>
-Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator begin,
+Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator dst,
     StridedArrayRef<Arg0> src0, StridedArrayRef<Arg1> src1, Action &&act) {
-  auto traverse = [=](const auto &recurse, unsigned axis, Iterator it,
-                      const Arg0 *elm0, const Arg1 *elm1) -> Iterator {
-    if (axis == shape.size()) {
-      act(it, elm0, elm1);
-      it++;
-    } else {
-      for (int64_t i = 0; i < shape[axis]; ++i) {
-        it = recurse(recurse, axis + 1, it, elm0, elm1);
-        elm0 += src0.strides[axis];
-        elm1 += src1.strides[axis];
+  // The implementation below effectively inlines this iterator implementation
+  // (manually inlined below to get 1.5x speedup):
+  //
+  //   for (StridesIterator<2> it(shape, {src0.strides, src1.strides}),
+  //          end(shape); it != end; ++it, ++dst)
+  //     act(dst, src0.begin() + it->pos[0], src1.begin() + it->pos[1]);
+  //   return dst;
+  //
+  size_t pos0 = 0, pos1 = 0;
+  llvm::SmallVector<uint64_t, 6> index(shape.size(), 0);
+  for (;;) {
+    act(dst, src0.begin() + pos0, src1.begin() + pos1);
+    ++dst;
+    for (auto axis = shape.size();;) {
+      if (axis == 0) {
+        return dst; // Index rolled around.
       }
+      --axis;
+      uint64_t dim = shape[axis];
+      pos0 += src0.strides[axis];
+      pos1 += src1.strides[axis];
+      if (++(index[axis]) < dim)
+        break;
+      pos0 -= dim * src0.strides[axis];
+      pos1 -= dim * src1.strides[axis];
+      index[axis] = 0;
     }
-    return it;
-  };
-  return traverse(traverse, /*axis=*/0, begin, src0.begin(), src1.begin());
+  }
+  llvm_unreachable("traveral returns when index rolls around");
 }
 
 template <typename Res, typename Arg0, typename Action>
@@ -66,34 +64,3 @@ void mapStrides(llvm::ArrayRef<int64_t> shape, llvm::MutableArrayRef<Res> dst,
       });
   assert(end == dst.end() && "traverses every dst element");
 }
-
-#else
-
-template <typename Iterator, typename... Args, typename Action>
-Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator begin,
-    StridedArrayRef<Args>... src, Action &&act) {
-  auto traverse = [=](const auto &recurse, unsigned axis, Iterator it,
-                      const Args *... elms) -> Iterator {
-    if (axis == shape.size()) {
-      act(it, elms...);
-      it++;
-    } else {
-      for (int64_t i = 0; i < shape[axis]; ++i) {
-        it = recurse(recurse, axis + 1, it, elms...);
-        ((elms += src.strides[axis]), ...);
-      }
-    }
-    return it;
-  };
-  return traverse(traverse, /*axis=*/0, begin, src.begin()...);
-}
-
-template <typename Res, typename... Args, typename Action>
-void mapStrides(llvm::ArrayRef<int64_t> shape, llvm::MutableArrayRef<Res> dst,
-    StridedArrayRef<Args>... src, Action &&act) {
-  Res *end = traverseStrides<Res *, Args...>(shape, dst.begin(), src...,
-      [&act](Res *res, const Args *... args) { *res = act(*args...); });
-  assert(end == dst.end() && "traverses every dst element");
-}
-
-#endif
