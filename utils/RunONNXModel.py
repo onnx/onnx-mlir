@@ -263,7 +263,7 @@ def generate_random_input(input_signature, input_shapes):
         # Get shape.
         explicit_shape = []
         for d, dim in enumerate(sig['dims']):
-            if dim != -1:
+            if dim >= 0:
                 explicit_shape.append(dim)
                 continue
             if i in input_shapes:
