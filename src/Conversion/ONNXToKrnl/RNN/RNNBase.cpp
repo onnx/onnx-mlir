@@ -224,8 +224,8 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
       rewriter, loc);
   if (direction == FORWARD || direction == REVERSE) {
     Value val = (direction == FORWARD) ? forwardVal : reverseVal;
-    Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, val);
-    create.krnl.memcpy(output, val, sizeInBytes);
+    Value numOfElements = getDynamicMemRefSize(rewriter, loc, val);
+    create.krnl.memcpy(output, val, numOfElements);
   } else { // BIDIRECTIONAL
     unsigned rank = forwardVal.getType().cast<MemRefType>().getRank();
     Value zero = create.math.constantIndex(0);

@@ -1085,12 +1085,20 @@ Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
       loc(), resultType, container, val, position);
 }
 
+Value LLVMBuilder::inttoptr(Type type, Value val) const {
+  return b().create<LLVM::IntToPtrOp>(loc(), type, val);
+}
+
 Value LLVMBuilder::lshr(Value lhs, Value rhs) const {
   return b().create<LLVM::LShrOp>(loc(), lhs, rhs);
 }
 
 Value LLVMBuilder::load(Value addr) const {
   return b().create<LLVM::LoadOp>(loc(), addr);
+}
+
+Value LLVMBuilder::mul(Value lhs, Value rhs) const {
+  return b().create<LLVM::MulOp>(loc(), lhs, rhs);
 }
 
 Value LLVMBuilder::null(Type type) const {
@@ -1107,6 +1115,10 @@ Value LLVMBuilder::ori(Value lhs, Value rhs) const {
   return b().create<LLVM::OrOp>(loc(), lhs, rhs);
 }
 
+Value LLVMBuilder::ptrtoint(Type type, Value val) const {
+  return b().create<LLVM::PtrToIntOp>(loc(), type, val);
+}
+
 void LLVMBuilder::_return(Value val) const {
   b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({val}));
 }
@@ -1114,6 +1126,10 @@ void LLVMBuilder::_return(Value val) const {
 Value LLVMBuilder::select(Value cmp, Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   return b().create<LLVM::SelectOp>(loc(), cmp, lhs, rhs);
+}
+
+Value LLVMBuilder::sext(Type type, Value val) const {
+  return b().create<LLVM::SExtOp>(loc(), type, val);
 }
 
 Value LLVMBuilder::shl(Value lhs, Value rhs) const {
