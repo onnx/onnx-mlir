@@ -1541,7 +1541,7 @@ public:
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
     ZLowConvertDLF16ToF32Op::Adaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
     Type i16Ty = rewriter.getI16Type();
     Type i32Ty = rewriter.getI32Type();
     Type f32Ty = rewriter.getF32Type();
@@ -1711,7 +1711,7 @@ public:
     Type i32Ty = rewriter.getI32Type();
 
     ZLowConvertF32ToDLF16Op::Adaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
     Value outputDLF16;
 
     if (FUNC_CALL_FOR_DLF16_CONVERSION) {

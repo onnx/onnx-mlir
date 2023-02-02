@@ -68,9 +68,9 @@ public:
     Location loc = unstickOp.getLoc();
 
     Operation *op = unstickOp.getOperation();
-    Value zMemRef = unstickOp.X();
-    Value cpuMemRef = unstickOp.Out();
-    std::string layout = unstickOp.layout().value().str();
+    Value zMemRef = unstickOp.getX();
+    Value cpuMemRef = unstickOp.getOut();
+    std::string layout = unstickOp.getLayout().value().str();
 
     // 1. Match
 
@@ -81,9 +81,9 @@ public:
       AffineMap m = type.getLayout().getAffineMap();
       if (m.getNumResults() != 1 && !m.isIdentity())
         return failure();
-      Optional<uint64_t> sizeInBytes = getMemRefSizeInBytes(type);
-      if (!sizeInBytes.has_value() || (sizeInBytes.value() > 256 * 4))
-        return failure();
+      // Optional<uint64_t> sizeInBytes = getMemRefSizeInBytes(type);
+      // if (!sizeInBytes.has_value() || (sizeInBytes.value() > 256 * 4))
+      //   return failure();
     }
 
     // Do not support layout 1D and 2DS since their access index functions are
@@ -131,9 +131,9 @@ public:
     Location loc = stickOp.getLoc();
 
     Operation *op = stickOp.getOperation();
-    Value cpuMemRef = stickOp.X();
-    Value zMemRef = stickOp.Out();
-    std::string layout = stickOp.layout().value().str();
+    Value cpuMemRef = stickOp.getX();
+    Value zMemRef = stickOp.getOut();
+    std::string layout = stickOp.getLayout().value().str();
 
     // 1. Match
 
@@ -144,9 +144,9 @@ public:
       AffineMap m = type.getLayout().getAffineMap();
       if (m.getNumResults() != 1 && !m.isIdentity())
         return failure();
-      Optional<uint64_t> sizeInBytes = getMemRefSizeInBytes(type);
-      if (!sizeInBytes.has_value() || (sizeInBytes.value() > 256 * 4))
-        return failure();
+      // Optional<uint64_t> sizeInBytes = getMemRefSizeInBytes(type);
+      // if (!sizeInBytes.has_value() || (sizeInBytes.value() > 256 * 4))
+      //   return failure();
     }
 
     // Do not support layout 1D and 2DS since their access index functions are
