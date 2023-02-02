@@ -32,18 +32,23 @@ public:
   LogicalResult matchAndRewrite(ONNXGatherOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
+    auto loc = op.getLoc();
+
+    TosaBuilder tosaBuilder(rewriter, loc);
+
     Value input = adaptor.data();
     Value indices = adaptor.indices();
     int64_t axis = adaptor.axis();
+
+    auto result = op.getResult();
+
     auto inputType = input.getType();
     if (!onnx_mlir::isRankedShapedType(inputType))
       return rewriter.notifyMatchFailure(op, "input is not a ranked tensor");
     int64_t inputRank = onnx_mlir::getRank(inputType);
 
     // onnx allows values beetween [-r, r-1] where r is the rank
-    if (axis < 0) {
-      axis += inputRank;
-    }
+    axis = tosa::convertNegativeAxis(axis, inputRank);
 
     auto indicesType = indices.getType().cast<ShapedType>();
     SmallVector<int32_t, 4> newIndicesValues;
@@ -51,9 +56,11 @@ public:
 
     auto indicesValues = tosa::getValueFromTosaConst<ElementsAttr>(indices);
 
+    // ONNX allows negative indices and TOSA doesn't. This iterates through each
+    // index and rescales if necessary.
     ArrayRef<int64_t> inputShape = inputType.cast<ShapedType>().getShape();
     auto indicesAttrValues = indicesValues.getValues<APInt>();
-    for (const auto [index, value] : llvm::enumerate(indicesAttrValues)) {
+    for (const auto &[index, value] : llvm::enumerate(indicesAttrValues)) {
       int64_t numericalValue = value.getSExtValue();
       if (numericalValue < 0)
         newIndicesValues[index] = (int32_t)(numericalValue + inputShape[axis]);
@@ -61,14 +68,11 @@ public:
         newIndicesValues[index] = (int32_t)(numericalValue);
     }
 
-    llvm::Optional<Value> newIndices = tosa::getConstTensor<int32_t>(
-        rewriter, op, newIndicesValues, indicesType.getShape());
-    if (!newIndices.has_value())
-      return rewriter.notifyMatchFailure(
-          op, "could not determine input indices");
+    Value newIndices =
+        tosaBuilder.getConst(newIndicesValues, indicesType.getShape());
 
-    auto newGather = tosa::convertGatherOp(rewriter, op, op.getResult(), input,
-        newIndices.value(), 0, (int32_t)axis);
+    auto newGather =
+        tosaBuilder.gather(result, input, newIndices, 0, (int32_t)axis);
 
     if (!newGather.has_value()) {
       return failure();

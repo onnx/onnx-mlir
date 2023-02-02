@@ -19,6 +19,7 @@
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include <src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp>
 
 using namespace mlir;
 
@@ -122,6 +123,12 @@ Value TosaBuilder::slice(Value &inputConst, llvm::ArrayRef<int64_t> size,
           inputConst, startAttr, sizeAttr);
   return newSliceInput;
 }
+
+llvm::Optional<Value> TosaBuilder::gather(Value resultValue, Value inputValue,
+    Value indicesValue, int32_t batchDims, int32_t axis) {
+  return tosa::convertGatherOp(rewriter(), loc(), resultValue, inputValue,
+      indicesValue, batchDims, axis);
+};
 
 // =============================================================================
 // IndexExpr Builder for Lowering using Shape/TOSA Dialect.

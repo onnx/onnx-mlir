@@ -30,14 +30,7 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace tosa {
 
-static int64_t multiply_dims(int64_t a, int64_t b) {
-  if (a == ShapedType::kDynamicSize || b == ShapedType::kDynamicSize) {
-    return ShapedType::kDynamicSize;
-  }
-  return a * b;
-}
-
-static int64_t multiply_dims(llvm::ArrayRef<int64_t> dims, int64_t res = 1) {
+static int64_t multiplyDims(llvm::ArrayRef<int64_t> dims, int64_t res = 1) {
   for (auto dim : dims) {
     if (ShapedType::isDynamic(dim)) {
       return ShapedType::kDynamicSize;
@@ -47,7 +40,7 @@ static int64_t multiply_dims(llvm::ArrayRef<int64_t> dims, int64_t res = 1) {
   return res;
 }
 
-static int64_t count_dynamic_dims(llvm::ArrayRef<int64_t> dims) {
+static int64_t countDynamicDims(llvm::ArrayRef<int64_t> dims) {
   int64_t count = 0;
   for (auto dim : dims)
     if (ShapedType::isDynamic(dim))
@@ -56,38 +49,42 @@ static int64_t count_dynamic_dims(llvm::ArrayRef<int64_t> dims) {
 }
 
 // Lowers Gather operators to a sequence of TOSA ops.
-llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Operation *op,
-    Value result_value, Value params_value, Value indices_value,
-    int32_t batch_dims, int32_t axis) {
-  auto result_type = result_value.getType().dyn_cast<ShapedType>();
-  auto params_type = params_value.getType().dyn_cast<RankedTensorType>();
-  auto indices_type = indices_value.getType().dyn_cast<RankedTensorType>();
+// This Code is mostly the same as TF to TOSA.
+llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
+    Value resultValue, Value inputValue, Value indicesValue, int32_t batchDims,
+    int32_t axis) {
 
-  if (!result_type || !params_type || !indices_type)
+  TosaBuilder tosaBuilder(rewriter, loc);
+
+  auto resultType = resultValue.getType().dyn_cast<ShapedType>();
+  auto inputType = inputValue.getType().dyn_cast<RankedTensorType>();
+  auto indicesType = indicesValue.getType().dyn_cast<RankedTensorType>();
+
+  if (!resultType || !inputType || !indicesType)
     return llvm::None;
 
-  // batch_dims indicates the number of batch dimensions in params and
+  // batchDims indicates the number of batch dimensions in input and
   // indices axis indicates the axis at which the gather indexing is
   // applied.  axis must be >= batch_dims.  When axis is equal to
   // batch_dims, the right-most batch dimension disappears.
   //
   // N: number of batches
-  // Computed as product of params.shape[0:batch_dims-1]
+  // Computed as product of input.shape[0:batch_dims-1]
   //
   // W: number of indices in each batch
   // Computed as product of indices.shape[batch_dims:]
   //
   // K: range of each index
-  // Computed as  params.shape[axis:axis+rank(indices)-1]
+  // Computed as  input.shape[axis:axis+rank(indices)-1]
   //
   // C: number of channels for each index
   // Computed as:  LeftChannels * RightChannels:
-  // product(params.shape[batch_dims:axis]) * product(params.shape[axis+1:])
+  // product(input.shape[batch_dims:axis]) * product(input.shape[axis+1:])
   //
-  // The params tensor needs to be transposed, then reshaped to move the
+  // The input tensor needs to be transposed, then reshaped to move the
   // dimensions into [N, K, C] order.
   //
-  // The dimensions of the input params[] tensor are grouped in the following
+  // The dimensions of the input input[] tensor are grouped in the following
   // order to begin with:
   //
   //  [Batch, LeftChannels, Indices, RightChannels]
@@ -124,193 +121,181 @@ llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Operation *op,
   //
   //  [Batch, LeftChannels, Non-Batch-Indices, RightChannels]
 
-  int params_rank = params_type.getShape().size();
-  int indices_rank = indices_type.getShape().size();
+  size_t inputRank = inputType.getShape().size();
+  size_t indicesRank = indicesType.getShape().size();
 
-  if (!(batch_dims <= indices_rank)) {
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  ArrayRef<int64_t> indicesShape = indicesType.getShape();
+
+  if (!((size_t)batchDims <= indicesRank)) {
     (void)rewriter.notifyMatchFailure(
-        op, "batch_dims must be <= indices_rank for a valid gather op");
+        loc, "batch_dims must be <= indices_rank for a valid gather op");
     return llvm::None;
   }
 
-  if (!(axis >= batch_dims)) {
+  if (!(axis >= batchDims)) {
     (void)rewriter.notifyMatchFailure(
-        op, "axis must be >= batch_dims for a valid gather op");
+        loc, "axis must be >= batch_dims for a valid gather op");
     return llvm::None;
   }
 
   // onnx allows i64 indices, but tosa does not.
-  if (indices_type.getElementType().isInteger(64)) {
-    indices_type =
-        indices_type.clone(rewriter.getI32Type()).dyn_cast<RankedTensorType>();
-    indices_value = CreateOpAndInfer<mlir::tosa::CastOp>(
-        rewriter, op->getLoc(), indices_type, indices_value)
-                        .getResult();
+  if (indicesType.getElementType().isInteger(64)) {
+    indicesType =
+        indicesType.clone(rewriter.getI32Type()).dyn_cast<RankedTensorType>();
+    indicesValue = CreateOpAndInfer<mlir::tosa::CastOp>(
+        rewriter, loc, indicesType, indicesValue)
+                       .getResult();
   }
 
   // Sizes for each of these fields.
-  SmallVector<int64_t> params_batch, params_indices, params_left_channels,
-      params_right_channels;
+  SmallVector<int64_t> inputBatch, inputIndices, inputLeftChannels,
+      inputRightChannels;
 
   // Dimension indices for each of these fields.
-  SmallVector<int64_t> params_idx_batch, params_idx_indices,
-      params_idx_left_channels, params_idx_right_channels;
+  SmallVector<int32_t> inputIdxBatch, inputIdxIndices, inputIdxLeftChannels,
+      inputIdxRightChannels;
 
-  // Read through the params tensor dimensions left-to-right and extract the
+  // Read through the input tensor dimensions left-to-right and extract the
   // different fields.
-  for (int i = 0; i < params_rank; i++) {
+  for (int i = 0; i < (int)inputRank; i++) {
     // When batch_dims == axis, the batch dimension gets replaced.
-    if (i < batch_dims && i < axis) {
-      params_batch.push_back(params_type.getShape()[i]);
-      params_idx_batch.push_back(i);
+    if (i < batchDims && i < axis) {
+      inputBatch.push_back(inputShape[i]);
+      inputIdxBatch.push_back(i);
     } else if (i < axis) {
-      params_left_channels.push_back(params_type.getShape()[i]);
-      params_idx_left_channels.push_back(i);
+      inputLeftChannels.push_back(inputShape[i]);
+      inputIdxLeftChannels.push_back(i);
     } else if (i < (axis + 1)) {
-      params_indices.push_back(params_type.getShape()[i]);
-      params_idx_indices.push_back(i);
+      inputIndices.push_back(inputShape[i]);
+      inputIdxIndices.push_back(i);
     } else {
-      params_right_channels.push_back(params_type.getShape()[i]);
-      params_idx_right_channels.push_back(i);
+      inputRightChannels.push_back(inputShape[i]);
+      inputIdxRightChannels.push_back(i);
     }
   }
 
   // Calculate N, K, W, C
-  int64_t N = multiply_dims(params_type.getShape().take_front(batch_dims));
-  int64_t W = multiply_dims(
-      indices_type.getShape().slice(batch_dims, indices_rank - batch_dims));
-  int64_t K = params_type.getShape()[axis];
+  int64_t N = multiplyDims(inputShape.take_front(batchDims));
+  int64_t W =
+      multiplyDims(indicesShape.slice(batchDims, indicesRank - batchDims));
+  int64_t K = inputShape[axis];
 
-  int64_t C = multiply_dims(
-      params_type.getShape().slice(batch_dims, axis - batch_dims));
-  C = multiply_dims(
-      params_type.getShape().slice(axis + 1, params_rank - axis - 1), C);
+  int64_t C = multiplyDims(inputShape.slice(batchDims, axis - batchDims));
+  C = multiplyDims(inputShape.slice(axis + 1, inputRank - axis - 1), C);
 
   /////////////////////////////////////////////
-  // Build up the params transpose operator
-  SmallVector<int64_t> params_transpose_perm;
-  SmallVector<int64_t> params_transpose_shape;
+  // Build up the input transpose operator
+  SmallVector<int32_t> inputTransposePerm;
 
   // Batch
-  for (int i = 0; i < params_batch.size(); i++) {
-    params_transpose_perm.push_back(params_idx_batch[i]);
-    params_transpose_shape.push_back(params_batch[i]);
+  for (size_t i = 0; i < inputBatch.size(); i++) {
+    inputTransposePerm.push_back(inputIdxBatch[i]);
   }
 
   // Indices
-  for (int i = 0; i < params_indices.size(); i++) {
-    params_transpose_perm.push_back(params_idx_indices[i]);
-    params_transpose_shape.push_back(params_indices[i]);
+  for (size_t i = 0; i < inputIndices.size(); i++) {
+    inputTransposePerm.push_back(inputIdxIndices[i]);
   }
 
   // LeftChannels
-  for (int i = 0; i < params_left_channels.size(); i++) {
-    params_transpose_perm.push_back(params_idx_left_channels[i]);
-    params_transpose_shape.push_back(params_left_channels[i]);
+  for (size_t i = 0; i < inputLeftChannels.size(); i++) {
+    inputTransposePerm.push_back(inputIdxLeftChannels[i]);
   }
 
   // RightChannels
-  for (int i = 0; i < params_right_channels.size(); i++) {
-    params_transpose_perm.push_back(params_idx_right_channels[i]);
-    params_transpose_shape.push_back(params_right_channels[i]);
+  for (size_t i = 0; i < inputRightChannels.size(); i++) {
+    inputTransposePerm.push_back(inputIdxRightChannels[i]);
   }
 
   /////////////////////////////////////////////
   // Build up the result reshape, in prepration for transpose
   // [N, W, C] -> [ Batch, Indices, LeftChannels, RightChannels ]
-  SmallVector<int64_t> result_reshape_shape;
+  SmallVector<int64_t> resultReshapeShape;
 
   // Indices
-  for (int i = 0; i < indices_type.getShape().size(); i++) {
-    result_reshape_shape.push_back(indices_type.getShape()[i]);
+  for (size_t i = 0; i < indicesType.getShape().size(); i++) {
+    resultReshapeShape.push_back(indicesShape[i]);
   }
 
   // Left channels
-  for (int i = 0; i < params_left_channels.size(); i++) {
-    result_reshape_shape.push_back(params_left_channels[i]);
+  for (size_t i = 0; i < inputLeftChannels.size(); i++) {
+    resultReshapeShape.push_back(inputLeftChannels[i]);
   }
 
   // Right channels.  But remove the axis dimension.
-  for (int i = 0; i < params_right_channels.size(); i++) {
-    result_reshape_shape.push_back(params_right_channels[i]);
+  for (size_t i = 0; i < inputRightChannels.size(); i++) {
+    resultReshapeShape.push_back(inputRightChannels[i]);
   }
 
   /////////////////////////////////////////////
   // Build up the result transpose operator.
-  SmallVector<int64_t> result_transpose_perm;
+  SmallVector<int32_t> resultTransposePerm;
 
   // Batch dimensions
-  for (int i = 0; i < batch_dims; i++) {
-    result_transpose_perm.push_back(i);
+  for (int i = 0; i < batchDims; i++) {
+    resultTransposePerm.push_back(i);
   }
 
   // LeftChannels
-  for (int i = 0; i < params_left_channels.size(); i++) {
-    result_transpose_perm.push_back(i + indices_type.getShape().size());
+  for (int i = 0; i < (int)inputLeftChannels.size(); i++) {
+    resultTransposePerm.push_back(i + indicesType.getShape().size());
   }
 
   // Indices (remainder of dimensions after batch).
-  for (int i = batch_dims; i < (indices_type.getShape().size()); i++) {
-    result_transpose_perm.push_back(i);
+  for (int i = batchDims; i < (int)(indicesType.getShape().size()); i++) {
+    resultTransposePerm.push_back(i);
   }
 
   // RightChannels, coming from after both the Indices and LeftChannels.
-  for (int i = 0; i < params_right_channels.size(); i++) {
-    result_transpose_perm.push_back(
-        i + indices_type.getShape().size() + params_left_channels.size());
+  for (int i = 0; i < (int)inputRightChannels.size(); i++) {
+    resultTransposePerm.push_back(
+        i + indicesType.getShape().size() + inputLeftChannels.size());
   }
 
-  SmallVector<int64_t> tosa_values_shape = {N, K, C};
-  SmallVector<int64_t> tosa_indices_shape = {N, W};
-  SmallVector<int64_t> tosa_gather_result_shape = {N, W, C};
+  SmallVector<int64_t> tosaValuesShape = {N, K, C};
+  SmallVector<int64_t> tosaIndicesShape = {N, W};
 
-  auto params_transpose_op = tosa::createTosaTransposedTensor(
-      rewriter, op, params_value, params_transpose_perm);
+  // Begin of rewrite.
 
-  if (count_dynamic_dims(tosa_values_shape) > 1) {
-    return (void)rewriter.notifyMatchFailure(op,
+  auto inputTransposeOp = tosaBuilder.transpose(inputValue, inputTransposePerm);
+
+  if (countDynamicDims(tosaValuesShape) > 1) {
+    return (void)rewriter.notifyMatchFailure(loc,
                "multiply dynamic shapes when reshaping values down to "
                "tosa.gather"),
            llvm::None;
   }
 
-  auto tosa_values_reshape_op = CreateOpAndInfer<mlir::tosa::ReshapeOp>(
-      rewriter, op->getLoc(),
-      RankedTensorType::get(tosa_values_shape, params_type.getElementType()),
-      params_transpose_op, rewriter.getI64ArrayAttr(tosa_values_shape));
+  auto tosaValuesReshapeOp =
+      tosaBuilder.reshape(inputTransposeOp, tosaValuesShape);
 
-  if (count_dynamic_dims(tosa_indices_shape) > 1) {
-    return (void)rewriter.notifyMatchFailure(op,
+  if (countDynamicDims(tosaIndicesShape) > 1) {
+    return (void)rewriter.notifyMatchFailure(loc,
                "multiply dynamic shapes when reshaping indices down to "
                "tosa.gather"),
            llvm::None;
   }
 
-  auto tosa_indices_reshape_op = CreateOpAndInfer<mlir::tosa::ReshapeOp>(
-      rewriter, op->getLoc(),
-      RankedTensorType::get(tosa_indices_shape, indices_type.getElementType()),
-      indices_value, rewriter.getI64ArrayAttr(tosa_indices_shape));
+  auto tosaIndicesReshapeOp =
+      tosaBuilder.reshape(indicesValue, tosaIndicesShape);
 
-  auto tosa_gather_op = CreateOpAndInfer<mlir::tosa::GatherOp>(rewriter,
-      op->getLoc(),
+  Value tosaGatherOp = CreateOpAndInfer<mlir::tosa::GatherOp>(rewriter, loc,
       RankedTensorType::get(
-          tosa_gather_result_shape, result_type.getElementType()),
-      tosa_values_reshape_op.getResult(), tosa_indices_reshape_op.getResult());
+          llvm::SmallVector<int64_t>(3, ShapedType::kDynamicSize),
+          resultType.getElementType()),
+      tosaValuesReshapeOp, tosaIndicesReshapeOp);
 
-  if (count_dynamic_dims(result_reshape_shape) > 1) {
-    return (void)rewriter.notifyMatchFailure(op,
+  if (countDynamicDims(resultReshapeShape) > 1) {
+    return (void)rewriter.notifyMatchFailure(loc,
                "multiply dynamic shapes when reshaping tosa.gather result up"),
            llvm::None;
   }
 
-  Value tosa_result_reshape_op = CreateOpAndInfer<mlir::tosa::ReshapeOp>(
-      rewriter, op->getLoc(),
-      RankedTensorType::get(result_reshape_shape, params_type.getElementType()),
-      tosa_gather_op.getResult(),
-      rewriter.getI64ArrayAttr(result_reshape_shape));
+  Value tosaResultReshapeOp =
+      tosaBuilder.reshape(tosaGatherOp, resultReshapeShape);
 
-  return tosa::createTosaTransposedTensor(
-      rewriter, op, tosa_result_reshape_op, result_transpose_perm);
+  return tosaBuilder.transpose(tosaResultReshapeOp, resultTransposePerm);
 }
 
 // Common function for lowering reduce operations to TOSA ops.
@@ -380,8 +365,8 @@ llvm::Optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
 
 // Lowers ReduceMean to a sequence of TOSA ops.
 llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
-    Operation *op, TosaBuilder& tosaBuilder, RankedTensorType output_type, Value input_value,
-    ElementsAttr axes_elems, bool keep_dims) {
+    Operation *op, TosaBuilder &tosaBuilder, RankedTensorType output_type,
+    Value input_value, ElementsAttr axes_elems, bool keep_dims) {
   // reduce_mean is lowered as followed:
   // op1 = reduce_sum(input)
   // op2 = mul(op1, 1.0 / num_elements_on_reduced_axis)
