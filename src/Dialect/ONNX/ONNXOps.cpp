@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
@@ -224,4 +225,16 @@ ParseResult ONNXConstantOp::parse(OpAsmParser &parser, OperationState &result) {
     return failure();
   result.addTypes({type});
   return success();
+}
+
+// Constant Materializer
+Operation *ONNXDialect::materializeConstant(
+     OpBuilder &builder, Attribute value, Type type, Location loc) {
+   onnx_mlir::OnnxBuilder onnx(builder, loc);
+   Value result = onnx.constant(value);
+   return result.getDefiningOp();
+} 
+
+OpFoldResult ONNXConstantOp::fold(FoldAdaptor adaptor) {
+  return getValueAttr();
 }

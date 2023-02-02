@@ -1280,7 +1280,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [Pure, ConstantLike, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let hasCustomAssemblyFormat = 1;
   let hasCanonicalizer = 1;
   let summary = "ONNX Constant operation";
@@ -1338,6 +1338,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
    }
   }]>
   ];
+  let hasFolder = 1;
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",

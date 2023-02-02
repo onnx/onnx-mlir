@@ -40,6 +40,8 @@ def ONNX_Dialect : Dialect {
   let useDefaultTypePrinterParser = 1;
   let useDefaultAttributePrinterParser = 0;  
   let dependentDialects = ["func::FuncDialect"];
+  let useFoldAPI = kEmitFoldAdaptorFolder;
+  let hasConstantMaterializer = 1;
   let extraClassDeclaration = [{
   private:
     // Register the builtin Attributes.

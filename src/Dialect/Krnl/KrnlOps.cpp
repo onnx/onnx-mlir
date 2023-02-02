@@ -663,7 +663,7 @@ static LogicalResult foldMemRefCast(Operation *op) {
   return success(folded);
 }
 
-OpFoldResult KrnlVectorTypeCastOp::fold(ArrayRef<Attribute> operands) {
+OpFoldResult KrnlVectorTypeCastOp::fold(FoldAdaptor adaptor) {
   if (OpFoldResult folded = OpFoldResult())
     return folded;
   return succeeded(foldMemRefCast(*this)) ? getResult() : Value();

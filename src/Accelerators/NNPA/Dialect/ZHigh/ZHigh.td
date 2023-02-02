@@ -28,6 +28,7 @@ def ZHigh_Dialect : Dialect {
   let summary = "A high-level dialect for the ONNX NNPA accelerator ISA.";
   let cppNamespace = "::onnx_mlir::zhigh";
   let useDefaultAttributePrinterParser = 1;  
+  let useFoldAPI = kEmitFoldAdaptorFolder;
 }
 
 //===----------------------------------------------------------------------===//
