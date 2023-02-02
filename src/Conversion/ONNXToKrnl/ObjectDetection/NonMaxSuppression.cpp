@@ -238,21 +238,21 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // Operation's operands.
     // Bounding boxes.
-    Value boxes = operandAdaptor.boxes();
+    Value boxes = operandAdaptor.getBoxes();
     // Scores.
-    Value scores = operandAdaptor.scores();
+    Value scores = operandAdaptor.getScores();
     // Maximum number of output boxes per class.
     Value maxOutputBoxPerClass = getOptionalScalarValue(
-        rewriter, loc, operandAdaptor.max_output_boxes_per_class(), i64Type, 0);
+        rewriter, loc, operandAdaptor.getMaxOutputBoxesPerClass(), i64Type, 0);
     // Score threshold.
     Type scoreType = scores.getType().cast<MemRefType>().getElementType();
     Value scoreTH = getOptionalScalarValue(
-        rewriter, loc, operandAdaptor.score_threshold(), scoreType, 0);
+        rewriter, loc, operandAdaptor.getScoreThreshold(), scoreType, 0);
     // IOU threshold.
     Value iouTH = getOptionalScalarValue(
-        rewriter, loc, operandAdaptor.iou_threshold(), scoreType, 0);
+        rewriter, loc, operandAdaptor.getIouThreshold(), scoreType, 0);
     // Mode: diagonal corners or center point.
-    int64_t centerPointBox = nmsOp.center_point_box();
+    int64_t centerPointBox = nmsOp.getCenterPointBox();
 
     // boxes: [num_of_batch, spatial_dimension, 4]
     // scores: [num_of_batch, num_of_class, spatial_dimension]
@@ -303,7 +303,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     if (numSelectedIndicesIE.isLiteral())
       outputShape.emplace_back(numSelectedIndicesIE.getLiteral());
     else
-      outputShape.emplace_back(-1);
+      outputShape.emplace_back(ShapedType::kDynamic);
     outputShape.emplace_back(3);
     Value selectedMemRef = insertAllocAndDeallocSimple(rewriter, op,
         MemRefType::get(outputShape, indexType), loc, outputDims,
@@ -333,7 +333,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
           // Keep trace of removed indices per class.
           DimIndexExpr ssIE(ss);
           SmallVector<IndexExpr, 1> dims = {ssIE};
-          SmallVector<int64_t, 1> shapes = {-1};
+          SmallVector<int64_t, 1> shapes = {ShapedType::kDynamic};
           if (ssIE.isLiteral())
             shapes[0] = ssIE.getLiteral();
           Value removedIndices = insertAllocAndDeallocSimple(rewriter, nullptr,
@@ -446,7 +446,7 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
         DimIndexExpr(effectiveNSI), LiteralIndexExpr(3)};
     bool insertDealloc = checkInsertDealloc(op);
     Value resMemRef = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get({-1, 3}, elementType), loc, resDims,
+        MemRefType::get({ShapedType::kDynamic, 3}, elementType), loc, resDims,
         /*insertDealloc=*/insertDealloc);
 
     // Copy data to the final ouput.

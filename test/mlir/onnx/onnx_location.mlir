@@ -6,5 +6,6 @@
      return %0 : tensor<1x16xf32>
   }
 
-// PRESENT: loc("onnx.Add"("{{(/[[:alnum:]]+)+}}.onnx":1:0))
-// ABSENT-NOT: loc("onnx.Add"("{{(/[[:alnum:]]+)+}}.onnx":1:0))
+// PRESENT: #[[onnx_file_loc:.+]] = loc("{{/.+}}.onnx":1:0)
+// PRESENT: loc("onnx.Add"(#[[onnx_file_loc]]))
+// ABSENT-NOT: loc("onnx.Add"(

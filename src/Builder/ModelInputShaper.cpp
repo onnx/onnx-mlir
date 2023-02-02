@@ -83,7 +83,7 @@ RankedTensorType forceShape(
   for (unsigned int i = 0; i < shape.size(); i++) {
     if (llvm::is_contained(forcedDims, -1) ||
         llvm::is_contained(forcedDims, i)) {
-      newDims.push_back(-1);
+      newDims.push_back(ShapedType::kDynamic);
     } else {
       newDims.push_back(shape[i]);
     }
@@ -94,7 +94,7 @@ RankedTensorType forceShape(
 
 Type ModelInputShaper::reshape(int inputIndex, Type inputType) const {
   if (auto tensorTy = inputType.dyn_cast<TensorType>()) {
-    // Make dims unknown (-1) if applicable.
+    // Update the input dimensions based on internal information.
     if (force_dim_dynamic_enabled_ && tensorTy.hasRank()) {
       auto rankedTensorTy = tensorTy.cast<RankedTensorType>();
       auto it = forced_inputs_dims_.find(-1);

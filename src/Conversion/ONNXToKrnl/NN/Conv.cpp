@@ -38,11 +38,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
 
-    auto inputOperand = operandAdaptor.X();
-    auto filterOperand = operandAdaptor.W();
-    auto biasOperand = operandAdaptor.B();
+    auto inputOperand = operandAdaptor.getX();
+    auto filterOperand = operandAdaptor.getW();
+    auto biasOperand = operandAdaptor.getB();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
-    int64_t groupNum = convOp.group();
+    int64_t groupNum = convOp.getGroup();
     IndexExpr G = LiteralIndexExpr(groupNum);
     Value fZero = create.math.constant(memRefType.getElementType(), 0);
 

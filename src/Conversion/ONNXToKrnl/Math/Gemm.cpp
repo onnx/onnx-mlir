@@ -45,7 +45,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       Value zeroVal, Value alphaVal, Value betaVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
     // R is result (alloc).
-    Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), R(alloc);
 
     // Create all the loops at once (outer loops followed by inner loop).
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
@@ -74,11 +74,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                     createKrnl);
                 // Handle transposed accesses.
                 SmallVector<Value, 2> aAccess, bAccess;
-                if (gemmOp.transA() != 0)
+                if (gemmOp.getTransA() != 0)
                   aAccess = {k, i};
                 else
                   aAccess = {i, k};
-                if (gemmOp.transB() != 0)
+                if (gemmOp.getTransB() != 0)
                   bAccess = {j, k};
                 else
                   bAccess = {k, j};
@@ -101,7 +101,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                   IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0)
                       .getValue());
             }
-            Value c = create.krnl.load(operandAdaptor.C(), cAccess);
+            Value c = create.krnl.load(operandAdaptor.getC(), cAccess);
             res = create.math.add(res, create.math.mul(betaVal, c));
           }
           create.krnl.store(res, R, outerIndices);
@@ -115,9 +115,9 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       Location loc) const {
 
     // R is result (alloc).
-    Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
-    bool aTrans = gemmOp.transA();
-    bool bTrans = gemmOp.transB();
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), R(alloc);
+    bool aTrans = gemmOp.getTransA();
+    bool bTrans = gemmOp.getTransB();
     IndexExpr I = shapeHelper.getOutputDims()[0];
     IndexExpr J = shapeHelper.getOutputDims()[1];
     IndexExpr K = shapeHelper.aDims[1]; // aDims are already transposed.
@@ -274,8 +274,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     }
 
     // Perform the alpha/beta computations.
-    float alphaLit = gemmOp.alpha().convertToFloat();
-    float betaLit = gemmOp.beta().convertToFloat();
+    float alphaLit = gemmOp.getAlpha().convertToFloat();
+    float betaLit = gemmOp.getBeta().convertToFloat();
     if (alphaLit == 1.0 && (betaLit == 0.0 || !shapeHelper.hasBias)) {
       // No need for the multiply/add.
       return;
@@ -298,7 +298,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                   IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0)
                       .getValue());
             }
-            Value c = createKrnl.load(operandAdaptor.C(), cAccess);
+            Value c = createKrnl.load(operandAdaptor.getC(), cAccess);
             if (betaLit != 1.0)
               c = createMath.mul(betaVal, c);
             res = createMath.add(res, c);
@@ -330,8 +330,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         loc, shapeHelper.getOutputDims(), (int64_t)BUFFER_ALIGN);
 
     // Get the constants: zero, alpha,and beta.
-    float alphaLit = gemmOp.alpha().convertToFloat();
-    float betaLit = gemmOp.beta().convertToFloat();
+    float alphaLit = gemmOp.getAlpha().convertToFloat();
+    float betaLit = gemmOp.getBeta().convertToFloat();
     MathBuilder createMath(rewriter, loc);
     Value alpha = createMath.constant(elementType, alphaLit);
     Value beta = createMath.constant(elementType, betaLit);
@@ -345,15 +345,15 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       if (DEBUG_OPTIMIZED_OFF)
         llvm::dbgs() << "Gemm optimized path off\n";
 
-      bool aTrans = gemmOp.transA();
-      bool bTrans = gemmOp.transB();
+      bool aTrans = gemmOp.getTransA();
+      bool bTrans = gemmOp.getTransB();
       if (IndexExpr::isLiteral(shapeHelper.aDims) &&
           IndexExpr::isLiteral(shapeHelper.bDims) &&
           IndexExpr::isLiteral(shapeHelper.cDims)) {
-        int cDim0 =
-            shapeHelper.hasBias ? shapeHelper.cDims[0].getLiteral() : -1;
-        int cDim1 =
-            shapeHelper.hasBias ? shapeHelper.cDims[1].getLiteral() : -1;
+        int64_t cDim0 = shapeHelper.hasBias ? shapeHelper.cDims[0].getLiteral()
+                                            : ShapedType::kDynamic;
+        int64_t cDim1 = shapeHelper.hasBias ? shapeHelper.cDims[1].getLiteral()
+                                            : ShapedType::kDynamic;
         llvm::dbgs() << "OP-STATS: gemm of size I/J/K, "
                      << shapeHelper.aDims[0].getLiteral() << ","
                      << shapeHelper.bDims[1].getLiteral() << ","

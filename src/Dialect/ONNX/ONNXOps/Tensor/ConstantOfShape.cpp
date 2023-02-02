@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -27,7 +28,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXConstantOfShapeOpShapeHelper::computeShape() {
   ONNXConstantOfShapeOpAdaptor operandAdaptor(operands);
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   DimsExpr outputDims;
 
   auto inputShape = input.getType().cast<RankedTensorType>().getShape();
@@ -51,7 +52,7 @@ LogicalResult ONNXConstantOfShapeOpShapeHelper::computeShape() {
 
 LogicalResult ONNXConstantOfShapeOp::verify() {
   ONNXConstantOfShapeOpAdaptor operandAdaptor(*this);
-  auto input = operandAdaptor.input();
+  auto input = operandAdaptor.getInput();
   if (!hasShapeAndRank(input))
     return success();
 
@@ -62,11 +63,12 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
     return emitOpError("Input tensor must have static shape");
 
   // Calculate output dimensions.
-  SmallVector<int64_t, 4> outputDims(inputShape[0], -1);
+  SmallVector<int64_t, 4> outputDims(inputShape[0], ShapedType::kDynamic);
   // If 'input' is a constant, check whether its values are valid or not.
   // If the values are valid, it is possible to infer shape.
   if (auto constantOp = getONNXConstantOp(input)) {
-    ElementsAttr valueAttribute = constantOp.valueAttr().cast<ElementsAttr>();
+    ElementsAttr valueAttribute =
+        constantOp.getValueAttr().cast<ElementsAttr>();
     // Get repeat values from valueAttribute.
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
     for (int i = 0; i < inputShape[0]; ++i) {
@@ -93,8 +95,9 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
 
   // 'value' attribute is a one-element tensor whose value and datatype are
   // used to set the output tensor value and datatype.
-  if (value().has_value()) {
-    elementType = valueAttr().cast<ElementsAttr>().getType().getElementType();
+  if (getValue().has_value()) {
+    elementType =
+        getValueAttr().cast<ElementsAttr>().getType().getElementType();
   } else {
     // If 'value' attribute is not specified, it defaults to a tensor of
     // value 0 and datatype float32.
@@ -104,7 +107,7 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
     auto tensorType = RankedTensorType::get(dims, elementType);
 
     llvm::SmallVector<float, 1> values(1, 0.);
-    valueAttr(DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values)));
+    setValueAttr(DenseElementsAttr::get(tensorType, llvm::ArrayRef(values)));
   }
 
   ONNXConstantOfShapeOpShapeHelper shapeHelper(getOperation(), {});

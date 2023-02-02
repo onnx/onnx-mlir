@@ -295,7 +295,7 @@ void IndexExprBuilder::getFloatFromArrayAsNonAffine(
 // Get info from tensor/memref shape.
 
 bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue, uint64_t i) {
-  return getShape(tensorOrMemrefValue, i) != -1;
+  return getShape(tensorOrMemrefValue, i) != ShapedType::kDynamic;
 }
 
 bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue) {
@@ -316,7 +316,8 @@ int64_t IndexExprBuilder::getShape(Value tensorOrMemrefValue, uint64_t i) {
 IndexExpr IndexExprBuilder::getShapeAsLiteral(
     Value tensorOrMemrefValue, uint64_t i) {
   int64_t shape = getShape(tensorOrMemrefValue, i);
-  assert(shape != -1 && "expected compile time constant shape");
+  assert(
+      shape != ShapedType::kDynamic && "expected compile time constant shape");
   return LiteralIndexExpr(shape);
 }
 

@@ -25,7 +25,7 @@ LogicalResult ONNXRandomNormalOpShapeHelper::computeShape() {
   ONNXRandomNormalOp randomOp = llvm::cast<ONNXRandomNormalOp>(op);
 
   DimsExpr outputDims;
-  createIE->getIntFromArrayAsLiterals(randomOp.shape(), outputDims);
+  createIE->getIntFromArrayAsLiterals(randomOp.getShape(), outputDims);
   if (!IndexExpr::isNonNegativeLiteral(outputDims))
     return op->emitError("Random normal tensor has dynamic dimension.");
   // Save the final result.
@@ -45,7 +45,7 @@ LogicalResult ONNXRandomNormalOpShapeHelper::computeShape() {
 
 LogicalResult ONNXRandomNormalOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto elementTypeID = dtype();
+  auto elementTypeID = getDtype();
   Type elementType = FloatType::getF32(getContext());
   if (elementTypeID == 0)
     elementType = FloatType::getF16(getContext());

@@ -35,9 +35,9 @@ struct ONNXClipOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     LocalDialectBuilder create(rewriter, loc);
     ONNXClipOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
-    Value min = operandAdaptor.min();
-    Value max = operandAdaptor.max();
+    Value input = operandAdaptor.getInput();
+    Value min = operandAdaptor.getMin();
+    Value max = operandAdaptor.getMax();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());

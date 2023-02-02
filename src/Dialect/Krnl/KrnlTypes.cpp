@@ -24,7 +24,7 @@ void customizeTypeConverter(LLVMTypeConverter &typeConverter) {
   typeConverter.addConversion([&](MemRefType type) -> llvm::Optional<Type> {
     Type elementType = type.getElementType();
     if (!elementType.isa<krnl::StringType>())
-      return llvm::None;
+      return std::nullopt;
 
     elementType =
         elementType.cast<krnl::StringType>().getLLVMType(type.getContext());

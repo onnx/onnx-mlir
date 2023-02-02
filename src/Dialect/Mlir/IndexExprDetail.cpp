@@ -55,7 +55,8 @@ void IndexExprImpl::initAsUndefined() {
 void IndexExprImpl::initAsQuestionmark(bool isFloatFlag) {
   // Question mark has value of -1 by default.
   init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ isFloatFlag,
-      IndexExprKind::Questionmark, -1, AffineExpr(nullptr), Value(nullptr));
+      IndexExprKind::Questionmark, ShapedType::kDynamic, AffineExpr(nullptr),
+      Value(nullptr));
 }
 
 void IndexExprImpl::initAsQuestionmark(int64_t const val, bool isFloatFlag) {

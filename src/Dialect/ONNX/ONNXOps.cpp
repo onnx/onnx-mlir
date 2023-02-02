@@ -166,7 +166,7 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
   // If the result type is dynamic then it won't match the attribute type and
   // we fall back to printing as attribute dictionary at the end.
   Type resultType = getResult().getType();
-  if (auto attr = value()) {
+  if (auto attr = getValue()) {
     // ONNXConstantOp value must be ElementsAttr, but not SparseElementsAttr.
     auto elements = attr->cast<ElementsAttr>();
     assert(!elements.isa<SparseElementsAttr>() &&
@@ -183,7 +183,7 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
       return;
     }
   }
-  if (auto attr = sparse_value()) {
+  if (auto attr = getSparseValue()) {
     // ONNXConstantOp sparse_value must be SparseElementsAttr.
     auto sparseElements = attr->cast<SparseElementsAttr>();
     if (sparseElements.getType() == resultType) {

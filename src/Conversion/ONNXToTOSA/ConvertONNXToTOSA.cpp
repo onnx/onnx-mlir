@@ -29,6 +29,9 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // NN
   populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  // Tensor
+  populateLoweringONNXConstOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
 }
 
 // Performs lowering to TOSA dialect
@@ -61,12 +64,12 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   typeConverter.addConversion([](Type type) -> Optional<Type> {
     if (isTOSASignedInt(type) || isTOSAFloat(type))
       return type;
-    return llvm::None;
+    return std::nullopt;
   });
   typeConverter.addConversion([&](TensorType type) -> Optional<Type> {
     if (typeConverter.isLegal(type.getElementType()))
       return type;
-    return llvm::None;
+    return std::nullopt;
   });
 
   // Define legal dialects and operations
