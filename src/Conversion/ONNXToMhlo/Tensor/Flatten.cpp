@@ -33,11 +33,11 @@ struct ONNXFlattenOpLoweringToMhlo : public ConversionPattern {
     ONNXFlattenOpAdaptor operandAdaptor(operands);
     ONNXFlattenOp flattenOp = llvm::cast<ONNXFlattenOp>(op);
 
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
     assert(isRankedShapedType(input.getType()) && "Expected Ranked ShapedType");
     ShapedType inputType = input.getType().cast<ShapedType>();
     int64_t rank = inputType.getRank();
-    int64_t axis = flattenOp.axis();
+    int64_t axis = flattenOp.getAxis();
     assert(axis >= -rank && axis <= rank - 1);
     axis = axis >= 0 ? axis : rank + axis;
 

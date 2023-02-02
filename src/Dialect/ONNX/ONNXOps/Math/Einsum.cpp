@@ -34,7 +34,7 @@ LogicalResult ONNXEinsumOpShapeHelper::computeShape() {
   // einsum::Shape which is defined as a SmallVector<int64_t, 4>.
   auto errorFn = [&]() {
     return einsumOp.emitOpError()
-           << "equation '" << einsumOp.equation() << "': ";
+           << "equation '" << einsumOp.getEquation() << "': ";
   };
   FailureOr<einsum::Shape> shape =
       einsum::inferOutputShape(operandAdaptor, errorFn);
@@ -56,13 +56,13 @@ LogicalResult ONNXEinsumOpShapeHelper::computeShape() {
 
 LogicalResult ONNXEinsumOp::verify() {
   auto errorFn = [this]() -> InFlightDiagnostic {
-    return this->emitOpError() << "equation '" << this->equation() << "': ";
+    return this->emitOpError() << "equation '" << this->getEquation() << "': ";
   };
 
   ONNXEinsumOpAdaptor operandAdaptor(*this);
-  ValueRange inputs = operandAdaptor.Inputs();
+  ValueRange inputs = operandAdaptor.getInputs();
 
-  if (failed(einsum::verifyEquation(equation(), inputs.size(), errorFn))) {
+  if (failed(einsum::verifyEquation(getEquation(), inputs.size(), errorFn))) {
     return failure();
   }
 

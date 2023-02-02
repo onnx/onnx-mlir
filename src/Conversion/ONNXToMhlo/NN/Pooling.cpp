@@ -123,7 +123,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
     DimsExpr outputDims = shapeHelper.getOutputDims();
 
     // Type information about the input and result of this operation.
-    Value inputOperand = operandAdaptor.X();
+    Value inputOperand = operandAdaptor.getX();
     RankedTensorType inputType =
         inputOperand.getType().dyn_cast_or_null<RankedTensorType>();
     if (inputType == nullptr)
@@ -133,7 +133,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
     Type outputType = *op->result_type_begin();
     int64_t spatialOffset = 2;
     int64_t rank = inputType.getRank();
-    int64_t ceilMode = poolOp.ceil_mode();
+    int64_t ceilMode = poolOp.getCeilMode();
 
     Value initVal = createInitialValueForPoolingOp(op, elemType, rewriter);
     if (initVal == nullptr)
@@ -141,7 +141,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
 
     // paddings
     llvm::SmallVector<IndexExpr, 4> pads = shapeHelper.pads;
-    llvm::StringRef padding = poolOp.auto_pad();
+    llvm::StringRef padding = poolOp.getAutoPad();
     int64_t spatialRank = rank - spatialOffset;
     SmallVector<int64_t> flattenPaddings;
     for (int64_t i = 0; i < 2 * spatialOffset; i++)
@@ -178,7 +178,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
     if (isa<ONNXAveragePoolOp>(op)) {
       Value reduceResult = reduce.getResult(0);
       int64_t countIncludePad =
-          llvm::cast<ONNXAveragePoolOp>(op).count_include_pad();
+          llvm::cast<ONNXAveragePoolOp>(op).getCountIncludePad();
       if (countIncludePad) {
         // Use kernel size as the divisor
         int64_t kernelSize = 1;

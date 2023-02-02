@@ -297,11 +297,11 @@ Value OnnxBuilder::reshapeToNDim(
   // collapsed dims.
   llvm::SmallVector<int64_t, 4> outputDims;
   if (collapseMostSignificant)
-    outputDims.emplace_back(-1);
+    outputDims.emplace_back(ShapedType::kDynamic);
   for (int i = start; i < end; ++i)
     outputDims.emplace_back(inputShape[i]);
   if (!collapseMostSignificant)
-    outputDims.emplace_back(-1);
+    outputDims.emplace_back(ShapedType::kDynamic);
   Type outputType = RankedTensorType::get(outputDims, elementType);
   return reshape(outputType, val, newShapeVals);
 }

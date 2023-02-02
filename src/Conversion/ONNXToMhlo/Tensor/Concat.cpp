@@ -43,11 +43,11 @@ struct ONNXConcatOpLoweringToMhlo : public ConversionPattern {
       return failure();
     }
     int64_t rank = onnx_mlir::getRank(resultType);
-    int64_t axis = concatOp.axis();
+    int64_t axis = concatOp.getAxis();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1 && "Axis out of rank range");
 
-    ValueRange inputs = operandAdaptor.inputs();
+    ValueRange inputs = operandAdaptor.getInputs();
     Value result = rewriter.create<mhlo::ConcatenateOp>(
         loc, op->getResultTypes(), inputs, rewriter.getI64IntegerAttr(axis));
     rewriter.replaceOp(op, result);

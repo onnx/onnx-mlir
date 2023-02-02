@@ -32,9 +32,9 @@ struct ONNXSizeOpLowering : public ConversionPattern {
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
     ONNXSizeOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.data();
+    Value data = operandAdaptor.getData();
     ArrayRef<int64_t> dataShape = data.getType().cast<MemRefType>().getShape();
-    Value resultOperand = sizeOp.size();
+    Value resultOperand = sizeOp.getSize();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -72,7 +72,7 @@ struct ONNXSizeOpLowering : public ConversionPattern {
       }
     }
 
-    create.krnl.store(noElements, alloc, llvm::None);
+    create.krnl.store(noElements, alloc, std::nullopt);
     rewriter.replaceOp(op, alloc);
     return success();
   }

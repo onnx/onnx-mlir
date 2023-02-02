@@ -23,5 +23,5 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 OpFoldResult ONNXNoneOp::fold(ArrayRef<Attribute> operands) {
-  return valueAttr();
+  return getValueAttr();
 }

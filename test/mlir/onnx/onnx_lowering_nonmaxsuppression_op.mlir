@@ -1592,10 +1592,7 @@ func.func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: 
   %0 = "onnx.NonMaxSuppression"(%arg0, %arg1, %arg2, %arg3, %arg4) {center_point_box = 1 : si64} : (tensor<?x?x?xf32>, tensor<?x?x?xf32>, tensor<1xi64>, tensor<1xf32>, tensor<1xf32>) -> tensor<*xi64>
   return %0 : tensor<*xi64>
 
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1) -> (d0, d1)>
-// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<() -> ()>
 // CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<(d0, d1) -> (d1)>
 // CHECK-DAG:   [[MAP_5_:#.+]] = affine_map<(d0, d1, d2) -> (d2)>
 // CHECK-LABEL:  func.func @test_nonmaxsuppression_unknown_dims

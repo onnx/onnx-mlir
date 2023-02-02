@@ -29,8 +29,8 @@ struct ONNXDimOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     auto dimOp = llvm::dyn_cast<ONNXDimOp>(op);
     ONNXDimOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.data();
-    int64_t axis = dimOp.axis();
+    Value data = operandAdaptor.getData();
+    int64_t axis = dimOp.getAxis();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
         create(rewriter, loc);
     IndexExprScope scope(&rewriter, loc);

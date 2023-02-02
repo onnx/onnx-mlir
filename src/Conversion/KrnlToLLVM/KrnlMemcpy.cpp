@@ -49,26 +49,26 @@ public:
     auto memcpyRef = getOrInsertMemcpy(rewriter, parentModule);
 
     // First operand.
-    Type dstType = operandAdaptor.dest()
+    Type dstType = operandAdaptor.getDest()
                        .getType()
                        .cast<LLVM::LLVMStructType>()
                        .getBody()[1];
     Value alignedDstMemory =
-        create.llvm.extractValue(dstType, operandAdaptor.dest(), {1});
+        create.llvm.extractValue(dstType, operandAdaptor.getDest(), {1});
     Value alignedInt8PtrDstMemory = create.llvm.bitcastI8Ptr(alignedDstMemory);
 
     // Second operand.
-    Type srcType = operandAdaptor.src()
+    Type srcType = operandAdaptor.getSrc()
                        .getType()
                        .cast<LLVM::LLVMStructType>()
                        .getBody()[1];
     Value alignedSrcMemory =
-        create.llvm.extractValue(srcType, operandAdaptor.src(), {1});
+        create.llvm.extractValue(srcType, operandAdaptor.getSrc(), {1});
     Value alignedInt8PtrSrcMemory = create.llvm.bitcastI8Ptr(alignedSrcMemory);
 
     // Size.
     Value int64Size = rewriter.create<LLVM::SExtOp>(
-        loc, IntegerType::get(context, 64), operandAdaptor.size());
+        loc, IntegerType::get(context, 64), operandAdaptor.getSize());
 
     // Is volatile (set to false).
     Value isVolatile =

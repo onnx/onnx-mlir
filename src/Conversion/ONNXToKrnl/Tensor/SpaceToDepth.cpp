@@ -43,8 +43,8 @@ struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
     ONNXSpaceToDepthOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    Value input = operandAdaptor.input();
-    int64_t bs = operandAdaptor.blocksize();
+    Value input = operandAdaptor.getInput();
+    int64_t bs = operandAdaptor.getBlocksize();
 
     // Compute the new dimensions.
     assert(create.krnlIE.getShapedTypeRank(input) == 4 &&

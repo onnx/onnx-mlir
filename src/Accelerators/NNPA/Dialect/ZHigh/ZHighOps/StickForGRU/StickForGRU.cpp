@@ -25,7 +25,7 @@ namespace zhigh {
 
 LogicalResult ZHighStickForGRUOpShapeHelper::computeShape() {
   ZHighStickForGRUOp::Adaptor operandAdaptor(operands);
-  Value zGate = operandAdaptor.z_gate();
+  Value zGate = operandAdaptor.getZGate();
 
   // Output dims of result.
   DimsExpr outputDims;
@@ -51,8 +51,8 @@ LogicalResult ZHighStickForGRUOpShapeHelper::computeShape() {
 
 LogicalResult ZHighStickForGRUOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(z_gate()) && !hasRankedType(r_gate()) &&
-      !hasRankedType(h_gate()))
+  if (!hasRankedType(getZGate()) && !hasRankedType(getRGate()) &&
+      !hasRankedType(getHGate()))
     return success();
 
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();

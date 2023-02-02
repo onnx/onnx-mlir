@@ -27,7 +27,7 @@ struct ONNXTopKOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    Value X = operandAdaptor.X();
+    Value X = operandAdaptor.getX();
 
     // Builders.
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
@@ -44,10 +44,10 @@ struct ONNXTopKOpLowering : public ConversionPattern {
 
     // Op's Attributes.
     int64_t rank = resMemRefType.getRank();
-    int64_t axis = operandAdaptor.axis();
+    int64_t axis = operandAdaptor.getAxis();
     axis = axis < 0 ? axis + rank : axis;
     assert(axis >= 0 && axis < rank && "axis is out of bound");
-    bool ascendingMode = operandAdaptor.largest() != 1;
+    bool ascendingMode = operandAdaptor.getLargest() != 1;
     // According to ONNX TopK: 'If "sorted" is 0, order of returned 'Values' and
     // 'Indices' are undefined'.
     // In this case, we still return sorted values and indices to make them

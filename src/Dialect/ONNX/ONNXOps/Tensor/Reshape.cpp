@@ -30,11 +30,11 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   DimsExpr outputDims;
 
   // Get info about input data operand.
-  Value data = operandAdaptor.data();
+  Value data = operandAdaptor.getData();
   int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
 
   // Get info about shape operand.
-  Value shape = operandAdaptor.shape();
+  Value shape = operandAdaptor.getShape();
   int64_t outputRank = createIE->getShape(shape, 0);
   assert(outputRank != -1 && "Shape tensor must have constant shape");
 
@@ -100,11 +100,11 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 LogicalResult ONNXReshapeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape tensor is specified.
-  if (!hasShapeAndRank(data()) || !hasShapeAndRank(shape()))
+  if (!hasShapeAndRank(getData()) || !hasShapeAndRank(getShape()))
     return success();
 
   // Only rank 1 shape tensors are supported.
-  auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
+  auto shapeTensorTy = getShape().getType().cast<RankedTensorType>();
   if (shapeTensorTy.getShape().size() != 1)
     return emitError("Shape tensor must have rank one");
 
@@ -113,7 +113,7 @@ LogicalResult ONNXReshapeOp::inferShapes(
   if (outputRank < 0)
     return emitError("Shape tensor must have constant shape");
 
-  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = getData().getType().cast<ShapedType>().getElementType();
   ONNXReshapeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

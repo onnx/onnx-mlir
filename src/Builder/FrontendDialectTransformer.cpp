@@ -20,6 +20,7 @@
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/LineIterator.h"
@@ -163,13 +164,12 @@ private:
                "Parsed an tensor with a dimension size of zero");
         if (dim_numeric_size > 0) {
           dims.push_back(dim_numeric_size);
-        } else { // If dim_value < 0, then dim is parametric.
-                 // TODO Verify the unknown dim size in MLIR
-          dims.push_back(-1);
+        } else {
+          // If dim_value < 0, then dim is parametric.
+          dims.push_back(ShapedType::kDynamic);
         }
       } else {
-        // TODO How to represent variable length
-        dims.push_back(-1);
+        dims.push_back(ShapedType::kDynamic);
       }
     }
 
@@ -246,11 +246,11 @@ private:
       break;
     case onnx::AttributeProto::FLOATS:
       mlirAttr = builder_.getF32ArrayAttr(
-          llvm::makeArrayRef(attr.floats().data(), attr.floats().size()));
+          llvm::ArrayRef(attr.floats().data(), attr.floats().size()));
       break;
     case onnx::AttributeProto::INTS:
       mlirAttr = builder_.getI64ArrayAttr(
-          llvm::makeArrayRef(attr.ints().data(), attr.ints().size()));
+          llvm::ArrayRef(attr.ints().data(), attr.ints().size()));
       break;
     case onnx::AttributeProto::TENSOR:
       mlirAttr = onnxTensorProtoToElmAttr(
@@ -261,7 +261,7 @@ private:
       for (const auto &item : attr.strings()) {
         vectorStringRef.push_back(llvm::StringRef(item));
       }
-      mlirAttr = builder_.getStrArrayAttr(llvm::makeArrayRef(vectorStringRef));
+      mlirAttr = builder_.getStrArrayAttr(llvm::ArrayRef(vectorStringRef));
     } break;
     case onnx::AttributeProto::TYPE_PROTO:
       mlirAttr = TypeAttr::get(ImportType(attr.tp()));
@@ -722,7 +722,7 @@ private:
       llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+          DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
       auto constantOp = builder_.create<ONNXConstantOp>(
           UnknownLoc(), Attribute(), constantDenseAttribute);
       Value constantResult = *(constantOp.getODSResults(0).begin());
@@ -739,7 +739,7 @@ private:
       llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+          DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
       auto constantOp = builder_.create<ONNXConstantOp>(
           UnknownLoc(), Attribute(), constantDenseAttribute);
       Value constantResult = *(constantOp.getODSResults(0).begin());
@@ -770,7 +770,7 @@ private:
       llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+          DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
 
       // Use the special builder defined in ONNXOp.td.inc.
       auto constantOp = builder_.create<ONNXConstantOp>(
@@ -813,7 +813,7 @@ private:
             DenseElementsAttr::get(tensorType, arrayAttr.getValue());
         auto constantOp = builder_.create<ONNXConstantOp>(
             UnknownLoc(), Attribute(), constantDenseAttribute);
-        Value constantValue = constantOp.output();
+        Value constantValue = constantOp.getOutput();
 
         // Map from ONNX attributes to indices, which are
         // matched with ONNXSliceOp::build ordering.

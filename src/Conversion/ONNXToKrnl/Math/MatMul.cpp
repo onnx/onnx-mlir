@@ -105,9 +105,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
                 }
                 // Add mat mul operation.
                 Value loadedA =
-                    create.krnl.load(operandAdaptor.A(), aAccessFct);
+                    create.krnl.load(operandAdaptor.getA(), aAccessFct);
                 Value loadedB =
-                    create.krnl.load(operandAdaptor.B(), bAccessFct);
+                    create.krnl.load(operandAdaptor.getB(), bAccessFct);
                 Value loadedY = create.krnl.load(reductionVal);
                 Value AB = create.math.mul(loadedA, loadedB);
                 Value accumulated = create.math.add(loadedY, AB);
@@ -234,7 +234,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
     // Prepare: loop bounds and zero
-    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), C(alloc);
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, VectorBuilder>
         create(rewriter, loc);
     Value zero = create.math.constantIndex(0);
@@ -294,7 +294,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       bool sameStaticBroadcast, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
     // Prepare: loop bounds and zero
-    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), C(alloc);
     int64_t ARank = shapeHelper.aDims.size();
     int64_t BRank = shapeHelper.bDims.size();
     int64_t broadcastRank = (broadcastingB ? BRank : ARank) - 2;
@@ -416,7 +416,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Get the constants: zero.
     Value zero = create.math.constant(elementType, 0);
 
-    Value A(operandAdaptor.A()), B(operandAdaptor.B());
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB());
     int aRank = A.getType().cast<MemRefType>().getShape().size();
     int bRank = B.getType().cast<MemRefType>().getShape().size();
     int cRank = alloc.getType().cast<MemRefType>().getShape().size();

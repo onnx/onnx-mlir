@@ -56,9 +56,6 @@ add_onnx_mlir_library(OMCompilerPasses
 
   EXCLUDE_FROM_OM_LIBS
 
-  DEPENDS
-  MLIRIR
-
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
 
@@ -69,6 +66,7 @@ add_onnx_mlir_library(OMCompilerPasses
   ${OMLibs}
   OMCompilerOptions
   MLIRAffineTransforms
+  MLIRIR
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
   )
@@ -131,8 +129,7 @@ add_onnx_mlir_library(OMCompilerUtils
   EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
-  ExternalUtil
-  MLIRIR
+  ExternalUtil  
   llc
   opt
 
@@ -148,6 +145,7 @@ add_onnx_mlir_library(OMCompilerUtils
   OMAccelerator
   OMInitAccelerators
   OMVersion
+  MLIRIR
 
   # Link LLVM libraries necessary to query which target architectures
   # are configured.

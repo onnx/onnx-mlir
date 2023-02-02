@@ -107,8 +107,6 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
   }];
 
   let extraClassDeclaration = [{
-    StringRef getCallee() { return callee(); }
-    StringAttr getCalleeAttr() { return calleeAttr().getAttr(); }
     FunctionType getCalleeType();
 
     /// Get the argument operands to the called function.
@@ -357,7 +355,7 @@ def ONNXReturnOp : ONNX_Op<"Return", [Pure,
 
   let builders = [
     OpBuilder<(ins),
-    [{ build($_builder, $_state, llvm::None); }]>];
+    [{ build($_builder, $_state, std::nullopt); }]>];
 
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }

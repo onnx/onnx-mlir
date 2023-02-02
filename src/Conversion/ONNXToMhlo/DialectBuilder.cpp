@@ -38,8 +38,8 @@ ElementsAttr IndexExprBuilderForMhlo::getConst(Value value) {
     if (constOp.getValueAttr())
       return constOp.getValueAttr().dyn_cast<ElementsAttr>();
   } else if (auto constOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
-    if (constOp.value().has_value())
-      return constOp.valueAttr().dyn_cast<ElementsAttr>();
+    if (constOp.getValue().has_value())
+      return constOp.getValueAttr().dyn_cast<ElementsAttr>();
   }
   return nullptr;
 }

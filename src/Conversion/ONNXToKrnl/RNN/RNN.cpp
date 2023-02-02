@@ -44,16 +44,16 @@ struct RnnBiasPack {
 
 template <>
 bool hasAllNoneOutput<ONNXRNNOp>(ONNXRNNOp *op) {
-  return (isFromNone(op->Y()) && isFromNone(op->Y_h()));
+  return (isFromNone(op->getY()) && isFromNone(op->getYH()));
 }
 
 template <>
 std::tuple<RnnActivationPack, RnnActivationPack>
 getActivationPack<ONNXRNNOp, RnnActivationPack>(ONNXRNNOp *op) {
-  auto direction = op->direction();
-  auto activations = op->activations();
-  auto activationAlpha = op->activation_alpha();
-  auto activationBeta = op->activation_beta();
+  auto direction = op->getDirection();
+  auto activations = op->getActivations();
+  auto activationAlpha = op->getActivationAlpha();
+  auto activationBeta = op->getActivationBeta();
 
   RnnActivationPack activationForward, activationReverse;
 
@@ -134,11 +134,11 @@ getWeightPack<ONNXRNNOp, RnnWeightPack>(
   RnnWeightPack weightForward, weightReverse;
 
   // parameter weight: [direction, hiddenSize, inputSize]
-  Value W = op->W();
+  Value W = op->getW();
   // recurrence weight: [direction, hiddenSize, hiddenSize]
-  Value R = op->R();
+  Value R = op->getR();
   // direction
-  StringRef direction = op->direction();
+  StringRef direction = op->getDirection();
 
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
   Type elementType = W.getType().cast<ShapedType>().getElementType();
@@ -203,10 +203,10 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
   RnnBiasPack biasForward, biasReverse;
 
   // bias: [direction, 2*hiddenSize] for both parameter and recurrence weights.
-  Value B = op->B();
+  Value B = op->getB();
 
   // direction
-  StringRef direction = op->direction();
+  StringRef direction = op->getDirection();
 
   // Split B.
   if (!isFromNone(B)) {
@@ -264,17 +264,17 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
   RnnState state;
 
   // direction
-  StringRef direction = op->direction();
+  StringRef direction = op->getDirection();
 
   // Insert allocation and deallocation for the results of this operation.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.X(),
-      operandAdaptor.W(), operandAdaptor.R(), op->Y(),
-      checkInsertDealloc(op->getOperation(), 0));
+  state.allH = allocAllHidden(rewriter, loc, typeConverter,
+      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
+      op->getY(), checkInsertDealloc(op->getOperation(), 0));
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.X(),
-      operandAdaptor.W(), operandAdaptor.R(), op->Y_h(),
-      checkInsertDealloc(op->getOperation(), 1));
+  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter,
+      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
+      op->getYH(), checkInsertDealloc(op->getOperation(), 1));
 
   // Insert allocation and deallocation the intermedidate Ht for the forward and
   // reverse directions.
@@ -282,16 +282,16 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
   // Ct :: [batch_size, hidden_size]
   if (direction == FORWARD || direction == BIDIRECTIONAL)
     state.forwardHt = allocIntermediateState(
-        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+        rewriter, loc, operandAdaptor.getX(), operandAdaptor.getR());
   if (direction == REVERSE || direction == BIDIRECTIONAL)
     state.reverseHt = allocIntermediateState(
-        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+        rewriter, loc, operandAdaptor.getX(), operandAdaptor.getR());
 
   // Initialize ht.
   Value noneValue;
   initializeIntermediateStates(rewriter, loc, state.forwardHt, state.reverseHt,
-      noneValue, noneValue, operandAdaptor.initial_h(), noneValue,
-      operandAdaptor.X().getType().cast<MemRefType>().getElementType(),
+      noneValue, noneValue, operandAdaptor.getInitialH(), noneValue,
+      operandAdaptor.getX().getType().cast<MemRefType>().getElementType(),
       direction, /*onlyHidden=*/true);
   return state;
 }
@@ -363,12 +363,12 @@ template <>
 void stateToOutput<ONNXRNNOp, RnnState>(ConversionPatternRewriter &rewriter,
     Location loc, ONNXRNNOp *op, RnnState state, std::vector<Value> &outputs) {
   Value noneValue;
-  auto direction = op->direction();
+  auto direction = op->getDirection();
 
   // First output: all sequences.
-  outputs.emplace_back((isFromNone(op->Y()) ? noneValue : state.allH));
+  outputs.emplace_back((isFromNone(op->getY()) ? noneValue : state.allH));
   // Second output: hidden.
-  if (isFromNone(op->Y_h()))
+  if (isFromNone(op->getYH()))
     outputs.emplace_back(noneValue);
   else {
     stateToOutputForHiddenOrCell(
