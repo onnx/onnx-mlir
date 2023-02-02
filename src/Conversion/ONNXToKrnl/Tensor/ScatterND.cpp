@@ -61,8 +61,8 @@ struct ONNXScatterNDOpLowering : public ConversionPattern {
         rewriter, op, outputMemRefType, loc, dataDims);
 
     // Step1: copy `data` into `output`.
-    Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, data);
-    create.krnl.memcpy(output, data, sizeInBytes);
+    Value numOfElements = getDynamicMemRefSize(rewriter, loc, data);
+    create.krnl.memcpy(output, data, numOfElements);
 
     // Step2: scatter the updates values into the output.
     //   update_indices = indices.shape[:-1]
