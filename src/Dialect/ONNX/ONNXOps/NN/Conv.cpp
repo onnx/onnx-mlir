@@ -842,7 +842,6 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
     // TODO: Merge insertConvTransposePads with processCOnvTypeParams(), or not
     // use processConvTypeParams() in ConvTranspose
     auto outputShape = getOutputShape();
-    auto autoPad = getAutoPad();
     insertConvTransposePads(inferredPads, autoPad, xShape, kernelShape, padsOpt,
         stridesOpt, outputPads, outputShape, dilationsOpt);
     setPadsAttr(builder.getI64ArrayAttr(inferredPads));
