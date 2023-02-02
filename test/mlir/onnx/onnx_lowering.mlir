@@ -3378,8 +3378,9 @@ func.func @test_scatter_elements1(%arg0: tensor<3x3xf32>, %arg1: tensor<3x2xi64>
 // CHECK-SAME:   ([[PARAM_0:%.+]]: memref<3x3xf32>, [[PARAM_1:%.+]]: memref<3x2xi64>, [[PARAM_2:%.+]]: memref<3x2xf32>) -> (memref<3x3xf32>, memref<3x3xf32>) {
 // CHECK-DAG:       [[CST_3:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[RES1:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x3xf32>
-// CHECK-DAG:       [[CST_36:%.+]] = arith.constant 36 : i64
-// CHECK:           "krnl.memcpy"([[RES1]], %arg0, [[CST_36]]) : (memref<3x3xf32>, memref<3x3xf32>, i64) -> ()
+// CHECK-DAG:       [[CST_9:%.+]] = arith.constant 9 : i64
+// CHECK-DAG:       [[CST_0:%.+]] = arith.constant 0 : index
+// CHECK:           "krnl.memcpy"([[RES1]], %arg0, [[CST_9]], [[CST_0]], [[CST_0]]) : (memref<3x3xf32>, memref<3x3xf32>, i64, index, index) -> ()
 // CHECK-DAG:       [[LOOP_0:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0]]#0, [[LOOP_0]]#1) with ([[LOOP_0]]#0 -> [[I_0:%.+]] = 0 to 3, [[LOOP_0]]#1 -> [[I_1:%.+]] = 0 to 2){
 // CHECK:             [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0]]#0, [[LOOP_0]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -3396,8 +3397,9 @@ func.func @test_scatter_elements1(%arg0: tensor<3x3xf32>, %arg1: tensor<3x2xi64>
 // CHECK-NEXT:      }
 //
 // CHECK-DAG:       [[RES2:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x3xf32>
-// CHECK-DAG:       [[CST_36_1:%.+]] = arith.constant 36 : i64
-// CHECK:           "krnl.memcpy"([[RES2]], %arg0, [[CST_36_1]]) : (memref<3x3xf32>, memref<3x3xf32>, i64) -> ()
+// CHECK-DAG:       [[CST_9_1:%.+]] = arith.constant 9 : i64
+// CHECK-DAG:       [[CST_0_1:%.+]] = arith.constant 0 : index
+// CHECK:           "krnl.memcpy"([[RES2]], %arg0, [[CST_9_1]], [[CST_0_1]], [[CST_0_1]]) : (memref<3x3xf32>, memref<3x3xf32>, i64, index, index) -> ()
 // CHECK-DAG:       [[LOOP_1:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_1]]#0, [[LOOP_1]]#1) with ([[LOOP_1]]#0 -> [[I_0:%.+]] = 0 to 3, [[LOOP_1]]#1 -> [[I_1:%.+]] = 0 to 2){
 // CHECK:             [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1]]#0, [[LOOP_1]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -3424,8 +3426,9 @@ func.func @test_scatter_nd1(%arg0: tensor<4x4x4xf32>, %arg1: tensor<2x1xi64>, %a
 // CHECK-SAME:   ([[PARAM_0:%.+]]: memref<4x4x4xf32>, [[PARAM_1:%.+]]: memref<2x1xi64>, [[PARAM_2:%.+]]: memref<2x4x4xf32>) -> memref<4x4x4xf32> {
 // CHECK-DAG:       [[CST_4:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[RES:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<4x4x4xf32>
-// CHECK-DAG:       [[CST_256:%.+]] = arith.constant 256 : i64
-// CHECK:           "krnl.memcpy"([[RES]], %arg0, [[CST_256]]) : (memref<4x4x4xf32>, memref<4x4x4xf32>, i64) -> ()
+// CHECK-DAG:       [[CST_64:%.+]] = arith.constant 64 : i64
+// CHECK-DAG:       [[CST_0:%.+]] = arith.constant 0 : index
+// CHECK:           "krnl.memcpy"([[RES]], %arg0, [[CST_64]], [[CST_0]], [[CST_0]]) : (memref<4x4x4xf32>, memref<4x4x4xf32>, i64, index, index) -> ()
 // CHECK:           [[LOOP_0:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0]]#0, [[LOOP_0]]#1, [[LOOP_0]]#2) with
 // CHECK-SAME:      ([[LOOP_0]]#0 -> [[I_0:%.+]] = 0 to 2, [[LOOP_0]]#1 -> [[I_1:%.+]] = 0 to 4, [[LOOP_0]]#2 -> [[I_2:%.+]] = 0 to 4){
