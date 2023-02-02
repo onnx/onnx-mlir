@@ -204,7 +204,7 @@ struct MemRefBuilder final : DialectBuilder {
 };
 
 // Default alignment attribute for all allocation of memory. On most system, it
-// is 16 bytes.
+// numElems is 16 bytes.
 static constexpr int64_t gDefaultAllocAlign = 16;
 
 //===----------------------------------------------------------------------===//
@@ -357,6 +357,9 @@ struct LLVMBuilder final : DialectBuilder {
   LLVMBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~LLVMBuilder() {}
 
+  // AddOp
+  mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
+
   // AddressOfOp
   mlir::Value addressOf(mlir::LLVM::GlobalOp op) const;
 
@@ -413,15 +416,27 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value insertValue(mlir::Type resultType, mlir::Value container,
       mlir::Value val, llvm::ArrayRef<int64_t> position) const;
 
+  // Inttoptr
+  mlir::Value inttoptr(mlir::Type type, mlir::Value val) const;
+
   // LoadOp
   mlir::Value load(mlir::Value addr) const;
+
+  // MulOp
+  mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
 
   // NullOp
   mlir::Value null(mlir::Type type) const;
   mlir::Value nullI8Ptr() const;
 
+  // Ptrtoint
+  mlir::Value ptrtoint(mlir::Type type, mlir::Value val) const;
+
   // ReturnOp
   void _return(mlir::Value val) const;
+
+  // SExtOp
+  mlir::Value sext(mlir::Type type, mlir::Value val) const;
 
   // StoreOp
   void store(mlir::Value val, mlir::Value addr) const;
