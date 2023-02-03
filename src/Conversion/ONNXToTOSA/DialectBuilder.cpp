@@ -24,7 +24,8 @@ using namespace mlir;
 namespace onnx_mlir {
 
 template <typename T>
-bool testNumberOfElementsMatch(ArrayRef<T> vec, ArrayRef<int64_t> shape) {
+bool TosaBuilder::testNumberOfElementsMatch(
+    ArrayRef<T> vec, ArrayRef<int64_t> shape) {
   uint64_t numTotalElements = 1;
   for (int64_t a : shape) {
     numTotalElements *= a;
@@ -72,7 +73,7 @@ Value TosaBuilder::getConst(ArrayRef<float> vec, ArrayRef<int64_t> shape) {
   return constOp;
 }
 
-Value TosaBuilder::getConst(float val, llvm::ArrayRef<int64_t> shape) {
+Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
   auto constType = tosa::reduceAxisToOne(shape, rewriter().getF32Type());
   auto constAttr = DenseElementsAttr::get(constType, val);
 
@@ -82,9 +83,11 @@ Value TosaBuilder::getConst(float val, llvm::ArrayRef<int64_t> shape) {
 }
 
 Value TosaBuilder::transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm) {
+  int64_t valueRank = value.getType().cast<RankedTensorType>().getRank();
+  assert((valueRank == (int64_t)perm.size()) &&
+         "value and perm vector don't have the same rank");
   // Create Permutation Const
-  Value permList = this->getConst(
-      perm, {value.getType().cast<RankedTensorType>().getRank()});
+  Value permList = this->getConst(perm, {valueRank});
   auto valueType = value.getType().cast<ShapedType>();
   // get new value type
   Type newValueType = RankedTensorType::get(
