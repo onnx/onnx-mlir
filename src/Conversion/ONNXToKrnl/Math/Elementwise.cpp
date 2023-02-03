@@ -15,6 +15,8 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include <math.h>
+#include <stdio.h>
 
 using namespace mlir;
 
@@ -265,6 +267,45 @@ Value emitScalarOpFor<ONNXSigmoidOp>(ConversionPatternRewriter &rewriter,
   Value neg = createMath.sub(zero, operand);
   Value negExp = createMath.exp(neg);
   return createMath.div(one, createMath.add(one, negExp));
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXIsInfOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+
+  Value x = scalarOperands[0]; // x-> input
+
+  auto detectNegAttribute = FloatAttr::get(rewriter.getF32Type(),
+      llvm::dyn_cast<ONNXIsInfOp>(op).getDetect_negative().convertToFloat());
+  auto detectPosAttribute = FloatAttr::get(rewriter.getF32Type(),
+      llvm::dyn_cast<ONNXIsInfOp>(op).getDetect_positive().convertToFloat());
+
+  MathBuilder createMath(rewriter, loc);
+  double posInf = INFINITY;
+  double negInf = -INFINITY;
+  Value pinf = createMath.constant(elementType, posInf);
+  Value ninf = createMath.constant(elementType, negInf);
+  auto detectNeg = rewriter.create<arith::ConstantOp>(loc, detectNegAttribute);
+  auto detectPos = rewriter.create<arith::ConstantOp>(loc, detectPosAttribute);
+
+  if (detectNeg == 0) {
+    // Check if input == pinf and return true otherwise return false for ninf
+    Value posInfinity =
+        rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, pinf);
+    result = createMath.select(posInfinity, pinf, ninf);
+  } else if (detectPos == 0) {
+    // Check if input == ninf and return true otherwise return false for pinf
+    Value negInfinity =
+        rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, ninf);
+    result = createMath.select(posInfinity, ninf, pinf);
+  } else
+    llvm_unreachable("unsupported element type");
+
+  return result;
 }
 
 //===----------------------------------------------------------------------===//
