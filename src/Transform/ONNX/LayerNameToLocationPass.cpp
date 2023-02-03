@@ -39,11 +39,6 @@ void LayerNameToLocationPass::runOnOperation() {
   // existing location info.
   Operation *op = getOperation();
   MLIRContext *context = op->getContext();
-  Dialect *onnxDialect = context->getLoadedDialect("onnx");
-  if (!onnxDialect) {
-    op->emitError("failed to load ONNX dialect");
-    return signalPassFailure();
-  }
 
   // Counter and names to make invalid locations unique
   unsigned invLocSeq = 0;
@@ -62,7 +57,7 @@ void LayerNameToLocationPass::runOnOperation() {
     // All onnx ops (except constants) are expected to have an onnx_node_name.
     // If onnx_node_name is not available and this is an onnx operation, extend
     // the location with a name to indicate a missing location.
-    else if (nestedOp->getDialect() == onnxDialect &&
+    else if (isa_and_present<ONNXDialect>(nestedOp->getDialect()) &&
              !isa<ONNXConstantOp>(nestedOp)) {
       auto invalidName =
           StringAttr::get(context, invLocName + std::to_string(invLocSeq++));
