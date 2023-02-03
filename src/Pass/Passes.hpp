@@ -14,7 +14,10 @@
 
 #pragma once
 
+#include "llvm/ADT/StringRef.h"
+
 #include <memory>
+#include <string>
 
 namespace mlir {
 class MLIRContext;
@@ -122,5 +125,8 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(
 std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
 
 std::unique_ptr<mlir::Pass> createReplaceNoValuePass();
+
+/// Pass for extending location info with layer name information
+std::unique_ptr<mlir::Pass> createLayerNameToLocationPass();
 
 } // namespace onnx_mlir
