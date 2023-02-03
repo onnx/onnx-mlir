@@ -1557,10 +1557,6 @@ public:
           rewriter, loc, module, apiRegistry, API::DLF16_TO_F32, {inputI16});
     } else {
       if (SIMD_FOR_DLF16_CONVERSION) {
-        // clang-format off
-        // tail call <4 x i32> asm sideeffect ".insn vrr,0xe60000000056,$0,$1,0,2,0,0", "=&v,v"(i16 %input)
-        // clang-format on
-
         // a vector of 8 elements of i16 - for input
         Type vecTypeI16 = LLVM::getFixedVectorType(i16Ty, 8);
         // a vector of 4 elements of i32 - for output
@@ -1568,10 +1564,10 @@ public:
         Type vecTypeF32 = LLVM::getFixedVectorType(f32Ty, 4);
 
         // SIMD instruction in string for z/Linux.
-        // const char *asmStr = ".insn vrr,0xe60000000056,$0,$2,0,2,0,0 \n\t "
-        //                      ".insn vrr,0xe6000000005E,$1,$2,0,2,0,0 \n\t";
-        const char *asmStr = "VCLFNH $0,$1,0,2 \n\t ";
-        const char *asmConstraints = "=&v,v";
+        // Convert and lengthen from DLF16: VCLFN(H/L) V1,V2,M3,M4 
+        // M3 = 2 = FP32, M4 = 0 = DLF16 
+        const char *asmStr = "VCLFNH $0,$2,2,0 \n\t VCLFNL $1,$2,2,0 \n\t";
+        const char *asmConstraints = "=&v,=v,v";
 
         // Prepare the input vector.
         // Only care about the first element.
@@ -1583,9 +1579,8 @@ public:
         Value outVecI32Struct =
             rewriter
                 .create<LLVM::InlineAsmOp>(loc,
-                    // LLVM::LLVMStructType::getLiteral(rewriter.getContext(),
-                    //    {vecTypeI32, vecTypeI32}, /*Packed=*/false),
-                    vecTypeI32,
+                    LLVM::LLVMStructType::getLiteral(rewriter.getContext(),
+                        {vecTypeI32, vecTypeI32}, /*Packed=*/false),
                     /*operands=*/asmVals,
                     /*asm_string=*/asmStr,
                     /*constraints=*/asmConstraints, /*has_side_effects=*/true,
@@ -1593,10 +1588,9 @@ public:
                     /*asm_dialect=*/LLVM::AsmDialectAttr(),
                     /*operand_attrs=*/ArrayAttr())
                 .getResult(0);
-        // Value outVecI32 =
-        //     create.llvm.extractValue(vecTypeI32, outVecI32Struct, 0);
-        // Value outVecF32 = create.llvm.bitcast(vecTypeF32, outVecI32);
-        Value outVecF32 = create.llvm.bitcast(vecTypeF32, outVecI32Struct);
+        Value outVecI32 =
+            create.llvm.extractValue(vecTypeI32, outVecI32Struct, 0);
+        Value outVecF32 = create.llvm.bitcast(vecTypeF32, outVecI32);
         outputF32 = create.llvm.extractElement(f32Ty, outVecF32, 0);
       } else {
         // Generating LLVM instruction here.
@@ -1732,7 +1726,9 @@ public:
         Type vecTypeF16 = LLVM::getFixedVectorType(f16Ty, 8);
 
         // SIMD instruction in string for z/Linux.
-        const char *asmStr = ".insn vrr,0xe60000000075,$0,$1,$2,0,2,0";
+        // Convert and round to DLF16: VCRNF V1,V2,V3,M4,M5
+        // M4 = 0 = DLF16, M5 = 2 = FP32
+        const char *asmStr = "VCRNF $0,$1,$2,0,2";
         const char *asmConstraints = "=v,v,v";
 
         // Prepare two input vectors: each for left/right four elements.
