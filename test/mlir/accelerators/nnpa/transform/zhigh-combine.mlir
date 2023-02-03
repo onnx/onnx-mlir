@@ -127,3 +127,43 @@ func.func @donot_replace_leakyrelu(%arg0 : tensor<1x104x104x128xf32, #zhigh.layo
   // CHECK: onnx.LeakyRelu
   // CHECK: zhigh.Stick
 }
+
+// -----
+
+func.func @replace_reciprocal_sqrt(%arg0 : tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> (tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<4x256x1xf32>
+  %1 = "onnx.Sqrt"(%0) : (tensor<4x256x1xf32>) -> tensor<4x256x1xf32>
+  %2 = "onnx.Reciprocal"(%1) : (tensor<4x256x1xf32>) -> tensor<4x256x1xf32>
+  %3 = "zhigh.Stick"(%2) {layout = "3D"} : (tensor<4x256x1xf32>) -> tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+  return %3 : tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+
+// CHECK-LABEL:  func.func @replace_reciprocal_sqrt
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "3D"} : (tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Log"([[PARAM_0_]]) : (tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:           [[VAR_4_:%.+]] = "zhigh.Stick"([[VAR_3_]]) {layout = "3D"} : (tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:           [[VAR_5_:%.+]] = "zhigh.Div"([[VAR_2_]], [[VAR_4_]]) : (tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>, tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:           [[VAR_6_:%.+]] = "zhigh.Exp"([[VAR_5_]]) : (tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:           [[VAR_7_:%.+]] = "zhigh.Div"([[VAR_1_]], [[VAR_6_]]) : (tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>, tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:           return [[VAR_7_]] : tensor<4x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+// CHECK:         }
+}
+
+// -----
+
+// Do not replace reciprocal square root because of unknown dimension.
+// In this case, there is no static shape to create a constant of 1 or 2.
+func.func @donot_replace_reciprocal_sqrt(%arg0 : tensor<?x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> (tensor<?x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<?x256x1xf32>
+  %1 = "onnx.Sqrt"(%0) : (tensor<?x256x1xf32>) -> tensor<?x256x1xf32>
+  %2 = "onnx.Reciprocal"(%1) : (tensor<?x256x1xf32>) -> tensor<?x256x1xf32>
+  %3 = "zhigh.Stick"(%2) {layout = "3D"} : (tensor<?x256x1xf32>) -> tensor<?x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+  return %3 : tensor<?x256x1xf32, #zhigh.layout<{dataLayout = "3D"}>>
+
+// CHECK-LABEL:  func.func @donot_replace_reciprocal_sqrt
+// CHECK: zhigh.Unstick
+// CHECK: onnx.Sqrt
+// CHECK: onnx.Reciprocal
+// CHECK: zhigh.Stick
+}

@@ -80,4 +80,28 @@ def ReplaceONNXLeakyReluPattern: Pat<
    (SameLayout $X, $stickout)]
 >;
 
+// Calulation of `1/sqrt(X)` or reciprocal square root, is often found in
+// deep learning models.
+// In this rewriting pattern we use:
+//   - `exp(log(x)/2)` for `sqrt(x)`, and 
+//   - `div(1,x) for `reciprocal`
+// So, `1/sqrt(X) = div(1, exp(log(x)/2))`
+// The pattern
+//   zhigh.Stick (onnx.Reciprocal (onnx.Sqrt (zhigh.Unstick (%X))))
+// can be replaced by
+//   zhigh.Div (1, zhigh.Exp (zhigh.Div (zhigh.Log(%X), 2))
+//
+// Constraints:
+//   - %X should have static shape, and %alpha should be constant.
+//
+def ReplaceONNXReciprocalSqrtPattern: Pat<
+  (ZHighStickOp:$stick (ONNXReciprocalOp (ONNXSqrtOp (ZHighUnstickOp $X))), $layout),
+  (ZHighDivOp (ZHighStickOp (GetConstantOfType<1> $X), $layout),
+              (ZHighExpOp (ZHighDivOp (ZHighLogOp $X, (returnType $X)),
+                                      (ZHighStickOp (GetConstantOfType<2> $X), $layout),
+                                      (returnType $X)),
+                          (returnType $X))),
+  [(IsStaticShapeTensor $X), (SameLayout $X, $stick)]
+>;
+
 #endif // STICK_TD
