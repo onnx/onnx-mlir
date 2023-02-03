@@ -33,7 +33,7 @@ Join this workspace using this [link](https://join.slack.com/t/lfaifoundation/sh
 We use GitHub Issues for request for comments, questions, or bug reports.
 Security-related issues are reported using the channels listed in the [SECURITY](SECURITY.md) page.
 
-We hold informal weekly meetings on Tuesdays, 8-9pm EST where we discuss  current issues and progress. Meeting uses [WebEx](https://ibm.webex.com/meet/alexe) and everyone is welcome to attend. Please email alexe@us.ibm.com to be added to the meeting invite or to request a 15-30 min time slot to discuss a specific topic of interest.
+We hold informal weekly meetings on Tuesdays where we discuss  current issues and progress. Meeting agenda, notes, and links (to participate) are found [here](https://github.com/onnx/onnx-mlir/wiki/Informal-meeting-agenda-and-notes). Please email alexe@us.ibm.com to request a 15-30 min time slot to discuss a specific topic of interest.
 
 ## Setting up ONNX-MLIR using Prebuilt Containers
 
