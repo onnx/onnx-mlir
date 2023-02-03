@@ -1000,7 +1000,7 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
 def gen_shape_helper_code(s, indent, opName):
     # Print getShapeHelper.
     indent = inc_indent(indent)
-    s += indent + "onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, \n"
+    s += indent + "onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, \n"
     indent = inc_indent(indent)
     indent = inc_indent(indent)
     s += indent + "onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {\n"
