@@ -486,4 +486,37 @@ def ZLowConvertF32ToDLF16Op:ZLow_Op<"f32_to_dlf16", [Pure]> {
   let hasCanonicalizer = 1;
 }
 
+// def ZLowConvertDLF16ToF32Op:ZLow_Op<"dlf16_to_f32", [Pure]> {
+//   let summary = "Convert a dlfloat16 value to a float32 value";
+//   let description = [{
+//   This operation converts a dlfloat16 value to a float32 value. 
+//   }];
+//   let arguments = (ins AnyTypeOf<[DLF16, VectorOfLengthAndType<[8], [DLF16]>]>:$input);
+//   let results = (outs AnyTypeOf<[F32, VectorOfLengthAndType<[4], [F32]>]>:$output1,
+//                       AnyTypeOf<[F32, VectorOfLengthAndType<[4], [F32]>]>:$output2);
+//   let builders = [
+//     OpBuilder<(ins "::mlir::Value":$input), [{
+//       mlir::Type resType = mlir::VectorType::get({4}, $_builder.getF32Type());
+//       build($_builder, $_state, {resType, resType}, input);
+//     }]>
+//   ];
+// }
+// 
+// def ZLowConvertF32ToDLF16Op:ZLow_Op<"f32_to_dlf16", [Pure]> {
+//   let summary = "Convert a float32 value to a dlfloat16 value";
+//   let description = [{
+//   This operation converts a float32 value to a dlfloat16 value. 
+//   }];
+//   let arguments = (ins AnyTypeOf<[F32, VectorOfLengthAndType<[4], [F32]>]>:$input1,
+//                        AnyTypeOf<[F32, VectorOfLengthAndType<[4], [F32]>]>:$input2);
+//   let results = (outs AnyTypeOf<[VectorOfLengthAndType<[8], [DLF16]>]>:$output);
+//   let builders = [
+//     OpBuilder<(ins "::mlir::Value":$input1, "::mlir::Value":$input2), [{
+//       // F16 is used as a container for DLF16.
+//       mlir::Type resType = mlir::VectorType::get({4}, $_builder.getF16Type());
+//       build($_builder, $_state, resType, input1, input2);
+//     }]>
+//   ];
+//   let hasCanonicalizer = 1;
+// }
 #endif // ZLOW_OPS
