@@ -405,7 +405,7 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
       createIE->getShapeAsDim(wValue, 1) *
       LiteralIndexExpr(groupNum)); // CO may be different from CI.
 
-  // Set output_shape attribute in advance when auto_pad is SAME
+  // Set output_shape attribute in advance when `auto_pad` is SAME
   if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
     SmallVector<int64_t, 2> outputShapeVec;
     auto builder = Builder(op->getContext());
@@ -726,7 +726,7 @@ static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferredPads,
 //   -  kernelShape: inferred from weight matrix if not defined by user;
 //   -  pads: set to proper value, 0 if not defined by user.
 
-// TODO: Use shapeHelper
+// TODO: Use shapeHelper to implement the same way with other conv ops.
 LogicalResult ONNXConvTransposeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Generic shape for data input X, weight tensor W, and optional bias B
