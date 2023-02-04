@@ -278,11 +278,12 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
 
   Value x = scalarOperands[0]; // x-> input
+  Value result;
 
   auto detectNegAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXIsInfOp>(op).getDetect_negative().convertToFloat());
+      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectNegative().convertToFloat());
   auto detectPosAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXIsInfOp>(op).getDetect_positive().convertToFloat());
+      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectPositive().convertToFloat());
 
   MathBuilder createMath(rewriter, loc);
   double posInf = INFINITY;
@@ -301,7 +302,7 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     // Check if input == ninf and return true otherwise return false for pinf
     Value negInfinity =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, ninf);
-    result = createMath.select(posInfinity, ninf, pinf);
+    result = createMath.select(negInfinity, ninf, pinf);
   } else
     llvm_unreachable("unsupported element type");
 
