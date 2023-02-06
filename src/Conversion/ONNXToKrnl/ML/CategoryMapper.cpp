@@ -256,7 +256,7 @@ private:
             [&](IntegerType) { inputElem = createKrnl.load(memref, loopInd); })
         .Case<krnl::StringType>([&](krnl::StringType stringType) {
           MathBuilder createMath(createKrnl);
-          Value zero = createMath.constant(
+          Value zero =
               createMath.getBuilder().getIntegerType(64), 0);
           auto memRefType = MemRefType::get(
               {rank}, krnl::StringType::get(elementType.getContext()));

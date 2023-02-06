@@ -283,8 +283,8 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   MathBuilder createMath(rewriter, loc);
   double posInf = INFINITY;
   double negInf = -INFINITY;
-  Value pinf = createMath.constant(x.getType(),posInf);
-  Value ninf = createMath.constant(x.getType(),negInf);
+  Value pinf = createMath.constant(x.getType(), posInf);
+  Value ninf = createMath.constant(x.getType(), negInf);
   int64_t detectNegAttribute = llvm::cast<ONNXIsInfOp>(op).getDetectNegative();
   int64_t detectPosAttribute = llvm::cast<ONNXIsInfOp>(op).getDetectPositive();
 
