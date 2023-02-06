@@ -281,9 +281,9 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value result;
 
   auto detectNegAttribute = IntegerAttr::get(rewriter.getI64Type(),
-      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectNegative().convertToFloat());
+      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectNegative());
   auto detectPosAttribute = IntegerAttr::get(rewriter.getI64Type(),
-      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectPositive().convertToFloat());
+      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectPositive());
 
   MathBuilder createMath(rewriter, loc);
   double posInf = INFINITY;
