@@ -198,13 +198,13 @@ int main() {
 
   // Create a tensor using omTensorCreateWithOwnership (returns a pointer to OMTensor).
   // When the parameter, owning is set to "true", the OMTensor will release the data
-  // pointer upon destruction. If owning is set to false, the data pointer will not be
+  // pointer upon destruction. If owning is set to false, the tensor array will not be
   // freed upon destruction.
   OMTensor *tensor = omTensorCreateWithOwnership(img_data, shape, rank, ONNX_TYPE_FLOAT, /*owning=*/true);
 
   // Create a tensor list using omTensorListCreateWithOwnership (returns a pointer to the OMTensorList).
   // When the parameter, owning is set to "true", the OMTensorList will release the data
-  // pointer upon destruction. If owning is set to false, the data pointer will not be
+  // pointer upon destruction. If owning is set to false, the tensor array will not be
   // freed upon destruction.
   inputTensors[0] = tensor;
   OMTensorList *tensorListIn = omTensorListCreateWithOwnership(inputTensors, inputNum, /*owning=*/true);
