@@ -74,7 +74,7 @@ LogicalResult ONNXUpsampleOp::verify() {
   auto inputTy = getX().getType().cast<RankedTensorType>();
   int32_t inputRank = inputTy.getShape().size();
 
-  // Sanity checks on scale argument
+  // Safety checks on scale argument
   auto scalesTy = getScales().getType().cast<RankedTensorType>();
   if (scalesTy.getShape().size() != 1) {
     return emitError("Scales tensor must be rank 1");

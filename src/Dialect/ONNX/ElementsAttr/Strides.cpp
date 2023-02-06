@@ -182,7 +182,7 @@ template <typename T>
 void restrideArrayImpl(unsigned elementBytewidth, ArrayRef<int64_t> shape,
     ArrayRef<int64_t> srcStrides, ArrayRef<char> src,
     MutableArrayRef<char> dst) {
-  assert(sizeof(T) == elementBytewidth && "dispatch sanity check");
+  assert(sizeof(T) == elementBytewidth && "dispatch safety check");
   StridedArrayRef<T> stridedSrcT(castArrayRef<T>(src), srcStrides);
   MutableArrayRef<T> dstT = castMutableArrayRef<T>(dst);
   mapStrides<T, T>(shape, dstT, stridedSrcT, [&](T elem) { return elem; });
