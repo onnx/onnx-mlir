@@ -56,8 +56,9 @@ public:
     int rank = ubs.size();
 
     // Allocate the output buffer.
-    Value alloc = insertAllocAndDeallocSimple(rewriter,
-        convertOp.getOperation(), outputType, loc, ubs, (int64_t)4096);
+    int64_t alignment = fromF32 ? 4096 : -1;
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, convertOp.getOperation(), outputType, loc, ubs, alignment);
 
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
     SmallVector<int64_t, 4> steps(rank, 1);
