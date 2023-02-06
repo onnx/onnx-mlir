@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file lowers the ZLowDetachLayoutOp operator.
+// This file lowers the ZLowDetachLayoutOp operator to affine dialect.
 //
 //===----------------------------------------------------------------------===//
 
@@ -32,8 +32,6 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace zlow {
 
-/// ZLowDetachLayout will be lowered to std.load or affine.load, depending on
-/// whether the access indices are all affine maps or not.
 class ZLowDetachLayoutLowering
     : public OpConversionPattern<ZLowDetachLayoutOp> {
 public:
