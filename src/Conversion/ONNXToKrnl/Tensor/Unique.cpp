@@ -65,11 +65,11 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
         rewriter, loc);
     IndexExprScope scope(create.krnl);
     ONNXUniqueOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    Value X = operandAdaptor.X();
+    Value X = operandAdaptor.getX();
     int64_t rank = create.krnlIE.getShapedTypeRank(X);
     ArrayRef<int64_t> xShape = getShape(X.getType());
-    int64_t sorted = operandAdaptor.sorted();
-    Optional<int64_t> optionalAxis = uniqueOp.axis();
+    int64_t sorted = operandAdaptor.getSorted();
+    Optional<int64_t> optionalAxis = uniqueOp.getAxis();
     int64_t axis = -1;
     if (optionalAxis.has_value()) {
       axis = optionalAxis.value();
