@@ -288,8 +288,9 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   double negInf = -INFINITY;
   Value pinf = createMath.constant(elementType, posInf);
   Value ninf = createMath.constant(elementType, negInf);
-  // auto detectNeg = rewriter.create<arith::ConstantOp>(loc, detectNegAttribute);
-  // auto detectPos = rewriter.create<arith::ConstantOp>(loc, detectPosAttribute);
+  // auto detectNeg = rewriter.create<arith::ConstantOp>(loc,
+  // detectNegAttribute); auto detectPos =
+  // rewriter.create<arith::ConstantOp>(loc, detectPosAttribute);
 
   if (detectNegAttribute == 0) {
     // Check if input == pinf and return true otherwise return false for ninf
