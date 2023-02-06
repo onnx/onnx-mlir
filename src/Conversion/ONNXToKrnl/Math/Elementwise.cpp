@@ -288,15 +288,15 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   double negInf = -INFINITY;
   Value pinf = createMath.constant(elementType, posInf);
   Value ninf = createMath.constant(elementType, negInf);
-  auto detectNeg = rewriter.create<arith::ConstantOp>(loc, detectNegAttribute);
-  auto detectPos = rewriter.create<arith::ConstantOp>(loc, detectPosAttribute);
+  // auto detectNeg = rewriter.create<arith::ConstantOp>(loc, detectNegAttribute);
+  // auto detectPos = rewriter.create<arith::ConstantOp>(loc, detectPosAttribute);
 
-  if (detectNeg == 0) {
+  if (detectNegAttribute == 0) {
     // Check if input == pinf and return true otherwise return false for ninf
     Value posInfinity =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, pinf);
     result = createMath.select(posInfinity, pinf, ninf);
-  } else if (detectPos == 0) {
+  } else if (detectPosAttribute == 0) {
     // Check if input == ninf and return true otherwise return false for pinf
     Value negInfinity =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, ninf);
