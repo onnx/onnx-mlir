@@ -280,10 +280,8 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value x = scalarOperands[0]; // x-> input
   Value result;
 
-  auto detectNegAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectNegative().convertToFloat());
-  auto detectPosAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectPositive().convertToFloat());
+  auto detectNegAttribute = llvm::dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
+  auto detectPosAttribute = llvm::dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
 
   MathBuilder createMath(rewriter, loc);
   double posInf = INFINITY;
