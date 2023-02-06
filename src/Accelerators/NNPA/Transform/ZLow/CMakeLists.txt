@@ -33,3 +33,17 @@ add_onnx_mlir_library(OMZLowInsertDLF16Conversion
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
   )
+
+add_onnx_mlir_library(OMZLowLoopSinking
+  ZLowLoopSinking.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRAffineUtils
+  MLIRFuncDialect
+  MLIRRewrite
+  MLIRTransformUtils
+  OMZLowOps
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
+  )

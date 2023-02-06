@@ -44,6 +44,13 @@ std::unique_ptr<mlir::Pass> createZHighConstPropagationPass();
 
 namespace zlow {
 
+/// Convert some zlow operations to affine.
+std::unique_ptr<mlir::Pass> createConvertZLowToAffinePass();
+
+/// Add pass for sinking zlow.attach_layout and zlow.detach operations into
+/// affine-for loops.
+std::unique_ptr<mlir::Pass> createZLowLoopSinkingPass();
+
 /// Add pass for rewriting ZLow ops.
 std::unique_ptr<mlir::Pass> createZLowRewritePass();
 
