@@ -1001,8 +1001,11 @@ def ConvTransposeOpPattern1: Pattern<
    [
     (reverseWeightConvTranspose:$reversed_w $w),
     (getPadsConvTranspose:$new_pads $kernel_shape, $pads, $dilation),
-    (ONNXConvOp $x, $reversed_w, $b,
-       $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $strides)
+    (ONNXConvOp:$conv_res $x, $reversed_w, $b,
+       $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $strides),
+    (insertAdditionalPadsConvTranspose
+        $conv_res,
+        $output_padding, $output_shape)
    ],
    [(HasUnitStrides:$strides)]
 >;
