@@ -289,14 +289,16 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   int64_t detectPosAttribute = llvm::cast<ONNXIsInfOp>(op).getDetectPositive();
 
   if (detectNegAttribute == 0) {
-    // Check if input == posInf and return true otherwise return false for negInf
-    Value posInfinity =
-        rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, posInf);
+    // Check if input == posInf and return true otherwise return false for
+    // negInf
+    Value posInfinity = rewriter.create<arith::CmpFOp>(
+        loc, arith::CmpFPredicate::OEQ, x, posInf);
     result = createMath.select(posInfinity, posInf, negInf);
   } else if (detectPosAttribute == 0) {
-    // Check if input == negInf and return true otherwise return false for posInf
-    Value negInfinity =
-        rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, negInf);
+    // Check if input == negInf and return true otherwise return false for
+    // posInf
+    Value negInfinity = rewriter.create<arith::CmpFOp>(
+        loc, arith::CmpFPredicate::OEQ, x, negInf);
     result = createMath.select(negInfinity, negInf, posInf);
   } else
     llvm_unreachable("unsupported element type");
