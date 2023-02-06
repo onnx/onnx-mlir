@@ -281,25 +281,25 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value result;
 
   MathBuilder createMath(rewriter, loc);
-  double posInf = INFINITY;
-  double negInf = -INFINITY;
-  // Value pinf = createMath.constant(elementType, posInf);
-  // Value ninf = createMath.constant(elementType, negInf);
+  // double posInf = INFINITY;
+  // double negInf = -INFINITY;
+  Value pinf = createMath.constant(elementType, 1.0/0);
+  Value ninf = createMath.constant(elementType, -1.0/0);
   int64_t detectNegAttribute = llvm::cast<ONNXIsInfOp>(op).getDetectNegative();
   int64_t detectPosAttribute = llvm::cast<ONNXIsInfOp>(op).getDetectPositive();
 
   if (detectNegAttribute == 0) {
-    // Check if input == posInf and return true otherwise return false for
-    // negInf
+    // Check if input == pinf and return true otherwise return false for
+    // ninf
     Value posInfinity = rewriter.create<arith::CmpFOp>(
-        loc, arith::CmpFPredicate::OEQ, x, posInf);
-    result = createMath.select(posInfinity, posInf, negInf);
+        loc, arith::CmpFPredicate::OEQ, x, pinf);
+    result = createMath.select(posInfinity, pinf, ninf);
   } else if (detectPosAttribute == 0) {
-    // Check if input == negInf and return true otherwise return false for
-    // posInf
+    // Check if input == ninf and return true otherwise return false for
+    // pinf
     Value negInfinity = rewriter.create<arith::CmpFOp>(
-        loc, arith::CmpFPredicate::OEQ, x, negInf);
-    result = createMath.select(negInfinity, negInf, posInf);
+        loc, arith::CmpFPredicate::OEQ, x, ninf);
+    result = createMath.select(negInfinity, ninf, pinf);
   } else
     llvm_unreachable("unsupported element type");
 
