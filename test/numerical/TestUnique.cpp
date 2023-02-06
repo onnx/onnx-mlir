@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
       const int K = -1;     // *rc::gen::inRange(1, maxRank);
       const int axis = 1;   // *rc::gen::inRange(1, maxRank);
       const int sorted = 0; // *rc::gen::inRange(0, 1);
-      const int isNoneAxis = 0; // *rc::gen::inRange(0, 1);
+      const int isNoneAxis = 1; // *rc::gen::inRange(0, 1);
       const int isNoneIndexOutput = 1; // *rc::gen::inRange(0, 1);
       RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(rank, I, J, K, axis, sorted,
           isNoneAxis, isNoneIndexOutput));
