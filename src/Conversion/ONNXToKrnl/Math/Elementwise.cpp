@@ -293,7 +293,7 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     Value posInfinity =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, pinf);
     result = createMath.select(posInfinity, pinf, ninf);
-  } else if (detectAttribute == 0) {
+  } else if (detectPosAttribute == 0) {
     // Check if input == ninf and return true otherwise return false for pinf
     Value negInfinity =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, ninf);
