@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -51,7 +52,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
   // Try to update inferredDim if existingDim is static.
   for (unsigned i = 0; i < existingDims.size(); ++i) {
     // existingDim is dynamic, nothing to do.
-    if (existingDims[i] == -1)
+    if (existingDims[i] == ShapedType::kDynamic)
       continue;
 
     // inferredDim is unknown at shape inference: update it.
@@ -389,16 +390,21 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     IndexExprScope scope(nullptr, val.getLoc());
     DimsExpr inferredDims;
     for (int64_t d : shape) {
-      if (ShapedType::isDynamic(d))
-        inferredDims.emplace_back(QuestionmarkIndexExpr());
+      // TODO: "-1" may be used if "shape" is coming from e.g. the parameters of
+      // an `onnx.Reshape` op?
+      if (ShapedType::isDynamic(d) || d == -1)
+        inferredDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
       else
         inferredDims.emplace_back(LiteralIndexExpr(d));
     }
     refineDims(inferredDims, val);
     IndexExpr::getShape(inferredDims, inferredShape);
   } else {
-    for (int i = 0; i < shape.size(); ++i)
-      inferredShape.emplace_back(shape[i]);
+    // TODO: "-1" may be used if "shape" is coming from e.g. the parameters of
+    // an `onnx.Reshape` op?
+    for (size_t i = 0; i < shape.size(); ++i)
+      inferredShape.emplace_back(
+          shape[i] != -1 ? shape[i] : ShapedType::kDynamic);
   }
 
   // Get element type.
@@ -426,7 +432,7 @@ static void resetTypeShapeToQuestionmarks(Value val) {
   if (!valType)
     return;
   // Reset any compile time literal to unknown (aka question marks).
-  SmallVector<int64_t, 4> newShape(valType.getRank(), -1);
+  SmallVector<int64_t, 4> newShape(valType.getRank(), ShapedType::kDynamic);
   auto resType = RankedTensorType::Builder(valType).setShape(newShape);
   // Reset type
   val.setType(resType);

@@ -42,15 +42,15 @@ public:
     ModuleOp module = op->getParentOfType<ModuleOp>();
     llvm::SmallVector<Type, 4> parameterTypeList;
     llvm::SmallVector<Value, 4> parameterList;
-    handleOneParameter(rewriter, op, krnlCallAdaptor.result(),
-        krnlCallOp.result(), parameterTypeList, parameterList);
+    handleOneParameter(rewriter, op, krnlCallAdaptor.getResult(),
+        krnlCallOp.getResult(), parameterTypeList, parameterList);
 
     // Some type of operands has been converted.
     // It is better to check the type of original operands.
     // Thus, the two kinds of operands are used together.
-    auto itConverted = krnlCallAdaptor.parameters().begin();
-    auto itOriginal = krnlCallOp.parameters().begin();
-    for (; itConverted != krnlCallAdaptor.parameters().end();
+    auto itConverted = krnlCallAdaptor.getParameters().begin();
+    auto itOriginal = krnlCallOp.getParameters().begin();
+    for (; itConverted != krnlCallAdaptor.getParameters().end();
          itConverted++, itOriginal++) {
       handleOneParameter(rewriter, op, *itConverted, *itOriginal,
           parameterTypeList, parameterList);
@@ -66,7 +66,7 @@ public:
     }
 
     FlatSymbolRefAttr callRef =
-        create.llvm.getOrInsertSymbolRef(module, krnlCallOp.funcName(),
+        create.llvm.getOrInsertSymbolRef(module, krnlCallOp.getFuncName(),
             LLVM::LLVMVoidType::get(module.getContext()), parameterTypeList);
     create.llvm.call({}, callRef, parameterList);
 

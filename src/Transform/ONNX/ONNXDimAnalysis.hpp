@@ -4,7 +4,7 @@
 
 //===-------- ONNXDimAnalysis.hpp - ONNX Dimension Analysis ---------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -36,12 +36,12 @@ public:
   /// Create a new analysis for all values in a module.
   DimAnalysis(mlir::ModuleOp op);
 
-  /// Analyzes the relationship amongs unknown dimensions.
+  /// Analyzes the relationship among unknown dimensions.
   /// Current implementation uses a fixed-point iteration algorithm,
   /// where there are two phases at each iteration:
-  ///   - Expand: find and add same unknown dimenisons to each set. Same unknown
-  ///     dimensions are discovered by ultilizing ShapeHelper of an operation or
-  ///     ultilizing the current result of this analysis.
+  ///   - Expand: find and add same unknown dimensions to each set. Same unknown
+  ///     dimensions are discovered by utilizing ShapeHelper of an operation or
+  ///     utilizing the current result of this analysis.
   ///   - Merge: sets that have common elements will be merged into a single
   ///     set. The set with larger ID will be merged into the set with smaller
   ///     ID.

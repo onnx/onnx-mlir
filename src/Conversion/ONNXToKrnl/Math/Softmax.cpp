@@ -253,13 +253,13 @@ struct ONNXSoftmaxLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     int64_t rank = memRefType.getRank();
-    int64_t axis = llvm::dyn_cast<SoftmaxOp>(op).axis();
+    int64_t axis = llvm::dyn_cast<SoftmaxOp>(op).getAxis();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
 
     Location loc = op->getLoc();
     OpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
     // Insert an allocation and deallocation for the result of this operation.
     Type elementType = memRefType.getElementType();
 

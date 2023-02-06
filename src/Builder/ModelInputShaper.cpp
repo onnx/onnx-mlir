@@ -40,12 +40,13 @@ ModelInputShaper::ModelInputShaper() : force_dim_dynamic_enabled_(false) {
       }
       // Default to the all dimensions if dims are not specified.
       if (dims.empty())
-        dims.emplace_back(-1);
+        dims.emplace_back(ModelInputShaper::kUserDynamic);
       forced_inputs_dims_.emplace(std::stoi(inputString), dims);
     }
     // Default to the all inputs and dimensions.
     if (forced_inputs_dims_.empty())
-      forced_inputs_dims_.emplace(-1, std::vector<int>(1, -1));
+      forced_inputs_dims_.emplace(ModelInputShaper::kUserDynamic,
+          std::vector<int>(1, ModelInputShaper::kUserDynamic));
   }
 }
 
@@ -67,7 +68,10 @@ void ModelInputShaper::setShapeInformation(
       std::vector<int64_t> dims;
       while (std::getline(dimSizes, dimStr, 'x')) {
         int64_t dimSize = std::stoi(dimStr);
-        assert((dimSize == -1 || dimSize > 0) && "dim must be -1 or > 0");
+        assert((dimSize == ModelInputShaper::kUserDynamic || dimSize > 0) &&
+               "dim must be -1 or > 0");
+        if (dimSize == ModelInputShaper::kUserDynamic)
+          dimSize = ShapedType::kDynamic;
         dims.emplace_back(dimSize);
       }
       inputs_shape_information_.insert(std::make_pair(inputID, dims));
@@ -81,9 +85,9 @@ RankedTensorType forceShape(
   auto shape = tensorTy.getShape();
   llvm::SmallVector<int64_t, 4> newDims;
   for (unsigned int i = 0; i < shape.size(); i++) {
-    if (llvm::is_contained(forcedDims, -1) ||
+    if (llvm::is_contained(forcedDims, ModelInputShaper::kUserDynamic) ||
         llvm::is_contained(forcedDims, i)) {
-      newDims.push_back(-1);
+      newDims.push_back(ShapedType::kDynamic);
     } else {
       newDims.push_back(shape[i]);
     }
@@ -94,10 +98,10 @@ RankedTensorType forceShape(
 
 Type ModelInputShaper::reshape(int inputIndex, Type inputType) const {
   if (auto tensorTy = inputType.dyn_cast<TensorType>()) {
-    // Make dims unknown (-1) if applicable.
+    // Update the input dimensions based on internal information.
     if (force_dim_dynamic_enabled_ && tensorTy.hasRank()) {
       auto rankedTensorTy = tensorTy.cast<RankedTensorType>();
-      auto it = forced_inputs_dims_.find(-1);
+      auto it = forced_inputs_dims_.find(kUserDynamic);
       if (it != forced_inputs_dims_.end())
         return forceShape(rankedTensorTy, it->second);
       it = forced_inputs_dims_.find(inputIndex);

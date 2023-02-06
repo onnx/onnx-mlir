@@ -110,10 +110,10 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     Type f32Ty = rewriter.getF32Type();
     Type indexTy = rewriter.getIndexType();
 
-    Value X = operandAdaptor.x();
-    Value axis = operandAdaptor.axis();
-    bool exclusive = csOp.exclusive() == 1;
-    bool reverse = csOp.reverse() == 1;
+    Value X = operandAdaptor.getX();
+    Value axis = operandAdaptor.getAxis();
+    bool exclusive = csOp.getExclusive() == 1;
+    bool reverse = csOp.getReverse() == 1;
 
     DimsExpr xDims;
     uint64_t rank = create.krnlIE.getShapedTypeRank(X);

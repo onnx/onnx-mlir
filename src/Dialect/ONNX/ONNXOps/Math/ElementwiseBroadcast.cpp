@@ -266,14 +266,14 @@ LogicalResult ONNXMinOp::inferShapes(
 
 LogicalResult ONNXModOp::verify() {
   Type elementType;
-  if (A().getType().isa<ShapedType>())
-    elementType = A().getType().cast<ShapedType>().getElementType();
+  if (getA().getType().isa<ShapedType>())
+    elementType = getA().getType().cast<ShapedType>().getElementType();
   else
     return emitOpError("Input type must be TensorType or MemRefType");
 
   // Verify that when the input type is floating point, then `fmod` attribute
   // must be set to 1.
-  if (elementType.isa<FloatType>() && (fmod() != 1))
+  if (elementType.isa<FloatType>() && (getFmod() != 1))
     return emitOpError("fmod must be 1 when the input type is floating point");
 
   return success();
@@ -315,8 +315,8 @@ LogicalResult ONNXOrOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPowOp::verify() {
-  ShapedType lhsTy = X().getType().cast<ShapedType>();
-  ShapedType rhsTy = Y().getType().cast<ShapedType>();
+  ShapedType lhsTy = getX().getType().cast<ShapedType>();
+  ShapedType rhsTy = getY().getType().cast<ShapedType>();
   Type rhsETy = rhsTy.getElementType();
   Type lhsETy = lhsTy.getElementType();
   if (rhsETy != lhsETy)
@@ -336,14 +336,14 @@ LogicalResult ONNXPowOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPReluOp::verify() {
-  if (!hasShapeAndRank(X()))
+  if (!hasShapeAndRank(getX()))
     return success();
-  if (!hasShapeAndRank(slope()))
+  if (!hasShapeAndRank(getSlope()))
     return success();
 
-  ArrayRef<int64_t> xShape = X().getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> xShape = getX().getType().cast<ShapedType>().getShape();
   ArrayRef<int64_t> slopeShape =
-      slope().getType().cast<ShapedType>().getShape();
+      getSlope().getType().cast<ShapedType>().getShape();
   // PRelu supports unidirectional broadcasting, that is slope should be
   // unidirectional broadcast to input X.
   if (slopeShape.size() > xShape.size())
@@ -356,7 +356,7 @@ LogicalResult ONNXPReluOp::inferShapes(
   if (!hasShapeAndRank(getOperation()))
     return success();
 
-  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXPReluOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -392,13 +392,13 @@ LogicalResult ONNXSumOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXWhereOp::verify() {
-  Type resultElementType = X().getType().cast<ShapedType>().getElementType();
+  Type resultElementType = getX().getType().cast<ShapedType>().getElementType();
   return verifyShapeForBroadcastingOps(getOperation(), resultElementType);
 }
 
 LogicalResult ONNXWhereOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  Type resultElementType = X().getType().cast<ShapedType>().getElementType();
+  Type resultElementType = getX().getType().cast<ShapedType>().getElementType();
   return inferShapeForBroadcastingOps<ONNXWhereOp>(*this, resultElementType);
 }
 

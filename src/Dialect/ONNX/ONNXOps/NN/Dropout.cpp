@@ -31,10 +31,10 @@ LogicalResult ONNXDropoutOpShapeHelper::computeShape() {
 
   // First dim is the same as data.
   DimsExpr outputDims;
-  createIE->getShapeAsDims(operandAdaptor.data(), outputDims);
+  createIE->getShapeAsDims(operandAdaptor.getData(), outputDims);
   setOutputDims(outputDims, 0);
   // Optional Mask has also the same size as data. If none, size is empty.
-  if (dropout.mask().getType().isa<NoneType>())
+  if (isFromNone(dropout.getMask()))
     outputDims.clear();
   setOutputDims(outputDims, 1);
   return success();
@@ -52,11 +52,11 @@ LogicalResult ONNXDropoutOpShapeHelper::computeShape() {
 
 LogicalResult ONNXDropoutOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(data()))
+  if (!hasShapeAndRank(getData()))
     return success();
 
   Type outputElementType =
-      data().getType().cast<RankedTensorType>().getElementType();
+      getData().getType().cast<RankedTensorType>().getElementType();
   IntegerType maskElementType =
       IntegerType::get(getContext(), 1, IntegerType::Signless);
   ONNXDropoutOpShapeHelper shapeHelper(getOperation(), {});

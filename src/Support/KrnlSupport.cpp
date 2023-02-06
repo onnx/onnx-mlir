@@ -128,10 +128,10 @@ bool usedBySameKrnlMemcpy(
   bool sameKrnlMemcpy = false;
   topBlock->walk(
       [&sameKrnlMemcpy, firstGetRef, secondGetRef](KrnlMemcpyOp memcpyOp) {
-        if ((memcpyOp.dest() == firstGetRef->getResult() &&
-                memcpyOp.src() == secondGetRef->getResult()) ||
-            (memcpyOp.dest() == secondGetRef->getResult() &&
-                memcpyOp.src() == firstGetRef->getResult()))
+        if ((memcpyOp.getDest() == firstGetRef->getResult() &&
+                memcpyOp.getSrc() == secondGetRef->getResult()) ||
+            (memcpyOp.getDest() == secondGetRef->getResult() &&
+                memcpyOp.getSrc() == firstGetRef->getResult()))
           sameKrnlMemcpy = true;
       });
 
@@ -249,6 +249,40 @@ int64_t getMemRefSizeInBytes(Value value) {
   return size;
 }
 
+/// Get the size of a MemRef.
+/// If all the dimensions are static, emit a constant.
+/// Otherwise, emit runtime computations.
+Value getDynamicMemRefSize(PatternRewriter &rewriter, Location loc, Value val) {
+  assert(
+      val.getType().isa<MemRefType>() && "Value type should be a MemRefType");
+  MemRefType memRefType = val.getType().cast<MemRefType>();
+  auto shape = memRefType.getShape();
+  // Accumulate static dimensions first.
+  int64_t staticSizeInBytes = 1;
+  bool allStaticDimensions = true;
+  for (unsigned i = 0; i < shape.size(); i++) {
+    if (shape[i] != ShapedType::kDynamic)
+      staticSizeInBytes *= shape[i];
+    else
+      allStaticDimensions = false;
+  }
+  // Accumulate the remaining dimensions that are unknown.
+  MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
+  Value sizeInBytes =
+      create.math.constant(rewriter.getI64Type(), staticSizeInBytes);
+  if (!allStaticDimensions) {
+    for (unsigned i = 0; i < shape.size(); i++) {
+      if (ShapedType::isDynamic(shape[i])) {
+        Value index = create.mem.dim(val, i);
+        Value dim = rewriter.create<arith::IndexCastOp>(
+            loc, rewriter.getI64Type(), index);
+        sizeInBytes = create.math.mul(sizeInBytes, dim);
+      }
+    }
+  }
+  return sizeInBytes;
+}
+
 /// Get the size of a MemRef in bytes.
 /// If all the dimensions are static, emit a constant.
 /// Otherwise, emit runtime computations.
@@ -262,7 +296,7 @@ Value getDynamicMemRefSizeInBytes(
   int64_t staticSizeInBytes = getMemRefEltSizeInBytes(memRefType);
   bool allStaticDimensions = true;
   for (unsigned i = 0; i < shape.size(); i++) {
-    if (shape[i] != -1)
+    if (shape[i] != ShapedType::kDynamic)
       staticSizeInBytes *= shape[i];
     else
       allStaticDimensions = false;

@@ -26,8 +26,8 @@ namespace onnx_mlir {
 
 LogicalResult ONNXPadOpShapeHelper::computeShape() {
   ONNXPadOpAdaptor operandAdaptor(operands);
-  Value dataOperand = operandAdaptor.data();
-  Value padsOperand = operandAdaptor.pads();
+  Value dataOperand = operandAdaptor.getData();
+  Value padsOperand = operandAdaptor.getPads();
   DimsExpr outputDims;
 
   // Get info about input data operand.
@@ -74,10 +74,10 @@ LogicalResult ONNXPadOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPadOp::verify() {
-  ShapedType dataTy = data().getType().cast<ShapedType>();
-  Type constTy = constant_value().getType();
+  ShapedType dataTy = getData().getType().cast<ShapedType>();
+  Type constTy = getConstantValue().getType();
 
-  if (!constTy.isa<NoneType>()) {
+  if (!isFromNone(getConstantValue())) {
     // Check that the constant has the same element type as the input
     ShapedType shapedConstTy = constTy.cast<ShapedType>();
     if (dataTy.getElementType() != shapedConstTy.getElementType()) {
@@ -95,10 +95,10 @@ LogicalResult ONNXPadOp::verify() {
 LogicalResult ONNXPadOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!hasShapeAndRank(data()) || !hasShapeAndRank(pads()))
+  if (!hasShapeAndRank(getData()) || !hasShapeAndRank(getPads()))
     return success();
 
-  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = getData().getType().cast<ShapedType>().getElementType();
 
   ONNXPadOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);

@@ -45,7 +45,7 @@ public:
 
   LogicalResult matchAndRewrite(
       ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
-    Value stickInput = stickOp.X();
+    Value stickInput = stickOp.getX();
 
     // Input is a block argument, ignore it.
     if (stickInput.dyn_cast<BlockArgument>())
@@ -68,7 +68,7 @@ public:
       if (!userOp)
         continue;
       // UnstickOp must be before the view operation.
-      if (userOp.Out() == viewSource &&
+      if (userOp.getOut() == viewSource &&
           user->isBeforeInBlock(viewOp.getOperation())) {
         unstickOp = userOp;
         break;
@@ -78,8 +78,8 @@ public:
       return failure();
 
     // Match shapes.
-    Value stickRes = stickOp.Out();
-    Value unstickInput = unstickOp.X();
+    Value stickRes = stickOp.getOut();
+    Value unstickInput = unstickOp.getX();
     MemRefType stickResType = stickRes.getType().dyn_cast<MemRefType>();
     MemRefType unstickInputType = unstickInput.getType().dyn_cast<MemRefType>();
     if (!stickResType.hasStaticShape() ||
@@ -93,7 +93,7 @@ public:
     if (viewOp.getOperation()->getResults()[0].use_empty())
       rewriter.eraseOp(viewOp);
     // Remove unstick if there is no use of its second operand except itself.
-    if (unstickOp.Out().hasOneUse())
+    if (unstickOp.getOut().hasOneUse())
       rewriter.eraseOp(unstickOp);
 
     return success();

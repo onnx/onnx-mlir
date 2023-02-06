@@ -30,9 +30,9 @@ struct ONNXPadOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXPadOp padOp = llvm::dyn_cast<ONNXPadOp>(op);
     ONNXPadOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.data();
-    Value constantValue = operandAdaptor.constant_value();
-    StringRef padMode = padOp.mode();
+    Value data = operandAdaptor.getData();
+    Value constantValue = operandAdaptor.getConstantValue();
+    StringRef padMode = padOp.getMode();
 
     // Builder helper.
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>

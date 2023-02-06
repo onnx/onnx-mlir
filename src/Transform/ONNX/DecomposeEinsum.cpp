@@ -387,11 +387,11 @@ public:
     // read off the shapes corresponding to the transposed subscripts
     ShapeRef sharedKeep1Shape, unshared1Shape, reducibleShape;
     std::tie(sharedKeep1Shape, unshared1Shape, reducibleShape) =
-        split3(makeArrayRef(shape1), sharedKeepSubscripts.size(),
+        split3(ArrayRef(shape1), sharedKeepSubscripts.size(),
             subscripts1unshared.size(), reducibleSubscripts.size());
     ShapeRef sharedKeep2Shape, reducible2Shape, unshared2Shape;
     std::tie(sharedKeep2Shape, reducible2Shape, unshared2Shape) =
-        split3(makeArrayRef(shape2), sharedKeepSubscripts.size(),
+        split3(ArrayRef(shape2), sharedKeepSubscripts.size(),
             reducibleSubscripts.size(), subscripts2unshared.size());
     // broadcast not needed because non-result 1-dim axes were squeezed at
     // outset
@@ -547,7 +547,7 @@ LogicalResult DecomposeEinsumPattern::matchAndRewrite(
   //
   // TODO: detect when we don't decompose to ReduceSum or MatMul and
   // accept all types in those cases
-  ValueRange inputs = einsumOp.Inputs();
+  ValueRange inputs = einsumOp.getInputs();
   Type elementType = inputs[0].getType().cast<ShapedType>().getElementType();
   if (!isDecomposableElementType(elementType))
     return einsumOp.emitOpError(
@@ -561,12 +561,12 @@ LogicalResult DecomposeEinsumPattern::matchAndRewrite(
   ONNXEinsumOpAdaptor operandAdaptor(einsumOp);
   auto errorFn = [&einsumOp]() {
     return einsumOp.emitOpError()
-           << "equation '" << einsumOp.equation() << "': ";
+           << "equation '" << einsumOp.getEquation() << "': ";
   };
   FailureOr<einsum::Signature> signature =
       einsum::inferSignature(operandAdaptor, errorFn);
   assert(succeeded(signature) && "any failure should be caught in verify()");
-  Decomposer decomposer(rewriter, loc, *signature, operandAdaptor.Inputs());
+  Decomposer decomposer(rewriter, loc, *signature, operandAdaptor.getInputs());
   Value result = decomposer.decompose();
   rewriter.replaceOp(einsumOp, result);
   return success();

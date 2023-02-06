@@ -43,13 +43,13 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     Value epsilon = create.math.constant(memRefType.getElementType(),
         cast<ONNXBatchNormalizationInferenceModeOp>(op)
-            .epsilon()
+            .getEpsilon()
             .convertToDouble());
-    Value operand = operandAdaptor.X();
-    Value scale = operandAdaptor.scale();
-    Value bias = operandAdaptor.B();
-    Value mean = operandAdaptor.mean();
-    Value variance = operandAdaptor.var();
+    Value operand = operandAdaptor.getX();
+    Value scale = operandAdaptor.getScale();
+    Value bias = operandAdaptor.getB();
+    Value mean = operandAdaptor.getMean();
+    Value variance = operandAdaptor.getVar();
 
     // Insert an allocation and deallocation for the result of this operation.
     bool insertDealloc = checkInsertDealloc(op);
@@ -82,7 +82,7 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
       krnl::KrnlIterateOperandPack cPack(rewriter, originalLoops[1]);
       addDimensionToPack(rewriter, loc, cPack, operand, 1);
       KrnlIterateOp cIterateOp = create.krnl.iterate(cPack);
-      Block &cIterationBlock = cIterateOp.bodyRegion().front();
+      Block &cIterationBlock = cIterateOp.getBodyRegion().front();
       rewriter.setInsertionPointToStart(&cIterationBlock);
       for (auto arg : cIterationBlock.getArguments())
         loopCIVs.emplace_back(arg);
@@ -109,7 +109,7 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
       addDimensionToPack(rewriter, loc, pack, operand, axes[i]);
 
     KrnlIterateOp iterateOp = create.krnl.iterate(pack);
-    Block &iterationBlock = iterateOp.bodyRegion().front();
+    Block &iterationBlock = iterateOp.getBodyRegion().front();
     rewriter.setInsertionPointToStart(&iterationBlock);
 
     SmallVector<Value, 4> loopIVs;
@@ -165,11 +165,11 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
     Type elementType = memRefType.getElementType();
     Value epsilon = create.math.constant(elementType,
-        cast<ONNXInstanceNormalizationOp>(op).epsilon().convertToDouble());
+        cast<ONNXInstanceNormalizationOp>(op).getEpsilon().convertToDouble());
 
-    Value inputMemRef = operandAdaptor.input();
-    Value scaleMemRef = operandAdaptor.scale();
-    Value biasMemRef = operandAdaptor.B();
+    Value inputMemRef = operandAdaptor.getInput();
+    Value scaleMemRef = operandAdaptor.getScale();
+    Value biasMemRef = operandAdaptor.getB();
 
     // Insert an allocation and deallocation for the result of this operation.
     bool insertDealloc = checkInsertDealloc(op);

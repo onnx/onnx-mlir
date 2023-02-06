@@ -30,9 +30,9 @@ struct ONNXScatterNDOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
 
     // Operands and attributes.
-    Value data = operandAdaptor.data();
-    Value updates = operandAdaptor.updates();
-    Value indices = operandAdaptor.indices();
+    Value data = operandAdaptor.getData();
+    Value updates = operandAdaptor.getUpdates();
+    Value indices = operandAdaptor.getIndices();
     auto dataType = data.getType().cast<ShapedType>();
     auto indicesType = indices.getType().cast<ShapedType>();
     auto updatesType = updates.getType().cast<ShapedType>();
@@ -61,8 +61,8 @@ struct ONNXScatterNDOpLowering : public ConversionPattern {
         rewriter, op, outputMemRefType, loc, dataDims);
 
     // Step1: copy `data` into `output`.
-    Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, data);
-    create.krnl.memcpy(output, data, sizeInBytes);
+    Value numOfElements = getDynamicMemRefSize(rewriter, loc, data);
+    create.krnl.memcpy(output, data, numOfElements);
 
     // Step2: scatter the updates values into the output.
     //   update_indices = indices.shape[:-1]

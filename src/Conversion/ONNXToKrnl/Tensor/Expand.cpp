@@ -29,7 +29,7 @@ struct ONNXExpandOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // Get shape.
     ONNXExpandOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
     Location loc = op->getLoc();
     IndexExprBuilderForKrnl createIE(rewriter, loc);
     ONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);

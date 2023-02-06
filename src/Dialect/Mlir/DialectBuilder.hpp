@@ -82,19 +82,22 @@ struct MathBuilder final : DialectBuilder {
   virtual ~MathBuilder() {}
 
   mlir::Value abs(mlir::Value val) const;
-
-  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;
-
   mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value ceil(mlir::Value val) const;                     // Float only.
+  mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
   mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value exp(mlir::Value val) const;
-  mlir::Value exp2(mlir::Value val) const;
-  mlir::Value log2(mlir::Value val) const;
-  mlir::Value sqrt(mlir::Value val) const;
-  mlir::Value pow(mlir::Value base, mlir::Value exp) const;
+  mlir::Value exp(mlir::Value val) const;                       // Float only.
+  mlir::Value exp2(mlir::Value val) const;                      // Float only.
+  mlir::Value floor(mlir::Value val) const;                     // Float only.
+  mlir::Value floorDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
+  mlir::Value log2(mlir::Value val) const;                      // Float only.
+  mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value pow(mlir::Value base, mlir::Value exp) const; // Float only.
+  mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value sqrt(mlir::Value val) const; // Float only.
+  mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;
 
   mlir::Value select(mlir::Value cmp, mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value sgt(mlir::Value lhs, mlir::Value rhs) const;
@@ -108,6 +111,9 @@ struct MathBuilder final : DialectBuilder {
 
   mlir::Value constant(mlir::Type type, double val) const;
   mlir::Value constantIndex(int64_t val) const;
+
+  mlir::Attribute negativeInfAttr(mlir::Type type) const;
+  mlir::Attribute positiveInfAttr(mlir::Type type) const;
 
   /// Emit a negative infinity constant of a specific type. Supported types:
   /// F16, F32, F64, Int8, Int16, Int32, Int64. In case of Float, emit the
@@ -198,7 +204,7 @@ struct MemRefBuilder final : DialectBuilder {
 };
 
 // Default alignment attribute for all allocation of memory. On most system, it
-// is 16 bytes.
+// numElems is 16 bytes.
 static constexpr int64_t gDefaultAllocAlign = 16;
 
 //===----------------------------------------------------------------------===//
@@ -351,6 +357,9 @@ struct LLVMBuilder final : DialectBuilder {
   LLVMBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~LLVMBuilder() {}
 
+  // AddOp
+  mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
+
   // AddressOfOp
   mlir::Value addressOf(mlir::LLVM::GlobalOp op) const;
 
@@ -407,15 +416,27 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value insertValue(mlir::Type resultType, mlir::Value container,
       mlir::Value val, llvm::ArrayRef<int64_t> position) const;
 
+  // Inttoptr
+  mlir::Value inttoptr(mlir::Type type, mlir::Value val) const;
+
   // LoadOp
   mlir::Value load(mlir::Value addr) const;
+
+  // MulOp
+  mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
 
   // NullOp
   mlir::Value null(mlir::Type type) const;
   mlir::Value nullI8Ptr() const;
 
+  // Ptrtoint
+  mlir::Value ptrtoint(mlir::Type type, mlir::Value val) const;
+
   // ReturnOp
   void _return(mlir::Value val) const;
+
+  // SExtOp
+  mlir::Value sext(mlir::Type type, mlir::Value val) const;
 
   // StoreOp
   void store(mlir::Value val, mlir::Value addr) const;

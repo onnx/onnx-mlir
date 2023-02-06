@@ -57,11 +57,11 @@ struct ONNXRandomNormalOpLowering : public ConversionPattern {
 
     // Create the Krnl Random Normal operation:
     ONNXRandomNormalOp randomNormalOp = llvm::cast<ONNXRandomNormalOp>(op);
-    double mean = randomNormalOp.mean().convertToDouble();
+    double mean = randomNormalOp.getMean().convertToDouble();
     Value meanValue = create.math.constant(elementType, mean);
-    double scale = randomNormalOp.scale().convertToDouble();
+    double scale = randomNormalOp.getScale().convertToDouble();
     Value scaleValue = create.math.constant(elementType, scale);
-    auto seed = randomNormalOp.seed();
+    auto seed = randomNormalOp.getSeed();
     srand(time(NULL));
     double doubleSeed = rand() % 100;
     if (seed)

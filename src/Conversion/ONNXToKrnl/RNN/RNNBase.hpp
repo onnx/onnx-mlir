@@ -31,9 +31,6 @@ struct RNNActivation {
   llvm::Optional<mlir::FloatAttr> beta;
 };
 
-/// Check a mlir::Value's type is none or not.
-bool isNoneType(mlir::Value val);
-
 /// Get a dimension of the tensor's shape.
 int64_t dimAt(mlir::Value val, int index);
 
@@ -142,7 +139,7 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
 
     RNNOp rnnOp = llvm::dyn_cast<RNNOp>(op);
     typename RNNOp::Adaptor operandAdaptor(operands);
-    mlir::Value X = operandAdaptor.X();
+    mlir::Value X = operandAdaptor.getX();
 
     if (hasAllNoneOutput<RNNOp>(&rnnOp)) {
       rewriter.eraseOp(op);
@@ -168,8 +165,8 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
     std::tie(biasForward, biasReverse) =
         getBiasPack<RNNOp, B>(rewriter, loc, &rnnOp);
 
-    int64_t sequenceDimSize = dimAt(rnnOp.X(), 0);
-    auto direction = rnnOp.direction();
+    int64_t sequenceDimSize = dimAt(rnnOp.getX(), 0);
+    auto direction = rnnOp.getDirection();
 
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
         MathBuilder>

@@ -21,6 +21,7 @@
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Support/KrnlSupport.hpp"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
@@ -39,45 +40,61 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    auto *context = op->getContext();
-    KrnlMemcpyOpAdaptor operandAdaptor(operands);
+    MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    KrnlMemcpyOp memcpyOp = llvm::dyn_cast<KrnlMemcpyOp>(op);
+
+    // Get operands.
+    KrnlMemcpyOpAdaptor operandAdaptor(operands);
+    Value src = operandAdaptor.getSrc();
+    Value dest = operandAdaptor.getDest();
+    Value srcOffset = operandAdaptor.getSrcOffset();
+    Value dstOffset = operandAdaptor.getDestOffset();
+    Value elemsToCopy = operandAdaptor.getNumElems();
+
+    // Common types.
+    Type i1Ty = IntegerType::get(context, 1);
+    Type i64Ty = IntegerType::get(context, 64);
+    Type elementType = src.getType().cast<LLVM::LLVMStructType>().getBody()[1];
+    int64_t eltSize = getMemRefEltSizeInBytes(
+        memcpyOp.getSrc().getType().dyn_cast<MemRefType>());
+    Value eltSizeInBytes = create.llvm.constant(i64Ty, eltSize);
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto memcpyRef = getOrInsertMemcpy(rewriter, parentModule);
 
     // First operand.
-    Type dstType = operandAdaptor.dest()
-                       .getType()
-                       .cast<LLVM::LLVMStructType>()
-                       .getBody()[1];
-    Value alignedDstMemory =
-        create.llvm.extractValue(dstType, operandAdaptor.dest(), {1});
-    Value alignedInt8PtrDstMemory = create.llvm.bitcastI8Ptr(alignedDstMemory);
+    Value alignedDstMemory = create.llvm.extractValue(elementType, dest, {1});
+    // Update the pointer with the given offset.
+    Value dstPtrInInt = create.llvm.ptrtoint(i64Ty, alignedDstMemory);
+    Value dstOffsetI64 = create.llvm.bitcast(i64Ty, dstOffset);
+    Value dstOffsetInBytes = create.llvm.mul(dstOffsetI64, eltSizeInBytes);
+    dstPtrInInt = create.llvm.add(dstPtrInInt, dstOffsetInBytes);
+    alignedDstMemory = create.llvm.inttoptr(elementType, dstPtrInInt);
+    Value dstAddress = create.llvm.bitcastI8Ptr(alignedDstMemory);
 
     // Second operand.
-    Type srcType = operandAdaptor.src()
-                       .getType()
-                       .cast<LLVM::LLVMStructType>()
-                       .getBody()[1];
-    Value alignedSrcMemory =
-        create.llvm.extractValue(srcType, operandAdaptor.src(), {1});
-    Value alignedInt8PtrSrcMemory = create.llvm.bitcastI8Ptr(alignedSrcMemory);
+    Value alignedSrcMemory = create.llvm.extractValue(elementType, src, {1});
+    // Update the pointer with the given offset.
+    Value srcPtrInInt = create.llvm.ptrtoint(i64Ty, alignedSrcMemory);
+    Value srcOffsetI64 = create.llvm.bitcast(i64Ty, srcOffset);
+    Value srcOffsetInBytes = create.llvm.mul(srcOffsetI64, eltSizeInBytes);
+    srcPtrInInt = create.llvm.add(srcPtrInInt, srcOffsetInBytes);
+    alignedSrcMemory = create.llvm.inttoptr(elementType, srcPtrInInt);
+    Value srcAddress = create.llvm.bitcastI8Ptr(alignedSrcMemory);
 
     // Size.
-    Value int64Size = rewriter.create<LLVM::SExtOp>(
-        loc, IntegerType::get(context, 64), operandAdaptor.size());
+    Value sizeInBytes = create.llvm.mul(elemsToCopy, eltSizeInBytes);
+    sizeInBytes = create.llvm.sext(i64Ty, sizeInBytes);
 
     // Is volatile (set to false).
-    Value isVolatile =
-        create.llvm.constant(IntegerType::get(context, 1), (int64_t)0);
+    Value isVolatile = create.llvm.constant(i1Ty, (int64_t)0);
 
     // Memcpy call
-    create.llvm.call({}, memcpyRef,
-        {alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory, int64Size,
-            isVolatile});
+    create.llvm.call(
+        {}, memcpyRef, {dstAddress, srcAddress, sizeInBytes, isVolatile});
 
     rewriter.eraseOp(op);
     return success();

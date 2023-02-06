@@ -44,24 +44,25 @@ public:
     MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
 
     // Allocate a new tensor and copy input tensor into it
-    auto inputType = operandAdaptor.input().getType().cast<MemRefType>();
+    auto inputType = operandAdaptor.getInput().getType().cast<MemRefType>();
     SmallVector<mlir::Value, 4> allocParams;
     for (size_t i = 0; i < inputType.getShape().size(); i++) {
       if (inputType.isDynamicDim(i)) {
-        allocParams.emplace_back(create.mem.dim(operandAdaptor.input(), i));
+        allocParams.emplace_back(create.mem.dim(operandAdaptor.getInput(), i));
       }
     }
     Value alloc = create.mem.alignedAlloc(inputType, allocParams);
-    rewriter.create<memref::CopyOp>(loc, operandAdaptor.input(), alloc);
+    rewriter.create<memref::CopyOp>(loc, operandAdaptor.getInput(), alloc);
 
     // Cast the input tensor to the element type of the sequence
-    auto seq = operandAdaptor.seq();
+    auto seq = operandAdaptor.getSeq();
     auto seqElementType =
         seq.getType().cast<MemRefType>().getElementType().cast<MemRefType>();
     auto casted = create.mem.cast(alloc, seqElementType);
 
     // Store the tensor
-    rewriter.create<memref::StoreOp>(loc, casted, seq, operandAdaptor.index());
+    rewriter.create<memref::StoreOp>(
+        loc, casted, seq, operandAdaptor.getIndex());
 
     rewriter.eraseOp(op);
     return success();

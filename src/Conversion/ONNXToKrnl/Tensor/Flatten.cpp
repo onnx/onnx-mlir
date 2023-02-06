@@ -69,11 +69,11 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     ONNXFlattenOp flattenOp = llvm::dyn_cast<ONNXFlattenOp>(op);
 
     ONNXFlattenOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
+    Value input = operandAdaptor.getInput();
     auto inputTy = input.getType().cast<MemRefType>();
     auto inputShape = inputTy.getShape();
     size_t inputRank = inputShape.size();
-    int64_t axisValue = flattenOp.axis();
+    int64_t axisValue = flattenOp.getAxis();
     if (axisValue < 0)
       axisValue = inputRank + axisValue;
 
@@ -103,7 +103,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     // Create the loops
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
     KrnlIterateOp iterateOp = create.krnl.iterate(pack);
-    Block &iterationBlock = iterateOp.bodyRegion().front();
+    Block &iterationBlock = iterateOp.getBodyRegion().front();
 
     // Now perform the insertions into the body of the just generated loops.
     // Insert instructions inside the KernelIterateOp body.

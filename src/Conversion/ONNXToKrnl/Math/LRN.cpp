@@ -48,11 +48,11 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     Type elementType = outputMemRefType.getElementType();
     int64_t outputRank = outputMemRefShape.size();
 
-    Value input = operandAdaptor.X();
-    float biasLit = lrnOp.bias().convertToFloat();
-    float alphaLit = lrnOp.alpha().convertToFloat();
-    float betaLit = lrnOp.beta().convertToFloat();
-    int sizeLit = lrnOp.size();
+    Value input = operandAdaptor.getX();
+    float biasLit = lrnOp.getBias().convertToFloat();
+    float alphaLit = lrnOp.getAlpha().convertToFloat();
+    float betaLit = lrnOp.getBeta().convertToFloat();
+    int sizeLit = lrnOp.getSize();
     auto f32Type = FloatType::getF32(rewriter.getContext());
     Value biasValue = create.math.constant(f32Type, biasLit);
     Value alphaDivSizeValue =
@@ -106,7 +106,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
           pack.pushIndexExprsBound(lbMaxList);
           pack.pushIndexExprsBound(ubMinList);
           KrnlIterateOp iterateOp = create.krnl.iterate(pack);
-          Block &iterationBlock = iterateOp.bodyRegion().front();
+          Block &iterationBlock = iterateOp.getBodyRegion().front();
           SmallVector<Value, 4> sumLoopInd(
               iterationBlock.getArguments().begin(),
               iterationBlock.getArguments().end());

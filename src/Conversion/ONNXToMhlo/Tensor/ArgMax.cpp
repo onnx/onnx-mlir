@@ -80,7 +80,7 @@ struct ONNXArgMaxOpLoweringToMhlo : public ConversionPattern {
         loc, rewriter.getZeroAttr(indexElementType));
 
     // data input
-    Value data = operandAdaptor.data();
+    Value data = operandAdaptor.getData();
     assert(isRankedShapedType(data.getType()) &&
            "data must be ranked Shaped Type");
     ShapedType dataType = data.getType().cast<ShapedType>();
@@ -88,11 +88,11 @@ struct ONNXArgMaxOpLoweringToMhlo : public ConversionPattern {
     int64_t dataRank = dataType.getRank();
 
     // axis & keepdims attribute
-    int64_t axis = argMaxOp.axis();
+    int64_t axis = argMaxOp.getAxis();
     assert(axis >= -dataRank && axis <= dataRank - 1);
     axis = axis >= 0 ? axis : (dataRank + axis);
 
-    int64_t keepdims = argMaxOp.keepdims();
+    int64_t keepdims = argMaxOp.getKeepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
 
     Value initValue = rewriter.create<mhlo::ConstantOp>(loc,

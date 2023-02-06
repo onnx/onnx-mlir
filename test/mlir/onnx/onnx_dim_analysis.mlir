@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --onnx-dim-analysis %s -split-input-file | FileCheck %s
 
+// -----
+
 // This test is an excerpt of BertSquad-12 model in the model zoo.
 // It was normalized via calling `--simplify-shape-related-ops-onnx`
 // Expected results: All unknown dimensions have the same group ID that is 0.

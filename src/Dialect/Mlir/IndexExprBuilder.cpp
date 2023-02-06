@@ -162,9 +162,10 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(ArrayAttr intAttrArray,
 //===----------------------------------------------------------------------===//
 // Get Index Expr from value defined by array.
 
-// Function that perform the work, creating Literal, Symbol, or Dim IndexExpr.
-IndexExpr IndexExprBuilder::getIntFromArray(
-    Value array, uint64_t i, bool makeSymbol) {
+// Function that perform the work, creating Literal (int/float), Symbol(int),
+// Dim(int), NonAffine (float) IndexExpr.
+IndexExpr IndexExprBuilder::getValFromArray(
+    Value array, uint64_t i, bool makeSymbol, bool isFloat) {
   uint64_t size = getArraySize(array);
   Type type = array.getType();
 
@@ -172,6 +173,10 @@ IndexExpr IndexExprBuilder::getIntFromArray(
     return UndefinedIndexExpr();
   if (ElementsAttr elementsAttr = getConst(array)) {
     // From OpHelper.cpp's getScalarValue.
+    if (isFloat) {
+      double floatVal = getScalarValue<double>(elementsAttr, type, i);
+      return LiteralIndexExpr(floatVal);
+    }
     int64_t intVal = getScalarValue<int64_t>(elementsAttr, type, i);
     return LiteralIndexExpr(intVal);
   }
@@ -179,14 +184,17 @@ IndexExpr IndexExprBuilder::getIntFromArray(
   if (Value val = getVal(array, i)) {
     // Assume that we can write code.
     MathBuilder createMath(*this);
-    Value castedVal = createMath.cast(b().getIndexType(), val);
+    if (isFloat) {
+      Value castedVal = createMath.cast(b().getF32Type(), val);
+      return NonAffineIndexExpr(castedVal);
+    }
+    Value castedVal = createMath.castToIndex(val);
     if (makeSymbol)
       return SymbolIndexExpr(castedVal);
     else
       return DimIndexExpr(castedVal);
-  } else {
-    return QuestionmarkIndexExpr();
   }
+  return QuestionmarkIndexExpr(isFloat);
 }
 
 IndexExpr IndexExprBuilder::getIntAsSymbol(Value value) {
@@ -199,12 +207,22 @@ IndexExpr IndexExprBuilder::getIntAsDim(Value value) {
   return getIntFromArrayAsDim(value, 0);
 }
 
+IndexExpr IndexExprBuilder::getFloatAsNonAffine(Value value) {
+  assert(getArraySize(value) == 1 && "Expected a scalar");
+  return getFloatFromArrayAsNonAffine(value, 0);
+}
+
 IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(Value array, uint64_t i) {
-  return getIntFromArray(array, i, /*makeSymbol*/ true);
+  return getValFromArray(array, i, /*makeSymbol*/ true, /*isFloat*/ false);
 }
 
 IndexExpr IndexExprBuilder::getIntFromArrayAsDim(Value array, uint64_t i) {
-  return getIntFromArray(array, i, /*makeSymbol*/ false);
+  return getValFromArray(array, i, /*makeSymbol*/ false, /*isFloat*/ false);
+}
+
+IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffine(
+    Value array, uint64_t i) {
+  return getValFromArray(array, i, /*makeSymbol*/ false, /*isFloat*/ true);
 }
 
 IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
@@ -217,6 +235,13 @@ IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
 IndexExpr IndexExprBuilder::getIntFromArrayAsDim(
     Value array, uint64_t i, int64_t defaultLiteral) {
   IndexExpr indexExpr = getIntFromArrayAsDim(array, i);
+  // Undefined value are set to default value.
+  return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
+}
+
+IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffine(
+    Value array, uint64_t i, double defaultLiteral) {
+  IndexExpr indexExpr = getFloatFromArrayAsNonAffine(array, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
@@ -251,11 +276,26 @@ void IndexExprBuilder::getIntFromArrayAsDims(
   }
 }
 
+void IndexExprBuilder::getFloatFromArrayAsNonAffine(
+    Value array, IndexExprList &list, int64_t len) {
+  list.clear();
+  uint64_t size = getArraySize(array);
+  if (len == -1) // Meaning pick up the full size of the list.
+    len = size;
+  else
+    assert((uint64_t)len <= size && "requesting too many elements");
+  for (uint64_t i = 0; i < (uint64_t)len; ++i) {
+    IndexExpr indexExpr = getFloatFromArrayAsNonAffine(array, i);
+    assert(!indexExpr.isUndefined() && "expected defined index expr");
+    list.emplace_back(indexExpr);
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // Get info from tensor/memref shape.
 
 bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue, uint64_t i) {
-  return getShape(tensorOrMemrefValue, i) != -1;
+  return getShape(tensorOrMemrefValue, i) != ShapedType::kDynamic;
 }
 
 bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue) {
@@ -276,7 +316,8 @@ int64_t IndexExprBuilder::getShape(Value tensorOrMemrefValue, uint64_t i) {
 IndexExpr IndexExprBuilder::getShapeAsLiteral(
     Value tensorOrMemrefValue, uint64_t i) {
   int64_t shape = getShape(tensorOrMemrefValue, i);
-  assert(shape != -1 && "expected compile time constant shape");
+  assert(
+      shape != ShapedType::kDynamic && "expected compile time constant shape");
   return LiteralIndexExpr(shape);
 }
 

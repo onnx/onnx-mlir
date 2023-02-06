@@ -30,16 +30,16 @@ namespace onnx_mlir {
 
 template <typename OpAdaptor>
 std::pair<Value, Value> matMulInputs(OpAdaptor &operandAdaptor) {
-  Value A = operandAdaptor.A();
-  Value B = operandAdaptor.B();
+  Value A = operandAdaptor.getA();
+  Value B = operandAdaptor.getB();
   return std::pair(A, B);
 }
 
 template <>
 std::pair<Value, Value> matMulInputs(
     ONNXQLinearMatMulOpAdaptor &operandAdaptor) {
-  Value A = operandAdaptor.a();
-  Value B = operandAdaptor.b();
+  Value A = operandAdaptor.getA();
+  Value B = operandAdaptor.getB();
   return std::pair(A, B);
 }
 
@@ -166,10 +166,10 @@ LogicalResult ONNXGenericMatMulOpShapeHelper<OP_TYPE>::computeShape() {
 LogicalResult ONNXMatMulOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!hasShapeAndRank(A()) || !hasShapeAndRank(B()))
+  if (!hasShapeAndRank(getA()) || !hasShapeAndRank(getB()))
     return success();
 
-  Type elementType = A().getType().cast<ShapedType>().getElementType();
+  Type elementType = getA().getType().cast<ShapedType>().getElementType();
   ONNXMatMulOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -181,7 +181,7 @@ LogicalResult ONNXMatMulOp::inferShapes(
 LogicalResult ONNXMatMulIntegerOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!hasShapeAndRank(A()) || !hasShapeAndRank(B()))
+  if (!hasShapeAndRank(getA()) || !hasShapeAndRank(getB()))
     return success();
 
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();
@@ -195,7 +195,7 @@ LogicalResult ONNXMatMulIntegerOp::inferShapes(
 
 LogicalResult ONNXQLinearMatMulOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(a()) || !hasShapeAndRank(b()))
+  if (!hasShapeAndRank(getA()) || !hasShapeAndRank(getB()))
     return success();
 
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();

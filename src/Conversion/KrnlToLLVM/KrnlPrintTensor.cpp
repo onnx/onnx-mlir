@@ -40,8 +40,8 @@ public:
     KrnlPrintTensorOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
-    StringRef msg = printTensorOp.msg();
-    Value input = operandAdaptor.input();
+    StringRef msg = printTensorOp.getMsg();
+    Value input = operandAdaptor.getInput();
     assert(input.getType().isa<LLVM::LLVMStructType>() &&
            "expecting LLVMStructType");
 

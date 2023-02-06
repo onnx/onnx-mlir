@@ -34,7 +34,7 @@ struct ONNXTransposeOpLoweringToMhlo : public ConversionPattern {
     Location loc = op->getLoc();
 
     // Operands
-    Value data = operandAdaptor.data();
+    Value data = operandAdaptor.getData();
 
     // Convert the output type
     Type outputType = *op->result_type_begin();
@@ -43,7 +43,7 @@ struct ONNXTransposeOpLoweringToMhlo : public ConversionPattern {
     int64_t rank = outputShapedType.getShape().size();
 
     // Attributes
-    llvm::Optional<ArrayAttr> permAttr = transposeOp.perm();
+    llvm::Optional<ArrayAttr> permAttr = transposeOp.getPerm();
     DenseIntElementsAttr permAxis;
     RankedTensorType permAxisType =
         RankedTensorType::get({rank}, rewriter.getI64Type());

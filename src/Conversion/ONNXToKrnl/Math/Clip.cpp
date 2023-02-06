@@ -35,9 +35,9 @@ struct ONNXClipOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     LocalDialectBuilder create(rewriter, loc);
     ONNXClipOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
-    Value min = operandAdaptor.min();
-    Value max = operandAdaptor.max();
+    Value input = operandAdaptor.getInput();
+    Value min = operandAdaptor.getMin();
+    Value max = operandAdaptor.getMax();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -61,12 +61,12 @@ struct ONNXClipOpLowering : public ConversionPattern {
                              const ValueRange &indices) { // indices={i,j,k}
       Value loadedVal = create.krnl.load(input, indices); // load input[i,j,k]
       Value res = loadedVal;
-      if (!min.getType().isa<NoneType>()) {
+      if (!isFromNone(min)) {
         Value minVal = create.krnl.load(min);             // load min
         Value lessThanMin = create.math.slt(res, minVal); // (input[i,j,k]<min)
         res = create.math.select(lessThanMin, minVal, res);
       }
-      if (!max.getType().isa<NoneType>()) {
+      if (!isFromNone(max)) {
         Value maxVal = create.krnl.load(max);
         Value lessThanMax = create.math.slt(res, maxVal);
         res = create.math.select(lessThanMax, res, maxVal);
