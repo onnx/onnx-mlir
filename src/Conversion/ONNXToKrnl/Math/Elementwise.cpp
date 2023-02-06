@@ -280,25 +280,20 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value x = scalarOperands[0]; // x-> input
   Value result;
 
-  auto detectNegAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectNegative().convertToFloat());
-  auto detectPosAttribute = FloatAttr::get(rewriter.getF32Type(),
-      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectPositive().convertToFloat());
-
   MathBuilder createMath(rewriter, loc);
   double posInf = INFINITY;
   double negInf = -INFINITY;
   Value pinf = createMath.constant(elementType, posInf);
   Value ninf = createMath.constant(elementType, negInf);
-  auto detectNeg = rewriter.create<arith::ConstantOp>(loc, detectNegAttribute);
-  auto detectPos = rewriter.create<arith::ConstantOp>(loc, detectPosAttribute);
+  int64_t detectNegAttribute = llvm::cast<ONNXIsInfOp>(op).getDetectNegative();
+  int64_t detectPosAttribute = llvm::cast<ONNXIsInfOp>(op).getDetectPositive();
 
-  if (detectNeg == 0.0) {
+  if (detectNegAttribute == 0) {
     // Check if input == pinf and return true otherwise return false for ninf
     Value posInfinity =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, pinf);
     result = createMath.select(posInfinity, pinf, ninf);
-  } else if (detectPos == 0.0) {
+  } else if (detectAttribute == 0) {
     // Check if input == ninf and return true otherwise return false for pinf
     Value negInfinity =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, ninf);
