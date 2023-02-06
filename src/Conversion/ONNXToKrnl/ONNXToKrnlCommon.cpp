@@ -566,7 +566,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 Value emitArgUnique(ConversionPatternRewriter &rewriter,
     Location loc, Value input, int64_t axis, int64_t sorted,
     Value Y, Value indices, Value reverse_indices,
-    Value counts) {
+    Value counts, bool count_only) {
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
       rewriter, loc);
   IndexExprScope scope(create.krnl);
@@ -599,9 +599,14 @@ Value emitArgUnique(ConversionPatternRewriter &rewriter,
   Type int_type = rewriter.getIntegerType(64);
   Value val_axis = create.math.constant(int_type, axis);
   Value val_sorted = create.math.constant(int_type, sorted);
-  SmallVector<Value, 6> operands = {input, val_axis, val_sorted, Y, indices,
-      reverse_indices, counts};
-  rewriter.create<KrnlCallOp>(loc, "omTensorUnique", total, operands);
+  if (count_only) {
+    SmallVector<Value, 3> operands = {input, val_axis, val_sorted};
+    rewriter.create<KrnlCallOp>(loc, "omTensorUniqueCount", total, operands);
+  } else {
+    SmallVector<Value, 6> operands = {input, val_axis, val_sorted, Y, indices,
+        reverse_indices, counts};
+    rewriter.create<KrnlCallOp>(loc, "omTensorUnique", total, operands);
+  }
   return total;
 }
 

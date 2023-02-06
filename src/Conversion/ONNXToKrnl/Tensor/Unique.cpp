@@ -83,6 +83,11 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType resMemRefType = convertedType.cast<MemRefType>();
 
+    // Count unique subtensors of X along axis.
+    Value noneValue;
+    Value total = emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted,
+        noneValue, noneValue, noneValue, noneValue, /*count_only=*/true);
+
     // Calculate maximum output shapes for ouputs
     DimsExpr outputYBufDims;
     DimsExpr outputIndexBufDims;
@@ -129,7 +134,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
         MemRefType::get(xShape, i64Type), loc, outputIndexBufDims,
         insertDealloc);;
     // Compute argUnique of X along axis.
-    Value total = emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted,
+    total = emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted,
         outputYBuf, indicesBuf, reverse_indicesBuf, countsBuf);
 
 #if 0

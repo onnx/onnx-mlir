@@ -156,3 +156,9 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
   printf("======================================================================\n");
   return;
 }
+
+void omTensorUniqueCount(OMTensor *totalTensor, const OMTensor *inputTensor,
+    int64_t inputAxis, uint64_t sorted) {
+  omTensorUnique(totalTensor, inputTensor, inputAxis, sorted, NULL, NULL, NULL, NULL);
+  return;
+}
