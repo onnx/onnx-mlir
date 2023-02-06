@@ -21,13 +21,25 @@ using namespace onnx_mlir;
 LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   ONNXUniqueOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   // Get info about X and K operands.
-  Value X = operandAdaptor.X();
+  Value X = operandAdaptor.getX();
   int64_t rank = createIE->getShapedTypeRank(X);
-  Optional<int64_t> optionalAxis = operandAdaptor.axis();
+  Optional<int64_t> optionalAxis = operandAdaptor.getAxis();
   // Generate the output dims.
   DimsExpr outputDims;
   if (!optionalAxis.has_value()) {                    // if no axis given
+#if 0
     outputDims.emplace_back(QuestionmarkIndexExpr()); // return 1D array
+#else
+    auto firstDim = createIE->getShapeAsDim(X, 0);
+    for (int64_t i = 1; i < rank; i++) {
+      if (i == 0) {
+        firstDim = createIE->getShapeAsDim(X, i);
+      } else {
+        firstDim = firstDim * createIE->getShapeAsDim(X, i);
+      }
+    }
+    outputDims.emplace_back(firstDim); // return 1D array
+#endif
   } else {                                            // if axis given
     int64_t axis = optionalAxis.value();
     for (int64_t i = 0; i < rank; i++) {
@@ -78,17 +90,6 @@ LogicalResult ONNXUniqueOp::verify() {
       return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
           *this->getOperation(), "axis", axis,
           onnx_mlir::Diagnostic::Range<int64_t>(-XRank, XRank - 1));
-  }
-
-  // verify sorted
-  Optional<int64_t> optionalSorted = sorted();
-  if (optionalSorted.has_value()) {
-    // optional sorted attribute must be zero or one.
-    int64_t sorted = optionalSorted.value();
-    if (sorted < 0 || sorted > 1)
-      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-          *this->getOperation(), "sorted", sorted,
-          onnx_mlir::Diagnostic::Range<int64_t>(0, 1));
   }
 
   return success();

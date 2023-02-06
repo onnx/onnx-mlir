@@ -86,27 +86,39 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     // Calculate maximum output shapes for ouputs
     DimsExpr outputYBufDims;
     DimsExpr outputIndexBufDims;
-    uint64_t inputElementNum = 1;
+    int64_t inputElementNum = 1;
     for (int64_t i = 0; i < rank; i++) {
       inputElementNum = inputElementNum * xShape[i];
     }
+    ArrayRef<int64_t> outputYShape;
     if (axis < 0) {
       outputYBufDims.emplace_back(LiteralIndexExpr(inputElementNum));
       outputIndexBufDims.emplace_back(LiteralIndexExpr(inputElementNum));
+      ArrayRef<int64_t> outYShape = {inputElementNum};
+      outputYShape = outYShape;
     } else {
       for (int64_t i = 0; i < rank; i++) {
         outputYBufDims.emplace_back(LiteralIndexExpr(xShape[i]));
       }
       outputIndexBufDims.emplace_back(LiteralIndexExpr(inputElementNum));
+      outputYShape = xShape;
     }
+ 
     // Insert an allocation and deallocation for the results of this operation.
     // For Y output
     bool insertDealloc = false; // XXX = true;
     Type i64Type = rewriter.getI64Type();
 
-    Value outputYBuf = insertAllocAndDeallocSimple(rewriter, op,
+    Value outputYBuf;
+    if (axis < 0) {
+      outputYBuf = insertAllocAndDeallocSimple(rewriter, op,
+        MemRefType::get(outputYShape, i64Type), loc, outputYBufDims,
+        insertDealloc);
+    } else {
+      outputYBuf = insertAllocAndDeallocSimple(rewriter, op,
         MemRefType::get(xShape, i64Type), loc, outputYBufDims,
         insertDealloc);
+    }
     Value indicesBuf = insertAllocAndDeallocSimple(rewriter, op,
         MemRefType::get(xShape, i64Type), loc, outputIndexBufDims,
         insertDealloc);
@@ -120,8 +132,8 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value total = emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted,
         outputYBuf, indicesBuf, reverse_indicesBuf, countsBuf);
 
-    // Calculate output shapes for ouputs according to the results
 #if 0
+    // Calculate output shapes for ouputs according to the results
     NonAffineIndexExpr totalDimExpr = NonAffineIndexExpr(total);
     DimsExpr outputYDims;
     DimsExpr outputIndexDims;

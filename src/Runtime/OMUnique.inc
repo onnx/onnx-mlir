@@ -27,13 +27,13 @@ typedef struct elementTable {
   uint64_t elementCount;
 } elementTable;
 
-void elementTableInit(
-    elementTable *table, uint64_t elementSize, uint64_t elementMax) {
-  table->tablePointer = alloca(elementSize * elementMax);
-  table->elementSize = elementSize;
-  table->elementMax = elementMax;
-  table->elementCount = 0;
-}
+#define elementTableInit(table, elemSize, elemMax) \
+do { \
+  (table)->tablePointer = alloca((elemSize) * (elemMax)); \
+  (table)->elementSize = (elemSize); \
+  (table)->elementMax = (elemMax); \
+  (table)->elementCount = 0; \
+} while (0)
 
 int elementTableRegister(elementTable *table, void *element) {
   char *tablePtr = (char *)table->tablePointer;
@@ -54,6 +54,7 @@ int elementTableRegister(elementTable *table, void *element) {
 }
 
 uint64_t elementTable_count(elementTable *table) { return table->elementCount; }
+
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t inputAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
     OMTensor *reverse_indices, OMTensor *counts) {
@@ -74,7 +75,7 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
       elementNum *= inputShape[i];
     }
     elementTable elementTable;
-    elementTableInit(&elementTable, elementNum, dataSize);
+    elementTableInit(&elementTable, dataSize, elementNum);
     for (uint64_t off = 0; off < elementNum; off++) {
       void *data = ((char *)dataPtr) + dataSize * off;
       if (elementTableRegister(&elementTable, data) == 0) {
