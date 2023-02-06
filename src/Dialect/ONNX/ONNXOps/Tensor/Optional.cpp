@@ -72,6 +72,6 @@ LogicalResult ONNXOptionalHasElementOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Builder builder(getContext());
   Type scalarBoolType = RankedTensorType::get({}, builder.getI1Type());
-  getResult().setType(scalarBoolType);
+  getResult().setType(cast<TensorType>(scalarBoolType));
   return success();
 }

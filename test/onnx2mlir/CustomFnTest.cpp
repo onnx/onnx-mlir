@@ -87,7 +87,8 @@ int check(ModelProto &model) {
   options.useOnnxModelTypes = true;
   onnx_mlir::ImportFrontendModel(model, context, module, options);
 
-  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+  mlir::PassManager pm(
+      module.get()->getName(), mlir::OpPassManager::Nesting::Implicit);
   pm.addPass(onnx_mlir::createShapeInferencePass(true));
   mlir::applyPassManagerCLOptions(pm);
   if (mlir::failed(pm.run(*module))) {
