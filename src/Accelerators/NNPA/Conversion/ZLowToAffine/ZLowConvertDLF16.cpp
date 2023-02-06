@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -67,59 +68,51 @@ public:
     SmallVector<IndexExpr, 4> ubs;
     create.zlowIE.getShapeAsDims(inputMemref, ubs);
     int64_t rank = ubs.size();
+
+    // Compute the number of elements for conversion.
     IndexExpr numOfElements = one;
     for (IndexExpr ie : ubs)
       numOfElements = numOfElements * ie;
+    SmallVector<IndexExpr, 1> ubs1D = {numOfElements};
+
+    // Shapes for reshaping back and forth between 1-D and N-D .
+    Value shape1D = create.mem.alignedAlloc(MemRefType::get({1}, indexType));
+    create.affine.store(numOfElements.getValue(), shape1D, {zero.getValue()});
+    Value shapeND = create.mem.alignedAlloc(MemRefType::get({rank}, indexType));
+    for (int64_t i = 0; i < rank; ++i) {
+      Value index = create.math.constantIndex(i);
+      create.affine.store(ubs[i].getValue(), shapeND, {index});
+    }
 
     // Reshape the input N-D MemRef into a 1-D MemRef.
-    Value shape1D = create.mem.alignedAlloca(MemRefType::get({1}, indexType));
-    create.affine.store(numOfElements.getValue(), shape1D, {zero.getValue()});
-    MemRefType input1DType;
+    int64_t dim1DSize = ShapedType::kDynamic;
     if (numOfElements.isLiteral())
-      input1DType =
-          MemRefType::get({numOfElements.getLiteral()}, inputElementType);
-    else
-      input1DType = MemRefType::get({ShapedType::kDynamic}, inputElementType);
+      dim1DSize = numOfElements.getLiteral();
+    MemRefType input1DType = MemRefType::get({dim1DSize}, inputElementType);
     Value input1D = rewriter.create<memref::ReshapeOp>(
         loc, input1DType, inputMemref, shape1D);
 
     // Allocate an output 1-D MemRef.
     MemRefType output1DType =
         MemRefType::Builder(input1DType).setElementType(outputElementType);
-    SmallVector<IndexExpr, 1> shape1DIE = {numOfElements};
     int64_t alignment = fromF32 ? 4096 : -1;
     Value output1D = insertAllocAndDeallocSimple(
-        rewriter, nullptr, output1DType, loc, shape1DIE, alignment);
+        rewriter, nullptr, output1DType, loc, ubs1D, alignment);
 
-    // Copy data using 1-D MemRefs.
-    IndexExpr lbs = zero;
-    int64_t step = 1;
-    // Copy data,
-    create.affine.forIE(lbs, numOfElements, step,
-        [&](AffineBuilder &createAffine, Value index) {
-          Value x = createAffine.load(input1D, {index});
+    // SIMDize conversion between fp32 and dlf16.
+    int64_t tileSize = 8;
+    create.affine.forIE(zero, numOfElements, tileSize,
+        [&](AffineBuilder &createAffine, Value idx) {
+          Value x = createAffine.load(input1D, {idx});
           Value converted;
           if (fromF32)
             converted = rewriter.create<ZLowConvertF32ToDLF16Op>(loc, x);
           else
             converted = rewriter.create<ZLowConvertDLF16ToF32Op>(loc, x);
-          createAffine.store(converted, output1D, {index});
+          createAffine.store(converted, output1D, {idx});
         });
 
-    // int64_t tileSize = 8;
-    // SmallVector<AffineForOp, 2> tiledLoops;
-    // SmallVector<AffineForOp, 1> loopsToTile{};
-    // if (failed(tilePerfectlyNested(loopsToTile, tileSize, &tiledLoops))) {
-    //   return failure();
-    // }
-
     // Reshape the output 1-D MemRef back into a N-D MemRef.
-    Value shapeND =
-        create.mem.alignedAlloca(MemRefType::get({rank}, indexType));
-    for (int64_t i = 0; i < rank; ++i) {
-      Value index = create.math.constantIndex(i);
-      create.affine.store(ubs[i].getValue(), shapeND, {index});
-    }
     Value outputND =
         rewriter.create<memref::ReshapeOp>(loc, outputType, output1D, shapeND);
 
