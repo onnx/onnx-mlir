@@ -151,6 +151,11 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         // pm.addPass(mlir::createCanonicalizerPass());
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
+        pm.addPass(mlir::createCanonicalizerPass());
+        // Some ZLow ops, e.g. ZLowConvertDLF16, potentially exist and will be
+        // lowered to Affine when its operands are normalized.
+        pm.addPass(zlow::createConvertZLowToAffinePass());
+        pm.addPass(mlir::createCanonicalizerPass());
         // Some Krnl ops, e.g. KrnlMemset, potentially exist and will be lowered
         // to Affine when its operands are normalized.
         addKrnlToAffinePasses(pm);

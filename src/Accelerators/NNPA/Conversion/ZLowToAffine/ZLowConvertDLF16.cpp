@@ -91,10 +91,6 @@ public:
     Value output1D = insertAllocAndDeallocSimple(
         rewriter, nullptr, output1DType, loc, shape1DIE, alignment);
 
-    // Allocate the output buffer.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, convertOp.getOperation(), outputType, loc, ubs, alignment);
-
     // Copy data using 1-D MemRefs.
     IndexExpr lbs = zero;
     int64_t step = 1;
