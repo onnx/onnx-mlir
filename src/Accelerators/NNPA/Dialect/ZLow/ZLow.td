@@ -456,7 +456,7 @@ def ZLowDummyOp:ZLow_Op<"dummy", [MemRefsNormalizable]> {
   let hasCanonicalizer = 1;
 }
 
-def ZLowConvertDLF16Op:ZLow_Op<"convert_dlf16", [Pure]> {
+def ZLowConvertDLF16Op:ZLow_Op<"convert_dlf16", [Pure, MemRefsNormalizable]> {
   let summary = "Convert a MemRef between dlf16 and f32 types.";
   let description = [{
   This operation converts a MemRef between dlf16 and f32 types.

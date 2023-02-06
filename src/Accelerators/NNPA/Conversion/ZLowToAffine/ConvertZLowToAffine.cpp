@@ -72,7 +72,12 @@ void ConvertZLowToAffinePass::runOnOperation() {
 
   // These ops will be lowered to affine.
   target.addIllegalOp<ZLowAttachLayoutOp>();
-  target.addIllegalOp<ZLowConvertDLF16Op>();
+  target.addDynamicallyLegalOp<ZLowConvertDLF16Op>([](ZLowConvertDLF16Op op) {
+    MemRefType inputTy = op.getInput().getType().cast<MemRefType>();
+    MemRefType outputTy = op.getOutput().getType().cast<MemRefType>();
+    return (!inputTy.getLayout().isIdentity()) ||
+           (!outputTy.getLayout().isIdentity());
+  });
   target.addIllegalOp<ZLowDetachLayoutOp>();
 
   // Patterns.
