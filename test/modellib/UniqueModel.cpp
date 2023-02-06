@@ -32,6 +32,13 @@ UniqueLibBuilder::UniqueLibBuilder(const std::string &modelName, const int rank,
     : ModelLibBuilder(modelName), rank(rank), I(I), J(J), /*K(K),*/ axis(axis),
       sorted(sorted), isNoneAxis(isNoneAxis), isNoneIndexOutput(isNoneIndexOutput) {}
 
+UniqueLibBuilder::~UniqueLibBuilder() {
+  //omTensorListDestroy(inputs);
+  //omTensorListDestroy(outputs);
+  //if (exec)
+  //  delete exec;
+}
+
 bool UniqueLibBuilder::build() {
   if (rank != 2) { // XXX TODO support rank==3
     return false;

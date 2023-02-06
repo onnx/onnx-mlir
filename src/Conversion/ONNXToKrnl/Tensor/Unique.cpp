@@ -61,7 +61,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     ONNXUniqueOp uniqueOp = llvm::cast<ONNXUniqueOp>(op);
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder> create(
         rewriter, loc);
     IndexExprScope scope(create.krnl);
     ONNXUniqueOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -84,10 +84,31 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     MemRefType resMemRefType = convertedType.cast<MemRefType>();
 
     // Count unique subtensors of X along axis.
+    Type indexTy = rewriter.getIndexType();
+    Value iZero = create.math.constantIndex(0);
+    // Emit a variable for the total number of nonzero values.
+    Value uniqueCount = create.mem.alloca(MemRefType::get({}, indexTy));
+    create.krnl.store(iZero, uniqueCount, {});
     Value noneValue;
-    Value total = emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted,
+    emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         noneValue, noneValue, noneValue, noneValue, /*count_only=*/true);
-
+    // Calculate output shapes for ouputs according to the results
+    Value total = create.krnl.load(uniqueCount, {});
+    NonAffineIndexExpr totalDimExpr = DimIndexExpr(total);
+    DimsExpr outputYDims;
+    DimsExpr outputIndexDims;
+    if (axis < 0) {
+      outputYDims.emplace_back(totalDimExpr);
+      outputIndexDims.emplace_back(totalDimExpr);
+    } else {
+      for (int64_t i = 0; i < rank; i++) {
+        DimIndexExpr tDimExpr = LiteralIndexExpr(xShape[i]);
+        if (i == axis)
+          tDimExpr = totalDimExpr;
+        outputIndexDims.emplace_back(tDimExpr);
+      }
+    }
+#if 0
     // Calculate maximum output shapes for ouputs
     DimsExpr outputYBufDims;
     DimsExpr outputIndexBufDims;
@@ -108,34 +129,36 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
       outputIndexBufDims.emplace_back(LiteralIndexExpr(inputElementNum));
       outputYShape = xShape;
     }
+#endif
  
     // Insert an allocation and deallocation for the results of this operation.
     // For Y output
-    bool insertDealloc = false; // XXX = true;
+    bool insertDealloc = checkInsertDealloc(op);
     Type i64Type = rewriter.getI64Type();
 
-    Value outputYBuf;
+    Value outputY;
     if (axis < 0) {
-      outputYBuf = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(outputYShape, i64Type), loc, outputYBufDims,
+      outputY = insertAllocAndDeallocSimple(rewriter, op,
+        MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputYDims,
         insertDealloc);
     } else {
-      outputYBuf = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(xShape, i64Type), loc, outputYBufDims,
+      outputY = insertAllocAndDeallocSimple(rewriter, op,
+        MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputYDims,
         insertDealloc);
     }
-    Value indicesBuf = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(xShape, i64Type), loc, outputIndexBufDims,
+    Value indices = insertAllocAndDeallocSimple(rewriter, op,
+        MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputIndexDims,
         insertDealloc);
-    Value reverse_indicesBuf = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(xShape, i64Type), loc, outputIndexBufDims,
+    Value reverse_indices = insertAllocAndDeallocSimple(rewriter, op,
+        MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputIndexDims,
         insertDealloc);;
-    Value countsBuf = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(xShape, i64Type), loc, outputIndexBufDims,
+    Value counts = insertAllocAndDeallocSimple(rewriter, op,
+        MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputIndexDims,
         insertDealloc);;
     // Compute argUnique of X along axis.
-    total = emitArgUnique(rewriter, loc, X, axis, /*sorted=*/sorted,
-        outputYBuf, indicesBuf, reverse_indicesBuf, countsBuf);
+    create.krnl.store(iZero, uniqueCount, {});
+    emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
+        outputY, indices, reverse_indices, counts);
 
 #if 0
     // Calculate output shapes for ouputs according to the results
@@ -174,7 +197,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 
 #endif
     rewriter.replaceOp(
-        op, {outputYBuf, indicesBuf, reverse_indicesBuf, countsBuf});
+        op, {outputY, indices, reverse_indices, counts});
     return success();
   }
 };

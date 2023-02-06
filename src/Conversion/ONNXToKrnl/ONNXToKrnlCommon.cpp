@@ -564,7 +564,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 /// of IndexType. Shape of the second, third and fourth arguments depends on the
 /// input options.
 Value emitArgUnique(ConversionPatternRewriter &rewriter,
-    Location loc, Value input, int64_t axis, int64_t sorted,
+    Location loc, Value total, Value input, int64_t axis, int64_t sorted,
     Value Y, Value indices, Value reverse_indices,
     Value counts, bool count_only) {
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
@@ -582,11 +582,18 @@ Value emitArgUnique(ConversionPatternRewriter &rewriter,
   create.krnlIE.getShapeAsDims(input, ubs);
 
   // Create and initialize the result.
+#if 0
   ArrayRef<int64_t> totalShape = {1};
   Value total = insertAllocAndDeallocSimple(rewriter, nullptr,
       MemRefType::get(totalShape, indexType), loc, ubs,
     /*insertDealloc=*/true);
-
+#elif 0
+  Type indexTy = rewriter.getIndexType();
+  Value iZero = create.math.constantIndex(0);
+  // Emit a variable for the total number of nonzero values.
+  Value total = create.mem.alloca(MemRefType::get({}, indexTy));
+  create.krnl.store(iZero, total, {});
+#endif
 #if 0
   ValueRange initLoopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,

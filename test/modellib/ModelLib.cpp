@@ -33,10 +33,10 @@ ModelLibBuilder::ModelLibBuilder(const std::string &name)
 }
 
 ModelLibBuilder::~ModelLibBuilder() {
-  omTensorListDestroy(inputs);
-  omTensorListDestroy(outputs);
-  if (exec)
-    delete exec;
+  //omTensorListDestroy(inputs);
+  //omTensorListDestroy(outputs);
+  //if (exec)
+  //  delete exec;
 }
 
 bool ModelLibBuilder::compileAndLoad() {

@@ -152,7 +152,8 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     }
   }
   *totalPtr = count;
-  omTensorPrint("omTensorUnique: total =", totalTensor);
+  printf("==> %d\n", count);
+  //omTensorPrint("omTensorUnique: total =", totalTensor);
   printf("======================================================================\n");
   return;
 }
