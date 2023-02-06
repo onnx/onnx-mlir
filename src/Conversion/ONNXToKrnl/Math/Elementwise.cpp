@@ -283,22 +283,22 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   MathBuilder createMath(rewriter, loc);
   // double posInf = INFINITY;
   // double negInf = -INFINITY;
-  Value pinf = createMath.constant(elementType, 1.0/0);
-  Value ninf = createMath.constant(elementType, -1.0/0);
+  Value pinf = createMath.constant(elementType, 1.0 / 0);
+  Value ninf = createMath.constant(elementType, -1.0 / 0);
   int64_t detectNegAttribute = llvm::cast<ONNXIsInfOp>(op).getDetectNegative();
   int64_t detectPosAttribute = llvm::cast<ONNXIsInfOp>(op).getDetectPositive();
 
   if (detectNegAttribute == 0) {
     // Check if input == pinf and return true otherwise return false for
     // ninf
-    Value posInfinity = rewriter.create<arith::CmpFOp>(
-        loc, arith::CmpFPredicate::OEQ, x, pinf);
+    Value posInfinity =
+        rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, pinf);
     result = createMath.select(posInfinity, pinf, ninf);
   } else if (detectPosAttribute == 0) {
     // Check if input == ninf and return true otherwise return false for
     // pinf
-    Value negInfinity = rewriter.create<arith::CmpFOp>(
-        loc, arith::CmpFPredicate::OEQ, x, ninf);
+    Value negInfinity =
+        rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, ninf);
     result = createMath.select(negInfinity, ninf, pinf);
   } else
     llvm_unreachable("unsupported element type");
