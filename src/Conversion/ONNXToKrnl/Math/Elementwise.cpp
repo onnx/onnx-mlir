@@ -280,24 +280,24 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value x = scalarOperands[0]; // x-> input
   Value result;
 
-  auto detectNegAttribute = llvm::dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
-  auto detectPosAttribute = llvm::dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
+  auto detectNegAttribute = IntegerAttr::get(rewriter.getIntegerType(64), 0), llvm::dyn_cast<ONNXIsInfOp>(op).getDetectNegative().convertToFloat());
+  auto detectPosAttribute = IntegerAttr::get(rewriter.getIntegerType(64), 0), llvm::dyn_cast<ONNXIsInfOp>(op).getDetectPositive().convertToFloat());
 
   MathBuilder createMath(rewriter, loc);
   double posInf = INFINITY;
   double negInf = -INFINITY;
   Value pinf = createMath.constant(elementType, posInf);
   Value ninf = createMath.constant(elementType, negInf);
-  // auto detectNeg = rewriter.create<arith::ConstantOp>(loc,
-  // detectNegAttribute); auto detectPos =
-  // rewriter.create<arith::ConstantOp>(loc, detectPosAttribute);
+  auto detectNeg = rewriter.create<arith::ConstantOp>(loc,
+  detectNegAttribute);
+  auto detectPos = rewriter.create<arith::ConstantOp>(loc, detectPosAttribute);
 
-  if (detectNegAttribute == 0) {
+  if (detectNeg == 0) {
     // Check if input == pinf and return true otherwise return false for ninf
     Value posInfinity =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, pinf);
     result = createMath.select(posInfinity, pinf, ninf);
-  } else if (detectPosAttribute == 0) {
+  } else if (detectPos == 0) {
     // Check if input == ninf and return true otherwise return false for pinf
     Value negInfinity =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, ninf);
