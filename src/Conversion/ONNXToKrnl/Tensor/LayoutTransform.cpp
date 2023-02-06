@@ -31,7 +31,7 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
 
     // Operands and attributes.
-    Value data = operandAdaptor.data();
+    Value data = operandAdaptor.getData();
 
     // Convert the input type to MemRefType.
     Type inConvertedType = typeConverter->convertType(data.getType());

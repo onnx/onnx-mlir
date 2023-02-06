@@ -28,7 +28,7 @@ template <>
 LogicalResult ONNXOneHotEncoderOpShapeHelper::computeShape() {
   ONNXOneHotEncoderOp oneHotOp = llvm::cast<ONNXOneHotEncoderOp>(op);
   ONNXOneHotEncoderOpAdaptor operandAdaptor(operands);
-  Value X = operandAdaptor.X();
+  Value X = operandAdaptor.getX();
   ShapedType inputType = X.getType().dyn_cast<RankedTensorType>();
   assert(inputType && "expected ranked type");
 
@@ -37,9 +37,9 @@ LogicalResult ONNXOneHotEncoderOpShapeHelper::computeShape() {
   // the cats_int64s category list will be used for the lookups.
   int64_t outDim;
   if (inputType.getElementType().isIntOrFloat()) {
-    outDim = ArrayAttrSize(oneHotOp.cats_int64s());
+    outDim = ArrayAttrSize(oneHotOp.getCatsInt64s());
   } else {
-    outDim = ArrayAttrSize(oneHotOp.cats_strings());
+    outDim = ArrayAttrSize(oneHotOp.getCatsStrings());
   }
 
   // Encoded output data, having one more dimension than X
@@ -61,7 +61,7 @@ LogicalResult ONNXOneHotEncoderOp::verify() {
   ONNXOneHotEncoderOpAdaptor operandAdaptor = ONNXOneHotEncoderOpAdaptor(*this);
 
   // get operands
-  auto input = operandAdaptor.X();
+  auto input = operandAdaptor.getX();
   if (!hasShapeAndRank(input))
     return success();
 
@@ -73,12 +73,12 @@ LogicalResult ONNXOneHotEncoderOp::verify() {
   // the data will be cast to integers and
   // the cats_int64s category list will be used for the lookups.
   if (inputType.getElementType().isIntOrFloat()) {
-    if (!operandAdaptor.cats_int64s()) {
+    if (!operandAdaptor.getCatsInt64s()) {
       return emitOpError("input is a tensor of float, int32, or double, "
                          "but no cats_int64s attribute");
     }
   } else {
-    if (!operandAdaptor.cats_strings()) {
+    if (!operandAdaptor.getCatsStrings()) {
       return emitOpError("input is not a tensor of float, int32, or double, "
                          "but no cats_strings attribute");
     }
@@ -92,7 +92,7 @@ LogicalResult ONNXOneHotEncoderOp::verify() {
 
 LogicalResult ONNXOneHotEncoderOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X()))
+  if (!hasShapeAndRank(getX()))
     return success();
 
   ONNXOneHotEncoderOpShapeHelper shapeHelper(getOperation(), {});

@@ -53,16 +53,24 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXUniqueOp::verify() {
+  Optional<int64_t> optionalSorted = getSorted();
+  if (optionalSorted.has_value()) {
+    // optional sorted attribute must be zero or one.
+    int64_t sorted = optionalSorted.value();
+    if (sorted < 0 || sorted > 1)
+      return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
+          *this->getOperation(), "sorted", sorted,
+          onnx_mlir::Diagnostic::Range<int64_t>(0, 1));
+  }
   ONNXUniqueOpAdaptor operandAdaptor(*this);
-
-  // verify X
-  Value X = operandAdaptor.X();
+  Value X = operandAdaptor.getX();
   if (!hasShapeAndRank(X))
     return success(); // Too early to verify.
 
   // verify axis
   int64_t XRank = X.getType().cast<ShapedType>().getRank();
-  Optional<int64_t> optionalAxis = axis();
+  Optional<int64_t> optionalAxis = getAxis();
+
   if (optionalAxis.has_value()) {
     // axis attribute must be in the range [-r,r-1], where r = rank(X).
     int64_t axis = optionalAxis.value();

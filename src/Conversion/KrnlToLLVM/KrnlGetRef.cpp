@@ -58,15 +58,15 @@ public:
         typeConverter->convertType(memRefTy.getElementType());
 
     // This is the start of the memory pool containing the output MemRef.
-    Type memPoolType = operandAdaptor.mempool()
+    Type memPoolType = operandAdaptor.getMempool()
                            .getType()
                            .cast<LLVM::LLVMStructType>()
                            .getBody()[1];
     Value alignedMemPoolBase =
-        create.llvm.extractValue(memPoolType, operandAdaptor.mempool(), {1});
+        create.llvm.extractValue(memPoolType, operandAdaptor.getMempool(), {1});
 
     // Get pointer using the offset.
-    auto offset = operandAdaptor.offset();
+    auto offset = operandAdaptor.getOffset();
     auto llvmMemPoolType = typeConverter->convertType(memPoolType).cast<Type>();
     auto outputMemPoolTypePtrAlloc =
         create.llvm.getElemPtr(llvmMemPoolType, alignedMemPoolBase, {offset});
@@ -120,7 +120,7 @@ public:
       sizes.reserve(memRefTy.getRank());
       unsigned i = 0;
       for (int64_t s : memRefTy.getShape())
-        sizes.push_back(s == ShapedType::kDynamicSize
+        sizes.push_back(s == ShapedType::kDynamic
                             ? operands[2 + i++]
                             : createIndexConstant(rewriter, loc, s));
 
@@ -131,7 +131,7 @@ public:
       SmallVector<Value, 4> strideValues(nStrides, nullptr);
       for (unsigned i = 0; i < nStrides; ++i) {
         int64_t index = nStrides - 1 - i;
-        if (strides[index] == MemRefType::getDynamicStrideOrOffset())
+        if (strides[index] == ShapedType::kDynamic)
           // Identity layout map is enforced in the match function, so we
           // compute:
           //   `runningStride *= sizes[index + 1]`

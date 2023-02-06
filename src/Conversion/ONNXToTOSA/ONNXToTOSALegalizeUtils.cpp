@@ -15,8 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/Utils/QuantUtils.h"
-#include "mlir/Dialect/Tosa/Utils/ShapeUtils.h"   // from @llvm-project
-#include "mlir/IR/BuiltinAttributes.h"            // from @llvm-project
+#include "mlir/Dialect/Tosa/Utils/ShapeUtils.h" // from @llvm-project
+#include "mlir/IR/BuiltinAttributes.h"          // from @llvm-project
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"                 // from @llvm-project
 #include "mlir/IR/PatternMatch.h"                 // from @llvm-project
 #include "mlir/Interfaces/InferTypeOpInterface.h" // from @llvm-project
@@ -42,7 +43,8 @@ Value createTosaTransposedTensor(PatternRewriter &rewriter, Operation *op,
   auto valueType = value.getType().cast<ShapedType>();
   // get new value type
   Type newValueType = RankedTensorType::get(
-      llvm::SmallVector<int64_t, 4>(valueType.getShape().size(), -1),
+      llvm::SmallVector<int64_t, 4>(
+          valueType.getShape().size(), ShapedType::kDynamic),
       valueType.getElementType());
   // create transpose for value
   Value newValue = CreateOpAndInfer<mlir::tosa::TransposeOp>(
@@ -63,7 +65,7 @@ llvm::Optional<Value> getConstTensor(PatternRewriter &rewriter, Operation *op,
 
   if (vec.size() != num_total_elements) {
     op->emitOpError("getConstTensor(): number of elements mismatch.");
-    return llvm::None;
+    return std::nullopt;
   }
 
   auto const_type =
@@ -86,7 +88,7 @@ llvm::Optional<Value> getConstTensor<float>(PatternRewriter &rewriter,
 
   if (vec.size() != num_total_elements) {
     op->emitOpError("getConstTensor(): number of elements mismatch.");
-    return llvm::None;
+    return std::nullopt;
   }
 
   auto const_type = RankedTensorType::get(shape, rewriter.getF32Type());

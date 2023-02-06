@@ -65,23 +65,23 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
     int64_t reducedRank = reducedMemRefType.getRank();
 
     // data input
-    Value data = operandAdaptor.data();
+    Value data = operandAdaptor.getData();
     MemRefType dataType = data.getType().cast<MemRefType>();
     int64_t dataRank = dataType.getRank();
 
     // axis & keepdims attribute
-    int64_t axis = argOp.axis();
+    int64_t axis = argOp.getAxis();
     assert(axis >= -dataRank && axis <= dataRank - 1);
     axis = axis >= 0 ? axis : (dataRank + axis);
 
-    int64_t keepdims = argOp.keepdims();
+    int64_t keepdims = argOp.getKeepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
 
     // Get type information
     llvm::SmallVector<int64_t, 1> axes;
     axes.push_back(axis);
     std::map<int64_t, int64_t> outInDimMap =
-        getReductionMapping(dataType, llvm::makeArrayRef(axes), isKeepdims);
+        getReductionMapping(dataType, llvm::ArrayRef(axes), isKeepdims);
 
     // Insert alloc and dealloc
     Value alloc = insertAllocAndDeallocSimple(

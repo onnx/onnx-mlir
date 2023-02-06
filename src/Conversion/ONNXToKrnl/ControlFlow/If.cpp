@@ -9,7 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
@@ -30,7 +30,7 @@ struct ONNXIfOpLowering : public ConversionPattern {
     ONNXIfOpAdaptor ifOpAdaptor(operands, op->getAttrDictionary());
 
     KrnlBuilder createKrnl(rewriter, loc);
-    Value cond = createKrnl.load(ifOpAdaptor.cond());
+    Value cond = createKrnl.load(ifOpAdaptor.getCond());
 
     auto resultTypes = ifOp.getResultTypes();
     SmallVector<Type> convertedResultTypes;
@@ -41,9 +41,9 @@ struct ONNXIfOpLowering : public ConversionPattern {
     scf::IfOp scfIfOp = rewriter.create<scf::IfOp>(
         loc, convertedResultTypes, cond, /*withElseRegion=*/true);
     graphToScfBranch(
-        rewriter, loc, ifOp.then_branch(), scfIfOp.getThenRegion());
+        rewriter, loc, ifOp.getThenBranch(), scfIfOp.getThenRegion());
     graphToScfBranch(
-        rewriter, loc, ifOp.else_branch(), scfIfOp.getElseRegion());
+        rewriter, loc, ifOp.getElseBranch(), scfIfOp.getElseRegion());
     rewriter.replaceOp(op, scfIfOp.getResults());
     return success();
   }

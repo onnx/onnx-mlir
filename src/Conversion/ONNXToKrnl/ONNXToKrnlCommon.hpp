@@ -225,10 +225,10 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
     llvm::ArrayRef<mlir::Value> scalarOperands) {
   if (elementType.isa<mlir::IntegerType>()) {
     return rewriter.create<ScalarIOp<Op>>(
-        loc, elementType, scalarOperands, mlir::None);
+        loc, elementType, scalarOperands, std::nullopt);
   } else if (elementType.isa<mlir::FloatType>()) {
     return rewriter.create<ScalarFOp<Op>>(
-        loc, elementType, scalarOperands, mlir::None);
+        loc, elementType, scalarOperands, std::nullopt);
   } else {
     llvm_unreachable("unsupported element type");
   }

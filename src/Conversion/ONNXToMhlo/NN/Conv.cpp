@@ -44,11 +44,11 @@ struct ONNXConvOpLoweringToMhlo : public ConversionPattern {
     DimsExpr outputDims = shapeHelper.getOutputDims();
     int outputRank = shapeHelper.getOutputDims().size();
 
-    Value inputOperand = operandAdaptor.X();
-    Value filterOperand = operandAdaptor.W();
-    Value biasOperand = operandAdaptor.B();
+    Value inputOperand = operandAdaptor.getX();
+    Value filterOperand = operandAdaptor.getW();
+    Value biasOperand = operandAdaptor.getB();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
-    int64_t groupNum = convOp.group();
+    int64_t groupNum = convOp.getGroup();
 
     assert(isRankedShapedType(inputOperand.getType()) &&
            "Expected Ranked ShapedType");
@@ -77,7 +77,7 @@ struct ONNXConvOpLoweringToMhlo : public ConversionPattern {
 
     // paddings
     DimsExpr pads = shapeHelper.pads;
-    llvm::StringRef padding = convOp.auto_pad();
+    llvm::StringRef padding = convOp.getAutoPad();
     int64_t spatialRank = rank - spatialOffset;
     SmallVector<int64_t> flattenPaddings;
     bool needPadding = (padding == "NOTSET");

@@ -33,10 +33,10 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
         rewriter, loc);
 
     // Operands and attributes.
-    Value data = operandAdaptor.data();
-    Value updates = operandAdaptor.updates();
-    Value indices = operandAdaptor.indices();
-    int64_t axis = scatterElements.axis();
+    Value data = operandAdaptor.getData();
+    Value updates = operandAdaptor.getUpdates();
+    Value indices = operandAdaptor.getIndices();
+    int64_t axis = scatterElements.getAxis();
     int64_t dataRank = data.getType().cast<MemRefType>().getRank();
     int64_t updatesRank = updates.getType().cast<MemRefType>().getRank();
     int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
@@ -65,8 +65,8 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
         rewriter, op, outputMemRefType, loc, dataDims);
 
     // Step1: copy the data array into the output array.
-    Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, data);
-    create.krnl.memcpy(output, data, sizeInBytes);
+    Value numOfElements = getDynamicMemRefSize(rewriter, loc, data);
+    create.krnl.memcpy(output, data, numOfElements);
 
     // Step2: scatter the updates array into the output array.
     //   index = indices[i][j]...[n]

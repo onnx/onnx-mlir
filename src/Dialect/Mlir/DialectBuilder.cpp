@@ -19,7 +19,7 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
@@ -94,6 +94,35 @@ Value MathBuilder::div(Value lhs, Value rhs) const {
     return b().create<arith::DivSIOp>(loc(), lhs, rhs);
 }
 
+Value MathBuilder::rem(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (lhs.getType().isa<FloatType>())
+    return b().create<arith::RemFOp>(loc(), lhs, rhs);
+  else if (lhs.getType().isUnsignedInteger())
+    return b().create<arith::RemUIOp>(loc(), lhs, rhs);
+  else
+    return b().create<arith::RemSIOp>(loc(), lhs, rhs);
+}
+
+Value MathBuilder::ceilDiv(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  assert(!lhs.getType().isa<FloatType>() && "int only");
+  if (lhs.getType().isUnsignedInteger())
+    return b().create<arith::CeilDivUIOp>(loc(), lhs, rhs);
+  else
+    return b().create<arith::CeilDivSIOp>(loc(), lhs, rhs);
+}
+
+Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  assert(!lhs.getType().isa<FloatType>() && "int only");
+  if (lhs.getType().isUnsignedInteger()) {
+    // Using regular unsigned div is ok as it rounds toward zero.
+    return b().create<arith::DivUIOp>(loc(), lhs, rhs);
+  } else
+    return b().create<arith::FloorDivSIOp>(loc(), lhs, rhs);
+}
+
 Value MathBuilder::exp(Value val) const {
   assert(val.getType().isa<FloatType>() && "Data type must be float.");
   return b().create<math::ExpOp>(loc(), val);
@@ -117,6 +146,16 @@ Value MathBuilder::sqrt(Value val) const {
 Value MathBuilder::pow(Value base, Value exp) const {
   assert(base.getType().isa<FloatType>() && "Data type must be float.");
   return b().create<math::PowFOp>(loc(), base, exp);
+}
+
+Value MathBuilder::ceil(Value val) const {
+  assert(val.getType().isa<FloatType>() && "Data type must be float.");
+  return b().create<math::CeilOp>(loc(), val);
+}
+
+Value MathBuilder::floor(Value val) const {
+  assert(val.getType().isa<FloatType>() && "Data type must be float.");
+  return b().create<math::FloorOp>(loc(), val);
 }
 
 Value MathBuilder::min(Value lhs, Value rhs) const {
@@ -228,16 +267,14 @@ Value MathBuilder::constantIndex(int64_t val) const {
   return b().create<arith::ConstantOp>(loc(), constantAttr);
 }
 
-Value MathBuilder::negativeInf(Type type) const {
-  Value constant = nullptr;
+Attribute MathBuilder::negativeInfAttr(mlir::Type type) const {
+  Attribute attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
-        constant = b().create<arith::ConstantOp>(loc(),
-            b().getF32FloatAttr(-std::numeric_limits<float>::infinity()));
+        attr = b().getF32FloatAttr(-std::numeric_limits<float>::infinity());
       })
       .Case<Float64Type>([&](Type) {
-        constant = b().create<arith::ConstantOp>(loc(),
-            b().getF64FloatAttr(-std::numeric_limits<double>::infinity()));
+        attr = b().getF64FloatAttr(-std::numeric_limits<double>::infinity());
       })
       .Case<IntegerType>([&](IntegerType type) {
         unsigned width = type.getWidth();
@@ -268,25 +305,21 @@ Value MathBuilder::negativeInf(Type type) const {
         default:
           llvm_unreachable("unsupported element type");
         }
-        constant = b().create<arith::ConstantOp>(
-            loc(), b().getIntegerAttr(type, APInt(width, value)));
+        attr = b().getIntegerAttr(type, APInt(width, value));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
-
-  assert(constant != nullptr && "Expecting valid constant value");
-  return constant;
+  assert(attr != nullptr && "Expecting valid attribute");
+  return attr;
 }
 
-Value MathBuilder::positiveInf(Type type) const {
-  Value constant = nullptr;
+Attribute MathBuilder::positiveInfAttr(mlir::Type type) const {
+  Attribute attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
-        constant = b().create<arith::ConstantOp>(
-            loc(), b().getF32FloatAttr(std::numeric_limits<float>::infinity()));
+        attr = b().getF32FloatAttr(std::numeric_limits<float>::infinity());
       })
       .Case<Float64Type>([&](Type) {
-        constant = b().create<arith::ConstantOp>(loc(),
-            b().getF64FloatAttr(std::numeric_limits<double>::infinity()));
+        attr = b().getF64FloatAttr(std::numeric_limits<double>::infinity());
       })
       .Case<IntegerType>([&](IntegerType type) {
         unsigned width = type.getWidth();
@@ -317,11 +350,23 @@ Value MathBuilder::positiveInf(Type type) const {
         default:
           llvm_unreachable("unsupported element type");
         }
-        constant = b().create<arith::ConstantOp>(
-            loc(), b().getIntegerAttr(type, APInt(width, value)));
+        attr = b().getIntegerAttr(type, APInt(width, value));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
+  assert(attr != nullptr && "Expecting valid attribute");
+  return attr;
+}
 
+Value MathBuilder::negativeInf(Type type) const {
+  Attribute attr = negativeInfAttr(type);
+  Value constant = b().create<arith::ConstantOp>(loc(), attr);
+  assert(constant != nullptr && "Expecting valid constant value");
+  return constant;
+}
+
+Value MathBuilder::positiveInf(Type type) const {
+  Attribute attr = positiveInfAttr(type);
+  Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
   return constant;
 }
@@ -637,7 +682,7 @@ Value MemRefBuilder::dim(Value val, Value index) const {
   //           val.getType().isa<UnrankedMemRefType>()) &&
   //       "memref::DimOp expects input operand to have MemRefType or "
   //       "UnrankedMemRefType");
-  return b().createOrFold<memref::DimOp>(loc(), val, index);
+  return Value(b().createOrFold<memref::DimOp>(loc(), val, index));
 }
 
 //===----------------------------------------------------------------------===//
@@ -882,6 +927,10 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 // LLVM Builder
 //===----------------------------------------------------------------------===//
 
+Value LLVMBuilder::add(Value lhs, Value rhs) const {
+  return b().create<LLVM::AddOp>(loc(), lhs, rhs);
+}
+
 Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
   return b().create<LLVM::AddressOfOp>(loc(), op);
 }
@@ -1019,8 +1068,16 @@ Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
       loc(), resultType, container, val, position);
 }
 
+Value LLVMBuilder::inttoptr(Type type, Value val) const {
+  return b().create<LLVM::IntToPtrOp>(loc(), type, val);
+}
+
 Value LLVMBuilder::load(Value addr) const {
   return b().create<LLVM::LoadOp>(loc(), addr);
+}
+
+Value LLVMBuilder::mul(Value lhs, Value rhs) const {
+  return b().create<LLVM::MulOp>(loc(), lhs, rhs);
 }
 
 Value LLVMBuilder::null(Type type) const {
@@ -1032,8 +1089,16 @@ Value LLVMBuilder::nullI8Ptr() const {
   return b().create<LLVM::NullOp>(loc(), I8PtrTy);
 }
 
+Value LLVMBuilder::ptrtoint(Type type, Value val) const {
+  return b().create<LLVM::PtrToIntOp>(loc(), type, val);
+}
+
 void LLVMBuilder::_return(Value val) const {
   b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({val}));
+}
+
+Value LLVMBuilder::sext(Type type, Value val) const {
+  return b().create<LLVM::SExtOp>(loc(), type, val);
 }
 
 void LLVMBuilder::store(Value val, Value addr) const {

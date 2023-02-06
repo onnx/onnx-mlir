@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -28,7 +29,7 @@ template <>
 LogicalResult ONNXBatchNormalizationInferenceModeOpShapeHelper::computeShape() {
   // Single output in inference mode, Y same shape as X.
   ONNXBatchNormalizationInferenceModeOpAdaptor operandAdaptor(operands);
-  return setOutputDimsFromOperand(operandAdaptor.X());
+  return setOutputDimsFromOperand(operandAdaptor.getX());
 }
 
 } // namespace onnx_mlir
@@ -36,28 +37,29 @@ LogicalResult ONNXBatchNormalizationInferenceModeOpShapeHelper::computeShape() {
 LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!hasShapeAndRank(X()) || !hasShapeAndRank(scale()) ||
-      !hasShapeAndRank(B()) || !hasShapeAndRank(mean()) ||
-      !hasShapeAndRank(var()))
+  if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getScale()) ||
+      !hasShapeAndRank(getB()) || !hasShapeAndRank(getMean()) ||
+      !hasShapeAndRank(getVar()))
     return success();
 
   // Verifier code.
-  auto inputTensorTy = X().getType().cast<RankedTensorType>();
-  auto scaleTensorTy = scale().getType().cast<RankedTensorType>();
-  auto biasTensorTy = B().getType().cast<RankedTensorType>();
-  auto meanTensorTy = mean().getType().cast<RankedTensorType>();
-  auto varianceTensorTy = var().getType().cast<RankedTensorType>();
+  auto inputTensorTy = getX().getType().cast<RankedTensorType>();
+  auto scaleTensorTy = getScale().getType().cast<RankedTensorType>();
+  auto biasTensorTy = getB().getType().cast<RankedTensorType>();
+  auto meanTensorTy = getMean().getType().cast<RankedTensorType>();
+  auto varianceTensorTy = getVar().getType().cast<RankedTensorType>();
 
   // Check whether the shapes of scale, bias, mean and variance are valid.
   // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
   // In case of N, C is assumed to be 1.
   // 2-D tensors are assumed to be of shape NxC
   // Shapes of scale, bias, mean and variance must be C.
-  int64_t c = -1;
+  int64_t c = ShapedType::kDynamic;
   if (inputTensorTy.getShape().size() == 1) {
     c = 1;
   } else if (inputTensorTy.getShape().size() >= 2) {
-    c = (!inputTensorTy.isDynamicDim(1)) ? inputTensorTy.getShape()[1] : -1;
+    c = (!inputTensorTy.isDynamicDim(1)) ? inputTensorTy.getShape()[1]
+                                         : ShapedType::kDynamic;
   }
 
   if (!ShapedType::isDynamic(c)) {
@@ -77,7 +79,7 @@ LogicalResult ONNXBatchNormalizationInferenceModeOp::inferShapes(
   }
 
   // The output tensor of the same shape as the input.
-  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
   ONNXBatchNormalizationInferenceModeOpShapeHelper shapeHelper(
       getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
@@ -96,9 +98,9 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
   ONNXInstanceNormalizationOpAdaptor operandAdaptor =
       ONNXInstanceNormalizationOpAdaptor(*this);
   // Get operands.
-  auto input = operandAdaptor.input();
-  auto scale = operandAdaptor.scale();
-  auto B = operandAdaptor.B();
+  auto input = operandAdaptor.getInput();
+  auto scale = operandAdaptor.getScale();
+  auto B = operandAdaptor.getB();
 
   // Check input.
   if (!hasShapeAndRank(input)) {

@@ -8,6 +8,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   Math/Elementwise.cpp
   Math/Softmax.cpp
   NN/MaxPoolSingleOut.cpp
+  Tensor/Constant.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps

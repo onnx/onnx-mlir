@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -68,7 +69,7 @@ Value OnnxToKrnlBuilder::reshape(
 
   // Now create the 'onnx.Reshape' operation. Because the shape is not a
   // compile time constant it is effectively unknown.
-  SmallVector<int64_t> shape(length, -1);
+  SmallVector<int64_t> shape(length, ShapedType::kDynamic);
   Value reshapeRes =
       create.onnx.reshape(MemRefType::get(shape, elementType), input, alloc);
 
@@ -76,7 +77,8 @@ Value OnnxToKrnlBuilder::reshape(
   // need to explicitly cast the result to the know size.
   SmallVector<int64_t, 6> castOutputShape;
   for (const IndexExpr &dim : shapeDims)
-    castOutputShape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
+    castOutputShape.push_back(
+        dim.isLiteral() ? dim.getLiteral() : ShapedType::kDynamic);
 
   Value castRes = create.mem.cast(create.onnx.toMemref(reshapeRes),
       MemRefType::get(castOutputShape, elementType));
@@ -95,7 +97,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   // Compute the shape of the 'onnx.Transpose' result.
   SmallVector<int64_t, 6> shape;
   for (const IndexExpr &dim : outputDims)
-    shape.push_back(dim.isLiteral() ? dim.getLiteral() : -1);
+    shape.push_back(dim.isLiteral() ? dim.getLiteral() : ShapedType::kDynamic);
 
   // Create the "onnx.Transpose" operation.
   ShapedType inputType = input.getType().cast<ShapedType>();
@@ -339,11 +341,11 @@ DenseElementsAttr getDenseElementAttrFromConstValue(mlir::Value value) {
     definingOp = castOp.getOperand(0).getDefiningOp();
   }
   if (auto globalOp = dyn_cast_or_null<KrnlGlobalOp>(definingOp)) {
-    if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    if (globalOp.getValue().has_value())
+      return globalOp.getValueAttr().dyn_cast<DenseElementsAttr>();
   } else if (auto constOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
-    if (constOp.value().has_value())
-      return constOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    if (constOp.getValue().has_value())
+      return constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
   }
   return nullptr;
 }
@@ -426,7 +428,7 @@ std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
         create.onnx.toTensor(input),
         /*axis=*/axis, nullptr);
     for (int i = 0; i < outputNum; ++i)
-      resVals.emplace_back(create.onnx.toMemref(split.outputs()[i]));
+      resVals.emplace_back(create.onnx.toMemref(split.getOutputs()[i]));
   }
   return resVals;
 }
@@ -741,7 +743,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
                                ValueRange inputs,
                                Location loc) -> Optional<Value> {
     if (inputs.size() != 1)
-      return llvm::None;
+      return std::nullopt;
 
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
@@ -751,7 +753,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
                                ValueRange inputs,
                                Location loc) -> Optional<Value> {
     if (inputs.size() != 1)
-      return llvm::None;
+      return std::nullopt;
 
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);

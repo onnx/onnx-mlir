@@ -14,6 +14,7 @@ set(MHLO_LIBS
   StablehloOps
   StablehloRegister
   StablehloTypeInference
+  VhloOps
   )
 
 install(TARGETS
@@ -26,11 +27,13 @@ add_onnx_mlir_library(OMONNXToMhlo
   ONNXToMhloCommon.cpp
   DialectBuilder.cpp
 
+  Math/Clip.cpp
   Math/Elementwise.cpp
   Math/Gemm.cpp
   Math/MatMul.cpp
   Math/Reduction.cpp
   NN/Conv.cpp
+  NN/ConvTranspose.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp
   Tensor/ArgMax.cpp

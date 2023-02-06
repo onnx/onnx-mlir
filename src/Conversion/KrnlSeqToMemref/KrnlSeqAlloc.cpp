@@ -49,7 +49,7 @@ public:
     auto outputType = outputSeq.getType().cast<MemRefType>();
     Value alloc;
     if (outputType.isDynamicDim(0))
-      alloc = create.mem.alloc(outputType, operandAdaptor.length());
+      alloc = create.mem.alloc(outputType, operandAdaptor.getLength());
     else
       alloc = create.mem.alloc(outputType);
     rewriter.replaceOp(op, alloc);

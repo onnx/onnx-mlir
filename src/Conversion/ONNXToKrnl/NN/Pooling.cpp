@@ -65,7 +65,7 @@ template <>
 std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
     ONNXMaxPoolSingleOutOp poolOp) {
   std::vector<int64_t> dilations;
-  auto dilationsAttribute = poolOp.dilationsAttr();
+  auto dilationsAttribute = poolOp.getDilationsAttr();
   bool isDefaultDilations = true;
   for (auto dilation : dilationsAttribute.getValue()) {
     int64_t dilationValue = dilation.cast<IntegerAttr>().getInt();
@@ -84,14 +84,14 @@ std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
 //
 template <typename PoolOp>
 llvm::Optional<ArrayAttr> getDilationAttr(PoolOp poolOp) {
-  return llvm::None;
+  return std::nullopt;
 }
 
 // MaxPool has dilations attribute.
 template <>
 llvm::Optional<ArrayAttr> getDilationAttr<ONNXMaxPoolSingleOutOp>(
     ONNXMaxPoolSingleOutOp poolOp) {
-  return poolOp.dilations();
+  return poolOp.getDilations();
 }
 
 //===----------------------------------------------------------------------===//
@@ -105,7 +105,7 @@ bool getCountIncludePad(PoolOp poolOp) {
 // AveragePool has count_include_pad attribute.
 template <>
 bool getCountIncludePad<ONNXAveragePoolOp>(ONNXAveragePoolOp poolOp) {
-  return (poolOp.count_include_pad() == 1);
+  return (poolOp.getCountIncludePad() == 1);
 }
 
 //===----------------------------------------------------------------------===//
@@ -214,10 +214,10 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Read ceil_mode attribute
-    auto ceilMode = poolOp.ceil_mode();
+    auto ceilMode = poolOp.getCeilMode();
 
     // Type information about the input and result of this operation.
-    Value inputOperand = operandAdaptor.X();
+    Value inputOperand = operandAdaptor.getX();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
 
     // Convert the output type to MemRefType.
@@ -445,7 +445,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
           }
           KrnlIterateOp iterateOp = create.krnl.iterate(pack);
           auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
-          Block &iterationBlock = iterateOp.bodyRegion().front();
+          Block &iterationBlock = iterateOp.getBodyRegion().front();
           rewriter.setInsertionPointToStart(&iterationBlock);
           SmallVector<Value, 4> poolingLoopInd(
               iterationBlock.getArguments().begin(),

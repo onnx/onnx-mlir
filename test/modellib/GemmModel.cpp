@@ -85,11 +85,11 @@ bool GemmLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(aShape), dataRangeLB, dataRangeUB);
+      llvm::ArrayRef(aShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(bShape), dataRangeLB, dataRangeUB);
+      llvm::ArrayRef(bShape), dataRangeLB, dataRangeUB);
   list[2] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(cShape), dataRangeLB, dataRangeUB);
+      llvm::ArrayRef(cShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreateWithOwnership(list, num, true);
   return inputs && list[0] && list[1] && list[2];
 }

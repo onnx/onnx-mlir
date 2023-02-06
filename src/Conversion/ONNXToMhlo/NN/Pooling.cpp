@@ -22,6 +22,27 @@ namespace onnx_mlir {
 
 namespace {
 
+static Value createInitialValueForPoolingOp(
+    Operation *op, Type elemType, ConversionPatternRewriter &rewriter) {
+  Location loc = op->getLoc();
+  if (isa<ONNXMaxPoolSingleOutOp>(op)) {
+    // returns negative infinity
+    return rewriter.create<mhlo::ConstantOp>(
+        loc, rewriter.getFloatAttr(elemType,
+                 APFloat::getInf(elemType.cast<FloatType>().getFloatSemantics(),
+                     /*isNegative=*/true)));
+  }
+  if (isa<ONNXAveragePoolOp>(op)) {
+    // returns negative infinity
+    return rewriter.create<mhlo::ConstantOp>(loc,
+        rewriter.getFloatAttr(elemType,
+            APFloat::getZero(elemType.cast<FloatType>().getFloatSemantics(),
+                /*isNegative=*/false)));
+  }
+  op->emitError("unimplemented lowering for onnx pooling op\n");
+  return nullptr;
+}
+
 // Builds body for reduce op by using the template binary op as the
 // reducer op.
 template <typename Op>
@@ -38,12 +59,18 @@ void buildReduceBody(Type elementType, Region *body, OpBuilder *builder) {
 }
 
 template <typename Op>
-void buildReduceBodyFor(Type elementType, Region *body, OpBuilder *builder) {}
+void buildReduceBodyFor(Type elementType, Region *body, OpBuilder *builder);
 
 template <>
 void buildReduceBodyFor<ONNXMaxPoolSingleOutOp>(
     Type elementType, Region *body, OpBuilder *builder) {
   buildReduceBody<mhlo::MaxOp>(elementType, body, builder);
+}
+
+template <>
+void buildReduceBodyFor<ONNXAveragePoolOp>(
+    Type elementType, Region *body, OpBuilder *builder) {
+  buildReduceBody<mhlo::AddOp>(elementType, body, builder);
 }
 
 static DenseIntElementsAttr getDenseIntElementsAttr(
@@ -96,7 +123,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
     DimsExpr outputDims = shapeHelper.getOutputDims();
 
     // Type information about the input and result of this operation.
-    Value inputOperand = operandAdaptor.X();
+    Value inputOperand = operandAdaptor.getX();
     RankedTensorType inputType =
         inputOperand.getType().dyn_cast_or_null<RankedTensorType>();
     if (inputType == nullptr)
@@ -106,16 +133,15 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
     Type outputType = *op->result_type_begin();
     int64_t spatialOffset = 2;
     int64_t rank = inputType.getRank();
-    int64_t ceilMode = poolOp.ceil_mode();
+    int64_t ceilMode = poolOp.getCeilMode();
 
-    Value negInfinity = rewriter.create<mhlo::ConstantOp>(
-        loc, rewriter.getFloatAttr(elemType,
-                 APFloat::getInf(elemType.cast<FloatType>().getFloatSemantics(),
-                     /*isNegative=*/true)));
+    Value initVal = createInitialValueForPoolingOp(op, elemType, rewriter);
+    if (initVal == nullptr)
+      return failure();
 
     // paddings
     llvm::SmallVector<IndexExpr, 4> pads = shapeHelper.pads;
-    llvm::StringRef padding = poolOp.auto_pad();
+    llvm::StringRef padding = poolOp.getAutoPad();
     int64_t spatialRank = rank - spatialOffset;
     SmallVector<int64_t> flattenPaddings;
     for (int64_t i = 0; i < 2 * spatialOffset; i++)
@@ -140,7 +166,7 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
     padVector(dilations, spatialOffset, 1);
     mhlo::ReduceWindowOp reduce =
         rewriter.create<mhlo::ReduceWindowOp>(loc, outputType, inputOperand,
-            negInfinity, getKernelAttr(kernelShape, &rewriter, spatialOffset),
+            initVal, getKernelAttr(kernelShape, &rewriter, spatialOffset),
             getDenseIntElementsAttr(strides, &rewriter),
             /*base_dilations=*/DenseIntElementsAttr(),
             /*window_dilations=*/getDenseIntElementsAttr(dilations, &rewriter),
@@ -148,7 +174,42 @@ struct ONNXPoolOpLoweringToMhlo : public ConversionPattern {
                 RankedTensorType::get({rank, 2}, rewriter.getI64Type()),
                 flattenPaddings));
     buildReduceBodyFor<PoolOp>(elemType, &reduce.getBody(), &rewriter);
-    rewriter.replaceOp(op, reduce->getResults());
+
+    if (isa<ONNXAveragePoolOp>(op)) {
+      Value reduceResult = reduce.getResult(0);
+      int64_t countIncludePad =
+          llvm::cast<ONNXAveragePoolOp>(op).getCountIncludePad();
+      if (countIncludePad) {
+        // Use kernel size as the divisor
+        int64_t kernelSize = 1;
+        for (int64_t i = 0; i < spatialRank; i++) {
+          kernelSize *= kernelShape[i].getLiteral();
+        }
+        Value divisor = getShapedFloat(loc, rewriter, kernelSize, reduceResult);
+        Value divResult = rewriter.create<mhlo::DivOp>(
+            loc, outputType, reduceResult, divisor);
+        rewriter.replaceOp(op, divResult);
+      } else {
+        // Use another mhlo.ReduceWindowOp to get the divisor
+        Value one = getShapedFloat(loc, rewriter, 1.0, inputOperand);
+        mhlo::ReduceWindowOp reduceDivisor = rewriter.create<
+            mhlo::ReduceWindowOp>(loc, outputType, one, initVal,
+            getKernelAttr(kernelShape, &rewriter, spatialOffset),
+            getDenseIntElementsAttr(strides, &rewriter),
+            /*base_dilations=*/DenseIntElementsAttr(),
+            /*window_dilations=*/getDenseIntElementsAttr(dilations, &rewriter),
+            DenseIntElementsAttr::get(
+                RankedTensorType::get({rank, 2}, rewriter.getI64Type()),
+                flattenPaddings));
+        buildReduceBodyFor<ONNXAveragePoolOp>(
+            elemType, &reduceDivisor.getBody(), &rewriter);
+        Value divResult = rewriter.create<mhlo::DivOp>(
+            loc, outputType, reduceResult, reduceDivisor.getResult(0));
+        rewriter.replaceOp(op, divResult);
+      }
+    } else {
+      rewriter.replaceOp(op, reduce->getResults());
+    }
     return success();
   }
 };
@@ -159,6 +220,8 @@ void populateLoweringONNXPoolingOpToMhloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXPoolOpLoweringToMhlo<ONNXMaxPoolSingleOutOp,
       ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>>(ctx);
+  patterns.insert<ONNXPoolOpLoweringToMhlo<ONNXAveragePoolOp,
+      ONNXAveragePoolOpAdaptor, ONNXAveragePoolOpShapeHelper>>(ctx);
 }
 
 } // namespace onnx_mlir

@@ -24,12 +24,14 @@ namespace onnx_mlir {
 void populateONNXToMhloConversionPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   // Math
+  populateLoweringONNXClipOpToMhloPattern(patterns, ctx);
   populateLoweringONNXElementwiseOpToMhloPattern(patterns, ctx);
   populateLoweringONNXGemmOpToMhloPattern(patterns, ctx);
   populateLoweringONNXMatMulOpToMhloPattern(patterns, ctx);
   populateLoweringONNXReductionOpToMhloPattern(patterns, ctx);
   // Neural network
   populateLoweringONNXConvOpToMhloPattern(patterns, ctx);
+  populateLoweringONNXConvTransposeOpToMhloPattern(patterns, ctx);
   populateLoweringONNXNormalizationOpToMhloPattern(patterns, ctx);
   populateLoweringONNXPoolingOpToMhloPattern(patterns, ctx);
   // Tensor

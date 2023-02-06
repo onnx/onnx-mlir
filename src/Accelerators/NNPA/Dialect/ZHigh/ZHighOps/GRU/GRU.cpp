@@ -28,12 +28,12 @@ LogicalResult ZHighGRUOpShapeHelper::computeShape() {
   ZHighGRUOp::Adaptor operandAdaptor(operands);
   // Get operands.
   // X: [S, B, I]
-  Value X = operandAdaptor.input();
+  Value X = operandAdaptor.getInput();
   // R: [D, H, H]
-  Value R = operandAdaptor.hidden_weights();
+  Value R = operandAdaptor.getHiddenWeights();
 
   // Return all timesteps or only the final step;
-  bool isAllTimesteps = (gruOp.return_all_steps() == -1) ? true : false;
+  bool isAllTimesteps = (gruOp.getReturnAllSteps() == -1) ? true : false;
 
   // Get bounds
   SmallVector<IndexExpr, 4> XDims, RDims;
@@ -90,13 +90,13 @@ LogicalResult ZHighGRUOpShapeHelper::computeShape() {
 LogicalResult ZHighGRUOp::verify() {
   ZHighGRUOpAdaptor operandAdaptor(*this);
   // Get operands.
-  Value W = operandAdaptor.input_weights();
-  Value R = operandAdaptor.hidden_weights();
-  Value WB = operandAdaptor.input_bias();
-  Value RB = operandAdaptor.hidden_bias();
+  Value W = operandAdaptor.getInputWeights();
+  Value R = operandAdaptor.getHiddenWeights();
+  Value WB = operandAdaptor.getInputBias();
+  Value RB = operandAdaptor.getHiddenBias();
 
   // Hidden size attribute.
-  int64_t hiddenSize = hidden_size();
+  int64_t hiddenSize = getHiddenSize();
 
   // Verify hidden size in W.
   if (hasRankedType(W)) {
@@ -138,7 +138,7 @@ LogicalResult ZHighGRUOp::verify() {
 
 LogicalResult ZHighGRUOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(input()) || !hasRankedType(hidden_weights()))
+  if (!hasRankedType(getInput()) || !hasRankedType(getHiddenWeights()))
     return success();
 
   Type elementType = getResult().getType().cast<ShapedType>().getElementType();

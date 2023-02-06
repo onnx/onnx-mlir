@@ -24,23 +24,44 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-template <>
 LogicalResult ONNXResizeOpShapeHelper::computeShape() {
   ONNXResizeOpAdaptor operandAdaptor(operands);
-  Value input = operandAdaptor.X();
-  uint64_t rank = createIE->getShapedTypeRank(input);
-  DimsExpr outputDims;
+  uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.getX());
+  DimsExpr inputDims, outputDims;
+  createIE->getShapeAsDims(operandAdaptor.getX(), inputDims);
+  bool scalesFromNone = isFromNone(operandAdaptor.getScales());
 
-  bool scalesFromNone = isFromNone(operandAdaptor.scales());
   if (!scalesFromNone) {
-    createIE->getShapeAsDims(input, outputDims);
-    DimsExpr scales;
-    createIE->getIntFromArrayAsSymbols(operandAdaptor.scales(), scales);
-    for (uint64_t i = 0; i < rank; ++i)
-      outputDims[i] = outputDims[i] * scales[i];
+    // Read and save scales as float.
+    createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getScales(), scales);
+    if (inputDims.size() != scales.size())
+      return op->emitError("expected scales to have the same rank as input");
+    // Compute output dims = int(floor(float(input dims) * scales)).
+    for (uint64_t i = 0; i < rank; ++i) {
+      // Special case for scale == 1.0 as converts are then needed.
+      if (scales[i].isLiteralAndIdenticalTo(1.0)) {
+        outputDims.emplace_back(inputDims[i]);
+      } else {
+        IndexExpr floatInputDim = inputDims[i].convertToFloat();
+        IndexExpr floatProduct = floatInputDim * scales[i];
+        // Formula has a floor, but convert of positive number already rounds
+        // toward zero, so skip the floor.
+        outputDims.emplace_back(floatProduct.convertToIndex());
+      }
+    }
   } else {
-    createIE->getIntFromArrayAsSymbols(operandAdaptor.sizes(), outputDims);
+    // Output size is defined by input `sizes`.
+    createIE->getIntFromArrayAsSymbols(operandAdaptor.getSizes(), outputDims);
+    if (inputDims.size() != outputDims.size())
+      return op->emitError("expected scales to have the same rank as input");
+    // Compute scales as float(output dims) / float(input dims).
+    for (uint64_t i = 0; i < rank; ++i) {
+      IndexExpr floatInputDim = inputDims[i].convertToFloat();
+      IndexExpr floatOutputDim = outputDims[i].convertToFloat();
+      scales.emplace_back(floatOutputDim / floatInputDim);
+    }
   }
+  // Save output dims
   setOutputDims(outputDims);
   return success();
 }
@@ -52,18 +73,19 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXResizeOp::verify() {
-  if (!hasShapeAndRank(X())) {
+  if (!hasShapeAndRank(getX())) {
     return success();
   }
 
-  bool scalesFromNone = isFromNone(scales());
-  bool sizesFromNone = isFromNone(sizes());
+  bool scalesFromNone = isFromNone(getScales());
+  bool sizesFromNone = isFromNone(getSizes());
   if (scalesFromNone == sizesFromNone) {
     if (scalesFromNone)
       return emitError("scales() and sizes() can not be both None");
     else
-      return emitError("scales() and sizes() can not be both defined");
+      return emitError("scales() and getSizes() can not be both defined");
   }
+  // Should test the sizes of scales or size to be the same as the rank of X.
   return success();
 }
 
@@ -73,54 +95,10 @@ LogicalResult ONNXResizeOp::verify() {
 
 LogicalResult ONNXResizeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X()))
+  if (!hasShapeAndRank(getX()))
     return success();
 
-  // TODO : Remove this if branch once floating point scales are handled in
-  // ONNXResizeOpShapeHelper Issue number : #1958
-  if (!isFromNone(scales())) {
-    auto inputTy = X().getType().cast<RankedTensorType>();
-
-    // Output should at least has the same rank as X input
-    if (!getResult().getType().isa<RankedTensorType>()) {
-      SmallVector<int64_t, 4> dims(inputTy.getRank(), -1);
-      getResult().setType(
-          RankedTensorType::get(dims, inputTy.getElementType()));
-    }
-
-    ElementsAttr scalesAttrs = getElementAttributeFromONNXValue(scales());
-    if (!scalesAttrs) {
-      return success();
-    }
-
-    SmallVector<float, 4> scalesConstant;
-    for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
-      scalesConstant.emplace_back(scaleAttr.getValueAsDouble());
-    }
-
-    SmallVector<int64_t, 4> dims;
-    for (int i = 0; i < inputTy.getRank(); i++) {
-      int newDim;
-      if (ShapedType::isDynamic(inputTy.getShape()[i]))
-        newDim = -1;
-      else
-        newDim = inputTy.getShape()[i] * scalesConstant[i];
-      dims.emplace_back(newDim);
-    }
-
-    updateType(getResult(), dims, inputTy.getElementType());
-    return success();
-  }
-
-  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
   ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
-
-//===----------------------------------------------------------------------===//
-// Template instantiation
-//===----------------------------------------------------------------------===//
-
-namespace onnx_mlir {
-template struct ONNXNonSpecificOpShapeHelper<ONNXResizeOp>;
-} // namespace onnx_mlir

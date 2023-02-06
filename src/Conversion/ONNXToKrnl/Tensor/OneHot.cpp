@@ -28,8 +28,8 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXOneHotOpAdaptor operandAdaptor(operands);
     Location loc = op->getLoc();
-    Value indices = operandAdaptor.indices();
-    Value values = operandAdaptor.values();
+    Value indices = operandAdaptor.getIndices();
+    Value values = operandAdaptor.getValues();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
         rewriter, loc);
 
