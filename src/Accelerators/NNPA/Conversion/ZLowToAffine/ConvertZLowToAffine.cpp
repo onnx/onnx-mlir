@@ -68,7 +68,8 @@ void ConvertZLowToAffinePass::runOnOperation() {
   ConversionTarget target(*ctx);
   target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithDialect,
       mlir::memref::MemRefDialect, mlir::func::FuncDialect,
-      mlir::vector::VectorDialect, onnx_mlir::zlow::ZLowDialect>();
+      mlir::vector::VectorDialect, onnx_mlir::zlow::ZLowDialect,
+      mlir::KrnlDialect>();
 
   // These ops will be lowered to affine.
   target.addIllegalOp<ZLowAttachLayoutOp>();
