@@ -277,7 +277,7 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
 
-  Value x = scalarOperands[0];
+  Value x = scalarOperands[0]; // x-> input
   Value result;
 
   MathBuilder createMath(rewriter, loc);
@@ -285,8 +285,8 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   double negInf = -INFINITY;
   Value pinf = createMath.constant(x.getType(), posInf);
   Value ninf = createMath.constant(x.getType(), negInf);
-  int64_t detectNegAttribute = llvm::cast<ONNXIsInfOp>(op).getDetectNegative();
-  int64_t detectPosAttribute = llvm::cast<ONNXIsInfOp>(op).getDetectPositive();
+  int64_t detectNegAttribute = llvm::dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
+  int64_t detectPosAttribute = llvm::dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
 
   if (detectNegAttribute == 0) {
     // Check if input == pinf and return true otherwise return false for
