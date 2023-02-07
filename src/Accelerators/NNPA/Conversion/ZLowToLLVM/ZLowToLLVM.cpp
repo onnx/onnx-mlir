@@ -1885,8 +1885,8 @@ public:
 
     // Emit SIMD instruction for conversion.
     // TODO: check if z/OS uses the same or different instruction.
-    const char *asmStr = "VCLFNH $0,$1,0,2 \n\t ";
-    const char *asmConstraints = "=&v,v";
+    const char *asmStr = "VCLFNH $0,$2,0,2 \n\t VCLFNL $1,$2,0,2 \n\t ";
+    const char *asmConstraints = "=&v,=v,v";
     SmallVector<Value> asmVals{inputVecI16};
     Value outVecI32Struct =
         rewriter
