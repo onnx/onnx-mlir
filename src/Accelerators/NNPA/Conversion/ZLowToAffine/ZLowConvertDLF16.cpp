@@ -114,12 +114,13 @@ public:
           MultiDialectBuilder<AffineBuilder, KrnlBuilder, MathBuilder,
               MemRefBuilder, VectorBuilder>
               create(createAffine);
+          Value startPos = create.math.mul(cacheIdx, cacheSizeVal);
           // Prepare a temp buffer for input.
           Value InTmp = create.mem.alignedAlloc(
               MemRefType::get({cacheSize}, inputElementType), 64);
           // Copy data to the temp input buffer.
           create.krnl.memcpy(
-              InTmp, input1D, cacheSizeVal, zero.getValue(), cacheIdx);
+              InTmp, input1D, cacheSizeVal, zero.getValue(), startPos);
           // Prepare a temp buffer for output.
           Value OutTmp = create.mem.alignedAlloc(
               MemRefType::get({cacheSize}, outputElementType), 64);
@@ -164,7 +165,7 @@ public:
 
           // Copy data from the temp output buffer to the final output.
           create.krnl.memcpy(
-              output1D, OutTmp, cacheSizeVal, cacheIdx, zero.getValue());
+              output1D, OutTmp, cacheSizeVal, startPos, zero.getValue());
 
           // Value x = createAffine.load(input1D, {idx});
           // Value converted;
