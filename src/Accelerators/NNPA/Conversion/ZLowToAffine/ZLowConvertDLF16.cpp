@@ -107,28 +107,28 @@ public:
     int64_t cacheBound = 32;
     int64_t cacheSize = cacheBound * unrollFactor * VL;
     int64_t bufferAlignment = 64;
-    Value cacheSizeVal = create.math.constant(i64Type, cacheSize);
+    Value cacheSizeI64 = create.math.constant(i64Type, cacheSize);
+
     VectorType vecF32 = VectorType::get({VLHalf}, rewriter.getF32Type());
     VectorType vecF16 = VectorType::get({VL}, rewriter.getF16Type());
+    MemRefType InCacheType = MemRefType::get({cacheSize}, inputElementType);
+    MemRefType OutCacheType = MemRefType::get({cacheSize}, outputElementType);
+
     create.affine.forIE(zero, numOfElements, cacheSize,
-        [&](AffineBuilder &createAffine, Value cacheIdx) {
+        [&](AffineBuilder &createAffine, Value startPos) {
           MultiDialectBuilder<AffineBuilder, KrnlBuilder, MathBuilder,
               MemRefBuilder, VectorBuilder>
               create(createAffine);
-          Value startPos =
-              create.math.mul(cacheIdx, create.math.constantIndex(cacheSize));
+          Value zeroPos = zero.getValue();
           // Prepare a temp buffer for input.
-          Value InTmp = create.mem.alignedAlloc(
-              MemRefType::get({cacheSize}, inputElementType), bufferAlignment);
+          Value InTmp = create.mem.alignedAlloc(InCacheType, bufferAlignment);
           // Copy data to the temp input buffer.
-          create.krnl.memcpy(
-              InTmp, input1D, cacheSizeVal, zero.getValue(), startPos);
+          create.krnl.memcpy(InTmp, input1D, cacheSizeI64, zeroPos, startPos);
           // Prepare a temp buffer for output.
-          Value OutTmp = create.mem.alignedAlloc(
-              MemRefType::get({cacheSize}, outputElementType), bufferAlignment);
+          Value OutTmp = create.mem.alignedAlloc(OutCacheType, bufferAlignment);
 
           // Computation loop.
-          create.affine.forIE(zero, DimIndexExpr(cacheSizeVal),
+          create.affine.forIE(zero, LiteralIndexExpr(cacheSize),
               unrollFactor * VL, [&](AffineBuilder &createAffine, Value idx) {
                 MultiDialectBuilder<AffineBuilder, MathBuilder, VectorBuilder>
                     create(createAffine);
@@ -166,8 +166,7 @@ public:
               });
 
           // Copy data from the temp output buffer to the final output.
-          create.krnl.memcpy(
-              output1D, OutTmp, cacheSizeVal, startPos, zero.getValue());
+          create.krnl.memcpy(output1D, OutTmp, cacheSizeI64, startPos, zeroPos);
 
           // Value x = createAffine.load(input1D, {idx});
           // Value converted;
