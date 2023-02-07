@@ -492,13 +492,13 @@ def ZLowAttachLayoutOp:ZLow_Op<"attach_layout", [Pure]> {
   This operations creates a new MemRef by attaching a layout affine map to
   the input MemRef.
   }];
-  let arguments = (ins MemRefOf<[F32]>:$input, AffineMapAttr:$layout);
+  let arguments = (ins MemRefOf<[F32]>:$input, AffineMapAttr:$layout, StrAttr:$layout_name);
   let results = (outs MemRefOf<[F32]>:$output);
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$input, "::mlir::AffineMapAttr":$layout), [{
+    OpBuilder<(ins "::mlir::Value":$input, "::mlir::AffineMapAttr":$layout, "::mlir::StringAttr":$layout_name), [{
       auto inputTy = input.getType().cast<MemRefType>();
       Type resTy = MemRefType::Builder(inputTy).setLayout(layout);
-      build($_builder, $_state, resTy, input, layout);
+      build($_builder, $_state, resTy, input, layout, layout_name);
     }]>
   ];
   // TODO
@@ -511,13 +511,13 @@ def ZLowDetachLayoutOp:ZLow_Op<"detach_layout", [Pure]> {
   This operations creates a new MemRef by detaching a layout affine map from 
   the input MemRef.
   }];
-  let arguments = (ins MemRefOf<[F32]>:$input);
+  let arguments = (ins MemRefOf<[F32]>:$input, StrAttr:$layout_name);
   let results = (outs MemRefOf<[F32]>:$output);
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$input), [{
+    OpBuilder<(ins "::mlir::Value":$input, "::mlir::StringAttr":$layout_name), [{
       auto inputTy = input.getType().cast<MemRefType>();
       Type resTy = MemRefType::Builder(inputTy).setLayout({});
-      build($_builder, $_state, resTy, input);
+      build($_builder, $_state, resTy, input, layout_name);
     }]>
   ];
   // TODO

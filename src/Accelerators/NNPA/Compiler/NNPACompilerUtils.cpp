@@ -141,6 +141,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         addKrnlToAffinePasses(pm);
         // Loop sinking optimization.
         pm.addPass(zlow::createZLowLoopSinkingPass());
+        // Fuse zlow ops that cannot be sinked.
+        pm.addPass(zlow::createZLowFusionPass());
         // Lower some zlow ops to affine
         pm.addPass(zlow::createConvertZLowToAffinePass());
         pm.addPass(mlir::createCanonicalizerPass());

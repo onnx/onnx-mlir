@@ -47,3 +47,17 @@ add_onnx_mlir_library(OMZLowLoopSinking
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
   )
+
+add_onnx_mlir_library(OMZLowFusion
+  ZLowFusion.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRFuncDialect
+  MLIRRewrite
+  MLIRTransformUtils
+  OMZLowOps
+  OMONNXToKrnl # this is due to calling insertAllocAndDeallocSimple
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
+  )

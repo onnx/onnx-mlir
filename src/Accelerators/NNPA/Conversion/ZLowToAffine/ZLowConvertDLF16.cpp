@@ -111,7 +111,8 @@ public:
               createAffine);
           // Manually unroll for simplicity.
           for (int64_t i = 0; i < unrollFactor; ++i) {
-            Value baseIdx = create.math.constantIndex(VL * i);
+            Value baseIdx =
+                create.math.add(idx, create.math.constantIndex(VL * i));
             Value offset = create.math.constantIndex(VLHalf);
             if (fromF32) {
               // F32 -> DLF16

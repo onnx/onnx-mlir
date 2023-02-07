@@ -66,14 +66,14 @@ public:
     Operation *op = detachOp.getOperation();
     Value input = detachOp.getInput();
     Value output = detachOp.getOutput();
+    std::string layoutName = detachOp.getLayoutNameAttr().str();
 
     // 1. Match
 
-    // TODO: how to get layout?
     // Do not support layout 1D and 2DS since their access index functions are
     // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
-    // if ((layout == LAYOUT_1D) || (layout == LAYOUT_2DS))
-    //   return failure();
+    if ((layoutName == LAYOUT_1D) || (layoutName == LAYOUT_2DS))
+      return failure();
 
     // Collect affine.load operations for sinking.
     // Condition for transformation: all affine.load, memref.dim and
@@ -111,6 +111,7 @@ public:
     Operation *op = attachOp.getOperation();
     Value input = attachOp.getInput();
     Value output = attachOp.getOutput();
+    std::string layoutName = attachOp.getLayoutNameAttr().str();
 
     // 1. Match
 
@@ -121,11 +122,10 @@ public:
     if (!isa<memref::AllocOp>(allocOp))
       return failure();
 
-    // TODO: how to get layout?
     // Do not support layout 1D and 2DS since their access index functions are
     // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
-    // if ((layout == LAYOUT_1D) || (layout == LAYOUT_2DS))
-    //   return failure();
+    if ((layoutName == LAYOUT_1D) || (layoutName == LAYOUT_2DS))
+      return failure();
 
     // Collect affine.store operations for sinking.
     // Condition for transformation: all affine.store and zlow.attach_layout are
