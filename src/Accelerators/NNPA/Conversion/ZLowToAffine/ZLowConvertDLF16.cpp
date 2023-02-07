@@ -106,6 +106,7 @@ public:
     int64_t unrollFactor = 8;
     int64_t cacheBound = 32;
     int64_t cacheSize = cacheBound * unrollFactor * VL;
+    int64_t bufferAlignment = 64;
     Value cacheSizeVal = create.math.constant(i64Type, cacheSize);
     VectorType vecF32 = VectorType::get({VLHalf}, rewriter.getF32Type());
     VectorType vecF16 = VectorType::get({VL}, rewriter.getF16Type());
@@ -114,16 +115,17 @@ public:
           MultiDialectBuilder<AffineBuilder, KrnlBuilder, MathBuilder,
               MemRefBuilder, VectorBuilder>
               create(createAffine);
-          Value startPos = create.math.mul(cacheIdx, cacheSizeVal);
+          Value startPos =
+              create.math.mul(cacheIdx, create.math.constantIndex(cacheSize));
           // Prepare a temp buffer for input.
           Value InTmp = create.mem.alignedAlloc(
-              MemRefType::get({cacheSize}, inputElementType), 64);
+              MemRefType::get({cacheSize}, inputElementType), bufferAlignment);
           // Copy data to the temp input buffer.
           create.krnl.memcpy(
               InTmp, input1D, cacheSizeVal, zero.getValue(), startPos);
           // Prepare a temp buffer for output.
           Value OutTmp = create.mem.alignedAlloc(
-              MemRefType::get({cacheSize}, outputElementType), 64);
+              MemRefType::get({cacheSize}, outputElementType), bufferAlignment);
 
           // Computation loop.
           create.affine.forIE(zero, DimIndexExpr(cacheSizeVal),
