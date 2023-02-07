@@ -287,8 +287,13 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value pinf = createMath.constant(x.getType(), posInf);
   Value ninf = createMath.constant(x.getType(), negInf);
 
-  bool detectNeg = isInfOp.getDetectNegative() == 1;
-  bool detectPos = isInfOp.getDetectPositive() == 1;
+  int64_t detectNegAttribute = IntegerAttr::get(rewriter.getI64Type(),
+      llvm::cast<ONNXIsInfOp>(op).getDetectNegative().convertToIndex());
+  int64_t detectPosAttribute = IntegerAttr::get(rewriter.getI64Type(),
+      llvm::cast<ONNXIsInfOp>(op).getDetectPositive().convertToIndex());
+
+  bool detectNeg = detectNegAttribute == 1;
+  bool detectPos = detectPosAttribute  == 1;
 
   if (!detectNeg) {
     // Check if input == pinf and return true otherwise return false for
