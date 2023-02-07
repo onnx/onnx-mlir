@@ -277,7 +277,7 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
 
-  Value x = scalarOperands[0]; // x-> input
+  Value x = scalarOperands[0];
   Value result;
 
   MathBuilder createMath(rewriter, loc);
