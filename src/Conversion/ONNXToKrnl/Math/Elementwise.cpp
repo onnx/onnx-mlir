@@ -276,6 +276,7 @@ template <>
 Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+  ONNXIsInfOp isInfOp = llvm::cast<ONNXIsInfOp>(op);
 
   Value x = scalarOperands[0]; // x-> input
   Value result;
@@ -285,18 +286,17 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   double negInf = -INFINITY;
   Value pinf = createMath.constant(x.getType(), posInf);
   Value ninf = createMath.constant(x.getType(), negInf);
-  int64_t detectNegAttribute =
-      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
-  int64_t detectPosAttribute =
-      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
 
-  if (detectNegAttribute == 0) {
+  bool detectNeg = isInfOp.getDetectNegative() == 1;
+  bool detectPos = isInfOp.getDetectPositive() == 1;
+
+  if (!detectNeg) {
     // Check if input == pinf and return true otherwise return false for
     // ninf
     Value posInfinity =
         rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, pinf);
     result = createMath.select(posInfinity, pinf, ninf);
-  } else if (detectPosAttribute == 0) {
+  } else if (!detectPos) {
     // Check if input == ninf and return true otherwise return false for
     // pinf
     Value negInfinity =
