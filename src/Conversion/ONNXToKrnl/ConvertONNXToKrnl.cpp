@@ -18,6 +18,7 @@
 #include "src/Compiler/CompilerOptions.hpp"
 
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Builder/ModelInputShaper.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
@@ -84,7 +85,10 @@ private:
           if (tensorTy.hasRank()) {
             int64_t rank = tensorTy.getRank();
             for (int j = 0; j < rank; j++) {
-              dstream << comma << tensorTy.getDimSize(j);
+              int64_t dimSize = tensorTy.getDimSize(j);
+              if (dimSize == ShapedType::kDynamic)
+                dimSize = ModelInputShaper::kUserDynamic;
+              dstream << comma << dimSize;
               comma = std::string(" , ");
             }
           } else {

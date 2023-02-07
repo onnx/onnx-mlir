@@ -53,6 +53,10 @@ SmallVector<int64_t, 4> getDefaultStrides(ArrayRef<int64_t> shape) {
   return strides;
 }
 
+SmallVector<int64_t, 4> getSplatStrides(ArrayRef<int64_t> shape) {
+  return SmallVector<int64_t, 4>(shape.size(), 0);
+}
+
 Optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
     ArrayRef<int64_t> strides, ArrayRef<int64_t> reshapedShape) {
   assert(shape.size() == strides.size());
@@ -85,7 +89,7 @@ Optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
       ++a2;
     }
     if (m2 < m)
-      return None;
+      return std::nullopt;
     if (a1 == rank1)
       break;
 
@@ -117,7 +121,7 @@ Optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
       ++a2;
     }
     if (n2 < n)
-      return None;
+      return std::nullopt;
     assert(strides[a1 - 1] == reshapedStrides[a2 - 1]);
   } while (a1 < rank1);
   assert(a2 == rank2);

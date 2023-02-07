@@ -29,7 +29,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     ONNXConstantOfShapeOpAdaptor operandAdaptor(operands);
 
     auto valueAttr = llvm::cast<ONNXConstantOfShapeOp>(op)
-                         .value()
+                         .getValue()
                          .value()
                          .cast<DenseElementsAttr>();
 
@@ -55,9 +55,9 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
       SmallVector<Value, 2> allocOperands;
       // Load dimensions from the input.
       for (decltype(rank) i = 0; i < rank; ++i) {
-        if (outputShape[i] == -1) {
+        if (outputShape[i] == ShapedType::kDynamic) {
           Value index = create.math.constantIndex(i);
-          Value dim = create.krnl.load(operandAdaptor.input(), index);
+          Value dim = create.krnl.load(operandAdaptor.getInput(), index);
           Value dimIndex = create.math.castToIndex(dim);
           allocOperands.emplace_back(dimIndex);
         }

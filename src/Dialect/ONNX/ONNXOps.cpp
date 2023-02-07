@@ -28,9 +28,9 @@
 // Followed by the implementation of lowering to Krnl and
 // Enable the corresponding node test in check-onnx-backend
 
-#define NOT_IMPLEMENTED_INFER_SHAPES(T)                                        \
+#define UNSUPPORTED_OPS(OP_TYPE)                                               \
   /* shape inference interface method */                                       \
-  mlir::LogicalResult mlir::T::inferShapes(                                    \
+  mlir::LogicalResult mlir::OP_TYPE::inferShapes(                              \
       std::function<void(mlir::Region &)> doShapeInference) {                  \
     return emitOpError(                                                        \
         "op is not supported at this time. Please open an issue on "           \
@@ -38,62 +38,8 @@
         "code. "                                                               \
         "Error encountered in shape inference.");                              \
   }
-
-// Listed alphabetically.
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXAdagradOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXAdamOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXArrayFeatureExtractorOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXBatchNormalizationOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXBinarizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXBlackmanWindowOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXCastMapOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXCenterCropPadOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXClipV11Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXClipV12Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXClipV6Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXCol2ImOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXConcatFromSequenceOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXDetOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXDictVectorizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXFeatureVectorizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXGradientOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXGridSampleOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXGroupNormalizationOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXHammingWindowOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXHannWindowOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXImputerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXIsInfOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXLabelEncoderOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXLayerNormalizationOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXLinearClassifierOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXLinearRegressorOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXLpPoolOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMaxPoolOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMaxUnpoolOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMelWeightMatrixOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMishOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMomentumOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMultinomialOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXNegativeLogLikelihoodLossOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXNormalizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXPadV11Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXPadV2Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXRandomUniformLikeOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXRandomUniformOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXResizeV10Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXResizeV11Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXSequenceMapOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXSVMClassifierOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXSVMRegressorOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXSoftmaxCrossEntropyLossOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXSTFTOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXStringNormalizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXTfIdfVectorizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXTreeEnsembleClassifierOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXTreeEnsembleRegressorOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXUniqueOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXUpsampleV7Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXZipMapOp)
+#include "src/Dialect/ONNX/ONNXUnsupportedOps.hpp"
+#undef UNSUPPORTED_OPS
 
 namespace {
 
@@ -166,7 +112,7 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
   // If the result type is dynamic then it won't match the attribute type and
   // we fall back to printing as attribute dictionary at the end.
   Type resultType = getResult().getType();
-  if (auto attr = value()) {
+  if (auto attr = getValue()) {
     // ONNXConstantOp value must be ElementsAttr, but not SparseElementsAttr.
     auto elements = attr->cast<ElementsAttr>();
     assert(!elements.isa<SparseElementsAttr>() &&
@@ -183,7 +129,7 @@ void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
       return;
     }
   }
-  if (auto attr = sparse_value()) {
+  if (auto attr = getSparseValue()) {
     // ONNXConstantOp sparse_value must be SparseElementsAttr.
     auto sparseElements = attr->cast<SparseElementsAttr>();
     if (sparseElements.getType() == resultType) {

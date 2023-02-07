@@ -26,14 +26,14 @@ namespace onnx_mlir {
 
 LogicalResult ONNXResizeOpShapeHelper::computeShape() {
   ONNXResizeOpAdaptor operandAdaptor(operands);
-  uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.X());
+  uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.getX());
   DimsExpr inputDims, outputDims;
-  createIE->getShapeAsDims(operandAdaptor.X(), inputDims);
-  bool scalesFromNone = isFromNone(operandAdaptor.scales());
+  createIE->getShapeAsDims(operandAdaptor.getX(), inputDims);
+  bool scalesFromNone = isFromNone(operandAdaptor.getScales());
 
   if (!scalesFromNone) {
     // Read and save scales as float.
-    createIE->getFloatFromArrayAsNonAffine(operandAdaptor.scales(), scales);
+    createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getScales(), scales);
     if (inputDims.size() != scales.size())
       return op->emitError("expected scales to have the same rank as input");
     // Compute output dims = int(floor(float(input dims) * scales)).
@@ -51,7 +51,7 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
     }
   } else {
     // Output size is defined by input `sizes`.
-    createIE->getIntFromArrayAsSymbols(operandAdaptor.sizes(), outputDims);
+    createIE->getIntFromArrayAsSymbols(operandAdaptor.getSizes(), outputDims);
     if (inputDims.size() != outputDims.size())
       return op->emitError("expected scales to have the same rank as input");
     // Compute scales as float(output dims) / float(input dims).
@@ -73,17 +73,17 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXResizeOp::verify() {
-  if (!hasShapeAndRank(X())) {
+  if (!hasShapeAndRank(getX())) {
     return success();
   }
 
-  bool scalesFromNone = isFromNone(scales());
-  bool sizesFromNone = isFromNone(sizes());
+  bool scalesFromNone = isFromNone(getScales());
+  bool sizesFromNone = isFromNone(getSizes());
   if (scalesFromNone == sizesFromNone) {
     if (scalesFromNone)
       return emitError("scales() and sizes() can not be both None");
     else
-      return emitError("scales() and sizes() can not be both defined");
+      return emitError("scales() and getSizes() can not be both defined");
   }
   // Should test the sizes of scales or size to be the same as the rank of X.
   return success();
@@ -95,10 +95,10 @@ LogicalResult ONNXResizeOp::verify() {
 
 LogicalResult ONNXResizeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X()))
+  if (!hasShapeAndRank(getX()))
     return success();
 
-  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
   ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

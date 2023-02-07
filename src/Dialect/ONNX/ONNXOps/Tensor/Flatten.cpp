@@ -29,11 +29,11 @@ LogicalResult ONNXFlattenOpShapeHelper::computeShape() {
   // Get info about input operand.
   ONNXFlattenOpAdaptor operandAdaptor(operands);
   ONNXFlattenOp flattenOp = llvm::cast<ONNXFlattenOp>(op);
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   auto inputType = input.getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputType.getRank();
-  int64_t axis = flattenOp.axis();
+  int64_t axis = flattenOp.getAxis();
   assert(axis >= -inputRank && axis < inputRank && "Invalid inputRank");
 
   // Negative axis means values are counted from the opposite side.
@@ -71,13 +71,13 @@ LogicalResult ONNXFlattenOpShapeHelper::computeShape() {
 
 LogicalResult ONNXFlattenOp::verify() {
   // Cannot verify constraints if the input shape is not yet known.
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
-  auto inputType = input().getType().cast<ShapedType>();
+  auto inputType = getInput().getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputShape.size();
-  int64_t axisValue = axis();
+  int64_t axisValue = getAxis();
 
   // axis attribute must be in the range [-r,r], where r = rank(input).
   if (axisValue < -inputRank || axisValue > inputRank)
@@ -95,10 +95,10 @@ LogicalResult ONNXFlattenOp::verify() {
 LogicalResult ONNXFlattenOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape is not yet known.
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXFlattenOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

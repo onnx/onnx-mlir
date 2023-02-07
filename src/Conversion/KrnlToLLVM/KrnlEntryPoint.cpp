@@ -479,7 +479,7 @@ private:
         assert(JSONDimValue && "failed to get value");
         int64_t dim = JSONDimValue.value();
         // Verify.
-        if (ShapedType::isDynamic(dim)) {
+        if (ShapedType::isDynamic(dim) || dim == -1) {
           // In case that the reference dimension size is unknown, verify that
           // the actual dimension size is a non-negative value.
           create.llvm.ifThenElse(/*cond=*/

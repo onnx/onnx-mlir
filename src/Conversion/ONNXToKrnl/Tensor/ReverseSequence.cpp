@@ -47,8 +47,8 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
         rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Save axis and rank info.
-    int64_t batchAxis = reverseSequenceOp.batch_axis();
-    int64_t timeAxis = reverseSequenceOp.time_axis();
+    int64_t batchAxis = reverseSequenceOp.getBatchAxis();
+    int64_t timeAxis = reverseSequenceOp.getTimeAxis();
 
     int64_t outputRank = shapeHelper.getOutputDims().size();
     LiteralIndexExpr oneIE(1);
@@ -63,7 +63,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
         output[I] = input[Iinput]
       }
 
-      Obviously, since the conditional check is on time_axis() loop variable,
+      Obviously, since the conditional check is on getTimeAxis() loop variable,
       the check can be eliminated with loop splitting as long as the batch_axis
       loop is outside.
 
@@ -104,7 +104,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
           SmallVector<IndexExpr, 4> inputAccessFct;
           getIndexExprList<DimIndexExpr>(loopInd, inputAccessFct);
           Value lensVal = createKrnl.loadIE(
-              operandAdaptor.sequence_lens(), inputAccessFct[batchAxis]);
+              operandAdaptor.getSequenceLens(), inputAccessFct[batchAxis]);
           IndexExpr lens = NonAffineIndexExpr(lensVal);
           IndexExpr timeDim = inputAccessFct[timeAxis];
           IndexExpr cond = timeDim < lens;
@@ -112,7 +112,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
               IndexExpr::select(cond, lens - timeDim - oneIE, timeDim);
           inputAccessFct[timeAxis] = inputIndex;
           Value inputVal =
-              createKrnl.loadIE(operandAdaptor.input(), inputAccessFct);
+              createKrnl.loadIE(operandAdaptor.getInput(), inputAccessFct);
 
           // Save data into output
           createKrnl.storeIE(inputVal, alloc, outputAccessFct);

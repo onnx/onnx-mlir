@@ -42,8 +42,8 @@ public:
     KrnlLoadOpAdaptor operandAdaptor(loadOp);
 
     // Prepare inputs.
-    Value memref = operandAdaptor.memref();
-    SmallVector<Value, 4> indices = operandAdaptor.indices();
+    Value memref = operandAdaptor.getMemref();
+    SmallVector<Value, 4> indices = operandAdaptor.getIndices();
 
     // Check whether all indices are affine maps or not.
     bool affineIndices =

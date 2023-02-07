@@ -34,7 +34,7 @@ Type SeqType::parse(AsmParser &parser) {
     return Type();
   }
 
-  return get(elementType, -1);
+  return get(elementType, ShapedType::kDynamic);
 }
 
 void SeqType::print(AsmPrinter &printer) const {

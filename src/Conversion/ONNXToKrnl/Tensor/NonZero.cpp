@@ -86,7 +86,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // Frequently used MemRefType.
-    Value X = operandAdaptor.X();
+    Value X = operandAdaptor.getX();
     MemRefType xMemRefType = X.getType().cast<MemRefType>();
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -122,7 +122,8 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
       // Alloc and dealloc.
       IndexExpr xBound = create.krnlIE.getShapeAsDim(X, i);
       SmallVector<IndexExpr, 1> dimIE(1, xBound);
-      int64_t dim = dimIE[0].isLiteral() ? dimIE[0].getLiteral() : -1;
+      int64_t dim =
+          dimIE[0].isLiteral() ? dimIE[0].getLiteral() : ShapedType::kDynamic;
       Value alloc = insertAllocAndDeallocSimple(rewriter, op,
           MemRefType::get({dim}, indexTy), loc, dimIE,
           /*insertDealloc=*/true);

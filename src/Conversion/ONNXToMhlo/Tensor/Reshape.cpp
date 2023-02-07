@@ -29,8 +29,8 @@ struct ONNXReshapeOpLoweringToMhlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXReshapeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     Location loc = op->getLoc();
-    Value data = operandAdaptor.data();
-    Value shape = operandAdaptor.shape();
+    Value data = operandAdaptor.getData();
+    Value shape = operandAdaptor.getShape();
     Type outputType = *op->result_type_begin();
     Value result =
         rewriter.create<mhlo::DynamicReshapeOp>(loc, outputType, data, shape);

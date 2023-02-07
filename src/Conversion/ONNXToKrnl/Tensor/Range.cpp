@@ -36,9 +36,9 @@ struct ONNXRangeOpLowering : public ConversionPattern {
         create(rewriter, loc);
     IndexExprScope ieScope(create.krnl);
 
-    Value start = operandAdaptor.start();
-    Value limit = operandAdaptor.limit();
-    Value delta = operandAdaptor.delta();
+    Value start = operandAdaptor.getStart();
+    Value limit = operandAdaptor.getLimit();
+    Value delta = operandAdaptor.getDelta();
 
     auto startShape = start.getType().cast<MemRefType>().getShape();
     auto limitShape = limit.getType().cast<MemRefType>().getShape();

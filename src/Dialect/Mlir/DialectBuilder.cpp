@@ -19,7 +19,7 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
@@ -682,7 +682,7 @@ Value MemRefBuilder::dim(Value val, Value index) const {
   //           val.getType().isa<UnrankedMemRefType>()) &&
   //       "memref::DimOp expects input operand to have MemRefType or "
   //       "UnrankedMemRefType");
-  return b().createOrFold<memref::DimOp>(loc(), val, index);
+  return Value(b().createOrFold<memref::DimOp>(loc(), val, index));
 }
 
 //===----------------------------------------------------------------------===//
@@ -927,6 +927,10 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 // LLVM Builder
 //===----------------------------------------------------------------------===//
 
+Value LLVMBuilder::add(Value lhs, Value rhs) const {
+  return b().create<LLVM::AddOp>(loc(), lhs, rhs);
+}
+
 Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
   return b().create<LLVM::AddressOfOp>(loc(), op);
 }
@@ -1064,8 +1068,16 @@ Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
       loc(), resultType, container, val, position);
 }
 
+Value LLVMBuilder::inttoptr(Type type, Value val) const {
+  return b().create<LLVM::IntToPtrOp>(loc(), type, val);
+}
+
 Value LLVMBuilder::load(Value addr) const {
   return b().create<LLVM::LoadOp>(loc(), addr);
+}
+
+Value LLVMBuilder::mul(Value lhs, Value rhs) const {
+  return b().create<LLVM::MulOp>(loc(), lhs, rhs);
 }
 
 Value LLVMBuilder::null(Type type) const {
@@ -1077,8 +1089,16 @@ Value LLVMBuilder::nullI8Ptr() const {
   return b().create<LLVM::NullOp>(loc(), I8PtrTy);
 }
 
+Value LLVMBuilder::ptrtoint(Type type, Value val) const {
+  return b().create<LLVM::PtrToIntOp>(loc(), type, val);
+}
+
 void LLVMBuilder::_return(Value val) const {
   b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({val}));
+}
+
+Value LLVMBuilder::sext(Type type, Value val) const {
+  return b().create<LLVM::SExtOp>(loc(), type, val);
 }
 
 void LLVMBuilder::store(Value val, Value addr) const {
