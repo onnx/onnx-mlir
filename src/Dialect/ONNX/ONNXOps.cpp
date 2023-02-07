@@ -17,9 +17,6 @@
 
 #include "mlir/Dialect/Traits.h"
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
-#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
-
-#include "src/Support/TypeUtilities.hpp"
 
 //===----------------------------------------------------------------------===//
 // Unsupported Operations
@@ -179,36 +176,10 @@ ParseResult ONNXConstantOp::parse(OpAsmParser &parser, OperationState &result) {
 // Constant Materializer
 Operation *ONNXDialect::materializeConstant(
     OpBuilder &builder, Attribute value, Type type, Location loc) {
+
+  // The atrribute could be DenseElemnemntsAttr, IntAttr, FloatAttr and etc.
+  // onnx builder is used to convert it into value() 
   OnnxBuilder onnx(builder, loc);
   Value result = onnx.constant(value);
   return result.getDefiningOp();
-}
-
-OpFoldResult ONNXConstantOp::fold(FoldAdaptor adaptor) {
-  if (getValueAttr()) {
-    getValueAttr().dump();
-    return getValueAttr();
-  } else if (getValueFloatAttr())
-    return getValueFloatAttr();
-  else if (getValueIntAttr())
-    return getValueIntAttr();
-  else if (getValueIntsAttr())
-    return getValueIntsAttr();
-  else if (getValueFloatsAttr())
-    return getValueFloatsAttr();
-  else {
-    assert(getValueStringAttr() &&
-           "ONNXConstantOp does not have a valid attribute");
-    return getValueStringAttr();
-  }
-}
-
-OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
-  OnnxElementsAttrBuilder elementsBuilder(getContext());
-  if (!adaptor.getData() || !adaptor.getAxes()) {
-    // Use original Op if Data is not constant
-    return nullptr;
-  }
-  return elementsBuilder.reshape(
-      adaptor.getData(), getShape(getOperation()->getResults()[0].getType()));
 }

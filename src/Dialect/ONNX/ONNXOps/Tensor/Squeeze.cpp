@@ -183,3 +183,16 @@ namespace onnx_mlir {
 template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeOp>;
 template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeV11Op>;
 } // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
+// Folder
+//===----------------------------------------------------------------------===//
+OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
+  OnnxElementsAttrBuilder elementsBuilder(getContext());
+  if (!adaptor.getData() || !adaptor.getAxes()) {
+    // Use original Op if Data is not constant
+    return nullptr;
+  }
+  return elementsBuilder.reshape(
+      adaptor.getData(), getShape(getOperation()->getResults()[0].getType()));
+}

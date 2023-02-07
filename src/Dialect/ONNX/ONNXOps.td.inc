@@ -1338,6 +1338,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
    }
   }]>
   ];
+  let hasFolder = 1;
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
@@ -8216,6 +8217,7 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
       return sh;
     }
   }];
+  let hasFolder = 1;
 }
 
 def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",

@@ -409,7 +409,7 @@ OpsWithVerifier = [
 
 # Op with fold function
 OpsWithFolder = [
-    'Constant'
+    'Constant',
     'Squeeze'
 ]
 
@@ -1225,11 +1225,8 @@ def gen_op_def(schema, with_version = False):
     # Generate decl for verifier.
     if opName in OpsWithVerifier:
         s += indent + 'let hasVerifier = 1;\n'
-
-
     if opName in OpsWithFolder:
         s += indent + 'let hasFolder = 1;\n'
-
     s += '}\n\n'
     return s
 
