@@ -410,6 +410,7 @@ OpsWithVerifier = [
 # Op with fold function
 OpsWithFolder = [
     'Constant'
+    'Squeeze'
 ]
 
 # Op with ConstantLike trait

@@ -1338,7 +1338,6 @@ def ONNXConstantOp:ONNX_Op<"Constant",
    }
   }]>
   ];
-  let hasFolder = 1;
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
