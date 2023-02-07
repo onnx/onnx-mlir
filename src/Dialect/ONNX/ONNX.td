@@ -38,7 +38,8 @@ def ONNX_Dialect : Dialect {
   let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
-  let useDefaultAttributePrinterParser = 0;  
+  let useDefaultAttributePrinterParser = 0;
+  let useFoldAPI = kEmitFoldAdaptorFolder;
   let dependentDialects = ["func::FuncDialect"];
   let useFoldAPI = kEmitFoldAdaptorFolder;
   let hasConstantMaterializer = 1;

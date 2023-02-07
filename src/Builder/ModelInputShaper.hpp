@@ -56,6 +56,9 @@ namespace onnx_mlir {
 //    dimensions
 class ModelInputShaper {
 public:
+  // To users of onnx-mlir, -1 is used for dynamic/unknown dimension.
+  static constexpr int64_t kUserDynamic = -1;
+
   ModelInputShaper();
 
   // shapeInformation specifies custom shapes for the inputs of the ONNX model,
