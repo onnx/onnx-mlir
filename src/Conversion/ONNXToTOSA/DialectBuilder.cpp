@@ -100,6 +100,18 @@ Value TosaBuilder::transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm) {
   return newValue;
 }
 
+Value TosaBuilder::slice(Value &inputConst, llvm::ArrayRef<int64_t> size,
+    llvm::ArrayRef<int64_t> start) {
+  DenseI64ArrayAttr sizeAttr = rewriter().getDenseI64ArrayAttr(size);
+  DenseI64ArrayAttr startAttr = rewriter().getDenseI64ArrayAttr(start);
+  Value newSliceInput =
+      tosa::CreateOpAndInfer<mlir::tosa::SliceOp>(rewriter(), loc(),
+          RankedTensorType::get(llvm::SmallVector<int64_t, 4>(size.size(), ShapedType::kDynamic),
+              inputConst.getType().cast<ShapedType>().getElementType()),
+          inputConst, startAttr, sizeAttr);
+  return newSliceInput;
+}
+
 // =============================================================================
 // IndexExpr Builder for Lowering using Shape/TOSA Dialect.
 // =============================================================================
