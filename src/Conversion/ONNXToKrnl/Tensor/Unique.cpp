@@ -66,8 +66,8 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     IndexExprScope scope(create.krnl);
     ONNXUniqueOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     Value X = operandAdaptor.getX();
-    int64_t rank = create.krnlIE.getShapedTypeRank(X);
     ArrayRef<int64_t> xShape = getShape(X.getType());
+    int64_t rank = create.krnlIE.getShapedTypeRank(X);
     int64_t sorted = operandAdaptor.getSorted();
     Optional<int64_t> optionalAxis = uniqueOp.getAxis();
     int64_t axis = -1;
@@ -101,35 +101,13 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
       outputYDims.emplace_back(totalDimExpr);
       outputIndexDims.emplace_back(totalDimExpr);
     } else {
-      for (int64_t i = 0; i < rank; i++) {
+    for (int64_t i = 0; i < rank; i++) {
         DimIndexExpr tDimExpr = LiteralIndexExpr(xShape[i]);
         if (i == axis)
           tDimExpr = totalDimExpr;
         outputIndexDims.emplace_back(tDimExpr);
       }
     }
-#if 0
-    // Calculate maximum output shapes for ouputs
-    DimsExpr outputYBufDims;
-    DimsExpr outputIndexBufDims;
-    int64_t inputElementNum = 1;
-    for (int64_t i = 0; i < rank; i++) {
-      inputElementNum = inputElementNum * xShape[i];
-    }
-    ArrayRef<int64_t> outputYShape;
-    if (axis < 0) {
-      outputYBufDims.emplace_back(LiteralIndexExpr(inputElementNum));
-      outputIndexBufDims.emplace_back(LiteralIndexExpr(inputElementNum));
-      ArrayRef<int64_t> outYShape = {inputElementNum};
-      outputYShape = outYShape;
-    } else {
-      for (int64_t i = 0; i < rank; i++) {
-        outputYBufDims.emplace_back(LiteralIndexExpr(xShape[i]));
-      }
-      outputIndexBufDims.emplace_back(LiteralIndexExpr(inputElementNum));
-      outputYShape = xShape;
-    }
-#endif
  
     // Insert an allocation and deallocation for the results of this operation.
     // For Y output
@@ -142,8 +120,9 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
         MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputYDims,
         insertDealloc);
     } else {
+      ArrayRef<int64_t> yShape = getShape(X.getType());
       outputY = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputYDims,
+        MemRefType::get(yShape, i64Type), loc, outputYDims,
         insertDealloc);
     }
     Value indices = insertAllocAndDeallocSimple(rewriter, op,
@@ -155,47 +134,12 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value counts = insertAllocAndDeallocSimple(rewriter, op,
         MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputIndexDims,
         insertDealloc);;
+  
     // Compute argUnique of X along axis.
     create.krnl.store(iZero, uniqueCount, {});
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         outputY, indices, reverse_indices, counts);
-
-#if 0
-    // Calculate output shapes for ouputs according to the results
-    NonAffineIndexExpr totalDimExpr = NonAffineIndexExpr(total);
-    DimsExpr outputYDims;
-    DimsExpr outputIndexDims;
-    if (axis < 0) {
-      outputYBufDims.emplace_back(totalDimExpr);
-      outputIndexBufDims.emplace_back(totalDimExpr);
-    } else {
-      for (int64_t i = 0; i < rank; i++) {
-        DimIndexExpr tDimExpr = LiteralIndexExpr(xShape[i]);
-        if (i == axis)
-          tDimExpr = totalDimExpr;
-        outputIndexDims.emplace_back(tDimExpr);
-      }
-    }
-#endif
-#if 0
-    // Produce the final result.
-    SmallVector<IndexExpr> zeroDims(rank, LiteralIndexExpr(0));
-    ValueRange loopDef = create.krnl.defineLoops(rank);
-    create.krnl.iterateIE(loopDef, loopDef, zeroDims, resDims,
-        [&](KrnlBuilder &createKrnl, ValueRange resLoopInd) {
-          Value resInd = createKrnl.load(argUnique, resLoopInd);
-          SmallVector<Value> resIndexLoopInd(resLoopInd);
-          resIndexLoopInd[axis] = resInd;
-          // Store value.
-          Value val = createKrnl.load(X, resIndexLoopInd);
-          createKrnl.store(val, resMemRef, resLoopInd);
-          // Store index.
-          Value resIndI64 =
-              rewriter.create<arith::IndexCastOp>(loc, i64Type, resInd);
-          createKrnl.store(resIndI64, resIndexMemRef, resLoopInd);
-        });
-
-#endif
+    
     rewriter.replaceOp(
         op, {outputY, indices, reverse_indices, counts});
     return success();

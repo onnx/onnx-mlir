@@ -58,7 +58,8 @@ uint64_t elementTable_count(elementTable *table) { return table->elementCount; }
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t inputAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
     OMTensor *reverse_indices, OMTensor *counts) {
-  omTensorPrint("omTensorUnique: input=", inputTensor);
+  printf("omTensorUnique: axis=%ld, sorted=%ld, ", inputAxis, sorted);
+  omTensorPrint("input:", inputTensor);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const int64_t inputRank = omTensorGetRank(inputTensor);
   assert(inputRank <= 6 && "omTensorUnique assumes inputRank <= 6");
