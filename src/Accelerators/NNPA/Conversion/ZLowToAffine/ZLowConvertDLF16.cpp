@@ -101,15 +101,42 @@ public:
 
     // SIMDize conversion between fp32 and dlf16.
     int64_t tileSize = 8;
+    VectorType vec4F32 = VectorType::get({4}, rewriter.getF32Type());
+    VectorType vec8F16 = VectorType::get({8}, rewriter.getF16Type());
     create.affine.forIE(zero, numOfElements, tileSize,
         [&](AffineBuilder &createAffine, Value idx) {
-          Value x = createAffine.load(input1D, {idx});
-          Value converted;
-          if (fromF32)
-            converted = rewriter.create<ZLowConvertF32ToDLF16Op>(loc, x);
-          else
-            converted = rewriter.create<ZLowConvertDLF16ToF32Op>(loc, x);
-          createAffine.store(converted, output1D, {idx});
+          MultiDialectBuilder<AffineBuilder, MathBuilder, VectorBuilder> create(
+              createAffine);
+          Value offset4 = create.math.constantIndex(4);
+          if (fromF32) {
+            // F32 -> DLF16
+            // Load 8 f32 values from the input into two registers each with 4
+            // f32 values.
+            Value vecF32H = create.vec.load(vec4F32, input1D, {idx});
+            Value vecF32L = create.vec.load(vec4F32, input1D, {idx}, {offset4});
+            Value vecDLF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
+                loc, vecF32H, vecF32L);
+            // Store 8 f16 values back to the output.
+            create.vec.store(vecDLF16, output1D, {idx});
+          } else {
+            // DLF16 -> F32
+            // Load 8 f16 values from the input into a register.
+            Value vecDLF16 = create.vec.load(vec8F16, input1D, {idx});
+            auto convertOp =
+                rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecDLF16);
+            Value vecF32H = convertOp.getResult(0);
+            Value vecF32L = convertOp.getResult(1);
+            // Store f32 values back to the output.
+            create.vec.store(vecF32H, output1D, {idx});
+            create.vec.store(vecF32L, output1D, {idx}, {offset4});
+          }
+          // Value x = createAffine.load(input1D, {idx});
+          // Value converted;
+          // if (fromF32)
+          //   converted = rewriter.create<ZLowConvertF32ToDLF16Op>(loc, x);
+          // else
+          //   converted = rewriter.create<ZLowConvertDLF16ToF32Op>(loc, x);
+          // createAffine.store(converted, output1D, {idx});
         });
 
     // Reshape the output 1-D MemRef back into a N-D MemRef.
