@@ -95,41 +95,49 @@ public:
     // Allocate an output 1-D MemRef.
     MemRefType output1DType =
         MemRefType::Builder(input1DType).setElementType(outputElementType);
-    int64_t alignment = fromF32 ? 4096 : -1;
+    int64_t alignment = fromF32 ? 4096 : 64;
     Value output1D = insertAllocAndDeallocSimple(
         rewriter, nullptr, output1DType, loc, ubs1D, alignment);
 
     // SIMDize conversion between fp32 and dlf16.
-    int64_t tileSize = 8;
-    VectorType vec4F32 = VectorType::get({4}, rewriter.getF32Type());
-    VectorType vec8F16 = VectorType::get({8}, rewriter.getF16Type());
-    create.affine.forIE(zero, numOfElements, tileSize,
+    int64_t VL = 8;
+    int64_t VLHalf = 4;
+    int64_t unrollFactor = 8;
+    VectorType vecF32 = VectorType::get({VLHalf}, rewriter.getF32Type());
+    VectorType vecF16 = VectorType::get({VL}, rewriter.getF16Type());
+    create.affine.forIE(zero, numOfElements, unrollFactor * VL,
         [&](AffineBuilder &createAffine, Value idx) {
           MultiDialectBuilder<AffineBuilder, MathBuilder, VectorBuilder> create(
               createAffine);
-          Value offset4 = create.math.constantIndex(4);
-          if (fromF32) {
-            // F32 -> DLF16
-            // Load 8 f32 values from the input into two registers each with 4
-            // f32 values.
-            Value vecF32H = create.vec.load(vec4F32, input1D, {idx});
-            Value vecF32L = create.vec.load(vec4F32, input1D, {idx}, {offset4});
-            Value vecDLF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
-                loc, vecF32H, vecF32L);
-            // Store 8 f16 values back to the output.
-            create.vec.store(vecDLF16, output1D, {idx});
-          } else {
-            // DLF16 -> F32
-            // Load 8 f16 values from the input into a register.
-            Value vecDLF16 = create.vec.load(vec8F16, input1D, {idx});
-            auto convertOp =
-                rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecDLF16);
-            Value vecF32H = convertOp.getResult(0);
-            Value vecF32L = convertOp.getResult(1);
-            // Store f32 values back to the output.
-            create.vec.store(vecF32H, output1D, {idx});
-            create.vec.store(vecF32L, output1D, {idx}, {offset4});
+          // Manually unroll for simplicity.
+          for (int64_t i = 0; i < unrollFactor; ++i) {
+            Value baseIdx = create.math.constantIndex(VL * i);
+            Value offset = create.math.constantIndex(VLHalf);
+            if (fromF32) {
+              // F32 -> DLF16
+              // Load VL f32 values from the input into two vectors each with
+              // VLHalf f32 values.
+              Value vecF32H = create.vec.load(vecF32, input1D, {baseIdx});
+              Value vecF32L =
+                  create.vec.load(vecF32, input1D, {baseIdx}, {offset});
+              Value vecDLF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
+                  loc, vecF32H, vecF32L);
+              // Store VL f16 values back to the output.
+              create.vec.store(vecDLF16, output1D, {baseIdx});
+            } else {
+              // DLF16 -> F32
+              // Load VL f16 values from the input into a register.
+              Value vecDLF16 = create.vec.load(vecF16, input1D, {baseIdx});
+              auto convertOp =
+                  rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecDLF16);
+              Value vecF32H = convertOp.getResult(0);
+              Value vecF32L = convertOp.getResult(1);
+              // Store f32 values back to the output.
+              create.vec.store(vecF32H, output1D, {baseIdx});
+              create.vec.store(vecF32L, output1D, {baseIdx}, {offset});
+            }
           }
+
           // Value x = createAffine.load(input1D, {idx});
           // Value converted;
           // if (fromF32)
