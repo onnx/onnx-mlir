@@ -266,6 +266,8 @@ struct VectorBuilder final : DialectBuilder {
       llvm::SmallVectorImpl<int64_t> &mask) const;
   mlir::Value fma(mlir::Value lhs, mlir::Value rhs, mlir::Value acc) const;
 
+  mlir::Value typeCast(mlir::Type resTy, mlir::Value val) const;
+
   // Composite functions.
   mlir::Value mergeHigh(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
   mlir::Value mergeLow(mlir::Value lhs, mlir::Value rhs, int64_t step) const;

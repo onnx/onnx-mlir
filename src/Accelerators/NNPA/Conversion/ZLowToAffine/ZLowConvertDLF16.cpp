@@ -103,9 +103,9 @@ public:
     // SIMDize conversion between fp32 and dlf16.
     int64_t VL = 8;
     int64_t VLHalf = 4;
-    int64_t unrollFactor = 8;
-    int64_t cacheBound = 32;
-    int64_t cacheSize = cacheBound * unrollFactor * VL;
+    int64_t unrollFactor = 4;
+    int64_t tileSize = 32;
+    int64_t cacheSize = tileSize * unrollFactor * VL;
     int64_t bufferAlignment = 64;
     Value cacheSizeI64 = create.math.constant(i64Type, cacheSize);
 

@@ -811,6 +811,10 @@ Value VectorBuilder::shuffle(
   return b().create<vector::ShuffleOp>(loc(), lhs, rhs, mask);
 }
 
+Value VectorBuilder::typeCast(Type resTy, Value val) const {
+  return b().create<vector::TypeCastOp>(loc(), resTy, val);
+}
+
 // Private vector utilities.
 bool VectorBuilder::isPowerOf2(uint64_t num) const {
   return (num & (num - 1)) == 0;
