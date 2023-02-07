@@ -88,7 +88,6 @@ static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
 /// Use this function for operations that use adaptor to compute shape.
 bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
-
   // Has this op a ShapeHelper interface?
   auto shape_op = llvm::dyn_cast<mlir::ShapeHelper>(*op);
   if (!shape_op)
@@ -105,6 +104,7 @@ bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
     delete shapeHelper;
     return false;
   }
+
   // The operation may have multiple outputs, find the index of the processing
   // output.
   Value outputTensor = dim.first;
@@ -115,6 +115,7 @@ bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
       break;
     }
   }
+
   // Find the unknown input dimensions that were transferred to the unknown
   // output dimension.
   uint64_t dimIndex = dim.second;
@@ -310,6 +311,10 @@ void DimAnalysis::visitDim(
   // We utilize the operation's shape helper for this purpose as much as
   // possible.
   Operation *op = tensor.getDefiningOp();
+
+  // Tensor is from a constant. Nothing to do further.
+  if (isa<ONNXConstantOp>(op))
+    return;
 
   ////////////////////////////////////////////////////
   // Special cases.

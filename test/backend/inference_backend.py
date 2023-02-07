@@ -1051,11 +1051,14 @@ def get_test_models():
         ############################################################
         # Model (alphabetical order)
     variables.model_test_to_enable_dict = {
-        "test_densenet121_cpu": {STATIC_SHAPE:{}},
-        "test_inception_v1_cpu": {STATIC_SHAPE:{}},
-        "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
-        "test_shufflenet_cpu": {STATIC_SHAPE:{}},
-        "test_squeezenet_cpu": {STATIC_SHAPE:{}},
+        # From https://github.com/onnx/onnx-mlir/issues/2001: Disable the models below - they are failing to download
+        # correctly because access to them has been lost. Until a better fix is available, unblock everyone by simply
+        # not running them.
+        # "test_densenet121_cpu": {STATIC_SHAPE:{}},
+        # "test_inception_v1_cpu": {STATIC_SHAPE:{}},
+        # "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
+        # "test_shufflenet_cpu": {STATIC_SHAPE:{}},
+        # "test_squeezenet_cpu": {STATIC_SHAPE:{}},
         # Failure in version v13
         # "test_vgg19_cpu": {STATIC_SHAPE:{}},
     }
