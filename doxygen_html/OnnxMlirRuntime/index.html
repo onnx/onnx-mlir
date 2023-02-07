@@ -77,6 +77,8 @@ C Runtime API</h1>
 Data Structures</h2>
 <p><code>OMTensor</code> is the data structure used to describe the runtime information (rank, shape, data type, etc) associated with a tensor input or output.</p>
 <p><code>OMTensorList</code> is the data structure used to hold a list of pointers to OMTensor so that they can be passed into and out of the compiled model as inputs and outputs.</p>
+<p><code>OMEntryPoint</code> is the data structure used to return all entry point names in a model. These entry point names are the symbols of the inference functions in the model.</p>
+<p><code>OMSignature</code> is the data structure used to return the output signature of the given entry point as a JSON string.</p>
 <h2><a class="anchor" id="model-entry-point-signature"></a>
 Model Entry Point Signature</h2>
 <p>All compiled models will have the same exact C function signature equivalent to:</p>
@@ -123,6 +125,11 @@ Invoke Models Using C Runtime</h2>
 </div><!-- fragment --><p>Compile with <code>gcc main.c add.so -o add</code>, you should see an executable <code>add</code> appearing. Run it, and the output should be:</p>
 <div class="fragment"><div class="line">3.000000 3.000000 3.000000 3.000000 3.000000 3.000000</div>
 </div><!-- fragment --><p> Exactly as it should be.</p>
+<h2><a class="anchor" id="freeing-tensor-memory"></a>
+Freeing Tensor Memory</h2>
+<p>When creating an OMTensor or OMTensorList with a specified tensor array, a user has the option to create a tensor or tensorList with or without ownership (omTensorCreateWithOwnership or omTensorListCreateWithOwnership).</p>
+<p>In the case of OMTensor, if the ownership flag is set to "false", then a user is responsible for freeing memory until the last use. Otherwise, if the flag is set to "true", then the destruction of the tensor (omTensorDestroy) will also free any associated memory and data buffers.</p>
+<p>With respects to OMTensorList, no matter the value of the ownership flag, every tensor will be destroyed (omTensorListDestroy). However, if the ownership flag is set to "true", the OMTensorList will free the tensor array upon destruction. Otherwise, if owning is set to "false", the tensor array will not be freed upon destruction (needs to be freed manually).</p>
 <h2><a class="anchor" id="reference"></a>
 Reference</h2>
 <p>For full reference to available C Runtime API, refer to <code>include/onnx-mlir/Runtime/OMTensor.h</code> and <code>include/onnx-mlir/Runtime/OMTensorList.h</code>. </p>
