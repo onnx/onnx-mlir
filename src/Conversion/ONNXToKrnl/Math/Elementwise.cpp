@@ -293,7 +293,7 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
       llvm::cast<ONNXIsInfOp>(op).getDetectPositive().convertToIndex());
 
   bool detectNeg = detectNegAttribute == 1;
-  bool detectPos = detectPosAttribute  == 1;
+  bool detectPos = detectPosAttribute == 1;
 
   if (!detectNeg) {
     // Check if input == pinf and return true otherwise return false for
