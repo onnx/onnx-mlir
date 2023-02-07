@@ -131,9 +131,9 @@
  * Otherwise, if the flag is set to "true", then the destruction of the tensor (omTensorDestroy)
  * will also free any associated memory and data buffers.
  *
- * With respects to OMTensorList, no matter the value of the ownership flag, every tensor will be destroyed. 
- * However, if the ownership flag is set to "true", then the tensor data will be destroyed (omTensorListDestroy) and the 
- * pointer to the tensor list will be freed. Otherwise, if the ownership flag is false, the tensor array is implicitly freed before its last use.
+ * With respects to OMTensorList, no matter the value of the ownership flag, every tensor will be destroyed (omTensorListDestroy). 
+ * However, if the ownership flag is set to "true", the OMTensorList will free the tensor array upon destruction. 
+ * Otherwise, if owning is set to "false", the tensor array will not be freed upon destruction (needs to be freed manually).
  *
  *
  * \subsection reference Reference
