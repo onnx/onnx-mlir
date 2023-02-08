@@ -102,7 +102,7 @@ public:
         loc, input1DType, inputMemref, shape1D);
 
     // Allocate an output 1-D MemRef.
-    int64_t alignment = fromF32 ? 4096 : 64;
+    int64_t alignment = 4096;
     MemRefType output1DType =
         MemRefType::Builder(input1DType).setElementType(outputElementType);
     Value output1D = insertAllocAndDeallocSimple(
@@ -134,9 +134,9 @@ public:
     Value OutTmp = create.mem.alignedAlloc(OutCacheType, bufferAlignment);
 
     // Prepare an integer buffer for input tile.
-    Value InTileTmp = create.mem.alignedAlloc(InTileType, bufferAlignment);
+    Value InTileTmp = create.mem.alignedAlloca(InTileType, bufferAlignment);
     // Prepare an integer buffer for output tile.
-    Value OutTileTmp = create.mem.alignedAlloc(OutTileType, bufferAlignment);
+    Value OutTileTmp = create.mem.alignedAlloca(OutTileType, bufferAlignment);
 
     create.affine.forIE(zero, numOfElements, cacheSize,
         [&](AffineBuilder &createAffine, Value cacheStartIdx) {
