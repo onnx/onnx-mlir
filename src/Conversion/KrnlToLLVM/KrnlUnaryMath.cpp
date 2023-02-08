@@ -126,15 +126,12 @@ struct MathFunctionName<KrnlAtanhOp> {
 template <>
 struct MathFunctionName<KrnlIsInfOp> {
   static std::string functionName(mlir::Type type) {
-
-#if (__APPLE__)
     if (type.isF32())
+#if (__APPLE__)
       return "__isinff";
 #else
-    if (type.isF32())
       return "isinff";
 #endif
-
     if (type.isF64())
       return "isinf";
     llvm_unreachable("Unsupported type for isinf");
@@ -145,14 +142,12 @@ template <>
 struct MathFunctionName<KrnlIsNaNOp> {
   static std::string functionName(mlir::Type type) {
 
-#if (__APPLE__)
     if (type.isF32())
+#if (__APPLE__)
       return "__isnanf";
 #else
-    if (type.isF32())
       return "isnanf";
 #endif
-
     if (type.isF64())
       return "isnan";
     llvm_unreachable("Unsupported type for isnan");
