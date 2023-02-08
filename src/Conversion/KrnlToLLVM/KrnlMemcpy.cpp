@@ -56,7 +56,10 @@ public:
     // Common types.
     Type i1Ty = IntegerType::get(context, 1);
     Type i64Ty = IntegerType::get(context, 64);
-    Type elementType = src.getType().cast<LLVM::LLVMStructType>().getBody()[1];
+    Type srcElementType =
+        src.getType().cast<LLVM::LLVMStructType>().getBody()[1];
+    Type dstElementType =
+        dest.getType().cast<LLVM::LLVMStructType>().getBody()[1];
     int64_t eltSize = getMemRefEltSizeInBytes(
         memcpyOp.getSrc().getType().dyn_cast<MemRefType>());
     Value eltSizeInBytes = create.llvm.constant(i64Ty, eltSize);
@@ -66,23 +69,24 @@ public:
     auto memcpyRef = getOrInsertMemcpy(rewriter, parentModule);
 
     // First operand.
-    Value alignedDstMemory = create.llvm.extractValue(elementType, dest, {1});
+    Value alignedDstMemory =
+        create.llvm.extractValue(dstElementType, dest, {1});
     // Update the pointer with the given offset.
     Value dstPtrInInt = create.llvm.ptrtoint(i64Ty, alignedDstMemory);
     Value dstOffsetI64 = create.llvm.bitcast(i64Ty, dstOffset);
     Value dstOffsetInBytes = create.llvm.mul(dstOffsetI64, eltSizeInBytes);
     dstPtrInInt = create.llvm.add(dstPtrInInt, dstOffsetInBytes);
-    alignedDstMemory = create.llvm.inttoptr(elementType, dstPtrInInt);
+    alignedDstMemory = create.llvm.inttoptr(dstElementType, dstPtrInInt);
     Value dstAddress = create.llvm.bitcastI8Ptr(alignedDstMemory);
 
     // Second operand.
-    Value alignedSrcMemory = create.llvm.extractValue(elementType, src, {1});
+    Value alignedSrcMemory = create.llvm.extractValue(srcElementType, src, {1});
     // Update the pointer with the given offset.
     Value srcPtrInInt = create.llvm.ptrtoint(i64Ty, alignedSrcMemory);
     Value srcOffsetI64 = create.llvm.bitcast(i64Ty, srcOffset);
     Value srcOffsetInBytes = create.llvm.mul(srcOffsetI64, eltSizeInBytes);
     srcPtrInInt = create.llvm.add(srcPtrInInt, srcOffsetInBytes);
-    alignedSrcMemory = create.llvm.inttoptr(elementType, srcPtrInInt);
+    alignedSrcMemory = create.llvm.inttoptr(srcElementType, srcPtrInInt);
     Value srcAddress = create.llvm.bitcastI8Ptr(alignedSrcMemory);
 
     // Size.

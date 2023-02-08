@@ -46,12 +46,19 @@ public:
     StringRef direction = adaptor.getDirection();
     bool fromF32 = direction.equals_insensitive("from_f32") ? true : false;
 
-    MemRefType inputType = inputMemref.getType().cast<MemRefType>();
-    Type inputElementType = inputType.getElementType();
-    MemRefType outputType = convertOp.getOutput().getType().cast<MemRefType>();
-    Type outputElementType = outputType.getElementType();
     Type indexType = rewriter.getIndexType();
+    Type i16Type = rewriter.getI16Type();
+    Type i32Type = rewriter.getI32Type();
     Type i64Type = rewriter.getI64Type();
+
+    // Element types.
+    MemRefType inputType = inputMemref.getType().cast<MemRefType>();
+    MemRefType outputType = convertOp.getOutput().getType().cast<MemRefType>();
+    Type inputElementType = inputType.getElementType();
+    Type outputElementType = outputType.getElementType();
+    // Use integer as data container
+    Type inputIntElementType = (fromF32) ? i32Type : i16Type;
+    Type outputIntElementType = (fromF32) ? i16Type : i32Type;
 
     // Only lower this operation when its input has no layout map. In other
     // words, The MemRef was normalized in advance. We want to have the shape of
@@ -66,6 +73,7 @@ public:
     IndexExpr zero = LiteralIndexExpr(0);
     IndexExpr one = LiteralIndexExpr(1);
 
+    // Tensor shape.
     SmallVector<IndexExpr, 4> ubs;
     create.zlowIE.getShapeAsDims(inputMemref, ubs);
     int64_t rank = ubs.size();
@@ -94,9 +102,9 @@ public:
         loc, input1DType, inputMemref, shape1D);
 
     // Allocate an output 1-D MemRef.
+    int64_t alignment = fromF32 ? 4096 : 64;
     MemRefType output1DType =
         MemRefType::Builder(input1DType).setElementType(outputElementType);
-    int64_t alignment = fromF32 ? 4096 : 64;
     Value output1D = insertAllocAndDeallocSimple(
         rewriter, nullptr, output1DType, loc, ubs1D, alignment);
 
@@ -111,43 +119,45 @@ public:
     Value cacheSizeI64 = create.math.constant(i64Type, cacheSize);
     Value tileSizeI64 = create.math.constant(i64Type, tileSize);
 
-    VectorType vecF32 = VectorType::get({VLHalf}, rewriter.getF32Type());
-    VectorType vecF16 = VectorType::get({VL}, rewriter.getF16Type());
-    MemRefType InCacheType = MemRefType::get({cacheSize}, inputElementType);
-    MemRefType OutCacheType = MemRefType::get({cacheSize}, outputElementType);
-    MemRefType InTileType = MemRefType::get({tileSize}, inputElementType);
-    MemRefType OutTileType = MemRefType::get({tileSize}, outputElementType);
+    VectorType vecI32Type = VectorType::get({VLHalf}, rewriter.getI32Type());
+    VectorType vecI16Type = VectorType::get({VL}, rewriter.getI16Type());
+    MemRefType InCacheType = MemRefType::get({cacheSize}, inputIntElementType);
+    MemRefType OutCacheType =
+        MemRefType::get({cacheSize}, outputIntElementType);
+    MemRefType InTileType = MemRefType::get({tileSize}, inputIntElementType);
+    MemRefType OutTileType = MemRefType::get({tileSize}, outputIntElementType);
 
-    // Prepare a temp buffer for input.
+    // Prepare an integer buffer for input.
     Value InTmp = create.mem.alignedAlloc(InCacheType, bufferAlignment);
-    Value zeroInVal = create.math.constant(inputElementType, 0);
-    // Prepare a temp buffer for output.
+    Value zeroInVal = create.math.constant(inputIntElementType, 0);
+    // Prepare an integer buffer for output.
     Value OutTmp = create.mem.alignedAlloc(OutCacheType, bufferAlignment);
 
-    // Prepare a temp buffer for input.
+    // Prepare an integer buffer for input tile.
     Value InTileTmp = create.mem.alignedAlloc(InTileType, bufferAlignment);
-    // Prepare a temp buffer for output.
+    // Prepare an integer buffer for output tile.
     Value OutTileTmp = create.mem.alignedAlloc(OutTileType, bufferAlignment);
 
     create.affine.forIE(zero, numOfElements, cacheSize,
-        [&](AffineBuilder &createAffine, Value startPos) {
+        [&](AffineBuilder &createAffine, Value cacheStartIdx) {
           MultiDialectBuilder<AffineBuilder, KrnlBuilder, MathBuilder,
               MemRefBuilder, VectorBuilder>
               create(createAffine);
-          Value zeroPos = zero.getValue();
           // Copy data to the temp input buffer.
-          create.krnl.copyToBuffer(
-              InTmp, input1D, {startPos}, zeroInVal, false);
+          // Need not to care about actual values.
+          create.krnl.memcpy(
+              InTmp, input1D, cacheSizeI64, zero.getValue(), cacheStartIdx);
 
           // Computation loop.
           create.affine.forIE(zero, LiteralIndexExpr(cacheSize),
-              unrollFactor * VL, [&](AffineBuilder &createAffine, Value idx) {
+              unrollFactor * VL,
+              [&](AffineBuilder &createAffine, Value tileStartIdx) {
                 MultiDialectBuilder<AffineBuilder, KrnlBuilder, MathBuilder,
                     MemRefBuilder, VectorBuilder>
                     create(createAffine);
                 // Copy data to the temp input buffer.
                 create.krnl.copyToBuffer(
-                    InTileTmp, InTmp, {idx}, zeroInVal, false);
+                    InTileTmp, InTmp, {tileStartIdx}, zeroInVal, false);
                 // Manually unroll for simplicity.
                 for (int64_t i = 0; i < unrollFactor; ++i) {
                   Value baseIdx = create.math.constantIndex(VL * i);
@@ -157,43 +167,45 @@ public:
                     // F32 -> DLF16
                     // Load VL f32 values from the input into two vectors each
                     // with VLHalf f32 values.
-                    Value vecF32H =
-                        create.vec.load(vecF32, InTileTmp, {baseIdx});
-                    Value vecF32L =
-                        create.vec.load(vecF32, InTileTmp, {baseIdxNext});
-                    Value vecDLF16 =
+                    Value vecI32H =
+                        create.vec.load(vecI32Type, InTileTmp, {baseIdx});
+                    Value vecI32L =
+                        create.vec.load(vecI32Type, InTileTmp, {baseIdxNext});
+                    Value vecI16 =
                         rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
-                            loc, vecF32H, vecF32L);
+                            loc, vecI32H, vecI32L);
                     // Store VL f16 values back to the output.
-                    create.vec.store(vecDLF16, OutTileTmp, {baseIdx});
+                    create.vec.store(vecI16, OutTileTmp, {baseIdx});
                   } else {
                     // DLF16 -> F32
                     // Load VL f16 values from the input into a register.
-                    Value vecDLF16 =
-                        create.vec.load(vecF16, InTileTmp, {baseIdx});
+                    Value vecI16 =
+                        create.vec.load(vecI16Type, InTileTmp, {baseIdx});
                     auto convertOp =
                         rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
-                            loc, vecDLF16);
-                    Value vecF32H = convertOp.getResult(0);
-                    Value vecF32L = convertOp.getResult(1);
+                            loc, vecI16);
+                    Value vecI32H = convertOp.getResult(0);
+                    Value vecI32L = convertOp.getResult(1);
                     // Store f32 values back to the output.
-                    create.vec.store(vecF32H, OutTileTmp, {baseIdx});
-                    create.vec.store(vecF32L, OutTileTmp, {baseIdxNext});
+                    create.vec.store(vecI32H, OutTileTmp, {baseIdx});
+                    create.vec.store(vecI32L, OutTileTmp, {baseIdxNext});
                   }
                 }
                 // Copy data from the temp output buffer to the final output.
-                create.krnl.copyFromBuffer(OutTileTmp, OutTmp, {idx});
+                create.krnl.copyFromBuffer(OutTileTmp, OutTmp, {tileStartIdx});
               });
 
           // Copy data from the temp output buffer to the final output.
-          create.krnl.copyFromBuffer(OutTmp, output1D, {startPos});
+          // Need not to care about actual values.
+          create.krnl.memcpy(
+              output1D, OutTmp, cacheSizeI64, cacheStartIdx, zero.getValue());
 
           // Value x = createAffine.load(input1D, {idx});
           // Value converted;
           // if (fromF32)
           //   converted = rewriter.create<ZLowConvertF32ToDLF16Op>(loc, x);
           // else
-          //   converted = rewriter.create<ZLowConvertDLF16ToF32Op>(loc, x);
+          //   converted = rewriter.create<ZLowConvertDLF1,6ToF32Op>(loc, x);
           // createAffine.store(converted, output1D, {idx});
         });
 

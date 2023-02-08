@@ -1864,20 +1864,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     ZLowConvertDLF16ToF32VectorOp::Adaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
+    Value inputVecI16 = operandAdaptor.getInput();
 
-    // Common types.
-    Type i16Ty = rewriter.getI16Type();
-    Type i32Ty = rewriter.getI32Type();
-    Type f32Ty = rewriter.getF32Type();
-    // a vector of 8 elements of i16 - for input
-    Type vecTypeI16 = LLVM::getFixedVectorType(i16Ty, 8);
     // a vector of 4 elements of i32 - for output
-    Type vecTypeI32 = LLVM::getFixedVectorType(i32Ty, 4);
-    Type vecTypeF32 = LLVM::getFixedVectorType(f32Ty, 4);
+    Type vecTypeI32 = LLVM::getFixedVectorType(rewriter.getI32Type(), 4);
 
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-    Value inputVecI16 = create.llvm.bitcast(vecTypeI16, input);
 
     // Emit SIMD instruction for conversion.
     // TODO: check if z/OS uses the same or different instruction.
@@ -1900,10 +1892,8 @@ public:
 
     Value outVecI32H = create.llvm.extractValue(vecTypeI32, outVecI32Struct, 0);
     Value outVecI32L = create.llvm.extractValue(vecTypeI32, outVecI32Struct, 1);
-    Value outVecF32H = create.llvm.bitcast(vecTypeF32, outVecI32H);
-    Value outVecF32L = create.llvm.bitcast(vecTypeF32, outVecI32L);
 
-    rewriter.replaceOp(op, {outVecF32H, outVecF32L});
+    rewriter.replaceOp(op, {outVecI32H, outVecI32L});
     return success();
   }
 
@@ -1926,26 +1916,16 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowConvertF32ToDLF16VectorOp::Adaptor operandAdaptor(operands);
-    Value vecF32H = operandAdaptor.getInput1();
-    Value vecF32L = operandAdaptor.getInput2();
+    Value vecI32H = operandAdaptor.getInput1();
+    Value vecI32L = operandAdaptor.getInput2();
 
-    // Common types.
-    Type i16Ty = rewriter.getI16Type();
-    Type f16Ty = rewriter.getF16Type();
-    Type i32Ty = rewriter.getI32Type();
-    // a vector of 4 elements of i32 - for input
-    Type vecTypeI32 = LLVM::getFixedVectorType(i32Ty, 4);
     // a vector of 8 elements of i16 - for output
-    Type vecTypeI16 = LLVM::getFixedVectorType(i16Ty, 8);
-    Type vecTypeF16 = LLVM::getFixedVectorType(f16Ty, 8);
+    Type vecTypeI16 = LLVM::getFixedVectorType(rewriter.getI16Type(), 8);
 
     // Emit SIMD instruction for conversion.
     // TODO: check if z/OS uses the same or different instruction.
     const char *asmStr = ".insn vrr,0xe60000000075,$0,$1,$2,0,2,0";
     const char *asmConstraints = "=v,v,v";
-
-    Value vecI32H = create.llvm.bitcast(vecTypeI32, vecF32H);
-    Value vecI32L = create.llvm.bitcast(vecTypeI32, vecF32L);
     SmallVector<Value> asmVals{vecI32H, vecI32L};
 
     // Emit SIMD instruction for conversion.
@@ -1960,8 +1940,7 @@ public:
                 /*operand_attrs=*/ArrayAttr())
             .getResult(0);
 
-    Value outVecDLF16 = create.llvm.bitcast(vecTypeF16, outVecI16);
-    rewriter.replaceOp(op, {outVecDLF16});
+    rewriter.replaceOp(op, {outVecI16});
     return success();
   }
 
