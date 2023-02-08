@@ -8262,6 +8262,7 @@ def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
         return sh;
       }
     }];
+    let hasFolder = 1;
 }
 
 def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",

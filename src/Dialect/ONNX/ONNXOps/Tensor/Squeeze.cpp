@@ -190,9 +190,32 @@ template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeV11Op>;
 OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
   OnnxElementsAttrBuilder elementsBuilder(getContext());
   if (!adaptor.getData() || !adaptor.getAxes()) {
+    // Use original Op if Data or Axes is not constant
+    return nullptr;
+  }
+
+  // ToFix: copied from constprop.cpp.
+  // Constant propagation pass always follows shape inference,
+  // and assumes the shape is inferenced.
+  // But the canonicalization of ConvOp may generate SqueezeOp with
+  // unranked tensor output. Type checking is needed here.
+  auto ty = getOperation()->getResults()[0].getType().dyn_cast<ShapedType>();
+  if (!(ty && ty.hasStaticShape()))
+    return nullptr;
+
+  return elementsBuilder.reshape(adaptor.getData(), ty.getShape());
+}
+
+OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
+  OnnxElementsAttrBuilder elementsBuilder(getContext());
+  if (!adaptor.getData()) {
     // Use original Op if Data is not constant
     return nullptr;
   }
-  return elementsBuilder.reshape(
-      adaptor.getData(), getShape(getOperation()->getResults()[0].getType()));
+
+  auto ty = getOperation()->getResults()[0].getType().dyn_cast<ShapedType>();
+  if (!(ty && ty.hasStaticShape()))
+    return nullptr;
+
+  return elementsBuilder.reshape(adaptor.getData(), ty.getShape());
 }
