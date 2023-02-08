@@ -12,6 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -19,6 +22,9 @@
 
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+
+#include <map>
 
 using namespace mlir;
 
@@ -50,6 +56,13 @@ public:
     // Input is a block argument, ignore it.
     if (stickInput.dyn_cast<BlockArgument>())
       return failure();
+
+    // Input must has no affine layout. In other words, it has been normalized.
+    if (auto type = dyn_cast<MemRefType>(stickInput.getType())) {
+      AffineMap m = type.getLayout().getAffineMap();
+      if (m.getNumResults() != 1 && !m.isIdentity())
+        return failure();
+    }
 
     // Input is a view.
     ViewLikeOpInterface viewOp =
@@ -100,6 +113,172 @@ public:
   }
 };
 
+/// This pattern rewrites
+/// ```mlir
+///   zlow.unstick(%stick, %A)
+///   affine.for
+///       %a = affine.load(%A, %load_indices)
+///       affine.store(%a, %B, %store_indices)
+///   %res = memref.alloc()
+///   zlow.stick(%B, %res)
+/// ```
+/// by
+/// ```mlir
+/// %res = memref.alloc()
+/// affine.for
+///     %a = affine.load(%stick, %load_indices)
+///     affine.store(%a, %res, %store_indices)
+/// ```
+/// where data will be directly loaded from / stored to stickified tensor.
+//
+/// This pattern potentially removes `zlow.unstick` and `zlow.stick` if they are
+/// dangling.
+///
+/// This pattern is often found in code generated for data transformation
+/// operations such as Transpose, Concat.
+///
+
+class UnstickLoadStoreStickRemovalPattern
+    : public OpRewritePattern<ZLowUnstickOp> {
+public:
+  using OpRewritePattern<ZLowUnstickOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
+    Operation *op = unstickOp.getOperation();
+    // stickifiedMemRef has affine layout, e.g. MemRef<1x3x5xf32, #map>
+    Value stickifiedMemRef = unstickOp.getX();
+    // cpuMemRef has no affine layout, e.g. MemRef<1x3x5xf32>
+    Value cpuMemRef = unstickOp.getOut();
+    Type stickifiedElementType =
+        stickifiedMemRef.getType().cast<MemRefType>().getElementType();
+
+    // Input must has affine layout to access elements in the stickified MemRef.
+    if (auto type = dyn_cast<MemRefType>(stickifiedMemRef.getType())) {
+      AffineMap m = type.getLayout().getAffineMap();
+      if (m.isIdentity())
+        return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+          diag << "Input has no affine layout ";
+        });
+    }
+
+    // Do not support layout 1D and 2DS since their access index functions are
+    // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
+    std::string layout = unstickOp.getLayout().value().str();
+    if ((layout == LAYOUT_1D) || (layout == LAYOUT_2DS))
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "Unsupport layout 1D and 2DS";
+      });
+
+    // 1. Match pattern: unstick -> load -> store -> stick.
+
+    // All users of cpuMemRef must be affine.load.
+    SmallVector<AffineLoadOp, 4> loadOps;
+    for (Operation *user : cpuMemRef.getUsers()) {
+      if (user == op)
+        continue;
+      if (auto loadOp = llvm::dyn_cast<AffineLoadOp>(user))
+        loadOps.emplace_back(loadOp);
+      else
+        return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+          diag << "There is non-affine-load op";
+        });
+    }
+    if (loadOps.size() == 0)
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "There is no affine load op";
+      });
+
+    // All users of loadOps must be affine.store.
+    // affine.store must store to a Memref allocated by memref.alloc.
+    SmallVector<AffineStoreOp, 4> storeOps;
+    for (AffineLoadOp loadOp : loadOps) {
+      Value loadValue = loadOp.getValue();
+      for (Operation *user : loadValue.getUsers()) {
+        if (user == loadOp.getOperation())
+          continue;
+        if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user)) {
+          // Store's input must be defined by a memref.alloc.
+          Value storeMemref = storeOp.getMemref();
+          if (storeMemref.isa<BlockArgument>())
+            return rewriter.notifyMatchFailure(
+                op, [&](::mlir::Diagnostic &diag) {
+                  diag << "Store to a BlockArgument";
+                });
+          Operation *allocOp = storeMemref.getDefiningOp();
+          if (!isa<memref::AllocOp>(allocOp))
+            return rewriter.notifyMatchFailure(
+                op, [&](::mlir::Diagnostic &diag) {
+                  diag << "Store's destination was not allocated by AllocOp";
+                });
+          storeOps.emplace_back(storeOp);
+        } else
+          return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+            diag << "There is non-affine-store op";
+          });
+      }
+    }
+    if (storeOps.size() == 0)
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "There is no affine store op";
+      });
+
+    // All storeOps have ZLowStick as destination.
+    // Each storeOp must have only single ZLowStick.
+    std::map<AffineStoreOp, ZLowStickOp> StoreOpStickOpMap;
+    SmallVector<ZLowStickOp, 4> stickOps;
+    for (AffineStoreOp storeOp : storeOps) {
+      ZLowStickOp myStickOp;
+      Value destMemref = storeOp.getMemref();
+      for (Operation *user : destMemref.getUsers()) {
+        if (user == storeOp.getOperation())
+          continue;
+        if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
+          if (myStickOp)
+            return rewriter.notifyMatchFailure(
+                op, [&](::mlir::Diagnostic &diag) {
+                  diag << "Two ZLowStickOp linked to an AffineStoreOp";
+                });
+          else
+            myStickOp = stick;
+        } else
+          return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+            diag << "There is non-stick op";
+          });
+      }
+      stickOps.emplace_back(myStickOp);
+      StoreOpStickOpMap[storeOp] = myStickOp;
+    }
+    if (stickOps.size() == 0)
+      return rewriter.notifyMatchFailure(op,
+          [&](::mlir::Diagnostic &diag) { diag << "There is no stick op"; });
+
+    // 2. Rewrite
+    // - replace all source MemRefs of AffineLoadOp by unstick's MemRef.
+    for (AffineLoadOp loadOp : loadOps) {
+      Value srcMemref = loadOp.getMemref();
+      srcMemref.replaceAllUsesWith(stickifiedMemRef);
+      loadOp.getResult().setType(stickifiedElementType);
+    }
+    // - replace all target MemRefs of AffineStoreOp by stick's zMemRef.
+    for (AffineStoreOp storeOp : storeOps) {
+      Value destMemref = storeOp.getMemref();
+      ZLowStickOp myStickOp = StoreOpStickOpMap[storeOp];
+      Value stickMemref = myStickOp.getOut();
+      // Update destMemref by turning it into a stickified Memref.
+      memref::AllocOp allocOp =
+          cast<memref::AllocOp>(destMemref.getDefiningOp());
+      allocOp->getResult(0).setType(stickMemref.getType());
+      // Replace stickMemRef by the new destMemref.
+      stickMemref.replaceAllUsesWith(allocOp->getResult(0));
+      rewriter.eraseOp(myStickOp);
+    }
+
+    rewriter.eraseOp(unstickOp);
+    return success();
+  }
+};
+
 /*!
  *  Function pass that optimizes ZLowIR.
  */
@@ -116,6 +295,7 @@ public:
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<StickViewUnstickRemovalPattern>(&getContext());
+    patterns.insert<UnstickLoadStoreStickRemovalPattern>(&getContext());
 
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();
