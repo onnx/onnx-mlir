@@ -285,12 +285,19 @@ public:
       Value storeMemref = storeOp.getMemref();
       Value storeValue = storeOp.getValue();
       ZLowStickOp myStickOp = StoreOpStickOpMap[storeOp];
-      // Move up the allocation of stickified Memref so that it dominates this
-      // store.
       Value stickMemref = myStickOp.getOut();
-      memref::AllocOp allocOp =
-          cast<memref::AllocOp>(stickMemref.getDefiningOp());
-      allocOp.getOperation()->moveBefore(storeMemref.getDefiningOp());
+      // Get AllocOps that allocated storeMemref and stickMemref.
+      Operation *storeAllocOp = storeMemref.getDefiningOp();
+      Operation *stickAllocOp = stickMemref.getDefiningOp();
+      // stickAllocOp should be after storeAllocOp, since dimensions come from
+      // storeAllocOp according to the definition of zlow.stick.
+      stickAllocOp->moveAfter(storeAllocOp);
+      for (int i = 0; i < stickAllocOp->getNumOperands(); ++i) {
+        Value oprd = stickAllocOp->getOperand(i);
+        if (isa<BlockArgument>(oprd))
+          continue;
+        oprd.getDefiningOp()->moveBefore(stickAllocOp);
+      }
       // Replace store's Memref and Value, and preserve the access indices.
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointAfter(storeOp);
