@@ -104,7 +104,7 @@ public:
     int64_t VL = 8;
     int64_t VLHalf = VL / 2;
     int64_t unrollFactor = 4;
-    int64_t tileSize = 32;
+    int64_t tileSize = unrollFactor * VL;
     int64_t bufferAlignment = 64;
 
     int64_t cacheSize = tileSize * unrollFactor * VL;
@@ -118,18 +118,26 @@ public:
     MemRefType InTileType = MemRefType::get({tileSize}, inputElementType);
     MemRefType OutTileType = MemRefType::get({tileSize}, outputElementType);
 
+    // Prepare a temp buffer for input.
+    Value InTmp = create.mem.alignedAlloc(InCacheType, bufferAlignment);
+    Value zeroInVal = create.math.constant(inputElementType, 0);
+    // Prepare a temp buffer for output.
+    Value OutTmp = create.mem.alignedAlloc(OutCacheType, bufferAlignment);
+
+    // Prepare a temp buffer for input.
+    Value InTileTmp = create.mem.alignedAlloc(InTileType, bufferAlignment);
+    // Prepare a temp buffer for output.
+    Value OutTileTmp = create.mem.alignedAlloc(OutTileType, bufferAlignment);
+
     create.affine.forIE(zero, numOfElements, cacheSize,
         [&](AffineBuilder &createAffine, Value startPos) {
           MultiDialectBuilder<AffineBuilder, KrnlBuilder, MathBuilder,
               MemRefBuilder, VectorBuilder>
               create(createAffine);
           Value zeroPos = zero.getValue();
-          // Prepare a temp buffer for input.
-          Value InTmp = create.mem.alignedAlloc(InCacheType, bufferAlignment);
           // Copy data to the temp input buffer.
-          create.krnl.memcpy(InTmp, input1D, cacheSizeI64, zeroPos, startPos);
-          // Prepare a temp buffer for output.
-          Value OutTmp = create.mem.alignedAlloc(OutCacheType, bufferAlignment);
+          create.krnl.copyToBuffer(
+              InTmp, input1D, {startPos}, zeroInVal, false);
 
           // Computation loop.
           create.affine.forIE(zero, LiteralIndexExpr(cacheSize),
@@ -137,15 +145,9 @@ public:
                 MultiDialectBuilder<AffineBuilder, KrnlBuilder, MathBuilder,
                     MemRefBuilder, VectorBuilder>
                     create(createAffine);
-                // Prepare a temp buffer for input.
-                // Using alloca.
-                Value InTileTmp =
-                    create.mem.alignedAlloca(InTileType, bufferAlignment);
                 // Copy data to the temp input buffer.
-                create.krnl.memcpy(InTileTmp, InTmp, tileSizeI64, zeroPos, idx);
-                // Prepare a temp buffer for output.
-                Value OutTileTmp =
-                    create.mem.alignedAlloca(OutTileType, bufferAlignment);
+                create.krnl.copyToBuffer(
+                    InTileTmp, InTmp, {idx}, zeroInVal, false);
                 // Manually unroll for simplicity.
                 for (int64_t i = 0; i < unrollFactor; ++i) {
                   Value baseIdx = create.math.constantIndex(VL * i);
@@ -180,12 +182,11 @@ public:
                   }
                 }
                 // Copy data from the temp output buffer to the final output.
-                create.krnl.memcpy(
-                    OutTmp, OutTileTmp, tileSizeI64, idx, zeroPos);
+                create.krnl.copyFromBuffer(OutTileTmp, OutTmp, {idx});
               });
 
           // Copy data from the temp output buffer to the final output.
-          create.krnl.memcpy(output1D, OutTmp, cacheSizeI64, startPos, zeroPos);
+          create.krnl.copyFromBuffer(OutTmp, output1D, {startPos});
 
           // Value x = createAffine.load(input1D, {idx});
           // Value converted;
