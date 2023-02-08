@@ -210,6 +210,7 @@ Value reverseAllElements(
 Value reverseWeightTensor(
     PatternRewriter &rewriter, Location loc, Value input) {
   ShapedType inputType = input.getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
   assert(inputType.hasRank() && "Need rank to reverse weight tensor.");
   // Reverse elements using ReverseSequence op.
   // ReverseSequence op can reverse elements in the first and second dimensions.
@@ -250,8 +251,39 @@ Value reverseWeightTensor(
   // second loop. Reverse last dimension Dn for "D0 x D1 x D2 x ... x Dn x N x
   // C" (if rank is odd)
   for (int i = (spatialRank / 2) * 2; i < spatialRank; ++i) {
-    Value reverse0 =
-        reverseAllElements(rewriter, loc, transposedInput, /*dimension*/ 0);
+    ShapedType tInType = transposedInput.getType().cast<ShapedType>();
+    ArrayRef<int64_t> tInShape = tInType.getShape();
+    Value reverse0;
+    if (tInShape[1] == ShapedType::kDynamic) {
+      // When N is unknown dim,
+      // reshape "Dn x N x C x D0 xD1 x D2 x ... x Dn-1"
+      // to "Dn x 1 x N x C x D0 xD1 x D2 x ... x Dn-1",
+      // then, reshape back to original shape after reversed.
+      SmallVector<int64_t, 6> origShapeVec, reshapedShapeVec;
+      for (int i = 0; i < tInType.getRank(); ++i)
+        origShapeVec.emplace_back(tInShape[i]);
+      reshapedShapeVec.emplace_back(tInShape[0]);
+      reshapedShapeVec.emplace_back(1);
+      for (int i = 1; i < tInType.getRank(); ++i)
+        reshapedShapeVec.emplace_back(tInShape[i]);
+      Value origShape = createONNXConstantOpWithDenseAttr(
+          rewriter, loc, rewriter.getI64TensorAttr(origShapeVec));
+      Value shape = createONNXConstantOpWithDenseAttr(
+          rewriter, loc, rewriter.getI64TensorAttr(reshapedShapeVec));
+      Type origType = RankedTensorType::get(origShapeVec, elementType);
+      Type resultType = RankedTensorType::get(reshapedShapeVec, elementType);
+      // Reshape, reverese, and reshape
+      transposedInput = rewriter.create<ONNXReshapeOp>(
+          loc, resultType, transposedInput, shape);
+      reverse0 =
+          reverseAllElements(rewriter, loc, transposedInput, /*dimension*/ 0);
+      reverse0 =
+          rewriter.create<ONNXReshapeOp>(loc, origType, reverse0, origShape);
+    } else {
+      reverse0 =
+          reverseAllElements(rewriter, loc, transposedInput, /*dimension*/ 0);
+    }
+
     // Move reversed one dimension to the last for next reverse.
     SmallVector<int64_t, 4> permsval1;
     for (int j = 0; j < inputType.getRank() - 1; ++j)
@@ -443,8 +475,12 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
   shapeHelper.computeShapeAndAssertOnFailure();
   int inputRank = shapeHelper.getOutputDims().size();
   SmallVector<int64_t, 4> inputShape;
-  for (int i = 0; i < inputRank; ++i)
-    inputShape.emplace_back(shapeHelper.getOutputDims()[i].getLiteral());
+  for (int i = 0; i < inputRank; ++i) {
+    int64_t d = shapeHelper.getOutputDims()[i].isLiteral()
+                    ? shapeHelper.getOutputDims()[i].getLiteral()
+                    : ShapedType::kDynamic;
+    inputShape.emplace_back(d);
+  }
   SmallVector<int64_t, 2> padSize;
   int64_t attrSize = ArrayAttrSize(outputShapeAttr);
   int64_t offset = inputRank - attrSize;
