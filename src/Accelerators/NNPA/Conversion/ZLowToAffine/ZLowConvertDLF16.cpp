@@ -109,11 +109,14 @@ public:
 
     int64_t cacheSize = tileSize * unrollFactor * VL;
     Value cacheSizeI64 = create.math.constant(i64Type, cacheSize);
+    Value tileSizeI64 = create.math.constant(i64Type, tileSize);
 
     VectorType vecF32 = VectorType::get({VLHalf}, rewriter.getF32Type());
     VectorType vecF16 = VectorType::get({VL}, rewriter.getF16Type());
     MemRefType InCacheType = MemRefType::get({cacheSize}, inputElementType);
     MemRefType OutCacheType = MemRefType::get({cacheSize}, outputElementType);
+    MemRefType InTileType = MemRefType::get({tileSize}, inputElementType);
+    MemRefType OutTileType = MemRefType::get({tileSize}, outputElementType);
 
     create.affine.forIE(zero, numOfElements, cacheSize,
         [&](AffineBuilder &createAffine, Value startPos) {
@@ -131,39 +134,54 @@ public:
           // Computation loop.
           create.affine.forIE(zero, LiteralIndexExpr(cacheSize),
               unrollFactor * VL, [&](AffineBuilder &createAffine, Value idx) {
-                MultiDialectBuilder<AffineBuilder, MathBuilder, VectorBuilder>
+                MultiDialectBuilder<AffineBuilder, KrnlBuilder, MathBuilder,
+                    MemRefBuilder, VectorBuilder>
                     create(createAffine);
+                // Prepare a temp buffer for input.
+                // Using alloca.
+                Value InTileTmp =
+                    create.mem.alignedAlloca(InTileType, bufferAlignment);
+                // Copy data to the temp input buffer.
+                create.krnl.memcpy(InTileTmp, InTmp, tileSizeI64, zeroPos, idx);
+                // Prepare a temp buffer for output.
+                Value OutTileTmp =
+                    create.mem.alignedAlloca(OutTileType, bufferAlignment);
                 // Manually unroll for simplicity.
                 for (int64_t i = 0; i < unrollFactor; ++i) {
-                  Value baseIdx =
-                      create.math.add(idx, create.math.constantIndex(VL * i));
-                  Value offset = create.math.constantIndex(VLHalf);
+                  Value baseIdx = create.math.constantIndex(VL * i);
+                  Value baseIdxNext =
+                      create.math.constantIndex(VL * i + VLHalf);
                   if (fromF32) {
                     // F32 -> DLF16
                     // Load VL f32 values from the input into two vectors each
                     // with VLHalf f32 values.
-                    Value vecF32H = create.vec.load(vecF32, InTmp, {baseIdx});
+                    Value vecF32H =
+                        create.vec.load(vecF32, InTileTmp, {baseIdx});
                     Value vecF32L =
-                        create.vec.load(vecF32, InTmp, {baseIdx}, {offset});
+                        create.vec.load(vecF32, InTileTmp, {baseIdxNext});
                     Value vecDLF16 =
                         rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
                             loc, vecF32H, vecF32L);
                     // Store VL f16 values back to the output.
-                    create.vec.store(vecDLF16, OutTmp, {baseIdx});
+                    create.vec.store(vecDLF16, OutTileTmp, {baseIdx});
                   } else {
                     // DLF16 -> F32
                     // Load VL f16 values from the input into a register.
-                    Value vecDLF16 = create.vec.load(vecF16, InTmp, {baseIdx});
+                    Value vecDLF16 =
+                        create.vec.load(vecF16, InTileTmp, {baseIdx});
                     auto convertOp =
                         rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
                             loc, vecDLF16);
                     Value vecF32H = convertOp.getResult(0);
                     Value vecF32L = convertOp.getResult(1);
                     // Store f32 values back to the output.
-                    create.vec.store(vecF32H, OutTmp, {baseIdx});
-                    create.vec.store(vecF32L, OutTmp, {baseIdx}, {offset});
+                    create.vec.store(vecF32H, OutTileTmp, {baseIdx});
+                    create.vec.store(vecF32L, OutTileTmp, {baseIdxNext});
                   }
                 }
+                // Copy data from the temp output buffer to the final output.
+                create.krnl.memcpy(
+                    OutTmp, OutTileTmp, tileSizeI64, idx, zeroPos);
               });
 
           // Copy data from the temp output buffer to the final output.
