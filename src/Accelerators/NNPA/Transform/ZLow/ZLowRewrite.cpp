@@ -15,6 +15,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -23,6 +24,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 #include <map>
 
@@ -145,13 +147,18 @@ public:
 
   LogicalResult matchAndRewrite(
       ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
+    Location loc = unstickOp.getLoc();
     Operation *op = unstickOp.getOperation();
     // stickifiedMemRef has affine layout, e.g. MemRef<1x3x5xf32, #map>
     Value stickifiedMemRef = unstickOp.getX();
     // cpuMemRef has no affine layout, e.g. MemRef<1x3x5xf32>
     Value cpuMemRef = unstickOp.getOut();
+
+    // Common types.
     Type stickifiedElementType =
         stickifiedMemRef.getType().cast<MemRefType>().getElementType();
+    Type cpuElementType =
+        cpuMemRef.getType().cast<MemRefType>().getElementType();
 
     // Input must has affine layout to access elements in the stickified MemRef.
     if (auto type = dyn_cast<MemRefType>(stickifiedMemRef.getType())) {
@@ -233,6 +240,8 @@ public:
       for (Operation *user : destMemref.getUsers()) {
         if (user == storeOp.getOperation())
           continue;
+        if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user))
+          continue;
         if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
           if (myStickOp)
             return rewriter.notifyMatchFailure(
@@ -255,23 +264,46 @@ public:
 
     // 2. Rewrite
     // - replace all source MemRefs of AffineLoadOp by unstick's MemRef.
+    MultiDialectBuilder<AffineBuilder> create(rewriter, loc);
     for (AffineLoadOp loadOp : loadOps) {
-      Value srcMemref = loadOp.getMemref();
-      srcMemref.replaceAllUsesWith(stickifiedMemRef);
-      loadOp.getResult().setType(stickifiedElementType);
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointAfter(loadOp);
+      // Clone loadOp with new Memref and return type, which preserves the
+      // access indices.
+      IRMapping operandMap;
+      operandMap.map(loadOp.getMemref(), stickifiedMemRef);
+      Operation *clonedOp = rewriter.clone(*loadOp.getOperation(), operandMap);
+      clonedOp->getResult(0).setType(stickifiedElementType);
+      Value convertedVal = rewriter.create<ZLowDummyOp>(
+          loc, cpuElementType, clonedOp->getResult(0));
+      rewriter.replaceOp(loadOp, {convertedVal});
     }
+
     // - replace all target MemRefs of AffineStoreOp by stick's zMemRef.
+    // TODO: get the ealiest AllocOp from storeOps to replace.
     for (AffineStoreOp storeOp : storeOps) {
-      Value destMemref = storeOp.getMemref();
+      Value storeMemref = storeOp.getMemref();
+      Value storeValue = storeOp.getValue();
       ZLowStickOp myStickOp = StoreOpStickOpMap[storeOp];
+      // Move up the allocation of stickified Memref so that it dominates this
+      // store.
       Value stickMemref = myStickOp.getOut();
-      // Update destMemref by turning it into a stickified Memref.
       memref::AllocOp allocOp =
-          cast<memref::AllocOp>(destMemref.getDefiningOp());
-      allocOp->getResult(0).setType(stickMemref.getType());
-      // Replace stickMemRef by the new destMemref.
-      stickMemref.replaceAllUsesWith(allocOp->getResult(0));
-      rewriter.eraseOp(myStickOp);
+          cast<memref::AllocOp>(stickMemref.getDefiningOp());
+      allocOp.getOperation()->moveBefore(storeMemref.getDefiningOp());
+      // Replace store's Memref and Value, and preserve the access indices.
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointAfter(storeOp);
+      // Convert the value to dlf16.
+      Value dlf16 =
+          rewriter.create<ZLowDummyOp>(loc, stickifiedElementType, storeValue);
+      // Clone storeOp with new Memref and Value, which preserves the access
+      // indices.
+      IRMapping operandMap;
+      operandMap.map(storeOp.getMemref(), stickMemref);
+      operandMap.map(storeOp.getValue(), dlf16);
+      Operation *clonedOp = rewriter.clone(*storeOp.getOperation(), operandMap);
+      rewriter.eraseOp(storeOp);
     }
 
     rewriter.eraseOp(unstickOp);
