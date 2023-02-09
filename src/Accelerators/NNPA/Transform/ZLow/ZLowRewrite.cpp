@@ -113,8 +113,21 @@ public:
 };
 
 // clang-format off
-
-/// Consider the following pattern: 
+///
+/// * Pattern to rewrite
+/// ```
+/// zlow.unstick -> affine.for (affine.load -> affine.store) -> zlow.stick
+///    |                            |
+///    |                            '--------> affine.store) -> zlow.stick
+///    |
+///    '----------> affine.for (affine.load -> affine.store) -> zlow.stick
+///                                                              ^
+/// zlow.unstick -> affine.for (affine.load -> affine.store) ----'
+/// ```
+///
+/// * Example:
+///
+/// Consider the following code: 
 /// ```mlir
 /// zlow.unstick(%stick, %A) {layout = "2D"}: memref<2x3xf16, #map2D>, memref<2x3xf32>
 /// affine.for
@@ -128,7 +141,7 @@ public:
 /// then stickified again. It said data are transfered from a stickified memref
 /// into another stickified memref via a chain of affine transformation.
 ///
-/// The above pattern can be rewritten into the following code:
+/// The above code can be rewritten into the following code:
 /// ```mlir
 /// %res = memref.alloc() : memref<4x5x6xf16, #map3D>
 /// affine.for
@@ -140,13 +153,15 @@ public:
 /// This pattern is often found in code generated for data transformation such
 /// as Transpose, Concat, and Split.
 ///
-/// * Why does this rewrite work?
+/// * Why does this rewriting work?
+/// 
 /// - This rewriting depends on the fact that `zlow.stick` and `zlow.unstick`
 /// maintain an affine map that maps one element in a memref to an element in
 /// another memref. Those maps are `#map2D` and `#map3D` in the above example.
 /// Combined with affine.load and affine.store, one element in a stickified
 /// memref can be forwarded directly into an element in another stickifired
 /// memref without `zlow.stick` and `zlow.unstick`.
+///
 /// - The shape of the input and output memrefs of `zlow.stick`/`zlow.unstick`
 /// are the same except the case of layout NCHW. In case of NCHW, dimensions are
 /// permuted, so we handle NCHW as a special case in this rewriting.
@@ -160,7 +175,8 @@ public:
 /// ```
 ///  Shape of `%X` is in NHWC while shape of `%res` is in NCHW.
 ///
-/// Limitations: 
+/// * Limitations
+///
 /// - Unstickified memrefs (`%A` and `%B`) must have no affine map.
 /// Theoretically, we could support affine map on unstickified memrefs by
 /// composing affine-map.
@@ -185,6 +201,8 @@ public:
     Value stickifiedMemRef = unstickOp.getX();
     // cpuMemRef has no affine layout, e.g. MemRef<1x3x5xf32>
     Value cpuMemRef = unstickOp.getOut();
+    std::string layout = unstickOp.getLayout().value().str();
+    bool isNCHWLayout = (layout == LAYOUT_NCHW);
 
     // Common types.
     Type stickifiedElementType =
@@ -206,13 +224,23 @@ public:
 
     // Do not support layout 1D and 2DS since their access index functions are
     // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
-    std::string layout = unstickOp.getLayout().value().str();
     if ((layout == LAYOUT_1D) || (layout == LAYOUT_2DS))
       return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
         diag << "Unsupport layout 1D and 2DS";
       });
 
-    // 1. Match pattern: unstick -> load -> store -> stick.
+    // 1. Match pattern: data flows from zlow.unstick to zlow.stick via
+    // affine.load and affine.store.
+    // - Support sharing load-from/store-to zlow.unstick/zlow.stick.
+    //
+    //  zlow.unstick -> affine.for (affine.load -> affine.store) -> zlow.stick
+    //     |                            |
+    //     |                            '--------> affine.store) -> zlow.stick
+    //     |
+    //     '----------> affine.for (affine.load -> affine.store) -> zlow.stick
+    //                                                               ^
+    //  zlow.unstick -> affine.for (affine.load -> affine.store) ----'
+    //
 
     // All consumers of zlow.unstick must be affine.load.
     SmallVector<AffineLoadOp, 4> loadOps;
@@ -238,59 +266,102 @@ public:
       });
 
     // 2. Rewrite
-    // - replace all source MemRefs of AffineLoadOp by unstick's MemRef.
+    // - Rewrite AffineLoadOp to use stickified Memref directly.
     MultiDialectBuilder<AffineBuilder> create(rewriter, loc);
     for (AffineLoadOp loadOp : loadOps) {
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointAfter(loadOp);
-      // Clone loadOp with new Memref and return type, which preserves the
-      // access indices.
+      // Clone loadOp with new Memref, indices and return type.
       IRMapping operandMap;
       operandMap.map(loadOp.getMemref(), stickifiedMemRef);
+      if (isNCHWLayout) {
+        // Permute indices in case of NCHW layout.
+        // for zlow.unstick: input is NHWC, output is NCHW.
+        ValueRange NCHWIndices = loadOp.getIndices();
+        SmallVector<Value, 4> NHWCIndices;
+        NHWCIndices.emplace_back(NCHWIndices[0]); // N
+        NHWCIndices.emplace_back(NCHWIndices[2]); // H
+        NHWCIndices.emplace_back(NCHWIndices[3]); // W
+        NHWCIndices.emplace_back(NCHWIndices[1]); // C
+        operandMap.map(NCHWIndices, NHWCIndices);
+      }
       Operation *clonedOp = rewriter.clone(*loadOp.getOperation(), operandMap);
       clonedOp->getResult(0).setType(stickifiedElementType);
-      Value convertedVal = rewriter.create<ZLowDummyOp>(
+      // This DummyOp is used to make the intermediate generated code valid. It
+      // wil be removed automatically via canonicalization.
+      Value dummyConverter = rewriter.create<ZLowDummyOp>(
           loc, cpuElementType, clonedOp->getResult(0));
-      rewriter.replaceOp(loadOp, {convertedVal});
+      rewriter.replaceOp(loadOp, {dummyConverter});
     }
 
-    // - replace all target MemRefs of AffineStoreOp by stick's zMemRef.
-    // TODO: get the ealiest AllocOp from storeOps to replace.
+    // - Rewrite AffineStoreOp to use stickified Memref directly.
     for (AffineStoreOp storeOp : storeOps) {
       Value storeMemref = storeOp.getMemref();
       Value storeValue = storeOp.getValue();
       ZLowStickOp myStickOp = StoreOpStickOpMap[storeOp];
       Value stickMemref = myStickOp.getOut();
+
+      // Move stickMemref's AllocOp up before affine.for so that it
+      // dominates its uses. A good place is just after storeMemref's AllocOp.
+      //
       // Get AllocOps that allocated storeMemref and stickMemref.
       Operation *storeAllocOp = storeMemref.getDefiningOp();
       Operation *stickAllocOp = stickMemref.getDefiningOp();
       // stickAllocOp should be after storeAllocOp, since dimensions come from
       // storeAllocOp according to the definition of zlow.stick.
-      stickAllocOp->moveAfter(storeAllocOp);
+      Operation *justMovedOp = nullptr;
+      // Move AllocOp's operands first.
       for (unsigned i = 0; i < stickAllocOp->getNumOperands(); ++i) {
         Value oprd = stickAllocOp->getOperand(i);
         if (isa<BlockArgument>(oprd))
           continue;
-        oprd.getDefiningOp()->moveBefore(stickAllocOp);
+        Operation *opToMove = oprd.getDefiningOp();
+        // Do not move, it is potentially used by storeAllocOp and it is a good
+        // place already.
+        if (opToMove->isBeforeInBlock(storeAllocOp))
+          continue;
+        if (justMovedOp)
+          opToMove->moveAfter(justMovedOp);
+        else
+          opToMove->moveAfter(storeAllocOp);
+        justMovedOp = opToMove;
       }
-      // Replace store's Memref and Value, and preserve the access indices.
+      // Move AllocOp.
+      if (justMovedOp)
+        stickAllocOp->moveAfter(justMovedOp);
+      else
+        stickAllocOp->moveAfter(storeAllocOp);
+
+      // Replace storeOp.
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointAfter(storeOp);
-      // Convert the value to dlf16.
-      Value dlf16 =
+      // This DummyOp is used to make the intermediate generated code valid. It
+      // will be removed automatically via canonicalization.
+      Value dummyConverter =
           rewriter.create<ZLowDummyOp>(loc, stickifiedElementType, storeValue);
-      // Clone storeOp with new Memref and Value, which preserves the access
-      // indices.
+      // Clone storeOp with new Memref, Value, and Indices.
       IRMapping operandMap;
       operandMap.map(storeOp.getMemref(), stickMemref);
-      operandMap.map(storeOp.getValue(), dlf16);
+      operandMap.map(storeOp.getValue(), dummyConverter);
+      // Permute indices in case of NCHW layout.
+      if (isNCHWLayout) {
+        // for zlow.stick: input is NCHW, output is NHWC.
+        ValueRange NCHWIndices = storeOp.getIndices();
+        SmallVector<Value, 4> NHWCIndices;
+        NHWCIndices.emplace_back(NCHWIndices[0]); // N
+        NHWCIndices.emplace_back(NCHWIndices[2]); // H
+        NHWCIndices.emplace_back(NCHWIndices[3]); // W
+        NHWCIndices.emplace_back(NCHWIndices[1]); // C
+        operandMap.map(NCHWIndices, NHWCIndices);
+      }
       rewriter.clone(*storeOp.getOperation(), operandMap);
       rewriter.eraseOp(storeOp);
     }
 
     // Remove ZLowUnstickOp.
     rewriter.eraseOp(unstickOp);
-    // Copy ZLowStickOp to the removableStickOps.
+    // Copy ZLowStickOp to the removableStickOps. We cannot remove it now
+    // because there are potentially other AffineStoreOps connecting to it.
     for (ZLowStickOp stickOp : stickOps)
       removableStickOps.insert(stickOp);
     return success();
@@ -299,6 +370,7 @@ public:
 private:
   llvm::SmallDenseSet<ZLowStickOp, 4> &removableStickOps;
 
+  // Collect affine.load operations that connect to zlow.unstick.
   bool matchAndCollectAffineLoad(ZLowUnstickOp unstickOp, Value loadMemref,
       SmallVectorImpl<AffineLoadOp> &loadOps) const {
     for (Operation *user : loadMemref.getUsers()) {
@@ -313,6 +385,7 @@ private:
     return (loadOps.size() != 0);
   }
 
+  // Collect affine.store operations that connect to affine.load.
   bool matchAndCollectAffineStore(const SmallVectorImpl<AffineLoadOp> &loadOps,
       SmallVectorImpl<AffineStoreOp> &storeOps) const {
     for (AffineLoadOp loadOp : loadOps) {
@@ -336,6 +409,7 @@ private:
     return (storeOps.size() != 0);
   }
 
+  // Collect zlow.stick operations that connect to affine.store.
   bool matchAndCollectStickOp(const SmallVectorImpl<AffineStoreOp> &storeOps,
       SmallVectorImpl<ZLowStickOp> &stickOps,
       std::map<AffineStoreOp, ZLowStickOp> &StoreOpStickOpMap) const {
