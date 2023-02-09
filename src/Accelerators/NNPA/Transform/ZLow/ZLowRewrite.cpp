@@ -59,7 +59,7 @@ public:
     if (stickInput.dyn_cast<BlockArgument>())
       return failure();
 
-    // Input must has no affine layout. In other words, it has been normalized.
+    // Input must have no affine layout. In other words, it has been normalized.
     if (hasNonIdentityLayout(stickInput.getType()))
       return failure();
 
