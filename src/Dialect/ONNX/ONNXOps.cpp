@@ -12,11 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
 #include "mlir/Dialect/Traits.h"
-#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
 //===----------------------------------------------------------------------===//
 // Unsupported Operations
@@ -178,7 +179,7 @@ Operation *ONNXDialect::materializeConstant(
     OpBuilder &builder, Attribute value, Type type, Location loc) {
 
   // The atrribute could be DenseElemnemntsAttr, IntAttr, FloatAttr and etc.
-  // onnx builder is used to convert it into value() 
+  // onnx builder is used to convert it into value()
   OnnxBuilder onnx(builder, loc);
   Value result = onnx.constant(value);
   return result.getDefiningOp();

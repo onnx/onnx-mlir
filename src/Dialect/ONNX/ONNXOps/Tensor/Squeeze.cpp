@@ -199,10 +199,12 @@ OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
     return nullptr;
   }
 
-  assert(hasStaticShape(getSqueezed().getType()) && "Shape should be static when the inputs are constant");
+  assert(hasStaticShape(getSqueezed().getType()) &&
+         "Shape should be static when the inputs are constant");
 
   OnnxElementsAttrBuilder elementsBuilder(getContext());
-  return elementsBuilder.reshape(adaptor.getData(), getShape(getSqueezed().getType()));
+  return elementsBuilder.reshape(
+      adaptor.getData(), getShape(getSqueezed().getType()));
 }
 
 OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
@@ -211,26 +213,16 @@ OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
   if (failed(inferShapes(nullptr)))
     return nullptr;
 
-/*
-  auto dataType = getData().getType().dyn_cast<RankedTensorType>();
-  if (dataType) {
-    Type elementType = dataType.getElementType();
-    ONNXSqueezeV11OpShapeHelper shapeHelper(getOperation(), {});
-    if (failed(shapeHelper.computeShapeAndUpdateType(elementType)))
-      return nullptr;
-  } else {
-    return nullptr;
-  }
-*/
-
   // Fold the value in tensor
   if (!adaptor.getData()) {
     // Use original Op if Data is not constant
     return nullptr;
   }
 
-  assert(hasStaticShape(getSqueezed().getType()) && "Shape should be static when the inputs are constant");
+  assert(hasStaticShape(getSqueezed().getType()) &&
+         "Shape should be static when the inputs are constant");
 
   OnnxElementsAttrBuilder elementsBuilder(getContext());
-  return elementsBuilder.reshape(adaptor.getData(), getShape(getSqueezed().getType()));
+  return elementsBuilder.reshape(
+      adaptor.getData(), getShape(getSqueezed().getType()));
 }
