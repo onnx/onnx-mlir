@@ -188,34 +188,49 @@ template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeV11Op>;
 // Folder
 //===----------------------------------------------------------------------===//
 OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
-  OnnxElementsAttrBuilder elementsBuilder(getContext());
+  // Fold type
+  if (failed(inferShapes(nullptr)))
+    return nullptr;
+
+  // Fold value
+
   if (!adaptor.getData() || !adaptor.getAxes()) {
     // Use original Op if Data or Axes is not constant
     return nullptr;
   }
 
-  // ToFix: copied from constprop.cpp.
-  // Constant propagation pass always follows shape inference,
-  // and assumes the shape is inferenced.
-  // But the canonicalization of ConvOp may generate SqueezeOp with
-  // unranked tensor output. Type checking is needed here.
-  auto ty = getOperation()->getResults()[0].getType().dyn_cast<ShapedType>();
-  if (!(ty && ty.hasStaticShape()))
-    return nullptr;
+  assert(hasStaticShape(getSqueezed().getType()) && "Shape should be static when the inputs are constant");
 
-  return elementsBuilder.reshape(adaptor.getData(), ty.getShape());
+  OnnxElementsAttrBuilder elementsBuilder(getContext());
+  return elementsBuilder.reshape(adaptor.getData(), getShape(getSqueezed().getType()));
 }
 
 OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
-  OnnxElementsAttrBuilder elementsBuilder(getContext());
+
+  // Fold the type of tensor
+  if (failed(inferShapes(nullptr)))
+    return nullptr;
+
+/*
+  auto dataType = getData().getType().dyn_cast<RankedTensorType>();
+  if (dataType) {
+    Type elementType = dataType.getElementType();
+    ONNXSqueezeV11OpShapeHelper shapeHelper(getOperation(), {});
+    if (failed(shapeHelper.computeShapeAndUpdateType(elementType)))
+      return nullptr;
+  } else {
+    return nullptr;
+  }
+*/
+
+  // Fold the value in tensor
   if (!adaptor.getData()) {
     // Use original Op if Data is not constant
     return nullptr;
   }
 
-  auto ty = getOperation()->getResults()[0].getType().dyn_cast<ShapedType>();
-  if (!(ty && ty.hasStaticShape()))
-    return nullptr;
+  assert(hasStaticShape(getSqueezed().getType()) && "Shape should be static when the inputs are constant");
 
-  return elementsBuilder.reshape(adaptor.getData(), ty.getShape());
+  OnnxElementsAttrBuilder elementsBuilder(getContext());
+  return elementsBuilder.reshape(adaptor.getData(), getShape(getSqueezed().getType()));
 }
