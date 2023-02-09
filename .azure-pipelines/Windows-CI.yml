@@ -27,7 +27,7 @@ jobs:
       versionSpec: '3.9'
 
   - task: PowerShell@2
-    displayName: Setup ninja and lit
+    displayName: Setup ninja
     inputs:
       targetType: 'inline'
       script: |
@@ -37,15 +37,6 @@ jobs:
           echo "choco install ninja"
           choco install ninja
         }
-        echo "Check and set up lit"
-        if (-Not (Get-Command lit -errorAction SilentlyContinue))
-        {
-          python3 -m pip install --upgrade wheel
-          python3 -m pip install --upgrade lit
-        }
-        $litPath=(Get-Command lit).Path
-        echo "Setting LitPath to $litPath"
-        Write-Host "##vso[task.setvariable variable=LitPath;]$litPath"
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
@@ -54,12 +45,17 @@ jobs:
     workingDirectory: $(Agent.BuildDirectory)
 
   - task: PowerShell@2
-    displayName: Install protobuf python package
+    displayName: Install required python packages
     inputs:
       targetType: 'inline'
       script: |
-        echo "Install protobuf python package"
-        python3 -m pip install protobuf==3.20.3
+        echo "Install required python packages"
+        python3 -m pip install --upgrade wheel
+        python3 -m pip install -r onnx-mlir\requirements.txt
+        echo "Set up lit"
+        $litPath=(Get-Command lit).Path
+        echo "Setting LitPath to $litPath"
+        Write-Host "##vso[task.setvariable variable=LitPath;]$litPath"
 
   - powershell: |
       $mlir_match = Select-String -Path onnx-mlir\utils\clone-mlir.sh -Pattern "git checkout ([\da-f]+)"
@@ -128,7 +124,7 @@ jobs:
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
       cd onnx-mlir\third_party\onnx
-      python -m pip install .
+      python3 -m pip install .
     env:
       CMAKE_ARGS: -DCMAKE_PREFIX_PATH="$(Agent.BuildDirectory)\protobuf_install" -DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON -DONNX_USE_MSVC_STATIC_RUNTIME=OFF
     displayName: Install onnx
