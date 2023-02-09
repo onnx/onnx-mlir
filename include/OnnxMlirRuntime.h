@@ -48,6 +48,13 @@
  * OMTensor so that they can be passed into and out of the compiled model as
  * inputs and outputs.
  *
+ * `OMEntryPoint` is the data structure used to return all entry point names
+ * in a model. These entry point names are the symbols of the inference functions
+ * in the model.
+ *
+ * `OMSignature` is the data structure used to return the output signature of
+ * the given entry point as a JSON string.
+ *
  * \subsection model-entry-point-signature Model Entry Point Signature
  *
  * All compiled models will have the same exact C function signature equivalent
@@ -113,6 +120,21 @@
  * 3.000000 3.000000 3.000000 3.000000 3.000000 3.000000
  * ```
  * Exactly as it should be.
+ *
+ * \subsection freeing-tensor-memory Freeing Tensor Memory
+ *
+ *
+ * When creating an OMTensor or OMTensorList with a specified tensor array, a user has the option to
+ * create a tensor or tensorList with or without ownership (omTensorCreateWithOwnership or omTensorListCreateWithOwnership).
+ *
+ * In the case of OMTensor, if the ownership flag is set to "false", then a user is responsible for freeing memory until the last use.
+ * Otherwise, if the flag is set to "true", then the destruction of the tensor (omTensorDestroy)
+ * will also free any associated memory and data buffers.
+ *
+ * With respects to OMTensorList, no matter the value of the ownership flag, every tensor will be destroyed (omTensorListDestroy). 
+ * However, if the ownership flag is set to "true", the OMTensorList will free the tensor array upon destruction. 
+ * Otherwise, if owning is set to "false", the tensor array will not be freed upon destruction (needs to be freed manually).
+ *
  *
  * \subsection reference Reference
  *

@@ -171,7 +171,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   arith::populateArithExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateFuncToLLVMConversionPatterns(typeConverter, patterns);
-  populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
+  populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
   arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
 
