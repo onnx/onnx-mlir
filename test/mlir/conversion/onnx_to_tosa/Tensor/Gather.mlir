@@ -20,12 +20,12 @@ func.func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 
 // -----
 
-// Test gather along axis 0, first example in ONNX for Gather. Positive indices, so no select.
-func.func @test_gather_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
+// Test negative indices.
+func.func @test_gather_axis0_neg_idx(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
   %indices = "onnx.Constant"() {value = dense<[[0, -1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
   %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
   "func.return"(%0) : (tensor<2x2x2xf32>) -> ()
-// CHECK-LABEL:   func.func @test_gather_axis0neg(
+// CHECK-LABEL:   func.func @test_gather_axis0_neg_idx(
 // CHECK-SAME:                                    %[[VAL_0:.*]]: tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 // CHECK:           %[[VAL_1:.*]] = "tosa.const"() {value = dense<{{\[\[}}0, 2], [1, 2]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
 // CHECK:           %[[VAL_2:.*]] = "tosa.const"() {value = dense<[0, 1]> : tensor<2xi32>} : () -> tensor<2xi32>
@@ -41,7 +41,7 @@ func.func @test_gather_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 
 // -----
 
-// Test gather along axis 1, second example in ONNX for Gather.
+// Test along axis 1. Transpose should be different.
 func.func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<3x1x2xf32> {
   %indices = "onnx.Constant"() {value = dense<[[0, 2]]> : tensor<1x2xi64>} : () -> tensor<1x2xi64>
   %0 = "onnx.Gather"(%arg0, %indices) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<3x1x2xf32>
