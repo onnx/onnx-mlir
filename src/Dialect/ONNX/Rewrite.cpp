@@ -247,9 +247,9 @@ Value reverseWeightTensor(
     ArrayRef<int64_t> perms(permsval0);
     transposedInput = emitONNXTranspose(loc, rewriter, reverse1, permsval0);
   }
-  // 2.2 The rest of dimension are reversed using single ReverseSequence in the
-  // second loop. Reverse last dimension Dn for "D0 x D1 x D2 x ... x Dn x N x
-  // C" (if rank is odd)
+  // 2.2 The rest of dimension are reversed using single ReverseSequence
+  // Reverse last dimension Dn for "D0 x D1 x D2 x ... x Dn x N x C".
+  // This is done only when rank is odd.
   for (int i = (spatialRank / 2) * 2; i < spatialRank; ++i) {
     ShapedType tInType = transposedInput.getType().cast<ShapedType>();
     ArrayRef<int64_t> tInShape = tInType.getShape();
@@ -259,26 +259,46 @@ Value reverseWeightTensor(
       // reshape "Dn x N x C x D0 xD1 x D2 x ... x Dn-1"
       // to "Dn x 1 x N x C x D0 xD1 x D2 x ... x Dn-1",
       // then, reshape back to original shape after reversed.
-      SmallVector<int64_t, 6> origShapeVec, reshapedShapeVec;
-      for (int i = 0; i < tInType.getRank(); ++i)
-        origShapeVec.emplace_back(tInShape[i]);
+      int64_t tInRank = tInShape.size();
+      Type tInShapeType =
+          RankedTensorType::get({tInRank}, rewriter.getI64Type());
+      Value tInShapeVals =
+          rewriter.create<ONNXShapeOp>(loc, tInShapeType, transposedInput);
+      SmallVector<int64_t, 6> reshapedShapeVec;
       reshapedShapeVec.emplace_back(tInShape[0]);
       reshapedShapeVec.emplace_back(1);
       for (int i = 1; i < tInType.getRank(); ++i)
         reshapedShapeVec.emplace_back(tInShape[i]);
-      Value origShape = createONNXConstantOpWithDenseAttr(
-          rewriter, loc, rewriter.getI64TensorAttr(origShapeVec));
-      Value shape = createONNXConstantOpWithDenseAttr(
-          rewriter, loc, rewriter.getI64TensorAttr(reshapedShapeVec));
-      Type origType = RankedTensorType::get(origShapeVec, elementType);
-      Type resultType = RankedTensorType::get(reshapedShapeVec, elementType);
+      Type reshapedType = RankedTensorType::get(reshapedShapeVec, elementType);
+      Type firstShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
+      Type otherShapeType =
+          RankedTensorType::get({tInRank - 1}, rewriter.getI64Type());
+      Value zeroVal = rewriter.create<ONNXConstantOp>(
+          loc, Attribute(), rewriter.getI64TensorAttr(ArrayRef<int64_t>({0})));
+      Value oneVal = rewriter.create<ONNXConstantOp>(
+          loc, Attribute(), rewriter.getI64TensorAttr(ArrayRef<int64_t>({1})));
+      Value rankVal = rewriter.create<ONNXConstantOp>(loc, Attribute(),
+          rewriter.getI64TensorAttr(ArrayRef<int64_t>({tInRank})));
+      Value firstShapeVal = rewriter.create<ONNXSliceOp>(loc, firstShapeType,
+          tInShapeVals, /* starts */ zeroVal, /* ends */ oneVal,
+          /* axis */ zeroVal, /* step */ oneVal);
+      Value otherShapeVals = rewriter.create<ONNXSliceOp>(loc, otherShapeType,
+          tInShapeVals, /* starts */ oneVal, /* ends */ rankVal,
+          /* axis */ zeroVal, /* step */ oneVal);
+      Type reshapeShapeType =
+          RankedTensorType::get({tInRank + 1}, rewriter.getI64Type());
+      IntegerAttr concatAxisAttr =
+          IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
+              APInt(64, 0, /*isSigned=*/true));
+      Value shape = rewriter.create<ONNXConcatOp>(loc, reshapeShapeType,
+          ValueRange{firstShapeVal, oneVal, otherShapeVals}, concatAxisAttr);
       // Reshape, reverese, and reshape
       transposedInput = rewriter.create<ONNXReshapeOp>(
-          loc, resultType, transposedInput, shape);
+          loc, reshapedType, transposedInput, shape);
       reverse0 =
           reverseAllElements(rewriter, loc, transposedInput, /*dimension*/ 0);
       reverse0 =
-          rewriter.create<ONNXReshapeOp>(loc, origType, reverse0, origShape);
+          rewriter.create<ONNXReshapeOp>(loc, tInType, reverse0, tInShapeVals);
     } else {
       reverse0 =
           reverseAllElements(rewriter, loc, transposedInput, /*dimension*/ 0);
