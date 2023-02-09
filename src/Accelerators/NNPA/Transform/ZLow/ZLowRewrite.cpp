@@ -115,35 +115,70 @@ public:
   }
 };
 
-/// This pattern rewrites
+// clang-format off
+
+/// Consider the following pattern: 
 /// ```mlir
-///   zlow.unstick(%stick, %A)
-///   affine.for
-///       %a = affine.load(%A, %load_indices)
-///       affine.store(%a, %B, %store_indices)
-///   %res = memref.alloc()
-///   zlow.stick(%B, %res)
-/// ```
-/// by
-/// ```mlir
-/// %res = memref.alloc()
+/// zlow.unstick(%stick, %A) {layout = "2D"}: memref<2x3xf16, #map2D>, memref<2x3xf32>
 /// affine.for
-///     %a = affine.load(%stick, %load_indices)
-///     affine.store(%a, %res, %store_indices)
+///   %a = affine.load(%A, %load_indices) : memref<2x3xf32>
+///   affine.store(%a, %B, %store_indices) : memref<4x5x6xf32>
+/// %res = memref.alloc() : memref<4x5x6xf16, #map3D>
+/// zlow.stick(%B, %res) {layout = "3D"}: memref<4x5x6xf32>, memref<4x5x6xf16,
+/// #map3D>
 /// ```
-/// where data will be directly loaded from / stored to stickified tensor.
+/// `%stick` memref is unstickified and shuffled by the pair of (affine.load,affine.store),
+/// then stickified again. It said data are transfered from a stickified memref
+/// into another stickified memref via a chain of affine transformation.
+///
+/// The above pattern can be rewritten into the following code:
+/// ```mlir
+/// %res = memref.alloc() : memref<4x5x6xf16, #map3D>
+/// affine.for
+///   %a = affine.load(%stick, %load_indices) : memref<2x3xf16, #map2D>
+///   affine.store(%a, %res, %store_indices) : memref<4x5x6xf16, #map3D>
+/// ```
+/// where data will be directly loaded from / stored to stickified memref.
+///
+/// This pattern is often found in code generated for data transformation such
+/// as Transpose, Concat, and Split.
+///
+/// * Why does this rewrite work?
+/// - This rewriting depends on the fact that `zlow.stick` and `zlow.unstick`
+/// maintain an affine map that maps one element in a memref to an element in
+/// another memref. Those maps are `#map2D` and `#map3D` in the above example.
+/// Combined with affine.load and affine.store, one element in a stickified
+/// memref can be forwarded directly into an element in another stickifired
+/// memref without `zlow.stick` and `zlow.unstick`.
+/// - The shape of the input and output memrefs of `zlow.stick`/`zlow.unstick`
+/// are the same except the case of layout NCHW. In case of NCHW, dimensions are
+/// permuted, so we handle NCHW as a special case in this rewriting.
+/// ```mlir
+///  zlow.stick(%X, %res) {layout = "NCHW"}: memref<1x3x5x7xf32>, memref<1x5x7x3xf16, #mapNHWC>
+///  ```
+///  Shape of `%X` is in NCHW while shape of `%res` is in NHWC.
 //
-/// This pattern potentially removes `zlow.unstick` and `zlow.stick` if they are
-/// dangling.
+/// ```mlir
+/// zlow.unstick(%X, %res) {layout = "NCHW"}: memref<1x5x7x3xf16, #mapNHWC>, memref<1x3x5x7xf32>
+/// ```
+///  Shape of `%X` is in NHWC while shape of `%res` is in NCHW.
 ///
-/// This pattern is often found in code generated for data transformation
-/// operations such as Transpose, Concat.
-///
+/// Limitations: 
+/// - Unstickified memrefs (`%A` and `%B`) must have no affine map.
+/// Theoretically, we could support affine map on unstickified memrefs by
+/// composing affine-map.
+
+// clang-format on
 
 class UnstickLoadStoreStickRemovalPattern
     : public OpRewritePattern<ZLowUnstickOp> {
 public:
   using OpRewritePattern<ZLowUnstickOp>::OpRewritePattern;
+
+  UnstickLoadStoreStickRemovalPattern(MLIRContext *context,
+      llvm::SmallDenseSet<ZLowStickOp, 4> &removableStickOps_)
+      : OpRewritePattern(context, /*benefit=*/1),
+        removableStickOps(removableStickOps_) {}
 
   LogicalResult matchAndRewrite(
       ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
@@ -292,7 +327,7 @@ public:
       // stickAllocOp should be after storeAllocOp, since dimensions come from
       // storeAllocOp according to the definition of zlow.stick.
       stickAllocOp->moveAfter(storeAllocOp);
-      for (int i = 0; i < stickAllocOp->getNumOperands(); ++i) {
+      for (unsigned i = 0; i < stickAllocOp->getNumOperands(); ++i) {
         Value oprd = stickAllocOp->getOperand(i);
         if (isa<BlockArgument>(oprd))
           continue;
@@ -309,13 +344,20 @@ public:
       IRMapping operandMap;
       operandMap.map(storeOp.getMemref(), stickMemref);
       operandMap.map(storeOp.getValue(), dlf16);
-      Operation *clonedOp = rewriter.clone(*storeOp.getOperation(), operandMap);
+      rewriter.clone(*storeOp.getOperation(), operandMap);
       rewriter.eraseOp(storeOp);
     }
 
+    // Remove ZLowUnstickOp.
     rewriter.eraseOp(unstickOp);
+    // Copy ZLowStickOp to the removableStickOps.
+    for (ZLowStickOp stickOp : stickOps)
+      removableStickOps.insert(stickOp);
     return success();
   }
+
+private:
+  llvm::SmallDenseSet<ZLowStickOp, 4> &removableStickOps;
 };
 
 /*!
@@ -331,13 +373,22 @@ public:
   void runOnOperation() override {
     Operation *function = getOperation();
 
+    llvm::SmallDenseSet<ZLowStickOp, 4> removableStickOps;
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<StickViewUnstickRemovalPattern>(&getContext());
-    patterns.insert<UnstickLoadStoreStickRemovalPattern>(&getContext());
+    patterns.insert<UnstickLoadStoreStickRemovalPattern>(
+        &getContext(), removableStickOps);
 
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();
+
+    // Remove ZLowStickOp that were marked "removable".
+    for (ZLowStickOp stickOp : removableStickOps) {
+      if (!stickOp) // removed, continue.
+        continue;
+      stickOp.getOperation()->erase();
+    }
   }
 };
 
