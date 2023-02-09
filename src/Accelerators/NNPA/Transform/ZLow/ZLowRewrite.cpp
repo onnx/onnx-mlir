@@ -60,11 +60,8 @@ public:
       return failure();
 
     // Input must has no affine layout. In other words, it has been normalized.
-    if (auto type = dyn_cast<MemRefType>(stickInput.getType())) {
-      AffineMap m = type.getLayout().getAffineMap();
-      if (m.getNumResults() != 1 && !m.isIdentity())
-        return failure();
-    }
+    if (hasNonIdentityLayout(stickInput.getType()))
+      return failure();
 
     // Input is a view.
     ViewLikeOpInterface viewOp =
@@ -195,14 +192,17 @@ public:
     Type cpuElementType =
         cpuMemRef.getType().cast<MemRefType>().getElementType();
 
-    // Input must has affine layout to access elements in the stickified MemRef.
-    if (auto type = dyn_cast<MemRefType>(stickifiedMemRef.getType())) {
-      AffineMap m = type.getLayout().getAffineMap();
-      if (m.isIdentity())
-        return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-          diag << "Input has no affine layout ";
-        });
-    }
+    // Stickified Memref must have affine layout to access elements.
+    if (!hasNonIdentityLayout(stickifiedMemRef.getType()))
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "Stickified Memref has no affine layout";
+      });
+
+    // Do not support affine layout in the CPU Memref at this moment.
+    if (hasNonIdentityLayout(cpuMemRef.getType()))
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "Unstickified Memref has affine layout";
+      });
 
     // Do not support layout 1D and 2DS since their access index functions are
     // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
@@ -214,88 +214,28 @@ public:
 
     // 1. Match pattern: unstick -> load -> store -> stick.
 
-    // All users of cpuMemRef must be affine.load.
+    // All consumers of zlow.unstick must be affine.load.
     SmallVector<AffineLoadOp, 4> loadOps;
-    for (Operation *user : cpuMemRef.getUsers()) {
-      if (user == op)
-        continue;
-      if (auto loadOp = llvm::dyn_cast<AffineLoadOp>(user))
-        loadOps.emplace_back(loadOp);
-      else
-        return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-          diag << "There is non-affine-load op";
-        });
-    }
-    if (loadOps.size() == 0)
-      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-        diag << "There is no affine load op";
+    if (!matchAndCollectAffineLoad(unstickOp, cpuMemRef, loadOps))
+      rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "Failed to match AffineLoadOp";
       });
 
-    // All users of loadOps must be affine.store.
+    // All consumers of affine.load must be affine.store.
     // affine.store must store to a Memref allocated by memref.alloc.
     SmallVector<AffineStoreOp, 4> storeOps;
-    for (AffineLoadOp loadOp : loadOps) {
-      Value loadValue = loadOp.getValue();
-      for (Operation *user : loadValue.getUsers()) {
-        if (user == loadOp.getOperation())
-          continue;
-        if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user)) {
-          // Store's input must be defined by a memref.alloc.
-          Value storeMemref = storeOp.getMemref();
-          if (storeMemref.isa<BlockArgument>())
-            return rewriter.notifyMatchFailure(
-                op, [&](::mlir::Diagnostic &diag) {
-                  diag << "Store to a BlockArgument";
-                });
-          Operation *allocOp = storeMemref.getDefiningOp();
-          if (!isa<memref::AllocOp>(allocOp))
-            return rewriter.notifyMatchFailure(
-                op, [&](::mlir::Diagnostic &diag) {
-                  diag << "Store's destination was not allocated by AllocOp";
-                });
-          storeOps.emplace_back(storeOp);
-        } else
-          return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-            diag << "There is non-affine-store op";
-          });
-      }
-    }
-    if (storeOps.size() == 0)
+    if (!matchAndCollectAffineStore(loadOps, storeOps))
       return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-        diag << "There is no affine store op";
+        diag << "Failed to match AffineStoreOp";
       });
 
-    // All storeOps have ZLowStick as destination.
-    // Each storeOp must have only single ZLowStick.
+    // Each affine.store is connected to one zlow.stick.
     std::map<AffineStoreOp, ZLowStickOp> StoreOpStickOpMap;
     SmallVector<ZLowStickOp, 4> stickOps;
-    for (AffineStoreOp storeOp : storeOps) {
-      ZLowStickOp myStickOp;
-      Value destMemref = storeOp.getMemref();
-      for (Operation *user : destMemref.getUsers()) {
-        if (user == storeOp.getOperation())
-          continue;
-        if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user))
-          continue;
-        if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
-          if (myStickOp)
-            return rewriter.notifyMatchFailure(
-                op, [&](::mlir::Diagnostic &diag) {
-                  diag << "Two ZLowStickOp linked to an AffineStoreOp";
-                });
-          else
-            myStickOp = stick;
-        } else
-          return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-            diag << "There is non-stick op";
-          });
-      }
-      stickOps.emplace_back(myStickOp);
-      StoreOpStickOpMap[storeOp] = myStickOp;
-    }
-    if (stickOps.size() == 0)
-      return rewriter.notifyMatchFailure(op,
-          [&](::mlir::Diagnostic &diag) { diag << "There is no stick op"; });
+    if (!matchAndCollectStickOp(storeOps, stickOps, StoreOpStickOpMap))
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "Two ZLowStickOp linked to an AffineStoreOp";
+      });
 
     // 2. Rewrite
     // - replace all source MemRefs of AffineLoadOp by unstick's MemRef.
@@ -358,6 +298,68 @@ public:
 
 private:
   llvm::SmallDenseSet<ZLowStickOp, 4> &removableStickOps;
+
+  bool matchAndCollectAffineLoad(ZLowUnstickOp unstickOp, Value loadMemref,
+      SmallVectorImpl<AffineLoadOp> &loadOps) const {
+    for (Operation *user : loadMemref.getUsers()) {
+      if (user == unstickOp.getOperation())
+        continue;
+      if (auto loadOp = llvm::dyn_cast<AffineLoadOp>(user))
+        loadOps.emplace_back(loadOp);
+      else
+        return false;
+    }
+
+    return (loadOps.size() != 0);
+  }
+
+  bool matchAndCollectAffineStore(const SmallVectorImpl<AffineLoadOp> &loadOps,
+      SmallVectorImpl<AffineStoreOp> &storeOps) const {
+    for (AffineLoadOp loadOp : loadOps) {
+      Value loadValue = loadOp.getValue();
+      for (Operation *user : loadValue.getUsers()) {
+        if (user == loadOp.getOperation())
+          continue;
+        if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user)) {
+          // Store's input must be defined by a memref.alloc.
+          Value storeMemref = storeOp.getMemref();
+          if (storeMemref.isa<BlockArgument>())
+            return false;
+          Operation *allocOp = storeMemref.getDefiningOp();
+          if (!isa<memref::AllocOp>(allocOp))
+            return false;
+          storeOps.emplace_back(storeOp);
+        } else
+          return false;
+      }
+    }
+    return (storeOps.size() != 0);
+  }
+
+  bool matchAndCollectStickOp(const SmallVectorImpl<AffineStoreOp> &storeOps,
+      SmallVectorImpl<ZLowStickOp> &stickOps,
+      std::map<AffineStoreOp, ZLowStickOp> &StoreOpStickOpMap) const {
+    for (AffineStoreOp storeOp : storeOps) {
+      ZLowStickOp myStickOp;
+      Value destMemref = storeOp.getMemref();
+      for (Operation *user : destMemref.getUsers()) {
+        if (user == storeOp.getOperation())
+          continue;
+        if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user))
+          continue;
+        if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
+          if (myStickOp)
+            return false;
+          else
+            myStickOp = stick;
+        } else
+          return false;
+      }
+      stickOps.emplace_back(myStickOp);
+      StoreOpStickOpMap[storeOp] = myStickOp;
+    }
+    return (stickOps.size() != 0);
+  }
 };
 
 /*!
