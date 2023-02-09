@@ -4,6 +4,7 @@
 
 //====------ ONNXToTOSACommon.hpp - ONNX dialects to TOSA lowering --------===//
 //
+// Copyright 2020 The TensorFlow Authors. All Rights Reserved.
 // Copyright (c) 2021 Arm Limited.
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
