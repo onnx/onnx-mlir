@@ -106,7 +106,8 @@ Value TosaBuilder::slice(Value &inputConst, llvm::ArrayRef<int64_t> size,
   DenseI64ArrayAttr startAttr = rewriter().getDenseI64ArrayAttr(start);
   Value newSliceInput =
       tosa::CreateOpAndInfer<mlir::tosa::SliceOp>(rewriter(), loc(),
-          RankedTensorType::get(llvm::SmallVector<int64_t, 4>(size.size(), ShapedType::kDynamic),
+          RankedTensorType::get(
+              llvm::SmallVector<int64_t, 4>(size.size(), ShapedType::kDynamic),
               inputConst.getType().cast<ShapedType>().getElementType()),
           inputConst, startAttr, sizeAttr);
   return newSliceInput;
