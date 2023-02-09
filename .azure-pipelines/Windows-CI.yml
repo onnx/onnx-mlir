@@ -26,17 +26,15 @@ jobs:
     inputs:
       versionSpec: '3.9'
 
-  - task: PowerShell@2
+  - powershell: |
+      echo "Check and set up ninja"
+      if (-Not (Get-Command ninja -errorAction SilentlyContinue))
+      {
+        echo "choco install ninja"
+        choco install ninja
+      }
     displayName: Setup ninja
-    inputs:
-      targetType: 'inline'
-      script: |
-        echo "Check and set up ninja"
-        if (-Not (Get-Command ninja -errorAction SilentlyContinue))
-        {
-          echo "choco install ninja"
-          choco install ninja
-        }
+    workingDirectory: $(Agent.BuildDirectory)
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
@@ -44,18 +42,16 @@ jobs:
     displayName: Install protobuf
     workingDirectory: $(Agent.BuildDirectory)
 
-  - task: PowerShell@2
+  - powershell: |
+      echo "Install required python packages"
+      python3 -m pip install --upgrade wheel
+      python3 -m pip install -r onnx-mlir\requirements.txt
+      echo "Set up lit"
+      $litPath=(Get-Command lit).Path
+      echo "Setting LitPath to $litPath"
+      Write-Host "##vso[task.setvariable variable=LitPath;]$litPath"
     displayName: Install required python packages
-    inputs:
-      targetType: 'inline'
-      script: |
-        echo "Install required python packages"
-        python3 -m pip install --upgrade wheel
-        python3 -m pip install -r onnx-mlir\requirements.txt
-        echo "Set up lit"
-        $litPath=(Get-Command lit).Path
-        echo "Setting LitPath to $litPath"
-        Write-Host "##vso[task.setvariable variable=LitPath;]$litPath"
+    workingDirectory: $(Agent.BuildDirectory)
 
   - powershell: |
       $mlir_match = Select-String -Path onnx-mlir\utils\clone-mlir.sh -Pattern "git checkout ([\da-f]+)"
