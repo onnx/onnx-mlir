@@ -80,7 +80,7 @@ bool LSTMLibBuilder::build() {
   func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
-  auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
+  Value noneVal = builder.create<ONNXNoneOp>(loc).getResult();
   auto xVal = entryBlock.getArgument(0);
   auto hVal = (isNoneH) ? noneVal : entryBlock.getArgument(1);
   auto cVal = (isNoneC) ? noneVal : entryBlock.getArgument(2);

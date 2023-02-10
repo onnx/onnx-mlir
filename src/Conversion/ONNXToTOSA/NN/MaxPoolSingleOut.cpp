@@ -79,6 +79,8 @@ public:
     ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(op, operands, &createTosaIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
+    TosaBuilder tosaBuilder(rewriter, loc);
+
     Value input = adaptor.getX();
 
     // The attributes storage_order and dilations are unsupported
@@ -114,8 +116,7 @@ public:
 
     // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a
     // transpose to change the format
-    Value newMaxpoolInput = tosa::createTosaTransposedTensor(
-        rewriter, maxpoolOp, input, {0, 2, 3, 1});
+    Value newMaxpoolInput = tosaBuilder.transpose(input, {0, 2, 3, 1});
 
     if (!IndexExpr::isLiteral(shapeHelper.pads)) {
       return rewriter.notifyMatchFailure(
@@ -136,27 +137,18 @@ public:
         pads[2] + ceilConstants[0], pads[1], pads[3] + ceilConstants[1]});
 
     auto strides = rewriter.getDenseI64ArrayAttr(shapeHelper.strides);
-    auto kernelShape = rewriter.getDenseI64ArrayAttr(llvm::to_vector(
-        llvm::map_range(adaptor.getKernelShape().getAsValueRange<IntegerAttr>(),
-            [](APInt x) { return x.getSExtValue(); })));
+    llvm::SmallVector<int64_t, 4> kernelShapeVec;
+    IndexExpr::getLiteral(shapeHelper.kernelShape, kernelShapeVec);
+    auto kernelShape = rewriter.getDenseI64ArrayAttr(kernelShapeVec);
 
     Value newMaxpool = tosa::CreateOpAndInfer<mlir::tosa::MaxPool2dOp>(rewriter,
         loc, newResultType, newMaxpoolInput, kernelShape, strides, newPads);
 
     // Revert to original shape (NCHW)
     // Construct the old result shape out of the new one
-    auto newMaxpoolType =
-        newMaxpool.getType().cast<RankedTensorType>().getShape();
-    Value sourceTensor =
-        tosa::getConstTensor<int32_t>(rewriter, maxpoolOp, {0, 3, 1, 2}, {4})
-            .value();
+    Value transpose = tosaBuilder.transpose(newMaxpool, {0, 3, 1, 2});
 
-    Type transposedResultType =
-        RankedTensorType::get(llvm::SmallVector<int64_t, 4>(
-                                  newMaxpoolType.size(), ShapedType::kDynamic),
-            inputType.getElementType());
-    tosa::CreateReplaceOpAndInfer<mlir::tosa::TransposeOp>(
-        rewriter, maxpoolOp, transposedResultType, newMaxpool, sourceTensor);
+    rewriter.replaceOp(op, transpose);
     return success();
   }
 };

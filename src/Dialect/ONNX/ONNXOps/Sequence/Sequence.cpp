@@ -203,7 +203,7 @@ LogicalResult ONNXSequenceLengthOp::inferShapes(
     SmallVector<int64_t, 1> dims;
     auto builder = Builder(getContext());
     Type scalarTy = RankedTensorType::get(dims, builder.getIntegerType(64));
-    getResult().setType(scalarTy);
+    getResult().setType(cast<TensorType>(scalarTy));
   }
   // ElementType of I64 will be checked by verifier
   return success();
