@@ -226,6 +226,12 @@ llvm::cl::opt<std::string> reportHeapAfter("report-heap-after",
                    "<output-files-base-path>.heap.log"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
+/* FlexML Start */
+llvm::cl::opt<bool> layerNameToLocation("layer-name-to-location",
+    llvm::cl::desc("Extend location information with onnx layer names."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+/* FlexML End */
+
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
 // dependent libdnn.
