@@ -39,8 +39,8 @@ jobs:
     - name: install python requirements
       run: |
         cd ~/work/onnx-mlir/onnx-mlir
-        pip3 install --upgrade wheel
-        pip3 install -r requirements.txt
+        python3 -m pip install --upgrade wheel
+        python3 -m pip install -r requirements.txt
     - name: install third_party/onnx
       run: |
         cd ~/work/onnx-mlir/onnx-mlir/third_party/onnx
