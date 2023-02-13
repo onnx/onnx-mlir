@@ -179,7 +179,7 @@ func.func @test_update_constantofshape_output_shape(%arg0: tensor<?x256xi64>, %a
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<256> : tensor<1xi64>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.ConstantOfShape"([[VAR_3_]]) {value = dense<1> : tensor<1xi64>} : (tensor<3xi64>) -> tensor<?x1x256xi64>
+// CHECK:           [[VAR_4_:%.+]] = onnx.ConstantOfShape([[VAR_3_]]) {value = dense<1> : tensor<1xi64>} : (tensor<3xi64>) -> tensor<?x1x256xi64>
 // CHECK:           return [[VAR_4_]] : tensor<?x1x256xi64>
 // CHECK:         }
 }

@@ -2025,7 +2025,7 @@ func.func @test_constant_of_shape_empty_tensor(%arg0 : tensor<0xi64>) -> tensor<
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_of_shape_empty_tensor
-  // CHECK: [[RES:%.+]] = "onnx.ConstantOfShape"(%arg0) {value = dense<0.000000e+00> : tensor<1xf32>} : (tensor<0xi64>) -> tensor<f32>
+  // CHECK: [[RES:%.+]] = onnx.ConstantOfShape(%arg0) {value = dense<0.000000e+00> : tensor<1xf32>} : (tensor<0xi64>) -> tensor<f32>
   // CHECK: return [[RES]] : tensor<f32>
 }
 
@@ -2036,7 +2036,7 @@ func.func @test_constant_of_shape(%arg0 : tensor<3xi64>) -> tensor<*xf32> {
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_of_shape
-  // CHECK: [[RES:%.+]] = "onnx.ConstantOfShape"(%arg0) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<?x?x?xf32>
+  // CHECK: [[RES:%.+]] = onnx.ConstantOfShape(%arg0) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<?x?x?xf32>
   // CHECK: return [[RES]] : tensor<?x?x?xf32>
 }
 
@@ -2049,7 +2049,7 @@ func.func @test_constant_of_shape_constant() -> tensor<*xf32> {
 
   // CHECK-LABEL: test_constant_of_shape_constant
   // CHECK: [[CONSTANT:%.+]] = onnx.Constant dense<[3, 4, 5]> : tensor<3xi64>
-  // CHECK: [[RES:%.+]] = "onnx.ConstantOfShape"([[CONSTANT]]) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<3x4x5xf32>
+  // CHECK: [[RES:%.+]] = onnx.ConstantOfShape([[CONSTANT]]) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<3x4x5xf32>
   // CHECK: return [[RES]] : tensor<3x4x5xf32>
 }
 
