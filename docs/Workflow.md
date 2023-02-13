@@ -179,7 +179,7 @@ Specific testing help is provided in these pages to [run](TestingHighLevel.md) a
 ## Step 7: Commit & Push
 
 ONNX-MLIR requires committers to sign their code using the [Developer Certificate of Origin (DCO)](https://developercertificate.org).
-THere is a one time setup to register your name and email.
+There is a one time setup to register your name and email.
 The commands are listed below, where you substitute your name and email address in the "John Doe" fields.
 
 ```sh
