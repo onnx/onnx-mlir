@@ -98,7 +98,7 @@ def ReplaceONNXLeakyReluPattern: Pat<
 //
 // Note: current implementation only supports tensors with static dimensions.
 
-def ReshapeTransposeReshapePattern : Pat<
+def ReshapeTransposeReshape2DTo3DSPattern : Pat<
   (ZHighStickOp:$stick
     (ONNXReshapeOp:$reshape2
       (ONNXTransposeOp:$transpose
@@ -113,11 +113,11 @@ def ReshapeTransposeReshapePattern : Pat<
       (ZHighShapeTransformOp // transpose
         (ZHighShapeTransformOp // reshape
           (ZHighUnstickOp $X),
-          (GetTilingMap $reshape1),
+          (GetTiling2DTo4DMap $reshape1),
           (returnType (GetResultType $reshape1))),
         (GetTransposeMap $perm),
         (returnType (GetResultType $transpose))),
-      (GetCollapsingMap $reshape2),
+      (GetCollapsing4DTo3DMap $reshape2),
       (returnType (GetResultType $reshape2))),
     $layout3DS),
   [(TensorHas2DLayout $X), (Is3DSLayout $layout3DS),
@@ -126,6 +126,38 @@ def ReshapeTransposeReshapePattern : Pat<
    (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
    (IsTiling2DTo4D $reshape1), // 1st reshape is tiling over each input dimension
    (IsCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
+  ]
+>;
+
+// Reversed direction of the above pattern.
+def ReshapeTransposeReshape3DSTo2DPattern : Pat<
+  (ZHighStickOp:$stick
+    (ONNXReshapeOp:$reshape2
+      (ONNXTransposeOp:$transpose
+        (ONNXReshapeOp:$reshape1
+          (ZHighUnstickOp:$unstick $X),
+          $shape1, $_),
+        $perm),
+      $shape2, $_),
+    $layout2D),
+  (ZHighStickOp
+    (ZHighShapeTransformOp // reshape
+      (ZHighShapeTransformOp // transpose
+        (ZHighShapeTransformOp // reshape
+          (ZHighUnstickOp $X),
+          (GetTiling3DTo4DMap $reshape1),
+          (returnType (GetResultType $reshape1))),
+        (GetTransposeMap $perm),
+        (returnType (GetResultType $transpose))),
+      (GetCollapsing4DTo2DMap $reshape2),
+      (returnType (GetResultType $reshape2))),
+    $layout2D),
+  [(TensorHas3DSLayout $X), (Is2DLayout $layout2D),
+   (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
+   (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
+   (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
+   (IsTiling3DTo4D $reshape1), // 1st reshape is tiling over each input dimension
+   (IsCollapsing4DTo2D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
   ]
 >;
 

@@ -75,6 +75,18 @@ def TensorHas2DLayout: Constraint<
   "ZTensor has 2D layout"
 >;
 
+def TensorHas3DSLayout: Constraint<
+  CPred<"::onnx_mlir::is3DSLayout("
+        "::onnx_mlir::zhigh::convertZTensorDataLayoutToStringAttr($_builder, "
+        "::onnx_mlir::zhigh::getZTensorLayout($0.getType())))">,
+  "ZTensor has 3DS layout"
+>;
+
+def Is2DLayout : Constraint<
+  CPred<"::onnx_mlir::is2DLayout($0)">,
+  "Is 2D layout"
+>;
+
 def Is3DSLayout : Constraint<
   CPred<"::onnx_mlir::is3DSLayout($0)">,
   "Is 3DS layout"
@@ -91,6 +103,18 @@ def IsTiling2DTo4D : Constraint<
   "Is tiling by ONNReshapeOp"
 >;
 
+/// Check if ONNXReshapeOp is reshaping 3D to 4D by tiling each input dimension.
+def IsTiling3DTo4D : Constraint<
+  CPred<"::onnx_mlir::zhigh::isTiling3DTo4D($0)">,
+  "Is tiling by ONNReshapeOp"
+>;
+
+/// Check if ONNXReshapeOp is reshaping 4D to 2D by collapsing the first two input dimensions.
+def IsCollapsing4DTo2D : Constraint<
+  CPred<"::onnx_mlir::zhigh::isCollapsing4DTo2D($0)">,
+  "Is collapsing by ONNXReshapeOp"
+>;
+
 /// Check if ONNXReshapeOp is reshaping 4D to 3D by collapsing the first two input dimensions.
 def IsCollapsing4DTo3D : Constraint<
   CPred<"::onnx_mlir::zhigh::isCollapsing4DTo3D($0)">,
@@ -101,12 +125,20 @@ def GetResultType : NativeCodeCall<
   "$0.getType()"
 >;
 
-def GetTilingMap : NativeCodeCall<
-  "::onnx_mlir::zhigh::getTilingMap($_builder, $0)"
+def GetTiling2DTo4DMap : NativeCodeCall<
+  "::onnx_mlir::zhigh::getTiling2DTo4DMap($_builder, $0)"
 >;
 
-def GetCollapsingMap: NativeCodeCall<
-  "::onnx_mlir::zhigh::getCollapsingMap($_builder, $0)"
+def GetTiling3DTo4DMap : NativeCodeCall<
+  "::onnx_mlir::zhigh::getTiling3DTo4DMap($_builder, $0)"
+>;
+
+def GetCollapsing4DTo2DMap: NativeCodeCall<
+  "::onnx_mlir::zhigh::getCollapsing4DTo2DMap($_builder, $0)"
+>;
+
+def GetCollapsing4DTo3DMap: NativeCodeCall<
+  "::onnx_mlir::zhigh::getCollapsing4DTo3DMap($_builder, $0)"
 >;
 
 def GetTransposeMap : NativeCodeCall<
