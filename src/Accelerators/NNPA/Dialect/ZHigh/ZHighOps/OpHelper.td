@@ -68,4 +68,9 @@ def IsPlusConstantFloat : Constraint<
   "Is the float attribute is greater than 0"
 >;
 
+/// Compose two affine maps.
+def GetComposedMap : NativeCodeCall<
+ "mlir::AffineMapAttr::get($0.getValue().compose($1.getValue()))"
+>;
+
 #endif // OP_HELPER 

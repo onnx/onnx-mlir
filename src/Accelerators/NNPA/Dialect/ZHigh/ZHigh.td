@@ -593,7 +593,7 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
 
 def ZHighShapeTransformOp:ZHigh_Op<"ShapeTransform", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "Element-wise shape transformantion  operation";
+  let summary = "ZHigh Element-wise shape transformantion  operation";
   let description = [{
     This operator transforms a tensor into another tensor whose shape is changed
     by a given affine map. This is elemement-wise transformation, so each element
@@ -610,6 +610,7 @@ def ZHighShapeTransformOp:ZHigh_Op<"ShapeTransform", [Pure,
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>]>:$input,
                        AffineMapAttr:$index_map);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>]>:$output);
+  let hasCanonicalizer = 1;
   let hasVerifier = 1;
 }
 

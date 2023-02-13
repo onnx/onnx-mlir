@@ -28,6 +28,7 @@ add_onnx_mlir_library(OMZHighOps
   DEPENDS
   OMLayoutHelper
   OMZHighIncGen
+  OMONNXZHighShapeTransformIncGen
   OMONNXZHighStickIncGen
   OMONNXZHighUnstickIncGen
   OMShapeInferenceOpInterfaceIncGen

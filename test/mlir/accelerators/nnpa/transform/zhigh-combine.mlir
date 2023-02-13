@@ -127,3 +127,21 @@ func.func @donot_replace_leakyrelu(%arg0 : tensor<1x104x104x128xf32, #zhigh.layo
   // CHECK: onnx.LeakyRelu
   // CHECK: zhigh.Stick
 }
+
+// -----
+
+// Composition of ShapeTransform.
+#transpose = affine_map<(d0, d1, d2, d3) -> (d2, d0, d1, d3)>
+#reshape =  affine_map<(d0, d1) -> (d0 floordiv 32, d0 mod 32, d1 floordiv 64, d1 mod 64)> 
+func.func @transpose(%arg0: tensor<128x128xf32>) -> tensor<2x4x32x64xf32> {
+  %0 = "zhigh.ShapeTransform"(%arg0) {index_map = #reshape} : (tensor<128x128xf32>) -> tensor<4x32x2x64xf32>
+  %1 = "zhigh.ShapeTransform"(%0) {index_map = #transpose} : (tensor<4x32x2x64xf32>) -> tensor<2x4x32x64xf32>
+  return %1 : tensor<2x4x32x64xf32>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (d1 floordiv 64, d0 floordiv 32, d0 mod 32, d1 mod 64)>
+// CHECK-LABEL:  func.func @transpose
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x128xf32>) -> tensor<2x4x32x64xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.ShapeTransform"([[PARAM_0_]]) {index_map = #map} : (tensor<128x128xf32>) -> tensor<2x4x32x64xf32>
+// CHECK:           return [[VAR_0_]] : tensor<2x4x32x64xf32>
+// CHECK:         }
+}
