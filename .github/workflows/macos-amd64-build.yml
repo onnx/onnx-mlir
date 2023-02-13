@@ -36,11 +36,15 @@ jobs:
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/clone-mlir.sh
         sh ~/work/onnx-mlir/onnx-mlir/utils/build-mlir.sh
+    - name: install python requirements
+      run: |
+        cd ~/work/onnx-mlir/onnx-mlir
+        python3 -m pip install --upgrade wheel
+        python3 -m pip install -r requirements.txt
     - name: install third_party/onnx
       run: |
         cd ~/work/onnx-mlir/onnx-mlir/third_party/onnx
         git fetch --prune --unshallow --tags
-        pip3 install numpy==1.23.5
         python3 -m pip install -v .
     - name: build onnx-mlir
       run: |
