@@ -148,6 +148,12 @@ struct ScalarOp<ONNXErfOp> {
 };
 
 template <>
+struct ScalarOp<ONNXIsInfOp> {
+  using FOp = KrnlIsInfOp;
+  using IOp = KrnlIsInfOp; // Not used.
+};
+
+template <>
 struct ScalarOp<ONNXIsNaNOp> {
   using FOp = KrnlIsNaNOp;
   using IOp = KrnlIsNaNOp; // Not used.
@@ -1200,6 +1206,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOrEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXIsInfOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXIsNaNOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOp>,

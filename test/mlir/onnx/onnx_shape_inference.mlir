@@ -3222,6 +3222,43 @@ func.func @test_maxroipool(%arg0: tensor<1x3x64x64xf32>, %arg1: tensor<1x5xf32>)
 
 // -----
 
+//===----------------------------------------------------------------------===//
+/// Test shape inference for IsInfOp.
+//===----------------------------------------------------------------------===//
+func.func @test_isinf(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xi1> {
+  %0 = "onnx.IsInf"(%arg0) {detect_negative = 1 : si64, detect_positive = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  return %0 : tensor<2x3x4xi1>
+
+  // CHECK-LABEL: func @test_isinf
+  // CHECK: [[RES:%.+]] = "onnx.IsInf"(%arg0) {detect_negative = 1 : si64, detect_positive = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  // CHECK: return [[RES]] : tensor<2x3x4xi1>
+}
+
+// -----
+
+func.func @test_isinf_positive(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xi1> {
+  %0 = "onnx.IsInf"(%arg0) {detect_negative = 0 : si64, detect_positive = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  return %0 : tensor<2x3x4xi1>
+
+  // CHECK-LABEL: func @test_isinf_positive
+  // CHECK: [[RES:%.+]] = "onnx.IsInf"(%arg0) {detect_negative = 0 : si64, detect_positive = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  // CHECK: return [[RES]] : tensor<2x3x4xi1>
+}
+
+// -----
+
+func.func @test_isinf_negative(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xi1> {
+  %0 = "onnx.IsInf"(%arg0) {detect_negative = 1 : si64, detect_positive = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  return %0 : tensor<2x3x4xi1>
+
+  // CHECK-LABEL: func @test_isinf_negative
+  // CHECK: [[RES:%.+]] = "onnx.IsInf"(%arg0) {detect_negative = 1 : si64, detect_positive = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  // CHECK: return [[RES]] : tensor<2x3x4xi1>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test shape inference for IsNaNOp.
 //===----------------------------------------------------------------------===//
 func.func @test_isnan(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi1> {
