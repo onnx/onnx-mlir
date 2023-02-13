@@ -320,6 +320,9 @@ struct GenericAffineBuilder final : DialectBuilder {
       mlir::function_ref<void(GenericAffineBuilder &createAffine)> elseFn)
       const;
 
+  // AffineApplyOp
+  mlir::Value apply(mlir::AffineMap map, mlir::ValueRange operands) const;
+
   void yield() const;
 
 private:

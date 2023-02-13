@@ -185,3 +185,9 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::appendToBlock(
     b().setInsertionPoint(&block->back());
   builderFn(block->getArguments());
 }
+
+template <class LOAD_OP, class STORE_OP>
+mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::apply(
+  mlir::AffineMap map, mlir::ValueRange operands) const {
+  return b().template create<mlir::AffineApplyOp>(loc(), map, operands);
+}
