@@ -13,8 +13,11 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 
@@ -191,6 +194,130 @@ bool oneIsOfNHWCLayout(Type t1, Type t2) {
   // t1 is unranked.
   // Unranked type is potentially of NHWC.
   return true;
+}
+
+/// Check if ONNXReshapeOp is reshaping 2D to 4D by tiling each input dimension.
+bool isTiling2DTo4D(Value val) {
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  if (!reshapeOp)
+    return false;
+
+  Value input = reshapeOp.getData();
+  Value output = reshapeOp.getReshaped();
+  Type inputType = input.getType();
+  Type outputType = output.getType();
+
+  if (!isRankedShapedType(inputType))
+    return false;
+  if (!isRankedShapedType(outputType))
+    return false;
+
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+
+  // Not reshape from 2D to 4D.
+  if (!(inputShape.size() == 2 && outputShape.size() == 4))
+    return false;
+
+  // Tiling over each input dimension.
+  return ((inputShape[0] == outputShape[0] * outputShape[1]) &&
+          (inputShape[1] == outputShape[2] * outputShape[3]));
+}
+
+/// Check if a 4D tensor is collapsed into 3D by merging the first two
+/// dimensions.
+bool isCollapsing4DTo3D(Value val) {
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  if (!reshapeOp)
+    return false;
+
+  Value input = reshapeOp.getData();
+  Value output = reshapeOp.getReshaped();
+  Type inputType = input.getType();
+  Type outputType = output.getType();
+
+  if (!isRankedShapedType(inputType))
+    return false;
+  if (!isRankedShapedType(outputType))
+    return false;
+
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+
+  // Not reshape from 4D to 3D.
+  if (!(inputShape.size() == 4 && outputShape.size() == 3))
+    return false;
+
+  // Collapsing by merging the first two dimensions.
+  return ((inputShape[0] * inputShape[1] == outputShape[0]) &&
+          (inputShape[2] == outputShape[1]) &&
+          (inputShape[3] == outputShape[2]));
+}
+
+AffineMapAttr getTilingMap(OpBuilder &b, Value val) {
+  assert(isTiling2DTo4D(val) &&
+         "ONNXReshapeOp is not suitable for getting a tiling affine map");
+
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  Value output = reshapeOp.getReshaped();
+  Type outputType = output.getType();
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+
+  AffineExpr tileConst0 = getAffineConstantExpr(outputShape[1], b.getContext());
+  AffineExpr tileConst1 = getAffineConstantExpr(outputShape[3], b.getContext());
+
+  AffineExpr d0 = b.getAffineDimExpr(0);
+  AffineExpr d1 = b.getAffineDimExpr(1);
+
+  AffineExpr o0 = d0.floorDiv(tileConst0);
+  AffineExpr o1 = d0 % tileConst0;
+  AffineExpr o2 = d1.floorDiv(tileConst1);
+  AffineExpr o3 = d1 % tileConst1;
+
+  AffineMap map = AffineMap::get(
+      /*dims=*/2, /*symbols=*/0, {o0, o1, o2, o3}, b.getContext());
+  return AffineMapAttr::get(map);
+}
+
+AffineMapAttr getCollapsingMap(OpBuilder &b, Value val) {
+  assert(isCollapsing4DTo3D(val) &&
+         "ONNXReshapeOp is not suitable for getting a collapsing affine map");
+
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  Value input = reshapeOp.getData();
+  Type inputType = input.getType();
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+
+  AffineExpr dimConst1 = getAffineConstantExpr(inputShape[1], b.getContext());
+
+  AffineExpr d0 = b.getAffineDimExpr(0);
+  AffineExpr d1 = b.getAffineDimExpr(1);
+  AffineExpr d2 = b.getAffineDimExpr(2);
+  AffineExpr d3 = b.getAffineDimExpr(3);
+
+  AffineExpr o0 = d0 * dimConst1 + d1;
+
+  AffineMap map = AffineMap::get(
+      /*dims=*/4, /*symbols=*/0, {o0, d2, d3}, b.getContext());
+  return AffineMapAttr::get(map);
+}
+
+AffineMapAttr getTransposeMap(OpBuilder &b, ArrayAttr permAttr) {
+  SmallVector<AffineExpr, 4> inputDims;
+  inputDims.emplace_back(b.getAffineDimExpr(0));
+  inputDims.emplace_back(b.getAffineDimExpr(1));
+  inputDims.emplace_back(b.getAffineDimExpr(2));
+  inputDims.emplace_back(b.getAffineDimExpr(3));
+
+  SmallVector<AffineExpr, 4> outputDims;
+  for (uint64_t i = 0; i < ArrayAttrSize(permAttr); ++i) {
+    int64_t axis = ArrayAttrIntVal(permAttr, i);
+    outputDims.emplace_back(inputDims[axis]);
+  }
+
+  AffineMap map = AffineMap::get(
+      /*dims=*/4, /*symbols=*/0, outputDims, b.getContext());
+  return AffineMapAttr::get(map);
 }
 
 } // namespace zhigh

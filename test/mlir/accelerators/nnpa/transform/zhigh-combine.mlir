@@ -145,3 +145,27 @@ func.func @transpose(%arg0: tensor<128x128xf32>) -> tensor<2x4x32x64xf32> {
 // CHECK:           return [[VAR_0_]] : tensor<2x4x32x64xf32>
 // CHECK:         }
 }
+
+// -----
+
+// This pattern is found in bertsquart/GPT models.
+// Reshape-Transpose-Reshape will be rewritten into a single zhigh.ShapeTransform.
+func.func @reshape_transpose_reshape(%arg0: tensor<1024x768xf32, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<48x256x64xf32, #zhigh.layout<{dataLayout = "3DS"}>> {
+   %0 = onnx.Constant dense<[4, 256, 12, 64]> : tensor<4xi64>
+   %1 = onnx.Constant dense<[48, 256, 64]> : tensor<3xi64>
+   %2 = "zhigh.Unstick"(%arg0) {layout = "2D"} : (tensor<1024x768xf32, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<1024x768xf32>
+   %3 = "onnx.Reshape"(%2, %0) {allowzero = 0 : si64} : (tensor<1024x768xf32>, tensor<4xi64>) -> tensor<4x256x12x64xf32>
+   %4 = "onnx.Transpose"(%3) {perm = [0, 2, 1, 3]} : (tensor<4x256x12x64xf32>) -> tensor<4x12x256x64xf32>
+   %5 = "onnx.Reshape"(%4, %1) {allowzero = 0 : si64} : (tensor<4x12x256x64xf32>, tensor<3xi64>) -> tensor<48x256x64xf32>
+   %6 = "zhigh.Stick"(%5) {layout = "3DS"} : (tensor<48x256x64xf32>) -> tensor<48x256x64xf32, #zhigh.layout<{dataLayout = "3DS"}>>
+   return %6 : tensor<48x256x64xf32, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> ((d0 floordiv 256) * 12 + d1 floordiv 64, d0 mod 256, d1 mod 64)>
+// CHECK-LABEL:  func.func @reshape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1024x768xf32, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<48x256x64xf32, #zhigh.layout<{dataLayout = "3DS"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.Unstick"([[PARAM_0_]]) : (tensor<1024x768xf32, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<1024x768xf32>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.ShapeTransform"([[VAR_0_]]) {index_map = #map} : (tensor<1024x768xf32>) -> tensor<48x256x64xf32>
+// CHECK:           [[VAR_2_:%.+]] = "zhigh.Stick"([[VAR_1_]]) {layout = "3DS"} : (tensor<48x256x64xf32>) -> tensor<48x256x64xf32, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           return [[VAR_2_]] : tensor<48x256x64xf32, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:         }
+}

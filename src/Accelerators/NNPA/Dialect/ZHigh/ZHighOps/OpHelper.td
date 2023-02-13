@@ -68,9 +68,50 @@ def IsPlusConstantFloat : Constraint<
   "Is the float attribute is greater than 0"
 >;
 
+def TensorHas2DLayout: Constraint<
+  CPred<"::onnx_mlir::is2DLayout("
+        "::onnx_mlir::zhigh::convertZTensorDataLayoutToStringAttr($_builder, "
+        "::onnx_mlir::zhigh::getZTensorLayout($0.getType())))">,
+  "ZTensor has 2D layout"
+>;
+
+def Is3DSLayout : Constraint<
+  CPred<"::onnx_mlir::is3DSLayout($0)">,
+  "Is 3DS layout"
+>;
+
 /// Compose two affine maps.
 def GetComposedMap : NativeCodeCall<
  "mlir::AffineMapAttr::get($0.getValue().compose($1.getValue()))"
+ >;
+
+/// Check if ONNXReshapeOp is reshaping 2D to 4D by tiling each input dimension.
+def IsTiling2DTo4D : Constraint<
+  CPred<"::onnx_mlir::zhigh::isTiling2DTo4D($0)">,
+  "Is tiling by ONNReshapeOp"
 >;
+
+/// Check if ONNXReshapeOp is reshaping 4D to 3D by collapsing the first two input dimensions.
+def IsCollapsing4DTo3D : Constraint<
+  CPred<"::onnx_mlir::zhigh::isCollapsing4DTo3D($0)">,
+  "Is collapsing by ONNXReshapeOp"
+>;
+
+def GetResultType : NativeCodeCall<
+  "$0.getType()"
+>;
+
+def GetTilingMap : NativeCodeCall<
+  "::onnx_mlir::zhigh::getTilingMap($_builder, $0)"
+>;
+
+def GetCollapsingMap: NativeCodeCall<
+  "::onnx_mlir::zhigh::getCollapsingMap($_builder, $0)"
+>;
+
+def GetTransposeMap : NativeCodeCall<
+  "::onnx_mlir::zhigh::getTransposeMap($_builder, $0)"
+>;
+
 
 #endif // OP_HELPER 

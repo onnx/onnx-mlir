@@ -134,6 +134,7 @@ void ZHighStickOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NoneTypeStickRemovalPattern>(context);
   results.insert<ReplaceONNXLeakyReluPattern>(context);
+  results.insert<ReshapeTransposeReshapePattern>(context);
   results.insert<StickUnstickSameLayoutRemovalPattern>(context);
   results.insert<StickUnstickDiffLayoutRemovalPattern>(context);
 }

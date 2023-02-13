@@ -80,4 +80,53 @@ def ReplaceONNXLeakyReluPattern: Pat<
    (SameLayout $X, $stickout)]
 >;
 
+// The folowing pattern was found in bertsquad and GPT models.
+// ```
+// %0 = "zhigh.Unstick"(%X) {layout = "2D"} : tensor<?x768xf32, #zhigh.encoding<{dataLayout = "3DS"}>> -> tensor<?x768xf32>
+// %1 = "onnx.Reshape"(%0) : tensor<?x768xf32> -> tensor<?x256x12x64xf32>
+// %2 = "onnx.Transpose"(%1) {perm = [0, 2, 1, 3]}: tensor<?x256x12x64xf32> -> tensor<?x12x256x64xf32>
+// %3 = "onnx.Reshape"(%2) tensor<?x12x256x64xf32> -> tensor<?x256x64xf32>
+// %4 = "zhigh.Stick"(%4) {layout = "3DS"} : tensor<?x256x64xf32> -> tensor<?x256x64xf32, #zhigh.encoding<{dataLayout = "3DS"}>>
+// ```
+// where
+//  - the 1st Reshape can be expressed by an affine map, i.e. (d0, d1) -> (d0/256, d0%256, d1/64, d1%/64)
+//  - the Transpose can be expressed by an affine map, i.e. (d0, d1, d2, d3) -> (d0, d2, d1, d3), and
+//  - the 2nd Reshape can be expressed by an affine map, i.e. (d0, d1, d2, d3)  -> (d0*12+d1, d2, d3)
+// 
+// Thus, we will replace Reshape, Transpose by zhigh.ShapeTransform operations
+// that can be composed automatically into a single zhigh.ShapeTransform.
+//
+// Note: current implementation only supports tensors with static dimensions.
+
+def ReshapeTransposeReshapePattern : Pat<
+  (ZHighStickOp:$stick
+    (ONNXReshapeOp:$reshape2
+      (ONNXTransposeOp:$transpose
+        (ONNXReshapeOp:$reshape1
+          (ZHighUnstickOp:$unstick $X),
+          $shape1, $_),
+        $perm),
+      $shape2, $_),
+    $layout3DS),
+  (ZHighStickOp
+    (ZHighShapeTransformOp // reshape
+      (ZHighShapeTransformOp // transpose
+        (ZHighShapeTransformOp // reshape
+          (ZHighUnstickOp $X),
+          (GetTilingMap $reshape1),
+          (returnType (GetResultType $reshape1))),
+        (GetTransposeMap $perm),
+        (returnType (GetResultType $transpose))),
+      (GetCollapsingMap $reshape2),
+      (returnType (GetResultType $reshape2))),
+    $layout3DS),
+  [(TensorHas2DLayout $X), (Is3DSLayout $layout3DS),
+   (IsStaticShapeTensor $X), (IsStaticShapeTensor $unstick),
+   (IsStaticShapeTensor $reshape1), (IsStaticShapeTensor $transpose),
+   (IsStaticShapeTensor $reshape2),(IsStaticShapeTensor $stick),
+   (IsTiling2DTo4D $reshape1), // 1st reshape is tiling over each input dimension
+   (IsCollapsing4DTo3D $reshape2), // 2nd reshape is collapsing the first two dimensions. 
+  ]
+>;
+
 #endif // STICK_TD
