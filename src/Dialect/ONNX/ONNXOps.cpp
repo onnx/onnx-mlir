@@ -39,6 +39,7 @@
         "code. "                                                               \
         "Error encountered in shape inference.");                              \
   }
+
 #include "src/Dialect/ONNX/ONNXUnsupportedOps.hpp"
 #undef UNSUPPORTED_OPS
 
