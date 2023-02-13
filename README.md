@@ -58,6 +58,8 @@ make >= 4.2.1 or ninja >= 1.10.2
 java >= 1.11 (optional)
 ```
 
+All the `PyPi` package dependencies and their appropriate versions are captured in [requirements.txt](requirements.txt).
+
 Look [here](docs/Prerequisite.md) for help to set up the prerequisite software.
 
 At any point in time, ONNX-MLIR depends on a specific commit of the LLVM project that has been shown to work with the project.
