@@ -1343,6 +1343,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  let hasCustomAssemblyFormat = 1;
   let summary = "ONNX ConstantOfShape operation";
   let description = [{
   Generate a tensor with given value and shape.

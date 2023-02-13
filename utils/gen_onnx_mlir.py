@@ -304,6 +304,7 @@ special_op_handler = dict([
 # Operations with custom assembly format (alphabetical order).
 OpsWithCustomAssemblyFormat = [
     'Constant',
+    'ConstantOfShape',
 ]
 
 # Operations supporting canonicalization (alphabetical order).
