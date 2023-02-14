@@ -599,6 +599,25 @@ def ZHighShapeTransformOp:ZHigh_Op<"ShapeTransform", [Pure,
     by a given affine map. This is elemement-wise transformation, so each element
     in the input will be copied to an element in the output via the affine map.
 
+    For example, the following code is using `zhigh.ShapeTransform` to reshape
+    a tensor from 2D to 4D.
+    ```mlir
+    #reshape = affine_map(d0, d1) -> (d0/32, d0%32, d1/64, d1%64)
+    %Y = zhigh.ShapeTransform(%arg0) {index_map = #reshape} :  (tensor<128x128xf32>) -> tensor<4x32x2x64xf32>
+    ```
+
+    `zhigh.ShapeTransform` will be materialized into an `affine.for` via
+    lowering to `krnl` dialect, e.g.
+    ```mlir
+    %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x32x2x64xf32>
+    affine.for %arg1 = 0 to 128 {
+      affine.for %arg2 = 0 to 128 {
+        %0 = affine.load %arg0[%arg1, %arg2] : memref< 128x128xf32 >
+        affine.store %0, %alloc[%arg1 / 32, %arg1 % 32, %arg2 / 64, %arg2 % 64] : memref<4x32x2x64xf32>
+      }
+    }
+    ```
+
     When being canonicalized, ShapeTransform operations are composed into
     a new ShapeTransform operation by composing their affine maps.
 
