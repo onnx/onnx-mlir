@@ -136,6 +136,7 @@ DenseElementsAttr createDenseElementsAttrFromShapeOp(
 // TODO: The same function in ONNXToZHighComon.cpp. Commonize them.
 Value emitONNXTranspose(
     Location loc, PatternRewriter &rewriter, Value x, ArrayRef<int64_t> perms) {
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
   ShapedType inputType = x.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
   Type transposedType;
@@ -150,21 +151,17 @@ Value emitONNXTranspose(
   } else {
     transposedType = UnrankedTensorType::get(elementType);
   }
-
-  ONNXTransposeOp transposedInput = rewriter.create<ONNXTransposeOp>(
-      loc, transposedType, x, rewriter.getI64ArrayAttr(perms));
-  return transposedInput.getResult();
+  Value result =
+      create.onnx.transpose(transposedType, x, rewriter.getI64ArrayAttr(perms));
+  return result;
 }
 
 // Create ONNX ReverseSequence op
 Value emitONNXReverseSequence(Location loc, PatternRewriter &rewriter,
     Value input, ArrayRef<int64_t> slens, int64_t batchAxis, int64_t timeAxis) {
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
   // Create sequence_lens using Constant op
-  SmallVector<int64_t, 4> dims(1, slens.size());
-  Type tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  DenseElementsAttr denseAttr = DenseElementsAttr::get(tensorType, slens);
-  Value constSlens =
-      rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+  Value constSlens = create.onnx.constantInt64(slens);
   // Create batch_axis and time_axis attributes
   IntegerAttr batchAxisAttr =
       IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
@@ -209,6 +206,7 @@ Value reverseAllElements(
 // The results are used weight tensor for Conv op.
 Value reverseWeightTensor(
     PatternRewriter &rewriter, Location loc, Value input) {
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
   ShapedType inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
   assert(inputType.hasRank() && "Need rank to reverse weight tensor.");
@@ -262,8 +260,7 @@ Value reverseWeightTensor(
       int64_t tInRank = tInShape.size();
       Type tInShapeType =
           RankedTensorType::get({tInRank}, rewriter.getI64Type());
-      Value tInShapeVals =
-          rewriter.create<ONNXShapeOp>(loc, tInShapeType, transposedInput);
+      Value tInShapeVals = create.onnx.shape(tInShapeType, transposedInput);
       SmallVector<int64_t, 6> reshapedShapeVec;
       reshapedShapeVec.emplace_back(tInShape[0]);
       reshapedShapeVec.emplace_back(1);
@@ -273,32 +270,20 @@ Value reverseWeightTensor(
       Type firstShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
       Type otherShapeType =
           RankedTensorType::get({tInRank - 1}, rewriter.getI64Type());
-      Value zeroVal = rewriter.create<ONNXConstantOp>(
-          loc, Attribute(), rewriter.getI64TensorAttr(ArrayRef<int64_t>({0})));
-      Value oneVal = rewriter.create<ONNXConstantOp>(
-          loc, Attribute(), rewriter.getI64TensorAttr(ArrayRef<int64_t>({1})));
-      Value rankVal = rewriter.create<ONNXConstantOp>(loc, Attribute(),
-          rewriter.getI64TensorAttr(ArrayRef<int64_t>({tInRank})));
-      Value firstShapeVal = rewriter.create<ONNXSliceOp>(loc, firstShapeType,
-          tInShapeVals, /* starts */ zeroVal, /* ends */ oneVal,
-          /* axis */ zeroVal, /* step */ oneVal);
-      Value otherShapeVals = rewriter.create<ONNXSliceOp>(loc, otherShapeType,
-          tInShapeVals, /* starts */ oneVal, /* ends */ rankVal,
-          /* axis */ zeroVal, /* step */ oneVal);
+      Value oneVal = create.onnx.constantInt64(ArrayRef<int64_t>({1}));
+      Value firstShapeVal = create.onnx.slice(
+          firstShapeType, tInShapeVals, /* starts */ 0, /* ends */ 1);
+      Value otherShapeVals = create.onnx.slice(
+          otherShapeType, tInShapeVals, /* starts */ 1, /* ends */ tInRank);
       Type reshapeShapeType =
           RankedTensorType::get({tInRank + 1}, rewriter.getI64Type());
-      IntegerAttr concatAxisAttr =
-          IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-              APInt(64, 0, /*isSigned=*/true));
-      Value shape = rewriter.create<ONNXConcatOp>(loc, reshapeShapeType,
-          ValueRange{firstShapeVal, oneVal, otherShapeVals}, concatAxisAttr);
-      // Reshape, reverese, and reshape
-      transposedInput = rewriter.create<ONNXReshapeOp>(
-          loc, reshapedType, transposedInput, shape);
+      Value shape = create.onnx.concat(reshapeShapeType,
+          ValueRange{firstShapeVal, oneVal, otherShapeVals}, 0);
+      transposedInput =
+          create.onnx.reshape(reshapedType, transposedInput, shape);
       reverse0 =
           reverseAllElements(rewriter, loc, transposedInput, /*dimension*/ 0);
-      reverse0 =
-          rewriter.create<ONNXReshapeOp>(loc, tInType, reverse0, tInShapeVals);
+      reverse0 = create.onnx.reshape(tInType, reverse0, tInShapeVals);
     } else {
       reverse0 =
           reverseAllElements(rewriter, loc, transposedInput, /*dimension*/ 0);
@@ -367,17 +352,14 @@ ArrayAttr createUnitStrides(PatternRewriter &rewriter, ArrayAttr strides) {
 // Split on the specified axis. The length of each output is one.
 ValueRange emitSplitAxisOutputLength1(
     PatternRewriter &rewriter, Location loc, Value input, int64_t axis) {
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
   ShapedType inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   // Create `split` to split each output in `axis` into length 1.
-  SmallVector<int64_t> dims(1, inputShape[axis]);
-  Type tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  SmallVector<int64_t, 1> values(inputShape[axis], 1);
-  DenseElementsAttr denseAttr =
-      DenseElementsAttr::get(tensorType, ArrayRef(values));
   // Ex. inputShape[axis] = 3, then  onnx.Constant dense<1> : tensor<3xi64>
-  Value split = rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+  SmallVector<int64_t, 1> values(inputShape[axis], 1);
+  Value split = create.onnx.constantInt64(ArrayRef(values));
   SmallVector<int64_t> splitShape;
   for (int i = 0; i < inputType.getRank(); ++i) {
     if (i == axis)
@@ -395,6 +377,7 @@ ValueRange emitSplitAxisOutputLength1(
 // Emit ONNXPadOp to add pads of `size` at end of the `axis`.
 Value emitPadsAxisEnd(PatternRewriter &rewriter, Location loc, Value input,
     ArrayRef<int64_t> inputShape, int64_t axis, int64_t size) {
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
   ShapedType inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
   SmallVector<int64_t> resultShape;
@@ -407,21 +390,16 @@ Value emitPadsAxisEnd(PatternRewriter &rewriter, Location loc, Value input,
   Type resultType = RankedTensorType::get(resultShape, elementType);
 
   // Specify padding at the end of each axis.
-  SmallVector<int64_t> dims(1, (int64_t)resultShape.size() * 2);
-  Type tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
   SmallVector<int64_t, 1> values((int64_t)inputShape.size() * 2, 0);
   values[inputShape.size() + axis] = size;
-  DenseElementsAttr denseAttr =
-      DenseElementsAttr::get(tensorType, ArrayRef(values));
-  Value pads = rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
+  Value pads = create.onnx.constantInt64(ArrayRef(values));
 
   // Padding in zero.
   Type tensorTypeF32 =
       RankedTensorType::get({}, rewriter.getF32Type()); // tensor<f32>
   DenseElementsAttr denseAttrConst =
       DenseElementsAttr::get(tensorTypeF32, ArrayRef<float>({0.0}));
-  Value constantValue =
-      rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttrConst);
+  Value constantValue = create.onnx.constant(denseAttrConst);
 
   // Emit ONNXPadOp
   ONNXPadOp padOp = rewriter.create<ONNXPadOp>(loc, resultType, input, pads,
@@ -431,6 +409,7 @@ Value emitPadsAxisEnd(PatternRewriter &rewriter, Location loc, Value input,
 
 Value emitConcat(
     PatternRewriter &rewriter, Location loc, ValueRange inputs, int64_t axis) {
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
   ShapedType inputType = inputs[0].getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
   ArrayRef<int64_t> inputShape = inputType.getShape();
@@ -448,10 +427,8 @@ Value emitConcat(
       concatShape.emplace_back(inputShape[i]);
   }
   Type concatType = RankedTensorType::get(concatShape, elementType);
-  ONNXConcatOp concatOp = rewriter.create<ONNXConcatOp>(loc, concatType, inputs,
-      rewriter.getIntegerAttr(
-          rewriter.getIntegerType(64, /*isSigned=*/true), axis));
-  return concatOp.getResult();
+  Value result = create.onnx.concat(concatType, inputs, axis);
+  return result;
 }
 
 // Insert pads in specified axis.
