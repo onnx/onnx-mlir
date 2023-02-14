@@ -361,7 +361,7 @@ public:
     // Remove ZLowUnstickOp.
     rewriter.eraseOp(unstickOp);
     // Copy ZLowStickOp to the removableStickOps. We cannot remove it now
-    // because there are potentially other AffineStoreOps connecting to it.
+    // because there are potentially other AffineStoreOps using to it.
     for (ZLowStickOp stickOp : stickOps)
       removableStickOps.insert(stickOp);
     return success();
