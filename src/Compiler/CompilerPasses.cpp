@@ -62,6 +62,10 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   pm.addPass(onnx_mlir::createShapeInferencePass());
 
   /* FlexML Start */
+  // We could consider removing this in favor of this pipelined command:
+  // onnx-mlir -EmitONNXBasic 
+  // | onnx-mlir-opt -layer-name-to-location
+  // | onnx-mlir -emitONNXIR
   if (layerNameToLocation)
     pm.addPass(onnx_mlir::createLayerNameToLocationPass());
   /* FlexML End */
