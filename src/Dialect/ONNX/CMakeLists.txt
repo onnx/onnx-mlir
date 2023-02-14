@@ -47,6 +47,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Math/ElementwiseUnary.cpp
   ONNXOps/Math/Gemm.cpp
   ONNXOps/Math/HardMax.cpp
+  ONNXOps/Math/IsInf.cpp
   ONNXOps/Math/IsNan.cpp
   ONNXOps/Math/LRN.cpp
   ONNXOps/Math/MatMul.cpp
