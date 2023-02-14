@@ -154,7 +154,8 @@ LogicalResult ONNXCastLikeOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = (*this)->getAttr("to").cast<::TypeAttr>().getValue();
+  Type elementType =
+      getTargetType().getType().dyn_cast<RankedTensorType>().getElementType();
   ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
