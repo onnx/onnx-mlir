@@ -328,13 +328,13 @@ func.func @test_shape2(%arg0 : tensor<?x4x8x16xf32>) -> tensor<*xi64> {
 
 // -----
 
-func.func @test_size1(%arg0 : tensor<2x4x8x16xf32>) -> tensor<1xi64> {
-  %0 = "onnx.Size"(%arg0) : (tensor<2x4x8x16xf32>) -> tensor<1xi64>
-  return %0 : tensor<1xi64>
+func.func @test_size1(%arg0 : tensor<2x4x8x16xf32>) -> tensor<i64> {
+  %0 = "onnx.Size"(%arg0) : (tensor<2x4x8x16xf32>) -> tensor<i64>
+  return %0 : tensor<i64>
 
   // CHECK-LABEL: @test_size1
-  // CHECK-NEXT: %0 = onnx.Constant dense<1024> : tensor<1xi64>
-  // CHECK-NEXT: %0 : tensor<1xi64>
+  // CHECK-NEXT: %0 = onnx.Constant dense<1024> : tensor<i64>
+  // CHECK-NEXT: %0 : tensor<i64>
 }
 
 // -----

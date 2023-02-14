@@ -76,6 +76,8 @@ template struct ONNXNonSpecificOpShapeHelper<ONNXConstantOp>;
 //===----------------------------------------------------------------------===//
 
 OpFoldResult ONNXConstantOp::fold(FoldAdaptor adaptor) {
+  if (getSparseValueAttr())
+    return getSparseValueAttr();
   if (getValueAttr())
     return getValueAttr();
   else if (getValueFloatAttr())
