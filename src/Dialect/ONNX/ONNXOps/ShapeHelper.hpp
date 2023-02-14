@@ -158,6 +158,7 @@ using ONNXHardSigmoidOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXHardSwishOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXHardmaxOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXInstanceNormalizationOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXIsInfOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXIsNaNOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXLayoutTransformOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXLeakyReluOpShapeHelper = ONNXUnaryOpShapeHelper;
