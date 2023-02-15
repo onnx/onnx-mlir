@@ -58,7 +58,8 @@ void LayerNameToLocationPass::runOnOperation() {
     // If onnx_node_name is not available and this is an onnx operation, extend
     // the location with a name to indicate a missing location.
     else if (isa_and_present<ONNXDialect>(nestedOp->getDialect()) &&
-             !isa<ONNXConstantOp>(nestedOp)) {
+             !isa<ONNXConstantOp>(nestedOp) &&
+             !isa<ONNXEntryPointOp>(nestedOp)) {
       auto invalidName =
           StringAttr::get(context, invLocName + std::to_string(invLocSeq++));
       nameLoc = NameLoc::get(invalidName, loc);

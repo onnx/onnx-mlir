@@ -60,6 +60,16 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
 
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
+
+  /* FlexML Start */
+  // We could consider removing this in favor of this pipelined command:
+  // onnx-mlir -EmitONNXBasic 
+  // | onnx-mlir-opt -layer-name-to-location
+  // | onnx-mlir -emitONNXIR
+  if (layerNameToLocation)
+    pm.addPass(onnx_mlir::createLayerNameToLocationPass());
+  /* FlexML End */
+
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // Convolution Optimization for CPU: enable when there are no accelerators.
