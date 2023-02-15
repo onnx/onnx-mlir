@@ -71,7 +71,7 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
   add_custom_target(${dialect}DocGen DEPENDS ${GEN_DOC_FILE})
   add_dependencies(onnx-mlir-docs ${dialect}DocGen)
 endfunction()
-add_custom_target(onnx-mlir-docs ALL)
+add_custom_target(onnx-mlir-docs)
 
 # Create the list of supported ops. Pass the input file to scan, and the target architecture.
 # Target will create a docs/SupportedONNXOps-<arch>.md file listed
