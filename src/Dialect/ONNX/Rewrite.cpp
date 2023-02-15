@@ -156,28 +156,10 @@ Value emitONNXTranspose(
   return result;
 }
 
-// Create ONNX ReverseSequence op
-Value emitONNXReverseSequence(Location loc, PatternRewriter &rewriter,
-    Value input, ArrayRef<int64_t> slens, int64_t batchAxis, int64_t timeAxis) {
-  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
-  // Create sequence_lens using Constant op
-  Value constSlens = create.onnx.constantInt64(slens);
-  // Create batch_axis and time_axis attributes
-  IntegerAttr batchAxisAttr =
-      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, batchAxis, /*isSigned=*/true));
-  IntegerAttr timeAxisAttr =
-      IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-          APInt(64, timeAxis, /*isSigned=*/true));
-  Type resultType = input.getType().cast<RankedTensorType>();
-  ONNXReverseSequenceOp reverseOp = rewriter.create<ONNXReverseSequenceOp>(
-      loc, resultType, input, constSlens, batchAxisAttr, timeAxisAttr);
-  return reverseOp;
-}
-
 // Reverse all elements of the first or second dimention of `input`.
 Value reverseAllElements(
     PatternRewriter &rewriter, Location loc, Value input, int64_t dimension) {
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
   ShapedType inputType = input.getType().cast<ShapedType>();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   SmallVector<int64_t, 4> slens;
@@ -194,12 +176,15 @@ Value reverseAllElements(
   // whose the number of elements are d0.
   // Example:
   // input(d0 x d1) = (4 x 3)) then, `sequence_lenghts` is [3, 3, 3, 3].
-  int64_t batch_axis = dimension == 0 ? 1 : 0;
-  int64_t time_axis = dimension == 0 ? 0 : 1;
-  for (int i = 0; i < inputShape[batch_axis]; ++i)
-    slens.emplace_back(inputShape[time_axis]);
-  return emitONNXReverseSequence(
-      loc, rewriter, input, slens, batch_axis, time_axis);
+  int64_t batchAxis = dimension == 0 ? 1 : 0;
+  int64_t timeAxis = dimension == 0 ? 0 : 1;
+  for (int i = 0; i < inputShape[batchAxis]; ++i)
+    slens.emplace_back(inputShape[timeAxis]);
+  Value slensVal = create.onnx.constantInt64(slens);
+  Type resultType = input.getType().cast<RankedTensorType>();
+  Value result = create.onnx.reverseSequence(
+      resultType, input, slensVal, batchAxis, timeAxis);
+  return result;
 }
 
 // Reverse elements in weight tensor of ConvTranspose op.
@@ -369,9 +354,9 @@ ValueRange emitSplitAxisOutputLength1(
   }
   Type splitType = RankedTensorType::get(splitShape, elementType);
   SmallVector<Type, 4> splitTypes(inputShape[axis], splitType);
-  ONNXSplitOp splitOp =
-      rewriter.create<ONNXSplitOp>(loc, splitTypes, input, split, axis);
-  return splitOp.getResults();
+  ValueRange results =
+      create.onnx.split(ArrayRef(splitTypes), input, split, axis);
+  return results;
 }
 
 // Emit ONNXPadOp to add pads of `size` at end of the `axis`.
@@ -388,23 +373,12 @@ Value emitPadsAxisEnd(PatternRewriter &rewriter, Location loc, Value input,
       resultShape.emplace_back(inputShape[i]);
   }
   Type resultType = RankedTensorType::get(resultShape, elementType);
-
   // Specify padding at the end of each axis.
   SmallVector<int64_t, 1> values((int64_t)inputShape.size() * 2, 0);
   values[inputShape.size() + axis] = size;
   Value pads = create.onnx.constantInt64(ArrayRef(values));
-
-  // Padding in zero.
-  Type tensorTypeF32 =
-      RankedTensorType::get({}, rewriter.getF32Type()); // tensor<f32>
-  DenseElementsAttr denseAttrConst =
-      DenseElementsAttr::get(tensorTypeF32, ArrayRef<float>({0.0}));
-  Value constantValue = create.onnx.constant(denseAttrConst);
-
-  // Emit ONNXPadOp
-  ONNXPadOp padOp = rewriter.create<ONNXPadOp>(loc, resultType, input, pads,
-      constantValue, rewriter.getStringAttr("constant"));
-  return padOp.getResult();
+  Value result = create.onnx.padZero(resultType, input, pads);
+  return result;
 }
 
 Value emitConcat(
