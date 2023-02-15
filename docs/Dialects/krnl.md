@@ -810,8 +810,12 @@ Interfaces: SpecializedKernelOpInterface
 
 Krnl memcpy operation
 
-In the KRNL dialect the reshape op
-doesn't generate a new memory entry and treats a reshape like a cast.
+Copy `num_elems` elements from `src` to `dest` MemRef.
+
+Starting positions for `src` and `dest` are defined by `src_offset` and
+`dest_offset`, respectively.
+
+It is the users' responsibility to make sure there is no out-of-bound read/write.
 
 Traits: MemRefsNormalizable
 
@@ -821,7 +825,9 @@ Traits: MemRefsNormalizable
 | :-----: | ----------- |
 | `dest` | memref of any type values
 | `src` | memref of any type values
-| `size` | integer
+| `num_elems` | 64-bit signless integer
+| `dest_offset` | index
+| `src_offset` | index
 
 ### `krnl.memset` (::mlir::KrnlMemsetOp)
 
