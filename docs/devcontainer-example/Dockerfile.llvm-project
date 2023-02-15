@@ -1,0 +1,15 @@
+# By default, use ubuntu:focal
+ARG BASE_IMAGE="onnxmlirczar/onnx-mlir-llvm-static:amd64"
+FROM ${BASE_IMAGE}
+
+RUN apt-get update
+
+# 2) Install optional packages, comment/uncomment/add as you see fit.
+RUN apt-get install -y vim bash valgrind clang-format lsb-release \
+    wget software-properties-common ssh-client gdb
+RUN python3 -m pip install -U pip && pip install commitizen
+
+# For development
+ENV LLVM_PROJECT_ROOT=/workdir/llvm-project 
+ENV MLIR_DIR=/workdir/llvm-project/build/lib/cmake/mlir
+ENV eval "$(ssh-agent)" 
