@@ -96,32 +96,32 @@ Value createUnitConstant(PatternRewriter &rewriter, Location loc) {
 // When ArrayAttr is Null, an empty Integer DenseElementAttr is returned
 DenseElementsAttr createDenseArrayAttrOrEmpty(
     PatternRewriter &rewriter, ArrayAttr origAttrs) {
-  if (origAttrs)
+  if (origAttrs) {
     return createDenseArrayAttr(rewriter, origAttrs);
+  } else {
+    mlir::Type elementType = rewriter.getIntegerType(64);
+    int nElements = 0;
+    SmallVector<int64_t, 4> wrapper(nElements, 0);
+    for (int i = 0; i < nElements; ++i) {
+      wrapper[i] = i;
+    }
+    return DenseElementsAttr::get(
+        RankedTensorType::get(wrapper.size(), elementType),
+        llvm::makeArrayRef(wrapper));
+  }
 
-  Type elementType = rewriter.getIntegerType(64);
-  int nElements = 0;
-  SmallVector<int64_t, 4> wrapper(nElements, 0);
-  for (int i = 0; i < nElements; ++i)
-    wrapper[i] = i;
+  Value createSequenceConstructOp(
+      PatternRewriter & rewriter, mlir::Value seq, mlir::OperandRange inputs) {
+    Type resType = seq.getType();
+    Location loc = seq.getLoc();
+    Value position = rewriter.create<ONNXNoneOp>(loc);
 
-  return DenseElementsAttr::get(
-      RankedTensorType::get(wrapper.size(), elementType),
-      llvm::ArrayRef(wrapper));
-}
+    for (auto input : inputs)
+      seq = rewriter.create<ONNXSequenceInsertOp>(
+          loc, resType, seq, input, position);
 
-Value createSequenceConstructOp(
-    PatternRewriter &rewriter, mlir::Value seq, mlir::OperandRange inputs) {
-  Type resType = seq.getType();
-  Location loc = seq.getLoc();
-  Value position = rewriter.create<ONNXNoneOp>(loc);
-
-  for (auto input : inputs)
-    seq = rewriter.create<ONNXSequenceInsertOp>(
-        loc, resType, seq, input, position);
-
-  return seq;
-}
+    return seq;
+  }
 
 } // namespace onnx_mlir
 
