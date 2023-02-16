@@ -33,6 +33,13 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 // DRR patterns 
 //===----------------------------------------------------------------------===//
 
+// Remove ShapeTransform with identity map.
+def ShapeTransformIdentityPattern : Pat<
+  (ZHighShapeTransformOp $arg, $map1),
+  (replaceWithValue $arg),
+  [(IsIdentityAffineMap:$map1)]
+>;
+
 // Rewrite
 // ```
 //   zhigh.ShapeTransform {#map1} (zhigh.ShapeTransform {#map2} (%X))

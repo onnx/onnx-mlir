@@ -145,5 +145,9 @@ def GetTransposeMap : NativeCodeCall<
   "::onnx_mlir::zhigh::getTransposeMap($_builder, $0)"
 >;
 
+def IsIdentityAffineMap : Constraint<
+  CPred<"$_self.isIdentity()">,
+  "Is identity AffineMap"
+>;
 
 #endif // OP_HELPER 

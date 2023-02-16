@@ -71,6 +71,7 @@ LogicalResult ZHighShapeTransformOp::verify() {
 void ZHighShapeTransformOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ShapeTransformComposePattern>(context);
+  results.insert<ShapeTransformIdentityPattern>(context);
 }
 
 } // namespace zhigh
