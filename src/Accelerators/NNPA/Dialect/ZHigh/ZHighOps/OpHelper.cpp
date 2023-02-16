@@ -408,21 +408,15 @@ AffineMapAttr getCollapsing4DTo3DMap(OpBuilder &b, Value val) {
       /*dims=*/4, /*symbols=*/0, {o0, d2, d3}, b.getContext());
   return AffineMapAttr::get(map);
 }
+
 AffineMapAttr getTransposeMap(OpBuilder &b, ArrayAttr permAttr) {
-  SmallVector<AffineExpr, 4> inputDims;
-  inputDims.emplace_back(b.getAffineDimExpr(0));
-  inputDims.emplace_back(b.getAffineDimExpr(1));
-  inputDims.emplace_back(b.getAffineDimExpr(2));
-  inputDims.emplace_back(b.getAffineDimExpr(3));
-
-  SmallVector<AffineExpr, 4> outputDims;
+  SmallVector<unsigned, 4> perm;
   for (uint64_t i = 0; i < ArrayAttrSize(permAttr); ++i) {
-    int64_t axis = ArrayAttrIntVal(permAttr, i);
-    outputDims.emplace_back(inputDims[axis]);
+    unsigned axis = ArrayAttrIntVal(permAttr, i);
+    perm.emplace_back(axis);
   }
-
-  AffineMap map = AffineMap::get(
-      /*dims=*/4, /*symbols=*/0, outputDims, b.getContext());
+  AffineMap map =
+      AffineMap::getPermutationMap(llvm::ArrayRef(perm), b.getContext());
   return AffineMapAttr::get(map);
 }
 
