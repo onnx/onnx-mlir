@@ -405,19 +405,6 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
       createIE->getShapeAsDim(wValue, 1) *
       LiteralIndexExpr(groupNum)); // CO may be different from CI.
 
-  // Set output_shape attribute in advance when `auto_pad` is SAME
-  if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
-    SmallVector<int64_t, 2> outputShapeVec;
-    auto builder = Builder(op->getContext());
-    for (int i = 0; i < spatialRank; ++i) {
-      int64_t ii = i + spatialOffset;
-      IndexExpr I = createIE->getShapeAsDim(xValue, ii);
-      outputShapeVec.emplace_back(
-          I.getLiteral() * ArrayAttrIntVal(strideOpt, i));
-    }
-    outputShapeOpt = builder.getI64ArrayAttr(llvm::ArrayRef(outputShapeVec));
-  }
-
   LiteralIndexExpr zeroIE(0);
   LiteralIndexExpr oneIE(1);
   for (int i = 0; i < spatialRank; ++i) {
@@ -432,7 +419,7 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
     IndexExpr kdTerm = t0 * d + oneIE; // (k - 1) * d + 1
     IndexExpr t1 = I - oneIE;
     if (outputShapeOpt.has_value()) {
-      // Set output dim
+      // Set output dim, then calculate pads using output dim
       LiteralIndexExpr O(ArrayAttrIntVal(outputShapeOpt, i));
       outputDims.emplace_back(O);
       // Set pads
@@ -450,25 +437,43 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
         return op->emitError("auto_pad of unknown/unsupported value");
       }
     } else {
-      // Set pads
+      // Set pads for NOTSET and VALID, then calculate output dim using pads
+      // Set output dim for SAME_UPPER and SAME_LOWER, then calculate pads
       IndexExpr pSum;
-      if (autoPad == "NOTSET") {
-        pSum = pads[i] + pads[i + spatialRank]; // Sum both pads.
-        // pads already set, nothing more to do.
-      } else if (autoPad == "VALID") {
-        pSum = zeroIE;
-        pads[i] = zeroIE;
-        pads[i + spatialRank] = zeroIE;
+      if (autoPad == "NOTSET" || autoPad == "VALIID") {
+        // Set pads
+        if (autoPad == "NOTSET") {
+          pSum = pads[i] + pads[i + spatialRank]; // Sum both pads.
+          // pads already set, nothing more to do.
+        } else if (autoPad == "VALID") {
+          pSum = zeroIE;
+          pads[i] = zeroIE;
+          pads[i + spatialRank] = zeroIE;
+        }
+        // Set output dim
+        // O = s * (I - 1) + outPad + ((K - 1) * d + 1) - P
+        IndexExpr O = s * t1 + outPad + kdTerm - pSum;
+        outputDims.emplace_back(O); // Set output dim
       } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
-        return op->emitError(
-            "auto_pad of SAME_UPPER/SAME_LOWER not unsupported yet");
+        // Set output dim
+        IndexExpr I = createIE->getShapeAsDim(xValue, i + spatialOffset);
+        LiteralIndexExpr S(ArrayAttrIntVal(strideOpt, i));
+        IndexExpr O = I * S;
+        outputDims.emplace_back(O);
+        // Set pads
+        // P = max(0, s * (I - 1) + outPad + ((K - 1) * d + 1) - O);
+        IndexExpr pSum = IndexExpr::max(zeroIE, s * t1 + outPad + kdTerm - O);
+        IndexExpr pSmall = pSum.floorDiv(2);
+        if (autoPad == "SAME_UPPER") {
+          pads[i] = pSmall;
+          pads[i + spatialRank] = pSum - pSmall;
+        } else { // SAME_LOWER
+          pads[i] = pSum - pSmall;
+          pads[i + spatialRank] = pSmall;
+        }
       } else {
         return op->emitError("auto_pad of unknown/unsupported value");
       }
-      // Set output dim
-      // O = s * (I - 1) + outPad + ((K - 1) * d + 1) - P
-      IndexExpr O = s * t1 + outPad + kdTerm - pSum;
-      outputDims.emplace_back(O); // Set output dim
     }
   }
   // Save the final result.
