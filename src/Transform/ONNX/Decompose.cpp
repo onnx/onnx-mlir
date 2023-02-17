@@ -99,7 +99,7 @@ DenseElementsAttr createDenseArrayAttrOrEmpty(
   if (origAttrs) {
     return createDenseArrayAttr(rewriter, origAttrs);
   } else {
-    mlir::Type elementType = rewriter.getIntegerType(64);
+    Type elementType = rewriter.getIntegerType(64);
     int nElements = 0;
     SmallVector<int64_t, 4> wrapper(nElements, 0);
     for (int i = 0; i < nElements; ++i) {
@@ -107,7 +107,7 @@ DenseElementsAttr createDenseArrayAttrOrEmpty(
     }
     return DenseElementsAttr::get(
         RankedTensorType::get(wrapper.size(), elementType),
-        llvm::makeArrayRef(wrapper));
+        llvm::ArrayRef(wrapper));
   }
 }
 
