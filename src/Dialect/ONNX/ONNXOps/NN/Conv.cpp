@@ -816,7 +816,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
         return emitError("bad kernel_shape value");
       }
   }
-
+  // Save original autoPad attribute here because it is updated in
+  // 'processConvTypeParams()'
   StringRef autoPad = getAutoPad();
   // Process strides, dilations, kernel_shape and pads.
   LogicalResult res =
@@ -842,10 +843,6 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
     SmallVector<int64_t, 4> inferredPads;
     // Determine padding values based on output shape. `pads` and
     // `output_padding` are ignored.
-    // auto_pad() is always NOTSET here becauae `processConvTypeParams()` update
-    // it as NOTSET.
-    // TODO: Merge insertConvTransposePads with processCOnvTypeParams(), or not
-    // use processConvTypeParams() in ConvTranspose
     auto outputShape = getOutputShape();
     insertConvTransposePads(inferredPads, autoPad, xShape, kernelShape, padsOpt,
         stridesOpt, outputPads, outputShape, dilationsOpt);
