@@ -109,19 +109,20 @@ DenseElementsAttr createDenseArrayAttrOrEmpty(
         RankedTensorType::get(wrapper.size(), elementType),
         llvm::makeArrayRef(wrapper));
   }
+}
 
-  Value createSequenceConstructOp(
-      PatternRewriter & rewriter, mlir::Value seq, mlir::OperandRange inputs) {
-    Type resType = seq.getType();
-    Location loc = seq.getLoc();
-    Value position = rewriter.create<ONNXNoneOp>(loc);
+Value createSequenceConstructOp(
+    PatternRewriter &rewriter, mlir::Value seq, mlir::OperandRange inputs) {
+  Type resType = seq.getType();
+  Location loc = seq.getLoc();
+  Value position = rewriter.create<ONNXNoneOp>(loc);
 
-    for (auto input : inputs)
-      seq = rewriter.create<ONNXSequenceInsertOp>(
-          loc, resType, seq, input, position);
+  for (auto input : inputs)
+    seq = rewriter.create<ONNXSequenceInsertOp>(
+        loc, resType, seq, input, position);
 
-    return seq;
-  }
+  return seq;
+}
 
 } // namespace onnx_mlir
 
