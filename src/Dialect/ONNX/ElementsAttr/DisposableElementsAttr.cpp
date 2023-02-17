@@ -12,10 +12,12 @@
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttributeStorage.hpp"
 
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 #include "llvm/ADT/StringExtras.h"
 
 #include <algorithm>
+#include <string>
 
 using namespace onnx_mlir;
 
@@ -153,6 +155,29 @@ DenseElementsAttr DisposableElementsAttr::toDenseElementsAttr() const {
   return DenseElementsAttr::getFromRawBuffer(getType(), bytes.get());
 }
 
+/*static*/
+std::unique_ptr<llvm::MemoryBuffer> DisposableElementsAttr::parse(
+    AsmParser &parser, Type type) {
+  size_t id = 0; // The parsed id is ignored.
+  std::string str;
+  if (parser.parseLess() || parser.parseInteger(id) || parser.parseColon() ||
+      parser.parseString(&str))
+    return nullptr;
+  StringRef hex = str;
+  std::string bytes;
+  if (!hex.consume_front("0x") || (hex.size() & 1) ||
+      !llvm::tryGetFromHex(hex, bytes)) {
+    parser.emitError(parser.getCurrentLocation(), "ill-formed hex string");
+    return nullptr;
+  }
+  if (bytes.size() != static_cast<size_t>(getSizeInBytes(type))) {
+    parser.emitError(
+        parser.getCurrentLocation(), "data size doesn't match type size");
+    return nullptr;
+  }
+  return llvm::MemoryBuffer::getMemBufferCopy(bytes);
+}
+
 void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
   // It would be ideal if we could read the printer flags from printer instead
   // of constructing them here, because printer may have been constructed with
@@ -160,7 +185,7 @@ void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
   // Oh well, at least OpPrintingFlags().shouldElideElementsAttr(ElementsAttr)
   // lets us respect the --mlir-elide-elementsattrs-if-larger command line flag.
   static OpPrintingFlags printerFlags{};
-  printer << "dense_disposable<#" << getImpl()->id << ":";
+  printer << getMnemonic() << "<" << getImpl()->id << ":";
   if (isSplat() || !printerFlags.shouldElideElementsAttr(*this)) {
     auto bytes = getRawBytes();
     auto u8array = castArrayRef<uint8_t>(bytes.get());

@@ -22,6 +22,7 @@
 #include "mlir/IR/OpImplementation.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 #include <functional>
@@ -264,6 +265,11 @@ public:
 
   // Makes deep copy.
   DenseElementsAttr toDenseElementsAttr() const;
+
+  static constexpr StringLiteral getMnemonic() { return {"dense_disposable"}; }
+
+  static std::unique_ptr<llvm::MemoryBuffer> parse(
+      AsmParser &parser, Type type);
 
   void printWithoutType(AsmPrinter &printer) const;
 
