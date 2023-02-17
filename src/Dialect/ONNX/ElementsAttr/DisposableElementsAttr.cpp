@@ -175,6 +175,7 @@ std::unique_ptr<llvm::MemoryBuffer> DisposableElementsAttr::parse(
         parser.getCurrentLocation(), "data size doesn't match type size");
     return nullptr;
   }
+  // TODO: Make big-endian platforms reorder bytes from little-endian.
   return llvm::MemoryBuffer::getMemBufferCopy(bytes);
 }
 
@@ -187,6 +188,7 @@ void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
   static OpPrintingFlags printerFlags{};
   printer << getMnemonic() << "<" << getImpl()->id << ":";
   if (isSplat() || !printerFlags.shouldElideElementsAttr(*this)) {
+    // TODO: Make big-endian platforms reorder bytes to little-endian.
     auto bytes = getRawBytes();
     auto u8array = castArrayRef<uint8_t>(bytes.get());
     printer << "\"0x" << llvm::toHex(u8array) << "\"";
