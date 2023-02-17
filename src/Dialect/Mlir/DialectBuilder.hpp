@@ -14,6 +14,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Matchers.h"
@@ -199,6 +200,11 @@ struct MemRefBuilder final : DialectBuilder {
 
   mlir::Value reinterpretCast(
       mlir::Value input, llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
+
+  // Does not support layouts at this time.
+  mlir::Value collapseShape(mlir::Value input,
+      llvm::ArrayRef<mlir::ReassociationIndices> reassociation);
+
   mlir::Value dim(mlir::Value val, int64_t index) const;
   mlir::Value dim(mlir::Value val, mlir::Value index) const;
 };
@@ -497,7 +503,7 @@ struct LLVMBuilder final : DialectBuilder {
   *  MemRefBuilder, access field with mem
   *  ONNXBuilder, access field with onnx
   *  SCFBuilder, access field with scf
-
+  *  VectorBuilder, access field with vec
 */
 
 // Anchor class.

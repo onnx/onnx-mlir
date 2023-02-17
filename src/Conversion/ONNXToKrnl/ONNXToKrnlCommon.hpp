@@ -214,10 +214,17 @@ template <typename Op>
 mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
     llvm::ArrayRef<mlir::Value> scalarOperands) {
-  if (elementType.isa<mlir::IntegerType>()) {
+  // find the actual element type, regardless of whether we have a vector or
+  // scalar elementary type.
+  mlir::Type actualElementType = elementType;
+  mlir::VectorType vectorType = elementType.dyn_cast<mlir::VectorType>();
+  if (vectorType)
+    actualElementType = vectorType.getElementType();
+  // Perform int or float operation depending on the actual elementary type.
+  if (actualElementType.isa<mlir::IntegerType>()) {
     return rewriter.create<ScalarIOp<Op>>(
         loc, elementType, scalarOperands, std::nullopt);
-  } else if (elementType.isa<mlir::FloatType>()) {
+  } else if (actualElementType.isa<mlir::FloatType>()) {
     return rewriter.create<ScalarFOp<Op>>(
         loc, elementType, scalarOperands, std::nullopt);
   } else {

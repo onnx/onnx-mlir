@@ -854,10 +854,12 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
+    Type elementType = memRefType.getElementType();
 
     // Shape helper.
-    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder,
+        VectorBuilder>
+        create(rewriter, loc);
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
@@ -867,22 +869,95 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      ValueRange loopDef = create.krnl.defineLoops(memRefType.getRank());
-      SmallVector<IndexExpr, 4> lbs(memRefType.getRank(), LiteralIndexExpr(0));
-      SmallVector<IndexExpr, 4> ubs;
-      create.krnlIE.getShapeAsDims(X, ubs);
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-            Value loadedVal = createKrnl.load(X, loopInd);
-            auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-                rewriter, loc, op, memRefType.getElementType(), {loadedVal});
-            // Store result in the resulting array.
-            createKrnl.store(loweredOpResult, alloc, loopInd);
-          });
+
+      bool processedAsSIMD = false;
+      if (true && isa<mlir::ONNXCosOp>(op)) {
+        // hi alex
+        int64_t mVL = create.vec.getMachineVectorLength(elementType);
+        IndexExpr totSize = LiteralIndexExpr(1);
+        int64_t totConstSize = 1;
+        int64_t rank = memRefType.getRank();
+        for (int64_t i = 0; i < rank; ++i) {
+          IndexExpr currDim = shapeHelper.getOutputDims()[i];
+          totSize = totSize * currDim;
+          if (currDim.isLiteral())
+            totConstSize *= currDim.getLiteral();
+        }
+        bool isSIMD = true;
+        if (totConstSize % mVL != 0) {
+          fprintf(stderr, "hi alex: SIMD disabled as size %d mod %d != 0\n",
+              (int)totConstSize, (int)mVL);
+          isSIMD = false;
+        } else if (!memRefType.getLayout().isIdentity()) {
+          fprintf(stderr,
+              "hi alex: SIMD disabled as output memref layout is not "
+              "identity\n");
+          isSIMD = false;
+        } else {
+          assert(X.getType().isa<MemRefType>() && "expected memrefs");
+          if (!X.getType().cast<MemRefType>().getLayout().isIdentity()) {
+            fprintf(stderr,
+                "hi alex: SIMD disabled as output memref layout is not "
+                "identity\n");
+            isSIMD = false;
+          }
+        }
+        if (isSIMD) {
+          fprintf(stderr, "hi alex: SIMD possible\n");
+          // Create loop iteration (flattened to one dim) and blocked by mVL.
+          ValueRange loopDef = create.krnl.defineLoops(1);
+          ValueRange blockedLoopDef = create.krnl.block(loopDef[0], mVL);
+          SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
+          SmallVector<IndexExpr, 1> ubs(1, totSize);
+          // Flatten the input and output: place all dims in one.
+          ReassociationIndices allInOne;
+          for (int64_t i = 0; i < rank; ++i)
+            allInOne.emplace_back(i);
+          SmallVector<ReassociationIndices> reassociation(1, allInOne);
+          Value flatX = create.mem.collapseShape(X, reassociation);
+          Value flatAlloc = create.mem.collapseShape(alloc, reassociation);
+          // Create the vector type to operate over.
+          VectorType vecElementType = VectorType::get({mVL}, elementType);
+          // Iterate only over the blocks.
+          create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, lbs, ubs,
+              [&](KrnlBuilder &ck, ValueRange loopInd) {
+                MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+                Value loadedVal =
+                    create.vec.load(vecElementType, flatX, loopInd);
+                #if 1
+                auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
+                    rewriter, loc, op, vecElementType, {loadedVal});
+                // Store result in the resulting array.
+                create.vec.store(loweredOpResult, flatAlloc, loopInd);
+                #else
+                create.vec.store(loadedVal, flatAlloc, loopInd);
+                #endif
+              });
+          processedAsSIMD = true;
+          rewriter.replaceOp(op, alloc);
+          return success();
+        }
+      }
+
+      if (!processedAsSIMD) {
+        ValueRange loopDef = create.krnl.defineLoops(memRefType.getRank());
+        SmallVector<IndexExpr, 4> lbs(
+            memRefType.getRank(), LiteralIndexExpr(0));
+        SmallVector<IndexExpr, 4> ubs;
+        create.krnlIE.getShapeAsDims(X, ubs);
+        create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+            [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+              Value loadedVal = createKrnl.load(X, loopInd);
+              auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
+                  rewriter, loc, op, elementType, {loadedVal});
+              // Store result in the resulting array.
+              createKrnl.store(loweredOpResult, alloc, loopInd);
+            });
+      }
     } else {
       Value loadedVal = create.krnl.load(X);
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-          rewriter, loc, op, memRefType.getElementType(), {loadedVal});
+          rewriter, loc, op, elementType, {loadedVal});
       // Store result in the resulting array.
       create.krnl.store(loweredOpResult, alloc);
     }

@@ -672,6 +672,51 @@ Value MemRefBuilder::reinterpretCast(
       /*offset=*/b().getIndexAttr(0), sizes, strides);
 }
 
+Value MemRefBuilder::collapseShape(
+    Value input, ArrayRef<ReassociationIndices> reassociation) {
+  // Extract input info.
+  MemRefType inputType = input.getType().cast<MemRefType>();
+  assert(inputType && "expected input with memref type");
+  assert(inputType.getLayout().isIdentity() &&
+         "collapse only for identity layout at this time");
+  int64_t inputRank = inputType.getRank();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  // Compute shape of output.
+  int64_t outputRank = reassociation.size();
+  SmallVector<int64_t, 4> outputShape;
+  for (int64_t r = 0; r < outputRank; ++r) {
+    int64_t indexNum = reassociation[r].size();
+    assert(indexNum > 0 && "expect one or more index in reassociation indices");
+    // Compute the cumulative size of the output dim as the product of all dim
+    // of the sizes in the input being re-associated with this output.
+    int64_t currShape = 1;
+    for (int64_t i = 0; i < indexNum; i++) {
+      int64_t ii = reassociation[r][i];
+      assert(ii >= 0 && ii < inputRank && "out of bound reassociation index");
+      int64_t ss = inputShape[ii];
+      if (ss == ShapedType::kDynamic) {
+        // If a re-associated shapes is dynamic, output is dynamic.
+        fprintf(stderr, "hi alex for %d: map %d dyn size %d\n", (int)r, (int)ii,
+            (int)ss);
+        currShape = ShapedType::kDynamic;
+        break;
+      }
+      fprintf(
+          stderr, "hi alex for %d: map %d size %d\n", (int)r, (int)ii, (int)ss);
+      currShape *= ss;
+    }
+    fprintf(stderr, "hi alex reassoc  %d: %d size\n", (int)r, (int)currShape);
+    outputShape.emplace_back(currShape);
+  }
+  // Compute type of output.
+  MemRefLayoutAttrInterface layout;
+  MemRefType outputType = MemRefType::get(outputShape,
+      inputType.getElementType(), layout, inputType.getMemorySpace());
+  // Create collapse shape op.
+  return b().create<memref::CollapseShapeOp>(
+      loc(), outputType, input, reassociation);
+}
+
 Value MemRefBuilder::dim(Value val, int64_t index) const {
   assert(index >= 0 && "Expecting a valid index");
   return dim(val, b().create<arith::ConstantIndexOp>(loc(), index));

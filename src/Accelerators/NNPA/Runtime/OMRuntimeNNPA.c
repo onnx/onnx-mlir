@@ -102,7 +102,7 @@ void OMInitAccelNNPA() {
     pthread_mutex_lock(&OMMutexForInitShutdownNNPA);
     /* Test again in the mutex to see if accelerator is not initialized. */
     if (!OMIsInitAccelNNPA) {
-      /* Still unitinitialized, actual init. */
+      /* Still uninitialized, actual init. */
       zdnn_init();
       /* No need for a fence due to strong consistency. */
       OMIsInitAccelNNPA = 1;
@@ -141,7 +141,7 @@ uint64_t OMInitCompatibleAccelNNPA(uint64_t versionNum) {
     pthread_mutex_lock(&OMMutexForInitShutdownNNPA);
     /* Test again in the mutex to see if accelerator is not initialized. */
     if (!OMIsInitAccelNNPA) {
-      /* Still unitinitialized, actual init. */
+      /* Still uninitialized, actual init. */
       zdnn_init();
       /* Check if version is compatible */
       if (zdnn_is_version_runnable((uint32_t)versionNum))
@@ -193,7 +193,7 @@ void OMShutdownAccelNNPA() {
   if (OMIsInitAccelNNPA) {
     /* Grab mutex. */
     pthread_mutex_lock(&OMMutexForInitShutdownNNPA);
-    /* Nothing to unitnitialize. */
+    /* Nothing to uninitialized. */
     OMIsInitAccelNNPA = 0;
     /* Release mutex. */
     pthread_mutex_unlock(&OMMutexForInitShutdownNNPA);

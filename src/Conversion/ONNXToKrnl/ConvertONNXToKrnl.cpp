@@ -15,10 +15,11 @@
 
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
-#include "src/Compiler/CompilerOptions.hpp"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
@@ -338,7 +339,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // this lowering.
   target.addLegalDialect<KrnlDialect, AffineDialect, arith::ArithDialect,
       func::FuncDialect, linalg::LinalgDialect, math::MathDialect,
-      memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
+      vector::VectorDialect, memref::MemRefDialect, shape::ShapeDialect,
+      scf::SCFDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
