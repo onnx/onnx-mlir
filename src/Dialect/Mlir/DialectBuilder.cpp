@@ -696,16 +696,11 @@ Value MemRefBuilder::collapseShape(
       int64_t ss = inputShape[ii];
       if (ss == ShapedType::kDynamic) {
         // If a re-associated shapes is dynamic, output is dynamic.
-        fprintf(stderr, "hi alex for %d: map %d dyn size %d\n", (int)r, (int)ii,
-            (int)ss);
         currShape = ShapedType::kDynamic;
         break;
       }
-      fprintf(
-          stderr, "hi alex for %d: map %d size %d\n", (int)r, (int)ii, (int)ss);
       currShape *= ss;
     }
-    fprintf(stderr, "hi alex reassoc  %d: %d size\n", (int)r, (int)currShape);
     outputShape.emplace_back(currShape);
   }
   // Compute type of output.
