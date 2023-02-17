@@ -102,7 +102,7 @@ LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
   auto kernelOffset = inputRank - kernelRank;
 
   // Try to find padding, getting auto_pad attribute first.
-  auto autoPad = op->getAutoPad();
+  StringRef autoPad = op->getAutoPad();
   // And then investigate the various different cases. Prefill pad values with
   // zeros, the most common case.
   SmallVector<int64_t, 4> actualPads(2 * kernelRank, 0);
@@ -817,7 +817,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
       }
   }
 
-  auto autoPad = getAutoPad();
+  StringRef autoPad = getAutoPad();
   // Process strides, dilations, kernel_shape and pads.
   LogicalResult res =
       processConvTypeParams<ONNXConvTransposeOp>(this, getX(), getW());
