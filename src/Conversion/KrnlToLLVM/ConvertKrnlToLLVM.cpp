@@ -133,6 +133,11 @@ void determineOwnershipForOutputOMTensors(
       else if (llvm::dyn_cast<KrnlGlobalOp>(definingOp))
         // Do not own a constant that is defined by KrnlGlobalOp.
         shouldOwn = false;
+      else if (llvm::dyn_cast<arith::SelectOp>(definingOp))
+        // Temporary fix: the value come from select. Should further track
+        // the false and true inputs of arith.select. But leave it to PR
+        // which will focus on this problem.
+        shouldOwn = false;
     }
     outputOMTensorOwnerships.emplace_back(shouldOwn);
     LLVM_DEBUG(llvm::dbgs()
