@@ -190,24 +190,16 @@ llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
   SmallVector<int32_t> inputTransposePerm;
 
   // Batch
-  for (size_t i = 0; i < inputBatch.size(); i++) {
-    inputTransposePerm.push_back(inputIdxBatch[i]);
-  }
+  inputTransposePerm.append(inputIdxBatch);
 
   // Indices
-  for (size_t i = 0; i < inputIndices.size(); i++) {
-    inputTransposePerm.push_back(inputIdxIndices[i]);
-  }
+  inputTransposePerm.append(inputIdxIndices);
 
   // LeftChannels
-  for (size_t i = 0; i < inputLeftChannels.size(); i++) {
-    inputTransposePerm.push_back(inputIdxLeftChannels[i]);
-  }
+  inputTransposePerm.append(inputIdxLeftChannels);
 
   // RightChannels
-  for (size_t i = 0; i < inputRightChannels.size(); i++) {
-    inputTransposePerm.push_back(inputIdxRightChannels[i]);
-  }
+  inputTransposePerm.append(inputIdxRightChannels);
 
   /////////////////////////////////////////////
   // Build up the result reshape, in prepration for transpose
@@ -215,19 +207,15 @@ llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
   SmallVector<int64_t> resultReshapeShape;
 
   // Indices
-  for (size_t i = 0; i < indicesType.getShape().size(); i++) {
-    resultReshapeShape.push_back(indicesShape[i]);
-  }
+  // Use llvm::transform because range is an ArrayRef
+  llvm::transform(indicesShape, std::back_inserter(resultReshapeShape),
+      [](int64_t indiceDim) { return indiceDim; });
 
   // Left channels
-  for (size_t i = 0; i < inputLeftChannels.size(); i++) {
-    resultReshapeShape.push_back(inputLeftChannels[i]);
-  }
+  resultReshapeShape.append(inputLeftChannels);
 
   // Right channels.  But remove the axis dimension.
-  for (size_t i = 0; i < inputRightChannels.size(); i++) {
-    resultReshapeShape.push_back(inputRightChannels[i]);
-  }
+  resultReshapeShape.append(inputRightChannels);
 
   /////////////////////////////////////////////
   // Build up the result transpose operator.
@@ -263,8 +251,8 @@ llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
 
   if (countDynamicDims(tosaValuesShape) > 1) {
     return (void)rewriter.notifyMatchFailure(loc,
-               "multiply dynamic shapes when reshaping values down to "
-               "tosa.gather"),
+               "only one dynamic dimension allowed when reshaping indices "
+               "values."),
            llvm::None;
   }
 
@@ -273,8 +261,7 @@ llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
 
   if (countDynamicDims(tosaIndicesShape) > 1) {
     return (void)rewriter.notifyMatchFailure(loc,
-               "multiply dynamic shapes when reshaping indices down to "
-               "tosa.gather"),
+               "only one dynamic dimension allowed when reshaping indices"),
            llvm::None;
   }
 
@@ -289,7 +276,7 @@ llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
 
   if (countDynamicDims(resultReshapeShape) > 1) {
     return (void)rewriter.notifyMatchFailure(loc,
-               "multiply dynamic shapes when reshaping tosa.gather result up"),
+               "only one dynamic dimension allowed when reshaping result."),
            llvm::None;
   }
 
