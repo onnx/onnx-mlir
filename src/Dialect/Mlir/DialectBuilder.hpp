@@ -82,31 +82,52 @@ struct MathBuilder final : DialectBuilder {
   MathBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~MathBuilder() {}
 
+  // Support for vectors
+  static mlir::Type elementTypeWithVector(mlir::Type elementOrVectorType);
+  static bool isIntegerWithVector(mlir::Type elementOrVectorType);
+  static bool isUnsignedIntegerWithVector(mlir::Type elementOrVectorType);
+  static bool isFloatWithVector(mlir::Type elementOrVectorType);
+
   mlir::Value abs(mlir::Value val) const;
   mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value ceil(mlir::Value val) const;                     // Float only.
-  mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
+  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;     // Int only.
+  mlir::Value ceil(mlir::Value val) const;                      // Float only.
+  mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
+  mlir::Value copySign(mlir::Value rem, mlir::Value div) const; // Float only.
   mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value exp(mlir::Value val) const;                       // Float only.
   mlir::Value exp2(mlir::Value val) const;                      // Float only.
   mlir::Value floor(mlir::Value val) const;                     // Float only.
   mlir::Value floorDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
+  mlir::Value log(mlir::Value val) const;                       // Float only.
   mlir::Value log2(mlir::Value val) const;                      // Float only.
   mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value neg(mlir::Value val) const;
+  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
   mlir::Value pow(mlir::Value base, mlir::Value exp) const; // Float only.
   mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value sqrt(mlir::Value val) const; // Float only.
   mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value xori(mlir::Value lhs, mlir::Value rhs) const; // Int only.
 
   mlir::Value select(mlir::Value cmp, mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value sgt(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value sge(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value slt(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value sle(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value gt(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value ge(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value lt(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value le(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value eq(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value neq(mlir::Value lhs, mlir::Value rhs) const;
+  // Signed versions (index/signless/signed int or float)
+  mlir::Value sgt(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
+  mlir::Value sge(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
+  mlir::Value slt(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
+  mlir::Value sle(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
+  // Unsigned versions
+  mlir::Value ugt(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
+  mlir::Value uge(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
+  mlir::Value ult(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
+  mlir::Value ule(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
+
   mlir::Value min(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value max(mlir::Value lhs, mlir::Value rhs) const;
 

@@ -47,175 +47,316 @@ namespace onnx_mlir {
 // ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
 // MLIR unsigned integer.
 
+/* static */ Type MathBuilder::elementTypeWithVector(Type elementOrVectorType) {
+  VectorType vectorType = elementOrVectorType.dyn_cast<VectorType>();
+  if (vectorType)
+    return vectorType.getElementType();
+  return elementOrVectorType;
+}
+
+/* static */ bool MathBuilder::isIntegerWithVector(Type elementOrVectorType) {
+  Type elementType = elementTypeWithVector(elementOrVectorType);
+  return elementType.isa<IntegerType>() || elementType.isa<IndexType>();
+}
+
+/* static */ bool MathBuilder::isUnsignedIntegerWithVector(
+    Type elementOrVectorType) {
+  Type elementType = elementTypeWithVector(elementOrVectorType);
+  return elementType.isUnsignedInteger();
+}
+
+/* static */ bool MathBuilder::isFloatWithVector(Type elementOrVectorType) {
+  Type elementType = elementTypeWithVector(elementOrVectorType);
+  return elementType.isa<FloatType>();
+}
+
 Value MathBuilder::abs(Value val) const {
-  if (val.getType().isa<IntegerType>() || val.getType().isa<IndexType>())
+  if (isIntegerWithVector(val.getType()))
     return b().create<math::AbsIOp>(loc(), val);
-  return b().create<math::AbsFOp>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::AbsFOp>(loc(), val);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::andi(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  return b().create<arith::AndIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType()))
+    return b().create<arith::AndIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int");
 }
 
 Value MathBuilder::ori(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  return b().create<arith::OrIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType()))
+    return b().create<arith::OrIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int");
+}
+
+Value MathBuilder::xori(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
+    return b().create<arith::XOrIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int");
 }
 
 Value MathBuilder::add(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::AddIOp>(loc(), lhs, rhs);
-  return b().create<arith::AddFOp>(loc(), lhs, rhs);
+  if (isFloatWithVector(lhs.getType()))
+    return b().create<arith::AddFOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sub(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::SubIOp>(loc(), lhs, rhs);
-  return b().create<arith::SubFOp>(loc(), lhs, rhs);
+  if (isFloatWithVector(lhs.getType()))
+    return b().create<arith::SubFOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::mul(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::MulIOp>(loc(), lhs, rhs);
-  return b().create<arith::MulFOp>(loc(), lhs, rhs);
+  if (isFloatWithVector(lhs.getType()))
+    return b().create<arith::MulFOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::div(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<FloatType>())
+  if (isFloatWithVector(lhs.getType()))
     return b().create<arith::DivFOp>(loc(), lhs, rhs);
-  else if (lhs.getType().isUnsignedInteger())
+  if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::DivUIOp>(loc(), lhs, rhs);
-  else
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::DivSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::rem(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<FloatType>())
+  if (isFloatWithVector(lhs.getType()))
     return b().create<arith::RemFOp>(loc(), lhs, rhs);
-  else if (lhs.getType().isUnsignedInteger())
+  if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::RemUIOp>(loc(), lhs, rhs);
-  else
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::RemSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
+}
+
+Value MathBuilder::copySign(mlir::Value rem, mlir::Value dividend) const {
+  assert(rem.getType() == dividend.getType() && "expected same type");
+  if (isFloatWithVector(rem.getType()))
+    return b().create<math::CopySignOp>(loc(), rem, dividend);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::ceilDiv(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  assert(!lhs.getType().isa<FloatType>() && "int only");
-  if (lhs.getType().isUnsignedInteger())
+  if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::CeilDivUIOp>(loc(), lhs, rhs);
-  else
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::CeilDivSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int");
 }
 
 Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  assert(!lhs.getType().isa<FloatType>() && "int only");
-  if (lhs.getType().isUnsignedInteger()) {
+  if (isUnsignedIntegerWithVector(lhs.getType()))
     // Using regular unsigned div is ok as it rounds toward zero.
     return b().create<arith::DivUIOp>(loc(), lhs, rhs);
-  } else
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::FloorDivSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int");
 }
 
 Value MathBuilder::exp(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::ExpOp>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::ExpOp>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::exp2(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::Exp2Op>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::Exp2Op>(loc(), val);
+  llvm_unreachable("expected float");
+}
+
+Value MathBuilder::log(Value val) const {
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::LogOp>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::log2(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::Log2Op>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::Log2Op>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::sqrt(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::SqrtOp>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::SqrtOp>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::pow(Value base, Value exp) const {
-  assert(base.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::PowFOp>(loc(), base, exp);
+  if (isFloatWithVector(base.getType()))
+    return b().create<math::PowFOp>(loc(), base, exp);
+  llvm_unreachable("expected base float");
+}
+
+Value MathBuilder::neg(Value val) const {
+  if (isIntegerWithVector(val.getType()))
+    // Returns 0 - val.
+    return sub(constant(val.getType(), 0), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<arith::NegFOp>(loc(), val);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::ceil(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::CeilOp>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::CeilOp>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::floor(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::FloorOp>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::FloorOp>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::min(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    // Test for unsigned as signless are treated as signed.
-    if (lhs.getType().isUnsignedInteger())
-      return b().create<arith::MinUIOp>(loc(), lhs, rhs);
-    else
-      return b().create<arith::MinSIOp>(loc(), lhs, rhs);
-  else
+  if (isFloatWithVector(lhs.getType()))
     return b().create<arith::MinFOp>(loc(), lhs, rhs);
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return b().create<arith::MinUIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType()))
+    return b().create<arith::MinSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::max(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    // Test for unsigned as signless are treated as signed.
-    if (lhs.getType().isUnsignedInteger())
-      return b().create<arith::MaxUIOp>(loc(), lhs, rhs);
-    else
-      return b().create<arith::MaxSIOp>(loc(), lhs, rhs);
-  else
+  if (isFloatWithVector(lhs.getType()))
     return b().create<arith::MaxFOp>(loc(), lhs, rhs);
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return b().create<arith::MaxUIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType()))
+    return b().create<arith::MaxSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sgt(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::sgt);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGT);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGT);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sge(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::sge);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGE);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGE);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::slt(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::slt);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLT);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLT);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sle(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::sle);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLE);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLE);
+  llvm_unreachable("expected int or float");
+}
+
+Value MathBuilder::ugt(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::ugt);
+  llvm_unreachable("expected unsigned int");
+}
+
+Value MathBuilder::uge(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::uge);
+  llvm_unreachable("expected unsigned int");
+}
+
+Value MathBuilder::ult(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::ult);
+  llvm_unreachable("expected unsigned int");
+}
+
+Value MathBuilder::ule(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::ule);
+  llvm_unreachable("expected unsigned int");
+}
+
+Value MathBuilder::gt(Value lhs, Value rhs) const {
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return ugt(lhs, rhs);
+  return sgt(lhs, rhs);
+}
+
+Value MathBuilder::ge(Value lhs, Value rhs) const {
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return uge(lhs, rhs);
+  return sge(lhs, rhs);
+}
+
+Value MathBuilder::lt(Value lhs, Value rhs) const {
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return ult(lhs, rhs);
+  return slt(lhs, rhs);
+}
+
+Value MathBuilder::le(Value lhs, Value rhs) const {
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return ule(lhs, rhs);
+  return sle(lhs, rhs);
 }
 
 Value MathBuilder::eq(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::eq);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OEQ);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::OEQ);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::neq(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::ne);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::ONE);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::ONE);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) const {
@@ -246,8 +387,9 @@ Value MathBuilder::constant(Type type, double val) const {
           constant =
               b().create<arith::ConstantOp>(loc(), b().getBoolAttr(val != 0));
         else {
-          assert(type.isSignless() &&
-                 "arith::ConstantOp requires a signless type.");
+          // If unsigned, the integer is still the same, so just create it.
+          // assert(type.isSignless() &&
+          //       "arith::ConstantOp requires a signless type.");
           constant = b().create<arith::ConstantOp>(
               loc(), b().getIntegerAttr(type, APInt(width, (int64_t)val)));
         }
@@ -375,9 +517,7 @@ Value MathBuilder::createArithCmp(
     Value lhs, Value rhs, arith::CmpIPredicate pred) const {
   Type type = lhs.getType();
   assert(type == rhs.getType() && "Operands should have the same type");
-  assert(((type.isa<IntegerType>() && type.isSignlessInteger()) ||
-             type.isa<IndexType>()) &&
-         "Expecting a signless IntegerType or an IndexType");
+  assert(isIntegerWithVector(type) && "expected int");
   return b().create<arith::CmpIOp>(loc(), pred, lhs, rhs);
 }
 
@@ -385,7 +525,7 @@ Value MathBuilder::createArithCmp(
     Value lhs, Value rhs, arith::CmpFPredicate pred) const {
   Type type = lhs.getType();
   assert(type == rhs.getType() && "Operands should have the same type");
-  assert(type.isa<FloatType>() && "Expecting a FloatType");
+  assert(isFloatWithVector(type) && "expected float");
   return b().create<arith::CmpFOp>(loc(), pred, lhs, rhs);
 }
 

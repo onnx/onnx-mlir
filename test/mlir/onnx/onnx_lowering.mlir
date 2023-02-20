@@ -1436,6 +1436,15 @@ func.func private @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 
 // -----
 
+// hi alex func.func private @test_sign_u(%arg0 : tensor<?x10xui32>) -> tensor<*xui32> {
+// hi alex   %0 = "onnx.Sign"(%arg0) : (tensor<?x10xui32>) -> tensor<*xui32>
+// hi alex   "func.return"(%0) : (tensor<*xui32>) -> ()
+// hi alex 
+// hi alex }
+
+
+// -----
+
 func.func private @test_batchnorm_testmode_Nd(%arg0: tensor<1x2x1x3xf32>, %arg1: tensor<2xf32>, %arg2: tensor<2xf32>, %arg3: tensor<2xf32>, %arg4: tensor<2xf32>) -> tensor<1x2x1x3xf32> {
   %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %arg1, %arg2, %arg3, %arg4) : (tensor<1x2x1x3xf32>, tensor<2xf32>, tensor<2xf32>, tensor<2xf32>, tensor<2xf32>) -> tensor<1x2x1x3xf32>
   return %0 : tensor<1x2x1x3xf32>
