@@ -64,7 +64,7 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
   set(GEN_DOC_FILE ${ONNX_MLIR_SRC_ROOT}/docs/Dialects/${dialect}.md)
   add_custom_command(
           OUTPUT ${GEN_DOC_FILE}
-          COMMAND ${CMAKE_COMMAND} -E copy
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
                   ${CMAKE_CURRENT_BINARY_DIR}/${dialect}.md
                   ${GEN_DOC_FILE}
           DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${dialect}.md)
