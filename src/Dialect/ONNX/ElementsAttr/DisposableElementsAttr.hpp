@@ -30,7 +30,7 @@
 namespace onnx_mlir {
 class DisposablePool;
 class ElementsAttrBuilder;
-}; // namespace onnx_mlir
+} // namespace onnx_mlir
 
 namespace mlir {
 
