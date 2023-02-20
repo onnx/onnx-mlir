@@ -4,6 +4,7 @@
 
 //====------ ONNXToTOSACommon.hpp - ONNX dialects to TOSA lowering --------===//
 //
+// Copyright 2020 The TensorFlow Authors. All Rights Reserved.
 // Copyright (c) 2021 Arm Limited.
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
@@ -29,6 +30,261 @@ using namespace mlir;
 
 namespace onnx_mlir {
 namespace tosa {
+
+static int64_t multiplyDims(llvm::ArrayRef<int64_t> dims, int64_t res = 1) {
+  for (auto dim : dims) {
+    if (ShapedType::isDynamic(dim)) {
+      return ShapedType::kDynamicSize;
+    }
+    res = res * dim;
+  }
+  return res;
+}
+
+static int64_t countDynamicDims(llvm::ArrayRef<int64_t> dims) {
+  int64_t count = 0;
+  for (auto dim : dims)
+    if (ShapedType::isDynamic(dim))
+      ++count;
+  return count;
+}
+
+// Lowers Gather operators to a sequence of TOSA ops.
+// This Code is mostly the same as TF to TOSA.
+llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
+    Value resultValue, Value inputValue, Value indicesValue, int32_t batchDims,
+    int32_t axis) {
+
+  TosaBuilder tosaBuilder(rewriter, loc);
+
+  auto resultType = resultValue.getType().dyn_cast<ShapedType>();
+  auto inputType = inputValue.getType().dyn_cast<RankedTensorType>();
+  auto indicesType = indicesValue.getType().dyn_cast<RankedTensorType>();
+
+  if (!resultType || !inputType || !indicesType)
+    return llvm::None;
+
+  // batchDims indicates the number of batch dimensions in input and
+  // indices axis indicates the axis at which the gather indexing is
+  // applied.  axis must be >= batch_dims.  When axis is equal to
+  // batch_dims, the right-most batch dimension disappears.
+  //
+  // N: number of batches
+  // Computed as product of input.shape[0:batch_dims-1]
+  //
+  // W: number of indices in each batch
+  // Computed as product of indices.shape[batch_dims:]
+  //
+  // K: range of each index
+  // Computed as  input.shape[axis:axis+rank(indices)-1]
+  //
+  // C: number of channels for each index
+  // Computed as:  LeftChannels * RightChannels:
+  // product(input.shape[batch_dims:axis]) * product(input.shape[axis+1:])
+  //
+  // The input tensor needs to be transposed, then reshaped to move the
+  // dimensions into [N, K, C] order.
+  //
+  // The dimensions of the input input[] tensor are grouped in the following
+  // order to begin with:
+  //
+  //  [Batch, LeftChannels, Indices, RightChannels]
+  //  |-----||------------||-------||-------------|
+  //     N         C_l         K          C_r
+  //
+  // Where Batch (N), Indices (K) can be one or more dimensions in size,
+  // while LeftChannels and RightChannels represent the group of data channels
+  // (C) to the left and right (C_l, C_r) of the indices; the sum of these two
+  // is one or more dimensions in size, but either one may be zero depending
+  // on how axis was specified by the caller.
+  //
+  // The resulting tensor will look like:
+  //
+  //  [Batch, Indices, LeftChannels, RightChannels]
+  //  |-----||-------||---------------------------|
+  //     N       K                 C
+  //
+  // The indices tensor simply needs a reshape to flatten all of the
+  // batch dimensions (N) together and flatten all of the indices (W)
+  // together.
+  //
+  // Then do the tosa.GATHER
+  //
+  // output[N,W,C] = tosa.GATHER(values[N,K,C], indices[N,W])
+  //
+  // Finally, the resulting tensor will have shape [N, W, C], where C is a
+  // flattened version of [LeftChannels, RightChannels].  We need to reshape
+  // to unflatten to:
+  //
+  //  [N, W, LeftChannels, RightChannels]
+  //
+  // and finally transpose back to the output shape
+  //
+  //  [Batch, LeftChannels, Non-Batch-Indices, RightChannels]
+
+  size_t inputRank = inputType.getShape().size();
+  size_t indicesRank = indicesType.getShape().size();
+
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  ArrayRef<int64_t> indicesShape = indicesType.getShape();
+
+  if (!((size_t)batchDims <= indicesRank)) {
+    (void)rewriter.notifyMatchFailure(
+        loc, "batch_dims must be <= indices_rank for a valid gather op");
+    return llvm::None;
+  }
+
+  if (!(axis >= batchDims)) {
+    (void)rewriter.notifyMatchFailure(
+        loc, "axis must be >= batch_dims for a valid gather op");
+    return llvm::None;
+  }
+
+  // onnx allows i64 indices, but tosa does not.
+  if (indicesType.getElementType().isInteger(64)) {
+    indicesType =
+        indicesType.clone(rewriter.getI32Type()).dyn_cast<RankedTensorType>();
+    indicesValue = CreateOpAndInfer<mlir::tosa::CastOp>(
+        rewriter, loc, indicesType, indicesValue)
+                       .getResult();
+  }
+
+  // Sizes for each of these fields.
+  SmallVector<int64_t> inputBatch, inputIndices, inputLeftChannels,
+      inputRightChannels;
+
+  // Dimension indices for each of these fields.
+  SmallVector<int32_t> inputIdxBatch, inputIdxIndices, inputIdxLeftChannels,
+      inputIdxRightChannels;
+
+  // Read through the input tensor dimensions left-to-right and extract the
+  // different fields.
+  for (int i = 0; i < (int)inputRank; i++) {
+    // When batch_dims == axis, the batch dimension gets replaced.
+    if (i < batchDims && i < axis) {
+      inputBatch.push_back(inputShape[i]);
+      inputIdxBatch.push_back(i);
+    } else if (i < axis) {
+      inputLeftChannels.push_back(inputShape[i]);
+      inputIdxLeftChannels.push_back(i);
+    } else if (i < (axis + 1)) {
+      inputIndices.push_back(inputShape[i]);
+      inputIdxIndices.push_back(i);
+    } else {
+      inputRightChannels.push_back(inputShape[i]);
+      inputIdxRightChannels.push_back(i);
+    }
+  }
+
+  // Calculate N, K, W, C
+  int64_t N = multiplyDims(inputShape.take_front(batchDims));
+  int64_t W =
+      multiplyDims(indicesShape.slice(batchDims, indicesRank - batchDims));
+  int64_t K = inputShape[axis];
+
+  int64_t C = multiplyDims(inputShape.slice(batchDims, axis - batchDims));
+  C = multiplyDims(inputShape.slice(axis + 1, inputRank - axis - 1), C);
+
+  /////////////////////////////////////////////
+  // Build up the input transpose operator
+  SmallVector<int32_t> inputTransposePerm;
+
+  // Batch
+  inputTransposePerm.append(inputIdxBatch);
+
+  // Indices
+  inputTransposePerm.append(inputIdxIndices);
+
+  // LeftChannels
+  inputTransposePerm.append(inputIdxLeftChannels);
+
+  // RightChannels
+  inputTransposePerm.append(inputIdxRightChannels);
+
+  /////////////////////////////////////////////
+  // Build up the result reshape, in prepration for transpose
+  // [N, W, C] -> [ Batch, Indices, LeftChannels, RightChannels ]
+  SmallVector<int64_t> resultReshapeShape;
+
+  // Indices
+  // Use llvm::transform because range is an ArrayRef
+  llvm::transform(indicesShape, std::back_inserter(resultReshapeShape),
+      [](int64_t indiceDim) { return indiceDim; });
+
+  // Left channels
+  resultReshapeShape.append(inputLeftChannels);
+
+  // Right channels.  But remove the axis dimension.
+  resultReshapeShape.append(inputRightChannels);
+
+  /////////////////////////////////////////////
+  // Build up the result transpose operator.
+  SmallVector<int32_t> resultTransposePerm;
+
+  // Batch dimensions
+  for (int i = 0; i < batchDims; i++) {
+    resultTransposePerm.push_back(i);
+  }
+
+  // LeftChannels
+  for (int i = 0; i < (int)inputLeftChannels.size(); i++) {
+    resultTransposePerm.push_back(i + indicesType.getShape().size());
+  }
+
+  // Indices (remainder of dimensions after batch).
+  for (int i = batchDims; i < (int)(indicesType.getShape().size()); i++) {
+    resultTransposePerm.push_back(i);
+  }
+
+  // RightChannels, coming from after both the Indices and LeftChannels.
+  for (int i = 0; i < (int)inputRightChannels.size(); i++) {
+    resultTransposePerm.push_back(
+        i + indicesType.getShape().size() + inputLeftChannels.size());
+  }
+
+  SmallVector<int64_t> tosaValuesShape = {N, K, C};
+  SmallVector<int64_t> tosaIndicesShape = {N, W};
+
+  // Begin of rewrite.
+
+  auto inputTransposeOp = tosaBuilder.transpose(inputValue, inputTransposePerm);
+
+  if (countDynamicDims(tosaValuesShape) > 1) {
+    return (void)rewriter.notifyMatchFailure(loc,
+               "only one dynamic dimension allowed when reshaping indices "
+               "values."),
+           llvm::None;
+  }
+
+  auto tosaValuesReshapeOp =
+      tosaBuilder.reshape(inputTransposeOp, tosaValuesShape);
+
+  if (countDynamicDims(tosaIndicesShape) > 1) {
+    return (void)rewriter.notifyMatchFailure(loc,
+               "only one dynamic dimension allowed when reshaping indices"),
+           llvm::None;
+  }
+
+  auto tosaIndicesReshapeOp =
+      tosaBuilder.reshape(indicesValue, tosaIndicesShape);
+
+  Value tosaGatherOp = CreateOpAndInfer<mlir::tosa::GatherOp>(rewriter, loc,
+      RankedTensorType::get(
+          llvm::SmallVector<int64_t>(3, ShapedType::kDynamicSize),
+          resultType.getElementType()),
+      tosaValuesReshapeOp, tosaIndicesReshapeOp);
+
+  if (countDynamicDims(resultReshapeShape) > 1) {
+    return (void)rewriter.notifyMatchFailure(loc,
+               "only one dynamic dimension allowed when reshaping result."),
+           llvm::None;
+  }
+
+  Value tosaResultReshapeOp =
+      tosaBuilder.reshape(tosaGatherOp, resultReshapeShape);
+
+  return tosaBuilder.transpose(tosaResultReshapeOp, resultTransposePerm);
+}
 
 // Common function for lowering reduce operations to TOSA ops.
 template <typename T>
@@ -97,8 +353,8 @@ llvm::Optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
 
 // Lowers ReduceMean to a sequence of TOSA ops.
 llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
-    Operation *op, TosaBuilder& tosaBuilder, RankedTensorType output_type, Value input_value,
-    ElementsAttr axes_elems, bool keep_dims) {
+    Operation *op, TosaBuilder &tosaBuilder, RankedTensorType output_type,
+    Value input_value, ElementsAttr axes_elems, bool keep_dims) {
   // reduce_mean is lowered as followed:
   // op1 = reduce_sum(input)
   // op2 = mul(op1, 1.0 / num_elements_on_reduced_axis)

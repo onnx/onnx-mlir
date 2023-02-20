@@ -33,6 +33,11 @@
 //===----------------------------------------------------------------------===//
 namespace onnx_mlir {
 namespace tosa {
+
+// Lowers Gather operators to a sequence of TOSA ops.
+llvm::Optional<mlir::Value> convertGatherOp(mlir::PatternRewriter &rewriter,
+    mlir::Location loc, mlir::Value resultValue, mlir::Value inputValue,
+    mlir::Value indicesValue, int32_t batchDims, int32_t axis);
 // Lowers ReduceMean to a sequence of TOSA ops.
 // Originates from the TorchToTosa conversion
 llvm::Optional<mlir::Value> convertReduceMeanOp(mlir::PatternRewriter &rewriter,
@@ -90,6 +95,8 @@ void populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
 void populateLoweringONNXReshapeOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConcatOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXGatherOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXResizeOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);

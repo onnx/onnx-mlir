@@ -12,6 +12,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   Math/Gemm.cpp
   Math/ReduceMean.cpp
   Tensor/Concat.cpp
+  Tensor/Gather.cpp
   Tensor/Reshape.cpp
   Tensor/Resize.cpp
   Tensor/Constant.cpp
