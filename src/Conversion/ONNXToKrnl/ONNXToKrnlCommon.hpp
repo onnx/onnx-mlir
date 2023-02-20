@@ -222,11 +222,17 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
     actualElementType = vectorType.getElementType();
   // Perform int or float operation depending on the actual elementary type.
   if (actualElementType.isa<mlir::IntegerType>()) {
-    return rewriter.create<ScalarIOp<Op>>(
-        loc, elementType, scalarOperands, std::nullopt);
+    // Generate the code only if the scalar integer op is non-void.
+    if constexpr (!(std::is_same<ScalarIOp<Op>, void>::value))
+      return rewriter.create<ScalarIOp<Op>>(
+          loc, elementType, scalarOperands, std::nullopt);
+    llvm_unreachable("unsupported integer operation");
   } else if (actualElementType.isa<mlir::FloatType>()) {
-    return rewriter.create<ScalarFOp<Op>>(
-        loc, elementType, scalarOperands, std::nullopt);
+    // Generate the code only if the scalar float op is non-void.
+    if constexpr (!(std::is_same<ScalarFOp<Op>, void>::value))
+      return rewriter.create<ScalarFOp<Op>>(
+          loc, elementType, scalarOperands, std::nullopt);
+    llvm_unreachable("unsupported float operation");
   } else {
     llvm_unreachable("unsupported element type");
   }

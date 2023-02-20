@@ -35,7 +35,7 @@ Value emitPostProcessingFor(ConversionPatternRewriter &rewriter, Location loc,
 template <>
 struct ScalarOp<ONNXTanhOp> {
   using FOp = math::TanhOp;
-  using IOp = math::TanhOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
