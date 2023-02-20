@@ -749,19 +749,18 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
-        ValueRange loopDef = create.krnl.defineLoops(memRefType.getRank());
-        SmallVector<IndexExpr, 4> lbs(
-            memRefType.getRank(), LiteralIndexExpr(0));
-        SmallVector<IndexExpr, 4> ubs;
-        create.krnlIE.getShapeAsDims(X, ubs);
-        create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-            [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-              Value loadedVal = createKrnl.load(X, loopInd);
-              auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-                  rewriter, loc, op, elementType, {loadedVal});
-              // Store result in the resulting array.
-              createKrnl.store(loweredOpResult, alloc, loopInd);
-            });
+      ValueRange loopDef = create.krnl.defineLoops(memRefType.getRank());
+      SmallVector<IndexExpr, 4> lbs(memRefType.getRank(), LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs;
+      create.krnlIE.getShapeAsDims(X, ubs);
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            Value loadedVal = createKrnl.load(X, loopInd);
+            auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
+                rewriter, loc, op, elementType, {loadedVal});
+            // Store result in the resulting array.
+            createKrnl.store(loweredOpResult, alloc, loopInd);
+          });
     } else {
       Value loadedVal = create.krnl.load(X);
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
