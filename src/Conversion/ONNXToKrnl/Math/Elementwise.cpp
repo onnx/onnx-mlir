@@ -70,26 +70,26 @@ struct ScalarOp<ONNXSubOp> {
 
 template <>
 struct ScalarOp<ONNXAndOp> {
-  using FOp = arith::AndIOp; // Not used.
+  using FOp = void; // Not used.
   using IOp = arith::AndIOp;
 };
 
 template <>
 struct ScalarOp<ONNXOrOp> {
-  using FOp = arith::OrIOp; // Not used.
+  using FOp = void; // Not used.
   using IOp = arith::OrIOp;
 };
 
 template <>
 struct ScalarOp<ONNXXorOp> {
-  using FOp = arith::XOrIOp; // Not used.
+  using FOp = void; // Not used.
   using IOp = arith::XOrIOp;
 };
 
 template <>
 struct ScalarOp<ONNXExpOp> {
   using FOp = math::ExpOp;
-  using IOp = math::ExpOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
@@ -101,103 +101,103 @@ struct ScalarOp<ONNXSumOp> {
 template <>
 struct ScalarOp<ONNXCosOp> {
   using FOp = math::CosOp;
-  using IOp = math::CosOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXLogOp> {
   using FOp = math::LogOp;
-  using IOp = math::LogOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXSqrtOp> {
   using FOp = math::SqrtOp;
-  using IOp = math::SqrtOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXAtanOp> {
   using FOp = KrnlAtanOp;
-  using IOp = KrnlAtanOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXCeilOp> {
   using FOp = math::CeilOp;
-  using IOp = math::CeilOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXFloorOp> {
   using FOp = math::FloorOp;
-  using IOp = math::FloorOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXSinOp> {
   using FOp = math::SinOp;
-  using IOp = math::SinOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXPowOp> {
   using FOp = math::PowFOp;
-  using IOp = math::PowFOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXErfOp> {
   using FOp = KrnlErfOp;
-  using IOp = KrnlErfOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXIsInfOp> {
   using FOp = KrnlIsInfOp;
-  using IOp = KrnlIsInfOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXIsNaNOp> {
   using FOp = KrnlIsNaNOp;
-  using IOp = KrnlIsNaNOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXAcosOp> {
   using FOp = KrnlAcosOp;
-  using IOp = KrnlAcosOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXAcoshOp> {
   using FOp = KrnlAcoshOp;
-  using IOp = KrnlAcoshOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXAsinOp> {
   using FOp = KrnlAsinOp;
-  using IOp = KrnlAsinOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXAsinhOp> {
   using FOp = KrnlAsinhOp;
-  using IOp = KrnlAsinhOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXAtanhOp> {
   using FOp = KrnlAtanhOp;
-  using IOp = KrnlAtanhOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
-  using IOp = KrnlTanOp; // Not used.
+  using IOp = void; // Not used.
 };
 
 //===----------------------------------------------------------------------===//

@@ -214,9 +214,12 @@ template <typename Op>
 mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
     llvm::ArrayRef<mlir::Value> scalarOperands) {
-  // find the actual element type, regardless of whether we have a vector or
-  // scalar elementary type.
-  mlir::Type actualElementType = elementType;
+  // Find the actual element type, regardless of whether we have a vector or
+  // scalar elementary type. For some operations, the output in a different type
+  // than its input(s), e.g. isNan where inputs are float and output is boolean
+  // int. Thus we look at the type the first input argument, and not the output
+  // elementType.
+  mlir::Type actualElementType = scalarOperands[0].getType();
   mlir::VectorType vectorType = elementType.dyn_cast<mlir::VectorType>();
   if (vectorType)
     actualElementType = vectorType.getElementType();
