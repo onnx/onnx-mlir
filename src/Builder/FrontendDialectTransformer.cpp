@@ -560,7 +560,8 @@ private:
               RankedTensorType rankedType = type.cast<RankedTensorType>();
               std::vector<int64_t> shape = rankedType.getShape();
               shape.insert(shape.begin(), ShapedType::kDynamic);
-              Type extendedType = RankedTensorType::get(shape, rankedType.getElementType());
+              Type extendedType =
+                  RankedTensorType::get(shape, rankedType.getElementType());
               genericOp->getOpResult(i).setType(extendedType);
             }
           }
@@ -653,11 +654,12 @@ private:
     }
     assert((i < node.attribute_size()) &&
            "mandatory num_scan_inputs attr not in onnx.Scan");
-    int K_scan_outputs = node.output().size() - (node.input().size() - num_scan_inputs);
-    buildOutputAndOperation<ONNXScanOp>(
-         node, inputs, expectedNumOperands, expectedNumResults, attributes,
+    int K_scan_outputs =
+        node.output().size() - (node.input().size() - num_scan_inputs);
+    buildOutputAndOperation<ONNXScanOp>(node, inputs, expectedNumOperands,
+        expectedNumResults, attributes,
         /*givenOutputTypes=*/std::vector<Type>(),
-         /*K_scan_outputs=*/ K_scan_outputs);
+        /*K_scan_outputs=*/K_scan_outputs);
     return;
   }
 
