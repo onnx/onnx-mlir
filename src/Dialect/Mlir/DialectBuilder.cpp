@@ -737,32 +737,52 @@ Value ShapeBuilder::getExtent(Value val, int64_t index) const {
 // Memref support, including inserting default alignment.
 //===----------------------------------------------------------------------===//
 
+memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
+  return alloc(type, /*dynSymbols*/ {});
+}
+
 memref::AllocOp MemRefBuilder::alloc(
     MemRefType type, ValueRange dynSymbols) const {
+  // Constant, ignore the dynamic symbols.
+  if (dynSymbols.size() == 0)
+    return b().create<memref::AllocOp>(loc(), type);
   return b().create<memref::AllocOp>(loc(), type, dynSymbols);
 }
 
-memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
-  return b().create<memref::AllocOp>(loc(), type);
+// Compute alignment, which is at least gDefaultAllocAlign.
+IntegerAttr MemRefBuilder::computeAlignment(int64_t alignment) const {
+  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
+  return b().getI64IntegerAttr(alignment);
 }
 
 memref::AllocOp MemRefBuilder::alignedAlloc(
     MemRefType type, int64_t alignment) const {
-  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  IntegerAttr alignmentAttr = b().getI64IntegerAttr(alignment);
-  if (type.getShape().size() == 0) // Drop align for scalars.
-    return b().create<memref::AllocOp>(loc(), type);
-  return b().create<memref::AllocOp>(loc(), type, alignmentAttr);
+  return alignedAlloc(type, /*dynSymbols*/ {}, alignment);
 }
 
 memref::AllocOp MemRefBuilder::alignedAlloc(
     MemRefType type, ValueRange dynSymbols, int64_t alignment) const {
-  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  IntegerAttr alignmentAttr = b().getI64IntegerAttr(alignment);
-  if (type.getShape().size() == 0) // Drop align for scalars.
-    return b().create<memref::AllocOp>(loc(), type, dynSymbols);
+  // Drop align for scalars.
+  if (type.getShape().size() == 0)
+    return alloc(type, dynSymbols);
+  // Has array, use alignment.
+  IntegerAttr alignmentAttr = computeAlignment(alignment);
+  // Constant, ignore the dynamic symbols.
+  if (dynSymbols.size() == 0)
+    return b().create<memref::AllocOp>(loc(), type, alignmentAttr);
   return b().create<memref::AllocOp>(loc(), type, dynSymbols, alignmentAttr);
 }
+
+memref::AllocOp MemRefBuilder::alignedAllocPaddedForSIMD(
+    mlir::MemRefType type, int64_t align = -1) const {
+  return alignedAllocPaddedForSIMD(type, /*dynSymbols*/ {}, alignment);
+}
+
+memref::AllocOp MemRefBuilder::alignedAllocPaddedForSIMD(mlir::MemRefType type,
+    mlir::ValueRange dynSymbols, int64_t align = -1) const {
+  // Compute minimum size.
+  
+    }
 
 memref::AllocaOp MemRefBuilder::alloca(MemRefType type) const {
   return b().create<memref::AllocaOp>(loc(), type);
@@ -770,10 +790,11 @@ memref::AllocaOp MemRefBuilder::alloca(MemRefType type) const {
 
 memref::AllocaOp MemRefBuilder::alignedAlloca(
     MemRefType type, int64_t alignment) const {
-  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  IntegerAttr alignmentAttr = b().getI64IntegerAttr(alignment);
-  if (type.getShape().size() == 0) // Drop align for scalars.
+  // Drop align for scalars.
+  if (type.getShape().size() == 0) 
     return b().create<memref::AllocaOp>(loc(), type);
+  // Has array, use alignment.
+  IntegerAttr alignmentAttr = computeAlignment(alignment);  
   return b().create<memref::AllocaOp>(loc(), type, alignmentAttr);
 }
 

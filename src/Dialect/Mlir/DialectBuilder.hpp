@@ -191,6 +191,10 @@ struct ShapeBuilder final : DialectBuilder {
 // MemRef Builder with added support for aligned memory
 //===----------------------------------------------------------------------===//
 
+// Default alignment attribute for all allocation of memory. On most system, it
+// numElems is 16 bytes.
+static constexpr int64_t gDefaultAllocAlign = 16;
+
 struct MemRefBuilder final : DialectBuilder {
   MemRefBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   MemRefBuilder(mlir::OpBuilder &b, mlir::Location loc)
@@ -198,12 +202,22 @@ struct MemRefBuilder final : DialectBuilder {
   MemRefBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~MemRefBuilder() {}
 
+  // Alloc for static/dynamic shape.
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
   mlir::memref::AllocOp alloc(
       mlir::MemRefType type, mlir::ValueRange dynSymbols) const;
+  // Alloc for static/dynamic shape with alignment. Min alignment is defined as
+  // gDefaultAllocAlign, constant value is defined as above.
   mlir::memref::AllocOp alignedAlloc(
       mlir::MemRefType type, int64_t align = -1) const;
   mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type,
+      mlir::ValueRange dynSymbols, int64_t align = -1) const;
+  // Alloc for static/dynamic shape where the size of the array is possibly
+  // padded to allow the last legal value of the memref to be computed with a
+  // SIMD operation without risk segfault or data clobbering.
+  mlir::memref::AllocOp alignedAllocPaddedForSIMD(
+      mlir::MemRefType type, int64_t align = -1) const;
+  mlir::memref::AllocOp alignedAllocPaddedForSIMD(mlir::MemRefType type,
       mlir::ValueRange dynSymbols, int64_t align = -1) const;
 
   // The alloca instruction allocates memory on the stack frame of the currently
@@ -228,11 +242,10 @@ struct MemRefBuilder final : DialectBuilder {
 
   mlir::Value dim(mlir::Value val, int64_t index) const;
   mlir::Value dim(mlir::Value val, mlir::Value index) const;
-};
 
-// Default alignment attribute for all allocation of memory. On most system, it
-// numElems is 16 bytes.
-static constexpr int64_t gDefaultAllocAlign = 16;
+private:
+  mlir::IntegerAttr computeAlignment(int64_t alignment) const;
+};
 
 //===----------------------------------------------------------------------===//
 // Structured Control Flow (SCF) Builder
