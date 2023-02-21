@@ -470,6 +470,11 @@ private:
     }
   }
 
+  //
+  // Build outputs and operation for the specified node.
+  // The K_scan_outputs argument is used for the Scan op only to specifiy number
+  // of scan_outputs.
+  // 
   template <typename T>
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<Value> inputs, int expectedNumOperands,
@@ -554,9 +559,18 @@ private:
           // Use type info from graph to reset type of output for current op
           for (int i = 0; i < node.output().size(); i++) {
             Type type = funcType.getResults()[i];
+            //
+            // Scan output(=final_state_and_scan_outputs) consists of (1) N state
+            // ovariables and (2) K scan_outputs. K scan outputs.
+            // dimensions of K scan outputs should have an extra leading dimension
+            // to the shapes.
+            //
             if (i < (node.output().size() - K_scan_outputs)) {
+              // N state variables part
               genericOp->getOpResult(i).setType(type);
             } else {
+              // K Scan outputs part
+              // Insert an extra leading dimension to the shapes
               RankedTensorType rankedType = type.cast<RankedTensorType>();
               std::vector<int64_t> shape = rankedType.getShape();
               shape.insert(shape.begin(), ShapedType::kDynamic);
@@ -636,7 +650,10 @@ private:
   }
 
   // The output type of Scan needs special handling
-  // Insert an ? for iteration number dimension
+  // The final_stete_and_scan_outputs of Scan shows final values of loop's
+  // N state variables followed by K scan_outputs.
+  // This function calculates number of scan_outputs, that is,
+  // K = node.input().size() - <number of scan_outputs>
   void ImportScan(const onnx::NodeProto &node) {
     int expectedNumOperands = ONNXScanOp::getNumberOfOperands();
     int expectedNumResults = ONNXScanOp::getNumberOfResults();
