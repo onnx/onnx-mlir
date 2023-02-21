@@ -15,6 +15,7 @@
 #include "src/Support/TypeUtilities.hpp"
 
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/Endian.h"
 
 #include <algorithm>
 #include <string>
@@ -155,9 +156,17 @@ DenseElementsAttr DisposableElementsAttr::toDenseElementsAttr() const {
   return DenseElementsAttr::getFromRawBuffer(getType(), bytes.get());
 }
 
+namespace {
+// Perform byte swap if system endianness is BE and elements are multi-byte.
+bool shouldSwapLEBytes(unsigned elementByteWidth) {
+  return elementByteWidth > 1 && llvm::support::endian::system_endianness() !=
+                                     llvm::support::endianness::little;
+}
+} // namespace
+
 /*static*/
 std::unique_ptr<llvm::MemoryBuffer> DisposableElementsAttr::parse(
-    AsmParser &parser, Type type) {
+    AsmParser &parser, ShapedType type) {
   size_t id = 0; // The parsed id is ignored.
   std::string str;
   if (parser.parseLess() || parser.parseInteger(id) || parser.parseColon() ||
@@ -175,8 +184,16 @@ std::unique_ptr<llvm::MemoryBuffer> DisposableElementsAttr::parse(
         parser.getCurrentLocation(), "data size doesn't match type size");
     return nullptr;
   }
-  // TODO: Make big-endian platforms reorder bytes from little-endian.
-  return llvm::MemoryBuffer::getMemBufferCopy(bytes);
+  if (!shouldSwapLEBytes(getIntOrFloatByteWidth(type.getElementType()))) {
+    return llvm::MemoryBuffer::getMemBufferCopy(bytes);
+  } else {
+    // Reorder bytes from little-endian on big-endian platforms:
+    std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
+        llvm::WritableMemoryBuffer::getNewUninitMemBuffer(bytes.size());
+    DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
+        {bytes.data(), bytes.size()}, writeBuffer->getBuffer(), type);
+    return writeBuffer;
+  }
 }
 
 void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
@@ -187,11 +204,21 @@ void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
   // lets us respect the --mlir-elide-elementsattrs-if-larger command line flag.
   static OpPrintingFlags printerFlags{};
   printer << getMnemonic() << "<" << getImpl()->id << ":";
-  if (isSplat() || !printerFlags.shouldElideElementsAttr(*this)) {
-    // TODO: Make big-endian platforms reorder bytes to little-endian.
-    auto bytes = getRawBytes();
-    auto u8array = castArrayRef<uint8_t>(bytes.get());
-    printer << "\"0x" << llvm::toHex(u8array) << "\"";
+  if (!printerFlags.shouldElideElementsAttr(*this)) {
+    auto rawBytes = getRawBytes();
+    SmallVector<char> buffer;
+    ArrayRef<char> bytes;
+    if (!shouldSwapLEBytes(getIntOrFloatByteWidth(getElementType()))) {
+      bytes = rawBytes.get();
+    } else {
+      // Reorder raw bytes to little-endian on big-endian platforms:
+      buffer.resize_for_overwrite(rawBytes.get().size());
+      DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
+          rawBytes.get(), buffer, getType());
+      ArrayRef<char> bufferRef(buffer);
+      bytes = bufferRef;
+    }
+    printer << "\"0x" << llvm::toHex(castArrayRef<uint8_t>(bytes)) << "\"";
   } else {
     printer << "__elided__";
   }

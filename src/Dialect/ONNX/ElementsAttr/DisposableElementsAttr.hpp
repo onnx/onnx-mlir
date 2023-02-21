@@ -268,8 +268,11 @@ public:
 
   static constexpr StringLiteral getMnemonic() { return {"dense_disposable"}; }
 
+  // Returns the underlying data as a flat byte array in row-major order.
+  // If the element type is bool the data holds one byte (with value 0 or 1) per
+  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
   static std::unique_ptr<llvm::MemoryBuffer> parse(
-      AsmParser &parser, Type type);
+      AsmParser &parser, ShapedType type);
 
   void printWithoutType(AsmPrinter &printer) const;
 
