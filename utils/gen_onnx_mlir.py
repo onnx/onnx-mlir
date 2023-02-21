@@ -299,6 +299,7 @@ special_op_handler = dict([
     ("MaxPool", "ImportNodeMaxPool"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
+    ("Scan", "ImportScan"),
 ])
 
 # Operations with custom assembly format (alphabetical order).
