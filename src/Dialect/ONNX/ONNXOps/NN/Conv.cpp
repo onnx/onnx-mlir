@@ -440,7 +440,7 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
       // Set pads for NOTSET and VALID, then calculate output dim using pads
       // Set output dim for SAME_UPPER and SAME_LOWER, then calculate pads
       IndexExpr pSum;
-      if (autoPad == "NOTSET" || autoPad == "VALIID") {
+      if (autoPad == "NOTSET" || autoPad == "VALID") {
         // Set pads
         if (autoPad == "NOTSET") {
           pSum = pads[i] + pads[i + spatialRank]; // Sum both pads.
