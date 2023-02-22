@@ -214,11 +214,17 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::ValueRange dynSymbols, int64_t align = -1) const;
   // Alloc for static/dynamic shape where the size of the array is possibly
   // padded to allow the last legal value of the memref to be computed with a
-  // SIMD operation without risk segfault or data clobbering.
+  // SIMD operation without risk segfault or data clobbering.  Min alignment is
+  // defined as gDefaultAllocAlign, constant value is defined as above. Simd
+  // unroll allows the possible padding to multiple SIMD width (e.g.
+  // simdUnroll=2 forces the padding to accommodate 2 SIMD operations that
+  // include the last valid value of the array.)
+  // Does not support layouts at this time.
   mlir::memref::AllocOp alignedAllocPaddedForSIMD(
-      mlir::MemRefType type, int64_t align = -1) const;
+      mlir::MemRefType type, int64_t align = -1, int64_t simdUnroll = 1) const;
   mlir::memref::AllocOp alignedAllocPaddedForSIMD(mlir::MemRefType type,
-      mlir::ValueRange dynSymbols, int64_t align = -1) const;
+      mlir::ValueRange dynSymbols, int64_t align = -1,
+      int64_t simdUnroll = 1) const;
 
   // The alloca instruction allocates memory on the stack frame of the currently
   // executing function, to be automatically released when this function returns
@@ -239,6 +245,11 @@ struct MemRefBuilder final : DialectBuilder {
   // Does not support layouts at this time.
   mlir::Value collapseShape(mlir::Value input,
       llvm::ArrayRef<mlir::ReassociationIndices> reassociation);
+
+  mlir::Value subView(mir::Value val,
+      llvm::SmallVectorImpl<IndexExpr> &offsets,
+      llvm::SmallVectorImpl<IndexExpr> &sizes,
+      llvm::SmallVectorImpl<IndexExpr> &strides);
 
   mlir::Value dim(mlir::Value val, int64_t index) const;
   mlir::Value dim(mlir::Value val, mlir::Value index) const;

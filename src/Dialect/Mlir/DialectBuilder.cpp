@@ -774,15 +774,82 @@ memref::AllocOp MemRefBuilder::alignedAlloc(
 }
 
 memref::AllocOp MemRefBuilder::alignedAllocPaddedForSIMD(
-    mlir::MemRefType type, int64_t align = -1) const {
-  return alignedAllocPaddedForSIMD(type, /*dynSymbols*/ {}, alignment);
+    mlir::MemRefType type, int64_t align, int64_t simdUnroll) const {
+  return alignedAllocPaddedForSIMD(
+      type, /*dynSymbols*/ {}, alignment, simdUnroll);
 }
 
 memref::AllocOp MemRefBuilder::alignedAllocPaddedForSIMD(mlir::MemRefType type,
-    mlir::ValueRange dynSymbols, int64_t align = -1) const {
-  // Compute minimum size.
-  
+    mlir::ValueRange dynSymbols, int64_t align, int64_t simdUnroll) const {
+  assert(type.getLayout().isIdentity() &&
+         "support only types without layout at this time");
+  Type elementType = type.getElementType();
+  assert(!(elementType.isa<VectorType>()) && "no vector type expected");
+  // Compute total size of memref (in unit of element type).
+  ArrayRef<int64_t> shape = type.getShape();
+  int64_t rank = type.getRank();
+  int64_t staticSize = 1;
+  IndexExpr dynSize = LiteralIndexExpr(1);
+  int64_t iDim = 0;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (shape[i] != ShapedType::kDynamic) {
+      assert(iDim < dynSymbols.size() && "expected more dyn symbols");
+      dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
+    } else {
+      // Has constant shape.
+      staticSize *= shape[i];
     }
+  }
+  // Get vector length for this element type.
+  VectorBuilder createVec(*this);
+  int64_t VL = create.vec.getMachineVectorLength(elementType) * simdUnroll;
+  // If the static size component is already a multiple of VL, no matter the
+  // values of the dynamic shapes, the last value is part of a full SIMD. No
+  // need for extra padding then.
+  if (staticSize % VL == 0)
+    return alignedAlloc(type, dynSymbols, align);
+
+  // We now need some padding. VL as this is an upper bound on what is needed.
+  int64_t paddingSize = VL;
+  if (dynSymbols.size() == 0)
+    // Static shape, we can add exactly the right amount.
+    paddingSize = VL - staticSize % VL;
+
+  // Allocate data as byte.
+  // Multiply sizes by byte width of element.
+  int64_t bitWidth = elementType.getIntOrFloatBitWidth();
+  assert(bitWidth % 8 == 0 && "expected byte sized data");
+  int64_t byteWidth = bitWidth / 8;
+  IndexExpr totByteSize =
+      LiteralIndexExpr(staticSize * byteWidth) * dynByteSize;
+  IndexExpr totPaddedByteSize =
+      totByteSize + LiteralIndexExpr(paddingSize * byteWidth);
+  if (dynSymbols.size() != 0)
+    assert(totPaddedByteSize.isLiteral() && "expected literal size");
+  // Construct memref for flattened memref.
+  SmallVector<int64_t, 1> paddedShape;
+  MemRefType paddedType;
+  memref::AllocOp paddedAlloc;
+  if (totSize.isLiteral()) {
+    // For sanity, double check that we had no dynamic values.
+    paddedShape.emplace_back(totPaddedByteSize.getLiteral());
+    paddedType = MemRefType::get(paddedShape, b().getI8Type());
+    paddedAlloc = alloc(paddedType, align);
+  } else {
+    paddedShape.emplace_back(ShapedType::kDynamic);
+    paddedType = MemRefType::get(paddedShape, b().getI8Type());
+    paddedAlloc = alloc(paddedType, {totPaddedByteSize.getValue()}, align);
+  }
+
+  // Make a subview of the original shape (to get rid of the padding).
+  llvm::SmallVector<IndexExpr 4> offsets(1, LiteralIndexExpr(0));
+  llvm::SmallVector<IndexExpr 4> sizes(1, totByteSize);
+  llvm::SmallVector<IndexExpr 4> strides(1, LiteralIndexExpr(1));
+  Value subViewAlloc = subview(paddedAlloc, offsets, sizes, strides);
+
+  // Now create view
+  Value viewAlloc = view(subViewAlloc, type, dynSymbols);
+}
 
 memref::AllocaOp MemRefBuilder::alloca(MemRefType type) const {
   return b().create<memref::AllocaOp>(loc(), type);
@@ -791,10 +858,10 @@ memref::AllocaOp MemRefBuilder::alloca(MemRefType type) const {
 memref::AllocaOp MemRefBuilder::alignedAlloca(
     MemRefType type, int64_t alignment) const {
   // Drop align for scalars.
-  if (type.getShape().size() == 0) 
+  if (type.getShape().size() == 0)
     return b().create<memref::AllocaOp>(loc(), type);
   // Has array, use alignment.
-  IntegerAttr alignmentAttr = computeAlignment(alignment);  
+  IntegerAttr alignmentAttr = computeAlignment(alignment);
   return b().create<memref::AllocaOp>(loc(), type, alignmentAttr);
 }
 
@@ -865,12 +932,41 @@ Value MemRefBuilder::collapseShape(
     outputShape.emplace_back(currShape);
   }
   // Compute type of output.
-  MemRefLayoutAttrInterface layout;
-  MemRefType outputType = MemRefType::get(outputShape,
-      inputType.getElementType(), layout, inputType.getMemorySpace());
+  MemRefType outputType =
+      MemRefType::get(outputShape, inputType.getElementType());
   // Create collapse shape op.
   return b().create<memref::CollapseShapeOp>(
       loc(), outputType, input, reassociation);
+}
+
+Value MemRefBuilder::view(mir::Value input, int64_t offset,
+    llvm::SmallVectorImpl<IndexExpr> &sizesIE) {
+  llvm::SmallVector<int64_t> shape;
+  llvm::SmallVector<Value> dynSym;
+  getShapeAndDynSymbols(sizeIE, shape, dynSym);
+  MemRefType inputType = input.getType().dyn_cast<MemRefType>();
+  MemRefType outputType = MemRefType::get(shape, inputType.getElementType());
+  auto offsetVal = b.createOrFold<arith::ConstantIndexOp>(offset);
+  return b().create<memref::ViewOp>(
+      loc(), outputType, input, offsetVal, dynSym);
+}
+
+Value MemRefBuilder::subView(mir::Value input,
+    llvm::SmallVectorImpl<IndexExpr> &offsetsIE,
+    llvm::SmallVectorImpl<IndexExpr> &sizesIE,
+    llvm::SmallVectorImpl<IndexExpr> &stridesIE) {
+  SmallVector<OpFoldResult, 4> offsets, sizes, strides;
+  IndexExpr::getOpOrFoldResults(offsetsIE, offsets);
+  IndexExpr::getOpOrFoldResults(sizesIE, sizes);
+  IndexExpr::getOpOrFoldResults(stridesIE, strides);
+  SmallVector<int64_t, 4> outputShape;
+  IndexExpr::getShape(sizesIE, outputShape);
+  MemRefType inputType = input.getType().dyn_cast<MemRefType>();
+  MemRefLayoutAttrInterface layout;
+  MemRefType outputType = MemRefType::get(outputShape,
+      inputType.getElementType(), layout, inputType.getMemorySpace());
+  return b().create<memref::SubViewOp>(
+      loc(), outputType, input, offsets, sizes, stride);
 }
 
 Value MemRefBuilder::dim(Value val, int64_t index) const {
