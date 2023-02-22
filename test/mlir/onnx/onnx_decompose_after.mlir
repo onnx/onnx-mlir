@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --decompose-onnx-after --canonicalize %s -split-input-file | FileCheck %s
 
 // -----
 
@@ -200,4 +200,3 @@
     // CHECK:           return [[VAR_31_]] : tensor<1x2x10x8xf32>
   }
 
-// -----

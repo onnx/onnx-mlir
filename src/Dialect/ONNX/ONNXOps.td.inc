@@ -1473,7 +1473,6 @@ def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
 
 def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
   let summary = "ONNX ConvTranspose operation";
   let description = [{
   The convolution transpose operator consumes an input tensor and a filter,
