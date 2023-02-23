@@ -737,6 +737,8 @@ Value ShapeBuilder::getExtent(Value val, int64_t index) const {
 // Memref support, including inserting default alignment.
 //===----------------------------------------------------------------------===//
 
+const int64_t MemRefBuilder::defaultAlign = -1;
+
 memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
   return alloc(type, /*dynSymbols*/ {});
 }
@@ -773,46 +775,49 @@ memref::AllocOp MemRefBuilder::alignedAlloc(
   return b().create<memref::AllocOp>(loc(), type, dynSymbols, alignmentAttr);
 }
 
-memref::AllocOp MemRefBuilder::alignedAllocPaddedForSIMD(
-    mlir::MemRefType type, int64_t align, int64_t simdUnroll) const {
+Value MemRefBuilder::alignedAllocPaddedForSIMD(
+    mlir::MemRefType type, int64_t simdUnroll, int64_t alignment) const {
   return alignedAllocPaddedForSIMD(
-      type, /*dynSymbols*/ {}, alignment, simdUnroll);
+      type, /*dynSymbols*/ {}, simdUnroll, alignment);
 }
 
-memref::AllocOp MemRefBuilder::alignedAllocPaddedForSIMD(mlir::MemRefType type,
-    mlir::ValueRange dynSymbols, int64_t align, int64_t simdUnroll) const {
-  assert(type.getLayout().isIdentity() &&
-         "support only types without layout at this time");
+Value MemRefBuilder::alignedAllocPaddedForSIMD(MemRefType type,
+    ValueRange dynSymbols, int64_t simdUnroll, int64_t alignment) const {
   Type elementType = type.getElementType();
-  assert(!(elementType.isa<VectorType>()) && "no vector type expected");
+  assert(type.getLayout().isIdentity() && "unsupported layout");
+  assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
+  assert(simdUnroll >= 1 && "expected positive simd unroll factor");
   // Compute total size of memref (in unit of element type).
   ArrayRef<int64_t> shape = type.getShape();
+  int64_t staticSize = 1;                  // Multiplication of static sizes.
+  IndexExpr dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
+  bool staticShape = (dynSymbols.size() == 0);
   int64_t rank = type.getRank();
-  int64_t staticSize = 1;
-  IndexExpr dynSize = LiteralIndexExpr(1);
   int64_t iDim = 0;
   for (int64_t i = 0; i < rank; ++i) {
-    if (shape[i] != ShapedType::kDynamic) {
-      assert(iDim < dynSymbols.size() && "expected more dyn symbols");
+    if (shape[i] == ShapedType::kDynamic) {
+      assert(!staticShape && "expected static shape");
+      assert(iDim < (int64_t)dynSymbols.size() && "not enough dynamic symbols");
       dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
     } else {
       // Has constant shape.
       staticSize *= shape[i];
     }
   }
-  // Get vector length for this element type.
+  // Get vector length for this element type, multiplied by the unroll factor.
   VectorBuilder createVec(*this);
-  int64_t VL = create.vec.getMachineVectorLength(elementType) * simdUnroll;
+  int64_t VL = createVec.getMachineVectorLength(elementType) * simdUnroll;
   // If the static size component is already a multiple of VL, no matter the
   // values of the dynamic shapes, the last value is part of a full SIMD. No
   // need for extra padding then.
   if (staticSize % VL == 0)
-    return alignedAlloc(type, dynSymbols, align);
+    return alignedAlloc(type, dynSymbols, alignment);
 
-  // We now need some padding. VL as this is an upper bound on what is needed.
+  // We now need some padding. VL as this is an upper bound on padding. Padding
+  // in element size.
   int64_t paddingSize = VL;
-  if (dynSymbols.size() == 0)
-    // Static shape, we can add exactly the right amount.
+  if (staticShape)
+    // Static shape: we can pad by the exact right amount.
     paddingSize = VL - staticSize % VL;
 
   // Allocate data as byte.
@@ -820,35 +825,32 @@ memref::AllocOp MemRefBuilder::alignedAllocPaddedForSIMD(mlir::MemRefType type,
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   assert(bitWidth % 8 == 0 && "expected byte sized data");
   int64_t byteWidth = bitWidth / 8;
-  IndexExpr totByteSize =
-      LiteralIndexExpr(staticSize * byteWidth) * dynByteSize;
+  IndexExpr totByteSize = LiteralIndexExpr(staticSize * byteWidth) * dynSize;
   IndexExpr totPaddedByteSize =
       totByteSize + LiteralIndexExpr(paddingSize * byteWidth);
-  if (dynSymbols.size() != 0)
-    assert(totPaddedByteSize.isLiteral() && "expected literal size");
-  // Construct memref for flattened memref.
-  SmallVector<int64_t, 1> paddedShape;
-  MemRefType paddedType;
+  if (staticShape)
+    assert(totPaddedByteSize.isLiteral() && "expected literal padded tot size");
+  // Construct memref for padded array of bytes.
   memref::AllocOp paddedAlloc;
-  if (totSize.isLiteral()) {
-    // For sanity, double check that we had no dynamic values.
-    paddedShape.emplace_back(totPaddedByteSize.getLiteral());
-    paddedType = MemRefType::get(paddedShape, b().getI8Type());
-    paddedAlloc = alloc(paddedType, align);
+  if (totPaddedByteSize.isLiteral()) {
+    MemRefType paddedType =
+        MemRefType::get({totPaddedByteSize.getLiteral()}, b().getI8Type());
+    paddedAlloc = alignedAlloc(paddedType, alignment);
   } else {
-    paddedShape.emplace_back(ShapedType::kDynamic);
-    paddedType = MemRefType::get(paddedShape, b().getI8Type());
-    paddedAlloc = alloc(paddedType, {totPaddedByteSize.getValue()}, align);
+    MemRefType paddedType =
+        MemRefType::get({ShapedType::kDynamic}, b().getI8Type());
+    paddedAlloc =
+        alignedAlloc(paddedType, {totPaddedByteSize.getValue()}, alignment);
   }
 
   // Make a subview of the original shape (to get rid of the padding).
-  llvm::SmallVector<IndexExpr 4> offsets(1, LiteralIndexExpr(0));
-  llvm::SmallVector<IndexExpr 4> sizes(1, totByteSize);
-  llvm::SmallVector<IndexExpr 4> strides(1, LiteralIndexExpr(1));
-  Value subViewAlloc = subview(paddedAlloc, offsets, sizes, strides);
+  llvm::SmallVector<IndexExpr, 4> offsets(1, LiteralIndexExpr(0));
+  llvm::SmallVector<IndexExpr, 4> sizes(1, totByteSize);
+  llvm::SmallVector<IndexExpr, 4> strides(1, LiteralIndexExpr(1));
+  Value subViewAlloc = subView(paddedAlloc, offsets, sizes, strides);
 
   // Now create view
-  Value viewAlloc = view(subViewAlloc, type, dynSymbols);
+  return view(subViewAlloc, /*offset*/ 0, type, dynSymbols);
 }
 
 memref::AllocaOp MemRefBuilder::alloca(MemRefType type) const {
@@ -939,22 +941,19 @@ Value MemRefBuilder::collapseShape(
       loc(), outputType, input, reassociation);
 }
 
-Value MemRefBuilder::view(mir::Value input, int64_t offset,
-    llvm::SmallVectorImpl<IndexExpr> &sizesIE) {
-  llvm::SmallVector<int64_t> shape;
-  llvm::SmallVector<Value> dynSym;
-  getShapeAndDynSymbols(sizeIE, shape, dynSym);
-  MemRefType inputType = input.getType().dyn_cast<MemRefType>();
-  MemRefType outputType = MemRefType::get(shape, inputType.getElementType());
-  auto offsetVal = b.createOrFold<arith::ConstantIndexOp>(offset);
+memref::ViewOp MemRefBuilder::view(Value input, int64_t byteOffset,
+    MemRefType outputType, ValueRange outputDynSymbols) const {
+  MathBuilder createMath(*this);
+  Value offset = createMath.constantIndex(byteOffset);
+  //auto offset = b().createOrFold<arith::ConstantIndexOp>(byteOffset);
   return b().create<memref::ViewOp>(
-      loc(), outputType, input, offsetVal, dynSym);
+      loc(), outputType, input, offset, outputDynSymbols);
 }
 
-Value MemRefBuilder::subView(mir::Value input,
+memref::SubViewOp MemRefBuilder::subView(Value input,
     llvm::SmallVectorImpl<IndexExpr> &offsetsIE,
     llvm::SmallVectorImpl<IndexExpr> &sizesIE,
-    llvm::SmallVectorImpl<IndexExpr> &stridesIE) {
+    llvm::SmallVectorImpl<IndexExpr> &stridesIE) const {
   SmallVector<OpFoldResult, 4> offsets, sizes, strides;
   IndexExpr::getOpOrFoldResults(offsetsIE, offsets);
   IndexExpr::getOpOrFoldResults(sizesIE, sizes);
@@ -966,7 +965,7 @@ Value MemRefBuilder::subView(mir::Value input,
   MemRefType outputType = MemRefType::get(outputShape,
       inputType.getElementType(), layout, inputType.getMemorySpace());
   return b().create<memref::SubViewOp>(
-      loc(), outputType, input, offsets, sizes, stride);
+      loc(), outputType, input, offsets, sizes, strides);
 }
 
 Value MemRefBuilder::dim(Value val, int64_t index) const {
