@@ -40,17 +40,12 @@ public:
 
     Value input = adaptor.X();
     // The attributes storage_order and dilations are unsupported
-    auto inputType = input.getType().cast<TensorType>();
     IntegerAttr storageOrder = adaptor.storage_orderAttr();
     ArrayAttr dilations = adaptor.dilationsAttr();
 
     if (input.getType().isa<MemRefType>()) {
       return rewriter.notifyMatchFailure(
           op, "memrefs as inputs are unsupported by TOSA");
-    }
-    if (inputType.getShape().size() != 4) {
-      return rewriter.notifyMatchFailure(
-          maxpoolOp, "TOSA only supports maxpool 2d");
     }
     if (dilations) {
       return rewriter.notifyMatchFailure(

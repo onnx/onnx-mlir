@@ -98,11 +98,14 @@ llvm::Optional<mlir::Value> convertPoolOp(
   TosaBuilder tosaBuilder(rewriter, loc);
 
   mlir::Value input = adaptor.X();
+  auto inputType = input.getType().cast<mlir::TensorType>();
+  if (inputType.getShape().size() != 4) {
+    (void)rewriter.notifyMatchFailure(op, "TOSA only supports 2d pooling");
+    return llvm::None;
+  }
 
   mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
   const int64_t ceilMode = adaptor.ceil_mode();
-
-  auto inputType = input.getType().cast<mlir::TensorType>();
 
   // Construct the transposed type for the new Pool OP
   mlir::Type newResultType = mlir::RankedTensorType::get(

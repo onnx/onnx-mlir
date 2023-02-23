@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------- ONNXAveragePoolOp.cpp - ONNXAveragePoolOp Op------------===//
+//===------------- ONNXAveragePoolOp.cpp - ONNXAveragePoolOp --------------===//
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
@@ -38,15 +38,9 @@ public:
     auto averagePoolOp = llvm::cast<ONNXAveragePoolOp>(op);
     OpAdaptor adaptor(operands, op->getAttrDictionary());
 
-    Value input = adaptor.X();
-    // The attributes storage_order and dilations are unsupported
-    auto inputType = input.getType().cast<TensorType>();
     const int64_t includePad = adaptor.count_include_pad();
 
-    if (inputType.getShape().size() != 4) {
-      return rewriter.notifyMatchFailure(
-          averagePoolOp, "TOSA only supports maxpool 2d");
-    }
+    // The attribute include_pad is unsupported
     if (includePad != 0) {
       return rewriter.notifyMatchFailure(
           averagePoolOp, "count_include_pad must be 0");
@@ -58,7 +52,7 @@ public:
 
     if (!newAveragePoolOp) {
       return rewriter.notifyMatchFailure(
-          averagePoolOp, "Could not create maxpool op.");
+          averagePoolOp, "Could not create averagepool op.");
     }
 
     rewriter.replaceOp(op, newAveragePoolOp.value());
