@@ -205,28 +205,46 @@ struct MemRefBuilder final : DialectBuilder {
   // Constants
   static const int64_t defaultAlign;
 
-  // Alloc for static/dynamic shape.
+  // Alloc for static shapes without alignment.
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
+  // Alloc for dynamic shapes without alignment.
   mlir::memref::AllocOp alloc(
       mlir::MemRefType type, mlir::ValueRange dynSymbols) const;
-  // Alloc for static/dynamic shape with alignment. Min alignment is defined as
-  // gDefaultAllocAlign, constant value is defined as above.
+  mlir::memref::AllocOp alloc(
+      mlir::MemRefType type, mlir::Value operandOfSameType) const;
+  mlir::memref::AllocOp alloc(
+      mlir::MemRefType type, llvm::SmallVectorImpl<IndexExpr> &dims) const;
+
+  // Alloc for static shapes with alignment (gDefaultAllocAlign or greater).
   mlir::memref::AllocOp alignedAlloc(
       mlir::MemRefType type, int64_t align = defaultAlign) const;
+  // Alloc for dynamic shapes with alignment (gDefaultAllocAlign or greater).
   mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type,
       mlir::ValueRange dynSymbols, int64_t align = defaultAlign) const;
-  // Alloc for static/dynamic shape where the size of the array is possibly
-  // padded to allow the last legal value of the memref to be computed with a
-  // SIMD operation without risk segfault or data clobbering.  Min alignment is
-  // defined as gDefaultAllocAlign, constant value is defined as above. Simd
-  // unroll allows the possible padding to multiple SIMD width (e.g.
-  // simdUnroll=2 forces the padding to accommodate 2 SIMD operations that
-  // include the last valid value of the array.)
-  // Does not support layouts at this time.
-  mlir::Value alignedAllocPaddedForSIMD(mlir::MemRefType type,
+  mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type,
+      mlir::Value operandOfSameType, int64_t align = defaultAlign) const;
+  mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type,
+      llvm::SmallVectorImpl<IndexExpr> &dims,
+      int64_t align = defaultAlign) const;
+
+  // Alloc for shapes with alignment and padding for safe full SIMD operations.
+  // Padding may be added so that every values in the shape may safely be
+  // computed by a SIMD operation (or possibly multiple ones when simdUnroll>1).
+  // Minimum alignment is gDefaultAllocAlign.
+  // Operation currently does not support layouts at this time.
+  //
+  // Alloc for static shapes with alignment and SIMD padding.
+  mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
       int64_t simdUnroll = 1, int64_t align = defaultAlign) const;
-  mlir::Value alignedAllocPaddedForSIMD(mlir::MemRefType type,
+  // Alloc for dynamic shapes with alignment and SIMD padding.
+  mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
       mlir::ValueRange dynSymbols, int64_t simdUnroll = 1,
+      int64_t align = defaultAlign) const;
+  mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
+      mlir::Value operandOfSameType, int64_t simdUnroll = 1,
+      int64_t align = defaultAlign) const;
+  mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
+      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdUnroll = 1,
       int64_t align = defaultAlign) const;
 
   // The alloca instruction allocates memory on the stack frame of the currently
@@ -266,6 +284,14 @@ struct MemRefBuilder final : DialectBuilder {
 
 private:
   mlir::IntegerAttr computeAlignment(int64_t alignment) const;
+  void computeDynSymbols(
+      llvm::SmallVectorImpl<IndexExpr> &dims, // Index expr dims for type.
+      llvm::SmallVectorImpl<mlir::Value> &dynSymbols) // Output dim symbols.
+      const;
+  void computeDynSymbols(
+      mlir::Value operandOfSameType, // Extract dyn symbols from this op.
+      llvm::SmallVectorImpl<mlir::Value> &dynSymbols) // Output dim symbols.
+      const;
 };
 
 //===----------------------------------------------------------------------===//

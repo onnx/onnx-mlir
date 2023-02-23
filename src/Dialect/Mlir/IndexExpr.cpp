@@ -528,17 +528,15 @@ void IndexExpr::debugPrint(
   }
 }
 
-/*static*/ void IndexExpr::getShapeAndDynSymbols(
+/*static*/ void IndexExpr::getDynSymbols(
     llvm::SmallVectorImpl<IndexExpr> &indexExprList, // Input list.
-    llvm::SmallVectorImpl<int64_t> &shape,           // Shape (integers).
     llvm::SmallVectorImpl<Value> &dynSymbols) {      // Symbol for dyn ref.
   // Set shape.
-  getShape(indexExprList, shape, /*uniqueQuestionMark*/ false);
   int64_t rank = indexExprList.size();
   // For each dyn shape, enqueue its value in dynamic symbol list.
   dynSymbols.clear();
   for (int64_t i = 0; i < rank; ++i)
-    if (shape[i] == ShapedType::kDynamic)
+    if (! indexExprList[i].isLiteral())
       dynSymbols.emplace_back(indexExprList[i].getValue());
 }
 

@@ -490,9 +490,8 @@ public:
   static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
       llvm::SmallVectorImpl<int64_t> &intDimList,
       bool uniqueQuestionMark = false);
-  static void getShapeAndDynSymbols(
+  static void getDynSymbols(
       llvm::SmallVectorImpl<IndexExpr> &indexExprList, // Input list.
-      llvm::SmallVectorImpl<int64_t> &shape,           // Shape (integers).
       llvm::SmallVectorImpl<mlir::Value> &dynSymbols); // Symbol for dyn ref.
   static void getValues(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::Value> &valueList);

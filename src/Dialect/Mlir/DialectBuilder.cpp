@@ -739,8 +739,43 @@ Value ShapeBuilder::getExtent(Value val, int64_t index) const {
 
 const int64_t MemRefBuilder::defaultAlign = -1;
 
+//===----------------------------------------------------------------------===//
+// Helper private functions.
+
+// Compute alignment, which is at least gDefaultAllocAlign.
+IntegerAttr MemRefBuilder::computeAlignment(int64_t alignment) const {
+  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
+  return b().getI64IntegerAttr(alignment);
+}
+
+// Alloc calls need a list of values, only for the dynamic shapes. Extract these
+// values from the list of index expressions that represent the shape of the
+// memref.
+void MemRefBuilder::computeDynSymbols(llvm::SmallVectorImpl<IndexExpr> &dims,
+    llvm::SmallVectorImpl<Value> &dynSymbols) const {
+  IndexExpr::getDynSymbols(dims, dynSymbols);
+}
+
+// Alloc calls need a list of values, only for the dynamic shapes. Extract these
+// values from an existing operands that has the same shape. Use dim ops for
+// each dynamic dimension.
+void MemRefBuilder::computeDynSymbols(
+    Value operandOfSameType, llvm::SmallVectorImpl<Value> &dynSymbols) const {
+  MemRefType type = operandOfSameType.getType().dyn_cast<MemRefType>();
+  int64_t rank = type.getRank();
+  ArrayRef<int64_t> shape = type.getShape();
+  dynSymbols.clear();
+  for (int64_t i = 0; i < rank; ++i)
+    if (shape[i] == ShapedType::kDynamic)
+      dynSymbols.emplace_back(dim(operandOfSameType, i));
+}
+
+//===----------------------------------------------------------------------===//
+// Alloc functions without alignment.
+
 memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
-  return alloc(type, /*dynSymbols*/ {});
+  ValueRange dynSymbols;
+  return alloc(type, dynSymbols);
 }
 
 memref::AllocOp MemRefBuilder::alloc(
@@ -751,15 +786,27 @@ memref::AllocOp MemRefBuilder::alloc(
   return b().create<memref::AllocOp>(loc(), type, dynSymbols);
 }
 
-// Compute alignment, which is at least gDefaultAllocAlign.
-IntegerAttr MemRefBuilder::computeAlignment(int64_t alignment) const {
-  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  return b().getI64IntegerAttr(alignment);
+memref::AllocOp MemRefBuilder::alloc(
+    MemRefType type, Value operandOfSameType) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(operandOfSameType, dynSymbols);
+  return alloc(type, dynSymbols);
 }
+
+memref::AllocOp MemRefBuilder::alloc(
+    MemRefType type, llvm::SmallVectorImpl<IndexExpr> &dims) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(dims, dynSymbols);
+  return alloc(type, dynSymbols);
+}
+
+//===----------------------------------------------------------------------===//
+// Alloc functions with alignment.
 
 memref::AllocOp MemRefBuilder::alignedAlloc(
     MemRefType type, int64_t alignment) const {
-  return alignedAlloc(type, /*dynSymbols*/ {}, alignment);
+  ValueRange dynSymbols;
+  return alignedAlloc(type, dynSymbols, alignment);
 }
 
 memref::AllocOp MemRefBuilder::alignedAlloc(
@@ -775,13 +822,30 @@ memref::AllocOp MemRefBuilder::alignedAlloc(
   return b().create<memref::AllocOp>(loc(), type, dynSymbols, alignmentAttr);
 }
 
-Value MemRefBuilder::alignedAllocPaddedForSIMD(
-    mlir::MemRefType type, int64_t simdUnroll, int64_t alignment) const {
-  return alignedAllocPaddedForSIMD(
-      type, /*dynSymbols*/ {}, simdUnroll, alignment);
+memref::AllocOp MemRefBuilder::alignedAlloc(
+    MemRefType type, Value operandOfSameType, int64_t alignment) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(operandOfSameType, dynSymbols);
+  return alignedAlloc(type, dynSymbols, alignment);
 }
 
-Value MemRefBuilder::alignedAllocPaddedForSIMD(MemRefType type,
+memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
+    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t alignment) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(dims, dynSymbols);
+  return alignedAlloc(type, dynSymbols, alignment);
+}
+
+//===----------------------------------------------------------------------===//
+// Alloc functions with alignment and padding for SIMD
+
+Value MemRefBuilder::alignedAllocWithSimdPadding(
+    mlir::MemRefType type, int64_t simdUnroll, int64_t alignment) const {
+  ValueRange dynSymbols;
+  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+}
+
+Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
     ValueRange dynSymbols, int64_t simdUnroll, int64_t alignment) const {
   Type elementType = type.getElementType();
   assert(type.getLayout().isIdentity() && "unsupported layout");
@@ -853,6 +917,24 @@ Value MemRefBuilder::alignedAllocPaddedForSIMD(MemRefType type,
   return view(subViewAlloc, /*offset*/ 0, type, dynSymbols);
 }
 
+Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
+    Value operandOfSameType, int64_t simdUnroll, int64_t alignment) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(operandOfSameType, dynSymbols);
+  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+}
+
+Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
+    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdUnroll,
+    int64_t alignment) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(dims, dynSymbols);
+  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+}
+
+//===----------------------------------------------------------------------===//
+// Alloca
+
 memref::AllocaOp MemRefBuilder::alloca(MemRefType type) const {
   return b().create<memref::AllocaOp>(loc(), type);
 }
@@ -867,9 +949,15 @@ memref::AllocaOp MemRefBuilder::alignedAlloca(
   return b().create<memref::AllocaOp>(loc(), type, alignmentAttr);
 }
 
+//===----------------------------------------------------------------------===//
+// Dealloc.
+
 memref::DeallocOp MemRefBuilder::dealloc(Value val) const {
   return b().create<memref::DeallocOp>(loc(), val);
 }
+
+//===----------------------------------------------------------------------===//
+// Casts and views.
 
 memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
   return b().create<memref::CastOp>(loc(), outputType, input);
@@ -945,7 +1033,7 @@ memref::ViewOp MemRefBuilder::view(Value input, int64_t byteOffset,
     MemRefType outputType, ValueRange outputDynSymbols) const {
   MathBuilder createMath(*this);
   Value offset = createMath.constantIndex(byteOffset);
-  //auto offset = b().createOrFold<arith::ConstantIndexOp>(byteOffset);
+  // auto offset = b().createOrFold<arith::ConstantIndexOp>(byteOffset);
   return b().create<memref::ViewOp>(
       loc(), outputType, input, offset, outputDynSymbols);
 }
@@ -967,6 +1055,9 @@ memref::SubViewOp MemRefBuilder::subView(Value input,
   return b().create<memref::SubViewOp>(
       loc(), outputType, input, offsets, sizes, strides);
 }
+
+//===----------------------------------------------------------------------===//
+// Dims.
 
 Value MemRefBuilder::dim(Value val, int64_t index) const {
   assert(index >= 0 && "Expecting a valid index");
