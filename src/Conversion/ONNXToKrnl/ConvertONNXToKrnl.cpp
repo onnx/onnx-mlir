@@ -317,6 +317,7 @@ public:
       llvm::cl::desc(
           "Emit intermediate IR rather than lowering to the krnl dialect."),
       llvm::cl::init(false)};
+  // Deprecated: the emit-dealloc option below is being deprecated
   Option<bool> emitDealloc{*this, "emit-dealloc",
       llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
       llvm::cl::init(false)};
@@ -333,6 +334,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
   // Set up whether emitting dealloc for allocated memrefs or not.
+  // Deprecated: the emit-dealloc option below is being deprecated
+  assert(!emitDealloc && "this option is being deprecated");
   ONNXToKrnl_gEmitDealloc = emitDealloc;
 
   // The first thing to define is the conversion target. This will define the

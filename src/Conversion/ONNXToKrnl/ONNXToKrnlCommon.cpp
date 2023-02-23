@@ -142,7 +142,8 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 
     SmallVector<Value, 4> allocOperands;
     for (unsigned int i = 0; i < rank; ++i)
-      if (memRefShape[i] < 0) {
+      // aee if (memRefShape[i] < 0) {
+      if (memRefShape[i] == ShapedType::kDynamic) {
         auto dim = createMemRef.dim(operand, i);
         allocOperands.push_back(dim);
       }
@@ -185,7 +186,8 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   auto rank = memRefShape.size();
 
   for (unsigned int i = 0; i < rank; ++i) {
-    if (memRefShape[i] < 0) {
+    // aee if (memRefShape[i] < 0) {
+    if (memRefShape[i] == ShapedType::kDynamic) {
       // have dyn shape
       allocOperands.emplace_back(outputDims[i].getValue());
     }
@@ -300,7 +302,8 @@ std::map<int64_t, int64_t> getReductionMapping(
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     krnl::KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
-  if (shape[index] < 0) {
+  // aee if (shape[index] < 0) {
+  if (shape[index] == ShapedType::kDynamic) {
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     pack.pushConstantBound(0);
     pack.pushOperandBound(create.mem.dim(operand, index));
@@ -324,7 +327,8 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type) {
   MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
   ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
-  return (shape[axis] < 0)
+  // aee return (shape[axis] < 0)
+  return (shape[axis] == ShapedType::kDynamic)
              ? create.math.cast(type, create.mem.dim(operand, axis))
              : create.math.constant(type, shape[axis]);
 }
