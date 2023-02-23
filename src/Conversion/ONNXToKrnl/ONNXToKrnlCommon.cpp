@@ -129,11 +129,22 @@ bool indicesAreNonNegativeConstants(Value indices) {
       [](const IntegerAttr &val) { return val.getInt() >= 0; });
 }
 
+// hi alex
+#define DEBUG_NEW_ALLOC 1
+#define DEBUG_NEW_ALLOC_NEVER_DEALLOC true
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand,
     int64_t alignment) {
   MemRefBuilder createMemRef(rewriter, loc);
+
+#if DEBUG_NEW_ALLOC
+  if (DEBUG_NEW_ALLOC_NEVER_DEALLOC || !insertDealloc) {
+    MemRefBuilder createMemRef(rewriter, loc);
+    return createMemRef.alignedAlloc(operand, type, alignment);
+  }
+#endif
+
   // Put together alloc operands for any dynamic dimensions of the memref.
   memref::AllocOp alloc;
   if (operand) {
@@ -141,12 +152,13 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     auto rank = memRefShape.size();
 
     SmallVector<Value, 4> allocOperands;
-    for (unsigned int i = 0; i < rank; ++i)
-      // hi alex if (memRefShape[i] < 0) {
+    for (unsigned int i = 0; i < rank; ++i) {
+      assert(memRefShape[i] != -1 && "expected kDynamic, not -1");
       if (memRefShape[i] == ShapedType::kDynamic) {
         auto dim = createMemRef.dim(operand, i);
         allocOperands.push_back(dim);
       }
+    }
     alloc = createMemRef.alignedAlloc(type, allocOperands, alignment);
   } else {
     alloc = createMemRef.alignedAlloc(type, alignment);
@@ -174,8 +186,15 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // dimensions, it uses the index expressions to retrieve the corresponding
 // values.
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
+    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
     bool insertDealloc, int64_t alignment) {
+
+#if DEBUG_NEW_ALLOC
+  if (DEBUG_NEW_ALLOC_NEVER_DEALLOC || !insertDealloc) {
+    MemRefBuilder createMemRef(rewriter, loc);
+    return createMemRef.alignedAlloc(type, outputDims, alignment);
+  }
+#endif
   // Constant, use the normal insert with no additional operands or alignment.
   if (hasAllConstantDimensions(type))
     return insertAllocAndDealloc(
@@ -186,7 +205,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   auto rank = memRefShape.size();
 
   for (unsigned int i = 0; i < rank; ++i) {
-    // hi alex if (memRefShape[i] < 0) {
+    assert(memRefShape[i] != -1 && "expected kDynamic, not -1");
     if (memRefShape[i] == ShapedType::kDynamic) {
       // have dyn shape
       allocOperands.emplace_back(outputDims[i].getValue());
@@ -208,7 +227,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
 }
 
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
+    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims,
     int64_t alignment) {
 
   bool insertDealloc = checkInsertDealloc(op);
@@ -302,7 +321,7 @@ std::map<int64_t, int64_t> getReductionMapping(
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     krnl::KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
-  // hi alex if (shape[index] < 0) {
+  assert(shape[index] != -1 && "expected kDynamic, not -1");
   if (shape[index] == ShapedType::kDynamic) {
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     pack.pushConstantBound(0);
@@ -327,7 +346,7 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type) {
   MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
   ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
-  // hi alex return (shape[axis] < 0)
+  assert(shape[axis] != -1 && "expected kDynamic, not -1");
   return (shape[axis] == ShapedType::kDynamic)
              ? create.math.cast(type, create.mem.dim(operand, axis))
              : create.math.constant(type, shape[axis]);

@@ -104,11 +104,11 @@ mlir::Value insertAllocAndDealloc(mlir::MemRefType type, mlir::Location loc,
 // definitions from the index expressions otherwise.
 mlir::Value insertAllocAndDeallocSimple(mlir::PatternRewriter &rewriter,
     mlir::Operation *op, mlir::MemRefType type, mlir::Location loc,
-    const llvm::SmallVectorImpl<IndexExpr> &outputDims, int64_t alignment = -1);
+    llvm::SmallVectorImpl<IndexExpr> &outputDims, int64_t alignment = -1);
 // Same where boolean to assert if dealloc is to be gen or not is specified
 mlir::Value insertAllocAndDeallocSimple(mlir::PatternRewriter &rewriter,
     mlir::Operation *op, mlir::MemRefType type, mlir::Location loc,
-    const llvm::SmallVectorImpl<IndexExpr> &outputDims, bool insertDealloc,
+    llvm::SmallVectorImpl<IndexExpr> &outputDims, bool insertDealloc,
     int64_t alignment = -1);
 
 // Determine if current function returns the result value of the

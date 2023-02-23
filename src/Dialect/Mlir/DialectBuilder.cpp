@@ -761,10 +761,12 @@ void MemRefBuilder::computeDynSymbols(llvm::SmallVectorImpl<IndexExpr> &dims,
 // each dynamic dimension.
 void MemRefBuilder::computeDynSymbols(
     Value operandOfSameType, llvm::SmallVectorImpl<Value> &dynSymbols) const {
+  dynSymbols.clear();
+  if (operandOfSameType == nullptr)
+    return;
   MemRefType type = operandOfSameType.getType().dyn_cast<MemRefType>();
   int64_t rank = type.getRank();
   ArrayRef<int64_t> shape = type.getShape();
-  dynSymbols.clear();
   for (int64_t i = 0; i < rank; ++i)
     if (shape[i] == ShapedType::kDynamic)
       dynSymbols.emplace_back(dim(operandOfSameType, i));
@@ -787,7 +789,7 @@ memref::AllocOp MemRefBuilder::alloc(
 }
 
 memref::AllocOp MemRefBuilder::alloc(
-    MemRefType type, Value operandOfSameType) const {
+    Value operandOfSameType, MemRefType type) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(operandOfSameType, dynSymbols);
   return alloc(type, dynSymbols);
@@ -917,8 +919,8 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
   return view(subViewAlloc, /*offset*/ 0, type, dynSymbols);
 }
 
-Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
-    Value operandOfSameType, int64_t simdUnroll, int64_t alignment) const {
+Value MemRefBuilder::alignedAllocWithSimdPadding(Value operandOfSameType,
+    MemRefType type, int64_t simdUnroll, int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(operandOfSameType, dynSymbols);
   return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);

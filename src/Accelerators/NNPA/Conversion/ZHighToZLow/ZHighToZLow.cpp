@@ -75,8 +75,9 @@ Value insertAllocAndDeallocZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
   MemRefType resType = zType.value;
 
   // Insert alloc and dealloc.
+  SmallVector<IndexExpr> dimList(dims.begin(), dims.end());
   Value alloc = insertAllocAndDeallocSimple(rewriter, op, resType, loc,
-      SmallVector<IndexExpr>(dims.begin(), dims.end()),
+      dimList,
       /*insertDealloc*/ ONNXToKrnl_gEmitDealloc, alignment);
 
   return alloc;

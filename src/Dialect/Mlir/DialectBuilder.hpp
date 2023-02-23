@@ -211,7 +211,7 @@ struct MemRefBuilder final : DialectBuilder {
   mlir::memref::AllocOp alloc(
       mlir::MemRefType type, mlir::ValueRange dynSymbols) const;
   mlir::memref::AllocOp alloc(
-      mlir::MemRefType type, mlir::Value operandOfSameType) const;
+      mlir::Value operandOfSameType, mlir::MemRefType type) const;
   mlir::memref::AllocOp alloc(
       mlir::MemRefType type, llvm::SmallVectorImpl<IndexExpr> &dims) const;
 
@@ -240,8 +240,8 @@ struct MemRefBuilder final : DialectBuilder {
   mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
       mlir::ValueRange dynSymbols, int64_t simdUnroll = 1,
       int64_t align = defaultAlign) const;
-  mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
-      mlir::Value operandOfSameType, int64_t simdUnroll = 1,
+  mlir::Value alignedAllocWithSimdPadding(mlir::Value operandOfSameType,
+      mlir::MemRefType type, int64_t simdUnroll = 1,
       int64_t align = defaultAlign) const;
   mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
       llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdUnroll = 1,

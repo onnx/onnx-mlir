@@ -1905,10 +1905,12 @@ void getIndexExprListFromShape(
     ArrayRef<int64_t> inputList, llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (int64_t item : inputList) {
-    if (item >= 0)
-      outputList.emplace_back(LiteralIndexExpr(item));
-    else
+    if (item == ShapedType::kDynamic)
       outputList.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
+    else {
+      assert(item >= 0 && "expected kDynamic, not -1");
+      outputList.emplace_back(LiteralIndexExpr(item));
+    }
   }
 }
 

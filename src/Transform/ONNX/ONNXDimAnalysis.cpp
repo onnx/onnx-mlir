@@ -346,7 +346,6 @@ void DimAnalysis::visitDim(
       isa<ONNXWhereOp>(op) ||
       isa<ONNXXorOp>(op)) {
     // clang-format on
-    // hi alex: remove if
     bool success = exploreSameInputDims(dim, op, sameDims);
     assert(success && "dim analysis should be successful for broadcast ops ");
     // If we know by this analysis that two unknown dims at the same index are
