@@ -536,7 +536,7 @@ void IndexExpr::debugPrint(
   // For each dyn shape, enqueue its value in dynamic symbol list.
   dynSymbols.clear();
   for (int64_t i = 0; i < rank; ++i)
-    if (! indexExprList[i].isLiteral())
+    if (!indexExprList[i].isLiteral())
       dynSymbols.emplace_back(indexExprList[i].getValue());
 }
 
