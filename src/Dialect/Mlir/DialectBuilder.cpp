@@ -774,7 +774,7 @@ void MemRefBuilder::computeDynSymbols(
 // Alloc functions without alignment.
 
 memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
-  ValueRange dynSymbols;
+  llvm::SmallVector<Value, 4> dynSymbols;
   return alloc(type, dynSymbols);
 }
 
@@ -805,7 +805,7 @@ memref::AllocOp MemRefBuilder::alloc(
 
 memref::AllocOp MemRefBuilder::alignedAlloc(
     MemRefType type, int64_t alignment) const {
-  ValueRange dynSymbols;
+  llvm::SmallVector<Value, 4> dynSymbols;
   return alignedAlloc(type, dynSymbols, alignment);
 }
 
@@ -823,7 +823,7 @@ memref::AllocOp MemRefBuilder::alignedAlloc(
 }
 
 memref::AllocOp MemRefBuilder::alignedAlloc(
-    MemRefType type, Value operandOfSameType, int64_t alignment) const {
+    Value operandOfSameType, MemRefType type, int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(operandOfSameType, dynSymbols);
   return alignedAlloc(type, dynSymbols, alignment);
@@ -841,7 +841,7 @@ memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(
     mlir::MemRefType type, int64_t simdUnroll, int64_t alignment) const {
-  ValueRange dynSymbols;
+  llvm::SmallVector<Value, 4> dynSymbols;
   return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
 }
 
