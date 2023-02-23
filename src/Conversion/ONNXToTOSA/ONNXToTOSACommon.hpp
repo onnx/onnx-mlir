@@ -88,7 +88,6 @@ template <typename ONNXPoolOp, typename TOSAPoolOp>
 llvm::Optional<mlir::Value> convertPoolOp(
     mlir::PatternRewriter &rewriter, mlir::Operation *op) {
   using OpAdaptor = typename ONNXPoolOp::Adaptor;
-  auto poolOp = llvm::cast<ONNXPoolOp>(op);
   mlir::Location loc = op->getLoc();
   OpAdaptor adaptor(op->getOperands(), op->getAttrDictionary());
   // Get shape.

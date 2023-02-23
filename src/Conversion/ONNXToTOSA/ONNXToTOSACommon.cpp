@@ -429,6 +429,5 @@ llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
 
   return val;
 }
-
 } // namespace tosa
 } // namespace onnx_mlir
