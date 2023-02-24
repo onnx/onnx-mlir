@@ -93,8 +93,6 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc =
         create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
     // Perform the copy depending on the conditions.
     // We will store the current index to write into the output array in

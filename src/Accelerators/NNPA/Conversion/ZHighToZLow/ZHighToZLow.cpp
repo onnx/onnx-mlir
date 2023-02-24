@@ -30,10 +30,6 @@
 using namespace mlir;
 using namespace onnx_mlir::zlow;
 
-// A global variable to indicate whether this pass will emit dealloc for
-// allocated memrefs or not.
-extern bool ONNXToKrnl_gEmitDealloc;
-
 namespace onnx_mlir {
 namespace zhigh {
 
@@ -77,11 +73,7 @@ Value insertAllocAndDeallocZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
   // Insert alloc and dealloc.
   SmallVector<IndexExpr> dimList(dims.begin(), dims.end());
   MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
-  Value alloc = create.mem.alignedAlloc(resType, dimList, alignment);
-  // insertAllocAndDeallocSimple(rewriter, op, resType, loc, dimList,
-  //    /*insertDealloc*/ ONNXToKrnl_gEmitDealloc, alignment);
-
-  return alloc;
+  return create.mem.alignedAlloc(resType, dimList, alignment);
 }
 
 /// Insert allocation and deallocation for a 4K-aligned buffer of type
@@ -166,10 +158,7 @@ static Value insertAllocAndDeallocWorkAreaForRNNOps(
   MemRefType resultType = MemRefType::get({size}, rewriter.getIntegerType(8));
   SmallVector<IndexExpr> dims(1, sizeExpr);
   MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
-  alloc = create.mem.alignedAlloc(resultType, dims, gAlignment);
-  // insertAllocAndDeallocSimple(rewriter, nullptr, resultType, loc, dims,
-  //    /*insertDealloc*/ ONNXToKrnl_gEmitDealloc, gAlignment);
-  return alloc;
+  return create.mem.alignedAlloc(resultType, dims, gAlignment);
 }
 
 /// This function emits a buffer of zero elements for the given dimensions and
@@ -232,8 +221,6 @@ Value insertShapeMemRefI64(
   MemRefType shapeMemRefType = MemRefType::get(
       {(int64_t)originalDims.size()}, rewriter.getIntegerType(64));
   Value shapeMemRef = create.mem.alignedAlloc(shapeMemRefType);
-  // insertAllocAndDealloc(
-  //    shapeMemRefType, loc, rewriter, ONNXToKrnl_gEmitDealloc);
   for (uint64_t i = 0; i < originalDims.size(); ++i) {
     Value dim =
         create.math.cast(rewriter.getI64Type(), originalDims[i].getValue());
@@ -893,11 +880,6 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
     // Emit 'alloc' and 'dealloc' for work_area that is of 4K-aligned 8K bytes.
     Value workArea = create.mem.alignedAlloc(
         MemRefType::get({8 * 1024}, rewriter.getIntegerType(8)), gAlignment);
-    // insertAllocAndDealloc(
-    //    MemRefType::get({8 * 1024}, rewriter.getIntegerType(8)), loc,
-    //    rewriter,
-    //    /*insertDealloc=*/ONNXToKrnl_gEmitDealloc, {},
-    //    /*alignment=*/gAlignment);
 
     // Emit ZLow.softmax.
     rewriter.create<ZLowSoftmaxOp>(

@@ -47,11 +47,8 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc =
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Iterate over the output values.
-    // hi alex KrnlBuilder createKrnl(rewriter, loc);
     ValueRange outputLoopDef = create.krnl.defineLoops(outputRank);
     LiteralIndexExpr zeroIE(0);
     SmallVector<IndexExpr, 4> lbs(outputRank, zeroIE);

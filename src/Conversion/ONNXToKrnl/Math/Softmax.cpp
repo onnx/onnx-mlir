@@ -262,25 +262,13 @@ struct ONNXSoftmaxLowering : public ConversionPattern {
     Value input = operandAdaptor.getInput();
     // Insert an allocation and deallocation for the result of this operation.
     Type elementType = memRefType.getElementType();
-
     MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
-#if 1
     Value alloc = create.mem.alignedAlloc(input, memRefType);
-#else
-    Value alloc =
-        (hasAllConstantDimensions(memRefType))
-            ? create.mem.alignedAlloc(memRefType)
-            // insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : create.mem.alignedAlloc(input, memRefType);
-    // insertAllocAndDealloc(
-    //      memRefType, loc, rewriter, insertDealloc, input);
-#endif
+
     // Insert allocations and deallocations for sum and max.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
     Value sumOp = create.mem.alignedAlloc(scalarMemRefType);
-    // insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
     Value maxOp = create.mem.alignedAlloc(scalarMemRefType);
-    // insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
 
     Value zero = create.math.constant(elementType, 0);
     Value negInfinity = create.math.constant(

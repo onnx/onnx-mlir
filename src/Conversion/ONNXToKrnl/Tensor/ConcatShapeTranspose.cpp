@@ -100,8 +100,6 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
         typeConverter->convertType(outputShapeType).cast<MemRefType>();
     Value shapeAlloc = create.mem.alignedAlloc(
         convertedShapeType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, convertedShapeType, loc, shapeHelper.getOutputDims());
     Type elementType = convertedShapeType.getElementType();
     for (int64_t i = start; i < end; i++) {
       Value intVal =
@@ -117,8 +115,6 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     auto outputTransposeType = typeConverter->convertType(t).cast<MemRefType>();
     Value alloc =
         create.mem.alignedAlloc(outputTransposeType, outputTransposeDims);
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, outputTransposeType, loc, outputTransposeDims);
 
     // Creates loops, one for each input.
     // Since the each input should have same size for each dimension(except

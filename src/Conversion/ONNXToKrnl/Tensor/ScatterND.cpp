@@ -58,8 +58,6 @@ struct ONNXScatterNDOpLowering : public ConversionPattern {
     DimsExpr dataDims;
     create.krnlIE.getShapeAsDims(data, dataDims);
     Value output = create.mem.alignedAlloc(outputMemRefType, dataDims);
-    // insertAllocAndDeallocSimple(
-    //      rewriter, op, outputMemRefType, loc, dataDims);
 
     // Step1: copy `data` into `output`.
     Value numOfElements = getDynamicMemRefSize(rewriter, loc, data);

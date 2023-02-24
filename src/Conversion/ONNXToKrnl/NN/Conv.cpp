@@ -250,8 +250,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc =
         create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
     convUnoptimized(
         rewriter, convOp, operandAdaptor, shapeHelper, memRefType, alloc);

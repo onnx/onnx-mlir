@@ -51,8 +51,6 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     alloc = create.mem.alignedAlloc(memRefType, dims);
-    // insertAllocAndDeallocSimple(
-    //  rewriter, nullptr, memRefType, loc, dims, insertDealloc);
   } else {
     alloc = output;
   }
@@ -76,10 +74,7 @@ Value allocIntermediateState(
   dims.emplace_back(create.krnlIE.getShapeAsDim(R, 2));
   // The hidden or cell is not a return value but a temporary value, so always
   // dealloc it.
-  Value alloc = create.mem.alignedAlloc(memRefType, dims);
-  // insertAllocAndDeallocSimple(
-  //  rewriter, nullptr, memRefType, loc, dims, /*insertDealloc=*/true);
-  return alloc;
+  return create.mem.alignedAlloc(memRefType, dims);
 }
 
 /// Initialize the intermediate hidden and cell states.
@@ -179,8 +174,6 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
     alloc = create.mem.alignedAlloc(memRefType, dims);
-    // insertAllocAndDeallocSimple(
-    //  rewriter, nullptr, memRefType, loc, dims, insertDealloc);
   } else {
     alloc = output;
   }
@@ -322,8 +315,6 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
   dims.emplace_back(create.krnlIE.getShapeAsDim(X, 1));
   dims.emplace_back(create.krnlIE.getShapeAsDim(X, 2));
   Value sliceX = create.mem.alignedAlloc(sliceXType, dims);
-  // insertAllocAndDeallocSimple(
-  //  rewriter, nullptr, sliceXType, loc, dims, /*insertDealloc=*/false);
 
   // Copy data from X.
   Value iZero = create.math.constantIndex(0);

@@ -89,8 +89,6 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     Value cond;
     if (hasAllConstantDimensions(condMemRefTy))
       cond = create.mem.alignedAlloc(condMemRefTy);
-    // insertAllocAndDealloc(
-    //    condMemRefTy, loc, rewriter, /*insertDealloc=*/true);
     emitCopy(rewriter, loc, loopOpAdaptor.getCond(), cond);
 
     // Create the loop iteration.
@@ -350,24 +348,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         memRefType = MemRefType::get({1}, memRefType);
       }
 
-// Allocate memory for the loop-carried dependencies, since they are
-// guaranteed to have the same shape throughout all iterations, use their
-// initial value tensors as reference when allocating memory.
-#if 1
+      // Allocate memory for the loop-carried dependencies, since they are
+      // guaranteed to have the same shape throughout all iterations, use their
+      // initial value tensors as reference when allocating memory.
       MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
       Value alloc = create.mem.alignedAlloc(vInit, memRefType);
-#else
-      Value alloc;
-      MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
-      // hi alex bool shouldDealloc = checkInsertDealloc(op);
-      if (hasAllConstantDimensions(memRefType))
-        alloc = create.mem.alignedAlloc(memRefType);
-      // insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
-      else
-        alloc = create.mem.alignedAlloc(vInit, memRefType);
-// insertAllocAndDealloc(
-//    memRefType, loc, rewriter, shouldDealloc, vInit);
-#endif
       outputs.emplace_back(alloc);
     }
   }
@@ -392,10 +377,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       Value alloc;
       MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
           rewriter, loc);
-      // hi alex      bool shouldDealloc = checkInsertDealloc(op);
       if (hasAllConstantDimensions(memRefType))
         alloc = create.mem.alignedAlloc(memRefType);
-      // insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
       else {
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;

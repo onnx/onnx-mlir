@@ -61,13 +61,8 @@ struct ONNXTopKOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the results of this operation.
     Value resMemRef = create.mem.alignedAlloc(resMemRefType, resDims);
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, resMemRefType, loc, resDims, insertDealloc);
     Value resIndexMemRef = create.mem.alignedAlloc(
         MemRefType::get(resMemRefType.getShape(), i64Type), resDims);
-    // insertAllocAndDeallocSimple(rewriter, op,
-    //  MemRefType::get(resMemRefType.getShape(), i64Type), loc, resDims,
-    // insertDealloc);
 
     // Compute argSort of X along axis.
     Value argSort = emitArgSort(rewriter, loc, X, axis,

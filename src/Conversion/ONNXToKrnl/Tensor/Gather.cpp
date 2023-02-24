@@ -45,8 +45,6 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc =
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Operands and attributes.
     Value data = operandAdaptor.getData();

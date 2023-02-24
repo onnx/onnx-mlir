@@ -750,9 +750,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     // Insert an allocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
         memRefType, shapeHelper.getOutputDims(), alignment);
-    // insertAllocAndDeallocSimple(
-    //    rewriter, op, memRefType, loc, shapeHelper.getOutputDims(),
-    //    alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
@@ -823,8 +820,6 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
         outputMemRefType, shapeHelper.getOutputDims(), alignment);
-    // insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-    //    loc, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
@@ -916,8 +911,6 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
         outputMemRefType, shapeHelper.getOutputDims(), alignment);
-    // insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-    //    loc, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
@@ -1015,8 +1008,6 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc =
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {

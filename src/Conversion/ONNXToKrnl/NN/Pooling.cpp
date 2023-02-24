@@ -242,8 +242,6 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc =
         create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //    rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
     // input = Pool(output)
     //

@@ -56,8 +56,6 @@ struct ONNXConcatOpLowering : public ConversionPattern {
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
     Value alloc = create.mem.alignedAlloc(
         outputMemRefType, shapeHelper.getOutputDims(), alignment);
-    // insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-    //  loc, shapeHelper.getOutputDims(), alignment);
 
     // Creates loops, one for each input.
     // Since the each input should have same size for each dimension(except

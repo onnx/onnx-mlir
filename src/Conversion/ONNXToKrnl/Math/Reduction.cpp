@@ -198,31 +198,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     std::map<int64_t, int64_t> outInDimMap =
         getReductionMapping(memRefInType, axes, isKeepdims);
 
-// Insert an allocation and deallocation for the result of this operation.
-#if 1
+    // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(input, memRefOutType);
-#else
-    Value alloc;
-    if (hasAllConstantDimensions(memRefOutType))
-      alloc = create.mem.alignedAlloc(memRefOutType);
-    // insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
-    else {
-      auto memRefOutShape = memRefOutType.getShape();
-      SmallVector<Value, 2> allocOperands;
-      for (decltype(outRank) i = 0; i < outRank; ++i) {
-        if (memRefOutShape[i] < 0) {
-          auto dim = create.mem.dim(input, outInDimMap[i]);
-          allocOperands.push_back(dim);
-        }
-      }
-      alloc = create.mem.alignedAlloc(memRefOutType, allocOperands);
-      // hi alex if (insertDealloc) {
-      //  auto *parentBlock = alloc.getDefiningOp()->getBlock();
-      //  auto dealloc = create.mem.dealloc(alloc);
-      //  dealloc.getOperation()->moveBefore(&parentBlock->back());
-      //}
-    }
-#endif
 
     // There are two required and one optional Krnl loops:
     // - One to initialize the result memref,
@@ -435,8 +412,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
              "Failed to convert type to MemRefType");
       MemRefType maskTypeInMemRefType = convertedMaskType.cast<MemRefType>();
       maskVal = create.mem.alignedAlloc(maskTypeInMemRefType);
-      // insertAllocAndDealloc(
-      //    maskTypeInMemRefType, loc, rewriter, insertDealloc);
       falseVal = create.math.constant(rewriter.getIntegerType(1), 0);
       trueVal = create.math.constant(rewriter.getIntegerType(1), 1);
       valueOne = create.math.constantIndex(1);
@@ -533,7 +508,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     Value alloc;
     if (hasAllConstantDimensions(memRefOutType)) {
       alloc = create.mem.alignedAlloc(memRefOutType);
-      // insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
     } else {
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
@@ -553,11 +527,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         }
       }
       alloc = create.mem.alignedAlloc(memRefOutType, allocOperands);
-      // hi alex if (insertDealloc) {
-      //  Block *parentBlock = alloc.getDefiningOp()->getBlock();
-      //  auto dealloc = create.mem.dealloc(alloc);
-      //  dealloc.getOperation()->moveBefore(&parentBlock->back());
-      //}
     }
 
     // There are two required and one optional Krnl loops:

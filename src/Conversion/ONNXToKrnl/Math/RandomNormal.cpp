@@ -46,7 +46,6 @@ struct ONNXRandomNormalOpLowering : public ConversionPattern {
 
     // Insert alloc/dealloc pair for output tensor.
     Value alloc = create.mem.alignedAlloc(outputMemRefType);
-    // insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);
 
     // Compute the number of random values required:
     int64_t randomValues = 1;

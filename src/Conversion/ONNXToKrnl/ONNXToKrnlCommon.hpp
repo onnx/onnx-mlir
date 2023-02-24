@@ -42,10 +42,6 @@
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
-// A global variable to indicate whether this pass will emit dealloc for
-// allocated memrefs or not during the conversion of ONNX to Krnl.
-extern bool ONNXToKrnl_gEmitDealloc;
-
 //===----------------------------------------------------------------------===//
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
 // operations.
@@ -93,31 +89,6 @@ bool hasAllScalarValues(llvm::ArrayRef<mlir::Value> values);
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
 /// integer constants.
 bool indicesAreNonNegativeConstants(mlir::Value indices);
-
-#if 0
-
-/// Insert an allocation and deallocation for the given MemRefType.
-mlir::Value insertAllocAndDealloc(mlir::MemRefType type, mlir::Location loc,
-    mlir::PatternRewriter &rewriter, bool insertDealloc,
-    mlir::Value operand = nullptr, int64_t alignment = -1);
-
-// Insert an allocation and deallocation for the given MemRefType, handling
-// compile time relying on the above function, and extracting the runtime
-// definitions from the index expressions otherwise.
-mlir::Value insertAllocAndDeallocSimple(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::MemRefType type, mlir::Location loc,
-    llvm::SmallVectorImpl<IndexExpr> &outputDims, int64_t alignment = -1);
-// Same where boolean to assert if dealloc is to be gen or not is specified
-mlir::Value insertAllocAndDeallocSimple(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::MemRefType type, mlir::Location loc,
-    llvm::SmallVectorImpl<IndexExpr> &outputDims, bool insertDealloc,
-    int64_t alignment = -1);
-
-// Determine if current function returns the result value of the
-// current op being lowered. If it does then dealloc should not be
-// inserted.
-bool checkInsertDealloc(mlir::Operation *currentOp, int resultIndex = 0);
-#endif
 
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input

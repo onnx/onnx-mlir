@@ -165,16 +165,10 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         MemRefType::get({kCacheTile, jCacheTile}, elementType);
     SmallVector<IndexExpr, 1> empty;
     Value aBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
-    // insertAllocAndDeallocSimple(
-    //  rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
     Value bBuff = create.mem.alignedAlloc(bTileType, BUFFER_ALIGN);
-    // insertAllocAndDeallocSimple(
-    //  rewriter, gemmOp, bTileType, loc, empty, true, BUFFER_ALIGN);
     Value rBuff;
     if (mustTileR)
       rBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
-    // insertAllocAndDeallocSimple(
-    //    rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
 
     // 3) introduce the loops and permute them
     // I, J, K loop.
@@ -317,7 +311,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ONNXGemmOpAdaptor operandAdaptor(operands);
     ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
     Location loc = op->getLoc();
-    // hi alex IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
@@ -333,14 +326,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     Type elementType = outputMemRefType.getElementType();
     Value alloc = create.mem.alignedAlloc(
-        outputMemRefType, shapeHelper.getOutputDims(), (int64_t)BUFFER_ALIGN);
-    // insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-    //    loc, shapeHelper.getOutputDims(), (int64_t)BUFFER_ALIGN);
+        outputMemRefType, shapeHelper.getOutputDims(), BUFFER_ALIGN);
 
     // Get the constants: zero, alpha,and beta.
     float alphaLit = gemmOp.getAlpha().convertToFloat();
     float betaLit = gemmOp.getBeta().convertToFloat();
-    // hi alex MathBuilder createMath(rewriter, loc);
     Value alpha = create.math.constant(elementType, alphaLit);
     Value beta = create.math.constant(elementType, betaLit);
     Value zero = create.math.constant(elementType, 0);

@@ -46,8 +46,6 @@ struct ONNXDimOpLowering : public ConversionPattern {
     // Output is 1D memref of one element.
     SmallVector<IndexExpr, 1> outputDims(1, LiteralIndexExpr(1));
     Value alloc = create.mem.alignedAlloc(outputMemRefType, outputDims);
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, outputMemRefType, loc, outputDims);
 
     // Write the dimension at axis to the output.
     Value dimValue = create.krnlIE.getShapeAsDim(data, axis).getValue();

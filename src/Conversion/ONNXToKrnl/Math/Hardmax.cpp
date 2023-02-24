@@ -46,9 +46,6 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
         dim.isLiteral() ? dim.getLiteral() : ShapedType::kDynamic);
   Value resMemRef = create.mem.alignedAlloc(
       MemRefType::get(outputShape, indexType), outputUBS);
-  // insertAllocAndDeallocSimple(rewriter, nullptr,
-  //    MemRefType::get(outputShape, indexType), loc, outputUBS,
-  //    /*insertDealloc=*/true);
   create.krnl.memset(resMemRef, zero);
 
   ValueRange loopDef = create.krnl.defineLoops(rank);
@@ -114,8 +111,6 @@ struct ONNXHardmaxOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value resMemRef = create.mem.alignedAlloc(memRefType, ubs);
-    // insertAllocAndDeallocSimple(
-    //    rewriter, op, memRefType, loc, ubs, insertDealloc);
 
     // Compute argmax.
     Value argmax = emitArgmax(rewriter, loc, input, axis);

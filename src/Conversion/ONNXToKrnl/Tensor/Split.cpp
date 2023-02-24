@@ -50,8 +50,6 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
     MemRefType memRefType = convertedType.cast<MemRefType>();
     Value alloc =
         create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims(i));
-    // insertAllocAndDeallocSimple(
-    //      rewriter, op, memRefType, loc, shapeHelper.getOutputDims(i));
     allocs.emplace_back(alloc);
   }
 

@@ -285,18 +285,16 @@ struct FrontendToKrnlLoweringPass
   FrontendToKrnlLoweringPass() = default;
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
-  FrontendToKrnlLoweringPass(bool emitDealloc, bool enableTiling,
-      bool enableSIMD, bool enableParallel) {
+  FrontendToKrnlLoweringPass(
+      bool enableTiling, bool enableSIMD, bool enableParallel) {
     // Below, need explicit assignment to enable implicit conversion of bool to
     // Option<bool>.
-    this->emitDealloc = emitDealloc;
     this->enableTiling = enableTiling;
     this->enableSIMD = enableSIMD;
     this->enableParallel = enableParallel;
   }
   FrontendToKrnlLoweringPass(int optLevel, bool enableParallel)
-      : FrontendToKrnlLoweringPass(
-            /*emitDealloc=*/false, /*enableTiling=*/optLevel >= 3,
+      : FrontendToKrnlLoweringPass(/*enableTiling=*/optLevel >= 3,
             /*enableSIMD=*/optLevel >= 3, enableParallel) {}
 
   void runOnOperation() final;
@@ -317,10 +315,6 @@ public:
       llvm::cl::desc(
           "Emit intermediate IR rather than lowering to the krnl dialect."),
       llvm::cl::init(false)};
-  // Deprecated: the emit-dealloc option below is being deprecated
-  Option<bool> emitDealloc{*this, "emit-dealloc",
-      llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
-      llvm::cl::init(false)};
   Option<bool> enableTiling{*this, "enable-tiling",
       llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
       llvm::cl::init(false)};
@@ -332,11 +326,6 @@ public:
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
-
-  // Set up whether emitting dealloc for allocated memrefs or not.
-  // Deprecated: the emit-dealloc option below is being deprecated
-  assert(!emitDealloc && "this option is being deprecated");
-  ONNXToKrnl_gEmitDealloc = emitDealloc;
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -364,10 +353,10 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addIllegalOp<mlir::memref::StoreOp>();
   target.addIllegalOp<mlir::AffineStoreOp>();
 
-  // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
-  // at this level. Will use MLIR buffer-deallocation for this purpose instead.
-  // However, since the SequenceErase needs to emit memref dealloc, the previous
-  // the following statement is commented out (Chentong)
+  // Option`emitDealloc` is deprecated and turned off, make sure we don't have
+  // buffer deallocation at this level. Will use MLIR buffer-deallocation for
+  // this purpose instead. However, since the SequenceErase needs to emit memref
+  // dealloc, the previous the following statement is commented out (Chentong)
   // if (!emitDealloc) target.addIllegalOp<mlir::memref::DeallocOp>();
 
   // TODO: enable this once more ops are supported.
@@ -442,9 +431,9 @@ std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel, bool enableParallel) {
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass(
-    bool emitDealloc, bool enableTiling, bool enableSIMD, bool enableParallel) {
+    bool enableTiling, bool enableSIMD, bool enableParallel) {
   return std::make_unique<FrontendToKrnlLoweringPass>(
-      emitDealloc, enableTiling, enableSIMD, enableParallel);
+      enableTiling, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir

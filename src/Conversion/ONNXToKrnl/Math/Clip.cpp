@@ -50,17 +50,7 @@ struct ONNXClipOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc =
-#if 1
-        create.mem.alignedAlloc(input, memRefType);
-#else
-        (hasAllConstantDimensions(memRefType))
-            ? create.mem.alignedAlloc(memRefType)
-            // insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : create.mem.alignedAlloc(input, memRefType);
-    // insertAllocAndDealloc(
-    //      memRefType, loc, rewriter, insertDealloc, input);
-#endif
+    Value alloc = create.mem.alignedAlloc(input, memRefType);
     auto computeResult = [&](LocalDialectBuilder &create,
                              const ValueRange &indices) { // indices={i,j,k}
       Value loadedVal = create.krnl.load(input, indices); // load input[i,j,k]

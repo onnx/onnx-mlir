@@ -66,8 +66,6 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
     Value alloc = create.mem.alignedAlloc(outMemRefType, ubs, alignment);
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, outMemRefType, loc, ubs, alignment);
 
     // Insert loop over all inputs.
     ValueRange loopDef = create.krnl.defineLoops(rank);

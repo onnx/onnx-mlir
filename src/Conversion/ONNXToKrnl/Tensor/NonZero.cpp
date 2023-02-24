@@ -126,9 +126,6 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
           dimIE[0].isLiteral() ? dimIE[0].getLiteral() : ShapedType::kDynamic;
       Value alloc =
           create.mem.alignedAlloc(MemRefType::get({dim}, indexTy), dimIE);
-      // insertAllocAndDeallocSimple(rewriter, op,
-      //  MemRefType::get({dim}, indexTy), loc, dimIE,
-      ///*insertDealloc=*/true);
       // Initialize to zero.
       ValueRange initLoopDef = create.krnl.defineLoops(1);
       create.krnl.iterate(initLoopDef, initLoopDef, {iZero},
@@ -168,8 +165,6 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     dimExprs.emplace_back(LiteralIndexExpr(xRank));
     dimExprs.emplace_back(DimIndexExpr(numberOfZeros));
     Value resMemRef = create.mem.alignedAlloc(resMemRefType, dimExprs);
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, resMemRefType, loc, dimExprs, insertDealloc);
 
     // Emit code to compute the output for each dimension.
     // ```

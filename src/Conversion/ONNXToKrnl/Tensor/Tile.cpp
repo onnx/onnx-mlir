@@ -75,8 +75,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
     Value input = operandAdaptor.getInput();
     Value alloc =
         create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //      rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
     ValueRange loopDef = create.krnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
@@ -137,8 +135,6 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
 
     Value alloc = (hasAllConstantDimensions(outputMemRefType))
                       ? create.mem.alignedAlloc(outputMemRefType)
-                      // insertAllocAndDealloc(
-                      //      outputMemRefType, loc, rewriter, insertDealloc)
                       : insertAllocForTile(
                             outputMemRefType, loc, rewriter, input, repeats);
 

@@ -218,21 +218,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
       // Allocate memory for the loop-carried dependencies, since they are
       // guaranteed to have the same shape throughout all iterations, use
       // their initial value tensors as reference when allocating memory.
-#if 1
       MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
       Value alloc = create.mem.alignedAlloc(vInit, memRefType);
-#else
-      Value alloc;
-      MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
-      // hi alex bool shouldDealloc = checkInsertDealloc(op);
-      if (hasAllConstantDimensions(memRefType))
-        alloc = create.mem.alignedAlloc(memRefType);
-      // insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
-      else
-        alloc = create.mem.alignedAlloc(vInit, memRefType);
-// insertAllocAndDealloc(
-//    memRefType, loc, rewriter, shouldDealloc, vInit);
-#endif
       outputs.emplace_back(alloc);
     }
   }
@@ -255,11 +242,9 @@ struct ONNXScanOpLowering : public ConversionPattern {
       // The leading dimension is simply the number of iterations executed,
       // which is easier to obtain.
       Value alloc;
-      // hi alex bool shouldDealloc = checkInsertDealloc(op);
       MemRefBuilder createMemRef(rewriter, loc);
       if (hasAllConstantDimensions(memRefType))
         alloc = createMemRef.alignedAlloc(memRefType);
-      // insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
       else {
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
@@ -309,7 +294,6 @@ struct ONNXScanOpLowering : public ConversionPattern {
     // doesn't work alongside subgraph inlining.
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     alloc = create.mem.alignedAlloc(memRefType);
-    // insertAllocAndDealloc(memRefType, loc, rewriter, /*insertDealloc=*/0);
     return alloc;
   }
 

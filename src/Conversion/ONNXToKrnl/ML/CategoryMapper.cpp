@@ -92,8 +92,6 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc =
         create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
     // Generate a perfect hash table. The hash table will be used to lookup the
     // index of the input values.

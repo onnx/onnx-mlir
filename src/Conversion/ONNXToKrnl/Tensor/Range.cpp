@@ -73,7 +73,6 @@ struct ONNXRangeOpLowering : public ConversionPattern {
 
     if (hasAllConstantDimensions(memRefType))
       alloc = create.mem.alignedAlloc(memRefType);
-    // insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
       Value loadedLimit = (limitShape.size() == 0)
                               ? create.krnl.load(limit)

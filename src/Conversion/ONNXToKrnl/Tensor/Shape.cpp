@@ -48,8 +48,6 @@ struct ONNXShapeOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc =
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //      rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Compute the data selected by the Shape operator.
     DimsExpr selectedData;

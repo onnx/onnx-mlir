@@ -80,8 +80,6 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     // Insert alloc and dealloc
     Value alloc = (hasAllConstantDimensions(outputMemRefType))
                       ? create.mem.alignedAlloc(outputMemRefType)
-                      // insertAllocAndDealloc(
-                      //      outputMemRefType, loc, rewriter, insertDealloc)
                       : insertAllocForFlatten(
                             outputMemRefType, loc, rewriter, input, axisValue);
 

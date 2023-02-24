@@ -47,8 +47,6 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc =
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Load off/on vals found in values memref.
     LiteralIndexExpr minusOneIE(-1), zeroIE(0), oneIE(1);

@@ -42,15 +42,8 @@ struct ONNXSizeOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
-#if 1
     Value alloc = create.mem.alignedAlloc(resultOperand, memRefType);
-#else
-    Value alloc =
-        (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, {resultOperand});
-#endif
+
     // Accumulate static dimensions first.
     int64_t staticNumElement = 1;
     bool allStaticDimensions = true;

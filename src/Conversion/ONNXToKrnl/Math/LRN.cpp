@@ -61,8 +61,6 @@ struct ONNXLRNOpLowering : public ConversionPattern {
 
     Value alloc =
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     ValueRange outputLoopDef = create.krnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));

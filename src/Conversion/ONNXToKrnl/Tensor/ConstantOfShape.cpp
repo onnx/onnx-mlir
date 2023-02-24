@@ -50,7 +50,6 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     Value alloc;
     if (hasAllConstantDimensions(memRefType))
       alloc = create.mem.alignedAlloc(memRefType);
-    // insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
       SmallVector<Value, 2> allocOperands;
       // Load dimensions from the input.
@@ -64,12 +63,6 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
       }
       // Allocate memory.
       alloc = create.mem.alignedAlloc(memRefType, allocOperands);
-      // Insert deallocation if needed.
-      // hi alex if (insertDealloc) {
-      // hi alex   Block *parentBlock = alloc.getDefiningOp()->getBlock();
-      // hi alex   memref::DeallocOp dealloc = create.mem.dealloc(alloc);
-      // hi alex   dealloc.getOperation()->moveBefore(&parentBlock->back());
-      // hi alex }
     }
 
     // Get the constant value from the attribute 'value'.

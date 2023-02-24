@@ -412,8 +412,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Type elementType = outputMemRefType.getElementType();
     Value alloc =
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Get the constants: zero.
     Value zero = create.math.constant(elementType, 0);

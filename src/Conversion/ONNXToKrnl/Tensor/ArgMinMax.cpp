@@ -86,8 +86,6 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
 
     // Insert alloc and dealloc
     Value alloc = create.mem.alignedAlloc(reducedMemRefType, outputDims);
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, reducedMemRefType, loc, outputDims);
 
     // Constant Value
     Value minusOne = create.math.constant(reducedElementType, -1);

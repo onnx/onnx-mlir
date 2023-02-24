@@ -53,8 +53,6 @@ struct ONNXPadOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the output of this operation.
     Value resMemRef =
         create.mem.alignedAlloc(resMemRefType, shapeHelper.getOutputDims());
-    // insertAllocAndDeallocSimple(
-    //  rewriter, op, resMemRefType, loc, shapeHelper.getOutputDims());
 
     // Bounds.
     uint64_t rank = create.krnlIE.getShapedTypeRank(data);
