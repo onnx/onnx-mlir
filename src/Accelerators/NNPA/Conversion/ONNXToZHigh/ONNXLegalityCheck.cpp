@@ -542,6 +542,7 @@ bool isSuitableForZDNN<ONNXReduceMeanOp>(
   }
 
   // Check dimensions.
+  // TODO: this may need to use ShapedType::kDynamic
   if ((shapeData[2] < 0) || (shapeData[3] < 0) || (shapeData[2] > 1024) ||
       (shapeData[3] > 1024))
     return false;
@@ -576,6 +577,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
   llvm::Optional<ArrayAttr> activations = op.getActivations();
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
+  // TODO: this may need to use ShapedType::kDynamic
   if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] < 0)
     return false;
   // Check if R has static dimensions, and the direction dim is 1 or 2.
@@ -651,6 +653,7 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   llvm::Optional<ArrayAttr> activations = op.getActivations();
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
+  // TODO: this may need to use ShapedType::kDynamic
   if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] < 0)
     return false;
   // Check if R has static dimensions.
