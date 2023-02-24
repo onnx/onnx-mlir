@@ -164,6 +164,19 @@ def get_test_models():
 
         # Bitshift
 
+        # ==OP== BitwiseAnd
+        "test_bitwise_and_i32_2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_bitwise_and_i16_3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+
+        # ==OP== BitwiseOr
+        "test_bitwise_or_i32_2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_bitwise_or_i16_4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+
+        # ==OP== BitwiseXor
+        "test_bitwise_xor_i32_2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_bitwise_xor_i16_3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+
+
         # ==OP== Cast
         # ==LIM== Cast only between float and double types
         "test_cast_FLOAT_to_DOUBLE_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},

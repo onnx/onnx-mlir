@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch cpu --input ../test/backend/inference_backend.py --path . --notes --unsupported -->
+<!--- python3 documentOps.py --arch cpu --input /Users/philiplassen/coding/onnx-mlir/test/backend/inference_backend.py --path /Users/philiplassen/coding/onnx-mlir/utils --notes --unsupported -->
 
 # Supported ONNX Operation for Target *cpu*.
 
@@ -30,10 +30,10 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **Bernoulli** | |unsupported | |
 | **Binarizer** | |unsupported | |
 | **BitShift** | |unsupported | |
-| **BitwiseAnd** | |unsupported | |
+| **BitwiseAnd** |18 | | |
 | **BitwiseNot** | |unsupported | |
-| **BitwiseOr** | |unsupported | |
-| **BitwiseXor** | |unsupported | |
+| **BitwiseOr** |18 | | |
+| **BitwiseXor** |18 | | |
 | **BlackmanWindow** | |unsupported | |
 | **Cast** |13 |Cast only between float and double types. | |
 | **CastLike** | |unsupported | |
