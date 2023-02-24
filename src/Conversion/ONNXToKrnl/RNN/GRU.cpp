@@ -349,13 +349,13 @@ GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
 
   // Insert allocation and deallocation for the results of this operation.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, typeConverter,
-      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
-      op->getY());
+  state.allH =
+      allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getY());
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter,
-      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
-      op->getYH());
+  state.ht =
+      allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getYH());
 
   // Insert allocation and deallocation the intermediate Ht for the forward and
   // reverse directions.
