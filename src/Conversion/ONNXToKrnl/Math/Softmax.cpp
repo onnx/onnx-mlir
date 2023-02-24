@@ -264,7 +264,9 @@ struct ONNXSoftmaxLowering : public ConversionPattern {
     Type elementType = memRefType.getElementType();
 
     MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
-
+#if 1
+    Value alloc =create.mem.alignedAlloc(input, memRefType);
+#else
     Value alloc =
         (hasAllConstantDimensions(memRefType))
             ? create.mem.alignedAlloc(memRefType)
@@ -272,7 +274,7 @@ struct ONNXSoftmaxLowering : public ConversionPattern {
             : create.mem.alignedAlloc(input, memRefType);
     // insertAllocAndDealloc(
     //      memRefType, loc, rewriter, insertDealloc, input);
-
+#endif
     // Insert allocations and deallocations for sum and max.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
     Value sumOp = create.mem.alignedAlloc(scalarMemRefType);

@@ -27,9 +27,9 @@ struct ONNXSizeOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
     Location loc = op->getLoc();
-    bool insertDealloc = checkInsertDealloc(op);
     ONNXSizeOp sizeOp = cast<ONNXSizeOp>(op);
-    MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+        rewriter, loc);
 
     ONNXSizeOpAdaptor operandAdaptor(operands);
     Value data = operandAdaptor.getData();
@@ -42,12 +42,15 @@ struct ONNXSizeOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
+#if 1
+    Value alloc = create.mem.alignedAlloc(resultOperand, memRefType);
+#else
     Value alloc =
         (hasAllConstantDimensions(memRefType))
             ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
             : insertAllocAndDealloc(
                   memRefType, loc, rewriter, insertDealloc, {resultOperand});
-
+#endif
     // Accumulate static dimensions first.
     int64_t staticNumElement = 1;
     bool allStaticDimensions = true;
@@ -58,16 +61,14 @@ struct ONNXSizeOpLowering : public ConversionPattern {
         allStaticDimensions = false;
     }
     // Accumulate the remaining dimensions that are unknown.
-    MathBuilder createMath(rewriter, loc);
     Value noElements =
-        createMath.constant(memRefType.getElementType(), staticNumElement);
+        create.math.constant(memRefType.getElementType(), staticNumElement);
     if (!allStaticDimensions) {
-      MemRefBuilder createMemRef(rewriter, loc);
       for (size_t i = 0; i < dataShape.size(); i++) {
         if (ShapedType::isDynamic(dataShape[i])) {
-          Value index = createMemRef.dim(data, i);
-          Value dim = createMath.cast(memRefType.getElementType(), index);
-          noElements = createMath.mul(noElements, dim);
+          Value index = create.mem.dim(data, i);
+          Value dim = create.math.cast(memRefType.getElementType(), index);
+          noElements = create.math.mul(noElements, dim);
         }
       }
     }

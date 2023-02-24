@@ -194,17 +194,20 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     bool isKeepdims = (keepdims == 1) ? true : false;
 
     // Get type information
-    auto memRefOutShape = memRefOutType.getShape();
     auto elementOutType = memRefOutType.getElementType();
     std::map<int64_t, int64_t> outInDimMap =
         getReductionMapping(memRefInType, axes, isKeepdims);
 
-    // Insert an allocation and deallocation for the result of this operation.
+// Insert an allocation and deallocation for the result of this operation.
+#if 1
+    Value alloc = create.mem.alignedAlloc(input, memRefOutType);
+#else
     Value alloc;
     if (hasAllConstantDimensions(memRefOutType))
       alloc = create.mem.alignedAlloc(memRefOutType);
     // insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
     else {
+      auto memRefOutShape = memRefOutType.getShape();
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] < 0) {
@@ -219,6 +222,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       //  dealloc.getOperation()->moveBefore(&parentBlock->back());
       //}
     }
+#endif
 
     // There are two required and one optional Krnl loops:
     // - One to initialize the result memref,

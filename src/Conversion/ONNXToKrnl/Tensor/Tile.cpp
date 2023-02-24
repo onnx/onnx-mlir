@@ -23,8 +23,8 @@ namespace onnx_mlir {
 // Helper function to insert alloc and dealloc ops for memref of dynamic shape.
 //
 
-Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
-    ConversionPatternRewriter &rewriter, bool insertDealloc, Value inputOperand,
+Value insertAllocForTile(MemRefType memRefType, Location loc,
+    ConversionPatternRewriter &rewriter, Value inputOperand,
     Value repeatsOperand) {
   MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
       rewriter, loc);
@@ -45,13 +45,7 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
     }
   }
 
-  memref::AllocOp alloc = create.mem.alignedAlloc(memRefType, allocOperands);
-  if (insertDealloc) {
-    Block *parentBlock = alloc.getOperation()->getBlock();
-    memref::DeallocOp dealloc = create.mem.dealloc(alloc);
-    dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-  return alloc;
+  return create.mem.alignedAlloc(memRefType, allocOperands);
 }
 
 struct ONNXTileOpLowering : public ConversionPattern {
@@ -139,12 +133,12 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
 
-    bool insertDealloc = checkInsertDealloc(op);
     Value alloc = (hasAllConstantDimensions(outputMemRefType))
-                      ? insertAllocAndDealloc(
-                            outputMemRefType, loc, rewriter, insertDealloc)
-                      : insertAllocAndDeallocForTile(outputMemRefType, loc,
-                            rewriter, insertDealloc, input, repeats);
+                      ? create.mem.alignedAlloc(outputMemRefType)
+                      // insertAllocAndDealloc(
+                      //      outputMemRefType, loc, rewriter, insertDealloc)
+                      : insertAllocForTile(
+                            outputMemRefType, loc, rewriter, input, repeats);
 
     // Define loops and iteration trip counts (equivalent to size of output)
     std::vector<Value> originalLoops;

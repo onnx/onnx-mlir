@@ -127,7 +127,11 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
       return op->emitError("axis parameter could not be processed");
     axisIE = axisIE.selectOrSelf(axisIE < 0, axisIE + LiteralIndexExpr(rank));
 
-    // Insert an allocation and deallocation for the result of this operation.
+// Insert an allocation and deallocation for the result of this operation.
+#if 1
+    Value resMemRef = create.mem.alignedAlloc(X, memRefType);
+    Value bufMemRef = create.mem.alignedAlloc(X, memRefType);
+#else
     Value resMemRef, bufMemRef;
     if (hasAllConstantDimensions(memRefType)) {
       resMemRef = create.mem.alignedAlloc(memRefType);
@@ -140,7 +144,7 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
       bufMemRef = create.mem.alignedAlloc(X, memRefType);
       // insertAllocAndDealloc(memRefType, loc, rewriter, true, X);
     }
-
+#endif
     // Get the size of dimension 'axis'.
     IndexExpr axisSize = LiteralIndexExpr(-1);
     for (uint64_t i = 0; i < rank; ++i)

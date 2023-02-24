@@ -517,8 +517,10 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
         create.onnx.toMemref(create.onnx.matmul(matrixType, Ht, weightPack.Rr));
     Value rt, rtHt;
     if (hasAllConstantDimensions(matrixType)) {
-      rt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
-      rtHt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
+      // rt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
+      // rtHt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
+      rt = create.mem.alignedAlloc(matrixType);
+      rtHt = create.mem.alignedAlloc(matrixType);
     } else {
       // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.

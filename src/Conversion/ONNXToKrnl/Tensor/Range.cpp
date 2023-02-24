@@ -71,9 +71,9 @@ struct ONNXRangeOpLowering : public ConversionPattern {
                (deltaShape.size() == 1 && deltaShape[0] == 1)) &&
            "delta shape must be 0 or if 1, size must be 1");
 
-    bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = create.mem.alignedAlloc(memRefType);
+    // insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
       Value loadedLimit = (limitShape.size() == 0)
                               ? create.krnl.load(limit)
@@ -83,6 +83,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
              "limit shape must be 0 or if 1, size must be 1");
 
       Value numberOfElements;
+      // TODO: many of the ops below exists in the create.math
       TypeSwitch<Type>(elementType)
           .Case<Float16Type>([&](Type) {
             llvm_unreachable("Float 16 type not supported for Range op.");

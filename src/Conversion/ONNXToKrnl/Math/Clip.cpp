@@ -51,32 +51,32 @@ struct ONNXClipOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc =
+#if 1
+        create.mem.alignedAlloc(input, memRefType);
+#else
         (hasAllConstantDimensions(memRefType))
             ? create.mem.alignedAlloc(memRefType)
             // insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
             : create.mem.alignedAlloc(input, memRefType);
-            // insertAllocAndDealloc(
-            //      memRefType, loc, rewriter, insertDealloc, input);
-
-            auto computeResult =
-                [&](LocalDialectBuilder &create,
-                    const ValueRange &indices) { // indices={i,j,k}
-                  Value loadedVal =
-                      create.krnl.load(input, indices); // load input[i,j,k]
-                  Value res = loadedVal;
-                  if (!isFromNone(min)) {
-                    Value minVal = create.krnl.load(min); // load min
-                    Value lessThanMin =
-                        create.math.slt(res, minVal); // (input[i,j,k]<min)
-                    res = create.math.select(lessThanMin, minVal, res);
-                  }
-                  if (!isFromNone(max)) {
-                    Value maxVal = create.krnl.load(max);
-                    Value lessThanMax = create.math.slt(res, maxVal);
-                    res = create.math.select(lessThanMax, res, maxVal);
-                  }
-                  create.krnl.store(res, alloc, indices);
-                };
+    // insertAllocAndDealloc(
+    //      memRefType, loc, rewriter, insertDealloc, input);
+#endif
+    auto computeResult = [&](LocalDialectBuilder &create,
+                             const ValueRange &indices) { // indices={i,j,k}
+      Value loadedVal = create.krnl.load(input, indices); // load input[i,j,k]
+      Value res = loadedVal;
+      if (!isFromNone(min)) {
+        Value minVal = create.krnl.load(min);             // load min
+        Value lessThanMin = create.math.slt(res, minVal); // (input[i,j,k]<min)
+        res = create.math.select(lessThanMin, minVal, res);
+      }
+      if (!isFromNone(max)) {
+        Value maxVal = create.krnl.load(max);
+        Value lessThanMax = create.math.slt(res, maxVal);
+        res = create.math.select(lessThanMax, res, maxVal);
+      }
+      create.krnl.store(res, alloc, indices);
+    };
 
     // Create a loop only is one of the operands is not a scalar tensor.
     if (!hasAllScalarValues(operands)) {

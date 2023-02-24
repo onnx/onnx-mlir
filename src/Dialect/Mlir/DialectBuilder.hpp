@@ -286,11 +286,13 @@ struct MemRefBuilder final : DialectBuilder {
 private:
   mlir::IntegerAttr computeAlignment(int64_t alignment) const;
   void computeDynSymbols(
-      llvm::SmallVectorImpl<IndexExpr> &dims, // Index expr dims for type.
+      mlir::MemRefType type, // Use type to determine dynamic dimensions.
+      llvm::SmallVectorImpl<IndexExpr> &dims, // Get dyn syms from index expr.
       llvm::SmallVectorImpl<mlir::Value> &dynSymbols) // Output dim symbols.
       const;
   void computeDynSymbols(
-      mlir::Value operandOfSameType, // Extract dyn symbols from this op.
+      mlir::Value operandOfSameType, // Extract dyn symbols from this value.
+      mlir::MemRefType type, // Use type to determine dynamic dimensions.
       llvm::SmallVectorImpl<mlir::Value> &dynSymbols) // Output dim symbols.
       const;
 };
