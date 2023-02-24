@@ -94,6 +94,8 @@ bool hasAllScalarValues(llvm::ArrayRef<mlir::Value> values);
 /// integer constants.
 bool indicesAreNonNegativeConstants(mlir::Value indices);
 
+#if 0
+
 /// Insert an allocation and deallocation for the given MemRefType.
 mlir::Value insertAllocAndDealloc(mlir::MemRefType type, mlir::Location loc,
     mlir::PatternRewriter &rewriter, bool insertDealloc,
@@ -115,6 +117,7 @@ mlir::Value insertAllocAndDeallocSimple(mlir::PatternRewriter &rewriter,
 // current op being lowered. If it does then dealloc should not be
 // inserted.
 bool checkInsertDealloc(mlir::Operation *currentOp, int resultIndex = 0);
+#endif
 
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input

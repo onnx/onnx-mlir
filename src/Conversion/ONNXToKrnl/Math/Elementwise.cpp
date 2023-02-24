@@ -748,8 +748,11 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.getOutputDims(), alignment);
+    Value alloc = create.mem.alignedAlloc(
+        memRefType, shapeHelper.getOutputDims(), alignment);
+    // insertAllocAndDeallocSimple(
+    //    rewriter, op, memRefType, loc, shapeHelper.getOutputDims(),
+    //    alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
@@ -811,15 +814,17 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     uint64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder>
+        create(rewriter, loc);
     ONNXBroadcastOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE, nullptr, isUniBroadcasting);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-        loc, shapeHelper.getOutputDims(), alignment);
+    Value alloc = create.mem.alignedAlloc(
+        outputMemRefType, shapeHelper.getOutputDims(), alignment);
+    // insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
+    //    loc, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
@@ -903,14 +908,16 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     uint64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder>
+        create(rewriter, loc);
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-        loc, shapeHelper.getOutputDims(), alignment);
+    Value alloc = create.mem.alignedAlloc(
+        outputMemRefType, shapeHelper.getOutputDims(), alignment);
+    // insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
+    //    loc, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
@@ -1000,14 +1007,16 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     ONNXWhereOpAdaptor operandAdaptor(operands);
 
     // Shape helper.
-    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder>
+        create(rewriter, loc);
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
+    // insertAllocAndDeallocSimple(
+    //  rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {

@@ -29,8 +29,8 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     ONNXGatherOpAdaptor operandAdaptor(operands);
     ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
 
     // Get shape.
     ONNXGatherOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -43,8 +43,10 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
+    // insertAllocAndDeallocSimple(
+    //  rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Operands and attributes.
     Value data = operandAdaptor.getData();

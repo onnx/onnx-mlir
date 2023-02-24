@@ -30,7 +30,8 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     ONNXReverseSequenceOp reverseSequenceOp =
         llvm::cast<ONNXReverseSequenceOp>(op);
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
     // Get shape.
     ONNXReverseSequenceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -43,8 +44,10 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
+    // insertAllocAndDeallocSimple(
+    //  rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Save axis and rank info.
     int64_t batchAxis = reverseSequenceOp.getBatchAxis();

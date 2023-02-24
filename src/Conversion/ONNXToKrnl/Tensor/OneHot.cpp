@@ -30,8 +30,8 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     Value indices = operandAdaptor.getIndices();
     Value values = operandAdaptor.getValues();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
 
     // Get shape.
     ONNXOneHotOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -45,8 +45,10 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
+    // insertAllocAndDeallocSimple(
+    //  rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Load off/on vals found in values memref.
     LiteralIndexExpr minusOneIE(-1), zeroIE(0), oneIE(1);

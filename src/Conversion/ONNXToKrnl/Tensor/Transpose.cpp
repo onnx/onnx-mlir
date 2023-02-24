@@ -59,8 +59,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     }
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc =
-        insertAllocAndDeallocSimple(rewriter, op, outMemRefType, loc, outDims);
+    Value alloc = create.mem.alignedAlloc(outMemRefType, outDims);
+    //        insertAllocAndDeallocSimple(rewriter, op, outMemRefType, loc,
+    //        outDims);
 
     // If the last N dimensions are not permuted, do block copying for the last
     // N dimensions. Input and Output's MemRefs must use an identity layout to

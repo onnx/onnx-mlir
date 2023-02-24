@@ -57,8 +57,8 @@ struct ONNXTileOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
 
     // Get shape.
     ONNXTileOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -73,8 +73,10 @@ struct ONNXTileOpLowering : public ConversionPattern {
     uint64_t outputRank = memRefShape.size();
 
     Value input = operandAdaptor.getInput();
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
+    // insertAllocAndDeallocSimple(
+    //      rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
 
     ValueRange loopDef = create.krnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));

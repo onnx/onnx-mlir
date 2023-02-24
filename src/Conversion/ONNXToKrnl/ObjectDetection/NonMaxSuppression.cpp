@@ -162,17 +162,19 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
 /// BoundingBoxes: [num_of_batch, spatial_dimension, 4]
 static Value tryToUnflip(
     ConversionPatternRewriter &rewriter, Location loc, Value boundingBoxes) {
-  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-      rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+      create(rewriter, loc);
   SmallVector<IndexExpr, 4> ubs;
   create.krnlIE.getShapeAsDims(boundingBoxes, ubs);
   IndexExpr bs = ubs[0]; // batch size.
   IndexExpr ss = ubs[1]; // spatial size.
   LiteralIndexExpr zeroIE(0), oneIE(1), twoIE(2), threeIE(3);
 
-  Value resMemRef = insertAllocAndDeallocSimple(rewriter, nullptr,
-      boundingBoxes.getType().cast<MemRefType>(), loc, ubs,
-      /*insertDealloc=*/false);
+  Value resMemRef =
+      create.mem.alignedAlloc(boundingBoxes.getType().cast<MemRefType>(), ubs);
+  // insertAllocAndDeallocSimple(rewriter, nullptr,
+  //  boundingBoxes.getType().cast<MemRefType>(), loc, ubs,
+  ///*insertDealloc=*/false);
 
   ValueRange loopDef = create.krnl.defineLoops(2);
   create.krnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE}, {bs, ss},
@@ -305,9 +307,11 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     else
       outputShape.emplace_back(ShapedType::kDynamic);
     outputShape.emplace_back(3);
-    Value selectedMemRef = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(outputShape, indexType), loc, outputDims,
-        /*insertDealloc=*/true);
+    Value selectedMemRef = create.mem.alignedAlloc(
+        MemRefType::get(outputShape, indexType), outputDims);
+    // insertAllocAndDeallocSimple(rewriter, op,
+    //    MemRefType::get(outputShape, indexType), loc, outputDims,
+    //    /*insertDealloc=*/true);
     // Initialize with value -1.
     create.krnl.memset(selectedMemRef, create.math.constantIndex(-1));
 
@@ -336,9 +340,11 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
           SmallVector<int64_t, 1> shapes = {ShapedType::kDynamic};
           if (ssIE.isLiteral())
             shapes[0] = ssIE.getLiteral();
-          Value removedIndices = insertAllocAndDeallocSimple(rewriter, nullptr,
-              MemRefType::get(shapes, boolType), loc, dims,
-              /*insertDealloc=*/true);
+          Value removedIndices =
+              create.mem.alignedAlloc(MemRefType::get(shapes, boolType), dims);
+          // insertAllocAndDeallocSimple(rewriter, nullptr,
+          //    MemRefType::get(shapes, boolType), loc, dims,
+          //    /*insertDealloc=*/true);
           create.krnl.memset(removedIndices, falseVal);
 
           // Iterate in the descending order of scores.
@@ -444,10 +450,11 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     Value effectiveNSI = create.krnl.load(effectiveNumSelectedIndices, {});
     SmallVector<IndexExpr, 2> resDims = {
         DimIndexExpr(effectiveNSI), LiteralIndexExpr(3)};
-    bool insertDealloc = checkInsertDealloc(op);
-    Value resMemRef = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get({ShapedType::kDynamic, 3}, elementType), loc, resDims,
-        /*insertDealloc=*/insertDealloc);
+    Value resMemRef = create.mem.alignedAlloc(
+        MemRefType::get({ShapedType::kDynamic, 3}, elementType), resDims);
+    // insertAllocAndDeallocSimple(rewriter, op,
+    //    MemRefType::get({ShapedType::kDynamic, 3}, elementType), loc, resDims,
+    //    /*insertDealloc=*/insertDealloc);
 
     // Copy data to the final ouput.
     ValueRange resLoopDef = create.krnl.defineLoops(2);

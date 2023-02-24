@@ -47,7 +47,8 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
     IndexExprScope scope(&rewriter, loc);
     ARG_OP argOp = llvm::cast<ARG_OP>(op);
     typename ARG_OP::Adaptor operandAdaptor(operands);
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
 
     // Get shape.
@@ -84,8 +85,9 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
         getReductionMapping(dataType, llvm::ArrayRef(axes), isKeepdims);
 
     // Insert alloc and dealloc
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, reducedMemRefType, loc, outputDims);
+    Value alloc = create.mem.alignedAlloc(reducedMemRefType, outputDims);
+    // insertAllocAndDeallocSimple(
+    //  rewriter, op, reducedMemRefType, loc, outputDims);
 
     // Constant Value
     Value minusOne = create.math.constant(reducedElementType, -1);

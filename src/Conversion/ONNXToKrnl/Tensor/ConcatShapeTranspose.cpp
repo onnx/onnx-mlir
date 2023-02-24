@@ -32,7 +32,8 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXConcatShapeTransposeOpAdaptor operandAdaptor(
         operands, op->getAttrDictionary());
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
 
     // Get shape.
@@ -97,8 +98,10 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     // Alloc and set value for ShapeOp output
     auto convertedShapeType =
         typeConverter->convertType(outputShapeType).cast<MemRefType>();
-    Value shapeAlloc = insertAllocAndDeallocSimple(
-        rewriter, op, convertedShapeType, loc, shapeHelper.getOutputDims());
+    Value shapeAlloc = create.mem.alignedAlloc(
+        convertedShapeType, shapeHelper.getOutputDims());
+    // insertAllocAndDeallocSimple(
+    //  rewriter, op, convertedShapeType, loc, shapeHelper.getOutputDims());
     Type elementType = convertedShapeType.getElementType();
     for (int64_t i = start; i < end; i++) {
       Value intVal =
@@ -112,8 +115,10 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     ArrayAttr permAttr = operandAdaptor.getPermAttr();
     Type t = op->getResultTypes()[1];
     auto outputTransposeType = typeConverter->convertType(t).cast<MemRefType>();
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputTransposeType, loc, outputTransposeDims);
+    Value alloc =
+        create.mem.alignedAlloc(outputTransposeType, outputTransposeDims);
+    // insertAllocAndDeallocSimple(
+    //  rewriter, op, outputTransposeType, loc, outputTransposeDims);
 
     // Creates loops, one for each input.
     // Since the each input should have same size for each dimension(except

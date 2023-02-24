@@ -28,7 +28,8 @@ struct ONNXShapeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
 
     // Get shape.
@@ -45,8 +46,10 @@ struct ONNXShapeOpLowering : public ConversionPattern {
     // TODO: if the dimensions are known at compile time
     // (shapeHelper.dimsForOutput literal), then we could use a constant array.
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
+    // insertAllocAndDeallocSimple(
+    //      rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Compute the data selected by the Shape operator.
     DimsExpr selectedData;

@@ -55,8 +55,8 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
 
     // Transform simply copy the input data to the output data. Both must have
     // the same logical size so use the input ones (arbitrary).
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
     IndexExprScope outerScope(create.krnl);
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(data, ubs);
@@ -65,8 +65,9 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
     // operation.
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outMemRefType, loc, ubs, alignment);
+    Value alloc = create.mem.alignedAlloc(outMemRefType, ubs, alignment);
+    // insertAllocAndDeallocSimple(
+    //  rewriter, op, outMemRefType, loc, ubs, alignment);
 
     // Insert loop over all inputs.
     ValueRange loopDef = create.krnl.defineLoops(rank);

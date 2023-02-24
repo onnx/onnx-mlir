@@ -395,8 +395,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOpAdaptor operandAdaptor(operands);
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
-    MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>
+        create(rewriter, loc);
 
     // Get shape.
     ONNXMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -410,8 +410,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Type elementType = outputMemRefType.getElementType();
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
+    // insertAllocAndDeallocSimple(
+    //  rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
 
     // Get the constants: zero.
     Value zero = create.math.constant(elementType, 0);

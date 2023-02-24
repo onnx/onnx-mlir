@@ -132,6 +132,7 @@ bool indicesAreNonNegativeConstants(Value indices) {
 // hi alex
 #define DEBUG_NEW_ALLOC 1
 
+#if 0
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand,
@@ -231,6 +232,8 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   return insertAllocAndDeallocSimple(
       rewriter, op, type, loc, outputDims, insertDealloc, alignment);
 }
+
+#endif
 
 // Determine if current function returns the result value of the
 // current op or the result value of reinterpret_cast op whose
@@ -500,8 +503,9 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
 /// By default, sort values in the descending order.
 Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Value input, int64_t axis, bool ascending) {
-  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
-      rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+      MemRefBuilder>
+      create(rewriter, loc);
   IndexExprScope scope(create.krnl);
 
   MemRefType inputMemRefType = input.getType().cast<MemRefType>();
@@ -515,9 +519,11 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   create.krnlIE.getShapeAsDims(input, ubs);
 
   // Create and initialize the result.
-  Value order = insertAllocAndDeallocSimple(rewriter, nullptr,
-      MemRefType::get(inputMemRefType.getShape(), indexType), loc, ubs,
-      /*insertDealloc=*/true);
+  MemRefType type = MemRefType::get(inputMemRefType.getShape(), indexType);
+  Value order = create.mem.alignedAlloc(type, ubs);
+  // insertAllocAndDeallocSimple(rewriter, nullptr,
+  //  MemRefType::get(inputMemRefType.getShape(), indexType), loc, ubs,
+  ///*insertDealloc=*/true);
   ValueRange initLoopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
       [&](KrnlBuilder &createKrnl, ValueRange loopInd) {

@@ -27,21 +27,22 @@ int64_t dimAt(Value val, int index) {
 /// Insert Allocate and Deallocate for the all hidden output.
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, Value X, Value W, Value R, Value output,
-    bool insertDealloc) {
-  IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
-  IndexExprScope scope(createKrnlIE);
+    TypeConverter *typeConverter, Value X, Value W, Value R, Value output) {
+  MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
+      rewriter, loc);
+
+  IndexExprScope scope(create.krnlIE);
   Value alloc;
   if (!isFromNone(output)) {
     SmallVector<IndexExpr, 4> dims;
     // Get seq_length from X.
-    dims.emplace_back(createKrnlIE.getShapeAsDim(X, 0));
+    dims.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
     // Get num_directions from W.
-    dims.emplace_back(createKrnlIE.getShapeAsDim(W, 0));
+    dims.emplace_back(create.krnlIE.getShapeAsDim(W, 0));
     // Get batch_size from X.
-    dims.emplace_back(createKrnlIE.getShapeAsDim(X, 1));
+    dims.emplace_back(create.krnlIE.getShapeAsDim(X, 1));
     // Get hidden_size from R.
-    dims.emplace_back(createKrnlIE.getShapeAsDim(R, 2));
+    dims.emplace_back(create.krnlIE.getShapeAsDim(R, 2));
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(output.getType());
@@ -49,8 +50,9 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
-    alloc = insertAllocAndDeallocSimple(
-        rewriter, nullptr, memRefType, loc, dims, insertDealloc);
+    alloc = create.mem.alignedAlloc(memRefType, dims);
+    // insertAllocAndDeallocSimple(
+    //  rewriter, nullptr, memRefType, loc, dims, insertDealloc);
   } else {
     alloc = output;
   }
@@ -61,20 +63,22 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
 /// Shape :: [batch_size, hidden_size]
 Value allocIntermediateState(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
-  IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
-  IndexExprScope scope(createKrnlIE);
+  MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
+      rewriter, loc);
+  IndexExprScope scope(create.krnlIE);
   auto memRefType = MemRefType::get({/*batch_size=*/dimAt(X, 1),
                                         /*hidden_size=*/dimAt(R, 2)},
       X.getType().cast<ShapedType>().getElementType());
   SmallVector<IndexExpr, 2> dims;
   // Get batch_size from X.
-  dims.emplace_back(createKrnlIE.getShapeAsDim(X, 1));
+  dims.emplace_back(create.krnlIE.getShapeAsDim(X, 1));
   // Get hidden_size from R.
-  dims.emplace_back(createKrnlIE.getShapeAsDim(R, 2));
+  dims.emplace_back(create.krnlIE.getShapeAsDim(R, 2));
   // The hidden or cell is not a return value but a temporary value, so always
   // dealloc it.
-  Value alloc = insertAllocAndDeallocSimple(
-      rewriter, nullptr, memRefType, loc, dims, /*insertDealloc=*/true);
+  Value alloc = create.mem.alignedAlloc(memRefType, dims);
+  // insertAllocAndDeallocSimple(
+  //  rewriter, nullptr, memRefType, loc, dims, /*insertDealloc=*/true);
   return alloc;
 }
 
@@ -155,27 +159,28 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 /// Insert Allocate and Deallocate for the hidden or cell output.
 /// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, Value X, Value W, Value R, Value output,
-    bool insertDealloc) {
-  IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
-  IndexExprScope scope(createKrnlIE);
+    TypeConverter *typeConverter, Value X, Value W, Value R, Value output) {
+  MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
+      rewriter, loc);
+  IndexExprScope scope(create.krnlIE);
   Value alloc;
   if (!isFromNone(output)) {
     SmallVector<IndexExpr, 3> dims;
     // Get num_directions from W.
-    dims.emplace_back(createKrnlIE.getShapeAsDim(W, 0));
+    dims.emplace_back(create.krnlIE.getShapeAsDim(W, 0));
     // Get batch_size from X.
-    dims.emplace_back(createKrnlIE.getShapeAsDim(X, 1));
+    dims.emplace_back(create.krnlIE.getShapeAsDim(X, 1));
     // Get hidden_size from R.
-    dims.emplace_back(createKrnlIE.getShapeAsDim(R, 2));
+    dims.emplace_back(create.krnlIE.getShapeAsDim(R, 2));
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(output.getType());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
-    alloc = insertAllocAndDeallocSimple(
-        rewriter, nullptr, memRefType, loc, dims, insertDealloc);
+    alloc = create.mem.alignedAlloc(memRefType, dims);
+    // insertAllocAndDeallocSimple(
+    //  rewriter, nullptr, memRefType, loc, dims, insertDealloc);
   } else {
     alloc = output;
   }
@@ -316,8 +321,9 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
   SmallVector<IndexExpr, 2> dims;
   dims.emplace_back(create.krnlIE.getShapeAsDim(X, 1));
   dims.emplace_back(create.krnlIE.getShapeAsDim(X, 2));
-  Value sliceX = insertAllocAndDeallocSimple(
-      rewriter, nullptr, sliceXType, loc, dims, /*insertDealloc=*/false);
+  Value sliceX = create.mem.alignedAlloc(sliceXType, dims);
+  // insertAllocAndDeallocSimple(
+  //  rewriter, nullptr, sliceXType, loc, dims, /*insertDealloc=*/false);
 
   // Copy data from X.
   Value iZero = create.math.constantIndex(0);
