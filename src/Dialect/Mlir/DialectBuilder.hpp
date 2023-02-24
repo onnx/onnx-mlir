@@ -207,7 +207,7 @@ struct MemRefBuilder final : DialectBuilder {
 
   // Alloc for static shapes without alignment.
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
-  // Alloc for dynamic shapes without alignment.
+  // Alloc for static/dynamic shapes without alignment.
   mlir::memref::AllocOp alloc(
       mlir::MemRefType type, mlir::ValueRange dynSymbols) const;
   mlir::memref::AllocOp alloc(
@@ -215,10 +215,11 @@ struct MemRefBuilder final : DialectBuilder {
   mlir::memref::AllocOp alloc(
       mlir::MemRefType type, llvm::SmallVectorImpl<IndexExpr> &dims) const;
 
-  // Alloc for static shapes with alignment (gDefaultAllocAlign or greater).
+  // Alloc for static shapes with alignment.
+  // Minimum alignment is gDefaultAllocAlign.
   mlir::memref::AllocOp alignedAlloc(
       mlir::MemRefType type, int64_t align = defaultAlign) const;
-  // Alloc for dynamic shapes with alignment (gDefaultAllocAlign or greater).
+  // Alloc for static/dynamic shapes with alignment.
   mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type,
       mlir::ValueRange dynSymbols, int64_t align = defaultAlign) const;
   mlir::memref::AllocOp alignedAlloc(mlir::Value operandOfSameType,
@@ -236,7 +237,7 @@ struct MemRefBuilder final : DialectBuilder {
   // Alloc for static shapes with alignment and SIMD padding.
   mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
       int64_t simdUnroll = 1, int64_t align = defaultAlign) const;
-  // Alloc for dynamic shapes with alignment and SIMD padding.
+  // Alloc for static/dynamic shapes with alignment and SIMD padding.
   mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
       mlir::ValueRange dynSymbols, int64_t simdUnroll = 1,
       int64_t align = defaultAlign) const;

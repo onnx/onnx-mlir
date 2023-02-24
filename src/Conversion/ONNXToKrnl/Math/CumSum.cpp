@@ -95,7 +95,8 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     // Builder helper.
     IndexExprScope mainScope(&rewriter, loc);
 
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, IndexExprBuilderForKrnl>
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, IndexExprBuilderForKrnl,
+        MemRefBuilder>
         create(rewriter, loc);
 
     // Convert the output type to MemRefType.
@@ -128,15 +129,16 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value resMemRef, bufMemRef;
-    bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType)) {
-      resMemRef =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-      bufMemRef = insertAllocAndDealloc(memRefType, loc, rewriter, true);
+      resMemRef = create.mem.alignedAlloc(memRefType);
+      // insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      bufMemRef = create.mem.alignedAlloc(memRefType);
+      // insertAllocAndDealloc(memRefType, loc, rewriter, true);
     } else {
-      resMemRef =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, X);
-      bufMemRef = insertAllocAndDealloc(memRefType, loc, rewriter, true, X);
+      resMemRef = create.mem.alignedAlloc(X, memRefType);
+      // insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, X);
+      bufMemRef = create.mem.alignedAlloc(X, memRefType);
+      // insertAllocAndDealloc(memRefType, loc, rewriter, true, X);
     }
 
     // Get the size of dimension 'axis'.

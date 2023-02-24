@@ -223,11 +223,13 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
 /// Emit instructions to allocate a buffer to store original dimensions.
 Value insertShapeMemRefI64(
     PatternRewriter &rewriter, Location loc, ArrayRef<IndexExpr> originalDims) {
-  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+      rewriter, loc);
   MemRefType shapeMemRefType = MemRefType::get(
       {(int64_t)originalDims.size()}, rewriter.getIntegerType(64));
-  Value shapeMemRef = insertAllocAndDealloc(
-      shapeMemRefType, loc, rewriter, ONNXToKrnl_gEmitDealloc);
+  Value shapeMemRef = create.mem.alignedAlloc(shapeMemRefType);
+  // insertAllocAndDealloc(
+  //    shapeMemRefType, loc, rewriter, ONNXToKrnl_gEmitDealloc);
   for (uint64_t i = 0; i < originalDims.size(); ++i) {
     Value dim =
         create.math.cast(rewriter.getI64Type(), originalDims[i].getValue());
@@ -866,7 +868,8 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
     Value input = operands[0];
 
     // Helper builders.
-    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
+        rewriter, loc);
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
@@ -884,10 +887,12 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
     Value shape = insertShapeMemRefI64(rewriter, loc, dims);
 
     // Emit 'alloc' and 'dealloc' for work_area that is of 4K-aligned 8K bytes.
-    Value workArea = insertAllocAndDealloc(
-        MemRefType::get({8 * 1024}, rewriter.getIntegerType(8)), loc, rewriter,
-        /*insertDealloc=*/ONNXToKrnl_gEmitDealloc, {},
-        /*alignment=*/gAlignment);
+    Value workArea = create.mem.alignedAlloc(
+        MemRefType::get({8 * 1024}, rewriter.getIntegerType(8)), gAlignment);
+    //insertAllocAndDealloc(
+    //    MemRefType::get({8 * 1024}, rewriter.getIntegerType(8)), loc, rewriter,
+    //    /*insertDealloc=*/ONNXToKrnl_gEmitDealloc, {},
+    //    /*alignment=*/gAlignment);
 
     // Emit ZLow.softmax.
     rewriter.create<ZLowSoftmaxOp>(

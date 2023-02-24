@@ -263,19 +263,23 @@ struct ONNXSoftmaxLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     Type elementType = memRefType.getElementType();
 
-    bool insertDealloc = checkInsertDealloc(op);
+    MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
+
     Value alloc =
         (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, input);
+            ? create.mem.alignedAlloc(memRefType)
+            // insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
+            : create.mem.alignedAlloc(input, memRefType);
+    // insertAllocAndDealloc(
+    //      memRefType, loc, rewriter, insertDealloc, input);
 
     // Insert allocations and deallocations for sum and max.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-    Value sumOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
-    Value maxOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
+    Value sumOp = create.mem.alignedAlloc(scalarMemRefType);
+    // insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
+    Value maxOp = create.mem.alignedAlloc(scalarMemRefType);
+    // insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
 
-    MultiDialectBuilder<MathBuilder> create(rewriter, loc);
     Value zero = create.math.constant(elementType, 0);
     Value negInfinity = create.math.constant(
         elementType, -std::numeric_limits<float>::infinity());

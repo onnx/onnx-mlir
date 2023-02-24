@@ -44,19 +44,19 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     ArrayRef<int64_t> outputMemRefShape = outputMemRefType.getShape();
     int outputRank = outputMemRefShape.size();
     Type elementType = outputMemRefType.getElementType();
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, MemRefBuilder>
+        create(rewriter, loc);
 
     // Insert alloc/dealloc pair for output tensor.
-    bool insertDealloc = checkInsertDealloc(op);
-    Value alloc = insertAllocAndDealloc(
-        outputMemRefType, loc, rewriter, insertDealloc, input);
+    Value alloc = create.mem.alignedAlloc(input, outputMemRefType);
+    // insertAllocAndDealloc(
+    //  outputMemRefType, loc, rewriter, insertDealloc, input);
 
     // Compute the number of random values required.
     int64_t constantValues = 1;
     for (decltype(outputRank) i = 0; i < outputRank; ++i)
       if (outputMemRefShape[i] > 0)
         constantValues *= outputMemRefShape[i];
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
     Value numberOfRandomValues =
         create.math.constant(rewriter.getIndexType(), constantValues);
 

@@ -131,7 +131,7 @@ bool indicesAreNonNegativeConstants(Value indices) {
 
 // hi alex
 #define DEBUG_NEW_ALLOC 1
-#define DEBUG_NEW_ALLOC_NEVER_DEALLOC true
+
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Value operand,
