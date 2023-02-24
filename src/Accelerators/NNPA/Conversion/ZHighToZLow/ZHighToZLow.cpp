@@ -76,8 +76,10 @@ Value insertAllocAndDeallocZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
 
   // Insert alloc and dealloc.
   SmallVector<IndexExpr> dimList(dims.begin(), dims.end());
-  Value alloc = insertAllocAndDeallocSimple(rewriter, op, resType, loc, dimList,
-      /*insertDealloc*/ ONNXToKrnl_gEmitDealloc, alignment);
+  MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+  Value alloc = create.mem.alignedAlloc(resType, dimList, alignment);
+  // insertAllocAndDeallocSimple(rewriter, op, resType, loc, dimList,
+  //    /*insertDealloc*/ ONNXToKrnl_gEmitDealloc, alignment);
 
   return alloc;
 }
@@ -163,8 +165,10 @@ static Value insertAllocAndDeallocWorkAreaForRNNOps(
       sizeExpr.isLiteral() ? sizeExpr.getLiteral() : ShapedType::kDynamic;
   MemRefType resultType = MemRefType::get({size}, rewriter.getIntegerType(8));
   SmallVector<IndexExpr> dims(1, sizeExpr);
-  alloc = insertAllocAndDeallocSimple(rewriter, nullptr, resultType, loc, dims,
-      /*insertDealloc*/ ONNXToKrnl_gEmitDealloc, gAlignment);
+  MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+  alloc = create.mem.alignedAlloc(resultType, dims, gAlignment);
+  // insertAllocAndDeallocSimple(rewriter, nullptr, resultType, loc, dims,
+  //    /*insertDealloc*/ ONNXToKrnl_gEmitDealloc, gAlignment);
   return alloc;
 }
 
