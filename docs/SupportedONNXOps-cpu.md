@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python3 documentOps.py --arch cpu --input /Users/philiplassen/coding/onnx-mlir/test/backend/inference_backend.py --path /Users/philiplassen/coding/onnx-mlir/utils --notes --unsupported -->
+<!--- python3 documentOps.py --arch cpu --input ../test/backend/inference_backend.py --path . --notes --unsupported -->
 
 # Supported ONNX Operation for Target *cpu*.
 
