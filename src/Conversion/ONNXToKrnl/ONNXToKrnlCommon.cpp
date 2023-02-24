@@ -139,12 +139,8 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
   MemRefBuilder createMemRef(rewriter, loc);
 
 #if DEBUG_NEW_ALLOC
-  if (DEBUG_NEW_ALLOC_NEVER_DEALLOC || !insertDealloc) {
-    MemRefBuilder createMemRef(rewriter, loc);
     return createMemRef.alignedAlloc(operand, type, alignment);
-  }
-#endif
-
+#else
   // Put together alloc operands for any dynamic dimensions of the memref.
   memref::AllocOp alloc;
   if (operand) {
@@ -179,6 +175,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
   }
 
   return alloc;
+  #endif
 }
 
 // Simple version of insert alloc and dealloc that does not handle alignment
@@ -190,11 +187,9 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
     bool insertDealloc, int64_t alignment) {
 
 #if DEBUG_NEW_ALLOC
-  if (DEBUG_NEW_ALLOC_NEVER_DEALLOC || !insertDealloc) {
     MemRefBuilder createMemRef(rewriter, loc);
     return createMemRef.alignedAlloc(type, outputDims, alignment);
-  }
-#endif
+#else
   // Constant, use the normal insert with no additional operands or alignment.
   if (hasAllConstantDimensions(type))
     return insertAllocAndDealloc(
@@ -224,6 +219,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return allocOp;
+#endif
 }
 
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
