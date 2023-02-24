@@ -233,7 +233,6 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
       rewriter, op, type, loc, outputDims, insertDealloc, alignment);
 }
 
-#endif
 
 // Determine if current function returns the result value of the
 // current op or the result value of reinterpret_cast op whose
@@ -283,6 +282,7 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   }
   return insertDealloc;
 }
+#endif
 
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input

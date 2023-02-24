@@ -42,7 +42,6 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   // Alloc and dealloc.
   SmallVector<Value, 4> allocs;
   for (unsigned i = 0; i < outputNum; ++i) {
-    checkInsertDealloc(op, i);
     // Convert the output type to MemRefType.
     Type convertedType =
         typeConverter->convertType(splitOp.getOutputs()[i].getType());
