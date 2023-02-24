@@ -129,7 +129,8 @@ protected:
   mlir::LogicalResult setOutputDimsFromLiterals(
       llvm::SmallVector<int64_t, 4> shape, int n = 0, bool refineShape = true);
   // Helper for ops for which the output (n'th) is defined by the shape of
-  // another type. Type must have constant shape (all values>=0).
+  // another type. Type must have constant shape (all values !=
+  // ShapedType::kDynamic).
   mlir::LogicalResult setOutputDimsFromTypeWithConstantShape(
       mlir::Type type, int n = 0, bool refineShape = true);
 

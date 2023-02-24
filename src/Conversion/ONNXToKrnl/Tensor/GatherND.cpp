@@ -110,7 +110,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     // Reshape 'data' to shape [batchDimSize, data.shape[b:]]
     DimsExpr newDataShape = {BDS};
     for (int64_t i = b; i < dataRank; ++i) {
-      assert(dataShape[i] > 0 && "Cannot support data with dynamic dimensions");
+      assert(dataShape[i] != ShapedType::kDynamic && "Cannot support data with dynamic dimensions");
       LiteralIndexExpr dataDim(dataShape[i]);
       newDataShape.emplace_back(dataDim);
     }

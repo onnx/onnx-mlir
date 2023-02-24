@@ -444,7 +444,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         auto aShape = A.getType().cast<MemRefType>().getShape();
         auto bShape = B.getType().cast<MemRefType>().getShape();
         for (int i = 0; i < aRank - 2; ++i)
-          if (aShape[i] <= 0 || aShape[i] != bShape[i]) {
+          if (aShape[i] == ShapedType::kDynamic || aShape[i] != bShape[i]) {
             sameStaticBroadcast = false;
             break;
           }
