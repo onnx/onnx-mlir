@@ -889,8 +889,9 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
     // Emit 'alloc' and 'dealloc' for work_area that is of 4K-aligned 8K bytes.
     Value workArea = create.mem.alignedAlloc(
         MemRefType::get({8 * 1024}, rewriter.getIntegerType(8)), gAlignment);
-    //insertAllocAndDealloc(
-    //    MemRefType::get({8 * 1024}, rewriter.getIntegerType(8)), loc, rewriter,
+    // insertAllocAndDealloc(
+    //    MemRefType::get({8 * 1024}, rewriter.getIntegerType(8)), loc,
+    //    rewriter,
     //    /*insertDealloc=*/ONNXToKrnl_gEmitDealloc, {},
     //    /*alignment=*/gAlignment);
 

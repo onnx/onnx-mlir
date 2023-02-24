@@ -53,16 +53,17 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // Shape helper: compute output dims and scales.
     ONNXResizeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
-  #if 1
-    Value alloc = create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
-  #else
+#if 1
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
+#else
     if (hasAllConstantDimensions(memRefType)) {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     } else {
       alloc = insertAllocAndDeallocSimple(rewriter, op, memRefType, loc,
           shapeHelper.getOutputDims(), insertDealloc);
     }
-    #endif
+#endif
 
     // Call external function when the mode is not "nearest"
     // Create KrnlCallOp and replace the du chain

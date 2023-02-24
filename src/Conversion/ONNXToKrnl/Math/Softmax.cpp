@@ -265,7 +265,7 @@ struct ONNXSoftmaxLowering : public ConversionPattern {
 
     MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
 #if 1
-    Value alloc =create.mem.alignedAlloc(input, memRefType);
+    Value alloc = create.mem.alignedAlloc(input, memRefType);
 #else
     Value alloc =
         (hasAllConstantDimensions(memRefType))
