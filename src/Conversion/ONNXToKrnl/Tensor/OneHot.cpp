@@ -4,7 +4,7 @@
 
 //===---------------- OneHot.cpp - Lowering OneHot Op -------------------===//
 //
-// Copyright 2021-2022 The IBM Research Authors.
+// Copyright 2021-2023 The IBM Research Authors.
 //
 // =============================================================================
 //

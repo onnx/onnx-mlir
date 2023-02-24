@@ -4,7 +4,7 @@
 
 //===---------------- Flatten.cpp - Lowering Flatten Op -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //

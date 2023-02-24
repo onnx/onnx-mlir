@@ -4,7 +4,7 @@
 
 //====---------- KrnlSupport.cpp - Krnl-level support functions -----------===//
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -391,7 +391,7 @@ Operation *getLiveRangeFirstOp(KrnlGetRefOp getRef) {
 
   Operation *firstLoadStore = nullptr;
   topBlock->walk([&firstLoadStore, getRef](Operation *op) {
-    // If op is a Laod/Store, of any kind then assign it to lastLoadStore.
+    // If op is a Load/Store, of any kind then assign it to lastLoadStore.
     if (!firstLoadStore && isLoadStoreForGetRef(getRef, op))
       firstLoadStore = op;
   });
@@ -405,7 +405,7 @@ Operation *getLiveRangeLastOp(KrnlGetRefOp getRef) {
 
   Operation *lastLoadStore = nullptr;
   topBlock->walk([&lastLoadStore, getRef](Operation *op) {
-    // If op is a Laod/Store, of any kind then assign it to lastLoadStore.
+    // If op is a Load/Store, of any kind then assign it to lastLoadStore.
     if (isLoadStoreForGetRef(getRef, op))
       lastLoadStore = op;
   });
@@ -438,7 +438,7 @@ std::vector<Operation *> getLiveRange(KrnlGetRefOp getRef) {
   bool operationInLiveRange = false;
   topBlock->walk([&operations, &operationInLiveRange, lastLoadStore, getRef](
                      Operation *op) {
-    // If op is a Laod/Store, of any kind, then assign it to lastLoadStore.
+    // If op is a Load/Store, of any kind, then assign it to lastLoadStore.
     if (isLoadStoreForGetRef(getRef, op) && !operationInLiveRange)
       operationInLiveRange = true;
 

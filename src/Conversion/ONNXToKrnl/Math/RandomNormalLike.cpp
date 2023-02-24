@@ -4,7 +4,7 @@
 
 //===-------- RandomNormalLike.cpp - Lowering RandomNormal Op -------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //

@@ -4,7 +4,7 @@
 
 //===------------------- NonZero.cpp - Lowering NonZero Op ----------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -66,7 +66,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
   /// Thus, We rewrite the loop in Step 4 into an affine-compatible one as
   /// follows:
   /// ```
-  /// for i in range(nonzerocount):
+  /// for i in range(nonzeroCount):
   ///   p = -1, s = 0
   ///   for j in range(len(rsum0)):
   ///      s += rsum0[j]
@@ -168,7 +168,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
 
     // Emit code to compute the output for each dimension.
     // ```
-    // for i in range(nonzerocount):
+    // for i in range(nonzeroCount):
     //   p = -1, s = 0
     //   for j in range(len(rsum0)):
     //      s += rsum0[j]

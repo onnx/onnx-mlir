@@ -4,7 +4,7 @@
 
 //===---------------- Compress.cpp - Lowering Compress Op -----------------===//
 //
-// Copyright 2021-2022 The IBM Research Authors.
+// Copyright 2021-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -107,7 +107,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
     // Consider the cases.
     if (!axis.has_value()) {
-      // We iterate over the original loops, and in the innerblock we test for
+      // We iterate over the original loops, and in the inner block we test for
       // the condition. The output is 1D.
       //
       // readIndex = writeIndex = 0;

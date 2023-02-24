@@ -4,7 +4,7 @@
 
 //===-------------------- Loop.cpp - Lowering Loop Op ---------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -417,7 +417,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         }
         MemRefBuilder createMemRef(rewriter, loc);
         if (isDynamic) {
-          // Suppose the scanout type is is <d1 , d2,... dnxT>
+          // Suppose the scan out type is is <d1 , d2,... dnxT>
           // Use memref<d1xmemref<d2, ..., dnxT>>
           // seqElementType: memref<d2, ..., dnxT>
           Type elementType = rankedScanOutTy.getElementType();
@@ -620,11 +620,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(&whileOp.getAfter().front());
 
       // Handle loop body
-      // Most code is copied from the lamda function of krnl.iterate
+      // Most code is copied from the lambda function of krnl.iterate
       // for LoopOp
 
       // Differences: no need to construct scf.if since the condition
-      // is checked with iteratation variable in the first block of
+      // is checked with iteration variable in the first block of
       // WhileOp
 
       // Contain the ThenRegion with KrnlRegionOp

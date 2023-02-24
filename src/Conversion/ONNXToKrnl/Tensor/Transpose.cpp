@@ -4,7 +4,7 @@
 
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -155,7 +155,7 @@ private:
     uint64_t rank = inMemRefType.getRank();
     uint64_t outerRank = rank - numLastDims;
 
-    // Input and output upperbounds.
+    // Input and output upper bounds.
     SmallVector<IndexExpr, 4> inUBs;
     create->krnlIE.getShapeAsDims(inputMemRef, inUBs);
     SmallVector<IndexExpr, 4> outUBs;

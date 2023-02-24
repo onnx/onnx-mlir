@@ -4,7 +4,7 @@
 
 //===----------------- RNN.cpp - Lowering RNN Op --------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -276,7 +276,7 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
       allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.getX(),
           operandAdaptor.getW(), operandAdaptor.getR(), op->getYH());
 
-  // Insert allocation and deallocation the intermedidate Ht for the forward and
+  // Insert allocation and deallocation the intermediate Ht for the forward and
   // reverse directions.
   // Ht :: [batch_size, hidden_size]
   // Ct :: [batch_size, hidden_size]

@@ -4,7 +4,7 @@
 
 //===----------------ONNXShapeHelper.cpp - help for shapes----------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //

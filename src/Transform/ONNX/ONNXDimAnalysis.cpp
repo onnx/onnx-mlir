@@ -4,7 +4,7 @@
 
 //===-------- ONNXDimAnalysis.cpp - ONNX Dimension Analysis ---------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //

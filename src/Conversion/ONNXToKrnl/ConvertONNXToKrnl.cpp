@@ -4,7 +4,7 @@
 
 //====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering -------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -53,10 +53,10 @@ public:
         rewriter.getI32IntegerAttr(entryPointFunc.getResultTypes().size());
     std::string sig =
         getSignature(entryPointFunc.getFunctionType(), entryPointOp);
-    StringAttr sigAtrr = rewriter.getStringAttr(sig);
+    StringAttr sigAttr = rewriter.getStringAttr(sig);
 
     rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(
-        op, funcRefAttr, numInputsAttr, numOutputsAttr, sigAtrr);
+        op, funcRefAttr, numInputsAttr, numOutputsAttr, sigAttr);
     return success();
   }
 

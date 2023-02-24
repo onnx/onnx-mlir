@@ -4,7 +4,7 @@
 
 //===----- NonMaxSuppression.cpp - Lowering NonMaxSuppression Op ----------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //

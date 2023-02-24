@@ -4,11 +4,11 @@
 
 //===--------------- RNNBase.cpp - Lowering RNN Ops -----------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file defines base functions for lowerng the ONNX RNN Operators.
+// This file defines base functions for lowering the ONNX RNN Operators.
 //
 //===----------------------------------------------------------------------===//
 

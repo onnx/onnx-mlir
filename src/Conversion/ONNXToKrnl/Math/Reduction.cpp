@@ -4,7 +4,7 @@
 
 //===-------------- Reduction.cpp - Lowering Reduction Ops ----------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -181,9 +181,9 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       for (auto axis : definedAxes) {
         if (axis < -inRank || axis > inRank - 1)
           return emitError(loc, "axes value out of range");
-        int64_t newaxis = axis >= 0 ? axis : (inRank + axis);
-        if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
-          axes.push_back(newaxis);
+        int64_t newAxis = axis >= 0 ? axis : (inRank + axis);
+        if (std::find(axes.begin(), axes.end(), newAxis) == axes.end())
+          axes.push_back(newAxis);
       }
     } else
       for (decltype(inRank) i = 0; i < inRank; ++i)
@@ -423,7 +423,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       Value initVal;
       if (axesDim == ShapedType::kDynamic &&
           !reduceSumOp.getNoopWithEmptyAxes()) {
-        IndexExprScope axesloopContex(&rewriter, loc);
+        IndexExprScope axesLoopContex(&rewriter, loc);
         Value zeroIndex = create.math.constantIndex(0);
         IndexExpr axesBound0 = create.krnlIE.getShapeAsDim(axesVal, 0);
         Value cond = create.math.eq(axesBound0.getValue(), zeroIndex);
@@ -492,9 +492,9 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           if (axis < -inRank || axis > inRank - 1) {
             return emitError(loc, "axes value out of range");
           }
-          int64_t newaxis = axis >= 0 ? axis : (inRank + axis);
-          if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
-            axes.push_back(newaxis);
+          int64_t newAxis = axis >= 0 ? axis : (inRank + axis);
+          if (std::find(axes.begin(), axes.end(), newAxis) == axes.end())
+            axes.push_back(newAxis);
         }
       } else if (!reduceSumOp.getNoopWithEmptyAxes()) {
         for (decltype(inRank) i = 0; i < inRank; ++i) {
