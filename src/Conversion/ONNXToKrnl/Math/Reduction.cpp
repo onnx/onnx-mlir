@@ -511,7 +511,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     } else {
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
-        if (memRefOutShape[i] < 0) {
+        if (memRefOutShape[i] == ShapedType::kDynamic) {
           if (dynamicAxes) {
             // Dim size: maskVal[i] ? 1 : inputDim[i]
             Value inputDim = create.mem.dim(input, i);

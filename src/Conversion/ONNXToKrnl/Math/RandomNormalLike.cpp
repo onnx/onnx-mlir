@@ -53,14 +53,14 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     // Compute the number of random values required.
     int64_t constantValues = 1;
     for (decltype(outputRank) i = 0; i < outputRank; ++i)
-      if (outputMemRefShape[i] > 0)
+      if (outputMemRefShape[i] != ShapedType::kDynamic)
         constantValues *= outputMemRefShape[i];
     Value numberOfRandomValues =
         create.math.constant(rewriter.getIndexType(), constantValues);
 
     // Incorporate any dynamic values into the number of values:
     for (decltype(outputRank) i = 0; i < outputRank; ++i) {
-      if (outputMemRefShape[i] < 0) {
+      if (outputMemRefShape[i] == ShapedType::kDynamic) {
         Value dim = create.mem.dim(input, i);
         numberOfRandomValues = create.math.mul(numberOfRandomValues, dim);
       }

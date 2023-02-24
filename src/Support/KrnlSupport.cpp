@@ -214,7 +214,7 @@ bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp) {
 bool hasAllConstantDimensions(MemRefType memRefType) {
   auto memRefShape = memRefType.getShape();
   for (unsigned int i = 0; i < memRefShape.size(); ++i)
-    if (memRefShape[i] < 0)
+    if (memRefShape[i] == ShapedType::kDynamic)
       return false;
   return true;
 }
@@ -333,8 +333,8 @@ Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
   int dynDimIdx = 0;
 
   for (unsigned int idx = 0; idx < rank; ++idx) {
-    if (memRefShape[idx] < 0) {
-      // Dyanmic size.
+    if (memRefShape[idx] == ShapedType::kDynamic) {
+      // Dynamic size.
       auto dynamicDim = allocOp.getOperands()[dynDimIdx];
       dynDimIdx++;
       result = create.math.mul(result, dynamicDim);
@@ -363,7 +363,7 @@ int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index) {
 
   int dynDimIdx = 0;
   for (unsigned int idx = 0; idx < rank; ++idx) {
-    if (memRefShape[idx] < 0) {
+    if (memRefShape[idx] == ShapedType::kDynamic) {
       if (idx == index)
         return dynDimIdx;
       dynDimIdx++;
