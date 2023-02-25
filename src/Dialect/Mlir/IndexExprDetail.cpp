@@ -5,7 +5,7 @@
 //===---------------IndexExprDetail.hpp - Index expression details---------===
 ////
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -470,6 +470,16 @@ Value IndexExprImpl::getValue() {
     SmallVector<Value, 4> list;
     getScope().getDimAndSymbolList(list);
     value = getRewriter().create<AffineApplyOp>(getLoc(), map, list);
+  } else if (isQuestionmark()) {
+    // There are cases where shape inference cannot determine the size even at
+    // runtime before running some specialized computations. For example,
+    // compress need to scan the vector of condition at runtime to determine the
+    // actual number of output values. Thus we are ok with letting QuestionMarks
+    // flow in such situations.
+    // Note that this index expression / shape will have to be updated in some
+    // ways before allocating an array based on this shape. This will be the
+    // responsibility of the lowering pass.
+    return nullptr;
   } else {
     llvm_unreachable("bad path");
   }

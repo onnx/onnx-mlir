@@ -4,7 +4,7 @@
 
 //===------------------ Normalization.cpp - ONNX Operations ---------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -122,7 +122,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
     auto bShape = bType.getShape();
     if (bShape.size() != 1)
       return emitOpError("Bias should have a rank of one");
-    if (bShape[0] >= 0 && inputShape[1] >= 0 && bShape[0] != inputShape[1])
+    if (bShape[0] != ShapedType::kDynamic &&
+        inputShape[1] != ShapedType::kDynamic && bShape[0] != inputShape[1])
       return emitOpError(
           "Bias should have same dimension as the second dimension of input");
     if (bType.getElementType() != inputElementType)
@@ -136,8 +137,8 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
     auto scaleShape = scaleType.getShape();
     if (scaleShape.size() != 1)
       return emitOpError("Scale should have a rank of one");
-    if (scaleShape[0] >= 0 && inputShape[1] >= 0 &&
-        scaleShape[0] != inputShape[1])
+    if (scaleShape[0] != ShapedType::kDynamic &&
+        inputShape[1] != ShapedType::kDynamic && scaleShape[0] != inputShape[1])
       return emitOpError(
           "Scale should have same dimension as the second dimension of input");
     if (scaleType.getElementType() != inputElementType)

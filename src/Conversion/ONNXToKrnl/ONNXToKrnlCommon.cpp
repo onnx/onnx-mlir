@@ -4,7 +4,7 @@
 
 //====----- ONNXToKrnlCommon.cpp - ONNX dialects to Krnl lowering ---------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -20,8 +20,6 @@
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
-
-bool ONNXToKrnl_gEmitDealloc = false;
 
 using namespace mlir;
 
@@ -129,141 +127,6 @@ bool indicesAreNonNegativeConstants(Value indices) {
       [](const IntegerAttr &val) { return val.getInt() >= 0; });
 }
 
-/// Insert an allocation and deallocation for the given MemRefType.
-Value insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter &rewriter, bool insertDealloc, Value operand,
-    int64_t alignment) {
-  MemRefBuilder createMemRef(rewriter, loc);
-  // Put together alloc operands for any dynamic dimensions of the memref.
-  memref::AllocOp alloc;
-  if (operand) {
-    auto memRefShape = type.getShape();
-    auto rank = memRefShape.size();
-
-    SmallVector<Value, 4> allocOperands;
-    for (unsigned int i = 0; i < rank; ++i)
-      if (memRefShape[i] < 0) {
-        auto dim = createMemRef.dim(operand, i);
-        allocOperands.push_back(dim);
-      }
-    alloc = createMemRef.alignedAlloc(type, allocOperands, alignment);
-  } else {
-    alloc = createMemRef.alignedAlloc(type, alignment);
-  }
-
-  if (!ONNXToKrnl_gEmitDealloc)
-    return alloc;
-
-  // Make sure to allocate at the beginning of the block if
-  // all dimensions are known.
-  auto *parentBlock = alloc.getOperation()->getBlock();
-  if (hasAllConstantDimensions(type))
-    alloc.getOperation()->moveBefore(&parentBlock->front());
-
-  if (insertDealloc) {
-    auto dealloc = createMemRef.dealloc(alloc);
-    dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-
-  return alloc;
-}
-
-// Simple version of insert alloc and dealloc that does not handle alignment
-// or additional operands (to be studied and added as needed). For unknown
-// dimensions, it uses the index expressions to retrieve the corresponding
-// values.
-Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
-    bool insertDealloc, int64_t alignment) {
-  // Constant, use the normal insert with no additional operands or alignment.
-  if (hasAllConstantDimensions(type))
-    return insertAllocAndDealloc(
-        type, loc, rewriter, insertDealloc, nullptr, alignment);
-  // Otherwise, take the unknown operands from the output dim IndexExpressions
-  SmallVector<Value, 2> allocOperands;
-  auto memRefShape = type.getShape();
-  auto rank = memRefShape.size();
-
-  for (unsigned int i = 0; i < rank; ++i) {
-    if (memRefShape[i] < 0) {
-      // have dyn shape
-      allocOperands.emplace_back(outputDims[i].getValue());
-    }
-  }
-  MemRefBuilder createMemRef(rewriter, loc);
-  memref::AllocOp allocOp =
-      createMemRef.alignedAlloc(type, allocOperands, alignment);
-
-  if (!ONNXToKrnl_gEmitDealloc)
-    return allocOp;
-
-  if (insertDealloc) {
-    auto *parentBlock = allocOp.getOperation()->getBlock();
-    auto dealloc = createMemRef.dealloc(allocOp);
-    dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-  return allocOp;
-}
-
-Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
-    int64_t alignment) {
-
-  bool insertDealloc = checkInsertDealloc(op);
-
-  return insertAllocAndDeallocSimple(
-      rewriter, op, type, loc, outputDims, insertDealloc, alignment);
-}
-
-// Determine if current function returns the result value of the
-// current op or the result value of reinterpret_cast op whose
-// operand is the result value of current op. If it does then
-// dealloc should not be inserted.
-bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
-  if (ONNXToKrnl_gEmitDealloc == false)
-    return false;
-
-  auto parentBlock = currentOp->getBlock();
-  bool insertDealloc = true;
-
-  // Check if the result value of `currentOp` is an operand of
-  // `ReinterpretCastOp`, and store the result value of `ReinterpretCastOp`.
-  // Reshape, Squeeze, and Unsqueeze ops are checked because they are lowered
-  // to `ReinterpretCastOp`.
-  SmallVector<Value, 32> castOpResults;
-  if (currentOp->getNumResults() > 0) {
-    parentBlock->walk([currentOp, resultIndex, &castOpResults](Operation *op) {
-      if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
-          isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op) ||
-          isa<ONNXSqueezeOp>(op) || isa<ONNXUnsqueezeOp>(op)) {
-        auto result = currentOp->getResult(resultIndex);
-        for (const auto &operand : op->getOperands())
-          if (operand == result)
-            castOpResults.emplace_back(op->getResults()[0]);
-      }
-    });
-  }
-  // If there is at least one result to investigate.
-  if (currentOp->getNumResults() > 0) {
-    parentBlock->walk([&insertDealloc, currentOp, resultIndex, &castOpResults](
-                          func::ReturnOp op) {
-      auto result = currentOp->getResult(resultIndex);
-      for (const auto &operand : op.getOperands()) {
-        // Determine if current function returns the result value of the
-        // current op.
-        if (operand == result)
-          insertDealloc = false;
-        // Determine if the result value of reinterpret_cast op whose operand
-        // is the result value of current op
-        for (const auto &castOpResult : castOpResults)
-          if (operand == castOpResult)
-            insertDealloc = false;
-      }
-    });
-  }
-  return insertDealloc;
-}
-
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
 // type.
@@ -300,7 +163,8 @@ std::map<int64_t, int64_t> getReductionMapping(
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     krnl::KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
-  if (shape[index] < 0) {
+  assert(shape[index] != -1 && "expected kDynamic, not -1");
+  if (shape[index] == ShapedType::kDynamic) {
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     pack.pushConstantBound(0);
     pack.pushOperandBound(create.mem.dim(operand, index));
@@ -324,7 +188,8 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type) {
   MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
   ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
-  return (shape[axis] < 0)
+  assert(shape[axis] != -1 && "expected kDynamic, not -1");
+  return (shape[axis] == ShapedType::kDynamic)
              ? create.math.cast(type, create.mem.dim(operand, axis))
              : create.math.constant(type, shape[axis]);
 }
@@ -481,8 +346,9 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
 /// By default, sort values in the descending order.
 Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Value input, int64_t axis, bool ascending) {
-  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
-      rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+      MemRefBuilder>
+      create(rewriter, loc);
   IndexExprScope scope(create.krnl);
 
   MemRefType inputMemRefType = input.getType().cast<MemRefType>();
@@ -496,9 +362,8 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   create.krnlIE.getShapeAsDims(input, ubs);
 
   // Create and initialize the result.
-  Value order = insertAllocAndDeallocSimple(rewriter, nullptr,
-      MemRefType::get(inputMemRefType.getShape(), indexType), loc, ubs,
-      /*insertDealloc=*/true);
+  MemRefType type = MemRefType::get(inputMemRefType.getShape(), indexType);
+  Value order = create.mem.alignedAlloc(type, ubs);
   ValueRange initLoopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
       [&](KrnlBuilder &createKrnl, ValueRange loopInd) {

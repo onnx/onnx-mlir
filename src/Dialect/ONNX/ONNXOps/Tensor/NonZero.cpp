@@ -28,7 +28,9 @@ template <>
 LogicalResult ONNXNonZeroOpShapeHelper::computeShape() {
   ONNXNonZeroOpAdaptor operandAdaptor(operands);
   int64_t xRank = createIE->getShapedTypeRank(operandAdaptor.getX());
-  return setOutputDimsFromLiterals({xRank, -1});
+  // Cannot refine shape as we may otherwise loose the dynamic dim.
+  return setOutputDimsFromLiterals(
+      {xRank, ShapedType::kDynamic}, 0, /*refineShape*/ false);
 }
 
 } // namespace onnx_mlir

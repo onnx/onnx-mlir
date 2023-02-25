@@ -4,7 +4,7 @@
 
 //===-----------------------Pad.cpp - Lowering Pad Op -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -35,7 +35,8 @@ struct ONNXPadOpLowering : public ConversionPattern {
     StringRef padMode = padOp.getMode();
 
     // Builder helper.
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
 
     // Shape helper.
@@ -50,8 +51,8 @@ struct ONNXPadOpLowering : public ConversionPattern {
     Type resElementType = resMemRefType.getElementType();
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value resMemRef = insertAllocAndDeallocSimple(
-        rewriter, op, resMemRefType, loc, shapeHelper.getOutputDims());
+    Value resMemRef =
+        create.mem.alignedAlloc(resMemRefType, shapeHelper.getOutputDims());
 
     // Bounds.
     uint64_t rank = create.krnlIE.getShapedTypeRank(data);
