@@ -4,7 +4,7 @@
 
 //===---------- Passes.hpp - ONNX-MLIR Passes Definition ------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -61,7 +61,7 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
     bool report = false);
 
-/// Pass for analysing unknown dimension in ONNX operations.
+/// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
 
 /// Pass for verifying Onnx ops before lowering to Krnl
@@ -72,7 +72,7 @@ std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
     int optLevel, bool enableParallel);
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
-    bool emitDealloc, bool enableTiling, bool enableParallel);
+    bool enableTiling, bool enableSIMD, bool enableParallel);
 
 #ifdef ONNX_MLIR_ENABLE_MHLO
 /// Add pass for lowering to Mhlo IR.

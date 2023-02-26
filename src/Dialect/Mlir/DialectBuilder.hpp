@@ -1,6 +1,6 @@
 //===---- DialectBuilder.hpp - Helper functions for MLIR dialects -----===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,6 +14,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Matchers.h"
@@ -81,31 +82,52 @@ struct MathBuilder final : DialectBuilder {
   MathBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~MathBuilder() {}
 
+  // Support for vectors
+  static mlir::Type elementTypeWithVector(mlir::Type elementOrVectorType);
+  static bool isIntegerWithVector(mlir::Type elementOrVectorType);
+  static bool isUnsignedIntegerWithVector(mlir::Type elementOrVectorType);
+  static bool isFloatWithVector(mlir::Type elementOrVectorType);
+
   mlir::Value abs(mlir::Value val) const;
   mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value ceil(mlir::Value val) const;                     // Float only.
-  mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
+  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;     // Int only.
+  mlir::Value ceil(mlir::Value val) const;                      // Float only.
+  mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
+  mlir::Value copySign(mlir::Value rem, mlir::Value div) const; // Float only.
   mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value exp(mlir::Value val) const;                       // Float only.
   mlir::Value exp2(mlir::Value val) const;                      // Float only.
   mlir::Value floor(mlir::Value val) const;                     // Float only.
   mlir::Value floorDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
+  mlir::Value log(mlir::Value val) const;                       // Float only.
   mlir::Value log2(mlir::Value val) const;                      // Float only.
   mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value neg(mlir::Value val) const;
+  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
   mlir::Value pow(mlir::Value base, mlir::Value exp) const; // Float only.
   mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value sqrt(mlir::Value val) const; // Float only.
   mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value xori(mlir::Value lhs, mlir::Value rhs) const; // Int only.
 
   mlir::Value select(mlir::Value cmp, mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value sgt(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value sge(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value slt(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value sle(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value gt(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value ge(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value lt(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value le(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value eq(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value neq(mlir::Value lhs, mlir::Value rhs) const;
+  // Signed versions (index/signless/signed int or float)
+  mlir::Value sgt(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
+  mlir::Value sge(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
+  mlir::Value slt(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
+  mlir::Value sle(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
+  // Unsigned versions
+  mlir::Value ugt(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
+  mlir::Value uge(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
+  mlir::Value ult(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
+  mlir::Value ule(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
+
   mlir::Value min(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value max(mlir::Value lhs, mlir::Value rhs) const;
 
@@ -169,6 +191,10 @@ struct ShapeBuilder final : DialectBuilder {
 // MemRef Builder with added support for aligned memory
 //===----------------------------------------------------------------------===//
 
+// Default alignment attribute for all allocation of memory. On most system, it
+// numElems is 16 bytes.
+static constexpr int64_t gDefaultAllocAlign = 16;
+
 struct MemRefBuilder final : DialectBuilder {
   MemRefBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   MemRefBuilder(mlir::OpBuilder &b, mlir::Location loc)
@@ -176,13 +202,51 @@ struct MemRefBuilder final : DialectBuilder {
   MemRefBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~MemRefBuilder() {}
 
+  // Constants
+  static const int64_t defaultAlign;
+
+  // Alloc for static shapes without alignment.
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
+  // Alloc for static/dynamic shapes without alignment.
   mlir::memref::AllocOp alloc(
       mlir::MemRefType type, mlir::ValueRange dynSymbols) const;
+  mlir::memref::AllocOp alloc(
+      mlir::Value operandOfSameType, mlir::MemRefType type) const;
+  mlir::memref::AllocOp alloc(
+      mlir::MemRefType type, llvm::SmallVectorImpl<IndexExpr> &dims) const;
+
+  // Alloc for static shapes with alignment.
+  // Minimum alignment is gDefaultAllocAlign.
   mlir::memref::AllocOp alignedAlloc(
-      mlir::MemRefType type, int64_t align = -1) const;
+      mlir::MemRefType type, int64_t align = defaultAlign) const;
+  // Alloc for static/dynamic shapes with alignment.
   mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type,
-      mlir::ValueRange dynSymbols, int64_t align = -1) const;
+      mlir::ValueRange dynSymbols, int64_t align = defaultAlign) const;
+  mlir::memref::AllocOp alignedAlloc(mlir::Value operandOfSameType,
+      mlir::MemRefType type, int64_t align = defaultAlign) const;
+  mlir::memref::AllocOp alignedAlloc(mlir::MemRefType type,
+      llvm::SmallVectorImpl<IndexExpr> &dims,
+      int64_t align = defaultAlign) const;
+
+  // Alloc for shapes with alignment and padding for safe full SIMD operations.
+  // Padding may be added so that every values in the shape may safely be
+  // computed by a SIMD operation (or possibly multiple ones when simdUnroll>1).
+  // Minimum alignment is gDefaultAllocAlign.
+  // Operation does not support layouts at this time.
+  //
+  // Alloc for static shapes with alignment and SIMD padding.
+  mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
+      int64_t simdUnroll = 1, int64_t align = defaultAlign) const;
+  // Alloc for static/dynamic shapes with alignment and SIMD padding.
+  mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
+      mlir::ValueRange dynSymbols, int64_t simdUnroll = 1,
+      int64_t align = defaultAlign) const;
+  mlir::Value alignedAllocWithSimdPadding(mlir::Value operandOfSameType,
+      mlir::MemRefType type, int64_t simdUnroll = 1,
+      int64_t align = defaultAlign) const;
+  mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
+      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdUnroll = 1,
+      int64_t align = defaultAlign) const;
 
   // The alloca instruction allocates memory on the stack frame of the currently
   // executing function, to be automatically released when this function returns
@@ -190,7 +254,7 @@ struct MemRefBuilder final : DialectBuilder {
   // outside of a loop.
   mlir::memref::AllocaOp alloca(mlir::MemRefType type) const;
   mlir::memref::AllocaOp alignedAlloca(
-      mlir::MemRefType type, int64_t align = -1) const;
+      mlir::MemRefType type, int64_t align = defaultAlign) const;
 
   mlir::memref::DeallocOp dealloc(mlir::Value val) const;
 
@@ -199,13 +263,39 @@ struct MemRefBuilder final : DialectBuilder {
 
   mlir::Value reinterpretCast(
       mlir::Value input, llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
+
+  // Does not support layouts at this time.
+  mlir::Value collapseShape(mlir::Value input,
+      llvm::ArrayRef<mlir::ReassociationIndices> reassociation);
+
+  // Create a view of input value (<byte size>xi8) starting at byteOffset and
+  // shaped by outputType.
+  mlir::memref::ViewOp view(mlir::Value input, int64_t byteOffset,
+      mlir::MemRefType outputType, mlir::ValueRange outputDynSymbols) const;
+
+  // Create a subview of val. Size of 1 => remove that dim.
+  mlir::memref::SubViewOp subView(mlir::Value val,
+      llvm::SmallVectorImpl<IndexExpr> &offsets, // Offset for each val dims.
+      llvm::SmallVectorImpl<IndexExpr> &sizes,   // Sizes for each val dims.
+      llvm::SmallVectorImpl<IndexExpr> &strides) // Stride for each val dims.
+      const;
+
   mlir::Value dim(mlir::Value val, int64_t index) const;
   mlir::Value dim(mlir::Value val, mlir::Value index) const;
-};
 
-// Default alignment attribute for all allocation of memory. On most system, it
-// numElems is 16 bytes.
-static constexpr int64_t gDefaultAllocAlign = 16;
+private:
+  mlir::IntegerAttr computeAlignment(int64_t alignment) const;
+  void computeDynSymbols(
+      mlir::MemRefType type, // Use type to determine dynamic dimensions.
+      llvm::SmallVectorImpl<IndexExpr> &dims, // Get dyn syms from index expr.
+      llvm::SmallVectorImpl<mlir::Value> &dynSymbols) // Output dim symbols.
+      const;
+  void computeDynSymbols(
+      mlir::Value operandOfSameType, // Extract dyn symbols from this value.
+      mlir::MemRefType type, // Use type to determine dynamic dimensions.
+      llvm::SmallVectorImpl<mlir::Value> &dynSymbols) // Output dim symbols.
+      const;
+};
 
 //===----------------------------------------------------------------------===//
 // Structured Control Flow (SCF) Builder
@@ -497,7 +587,7 @@ struct LLVMBuilder final : DialectBuilder {
   *  MemRefBuilder, access field with mem
   *  ONNXBuilder, access field with onnx
   *  SCFBuilder, access field with scf
-
+  *  VectorBuilder, access field with vec
 */
 
 // Anchor class.

@@ -4,7 +4,7 @@
 
 //===----------------- Clip.cpp - Lowering Clip Op ------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -30,8 +30,8 @@ struct ONNXClipOpLowering : public ConversionPattern {
             typeConverter, ONNXClipOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    using LocalDialectBuilder =
-        MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>;
+    using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
+        IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>;
     Location loc = op->getLoc();
     LocalDialectBuilder create(rewriter, loc);
     ONNXClipOpAdaptor operandAdaptor(operands);
@@ -50,13 +50,7 @@ struct ONNXClipOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
-    bool insertDealloc = checkInsertDealloc(op);
-    Value alloc =
-        (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, input);
-
+    Value alloc = create.mem.alignedAlloc(input, memRefType);
     auto computeResult = [&](LocalDialectBuilder &create,
                              const ValueRange &indices) { // indices={i,j,k}
       Value loadedVal = create.krnl.load(input, indices); // load input[i,j,k]

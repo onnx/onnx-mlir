@@ -4,7 +4,7 @@
 
 //===----------------ONNXShapeHelper.cpp - help for shapes----------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -51,11 +51,20 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 
   // Try to update inferredDim if existingDim is static.
   for (unsigned i = 0; i < existingDims.size(); ++i) {
-    // existingDim is dynamic, nothing to do.
+    // Sanity checks for old convention of using -1 for dynamic.
+    assert(existingDims[i] != -1 && "dynamic use kDynamic now");
+    if (inferredDims[i].isLiteral()) {
+      // Index expressions should not use the ShapedType::kDynamic ever to
+      // signal dynamic shape. Questionmarks are used for that.
+      assert(inferredDims[i].getLiteral() != -1 && "dynamic use questionmark");
+      assert(inferredDims[i].getLiteral() != ShapedType::kDynamic &&
+             "dynamic use questionmark");
+    }
+    // ExistingDim is dynamic, nothing to learn from.
     if (existingDims[i] == ShapedType::kDynamic)
       continue;
 
-    // inferredDim is unknown at shape inference: update it.
+    // InferredDim is unknown at shape inference: update it.
     if (inferredDims[i].isQuestionmark()) {
       inferredDims[i] = LiteralIndexExpr(existingDims[i]);
       continue;
@@ -66,8 +75,8 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
       continue;
     }
     // inferredDim is different from existingDim. Believe in existingDim.
-    if (inferredDims[i].isLiteral() &&
-        (existingDims[i] != inferredDims[i].getLiteral())) {
+    assert(inferredDims[i].isLiteral() && "sanity");
+    if (existingDims[i] != inferredDims[i].getLiteral()) {
       // Warning for users.
       llvm::outs() << "Warning: [Shape inference, dim " << i
                    << "] the inferred dim (" << inferredDims[i].getLiteral()
@@ -143,8 +152,8 @@ LogicalResult ONNXOpShapeHelper::setOutputDimsFromOperand(
 
 LogicalResult ONNXOpShapeHelper::setOutputDimsFromLiterals(
     SmallVector<int64_t, 4> shape, int n, bool refineShape) {
-  // Output has the shape given by the vector of integer numbers. Number -1 is
-  // transformed into a questionmark.
+  // Output has the shape given by the vector of integer numbers. Number
+  // ShapedType::kDynamic is transformed into a questionmark.
   DimsExpr outputDims;
   getIndexExprListFromShape(shape, outputDims);
   setOutputDims(outputDims, n, refineShape);
