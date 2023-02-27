@@ -53,6 +53,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // NN
   populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  populateLoweringONNXAveragePoolOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
   // Flow
   populateLoweringONNXEntryPointOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
