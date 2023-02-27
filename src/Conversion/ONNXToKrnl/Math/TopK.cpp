@@ -4,7 +4,7 @@
 
 //===----------------------- TopK.cpp - TopK Op ---------------------------===//
 //
-// Copyright 2021-2022 The IBM Research Authors.
+// Copyright 2021-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -30,8 +30,8 @@ struct ONNXTopKOpLowering : public ConversionPattern {
     Value X = operandAdaptor.getX();
 
     // Builders.
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -60,13 +60,9 @@ struct ONNXTopKOpLowering : public ConversionPattern {
     DimsExpr resDims = shapeHelper.getOutputDims();
 
     // Insert an allocation and deallocation for the results of this operation.
-    bool insertDealloc = checkInsertDealloc(op, /*resultIndex=*/0);
-    Value resMemRef = insertAllocAndDeallocSimple(
-        rewriter, op, resMemRefType, loc, resDims, insertDealloc);
-    insertDealloc = checkInsertDealloc(op, /*resultIndex=*/1);
-    Value resIndexMemRef = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(resMemRefType.getShape(), i64Type), loc, resDims,
-        insertDealloc);
+    Value resMemRef = create.mem.alignedAlloc(resMemRefType, resDims);
+    Value resIndexMemRef = create.mem.alignedAlloc(
+        MemRefType::get(resMemRefType.getShape(), i64Type), resDims);
 
     // Compute argSort of X along axis.
     Value argSort = emitArgSort(rewriter, loc, X, axis,

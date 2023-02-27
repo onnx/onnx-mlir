@@ -1628,6 +1628,22 @@ func.func @test_cast_10(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf16> {
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test the castlike op inference.
+//===----------------------------------------------------------------------===//
+
+
+func.func @test_castlike_1(%arg0 : tensor<2x3x4xf32>, %arg1 : tensor<2xf16>) -> tensor<*xf16> {
+  %1 = "onnx.CastLike"(%arg0, %arg1) : (tensor<2x3x4xf32>, tensor<2xf16>) -> tensor<*xf16>
+  "func.return"(%1) : (tensor<*xf16>) -> ()
+
+  // CHECK-LABEL: test_castlike_1
+  // CHECK: [[RES:%.+]] = "onnx.CastLike"(%arg0, %arg1) : (tensor<2x3x4xf32>, tensor<2xf16>) -> tensor<2x3x4xf16>
+  // CHECK: return [[RES]] : tensor<2x3x4xf16>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test the quantization op inferences.
 //===----------------------------------------------------------------------===//
 
@@ -2025,7 +2041,7 @@ func.func @test_constant_of_shape_empty_tensor(%arg0 : tensor<0xi64>) -> tensor<
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_of_shape_empty_tensor
-  // CHECK: [[RES:%.+]] = "onnx.ConstantOfShape"(%arg0) {value = dense<0.000000e+00> : tensor<1xf32>} : (tensor<0xi64>) -> tensor<f32>
+  // CHECK: [[RES:%.+]] = onnx.ConstantOfShape(%arg0) {value = dense<0.000000e+00> : tensor<1xf32>} : (tensor<0xi64>) -> tensor<f32>
   // CHECK: return [[RES]] : tensor<f32>
 }
 
@@ -2036,7 +2052,7 @@ func.func @test_constant_of_shape(%arg0 : tensor<3xi64>) -> tensor<*xf32> {
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_constant_of_shape
-  // CHECK: [[RES:%.+]] = "onnx.ConstantOfShape"(%arg0) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<?x?x?xf32>
+  // CHECK: [[RES:%.+]] = onnx.ConstantOfShape(%arg0) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<?x?x?xf32>
   // CHECK: return [[RES]] : tensor<?x?x?xf32>
 }
 
@@ -2049,7 +2065,7 @@ func.func @test_constant_of_shape_constant() -> tensor<*xf32> {
 
   // CHECK-LABEL: test_constant_of_shape_constant
   // CHECK: [[CONSTANT:%.+]] = onnx.Constant dense<[3, 4, 5]> : tensor<3xi64>
-  // CHECK: [[RES:%.+]] = "onnx.ConstantOfShape"([[CONSTANT]]) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<3x4x5xf32>
+  // CHECK: [[RES:%.+]] = onnx.ConstantOfShape([[CONSTANT]]) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<3x4x5xf32>
   // CHECK: return [[RES]] : tensor<3x4x5xf32>
 }
 
@@ -3222,6 +3238,43 @@ func.func @test_maxroipool(%arg0: tensor<1x3x64x64xf32>, %arg1: tensor<1x5xf32>)
 
 // -----
 
+//===----------------------------------------------------------------------===//
+/// Test shape inference for IsInfOp.
+//===----------------------------------------------------------------------===//
+func.func @test_isinf(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xi1> {
+  %0 = "onnx.IsInf"(%arg0) {detect_negative = 1 : si64, detect_positive = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  return %0 : tensor<2x3x4xi1>
+
+  // CHECK-LABEL: func @test_isinf
+  // CHECK: [[RES:%.+]] = "onnx.IsInf"(%arg0) {detect_negative = 1 : si64, detect_positive = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  // CHECK: return [[RES]] : tensor<2x3x4xi1>
+}
+
+// -----
+
+func.func @test_isinf_positive(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xi1> {
+  %0 = "onnx.IsInf"(%arg0) {detect_negative = 0 : si64, detect_positive = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  return %0 : tensor<2x3x4xi1>
+
+  // CHECK-LABEL: func @test_isinf_positive
+  // CHECK: [[RES:%.+]] = "onnx.IsInf"(%arg0) {detect_negative = 0 : si64, detect_positive = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  // CHECK: return [[RES]] : tensor<2x3x4xi1>
+}
+
+// -----
+
+func.func @test_isinf_negative(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xi1> {
+  %0 = "onnx.IsInf"(%arg0) {detect_negative = 1 : si64, detect_positive = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  return %0 : tensor<2x3x4xi1>
+
+  // CHECK-LABEL: func @test_isinf_negative
+  // CHECK: [[RES:%.+]] = "onnx.IsInf"(%arg0) {detect_negative = 1 : si64, detect_positive = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi1>
+  // CHECK: return [[RES]] : tensor<2x3x4xi1>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test shape inference for IsNaNOp.
 //===----------------------------------------------------------------------===//
 func.func @test_isnan(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi1> {
