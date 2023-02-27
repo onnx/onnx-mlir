@@ -4,7 +4,7 @@
 
 //===--------------- Conv.cpp - Lowering Convolution Op -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -235,8 +235,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
     // Get shape.
-    IndexExprBuilderForKrnl createIE(rewriter, loc);
-    ONNXConvOpShapeHelper shapeHelper(op, operands, &createIE);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
+        rewriter, loc);
+
+    ONNXConvOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
@@ -246,8 +248,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
     convUnoptimized(
         rewriter, convOp, operandAdaptor, shapeHelper, memRefType, alloc);

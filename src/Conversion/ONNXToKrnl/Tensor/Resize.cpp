@@ -4,7 +4,7 @@
 
 //===---------------- Resize.cpp - Lowering Resize Op ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -28,8 +28,6 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
     Location loc = op->getLoc();
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
     ONNXResizeOp resizeOp = llvm::cast<ONNXResizeOp>(op);
     ONNXResizeOpAdaptor operandAdaptor(operands);
     Value data = operandAdaptor.getX();
@@ -54,12 +52,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // Shape helper: compute output dims and scales.
     ONNXResizeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
-    if (hasAllConstantDimensions(memRefType)) {
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    } else {
-      alloc = insertAllocAndDeallocSimple(rewriter, op, memRefType, loc,
-          shapeHelper.getOutputDims(), insertDealloc);
-    }
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
     // Call external function when the mode is not "nearest"
     // Create KrnlCallOp and replace the du chain
