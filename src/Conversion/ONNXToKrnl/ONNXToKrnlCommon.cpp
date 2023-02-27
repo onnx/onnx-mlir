@@ -596,4 +596,17 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
   return alignment;
 }
 
+bool hasCustomLayout(mlir::Value val) {
+  MemRefType type = val.getType().dyn_cast<MemRefType>();
+  assert(type && "expected a memref type");
+  return !type.getLayout().isIdentity();
+}
+
+bool hasCustomLayout(mlir::ArrayRef<mlir::Value> operands) {
+  for (Value val : operands)
+    if (hasCustomLayout(val))
+      return true;
+  return false;
+}
+
 } // namespace onnx_mlir

@@ -200,6 +200,25 @@ struct ScalarOp<ONNXTanOp> {
   using IOp = void; // Not used.
 };
 
+template <>
+struct ScalarOp<ONNXMeanOp> {
+  using FOp = arith::AddFOp;
+  using IOp = arith::AddIOp;
+};
+
+// =============================================================================
+// Template for SIMD enablement
+
+template <typename Op>
+struct SimdEnablement {
+  using Enabled = std::false_type;
+};
+
+template <>
+struct SimdEnablement<ONNXCosOp> {
+  using Enabled = std::true_type;
+};
+
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
@@ -638,13 +657,6 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXMeanOp
 //===----------------------------------------------------------------------===//
-
-template <>
-struct ScalarOp<ONNXMeanOp> {
-  using FOp = arith::AddFOp;
-  using IOp = arith::AddIOp;
-};
-
 template <>
 Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType, Value scalarResult) {
@@ -657,7 +669,6 @@ Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXRoundOp
 //===----------------------------------------------------------------------===//
-
 template <>
 Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -704,8 +715,11 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
   Value rEqualHalf = createMath.eq(r, half);
   return createMath.select(rEqualHalf, y2, y1);
 }
+
+//===----------------------------------------------------------------------===//
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
+
 template <typename ElementwiseUnaryOp>
 struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
   bool enableSIMD = false;
@@ -719,6 +733,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = ONNXLoc<ElementwiseUnaryOp>(op);
     Value X = operands[0];
+    bool scalar = hasAllScalarValues(operands);
 
     // If type is scalar or vector, there is no need to allocate a buffer. Just
     // call scalar computation and return the result. This is efficient when
@@ -739,6 +754,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
     Type elementType = memRefType.getElementType();
+    int64_t rank = memRefType.getRank();
 
     // Shape helper.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder,
@@ -746,6 +762,51 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         create(rewriter, loc);
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
+
+    if constexpr (SimdEnablement<ElementwiseUnaryOp>::Enabled::value) {
+      // SIMD is enabled for this operation, test if desired and feasible
+      if (enableSIMD && !scalar && !hasCustomLayout(operands)) {
+        // generate SIMD code of VL elements per vector.
+        IndexExprScope allocScope(create.vec, shapeHelper.getScope());
+        int64_t simdUnroll = 1;
+        int64_t VL =
+            create.vec.getMachineVectorLength(elementType) * simdUnroll;
+        fprintf(stderr, "hi alex: simd beneficial with vl %d\n", (int)VL);
+        // Alloc memory with padding for SIMD.
+        Value alloc = create.mem.alignedAllocWithSimdPadding(
+            memRefType, shapeHelper.getOutputDims(), simdUnroll, alignment);
+        // Compute total size of flattened iteration space
+        IndexExpr totSize = LiteralIndexExpr(1);
+        for (int64_t i = 0; i < rank; ++i)
+          totSize = totSize * SymbolIndexExpr(shapeHelper.getOutputDims()[i]);
+        // Create loop iteration (flattened to one dim) and blocked by mVL.
+        ValueRange loopDef = create.krnl.defineLoops(1);
+        ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
+        SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
+        SmallVector<IndexExpr, 1> ubs(1, totSize);
+        // Flatten the input and output: place all dims in one.
+        ReassociationIndices allInOne;
+        for (int64_t i = 0; i < rank; ++i)
+          allInOne.emplace_back(i);
+        SmallVector<ReassociationIndices> reassociation(1, allInOne);
+        Value flatX = create.mem.collapseShape(X, reassociation);
+        Value flatAlloc = create.mem.collapseShape(alloc, reassociation);
+        // Create the vector type to operate over.
+        VectorType vecElementType = VectorType::get({VL}, elementType);
+        // Iterate only over the blocks.
+        create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, lbs, ubs,
+            [&](KrnlBuilder &ck, ValueRange loopInd) {
+              MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+              Value loadedVal = create.vec.load(vecElementType, flatX, loopInd);
+              auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
+                  rewriter, loc, op, vecElementType, {loadedVal});
+              // Store result in the resulting array.
+              create.vec.store(loweredOpResult, flatAlloc, loopInd);
+            });
+        rewriter.replaceOp(op, alloc);
+        return success();
+      }
+    }
 
     // Insert an allocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -778,10 +839,12 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
   }
 };
 
+//===----------------------------------------------------------------------===//
 // Element-wise binary ops lowering to Krnl dialect.
 // This template can be used for binary ops that return a result whose type is
 // different from the input type.
 //===----------------------------------------------------------------------===//
+
 template <typename ElementwiseBinaryOp>
 struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
   bool enableSIMD = false;
@@ -872,8 +935,10 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
   }
 };
 
+//===----------------------------------------------------------------------===//
 // Element-wise variadic ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
+
 template <typename ElementwiseVariadicOp>
 struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
   bool enableSIMD = false;
@@ -976,6 +1041,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 //===----------------------------------------------------------------------===//
 // where op lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
+
 struct ONNXWhereOpLowering : public ConversionPattern {
   bool enableSIMD = false;
 
