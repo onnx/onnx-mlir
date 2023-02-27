@@ -12,10 +12,13 @@
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttributeStorage.hpp"
 
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/Endian.h"
 
 #include <algorithm>
+#include <string>
 
 using namespace onnx_mlir;
 
@@ -153,6 +156,46 @@ DenseElementsAttr DisposableElementsAttr::toDenseElementsAttr() const {
   return DenseElementsAttr::getFromRawBuffer(getType(), bytes.get());
 }
 
+namespace {
+// Perform byte swap if system endianness is BE and elements are multi-byte.
+bool shouldSwapLEBytes(unsigned elementByteWidth) {
+  return elementByteWidth > 1 && llvm::support::endian::system_endianness() !=
+                                     llvm::support::endianness::little;
+}
+} // namespace
+
+/*static*/
+std::unique_ptr<llvm::MemoryBuffer> DisposableElementsAttr::parse(
+    AsmParser &parser, ShapedType type) {
+  size_t id = 0; // The parsed id is ignored.
+  std::string str;
+  if (parser.parseLess() || parser.parseInteger(id) || parser.parseColon() ||
+      parser.parseString(&str))
+    return nullptr;
+  StringRef hex = str;
+  std::string bytes;
+  if (!hex.consume_front("0x") || (hex.size() & 1) ||
+      !llvm::tryGetFromHex(hex, bytes)) {
+    parser.emitError(parser.getCurrentLocation(), "ill-formed hex string");
+    return nullptr;
+  }
+  if (bytes.size() != static_cast<size_t>(getSizeInBytes(type))) {
+    parser.emitError(
+        parser.getCurrentLocation(), "data size doesn't match type size");
+    return nullptr;
+  }
+  if (!shouldSwapLEBytes(getIntOrFloatByteWidth(type.getElementType()))) {
+    return llvm::MemoryBuffer::getMemBufferCopy(bytes);
+  } else {
+    // Reorder bytes from little-endian on big-endian platforms:
+    std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
+        llvm::WritableMemoryBuffer::getNewUninitMemBuffer(bytes.size());
+    DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
+        {bytes.data(), bytes.size()}, writeBuffer->getBuffer(), type);
+    return writeBuffer;
+  }
+}
+
 void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
   // It would be ideal if we could read the printer flags from printer instead
   // of constructing them here, because printer may have been constructed with
@@ -160,11 +203,22 @@ void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
   // Oh well, at least OpPrintingFlags().shouldElideElementsAttr(ElementsAttr)
   // lets us respect the --mlir-elide-elementsattrs-if-larger command line flag.
   static OpPrintingFlags printerFlags{};
-  printer << "dense_disposable<#" << getImpl()->id << ":";
-  if (isSplat() || !printerFlags.shouldElideElementsAttr(*this)) {
-    auto bytes = getRawBytes();
-    auto u8array = castArrayRef<uint8_t>(bytes.get());
-    printer << "\"0x" << llvm::toHex(u8array) << "\"";
+  printer << getMnemonic() << "<" << getImpl()->id << ":";
+  if (!printerFlags.shouldElideElementsAttr(*this)) {
+    auto rawBytes = getRawBytes();
+    SmallVector<char> buffer;
+    ArrayRef<char> bytes;
+    if (!shouldSwapLEBytes(getIntOrFloatByteWidth(getElementType()))) {
+      bytes = rawBytes.get();
+    } else {
+      // Reorder raw bytes to little-endian on big-endian platforms:
+      buffer.resize_for_overwrite(rawBytes.get().size());
+      DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
+          rawBytes.get(), buffer, getType());
+      ArrayRef<char> bufferRef(buffer);
+      bytes = bufferRef;
+    }
+    printer << "\"0x" << llvm::toHex(castArrayRef<uint8_t>(bytes)) << "\"";
   } else {
     printer << "__elided__";
   }

@@ -48,9 +48,10 @@ public:
     Value outputSeq = thisOp.getResult();
     auto outputType = outputSeq.getType().cast<MemRefType>();
     Value alloc;
-    if (outputType.isDynamicDim(0))
-      alloc = create.mem.alloc(outputType, operandAdaptor.getLength());
-    else
+    if (outputType.isDynamicDim(0)) {
+      llvm::SmallVector<Value, 4> length(operandAdaptor.getLength());
+      alloc = create.mem.alloc(outputType, length);
+    } else
       alloc = create.mem.alloc(outputType);
     rewriter.replaceOp(op, alloc);
     return success();

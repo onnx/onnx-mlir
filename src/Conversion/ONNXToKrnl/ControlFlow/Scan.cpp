@@ -4,7 +4,7 @@
 
 //===-------------------- Scan.cpp - Lowering Scan Op ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -218,13 +218,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
       // Allocate memory for the loop-carried dependencies, since they are
       // guaranteed to have the same shape throughout all iterations, use
       // their initial value tensors as reference when allocating memory.
-      Value alloc;
-      bool shouldDealloc = checkInsertDealloc(op);
-      if (hasAllConstantDimensions(memRefType))
-        alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
-      else
-        alloc = insertAllocAndDealloc(
-            memRefType, loc, rewriter, shouldDealloc, vInit);
+      MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+      Value alloc = create.mem.alignedAlloc(vInit, memRefType);
       outputs.emplace_back(alloc);
     }
   }
@@ -247,12 +242,10 @@ struct ONNXScanOpLowering : public ConversionPattern {
       // The leading dimension is simply the number of iterations executed,
       // which is easier to obtain.
       Value alloc;
-      bool shouldDealloc = checkInsertDealloc(op);
-
+      MemRefBuilder createMemRef(rewriter, loc);
       if (hasAllConstantDimensions(memRefType))
-        alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
+        alloc = createMemRef.alignedAlloc(memRefType);
       else {
-        MemRefBuilder createMemRef(rewriter, loc);
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
         for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
@@ -299,8 +292,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
     // TODO(tjingrant): figure out why insertDealloc=1 doesn't work. Our
     // current mechanism for pulling the dealloc to the end of function
     // doesn't work alongside subgraph inlining.
-    alloc =
-        insertAllocAndDealloc(memRefType, loc, rewriter, /*insertDealloc=*/0);
+    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+    alloc = create.mem.alignedAlloc(memRefType);
     return alloc;
   }
 

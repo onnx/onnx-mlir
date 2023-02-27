@@ -4,7 +4,7 @@
 
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -41,10 +41,6 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
-
-// A global variable to indicate whether this pass will emit dealloc for
-// allocated memrefs or not during the conversion of ONNX to Krnl.
-extern bool ONNXToKrnl_gEmitDealloc;
 
 //===----------------------------------------------------------------------===//
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
@@ -93,28 +89,6 @@ bool hasAllScalarValues(llvm::ArrayRef<mlir::Value> values);
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
 /// integer constants.
 bool indicesAreNonNegativeConstants(mlir::Value indices);
-
-/// Insert an allocation and deallocation for the given MemRefType.
-mlir::Value insertAllocAndDealloc(mlir::MemRefType type, mlir::Location loc,
-    mlir::PatternRewriter &rewriter, bool insertDealloc,
-    mlir::Value operand = nullptr, int64_t alignment = -1);
-
-// Insert an allocation and deallocation for the given MemRefType, handling
-// compile time relying on the above function, and extracting the runtime
-// definitions from the index expressions otherwise.
-mlir::Value insertAllocAndDeallocSimple(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::MemRefType type, mlir::Location loc,
-    const llvm::SmallVectorImpl<IndexExpr> &outputDims, int64_t alignment = -1);
-// Same where boolean to assert if dealloc is to be gen or not is specified
-mlir::Value insertAllocAndDeallocSimple(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::MemRefType type, mlir::Location loc,
-    const llvm::SmallVectorImpl<IndexExpr> &outputDims, bool insertDealloc,
-    int64_t alignment = -1);
-
-// Determine if current function returns the result value of the
-// current op being lowered. If it does then dealloc should not be
-// inserted.
-bool checkInsertDealloc(mlir::Operation *currentOp, int resultIndex = 0);
 
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
@@ -214,12 +188,28 @@ template <typename Op>
 mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
     llvm::ArrayRef<mlir::Value> scalarOperands) {
-  if (elementType.isa<mlir::IntegerType>()) {
-    return rewriter.create<ScalarIOp<Op>>(
-        loc, elementType, scalarOperands, std::nullopt);
-  } else if (elementType.isa<mlir::FloatType>()) {
-    return rewriter.create<ScalarFOp<Op>>(
-        loc, elementType, scalarOperands, std::nullopt);
+  // Find the actual element type, regardless of whether we have a vector or
+  // scalar elementary type. For some operations, the output in a different type
+  // than its input(s), e.g. isNan where inputs are float and output is boolean
+  // int. Thus we look at the type the first input argument, and not the output
+  // elementType.
+  mlir::Type actualElementType = scalarOperands[0].getType();
+  mlir::VectorType vectorType = elementType.dyn_cast<mlir::VectorType>();
+  if (vectorType)
+    actualElementType = vectorType.getElementType();
+  // Perform int or float operation depending on the actual elementary type.
+  if (actualElementType.isa<mlir::IntegerType>()) {
+    // Generate the code only if the scalar integer op is non-void.
+    if constexpr (!(std::is_same<ScalarIOp<Op>, void>::value))
+      return rewriter.create<ScalarIOp<Op>>(
+          loc, elementType, scalarOperands, std::nullopt);
+    llvm_unreachable("unsupported integer operation");
+  } else if (actualElementType.isa<mlir::FloatType>()) {
+    // Generate the code only if the scalar float op is non-void.
+    if constexpr (!(std::is_same<ScalarFOp<Op>, void>::value))
+      return rewriter.create<ScalarFOp<Op>>(
+          loc, elementType, scalarOperands, std::nullopt);
+    llvm_unreachable("unsupported float operation");
   } else {
     llvm_unreachable("unsupported element type");
   }
@@ -279,8 +269,8 @@ void populateLoweringONNXClipOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXCumSumOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXElementwiseOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD);
 void populateLoweringONNXGemmOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
 void populateLoweringONNXHardmaxOpPattern(

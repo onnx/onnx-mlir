@@ -4,7 +4,7 @@
 
 //===--------- ScatterElements.cpp - Lowering ScatterElements Op ----------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -29,8 +29,8 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     ONNXScatterElementsOpAdaptor operandAdaptor(operands);
     ONNXScatterElementsOp scatterElements = cast<ONNXScatterElementsOp>(op);
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
 
     // Operands and attributes.
     Value data = operandAdaptor.getData();
@@ -41,7 +41,7 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     int64_t updatesRank = updates.getType().cast<MemRefType>().getRank();
     int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
     assert(updatesRank == dataRank && indicesRank == dataRank &&
-           "All input tenstors must have the same rank");
+           "All input tensors must have the same rank");
 
     // Determine whether indices may be negative.
     bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
@@ -61,8 +61,7 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     IndexExprScope indexScope(create.krnl);
     DimsExpr dataDims;
     create.krnlIE.getShapeAsDims(data, dataDims);
-    Value output = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, dataDims);
+    Value output = create.mem.alignedAlloc(outputMemRefType, dataDims);
 
     // Step1: copy the data array into the output array.
     Value numOfElements = getDynamicMemRefSize(rewriter, loc, data);
