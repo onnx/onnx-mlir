@@ -258,9 +258,9 @@ private:
           MathBuilder createMath(createKrnl);
           Value zero = createMath.constant(
               createMath.getBuilder().getIntegerType(64), 0);
-          auto memRefType = MemRefType::get(
-              memref.getType().cast<ShapedType>().getShape(),
-              krnl::StringType::get(elementType.getContext()));
+          auto memRefType =
+              MemRefType::get(memref.getType().cast<ShapedType>().getShape(),
+                  krnl::StringType::get(elementType.getContext()));
           Value stringMemRef = createKrnl.getRef(memRefType, memref, zero);
           inputElem = createKrnl.load(stringMemRef, loopInd);
         })
