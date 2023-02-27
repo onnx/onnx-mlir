@@ -57,8 +57,8 @@ def GetMinusBcastConst : NativeCodeCall<
   "::onnx_mlir::zhigh::getMinusBcastConst($_builder, $_loc, $0, $1)"
 >;
 
-class GetConstantOfType<int v> : NativeCodeCall<
-  "::onnx_mlir::zhigh::getConstantOfType($_builder, $_loc, $0.getType()," # v # ")"
+class GetConstantOfType<string v> : NativeCodeCall<
+  "::onnx_mlir::zhigh::getConstantOfType($_builder, $_loc, $0.getType(), " # v # ")"
 >;
 
 def IsStaticShapeTensor:

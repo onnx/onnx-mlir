@@ -177,15 +177,15 @@ Value getMinusBcastConst(
 }
 
 Value getConstantOfType(
-    OpBuilder &builder, Location loc, Type type, int64_t val) {
+    OpBuilder &builder, Location loc, Type type, float val) {
   ShapedType shapedType = type.cast<ShapedType>();
   assert(shapedType.hasStaticShape() && "expected static shape");
   Type elementType = shapedType.getElementType();
   DenseElementsAttr denseAttr;
   if (elementType.isa<IntegerType>())
-    denseAttr = DenseElementsAttr::get(shapedType, val);
+    denseAttr = DenseElementsAttr::get(shapedType, (int64_t)val);
   else if (elementType.isa<FloatType>())
-    denseAttr = DenseElementsAttr::get(shapedType, (float)val);
+    denseAttr = DenseElementsAttr::get(shapedType, val);
   else
     llvm_unreachable("Unsupport type");
   MultiDialectBuilder<OnnxBuilder> create(builder, loc);
