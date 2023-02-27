@@ -193,20 +193,8 @@ endif()
 set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
 
 # TODO: properly specify the location of torch and its components
-include_directories(
-   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include
-   ${CMAKE_CURRENT_SOURCE_DIR}/../torch-mlir/include
-   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect
-   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/Torch/IR
-   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/Torch/Transforms
-   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion
-   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion/IR
-   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Dialect/TorchConversion/Transforms
-   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/Conversion
-   ${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/include/torch-mlir/RefBackend
-)
-
-LINK_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/../torch-mlir/lib/)
+include_directories(${TORCH_MLIR_INCLUDE_DIRS})
+link_directories(${TORCH_MLIR_LIB_DIR})
 
 
 #find_library(DIA_LIB TorchMLIRTorchDialect)
