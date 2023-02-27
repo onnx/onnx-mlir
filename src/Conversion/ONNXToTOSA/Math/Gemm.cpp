@@ -32,9 +32,8 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     // If legal, create a FullyConnected operator instead
-    if (rewriteToTosaFC(op, adaptor, rewriter, tosaBuilder)) {
+    if (rewriteToTosaFC(op, adaptor, rewriter, tosaBuilder))
       return success();
-    }
     return rewriteToTosaMatMul(op, adaptor, rewriter, tosaBuilder);
   }
 
@@ -183,23 +182,22 @@ public:
     // If C is present, it can only be of rank 1, if the rank is not 1, return
     // false.
     if (C.getType().isa<RankedTensorType>() &&
-        C.getType().cast<RankedTensorType>().getRank() != 1) {
+        C.getType().cast<RankedTensorType>().getRank() != 1)
       return false;
-    }
+
     // Input tensor must be of rank 2.
     // Weights must also be of rank 2.
-    if (AType.getRank() != 2 || BType.getRank() != 2) {
+    if (AType.getRank() != 2 || BType.getRank() != 2)
       return false;
-    }
+
     // Both alpha and beta must be 1.
     if ((adaptor.getAlpha().convertToFloat() != 1.0F) ||
-        (adaptor.getBeta().convertToFloat() != 1.0F)) {
+        (adaptor.getBeta().convertToFloat() != 1.0F))
       return false;
-    }
+
     // Only Transpose B must be enabled.
-    if (adaptor.getTransA() != 0 || adaptor.getTransB() != 1) {
+    if (adaptor.getTransA() != 0 || adaptor.getTransB() != 1)
       return false;
-    }
 
     // If all check passed, we replace the GEMM by a FC operator
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
@@ -223,12 +221,12 @@ public:
                       .getResult();
     // If C was present in the original GEMM, we create an add to take the bias
     // into account.
-    if (isCPresent && needsBroadcasting) {
+    if (isCPresent && needsBroadcasting)
       tosa::CreateReplaceOpAndInfer<mlir::tosa::AddOp>(
           rewriter, op, resultType, fcRes, C);
-    } else {
+    else
       rewriter.replaceOp(op, fcRes);
-    }
+
     return true;
   }
 };
