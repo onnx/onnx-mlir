@@ -133,9 +133,11 @@ LogicalResult ZHighStickOp::inferShapes(
 void ZHighStickOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NoneTypeStickRemovalPattern>(context);
-  results.insert<ReplaceONNXLeakyReluPattern>(context);
   results.insert<StickUnstickSameLayoutRemovalPattern>(context);
   results.insert<StickUnstickDiffLayoutRemovalPattern>(context);
+  results.insert<ReplaceONNXLeakyReluPattern>(context);
+  results.insert<ReplaceONNXSqrtPattern>(context);
+  results.insert<ReplaceONNXReciprocalSqrtPattern>(context);
 }
 
 } // namespace zhigh
