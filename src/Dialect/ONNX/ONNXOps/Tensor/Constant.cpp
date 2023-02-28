@@ -92,6 +92,6 @@ OpFoldResult ONNXConstantOp::fold(FoldAdaptor adaptor) {
     return valueString;
   else if (auto valueStrings = getValueStringsAttr())
     return valueStrings;
-  else 
+  else
     llvm_unreachable("ONNXConstantOp does not have a valid attribute");
 }
