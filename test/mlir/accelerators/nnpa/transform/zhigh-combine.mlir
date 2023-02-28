@@ -86,8 +86,8 @@ func.func @replace_leakyrelu_1(%arg0 : tensor<1x104x104x128xf32, #zhigh.layout<{
   return %2 : tensor<1x104x104x128xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
   // CHECK-LABEL: func @replace_leakyrelu_1
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x104x104x128xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x104x104x128xf32, #zhigh.layout<{dataLayout = "NHWC"}>> {
+  // CHECK-DAG:           [[VAR_1_:%.+]] = onnx.Constant dense<-1.000000e-01> : tensor<1x104x104x128xf32>
   // CHECK:           [[VAR_0_:%.+]] = "zhigh.Relu"([[PARAM_0_]]) : (tensor<1x104x104x128xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x104x104x128xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
-  // CHECK:           [[VAR_1_:%.+]] = onnx.Constant dense<-1.000000e-01> : tensor<1x104x104x128xf32>
   // CHECK:           [[VAR_2_:%.+]] = "zhigh.Stick"([[VAR_1_]]) {layout = "NHWC"} : (tensor<1x104x104x128xf32>) -> tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
   // CHECK:           [[VAR_3_:%.+]] = "zhigh.Mul"([[PARAM_0_]], [[VAR_2_]]) : (tensor<1x104x104x128xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x104x104x128xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
   // CHECK:           [[VAR_4_:%.+]] = "zhigh.Relu"([[VAR_3_]]) : (tensor<1x104x104x128xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x104x104x128xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
@@ -105,8 +105,8 @@ func.func @replace_leakyrelu_2(%arg0 : tensor<1x104x128x104xf32, #zhigh.layout<{
   return %2 : tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
   // CHECK-LABEL: func @replace_leakyrelu_2
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>> {
+  // CHECK-DAG:           [[VAR_1_:%.+]] = onnx.Constant dense<-1.000000e-01> : tensor<1x104x104x128xf32>
   // CHECK:           [[VAR_0_:%.+]] = "zhigh.Relu"([[PARAM_0_]]) : (tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
-  // CHECK:           [[VAR_1_:%.+]] = onnx.Constant dense<-1.000000e-01> : tensor<1x104x104x128xf32>
   // CHECK:           [[VAR_2_:%.+]] = "zhigh.Stick"([[VAR_1_]]) {layout = "NHWC"} : (tensor<1x104x104x128xf32>) -> tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
   // CHECK:           [[VAR_3_:%.+]] = "zhigh.Mul"([[PARAM_0_]], [[VAR_2_]]) : (tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
   // CHECK:           [[VAR_4_:%.+]] = "zhigh.Relu"([[VAR_3_]]) : (tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x104x128x104xf32, #zhigh.layout<{dataLayout = "NHWC"}>>

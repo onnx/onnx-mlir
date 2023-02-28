@@ -70,3 +70,28 @@ LogicalResult ONNXConstantOp::inferShapes(
 namespace onnx_mlir {
 template struct ONNXNonSpecificOpShapeHelper<ONNXConstantOp>;
 } // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
+// Folder
+//===----------------------------------------------------------------------===//
+
+OpFoldResult ONNXConstantOp::fold(FoldAdaptor adaptor) {
+  if (auto sparseValue = getSparseValueAttr())
+    return sparseValue;
+  if (auto value = getValueAttr())
+    return value;
+  else if (auto valueFloat = getValueFloatAttr())
+    return valueFloat;
+  else if (auto valueInt = getValueIntAttr())
+    return valueInt;
+  else if (auto valueInts = getValueIntsAttr())
+    return valueInts;
+  else if (auto valueFloats = getValueFloatsAttr())
+    return valueFloats;
+  else if (auto valueString = getValueStringAttr())
+    return valueString;
+  else if (auto valueStrings = getValueStringsAttr())
+    return valueStrings;
+  else
+    llvm_unreachable("ONNXConstantOp does not have a valid attribute");
+}
