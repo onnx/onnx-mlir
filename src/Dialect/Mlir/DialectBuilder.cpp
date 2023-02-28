@@ -914,6 +914,9 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
         alignedAlloc(paddedType, {totPaddedByteSize.getValue()}, alignment);
   }
 
+#if 1
+  return view(paddedAlloc, /*offset*/ 0, type, dynSymbols);
+#else
   // Make a subview of the original shape (to get rid of the padding).
   llvm::SmallVector<IndexExpr, 4> offsets(1, LiteralIndexExpr(0));
   llvm::SmallVector<IndexExpr, 4> sizes(1, totByteSize);
@@ -922,6 +925,7 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
 
   // Now create view
   return view(subViewAlloc, /*offset*/ 0, type, dynSymbols);
+#endif
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(Value operandOfSameType,
@@ -961,6 +965,59 @@ memref::AllocaOp MemRefBuilder::alignedAlloca(
 
 memref::DeallocOp MemRefBuilder::dealloc(Value val) const {
   return b().create<memref::DeallocOp>(loc(), val);
+}
+
+//===----------------------------------------------------------------------===//
+// Reshape.
+
+memref::ReshapeOp MemRefBuilder::reshape(
+    MemRefType destType, Value valToReshape, Value destShapeStoredInMem) const {
+  return b().create<memref::ReshapeOp>(
+      loc(), destType, valToReshape, destShapeStoredInMem);
+}
+
+memref::ReshapeOp MemRefBuilder::reshapeToFlat(Value valToReshape,
+    llvm::SmallVectorImpl<IndexExpr> &dims, Value &size1D) const {
+  // Parse input.
+  MemRefType inputType = valToReshape.getType().cast<MemRefType>();
+  Type inputElementType = inputType.getElementType();
+  assert(inputType.getLayout().isIdentity() && "MemRef is not normalized");
+  Type indexType = b().getIndexType();
+  // Create scope to avoid issues.
+  IndexExprScope innerScope(getBuilderPtr(), loc());
+  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
+  // Compute total number of elements in new scope.
+  IndexExpr numOfElements = LiteralIndexExpr(1);
+  for (IndexExpr d : dims)
+    numOfElements = numOfElements * SymbolIndexExpr(d);
+  // Size1D is an output value corresponding to the total number of elements.
+  size1D = numOfElements.getValue();
+  // Shape for reshaping from N-D to 1-D saved into memory.
+  Value shape1D = alignedAlloc(MemRefType::get({1}, indexType));
+  Value zero = create.math.constantIndex(0);
+  create.affine.store(size1D, shape1D, {zero});
+  // Reshape the input N-D MemRef into a 1-D MemRef.
+  int64_t dim1DSize = ShapedType::kDynamic;
+  if (numOfElements.isLiteral())
+    dim1DSize = numOfElements.getLiteral();
+  MemRefType input1DType = MemRefType::get({dim1DSize}, inputElementType);
+  return reshape(input1DType, valToReshape, shape1D);
+}
+
+memref::ReshapeOp MemRefBuilder::reshapeFromFlat(Value valToReshape,
+    llvm::SmallVectorImpl<IndexExpr> &dims, MemRefType outputType) const {
+  assert(outputType.getLayout().isIdentity() && "MemRef is not normalized");
+  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
+  Type indexType = b().getIndexType();
+  int64_t rank = outputType.getRank();
+  // Shape for reshaping from N1D to N-D saved into memory.
+  Value shapeND = alignedAlloc(MemRefType::get({rank}, indexType));
+  for (int64_t i = 0; i < rank; ++i) {
+    Value index = create.math.constantIndex(i);
+    create.affine.store(dims[i].getValue(), shapeND, {index});
+  }
+  // Reshape the 1-D MemRef into a N-D MemRef.
+  return reshape(outputType, valToReshape, shapeND);
 }
 
 //===----------------------------------------------------------------------===//

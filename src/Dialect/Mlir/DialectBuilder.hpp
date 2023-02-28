@@ -258,13 +258,23 @@ struct MemRefBuilder final : DialectBuilder {
 
   mlir::memref::DeallocOp dealloc(mlir::Value val) const;
 
+  // Reshapes.
+  mlir::memref::ReshapeOp reshape(mlir::MemRefType destType,
+      mlir::Value valToReshape, mlir::Value destShapeStoredInMem) const;
+  mlir::memref::ReshapeOp reshapeToFlat(mlir::Value valToReshape,
+      llvm::SmallVectorImpl<IndexExpr> &nDims, mlir::Value &size1D) const;
+  mlir::memref::ReshapeOp reshapeFromFlat(mlir::Value valToReshape,
+      llvm::SmallVectorImpl<IndexExpr> &nDims,
+      mlir::MemRefType outputType) const;
+
+  // Casts.
   mlir::memref::CastOp cast(
       mlir::Value input, mlir::MemRefType outputType) const;
-
   mlir::Value reinterpretCast(
       mlir::Value input, llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
 
-  // Does not support layouts at this time.
+  // Does not support layouts at this time. Does only work for values that are
+  // then loaded with affine or memref scalar load/store (MLIR limitations).
   mlir::Value collapseShape(mlir::Value input,
       llvm::ArrayRef<mlir::ReassociationIndices> reassociation);
 

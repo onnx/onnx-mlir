@@ -733,7 +733,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = ONNXLoc<ElementwiseUnaryOp>(op);
     Value X = operands[0];
-    bool scalar = hasAllScalarValues(operands);
 
     // If type is scalar or vector, there is no need to allocate a buffer. Just
     // call scalar computation and return the result. This is efficient when
@@ -754,7 +753,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
     Type elementType = memRefType.getElementType();
-    int64_t rank = memRefType.getRank();
 
     // Shape helper.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder,
@@ -763,6 +761,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
+    bool scalar = hasAllScalarValues(operands);
     if constexpr (SimdEnablement<ElementwiseUnaryOp>::Enabled::value) {
       // SIMD is enabled for this operation, test if desired and feasible
       if (enableSIMD && !scalar && !hasCustomLayout(operands)) {
@@ -775,6 +774,22 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         // Alloc memory with padding for SIMD.
         Value alloc = create.mem.alignedAllocWithSimdPadding(
             memRefType, shapeHelper.getOutputDims(), simdUnroll, alignment);
+#if 1
+        // Create flat input / output.
+        Value totInputSize, totOutputSize;
+        llvm::SmallVector<IndexExpr, 4> xDims;
+        create.krnlIE.getShapeAsSymbols(X, xDims);
+        Value flatX = create.mem.reshapeToFlat(X, xDims, totInputSize);
+        Value flatAlloc = create.mem.reshapeToFlat(
+            alloc, shapeHelper.getOutputDims(), totOutputSize);
+        IndexExpr totSize = DimIndexExpr(totOutputSize);
+        // Create loop iteration (flattened to one dim) and blocked by mVL.
+        ValueRange loopDef = create.krnl.defineLoops(1);
+        ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
+        SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
+        SmallVector<IndexExpr, 1> ubs(1, totSize);
+#else
+        int64_t rank = memRefType.getRank();
         // Compute total size of flattened iteration space
         IndexExpr totSize = LiteralIndexExpr(1);
         for (int64_t i = 0; i < rank; ++i)
@@ -791,6 +806,8 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         SmallVector<ReassociationIndices> reassociation(1, allInOne);
         Value flatX = create.mem.collapseShape(X, reassociation);
         Value flatAlloc = create.mem.collapseShape(alloc, reassociation);
+#endif
+#if 1
         // Create the vector type to operate over.
         VectorType vecElementType = VectorType::get({VL}, elementType);
         // Iterate only over the blocks.
@@ -803,6 +820,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
               // Store result in the resulting array.
               create.vec.store(loweredOpResult, flatAlloc, loopInd);
             });
+#endif
         rewriter.replaceOp(op, alloc);
         return success();
       }
@@ -813,7 +831,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         memRefType, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
-    if (!hasAllScalarValues(operands)) {
+    if (!scalar) {
       ValueRange loopDef = create.krnl.defineLoops(memRefType.getRank());
       SmallVector<IndexExpr, 4> lbs(memRefType.getRank(), LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;

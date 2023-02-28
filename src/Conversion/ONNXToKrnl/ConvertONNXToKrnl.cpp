@@ -351,7 +351,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addIllegalOp<mlir::memref::LoadOp>();
   target.addIllegalOp<mlir::AffineLoadOp>();
   target.addIllegalOp<mlir::memref::StoreOp>();
-  target.addIllegalOp<mlir::AffineStoreOp>();
+  // hi alex: memref builder can use affine stores
+  //target.addIllegalOp<mlir::AffineStoreOp>();
 
   // Option`emitDealloc` is deprecated and turned off, make sure we don't have
   // buffer deallocation at this level. Will use MLIR buffer-deallocation for
