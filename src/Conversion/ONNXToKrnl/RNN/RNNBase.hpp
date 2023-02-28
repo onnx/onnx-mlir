@@ -4,7 +4,7 @@
 
 //===--------------- RNNBase.hpp - Lowering RNN Ops -----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -37,14 +37,12 @@ int64_t dimAt(mlir::Value val, int index);
 /// Insert Allocate and Deallocate for the all hidden output.
 mlir::Value allocAllHidden(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::TypeConverter *typeConverter, mlir::Value X,
-    mlir::Value W, mlir::Value R, mlir::Value output,
-    bool insertDealloc = false);
+    mlir::Value W, mlir::Value R, mlir::Value output);
 
 /// Insert Allocate and Deallocate for the hidden or cell output.
 mlir::Value allocHiddenOrCell(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::TypeConverter *typeConverter, mlir::Value X,
-    mlir::Value W, mlir::Value R, mlir::Value output,
-    bool insertDealloc = false);
+    mlir::Value W, mlir::Value R, mlir::Value output);
 
 /// Initialize the hidden and cell states.
 void initializeHiddenAndCell(mlir::ConversionPatternRewriter &rewriter,

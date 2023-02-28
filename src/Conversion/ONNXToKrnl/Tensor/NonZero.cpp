@@ -4,7 +4,7 @@
 
 //===------------------- NonZero.cpp - Lowering NonZero Op ----------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -66,7 +66,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
   /// Thus, We rewrite the loop in Step 4 into an affine-compatible one as
   /// follows:
   /// ```
-  /// for i in range(nonzerocount):
+  /// for i in range(nonzeroCount):
   ///   p = -1, s = 0
   ///   for j in range(len(rsum0)):
   ///      s += rsum0[j]
@@ -124,9 +124,8 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 1> dimIE(1, xBound);
       int64_t dim =
           dimIE[0].isLiteral() ? dimIE[0].getLiteral() : ShapedType::kDynamic;
-      Value alloc = insertAllocAndDeallocSimple(rewriter, op,
-          MemRefType::get({dim}, indexTy), loc, dimIE,
-          /*insertDealloc=*/true);
+      Value alloc =
+          create.mem.alignedAlloc(MemRefType::get({dim}, indexTy), dimIE);
       // Initialize to zero.
       ValueRange initLoopDef = create.krnl.defineLoops(1);
       create.krnl.iterate(initLoopDef, initLoopDef, {iZero},
@@ -165,13 +164,11 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 2> dimExprs;
     dimExprs.emplace_back(LiteralIndexExpr(xRank));
     dimExprs.emplace_back(DimIndexExpr(numberOfZeros));
-    bool insertDealloc = checkInsertDealloc(op);
-    Value resMemRef = insertAllocAndDeallocSimple(
-        rewriter, op, resMemRefType, loc, dimExprs, insertDealloc);
+    Value resMemRef = create.mem.alignedAlloc(resMemRefType, dimExprs);
 
     // Emit code to compute the output for each dimension.
     // ```
-    // for i in range(nonzerocount):
+    // for i in range(nonzeroCount):
     //   p = -1, s = 0
     //   for j in range(len(rsum0)):
     //      s += rsum0[j]
