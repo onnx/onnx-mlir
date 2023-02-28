@@ -194,7 +194,6 @@ OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
     return nullptr;
 
   // Fold value
-
   if (!adaptor.getData() || !adaptor.getAxes()) {
     // Use original Op if Data or Axes is not constant
     return nullptr;
@@ -209,7 +208,6 @@ OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
 }
 
 OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
-
   // Fold the type of tensor
   if (failed(inferShapes(nullptr)))
     return nullptr;

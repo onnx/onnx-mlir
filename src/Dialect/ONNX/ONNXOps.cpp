@@ -213,17 +213,6 @@ ParseResult ONNXConstantOp::parse(OpAsmParser &parser, OperationState &result) {
   return success();
 }
 
-// Constant Materializer
-Operation *ONNXDialect::materializeConstant(
-    OpBuilder &builder, Attribute value, Type type, Location loc) {
-
-  // The atrribute could be DenseElemnemntsAttr, IntAttr, FloatAttr and etc.
-  // onnx builder is used to convert it into value()
-  OnnxBuilder onnx(builder, loc);
-  Value result = onnx.constant(value);
-  return result.getDefiningOp();
-}
-
 //===----------------------------------------------------------------------===//
 // ONNXConstantOfShapeOp custom assembly format print and parse.
 // Same as the generic format except that any DisposableElementsAttr is
@@ -252,3 +241,16 @@ ParseResult ONNXConstantOfShapeOp::parse(
   result.addTypes({res});
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// Constant Materializer for ONNX Dialect
+//===----------------------------------------------------------------------===//
+Operation *ONNXDialect::materializeConstant(
+    OpBuilder &builder, Attribute value, Type type, Location loc) {
+  // The atrribute could be DenseElemnemntsAttr, IntAttr, FloatAttr and etc.
+  // onnx builder is used to convert it into value()
+  MultiDialectBuilder<OnnxBuilder> create(builder, loc);
+  Value result = create.onnx.constant(value);
+  return result.getDefiningOp();
+}
+

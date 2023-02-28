@@ -76,21 +76,22 @@ template struct ONNXNonSpecificOpShapeHelper<ONNXConstantOp>;
 //===----------------------------------------------------------------------===//
 
 OpFoldResult ONNXConstantOp::fold(FoldAdaptor adaptor) {
-  if (getSparseValueAttr())
-    return getSparseValueAttr();
-  if (getValueAttr())
-    return getValueAttr();
-  else if (getValueFloatAttr())
-    return getValueFloatAttr();
-  else if (getValueIntAttr())
-    return getValueIntAttr();
-  else if (getValueIntsAttr())
-    return getValueIntsAttr();
-  else if (getValueFloatsAttr())
-    return getValueFloatsAttr();
-  else {
-    assert(getValueStringAttr() &&
-           "ONNXConstantOp does not have a valid attribute");
-    return getValueStringAttr();
-  }
+  if (auto sparseValue = getSparseValueAttr())
+    return sparseValue;
+  if (auto value = getValueAttr())
+    return value;
+  else if (auto valueFloat = getValueFloatAttr())
+    return valueFloat;
+  else if (auto valueInt = getValueIntAttr())
+    return valueInt;
+  else if (auto valueInts = getValueIntsAttr())
+    return valueInts;
+  else if (auto valueFloats = getValueFloatsAttr())
+    return valueFloats;
+  else if (auto valueString = getValueStringAttr())
+    return valueString;
+  else if (auto valueStrings = getValueStringsAttr())
+    return valueStrings;
+  else 
+    llvm_unreachable("ONNXConstantOp does not have a valid attribute");
 }
