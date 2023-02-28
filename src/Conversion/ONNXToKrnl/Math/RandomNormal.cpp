@@ -4,7 +4,7 @@
 
 //===----------- RandomNormal.cpp - Lowering RandomNormal Op --------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -41,17 +41,16 @@ struct ONNXRandomNormalOpLowering : public ConversionPattern {
     ArrayRef<int64_t> outputMemRefShape = outputMemRefType.getShape();
     size_t outputRank = outputMemRefShape.size();
     Type elementType = outputMemRefType.getElementType();
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+        rewriter, loc);
 
     // Insert alloc/dealloc pair for output tensor.
-    bool insertDealloc = checkInsertDealloc(op);
-    Value alloc =
-        insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);
+    Value alloc = create.mem.alignedAlloc(outputMemRefType);
 
     // Compute the number of random values required:
     int64_t randomValues = 1;
     for (decltype(outputRank) i = 0; i < outputRank; ++i)
       randomValues *= outputMemRefShape[i];
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
     Value numberOfRandomValues =
         create.math.constant(rewriter.getIndexType(), randomValues);
 

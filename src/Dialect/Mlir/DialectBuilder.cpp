@@ -4,7 +4,7 @@
 
 //===------ DialectBuilder.cpp - Helper functions for MLIR dialects -------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -47,175 +47,316 @@ namespace onnx_mlir {
 // ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
 // MLIR unsigned integer.
 
+/* static */ Type MathBuilder::elementTypeWithVector(Type elementOrVectorType) {
+  VectorType vectorType = elementOrVectorType.dyn_cast<VectorType>();
+  if (vectorType)
+    return vectorType.getElementType();
+  return elementOrVectorType;
+}
+
+/* static */ bool MathBuilder::isIntegerWithVector(Type elementOrVectorType) {
+  Type elementType = elementTypeWithVector(elementOrVectorType);
+  return elementType.isa<IntegerType>() || elementType.isa<IndexType>();
+}
+
+/* static */ bool MathBuilder::isUnsignedIntegerWithVector(
+    Type elementOrVectorType) {
+  Type elementType = elementTypeWithVector(elementOrVectorType);
+  return elementType.isUnsignedInteger();
+}
+
+/* static */ bool MathBuilder::isFloatWithVector(Type elementOrVectorType) {
+  Type elementType = elementTypeWithVector(elementOrVectorType);
+  return elementType.isa<FloatType>();
+}
+
 Value MathBuilder::abs(Value val) const {
-  if (val.getType().isa<IntegerType>() || val.getType().isa<IndexType>())
+  if (isIntegerWithVector(val.getType()))
     return b().create<math::AbsIOp>(loc(), val);
-  return b().create<math::AbsFOp>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::AbsFOp>(loc(), val);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::andi(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  return b().create<arith::AndIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType()))
+    return b().create<arith::AndIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int");
 }
 
 Value MathBuilder::ori(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  return b().create<arith::OrIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType()))
+    return b().create<arith::OrIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int");
+}
+
+Value MathBuilder::xori(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
+    return b().create<arith::XOrIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int");
 }
 
 Value MathBuilder::add(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::AddIOp>(loc(), lhs, rhs);
-  return b().create<arith::AddFOp>(loc(), lhs, rhs);
+  if (isFloatWithVector(lhs.getType()))
+    return b().create<arith::AddFOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sub(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::SubIOp>(loc(), lhs, rhs);
-  return b().create<arith::SubFOp>(loc(), lhs, rhs);
+  if (isFloatWithVector(lhs.getType()))
+    return b().create<arith::SubFOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::mul(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::MulIOp>(loc(), lhs, rhs);
-  return b().create<arith::MulFOp>(loc(), lhs, rhs);
+  if (isFloatWithVector(lhs.getType()))
+    return b().create<arith::MulFOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::div(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<FloatType>())
+  if (isFloatWithVector(lhs.getType()))
     return b().create<arith::DivFOp>(loc(), lhs, rhs);
-  else if (lhs.getType().isUnsignedInteger())
+  if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::DivUIOp>(loc(), lhs, rhs);
-  else
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::DivSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::rem(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<FloatType>())
+  if (isFloatWithVector(lhs.getType()))
     return b().create<arith::RemFOp>(loc(), lhs, rhs);
-  else if (lhs.getType().isUnsignedInteger())
+  if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::RemUIOp>(loc(), lhs, rhs);
-  else
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::RemSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
+}
+
+Value MathBuilder::copySign(mlir::Value rem, mlir::Value dividend) const {
+  assert(rem.getType() == dividend.getType() && "expected same type");
+  if (isFloatWithVector(rem.getType()))
+    return b().create<math::CopySignOp>(loc(), rem, dividend);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::ceilDiv(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  assert(!lhs.getType().isa<FloatType>() && "int only");
-  if (lhs.getType().isUnsignedInteger())
+  if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::CeilDivUIOp>(loc(), lhs, rhs);
-  else
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::CeilDivSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int");
 }
 
 Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  assert(!lhs.getType().isa<FloatType>() && "int only");
-  if (lhs.getType().isUnsignedInteger()) {
+  if (isUnsignedIntegerWithVector(lhs.getType()))
     // Using regular unsigned div is ok as it rounds toward zero.
     return b().create<arith::DivUIOp>(loc(), lhs, rhs);
-  } else
+  if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::FloorDivSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int");
 }
 
 Value MathBuilder::exp(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::ExpOp>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::ExpOp>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::exp2(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::Exp2Op>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::Exp2Op>(loc(), val);
+  llvm_unreachable("expected float");
+}
+
+Value MathBuilder::log(Value val) const {
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::LogOp>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::log2(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::Log2Op>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::Log2Op>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::sqrt(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::SqrtOp>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::SqrtOp>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::pow(Value base, Value exp) const {
-  assert(base.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::PowFOp>(loc(), base, exp);
+  if (isFloatWithVector(base.getType()))
+    return b().create<math::PowFOp>(loc(), base, exp);
+  llvm_unreachable("expected base float");
+}
+
+Value MathBuilder::neg(Value val) const {
+  if (isIntegerWithVector(val.getType()))
+    // Returns 0 - val.
+    return sub(constant(val.getType(), 0), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<arith::NegFOp>(loc(), val);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::ceil(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::CeilOp>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::CeilOp>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::floor(Value val) const {
-  assert(val.getType().isa<FloatType>() && "Data type must be float.");
-  return b().create<math::FloorOp>(loc(), val);
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::FloorOp>(loc(), val);
+  llvm_unreachable("expected float");
 }
 
 Value MathBuilder::min(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    // Test for unsigned as signless are treated as signed.
-    if (lhs.getType().isUnsignedInteger())
-      return b().create<arith::MinUIOp>(loc(), lhs, rhs);
-    else
-      return b().create<arith::MinSIOp>(loc(), lhs, rhs);
-  else
+  if (isFloatWithVector(lhs.getType()))
     return b().create<arith::MinFOp>(loc(), lhs, rhs);
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return b().create<arith::MinUIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType()))
+    return b().create<arith::MinSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::max(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
-    // Test for unsigned as signless are treated as signed.
-    if (lhs.getType().isUnsignedInteger())
-      return b().create<arith::MaxUIOp>(loc(), lhs, rhs);
-    else
-      return b().create<arith::MaxSIOp>(loc(), lhs, rhs);
-  else
+  if (isFloatWithVector(lhs.getType()))
     return b().create<arith::MaxFOp>(loc(), lhs, rhs);
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return b().create<arith::MaxUIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType()))
+    return b().create<arith::MaxSIOp>(loc(), lhs, rhs);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sgt(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::sgt);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGT);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGT);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sge(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::sge);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGE);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::OGE);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::slt(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::slt);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLT);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLT);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::sle(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::sle);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLE);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::OLE);
+  llvm_unreachable("expected int or float");
+}
+
+Value MathBuilder::ugt(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::ugt);
+  llvm_unreachable("expected unsigned int");
+}
+
+Value MathBuilder::uge(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::uge);
+  llvm_unreachable("expected unsigned int");
+}
+
+Value MathBuilder::ult(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::ult);
+  llvm_unreachable("expected unsigned int");
+}
+
+Value MathBuilder::ule(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpIPredicate::ule);
+  llvm_unreachable("expected unsigned int");
+}
+
+Value MathBuilder::gt(Value lhs, Value rhs) const {
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return ugt(lhs, rhs);
+  return sgt(lhs, rhs);
+}
+
+Value MathBuilder::ge(Value lhs, Value rhs) const {
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return uge(lhs, rhs);
+  return sge(lhs, rhs);
+}
+
+Value MathBuilder::lt(Value lhs, Value rhs) const {
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return ult(lhs, rhs);
+  return slt(lhs, rhs);
+}
+
+Value MathBuilder::le(Value lhs, Value rhs) const {
+  if (isUnsignedIntegerWithVector(lhs.getType()))
+    return ule(lhs, rhs);
+  return sle(lhs, rhs);
 }
 
 Value MathBuilder::eq(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::eq);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::OEQ);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::OEQ);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::neq(Value lhs, Value rhs) const {
-  if (lhs.getType().isa<IntegerType>() || lhs.getType().isa<IndexType>())
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  if (isIntegerWithVector(lhs.getType()))
     return createArithCmp(lhs, rhs, arith::CmpIPredicate::ne);
-  return createArithCmp(lhs, rhs, arith::CmpFPredicate::ONE);
+  if (isFloatWithVector(lhs.getType()))
+    return createArithCmp(lhs, rhs, arith::CmpFPredicate::ONE);
+  llvm_unreachable("expected int or float");
 }
 
 Value MathBuilder::select(Value cmp, Value lhs, Value rhs) const {
@@ -246,8 +387,9 @@ Value MathBuilder::constant(Type type, double val) const {
           constant =
               b().create<arith::ConstantOp>(loc(), b().getBoolAttr(val != 0));
         else {
-          assert(type.isSignless() &&
-                 "arith::ConstantOp requires a signless type.");
+          // If unsigned, the integer is still the same, so just create it.
+          // assert(type.isSignless() &&
+          //       "arith::ConstantOp requires a signless type.");
           constant = b().create<arith::ConstantOp>(
               loc(), b().getIntegerAttr(type, APInt(width, (int64_t)val)));
         }
@@ -375,9 +517,7 @@ Value MathBuilder::createArithCmp(
     Value lhs, Value rhs, arith::CmpIPredicate pred) const {
   Type type = lhs.getType();
   assert(type == rhs.getType() && "Operands should have the same type");
-  assert(((type.isa<IntegerType>() && type.isSignlessInteger()) ||
-             type.isa<IndexType>()) &&
-         "Expecting a signless IntegerType or an IndexType");
+  assert(isIntegerWithVector(type) && "expected int");
   return b().create<arith::CmpIOp>(loc(), pred, lhs, rhs);
 }
 
@@ -385,7 +525,7 @@ Value MathBuilder::createArithCmp(
     Value lhs, Value rhs, arith::CmpFPredicate pred) const {
   Type type = lhs.getType();
   assert(type == rhs.getType() && "Operands should have the same type");
-  assert(type.isa<FloatType>() && "Expecting a FloatType");
+  assert(isFloatWithVector(type) && "expected float");
   return b().create<arith::CmpFOp>(loc(), pred, lhs, rhs);
 }
 
@@ -597,32 +737,210 @@ Value ShapeBuilder::getExtent(Value val, int64_t index) const {
 // Memref support, including inserting default alignment.
 //===----------------------------------------------------------------------===//
 
+const int64_t MemRefBuilder::defaultAlign = -1;
+
+//===----------------------------------------------------------------------===//
+// Helper private functions.
+
+// Compute alignment, which is at least gDefaultAllocAlign.
+IntegerAttr MemRefBuilder::computeAlignment(int64_t alignment) const {
+  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
+  return b().getI64IntegerAttr(alignment);
+}
+
+// Alloc calls need a list of values, only for the dynamic shapes. Extract these
+// values from the list of index expressions that represent the shape of the
+// memref.
+void MemRefBuilder::computeDynSymbols(MemRefType type,
+    llvm::SmallVectorImpl<IndexExpr> &dims,
+    llvm::SmallVectorImpl<Value> &dynSymbols) const {
+  dynSymbols.clear();
+  int64_t rank = type.getRank();
+  ArrayRef<int64_t> shape = type.getShape();
+  for (int64_t i = 0; i < rank; ++i)
+    if (shape[i] == ShapedType::kDynamic)
+      dynSymbols.emplace_back(dims[i].getValue());
+}
+
+// Alloc calls need a list of values, only for the dynamic shapes. Extract these
+// values from an existing operands that has the same shape. Use dim ops for
+// each dynamic dimension.
+void MemRefBuilder::computeDynSymbols(Value operandOfSameType, MemRefType type,
+    llvm::SmallVectorImpl<Value> &dynSymbols) const {
+  dynSymbols.clear();
+  if (operandOfSameType == nullptr)
+    return;
+  int64_t rank = type.getRank();
+  ArrayRef<int64_t> shape = type.getShape();
+  for (int64_t i = 0; i < rank; ++i)
+    if (shape[i] == ShapedType::kDynamic)
+      dynSymbols.emplace_back(dim(operandOfSameType, i));
+}
+
+//===----------------------------------------------------------------------===//
+// Alloc functions without alignment.
+
+memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  return alloc(type, dynSymbols);
+}
+
 memref::AllocOp MemRefBuilder::alloc(
     MemRefType type, ValueRange dynSymbols) const {
+  // Constant, ignore the dynamic symbols.
+  if (dynSymbols.size() == 0)
+    return b().create<memref::AllocOp>(loc(), type);
   return b().create<memref::AllocOp>(loc(), type, dynSymbols);
 }
 
-memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
-  return b().create<memref::AllocOp>(loc(), type);
+memref::AllocOp MemRefBuilder::alloc(
+    Value operandOfSameType, MemRefType type) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(operandOfSameType, type, dynSymbols);
+  return alloc(type, dynSymbols);
 }
+
+memref::AllocOp MemRefBuilder::alloc(
+    MemRefType type, llvm::SmallVectorImpl<IndexExpr> &dims) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(type, dims, dynSymbols);
+  return alloc(type, dynSymbols);
+}
+
+//===----------------------------------------------------------------------===//
+// Alloc functions with alignment.
 
 memref::AllocOp MemRefBuilder::alignedAlloc(
     MemRefType type, int64_t alignment) const {
-  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  IntegerAttr alignmentAttr = b().getI64IntegerAttr(alignment);
-  if (type.getShape().size() == 0) // Drop align for scalars.
-    return b().create<memref::AllocOp>(loc(), type);
-  return b().create<memref::AllocOp>(loc(), type, alignmentAttr);
+  llvm::SmallVector<Value, 4> dynSymbols;
+  return alignedAlloc(type, dynSymbols, alignment);
 }
 
 memref::AllocOp MemRefBuilder::alignedAlloc(
     MemRefType type, ValueRange dynSymbols, int64_t alignment) const {
-  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  IntegerAttr alignmentAttr = b().getI64IntegerAttr(alignment);
-  if (type.getShape().size() == 0) // Drop align for scalars.
-    return b().create<memref::AllocOp>(loc(), type, dynSymbols);
+  // Drop align for scalars.
+  if (type.getShape().size() == 0)
+    return alloc(type, dynSymbols);
+  // Has array, use alignment.
+  IntegerAttr alignmentAttr = computeAlignment(alignment);
+  // Constant, ignore the dynamic symbols.
+  if (dynSymbols.size() == 0)
+    return b().create<memref::AllocOp>(loc(), type, alignmentAttr);
   return b().create<memref::AllocOp>(loc(), type, dynSymbols, alignmentAttr);
 }
+
+memref::AllocOp MemRefBuilder::alignedAlloc(
+    Value operandOfSameType, MemRefType type, int64_t alignment) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(operandOfSameType, type, dynSymbols);
+  return alignedAlloc(type, dynSymbols, alignment);
+}
+
+memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
+    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t alignment) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(type, dims, dynSymbols);
+  return alignedAlloc(type, dynSymbols, alignment);
+}
+
+//===----------------------------------------------------------------------===//
+// Alloc functions with alignment and padding for SIMD
+
+Value MemRefBuilder::alignedAllocWithSimdPadding(
+    mlir::MemRefType type, int64_t simdUnroll, int64_t alignment) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+}
+
+Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
+    ValueRange dynSymbols, int64_t simdUnroll, int64_t alignment) const {
+  Type elementType = type.getElementType();
+  assert(type.getLayout().isIdentity() && "unsupported layout");
+  assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
+  assert(simdUnroll >= 1 && "expected positive simd unroll factor");
+  // Compute total size of memref (in unit of element type).
+  ArrayRef<int64_t> shape = type.getShape();
+  int64_t staticSize = 1;                  // Multiplication of static sizes.
+  IndexExpr dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
+  bool staticShape = (dynSymbols.size() == 0);
+  int64_t rank = type.getRank();
+  int64_t iDim = 0;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (shape[i] == ShapedType::kDynamic) {
+      assert(!staticShape && "expected static shape");
+      assert(iDim < (int64_t)dynSymbols.size() && "not enough dynamic symbols");
+      dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
+    } else {
+      // Has constant shape.
+      staticSize *= shape[i];
+    }
+  }
+  // Get vector length for this element type, multiplied by the unroll factor.
+  VectorBuilder createVec(*this);
+  int64_t VL = createVec.getMachineVectorLength(elementType) * simdUnroll;
+  // If the static size component is already a multiple of VL, no matter the
+  // values of the dynamic shapes, the last value is part of a full SIMD. No
+  // need for extra padding then.
+  if (staticSize % VL == 0)
+    return alignedAlloc(type, dynSymbols, alignment);
+
+  // We now need some padding. VL as this is an upper bound on padding. Padding
+  // in element size.
+  int64_t paddingSize = VL;
+  if (staticShape)
+    // Static shape: we can pad by the exact right amount.
+    paddingSize = VL - staticSize % VL;
+
+  // Allocate data as byte.
+  // Multiply sizes by byte width of element.
+  int64_t bitWidth = elementType.getIntOrFloatBitWidth();
+  assert(bitWidth % 8 == 0 && "expected byte sized data");
+  int64_t byteWidth = bitWidth / 8;
+  IndexExpr totByteSize = LiteralIndexExpr(staticSize * byteWidth) * dynSize;
+  IndexExpr totPaddedByteSize =
+      totByteSize + LiteralIndexExpr(paddingSize * byteWidth);
+  if (staticShape)
+    assert(totPaddedByteSize.isLiteral() && "expected literal padded tot size");
+  // Construct memref for padded array of bytes.
+  memref::AllocOp paddedAlloc;
+  if (totPaddedByteSize.isLiteral()) {
+    MemRefType paddedType =
+        MemRefType::get({totPaddedByteSize.getLiteral()}, b().getI8Type());
+    paddedAlloc = alignedAlloc(paddedType, alignment);
+  } else {
+    MemRefType paddedType =
+        MemRefType::get({ShapedType::kDynamic}, b().getI8Type());
+    paddedAlloc =
+        alignedAlloc(paddedType, {totPaddedByteSize.getValue()}, alignment);
+  }
+
+  // Make a subview of the original shape (to get rid of the padding).
+  llvm::SmallVector<IndexExpr, 4> offsets(1, LiteralIndexExpr(0));
+  llvm::SmallVector<IndexExpr, 4> sizes(1, totByteSize);
+  llvm::SmallVector<IndexExpr, 4> strides(1, LiteralIndexExpr(1));
+  Value subViewAlloc = subView(paddedAlloc, offsets, sizes, strides);
+
+  // Now create view
+  return view(subViewAlloc, /*offset*/ 0, type, dynSymbols);
+}
+
+Value MemRefBuilder::alignedAllocWithSimdPadding(Value operandOfSameType,
+    MemRefType type, int64_t simdUnroll, int64_t alignment) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(operandOfSameType, type, dynSymbols);
+  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+}
+
+Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
+    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdUnroll,
+    int64_t alignment) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(type, dims, dynSymbols);
+  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+}
+
+//===----------------------------------------------------------------------===//
+// Alloca
 
 memref::AllocaOp MemRefBuilder::alloca(MemRefType type) const {
   return b().create<memref::AllocaOp>(loc(), type);
@@ -630,16 +948,23 @@ memref::AllocaOp MemRefBuilder::alloca(MemRefType type) const {
 
 memref::AllocaOp MemRefBuilder::alignedAlloca(
     MemRefType type, int64_t alignment) const {
-  alignment = (alignment > gDefaultAllocAlign ? alignment : gDefaultAllocAlign);
-  IntegerAttr alignmentAttr = b().getI64IntegerAttr(alignment);
-  if (type.getShape().size() == 0) // Drop align for scalars.
+  // Drop align for scalars.
+  if (type.getShape().size() == 0)
     return b().create<memref::AllocaOp>(loc(), type);
+  // Has array, use alignment.
+  IntegerAttr alignmentAttr = computeAlignment(alignment);
   return b().create<memref::AllocaOp>(loc(), type, alignmentAttr);
 }
+
+//===----------------------------------------------------------------------===//
+// Dealloc.
 
 memref::DeallocOp MemRefBuilder::dealloc(Value val) const {
   return b().create<memref::DeallocOp>(loc(), val);
 }
+
+//===----------------------------------------------------------------------===//
+// Casts and views.
 
 memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
   return b().create<memref::CastOp>(loc(), outputType, input);
@@ -671,6 +996,75 @@ Value MemRefBuilder::reinterpretCast(
   return b().create<memref::ReinterpretCastOp>(loc(), outputMemRefType, input,
       /*offset=*/b().getIndexAttr(0), sizes, strides);
 }
+
+Value MemRefBuilder::collapseShape(
+    Value input, ArrayRef<ReassociationIndices> reassociation) {
+  // Extract input info.
+  MemRefType inputType = input.getType().cast<MemRefType>();
+  assert(inputType && "expected input with memref type");
+  assert(inputType.getLayout().isIdentity() &&
+         "collapse only for identity layout at this time");
+  int64_t inputRank = inputType.getRank();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  // Compute shape of output.
+  int64_t outputRank = reassociation.size();
+  SmallVector<int64_t, 4> outputShape;
+  for (int64_t r = 0; r < outputRank; ++r) {
+    int64_t indexNum = reassociation[r].size();
+    assert(indexNum > 0 && "expect one or more index in reassociation indices");
+    // Compute the cumulative size of the output dim as the product of all dim
+    // of the sizes in the input being re-associated with this output.
+    int64_t currShape = 1;
+    for (int64_t i = 0; i < indexNum; i++) {
+      int64_t ii = reassociation[r][i];
+      assert(ii >= 0 && ii < inputRank && "out of bound reassociation index");
+      int64_t ss = inputShape[ii];
+      if (ss == ShapedType::kDynamic) {
+        // If a re-associated shapes is dynamic, output is dynamic.
+        currShape = ShapedType::kDynamic;
+        break;
+      }
+      currShape *= ss;
+    }
+    outputShape.emplace_back(currShape);
+  }
+  // Compute type of output.
+  MemRefType outputType =
+      MemRefType::get(outputShape, inputType.getElementType());
+  // Create collapse shape op.
+  return b().create<memref::CollapseShapeOp>(
+      loc(), outputType, input, reassociation);
+}
+
+memref::ViewOp MemRefBuilder::view(Value input, int64_t byteOffset,
+    MemRefType outputType, ValueRange outputDynSymbols) const {
+  MathBuilder createMath(*this);
+  Value offset = createMath.constantIndex(byteOffset);
+  // auto offset = b().createOrFold<arith::ConstantIndexOp>(byteOffset);
+  return b().create<memref::ViewOp>(
+      loc(), outputType, input, offset, outputDynSymbols);
+}
+
+memref::SubViewOp MemRefBuilder::subView(Value input,
+    llvm::SmallVectorImpl<IndexExpr> &offsetsIE,
+    llvm::SmallVectorImpl<IndexExpr> &sizesIE,
+    llvm::SmallVectorImpl<IndexExpr> &stridesIE) const {
+  SmallVector<OpFoldResult, 4> offsets, sizes, strides;
+  IndexExpr::getOpOrFoldResults(offsetsIE, offsets);
+  IndexExpr::getOpOrFoldResults(sizesIE, sizes);
+  IndexExpr::getOpOrFoldResults(stridesIE, strides);
+  SmallVector<int64_t, 4> outputShape;
+  IndexExpr::getShape(sizesIE, outputShape);
+  MemRefType inputType = input.getType().dyn_cast<MemRefType>();
+  MemRefLayoutAttrInterface layout;
+  MemRefType outputType = MemRefType::get(outputShape,
+      inputType.getElementType(), layout, inputType.getMemorySpace());
+  return b().create<memref::SubViewOp>(
+      loc(), outputType, input, offsets, sizes, strides);
+}
+
+//===----------------------------------------------------------------------===//
+// Dims.
 
 Value MemRefBuilder::dim(Value val, int64_t index) const {
   assert(index >= 0 && "Expecting a valid index");

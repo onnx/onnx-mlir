@@ -4,7 +4,7 @@
 
 //===------- ShapeInferencePass.cpp - Shape Inference ---------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -51,7 +51,7 @@ static SmallVector<func::FuncOp, 4> lookUpFuncsMatching(
  * operation is associated with a different (sub) computation graph in the forms
  * of mlir functions, and the operation's output shape and type depends on the
  * shape and type of that (sub) graph outputs. In such scenarios, operations can
- * initiate shape inference on its dependent (sub) graph, and resume infering
+ * initiate shape inference on its dependent (sub) graph, and resume inferring
  * its output shape only after shape inference completes for the associated
  * (sub) graph.
  *

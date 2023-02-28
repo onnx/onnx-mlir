@@ -4,7 +4,7 @@
 
 //===------------------ Scatter.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -149,9 +149,11 @@ LogicalResult ONNXScatterNDOp::verify() {
 
   // The constraints check following this point requires the input tensors shape
   // dimensions to be known, if they aren't delay the checks.
-  if (llvm::any_of(indicesShape, [](int64_t idx) { return (idx < 0); }))
+  if (llvm::any_of(indicesShape,
+          [](int64_t idx) { return (idx == ShapedType::kDynamic); }))
     return success();
-  if (llvm::any_of(updatesShape, [](int64_t idx) { return (idx < 0); }))
+  if (llvm::any_of(updatesShape,
+          [](int64_t idx) { return (idx == ShapedType::kDynamic); }))
     return success();
 
   // Let q = rank(indices). The first (q-1) dimensions of the 'updates' shape
@@ -164,7 +166,8 @@ LogicalResult ONNXScatterNDOp::verify() {
           std::to_string(indicesShape[i]));
   }
 
-  if (llvm::any_of(dataShape, [](int64_t idx) { return (idx < 0); }))
+  if (llvm::any_of(
+          dataShape, [](int64_t idx) { return (idx == ShapedType::kDynamic); }))
     return success();
 
   // Let k = indices.shape[-1], r = rank(data), q = rank(indices). Check that

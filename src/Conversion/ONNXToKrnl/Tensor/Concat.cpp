@@ -4,7 +4,7 @@
 
 //===---------------- Concat.cpp - Lowering Concat Op -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -29,8 +29,8 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
 
     ONNXConcatOpAdaptor operandAdaptor(operands);
     ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
@@ -54,12 +54,12 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     // Alloc and dealloc.
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
-    Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-        loc, shapeHelper.getOutputDims(), alignment);
+    Value alloc = create.mem.alignedAlloc(
+        outputMemRefType, shapeHelper.getOutputDims(), alignment);
 
     // Creates loops, one for each input.
     // Since the each input should have same size for each dimension(except
-    // axis), we will try to make the loop upper bound the same for futher
+    // axis), we will try to make the loop upper bound the same for further
     // optimization. Difference may come from constant vs. dynamic, or dynamic
     // dim of different inputs.
     SmallVector<IndexExpr, 4> commonUB(shapeHelper.getOutputDims());

@@ -4,7 +4,7 @@
 
 //===----------------- GRU.cpp - Lowering GRU Op --------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -349,15 +349,15 @@ GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
 
   // Insert allocation and deallocation for the results of this operation.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, typeConverter,
-      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
-      op->getY(), checkInsertDealloc(op->getOperation(), 0));
+  state.allH =
+      allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getY());
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter,
-      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
-      op->getYH(), checkInsertDealloc(op->getOperation(), 1));
+  state.ht =
+      allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getYH());
 
-  // Insert allocation and deallocation the intermedidate Ht for the forward and
+  // Insert allocation and deallocation the intermediate Ht for the forward and
   // reverse directions.
   // Ht :: [batch_size, hidden_size]
   if (direction == FORWARD || direction == BIDIRECTIONAL) {
@@ -517,8 +517,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
         create.onnx.toMemref(create.onnx.matmul(matrixType, Ht, weightPack.Rr));
     Value rt, rtHt;
     if (hasAllConstantDimensions(matrixType)) {
-      rt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
-      rtHt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
+      rt = create.mem.alignedAlloc(matrixType);
+      rtHt = create.mem.alignedAlloc(matrixType);
     } else {
       // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.

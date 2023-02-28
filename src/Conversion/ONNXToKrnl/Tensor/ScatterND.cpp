@@ -4,7 +4,7 @@
 
 //===--------------- ScatterND.cpp - Lowering ScatterND Op ----------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -52,13 +52,12 @@ struct ONNXScatterNDOpLowering : public ConversionPattern {
     assert(outputRank == dataRank && "Output rank not equal to data rank");
 
     // Insert an allocation and deallocation for the result of this operation.
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
     IndexExprScope indexScope(create.krnl);
     DimsExpr dataDims;
     create.krnlIE.getShapeAsDims(data, dataDims);
-    Value output = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, dataDims);
+    Value output = create.mem.alignedAlloc(outputMemRefType, dataDims);
 
     // Step1: copy `data` into `output`.
     Value numOfElements = getDynamicMemRefSize(rewriter, loc, data);

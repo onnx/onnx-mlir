@@ -4,7 +4,7 @@
 
 //===------------------ SqueezeUnsqueeze.cpp - ONNX Operations ------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -59,7 +59,8 @@ LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
         return op->emitError(
             "Can not squeeze from dynamic dimensions at this time");
       int64_t shape = dataShape[i].getLiteral();
-      assert(shape >= 0 && "Compile time shape should be nonnegative");
+      assert(shape != ShapedType::kDynamic &&
+             "Compile time shape should be nonnegative");
       if (shape == 1) {
         // We will squeeze dim i as its shape is 1.
         squeezedAxes.emplace_back(i);

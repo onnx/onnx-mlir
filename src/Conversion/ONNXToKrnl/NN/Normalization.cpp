@@ -4,7 +4,7 @@
 
 //===----------- Normalization.cpp - Lowering Normalization Ops -----------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -33,7 +33,8 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     ONNXBatchNormalizationInferenceModeOpAdaptor operandAdaptor(operands);
     Location loc = op->getLoc();
 
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+        rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -52,13 +53,7 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     Value variance = operandAdaptor.getVar();
 
     // Insert an allocation and deallocation for the result of this operation.
-    bool insertDealloc = checkInsertDealloc(op);
-
-    Value alloc =
-        (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, {operand});
+    Value alloc = create.mem.alignedAlloc(operand, memRefType);
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
     // In case of N, C is assumed to be 1.
@@ -172,12 +167,7 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
     Value biasMemRef = operandAdaptor.getB();
 
     // Insert an allocation and deallocation for the result of this operation.
-    bool insertDealloc = checkInsertDealloc(op);
-    Value resMemRef =
-        (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, {inputMemRef});
+    Value resMemRef = create.mem.alignedAlloc(inputMemRef, memRefType);
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn
     // Shapes of scale, bias must be C.
