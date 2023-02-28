@@ -4,7 +4,7 @@
 
 //===---------------------- KrnlOps.cpp - Krnl Operations -----------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -685,7 +685,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
     Value kOdsGlobalUB, ArrayRef<int64_t> odsComputeTileSize,
     ArrayRef<int64_t> aOdsTileSize, ArrayRef<int64_t> bOdsTileSize,
     ArrayRef<int64_t> cOdsTileSize, bool odsSimdize, bool odsUnroll,
-    bool odsOvercompute) {
+    bool odsOverCompute) {
   // Massage types.
   ValueRange loopRange(odsLoops);
   ArrayAttr computeTileSizeAttr =
@@ -698,7 +698,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
       loopRange, iOdsComputeStart, jOdsComputeStart, kOdsComputeStart,
       iOdsGlobalUB, jOdsGlobalUB, kOdsGlobalUB, computeTileSizeAttr,
       aTileSizeAttr, bTileSizeAttr, cTileSizeAttr, odsSimdize, odsUnroll,
-      odsOvercompute);
+      odsOverCompute);
 }
 
 void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
@@ -706,7 +706,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
     Value odsB, ValueRange bOdsStart, Value odsC, ValueRange cOdsStart,
     ValueRange odsLoops, Value iOdsComputeStart, Value jOdsComputeStart,
     Value kOdsComputeStart, Value iOdsGlobalUB, Value jOdsGlobalUB,
-    Value kOdsGlobalUB, bool odsSimdize, bool odsUnroll, bool odsOvercompute) {
+    Value kOdsGlobalUB, bool odsSimdize, bool odsUnroll, bool odsOverCompute) {
   // Massage types.
   ValueRange loopRange(odsLoops);
   ArrayRef<int64_t> empty;
@@ -714,7 +714,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
   build(odsBuilder, odsState, odsA, aOdsStart, odsB, bOdsStart, odsC, cOdsStart,
       loopRange, iOdsComputeStart, jOdsComputeStart, kOdsComputeStart,
       iOdsGlobalUB, jOdsGlobalUB, kOdsGlobalUB, empty, empty, empty, empty,
-      odsSimdize, odsUnroll, odsOvercompute);
+      odsSimdize, odsUnroll, odsOverCompute);
 }
 
 LogicalResult KrnlMatMulOp::verify() {

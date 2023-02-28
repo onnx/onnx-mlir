@@ -4,7 +4,7 @@
 
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -59,8 +59,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     }
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc =
-        insertAllocAndDeallocSimple(rewriter, op, outMemRefType, loc, outDims);
+    Value alloc = create.mem.alignedAlloc(outMemRefType, outDims);
 
     // If the last N dimensions are not permuted, do block copying for the last
     // N dimensions. Input and Output's MemRefs must use an identity layout to
@@ -156,7 +155,7 @@ private:
     uint64_t rank = inMemRefType.getRank();
     uint64_t outerRank = rank - numLastDims;
 
-    // Input and output upperbounds.
+    // Input and output upper bounds.
     SmallVector<IndexExpr, 4> inUBs;
     create->krnlIE.getShapeAsDims(inputMemRef, inUBs);
     SmallVector<IndexExpr, 4> outUBs;

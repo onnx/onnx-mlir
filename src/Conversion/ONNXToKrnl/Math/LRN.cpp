@@ -4,7 +4,7 @@
 
 //===-------------------- LRN.cpp - Lowering LRN Op -----------------------===//
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -59,8 +59,8 @@ struct ONNXLRNOpLowering : public ConversionPattern {
         create.math.constant(f32Type, alphaLit / (float)sizeLit);
     Value betaValue = create.math.constant(f32Type, betaLit);
 
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     ValueRange outputLoopDef = create.krnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
