@@ -159,16 +159,20 @@ mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
+
 template <typename Op>
 struct ScalarOp {
   using FOp = void;
   using IOp = void;
+  using SimdEnabled = std::false_type;
 };
 
 template <typename FOp>
 using ScalarFOp = typename ScalarOp<FOp>::FOp;
 template <typename IOp>
 using ScalarIOp = typename ScalarOp<IOp>::IOp;
+template <typename IOp>
+using SimdizableOp = typename ScalarOp<IOp>::SimdEnabled;
 
 // Get the identity element of an operation.
 // Return NULL if the function does not have identity.

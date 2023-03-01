@@ -172,8 +172,10 @@ void addKrnlToLLVMPasses(
     pm.addNestedPass<func::FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
   }
 
-  // hi alex, needed for subview and collapseShape loaded by scalar loads
-  pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
+  // The pass below is needed for subview and collapseShape.. Unfortunately,
+  // MLIR supports only collapse for scalar loaded by scalar memory at this
+  // time. Uncomment if subview/collapse are used.
+  // pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertSCFToCFPass());
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());

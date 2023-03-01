@@ -366,7 +366,9 @@ Value MathBuilder::select(Value cmp, Value lhs, Value rhs) const {
 
 Value MathBuilder::constant(Type type, double val) const {
   Value constant = nullptr;
-  TypeSwitch<Type>(type)
+  // Could be a vector type; look at the element type.
+  Type elementType = elementTypeWithVector(type);
+  TypeSwitch<Type>(elementType)
       .Case<Float16Type>([&](Type) {
         constant =
             b().create<arith::ConstantOp>(loc(), b().getF16FloatAttr(val));
@@ -379,28 +381,34 @@ Value MathBuilder::constant(Type type, double val) const {
         constant =
             b().create<arith::ConstantOp>(loc(), b().getF64FloatAttr(val));
       })
-      .Case<IntegerType>([&](IntegerType type) {
+      .Case<IntegerType>([&](IntegerType elementType) {
         assert(val == (int64_t)val && "value is ambiguous");
-        unsigned width = type.getWidth();
+        unsigned width = elementType.getWidth();
 
         if (width == 1)
           constant =
               b().create<arith::ConstantOp>(loc(), b().getBoolAttr(val != 0));
         else {
           // If unsigned, the integer is still the same, so just create it.
-          // assert(type.isSignless() &&
+          // assert(elementType.isSignless() &&
           //       "arith::ConstantOp requires a signless type.");
-          constant = b().create<arith::ConstantOp>(
-              loc(), b().getIntegerAttr(type, APInt(width, (int64_t)val)));
+          constant = b().create<arith::ConstantOp>(loc(),
+              b().getIntegerAttr(elementType, APInt(width, (int64_t)val)));
         }
       })
-      .Case<IndexType>([&](Type) {
-        constant =
-            b().create<arith::ConstantOp>(loc(), b().getIntegerAttr(type, val));
+      .Case<IndexType>([&](Type elementType) {
+        constant = b().create<arith::ConstantOp>(
+            loc(), b().getIntegerAttr(elementType, val));
       })
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
   assert(constant != nullptr && "Expecting valid constant value");
+  if (type.isa<VectorType>()) {
+    // For vectors, need to splat the constant.
+    MultiDialectBuilder<VectorBuilder> create(*this);
+    VectorType vecType = type.dyn_cast<VectorType>();
+    constant = create.vec.splat(vecType, constant);
+  }
   return constant;
 }
 
@@ -876,8 +884,8 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
     }
   }
   // Get vector length for this element type, multiplied by the unroll factor.
-  VectorBuilder createVec(*this);
-  int64_t VL = createVec.getMachineVectorLength(elementType) * simdUnroll;
+  MultiDialectBuilder<VectorBuilder> create(*this);
+  int64_t VL = create.vec.getMachineVectorLength(elementType) * simdUnroll;
   // If the static size component is already a multiple of VL, no matter the
   // values of the dynamic shapes, the last value is part of a full SIMD. No
   // need for extra padding then.
@@ -913,19 +921,9 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
     paddedAlloc =
         alignedAlloc(paddedType, {totPaddedByteSize.getValue()}, alignment);
   }
-
-#if 1
+  // Used to create a subview, it does not appear that the view cares about
+  // whether the entire input data participates in the viewed data or not.
   return view(paddedAlloc, /*offset*/ 0, type, dynSymbols);
-#else
-  // Make a subview of the original shape (to get rid of the padding).
-  llvm::SmallVector<IndexExpr, 4> offsets(1, LiteralIndexExpr(0));
-  llvm::SmallVector<IndexExpr, 4> sizes(1, totByteSize);
-  llvm::SmallVector<IndexExpr, 4> strides(1, LiteralIndexExpr(1));
-  Value subViewAlloc = subView(paddedAlloc, offsets, sizes, strides);
-
-  // Now create view
-  return view(subViewAlloc, /*offset*/ 0, type, dynSymbols);
-#endif
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(Value operandOfSameType,
@@ -1095,8 +1093,8 @@ Value MemRefBuilder::collapseShape(
 
 memref::ViewOp MemRefBuilder::view(Value input, int64_t byteOffset,
     MemRefType outputType, ValueRange outputDynSymbols) const {
-  MathBuilder createMath(*this);
-  Value offset = createMath.constantIndex(byteOffset);
+  MultiDialectBuilder<MathBuilder> create(*this);
+  Value offset = create.math.constantIndex(byteOffset);
   // auto offset = b().createOrFold<arith::ConstantIndexOp>(byteOffset);
   return b().create<memref::ViewOp>(
       loc(), outputType, input, offset, outputDynSymbols);
@@ -1216,16 +1214,16 @@ Value VectorBuilder::load(
 mlir::Value VectorBuilder::load(mlir::VectorType vecType, mlir::Value memref,
     mlir::ValueRange indices, mlir::ValueRange offsets) const {
   llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  MultiDialectBuilder<MathBuilder> create(*this);
+  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
   return load(vecType, memref, computedIndices);
 }
 
 mlir::Value VectorBuilder::loadIE(mlir::VectorType vecType, mlir::Value memref,
     llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
   llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  MultiDialectBuilder<MathBuilder> create(*this);
+  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
   return load(vecType, memref, computedIndices);
 }
 
@@ -1236,21 +1234,26 @@ void VectorBuilder::store(Value val, Value memref, ValueRange indices) const {
 void VectorBuilder::store(mlir::Value val, mlir::Value memref,
     mlir::ValueRange indices, mlir::ValueRange offsets) const {
   llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  MultiDialectBuilder<MathBuilder> create(*this);
+  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
   store(val, memref, computedIndices);
 }
 
 void VectorBuilder::storeIE(mlir::Value val, mlir::Value memref,
     llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const {
   llvm::SmallVector<mlir::Value, 4> computedIndices;
-  MathBuilder createMath(*this);
-  createMath.addOffsetToLeastSignificant(indices, offsets, computedIndices);
+  MultiDialectBuilder<MathBuilder> create(*this);
+  create.math.addOffsetToLeastSignificant(indices, offsets, computedIndices);
   store(val, memref, computedIndices);
 }
 
 Value VectorBuilder::fma(Value lhs, Value rhs, Value acc) const {
   return b().create<vector::FMAOp>(loc(), lhs, rhs, acc);
+}
+
+// Val is required to be a index/integer/float.
+Value VectorBuilder::splat(VectorType vecType, Value val) const {
+  return b().create<vector::SplatOp>(loc(), vecType, val);
 }
 
 Value VectorBuilder::broadcast(VectorType vecType, Value val) const {
@@ -1353,7 +1356,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 
   // Reductions of full physical vectors.
   outputVecArray.clear();
-  MathBuilder createMath(*this);
+  MultiDialectBuilder<MathBuilder> create(*this);
   for (uint64_t r = 0; r < N; r += machineVL) {
     // Algorithm for the set of input arrays from tmp[r] to
     // tmp[r+machineVL-1].
@@ -1364,7 +1367,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
             mergeHigh(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
         Value lowVal =
             mergeLow(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
-        Value red = createMath.add(highVal, lowVal);
+        Value red = create.math.add(highVal, lowVal);
         tmpArray[r + p] = red;
       }
       numPairs = numPairs / 2; // Pair number decrease by power of 2.

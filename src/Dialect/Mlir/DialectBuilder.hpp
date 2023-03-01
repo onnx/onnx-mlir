@@ -361,7 +361,11 @@ struct VectorBuilder final : DialectBuilder {
   void storeIE(mlir::Value val, mlir::Value memref,
       llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
 
+  // Splat: a single value is copied.
+  mlir::Value splat(mlir::VectorType vecType, mlir::Value val) const;
+  // Broadcast: possibly a N dim vector is copied to M>N dim vector. 
   mlir::Value broadcast(mlir::VectorType vecType, mlir::Value val) const;
+  // Shuffle: use mask to determine which value to write to the output.
   mlir::Value shuffle(mlir::Value lhs, mlir::Value rhs,
       llvm::SmallVectorImpl<int64_t> &mask) const;
   mlir::Value fma(mlir::Value lhs, mlir::Value rhs, mlir::Value acc) const;

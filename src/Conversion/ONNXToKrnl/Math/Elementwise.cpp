@@ -32,191 +32,206 @@ Value emitPostProcessingFor(ConversionPatternRewriter &rewriter, Location loc,
 // =============================================================================
 // Template for functions that can be used as is
 
+// Definition for easier readability
+using NotSupportedOp = void; /* unsupported, e.g. integer version of cos */
+using CustomOp = void; /* support by custom code, e.g. float version of cosh */
+using Off = std::false_type;
+using On = std::true_type;
+
 template <>
 struct ScalarOp<ONNXTanhOp> {
   using FOp = math::TanhOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXAddOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXAbsOp> {
   using FOp = math::AbsFOp;
   using IOp = math::AbsIOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXMulOp> {
   using FOp = arith::MulFOp;
   using IOp = arith::MulIOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXDivOp> {
   using FOp = arith::DivFOp;
   using IOp = arith::DivSIOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXSubOp> {
   using FOp = arith::SubFOp;
   using IOp = arith::SubIOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXAndOp> {
-  using FOp = void; // Not used.
+  using FOp = NotSupportedOp;
   using IOp = arith::AndIOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXOrOp> {
-  using FOp = void; // Not used.
+  using FOp = NotSupportedOp;
   using IOp = arith::OrIOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXXorOp> {
-  using FOp = void; // Not used.
+  using FOp = NotSupportedOp;
   using IOp = arith::XOrIOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXExpOp> {
   using FOp = math::ExpOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXSumOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXCosOp> {
   using FOp = math::CosOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXLogOp> {
   using FOp = math::LogOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXSqrtOp> {
   using FOp = math::SqrtOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXAtanOp> {
   using FOp = KrnlAtanOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = Off;
 };
 
 template <>
 struct ScalarOp<ONNXCeilOp> {
   using FOp = math::CeilOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = Off;
 };
 
 template <>
 struct ScalarOp<ONNXFloorOp> {
   using FOp = math::FloorOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXSinOp> {
   using FOp = math::SinOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXPowOp> {
   using FOp = math::PowFOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
 };
 
 template <>
 struct ScalarOp<ONNXErfOp> {
   using FOp = KrnlErfOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = Off;
 };
 
 template <>
 struct ScalarOp<ONNXIsInfOp> {
   using FOp = KrnlIsInfOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = Off;
 };
 
 template <>
 struct ScalarOp<ONNXIsNaNOp> {
   using FOp = KrnlIsNaNOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = Off;
 };
 
 template <>
 struct ScalarOp<ONNXAcosOp> {
   using FOp = KrnlAcosOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = Off;
 };
 
 template <>
 struct ScalarOp<ONNXAcoshOp> {
   using FOp = KrnlAcoshOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = Off;
 };
 
 template <>
 struct ScalarOp<ONNXAsinOp> {
   using FOp = KrnlAsinOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = Off;
 };
 
 template <>
 struct ScalarOp<ONNXAsinhOp> {
   using FOp = KrnlAsinhOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = Off;
 };
 
 template <>
 struct ScalarOp<ONNXAtanhOp> {
   using FOp = KrnlAtanhOp;
-  using IOp = void; // Not used.
+  using IOp = NotSupportedOp;
+  using SimdEnabled = Off;
 };
 
 template <>
 struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
-  using IOp = void; // Not used.
-};
-
-template <>
-struct ScalarOp<ONNXMeanOp> {
-  using FOp = arith::AddFOp;
-  using IOp = arith::AddIOp;
-};
-
-// =============================================================================
-// Template for SIMD enablement
-
-template <typename Op>
-struct SimdEnablement {
-  using Enabled = std::false_type;
-};
-
-template <>
-struct SimdEnablement<ONNXCosOp> {
-  using Enabled = std::true_type;
+  using IOp = NotSupportedOp;
+  using SimdEnabled = Off;
 };
 
 //===----------------------------------------------------------------------===//
@@ -235,6 +250,13 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSinhOp
 //===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXSinhOp> {
+  using FOp = CustomOp;
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
+};
+
 template <>
 Value emitScalarOpFor<ONNXSinhOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -255,6 +277,13 @@ Value emitScalarOpFor<ONNXSinhOp>(ConversionPatternRewriter &rewriter,
 // Scalar unary ops for lowering ONNXCoshOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXCoshOp> {
+  using FOp = CustomOp;
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
+};
+
+template <>
 Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
@@ -274,6 +303,13 @@ Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
 // Scalar unary ops for lowering ONNXSigmoidOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXSigmoidOp> {
+  using FOp = CustomOp;
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
+};
+
+template <>
 Value emitScalarOpFor<ONNXSigmoidOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
@@ -291,6 +327,13 @@ Value emitScalarOpFor<ONNXSigmoidOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXHardSigmoidOp
 //===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXHardSigmoidOp> {
+  using FOp = CustomOp;
+  using IOp = NotSupportedOp;
+  using SimdEnabled = On;
+};
+
 template <>
 Value emitScalarOpFor<ONNXHardSigmoidOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -658,6 +701,13 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
 // Scalar unary ops for lowering ONNXMeanOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXMeanOp> {
+  using FOp = arith::AddFOp;
+  using IOp = arith::AddIOp;
+  using SimdEnabled = On;
+};
+
+template <>
 Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType, Value scalarResult) {
   MathBuilder createMath(rewriter, loc);
@@ -761,20 +811,24 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
+    //assert(false && "hi alex just checking 0");
     bool scalar = hasAllScalarValues(operands);
-    if constexpr (SimdEnablement<ElementwiseUnaryOp>::Enabled::value) {
+    if constexpr (SimdizableOp<ElementwiseUnaryOp>::value) {
       // SIMD is enabled for this operation, test if desired and feasible
-      if (enableSIMD && !scalar && !hasCustomLayout(operands)) {
+      // hi alex: -O3 not working well in backend test
+      //assert(false && "hi alex just checking 1");
+      bool myEnableSIMD = true;
+      if (myEnableSIMD && !scalar && !hasCustomLayout(operands)) {
         // generate SIMD code of VL elements per vector.
         IndexExprScope allocScope(create.vec, shapeHelper.getScope());
         int64_t simdUnroll = 1;
         int64_t VL =
             create.vec.getMachineVectorLength(elementType) * simdUnroll;
         fprintf(stderr, "hi alex: simd beneficial with vl %d\n", (int)VL);
+        //assert(false && "hi alex just checking 2");
         // Alloc memory with padding for SIMD.
         Value alloc = create.mem.alignedAllocWithSimdPadding(
             memRefType, shapeHelper.getOutputDims(), simdUnroll, alignment);
-#if 1
         // Create flat input / output.
         Value totInputSize, totOutputSize;
         llvm::SmallVector<IndexExpr, 4> xDims;
@@ -788,26 +842,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
         SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
         SmallVector<IndexExpr, 1> ubs(1, totSize);
-#else
-        int64_t rank = memRefType.getRank();
-        // Compute total size of flattened iteration space
-        IndexExpr totSize = LiteralIndexExpr(1);
-        for (int64_t i = 0; i < rank; ++i)
-          totSize = totSize * SymbolIndexExpr(shapeHelper.getOutputDims()[i]);
-        // Create loop iteration (flattened to one dim) and blocked by mVL.
-        ValueRange loopDef = create.krnl.defineLoops(1);
-        ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
-        SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
-        SmallVector<IndexExpr, 1> ubs(1, totSize);
-        // Flatten the input and output: place all dims in one.
-        ReassociationIndices allInOne;
-        for (int64_t i = 0; i < rank; ++i)
-          allInOne.emplace_back(i);
-        SmallVector<ReassociationIndices> reassociation(1, allInOne);
-        Value flatX = create.mem.collapseShape(X, reassociation);
-        Value flatAlloc = create.mem.collapseShape(alloc, reassociation);
-#endif
-#if 1
         // Create the vector type to operate over.
         VectorType vecElementType = VectorType::get({VL}, elementType);
         // Iterate only over the blocks.
@@ -820,7 +854,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
               // Store result in the resulting array.
               create.vec.store(loweredOpResult, flatAlloc, loopInd);
             });
-#endif
         rewriter.replaceOp(op, alloc);
         return success();
       }

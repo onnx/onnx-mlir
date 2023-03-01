@@ -351,14 +351,19 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addIllegalOp<mlir::memref::LoadOp>();
   target.addIllegalOp<mlir::AffineLoadOp>();
   target.addIllegalOp<mlir::memref::StoreOp>();
-  // hi alex: memref builder can use affine stores
-  //target.addIllegalOp<mlir::AffineStoreOp>();
+  // Memref builder can use affine stores, it would be awkward for it to
+  // generate Krnl stores as mem builder is part of MLIR. Thus the affine
+  // stores should not be illegal here. Since affine loads are still illegal,
+  // the regular krnl lowering will most likely trigger errors if non krnl mem
+  // ops where generally used.
+  //
+  // target.addIllegalOp<mlir::AffineStoreOp>();
 
   // Option`emitDealloc` is deprecated and turned off, make sure we don't have
   // buffer deallocation at this level. Will use MLIR buffer-deallocation for
   // this purpose instead. However, since the SequenceErase needs to emit memref
   // dealloc, the previous the following statement is commented out (Chentong)
-  // if (!emitDealloc) target.addIllegalOp<mlir::memref::DeallocOp>();
+  target.addIllegalOp<mlir::memref::DeallocOp>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
