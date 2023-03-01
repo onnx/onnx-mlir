@@ -1270,6 +1270,7 @@ class EndiannessAwareExecutionSession(object):
         for idx in range(num_of_inputs):
             if idx not in input_indices:
                 new_inputs.append(inputs[idx])
+        # Add numpy array entry if empty.
         if not new_inputs:
             new_inputs.append(np.zeros((1)))
         return new_inputs
@@ -1314,6 +1315,7 @@ class EndiannessAwareExecutionSession(object):
             )
             if args.emit == "lib":
                 session = OMExecutionSession(self.exec_name)
+                # Add numpy array entry if empty.
                 if not inputs:
                     inputs = [np.zeros((1))]
                 outputs = session.run(inputs)
