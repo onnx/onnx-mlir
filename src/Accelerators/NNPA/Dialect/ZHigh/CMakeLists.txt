@@ -18,7 +18,6 @@ add_onnx_mlir_library(OMZHighOps
   ZHighOps/MatMul/MatMul.cpp
   ZHighOps/MeanReduce2D/MeanReduce2D.cpp
   ZHighOps/Pooling/Pooling.cpp
-  ZHighOps/ShapeTransform/ShapeTransform.cpp
   ZHighOps/Softmax/Softmax.cpp
   ZHighOps/Stick/Stick.cpp
   ZHighOps/StickForGRU/StickForGRU.cpp
@@ -28,7 +27,6 @@ add_onnx_mlir_library(OMZHighOps
   DEPENDS
   OMLayoutHelper
   OMZHighIncGen
-  OMONNXZHighShapeTransformIncGen
   OMONNXZHighStickIncGen
   OMONNXZHighUnstickIncGen
   OMShapeInferenceOpInterfaceIncGen

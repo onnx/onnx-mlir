@@ -1310,64 +1310,6 @@ struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
   }
 };
 
-//===----------------------------------------------------------------------===//
-// Lower ZHigh ShapeTransform to Krnl. This operation runs on host.
-//===----------------------------------------------------------------------===//
-struct ZHighShapeTransformOpLowering : public ConversionPattern {
-  ZHighShapeTransformOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ZHighShapeTransformOp::getOperationName(), 1, ctx) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ZHighShapeTransformOpAdaptor operandAdaptor(
-        operands, op->getAttrDictionary());
-    Value input = operandAdaptor.getInput();
-    AffineMap indexMap = operandAdaptor.getIndexMap();
-
-    // Helper builders.
-    MultiDialectBuilder<AffineBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
-        KrnlBuilder>
-        create(rewriter, loc);
-    IndexExprScope scope(create.krnlIE);
-
-    // Input and output types.
-    MemRefType inputMemRefType = input.getType().cast<MemRefType>();
-    MemRefType outputMemRefType =
-        typeConverter->convertType(*op->result_type_begin()).cast<MemRefType>();
-    uint64_t inputRank = inputMemRefType.getRank();
-    uint64_t outputRank = outputMemRefType.getRank();
-
-    assert(outputMemRefType.hasStaticShape() &&
-           "Only support static dimensions in the output at this moment");
-
-    // Allocate a buffer for the result MemRef.
-    Value alloc = create.mem.alignedAlloc(outputMemRefType);
-
-    // Element-wise moving of data.
-    ValueRange loopDef = create.krnl.defineLoops(inputRank);
-    SmallVector<IndexExpr, 4> lbs(inputRank, LiteralIndexExpr(0));
-    SmallVector<IndexExpr, 4> ubs;
-    create.krnlIE.getShapeAsDims(input, ubs);
-
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-        [&](KrnlBuilder &createKrnl, ValueRange inputIndices) {
-          Value loadedVal = createKrnl.load(input, inputIndices);
-          // Compute output indices by using affine map.
-          SmallVector<Value, 4> outputIndices;
-          for (uint64_t i = 0; i < outputRank; ++i) {
-            AffineMap dimMap = indexMap.getSubMap(i);
-            Value dimIndex = create.affine.apply(dimMap, inputIndices);
-            outputIndices.emplace_back(dimIndex);
-          }
-          // Store result in the resulting array.
-          createKrnl.store(loadedVal, alloc, outputIndices);
-        });
-
-    rewriter.replaceOp(op, alloc);
-    return success();
-  }
-};
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) {
   // Stickify and unstickify operations.
@@ -1404,8 +1346,6 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns
       .insert<ZHighToZLowPool2DOpLowering<ZHighAvgPool2DOp, ZLowAvgPool2DOp>>(
           typeConverter, ctx);
-  // Host operations.
-  patterns.insert<ZHighShapeTransformOpLowering>(typeConverter, ctx);
 }
 
 } // namespace zhigh

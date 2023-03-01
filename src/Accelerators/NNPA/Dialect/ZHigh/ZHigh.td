@@ -592,46 +592,4 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   let results = (outs AnyZTensor:$output);
 }
 
-def ZHighShapeTransformOp:ZHigh_Op<"ShapeTransform", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ZHigh Element-wise shape transformantion  operation";
-  let description = [{
-    This operator transforms a tensor into another tensor whose shape is changed
-    by a given affine map. This is elemement-wise transformation, so each element
-    in the input will be copied to an element in the output via the affine map.
-
-    For example, the following code is using `zhigh.ShapeTransform` to reshape
-    a tensor from 2D to 4D.
-    ```mlir
-    #reshape = affine_map(d0, d1) -> (d0/32, d0%32, d1/64, d1%64)
-    %Y = zhigh.ShapeTransform(%arg0) {index_map = #reshape} :  (tensor<128x128xf32>) -> tensor<4x32x2x64xf32>
-    ```
-
-    `zhigh.ShapeTransform` will be materialized into an `affine.for` via
-    lowering to `krnl` dialect, e.g.
-    ```mlir
-    %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x32x2x64xf32>
-    affine.for %arg1 = 0 to 128 {
-      affine.for %arg2 = 0 to 128 {
-        %0 = affine.load %arg0[%arg1, %arg2] : memref< 128x128xf32 >
-        affine.store %0, %alloc[%arg1 / 32, %arg1 % 32, %arg2 / 64, %arg2 % 64] : memref<4x32x2x64xf32>
-      }
-    }
-    ```
-
-    When being canonicalized, ShapeTransform operations are composed into
-    a new ShapeTransform operation by composing their affine maps.
-
-    The numbers of elements in the input and output must be the same. 
-
-    At this moment, this operation only supports static dimensions for both input
-    and output.
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>]>:$input,
-                       AffineMapAttr:$index_map);
-  let results = (outs AnyTypeOf<[TensorOf<[F32]>]>:$output);
-  let hasCanonicalizer = 1;
-  let hasVerifier = 1;
-}
-
 #endif // ZHIGH_OPS

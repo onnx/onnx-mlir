@@ -147,9 +147,9 @@ def ReshapeTransposeReshape2DTo3DSPattern : Pat<
       $shape2, $_),
     $layout3DS),
   (ZHighStickOp
-    (ZHighShapeTransformOp // reshape
-      (ZHighShapeTransformOp // transpose
-        (ZHighShapeTransformOp // reshape
+    (ONNXShapeTransformOp // reshape
+      (ONNXShapeTransformOp // transpose
+        (ONNXShapeTransformOp // reshape
           (ZHighUnstickOp $X),
           (GetTiling2DTo4DMap $reshape1),
           (returnType (GetResultType $reshape1))),
@@ -179,9 +179,9 @@ def ReshapeTransposeReshape3DSTo2DPattern : Pat<
       $shape2, $_),
     $layout2D),
   (ZHighStickOp
-    (ZHighShapeTransformOp // reshape
-      (ZHighShapeTransformOp // transpose
-        (ZHighShapeTransformOp // reshape
+    (ONNXShapeTransformOp // reshape
+      (ONNXShapeTransformOp // transpose
+        (ONNXShapeTransformOp // reshape
           (ZHighUnstickOp $X),
           (GetTiling3DTo4DMap $reshape1),
           (returnType (GetResultType $reshape1))),

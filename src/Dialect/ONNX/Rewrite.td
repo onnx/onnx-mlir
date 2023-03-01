@@ -234,6 +234,17 @@ def AxisIsTheLastDim: Constraint<
   "Axis is the last dimension of the input"
 >;
 
+// Check a AffineMap is identity or not.
+def IsIdentityAffineMap : Constraint<
+  CPred<"$_self.isIdentity()">,
+  "Is identity AffineMap"
+>;
+
+/// Compose two affine maps.
+def GetComposedMap : NativeCodeCall<
+ "mlir::AffineMapAttr::get($0.getValue().compose($1.getValue()))"
+>;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -950,6 +961,33 @@ def SoftmaxV11ToLatestPattern: Pat<
    (ONNXSoftmaxV11Op $input, $axisAttr),
    (ONNXSoftmaxOp $input, $axisAttr),
    [(AxisIsTheLastDim $input, $axisAttr)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXShapeTransform
+//===----------------------------------------------------------------------===//
+
+// Remove ShapeTransform with identity map.
+def ShapeTransformIdentityPattern : Pat<
+  (ONNXShapeTransformOp $arg, $map1),
+  (replaceWithValue $arg),
+  [(IsIdentityAffineMap:$map1)]
+>;
+
+// Rewrite
+// ```
+//   onnx.ShapeTransform {#map1} (onnx.ShapeTransform {#map2} (%X))
+// ```
+// into
+// ```
+//   onnx.ShapeTransform {#map} (%X)
+// ```
+// where `#map = compose(#map1, #map2)
+
+def ShapeTransformComposePattern : Pat<
+  (ONNXShapeTransformOp (ONNXShapeTransformOp $arg, $map1), $map2),
+  (ONNXShapeTransformOp $arg, (GetComposedMap $map2, $map1)),
+  []
 >;
 
 #endif // ONNX_REWRITE

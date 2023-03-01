@@ -404,6 +404,10 @@ void populateLoweringONNXPrintSignaturePattern(
 void populateLoweringONNXLayoutTransformOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
+// `Additional` directory methods:
+void populateLoweringONNXShapeTransformOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+
 bool checkOpResultIsUsedByGetRef(mlir::memref::AllocOp *allocOp);
 
 /// This function returns the index in the list of alloc arguments of the

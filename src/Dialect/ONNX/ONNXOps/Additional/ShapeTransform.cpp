@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------- ShapeTransform.cpp - ZHigh Operations --------------===//
+//===----------------- ShapeTransform.cpp - ONNX Operations ---------------===//
 //
 // Copyright 2023 The IBM Research Authors.
 //
@@ -11,30 +11,28 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
+using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeTransform/ONNXZHighShapeTransform.inc"
+#include "src/Dialect/ONNX/ONNXOps/Additional/ONNXShapeTransform.inc"
 } // end anonymous namespace
-
-namespace onnx_mlir {
-namespace zhigh {
 
 //===----------------------------------------------------------------------===//
 // Shape inference
 //===----------------------------------------------------------------------===//
 
-LogicalResult ZHighShapeTransformOp::inferShapes(
+LogicalResult ONNXShapeTransformOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return success();
 }
 
-LogicalResult ZHighShapeTransformOp::verify() {
-  ZHighShapeTransformOpAdaptor operandAdaptor(*this);
+LogicalResult ONNXShapeTransformOp::verify() {
+  ONNXShapeTransformOpAdaptor operandAdaptor(*this);
 
   // Get operands.
   Value input = operandAdaptor.getInput();
@@ -63,16 +61,3 @@ LogicalResult ZHighShapeTransformOp::verify() {
 
   return success();
 }
-
-//===----------------------------------------------------------------------===//
-// Canonicalization patterns
-//===----------------------------------------------------------------------===//
-
-void ZHighShapeTransformOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<ShapeTransformComposePattern>(context);
-  results.insert<ShapeTransformIdentityPattern>(context);
-}
-
-} // namespace zhigh
-} // namespace onnx_mlir
