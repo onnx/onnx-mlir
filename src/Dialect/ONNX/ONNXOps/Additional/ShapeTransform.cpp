@@ -12,15 +12,21 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
-namespace {
-/// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Dialect/ONNX/ONNXOps/Additional/ONNXShapeTransform.inc"
-} // end anonymous namespace
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
+  ONNXShapeTransformOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  return success();
+}
+
+} // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // Shape inference

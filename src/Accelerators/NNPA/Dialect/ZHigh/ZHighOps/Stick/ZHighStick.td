@@ -131,8 +131,8 @@ def ReplaceONNXReciprocalSqrtPattern: Pat<
 //  - the Transpose can be expressed by an affine map, i.e. (d0, d1, d2, d3) -> (d0, d2, d1, d3), and
 //  - the 2nd Reshape can be expressed by an affine map, i.e. (d0, d1, d2, d3)  -> (d0*12+d1, d2, d3)
 // 
-// Thus, we will replace Reshape, Transpose by zhigh.ShapeTransform operations
-// that can be composed automatically into a single zhigh.ShapeTransform.
+// Thus, we will replace Reshape, Transpose by onnx.ShapeTransform operations
+// that can be composed automatically into a single onnx.ShapeTransform.
 //
 // Note: current implementation only supports tensors with static dimensions.
 

@@ -500,7 +500,8 @@ def ONNXConcatShapeTransposeOp: ONNX_Op<"ConcatShapeTranspose", [Pure,
 //===----------------------------------------------------------------------===//
 // ONNXShapeTransformOp
 def ONNXShapeTransformOp: ONNX_Op<"ShapeTransform", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Element-wise shape transformantion  operation";
   let description = [{
     This operator transforms a tensor into another tensor whose shape is changed
@@ -539,6 +540,16 @@ def ONNXShapeTransformOp: ONNX_Op<"ShapeTransform", [Pure,
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>]>:$input,
                        AffineMapAttr:$index_map);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>]>:$output);
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ONNXShapeTransformOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXShapeTransformOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
 }

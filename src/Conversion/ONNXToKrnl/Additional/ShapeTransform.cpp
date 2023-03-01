@@ -48,6 +48,14 @@ struct ONNXShapeTransformOpLowering : public ConversionPattern {
     assert(outputMemRefType.hasStaticShape() &&
            "Only support static dimensions in the output at this moment");
 
+    // Obtain AffineMaps that compute output bounds/indices.
+    // Compute output indices by using affine map.
+    SmallVector<AffineMap, 4> outputMaps;
+    for (uint64_t i = 0; i < outputRank; ++i) {
+      AffineMap dimMap = indexMap.getSubMap(i);
+      outputMaps.emplace_back(dimMap);
+    }
+
     // Allocate a buffer for the result MemRef.
     Value alloc = create.mem.alignedAlloc(outputMemRefType);
 
@@ -63,8 +71,7 @@ struct ONNXShapeTransformOpLowering : public ConversionPattern {
           // Compute output indices by using affine map.
           SmallVector<Value, 4> outputIndices;
           for (uint64_t i = 0; i < outputRank; ++i) {
-            AffineMap dimMap = indexMap.getSubMap(i);
-            Value dimIndex = create.affine.apply(dimMap, inputIndices);
+            Value dimIndex = create.affine.apply(outputMaps[i], inputIndices);
             outputIndices.emplace_back(dimIndex);
           }
           // Store result in the resulting array.
