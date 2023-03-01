@@ -4,7 +4,7 @@
 
 //===-------------------- Loop.cpp - Lowering Loop Op ---------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -88,13 +88,13 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     // initial loop condition.
     Value cond;
     if (hasAllConstantDimensions(condMemRefTy))
-      cond = insertAllocAndDealloc(
-          condMemRefTy, loc, rewriter, /*insertDealloc=*/true);
+      cond = create.mem.alignedAlloc(condMemRefTy);
     emitCopy(rewriter, loc, loopOpAdaptor.getCond(), cond);
 
     // Create the loop iteration.
     IndexExprScope childScope(&rewriter, loc);
     KrnlBuilder createKrnl(rewriter, loc);
+
     Value maxTripCount = createKrnl.load(loopOpAdaptor.getM());
     maxTripCount = rewriter.create<arith::IndexCastOp>(
         loc, rewriter.getIndexType(), maxTripCount);
@@ -351,13 +351,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // Allocate memory for the loop-carried dependencies, since they are
       // guaranteed to have the same shape throughout all iterations, use their
       // initial value tensors as reference when allocating memory.
-      Value alloc;
-      bool shouldDealloc = checkInsertDealloc(op);
-      if (hasAllConstantDimensions(memRefType))
-        alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
-      else
-        alloc = insertAllocAndDealloc(
-            memRefType, loc, rewriter, shouldDealloc, vInit);
+      MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+      Value alloc = create.mem.alignedAlloc(vInit, memRefType);
       outputs.emplace_back(alloc);
     }
   }
@@ -380,12 +375,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       // leading dimension is simply the number of iterations executed, which is
       // easier to obtain.
       Value alloc;
-      bool shouldDealloc = checkInsertDealloc(op);
+      MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+          rewriter, loc);
       if (hasAllConstantDimensions(memRefType))
-        alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
+        alloc = create.mem.alignedAlloc(memRefType);
       else {
-        MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
-            rewriter, loc);
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
 
@@ -423,7 +417,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         }
         MemRefBuilder createMemRef(rewriter, loc);
         if (isDynamic) {
-          // Suppose the scanout type is is <d1 , d2,... dnxT>
+          // Suppose the scan out type is is <d1 , d2,... dnxT>
           // Use memref<d1xmemref<d2, ..., dnxT>>
           // seqElementType: memref<d2, ..., dnxT>
           Type elementType = rankedScanOutTy.getElementType();
@@ -626,11 +620,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(&whileOp.getAfter().front());
 
       // Handle loop body
-      // Most code is copied from the lamda function of krnl.iterate
+      // Most code is copied from the lambda function of krnl.iterate
       // for LoopOp
 
       // Differences: no need to construct scf.if since the condition
-      // is checked with iteratation variable in the first block of
+      // is checked with iteration variable in the first block of
       // WhileOp
 
       // Contain the ThenRegion with KrnlRegionOp

@@ -4,7 +4,7 @@
 
 //===-------- ONNXDimAnalysis.cpp - ONNX Dimension Analysis ---------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -346,7 +346,6 @@ void DimAnalysis::visitDim(
       isa<ONNXWhereOp>(op) ||
       isa<ONNXXorOp>(op)) {
     // clang-format on
-    // hi alex: remove if
     bool success = exploreSameInputDims(dim, op, sameDims);
     assert(success && "dim analysis should be successful for broadcast ops ");
     // If we know by this analysis that two unknown dims at the same index are

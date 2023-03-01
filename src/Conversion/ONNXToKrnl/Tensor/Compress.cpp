@@ -4,7 +4,7 @@
 
 //===---------------- Compress.cpp - Lowering Compress Op -----------------===//
 //
-// Copyright 2021-2022 The IBM Research Authors.
+// Copyright 2021-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -91,8 +91,8 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
     // Perform the copy depending on the conditions.
     // We will store the current index to write into the output array in
@@ -107,7 +107,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
 
     // Consider the cases.
     if (!axis.has_value()) {
-      // We iterate over the original loops, and in the innerblock we test for
+      // We iterate over the original loops, and in the inner block we test for
       // the condition. The output is 1D.
       //
       // readIndex = writeIndex = 0;

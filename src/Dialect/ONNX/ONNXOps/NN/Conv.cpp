@@ -4,7 +4,7 @@
 
 //===------------------ Conv.cpp - ONNX Operations ------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -499,7 +499,7 @@ LogicalResult ONNXConvOp::verify() {
   if (spatialRank < 1)
     return emitOpError("Spatial rank must be strictly positive");
 
-  if (wShape[0] >= 0 && wShape[0] % g != 0) {
+  if (wShape[0] != ShapedType::kDynamic && wShape[0] % g != 0) {
     // This rule is not enforced in the spec but is present in Keras,
     // Pytorch, and simplifies the code.
     // Note: Pytorch requires both channel in (CI) and channel out (CO) to be
@@ -519,10 +519,11 @@ LogicalResult ONNXConvOp::verify() {
     auto xShape = X.getType().cast<ShapedType>().getShape();
     if ((int64_t)xShape.size() - 2 != spatialRank)
       return emitOpError("Input and filter rank mismatch");
-    if (xShape[1] >= 0 && xShape[1] % g != 0)
+    if (xShape[1] != ShapedType::kDynamic && xShape[1] % g != 0)
       return emitOpError(
           "Channel In (C) must be a multiple of the number of groups");
-    if (xShape[1] >= 0 && wShape[1] >= 0 && xShape[1] != wShape[1] * g) {
+    if (xShape[1] != ShapedType::kDynamic &&
+        wShape[1] != ShapedType::kDynamic && xShape[1] != wShape[1] * g) {
       return emitOpError("Channel In (C) of input must be equal 2nd dim "
                          "of weights times g");
     }
@@ -531,7 +532,8 @@ LogicalResult ONNXConvOp::verify() {
     auto bShape = B.getType().cast<ShapedType>().getShape();
     if (bShape.size() != 1)
       return emitOpError("Bias should have a rank of one");
-    if (bShape[0] >= 0 && wShape[0] >= 0 && wShape[0] != bShape[0])
+    if (bShape[0] != ShapedType::kDynamic &&
+        wShape[0] != ShapedType::kDynamic && wShape[0] != bShape[0])
       return emitOpError(
           "Bias should have same dimension as first dimension of weights");
   }
@@ -604,7 +606,8 @@ LogicalResult ONNXConvTransposeOp::verify() {
     auto xShape = X.getType().cast<ShapedType>().getShape();
     if ((int64_t)xShape.size() - 2 != spatialRank)
       return emitOpError("Input and filter rank mismatch");
-    if (xShape[1] >= 0 && wShape[0] >= 0 && xShape[1] != wShape[0]) {
+    if (xShape[1] != ShapedType::kDynamic &&
+        wShape[0] != ShapedType::kDynamic && xShape[1] != wShape[0]) {
       return emitOpError("Channel In (C) of input must be equal 1st dim "
                          "of weights");
     }
@@ -613,7 +616,8 @@ LogicalResult ONNXConvTransposeOp::verify() {
     auto bShape = B.getType().cast<ShapedType>().getShape();
     if (bShape.size() != 1)
       return emitOpError("Bias should have a rank of one");
-    if (bShape[0] >= 0 && wShape[1] >= 0 && bShape[0] != wShape[1] * g)
+    if (bShape[0] != ShapedType::kDynamic &&
+        wShape[1] != ShapedType::kDynamic && bShape[0] != wShape[1] * g)
       return emitOpError("Bias should have same dimension as second dimension "
                          "of weights times g");
   }

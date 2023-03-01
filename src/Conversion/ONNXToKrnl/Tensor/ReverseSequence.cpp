@@ -4,7 +4,7 @@
 
 //===-------- ReverseSequence.cpp - Lowering ReverseSequence Op-----------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -30,7 +30,8 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     ONNXReverseSequenceOp reverseSequenceOp =
         llvm::cast<ONNXReverseSequenceOp>(op);
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
     // Get shape.
     ONNXReverseSequenceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -43,8 +44,8 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Save axis and rank info.
     int64_t batchAxis = reverseSequenceOp.getBatchAxis();
@@ -58,7 +59,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
 
       for (vector of dim I on the shape of output tensor) {
         vector of dim Iinput = I;
-        Iinput[time_axis()]  = I[time_axis()] < seqence_lens[I[batch_axis()]]?
+        Iinput[time_axis()]  = I[time_axis()] < sequence_lens[I[batch_axis()]]?
               sequence_lens[I[batch_axis()]]-I[time_axis()]-1:I[time_axis()];
         output[I] = input[Iinput]
       }
@@ -82,7 +83,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
       }
 
       This transformation should improve performance on this loop nest itself,
-      but may hinder loop fusion with other loop nestes.
+      but may hinder loop fusion with other loop nests.
       Also further loop fission or loop interchanging can be applied here.
       I chose the simple loop structure
       and believe optimization should be left to compiler, at least for
