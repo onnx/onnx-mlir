@@ -4,7 +4,7 @@
 
 //===----------------- Softmax.cpp - Softmax Op ---------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -262,20 +262,14 @@ struct ONNXSoftmaxLowering : public ConversionPattern {
     Value input = operandAdaptor.getInput();
     // Insert an allocation and deallocation for the result of this operation.
     Type elementType = memRefType.getElementType();
-
-    bool insertDealloc = checkInsertDealloc(op);
-    Value alloc =
-        (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, input);
+    MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
+    Value alloc = create.mem.alignedAlloc(input, memRefType);
 
     // Insert allocations and deallocations for sum and max.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-    Value sumOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
-    Value maxOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
+    Value sumOp = create.mem.alignedAlloc(scalarMemRefType);
+    Value maxOp = create.mem.alignedAlloc(scalarMemRefType);
 
-    MultiDialectBuilder<MathBuilder> create(rewriter, loc);
     Value zero = create.math.constant(elementType, 0);
     Value negInfinity = create.math.constant(
         elementType, -std::numeric_limits<float>::infinity());

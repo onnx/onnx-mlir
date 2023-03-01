@@ -4,7 +4,7 @@
 
 //===--- RewriteONNXForZHigh.cpp - Rewrite ONNX ops for ZHigh lowering ----===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -231,7 +231,8 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
   if (op.getAutoPad().equals_insensitive("VALID"))
     return false;
   // image dimensions of input shape should be static
-  if ((inputShape[2] <= 0) || (inputShape[3] <= 0))
+  if ((inputShape[2] == ShapedType::kDynamic) ||
+      (inputShape[3] == ShapedType::kDynamic))
     return false;
   return true;
 }

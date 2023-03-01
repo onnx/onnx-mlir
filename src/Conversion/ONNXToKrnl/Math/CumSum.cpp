@@ -95,7 +95,8 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     // Builder helper.
     IndexExprScope mainScope(&rewriter, loc);
 
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, IndexExprBuilderForKrnl>
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, IndexExprBuilderForKrnl,
+        MemRefBuilder>
         create(rewriter, loc);
 
     // Convert the output type to MemRefType.
@@ -127,17 +128,8 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     axisIE = axisIE.selectOrSelf(axisIE < 0, axisIE + LiteralIndexExpr(rank));
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value resMemRef, bufMemRef;
-    bool insertDealloc = checkInsertDealloc(op);
-    if (hasAllConstantDimensions(memRefType)) {
-      resMemRef =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-      bufMemRef = insertAllocAndDealloc(memRefType, loc, rewriter, true);
-    } else {
-      resMemRef =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, X);
-      bufMemRef = insertAllocAndDealloc(memRefType, loc, rewriter, true, X);
-    }
+    Value resMemRef = create.mem.alignedAlloc(X, memRefType);
+    Value bufMemRef = create.mem.alignedAlloc(X, memRefType);
 
     // Get the size of dimension 'axis'.
     IndexExpr axisSize = LiteralIndexExpr(-1);

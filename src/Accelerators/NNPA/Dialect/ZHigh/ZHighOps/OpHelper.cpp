@@ -176,6 +176,22 @@ Value getMinusBcastConst(
   return create.onnx.constant(denseAttr);
 }
 
+Value getConstantOfType(
+    OpBuilder &builder, Location loc, Type type, float val) {
+  ShapedType shapedType = type.cast<ShapedType>();
+  assert(shapedType.hasStaticShape() && "expected static shape");
+  Type elementType = shapedType.getElementType();
+  DenseElementsAttr denseAttr;
+  if (elementType.isa<IntegerType>())
+    denseAttr = DenseElementsAttr::get(shapedType, (int64_t)val);
+  else if (elementType.isa<FloatType>())
+    denseAttr = DenseElementsAttr::get(shapedType, val);
+  else
+    llvm_unreachable("Unsupport type");
+  MultiDialectBuilder<OnnxBuilder> create(builder, loc);
+  return create.onnx.constant(denseAttr);
+}
+
 bool oneIsOfNHWCLayout(Type t1, Type t2) {
   if (auto rtp1 = llvm::dyn_cast<RankedTensorType>(t1)) {
     if (onnx_mlir::zhigh::getZTensorLayout(rtp1) ==

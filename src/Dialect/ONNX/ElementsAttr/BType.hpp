@@ -115,7 +115,7 @@ struct CppTypeTrait : public detail::BTypeTraitBase<BType::UNDEFINED, CPPTY> {};
   template <>                                                                  \
   struct BTypeTrait<BTYPE> : public detail::BTypeTraitBase<BTYPE, CPPTY> {};   \
   template <>                                                                  \
-  struct CppTypeTrait<CPPTY> : public BTypeTrait<BTYPE> {};
+  struct CppTypeTrait<CPPTY> : public BTypeTrait<BTYPE> {}
 
 DEFINE_BTypeCppTypeTraits(BType::BOOL, bool);
 DEFINE_BTypeCppTypeTraits(BType::INT8, int8_t);
