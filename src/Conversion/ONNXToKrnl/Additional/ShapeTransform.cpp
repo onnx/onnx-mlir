@@ -38,6 +38,10 @@ struct ONNXShapeTransformOpLowering : public ConversionPattern {
         create(rewriter, loc);
     IndexExprScope scope(create.krnlIE);
 
+    // Get shape.
+    ONNXShapeTransformOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
     // Input and output types.
     MemRefType inputMemRefType = input.getType().cast<MemRefType>();
     MemRefType outputMemRefType =
@@ -45,19 +49,9 @@ struct ONNXShapeTransformOpLowering : public ConversionPattern {
     uint64_t inputRank = inputMemRefType.getRank();
     uint64_t outputRank = outputMemRefType.getRank();
 
-    assert(outputMemRefType.hasStaticShape() &&
-           "Only support static dimensions in the output at this moment");
-
-    // Obtain AffineMaps that compute output bounds/indices.
-    // Compute output indices by using affine map.
-    SmallVector<AffineMap, 4> outputMaps;
-    for (uint64_t i = 0; i < outputRank; ++i) {
-      AffineMap dimMap = indexMap.getSubMap(i);
-      outputMaps.emplace_back(dimMap);
-    }
-
     // Allocate a buffer for the result MemRef.
-    Value alloc = create.mem.alignedAlloc(outputMemRefType);
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Element-wise moving of data.
     ValueRange loopDef = create.krnl.defineLoops(inputRank);
@@ -71,7 +65,8 @@ struct ONNXShapeTransformOpLowering : public ConversionPattern {
           // Compute output indices by using affine map.
           SmallVector<Value, 4> outputIndices;
           for (uint64_t i = 0; i < outputRank; ++i) {
-            Value dimIndex = create.affine.apply(outputMaps[i], inputIndices);
+            AffineMap dimMap = indexMap.getSubMap(i);
+            Value dimIndex = create.affine.apply(dimMap, inputIndices);
             outputIndices.emplace_back(dimIndex);
           }
           // Store result in the resulting array.

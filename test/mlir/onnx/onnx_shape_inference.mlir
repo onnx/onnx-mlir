@@ -3437,3 +3437,20 @@ func.func @test_onnx_layout_transform(%arg0: tensor<5x3x32x32xf32>) -> tensor<*x
 // CHECK:           return [[VAR_1_]] : tensor<5x3x32x32xf32>
 // CHECK:         }
 }
+
+// -----
+
+#map = affine_map<(d0, d1) -> (d1 floordiv 64, d0, d1 mod 64)>
+module {
+  func.func @test_shape_transform(%arg0: tensor<3x128xf32>) -> tensor<*xf32> {
+    %0 = "onnx.ShapeTransform"(%arg0) {index_map = #map} : (tensor<3x128xf32>) -> tensor<*xf32>
+    return %0 : tensor<*xf32>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (d1 floordiv 64, d0, d1 mod 64)>
+// CHECK-LABEL:  func.func @test_shape_transform
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x128xf32>) -> tensor<2x3x64xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ShapeTransform"([[PARAM_0_]]) {index_map = #map} : (tensor<3x128xf32>) -> tensor<2x3x64xf32>
+// CHECK:           return [[VAR_0_]] : tensor<2x3x64xf32>
+// CHECK:         }
+  }
+}

@@ -502,11 +502,12 @@ def ONNXConcatShapeTransposeOp: ONNX_Op<"ConcatShapeTranspose", [Pure,
 def ONNXShapeTransformOp: ONNX_Op<"ShapeTransform", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let summary = "ONNX Element-wise shape transformantion  operation";
+  let summary = "ONNX Element-wise shape transformation operation";
   let description = [{
     This operator transforms a tensor into another tensor whose shape is changed
     by a given affine map. This is elemement-wise transformation, so each element
     in the input will be copied to an element in the output via the affine map.
+    The affine map must be bijective.
 
     For example, the following code is using `onnx.ShapeTransform` to reshape
     a tensor from 2D to 4D.
@@ -515,7 +516,7 @@ def ONNXShapeTransformOp: ONNX_Op<"ShapeTransform", [Pure,
     %Y = onnx.ShapeTransform(%arg0) {index_map = #reshape} :  (tensor<128x128xf32>) -> tensor<4x32x2x64xf32>
     ```
 
-    `onnx.ShapeTransform` will be materialized into an `affine.for` via
+    `onnx.ShapeTransform` will be finally materialized into an `affine.for` via
     lowering to `krnl` dialect, e.g.
     ```mlir
     %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x32x2x64xf32>
@@ -530,10 +531,7 @@ def ONNXShapeTransformOp: ONNX_Op<"ShapeTransform", [Pure,
     When being canonicalized, ShapeTransform operations are composed into
     a new ShapeTransform operation by composing their affine maps.
 
-    The numbers of elements in the input and output must be the same. 
-
-    At this moment, this operation only supports static dimensions for both input
-    and output.
+    At this moment, this operation only supports static dimensions.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];

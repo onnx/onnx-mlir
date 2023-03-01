@@ -119,6 +119,7 @@ add_onnx_mlir_library(OMONNXOps
   OMONNXElementsAttr
   onnx
   MLIRFuncDialect
+  MLIRMemRefTransforms
   )
 
 configure_file(ONNXOps.td.inc.dc.in
