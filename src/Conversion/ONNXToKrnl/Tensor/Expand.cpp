@@ -4,7 +4,7 @@
 
 //===----------------Expand.cpp - Lowering Expand Op----------------------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -31,8 +31,10 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     ONNXExpandOpAdaptor operandAdaptor(operands);
     Value input = operandAdaptor.getInput();
     Location loc = op->getLoc();
-    IndexExprBuilderForKrnl createIE(rewriter, loc);
-    ONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder>
+        create(rewriter, loc);
+
+    ONNXExpandOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
@@ -43,15 +45,14 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     int64_t outputRank = outputMemRefType.getRank();
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Iterate over the output values.
-    KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange outputLoopDef = createKrnl.defineLoops(outputRank);
+    ValueRange outputLoopDef = create.krnl.defineLoops(outputRank);
     LiteralIndexExpr zeroIE(0);
     SmallVector<IndexExpr, 4> lbs(outputRank, zeroIE);
-    createKrnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
+    create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
         shapeHelper.getOutputDims(),
         [&](KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
           IndexExprScope outputScope(createKrnl, shapeHelper.getScope());

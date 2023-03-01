@@ -4,7 +4,7 @@
 
 //===--------------- LSTM.cpp - Lowering LSTM Op --------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -400,17 +400,17 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
   // Insert allocation and deallocation for the results of this operation.
   // If the result is not returned, then no allocation happens.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, typeConverter,
-      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
-      op->getY(), checkInsertDealloc(op->getOperation(), 0));
+  state.allH =
+      allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getY());
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter,
-      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
-      op->getYH(), checkInsertDealloc(op->getOperation(), 1));
+  state.ht =
+      allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getYH());
   // Y_c :: [num_directions, batch_size, hidden_size]
-  state.ct = allocHiddenOrCell(rewriter, loc, typeConverter,
-      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
-      op->getYC(), checkInsertDealloc(op->getOperation(), 2));
+  state.ct =
+      allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getYC());
 
   // Insert allocation and deallocation the intermediate Ht and Ct for the
   // forward and reverse directions.

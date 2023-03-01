@@ -4,7 +4,7 @@
 
 //===-------- RandomNormalLike.cpp - Lowering RandomNormal Op -------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -44,25 +44,23 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     ArrayRef<int64_t> outputMemRefShape = outputMemRefType.getShape();
     int outputRank = outputMemRefShape.size();
     Type elementType = outputMemRefType.getElementType();
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, MemRefBuilder>
+        create(rewriter, loc);
 
     // Insert alloc/dealloc pair for output tensor.
-    bool insertDealloc = checkInsertDealloc(op);
-    Value alloc = insertAllocAndDealloc(
-        outputMemRefType, loc, rewriter, insertDealloc, input);
+    Value alloc = create.mem.alignedAlloc(input, outputMemRefType);
 
     // Compute the number of random values required.
     int64_t constantValues = 1;
     for (decltype(outputRank) i = 0; i < outputRank; ++i)
-      if (outputMemRefShape[i] > 0)
+      if (outputMemRefShape[i] != ShapedType::kDynamic)
         constantValues *= outputMemRefShape[i];
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
     Value numberOfRandomValues =
         create.math.constant(rewriter.getIndexType(), constantValues);
 
     // Incorporate any dynamic values into the number of values:
     for (decltype(outputRank) i = 0; i < outputRank; ++i) {
-      if (outputMemRefShape[i] < 0) {
+      if (outputMemRefShape[i] == ShapedType::kDynamic) {
         Value dim = create.mem.dim(input, i);
         numberOfRandomValues = create.math.mul(numberOfRandomValues, dim);
       }

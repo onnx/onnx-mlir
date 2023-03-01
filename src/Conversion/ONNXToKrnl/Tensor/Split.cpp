@@ -4,7 +4,7 @@
 
 //===---------------- Split.cpp - Lowering Split Op -----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -26,30 +26,30 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   Location loc = op->getLoc();
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   OP_TYPE splitOp = llvm::cast<OP_TYPE>(op);
-  IndexExprBuilderForKrnl createIE(rewriter, loc);
+  MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder>
+      create(rewriter, loc);
 
   Value input = operandAdaptor.getInput();
-  uint64_t rank = createIE.getShapedTypeRank(input);
-  // splitOp.getInput().getType().template cast<ShapedType>().getRank();
+  uint64_t rank = create.krnlIE.getShapedTypeRank(input);
   unsigned outputNum = splitOp.getNumResults();
   unsigned axis = splitOp.getAxis();
 
   // Get shape.
-  ONNXCommonSplitOpShapeHelper<OP_TYPE> shapeHelper(op, operands, &createIE);
+  ONNXCommonSplitOpShapeHelper<OP_TYPE> shapeHelper(
+      op, operands, &create.krnlIE);
   shapeHelper.computeShapeAndAssertOnFailure();
 
   // Alloc and dealloc.
   SmallVector<Value, 4> allocs;
   for (unsigned i = 0; i < outputNum; ++i) {
-    checkInsertDealloc(op, i);
     // Convert the output type to MemRefType.
     Type convertedType =
         typeConverter->convertType(splitOp.getOutputs()[i].getType());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.getOutputDims(i));
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims(i));
     allocs.emplace_back(alloc);
   }
 

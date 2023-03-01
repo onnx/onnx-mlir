@@ -37,19 +37,15 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape() {
 
   // axis attribute (if specified) must be in the range [-r,r-1], where r =
   // rank(input).
-  assert((!optionalAxis.has_value() || (-inputRank <= optionalAxis.value() &&
-                                           optionalAxis.value() < inputRank)) &&
-         "axis out of range");
+  if (optionalAxis.has_value())
+    assert(-inputRank <= optionalAxis.value() &&
+           optionalAxis.value() < inputRank && "axis out of range");
 
   // Get the dimension derived from the condition. Assume in shape helper that
   // it is only going to be a question mark. ONNX to Krnl lowering will compute
   // the actual value.
   // TODO: if cond is constant, the compute the actual value.
-  IndexExpr dynDim;
-  if (scope->isShapeInferencePass())
-    dynDim = QuestionmarkIndexExpr(/*isFloat*/ false); // Value for runtime dim.
-  else
-    dynDim = LiteralIndexExpr(-1); // Dummy value to be replaced in lowering.
+  IndexExpr dynDim = QuestionmarkIndexExpr(/*isFloat*/ false);
 
   // Compute dims for output.
   DimsExpr outputDims;
@@ -70,7 +66,8 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape() {
     outputDims[axisValue] = dynDim;
   }
 
-  setOutputDims(outputDims);
+  // Cannot refine shape as we may otherwise loose the dynamic dim.
+  setOutputDims(outputDims, /*n*/ 0, /*refineShape*/ false);
   return success();
 }
 

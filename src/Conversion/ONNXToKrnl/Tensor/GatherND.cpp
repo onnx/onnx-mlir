@@ -4,7 +4,7 @@
 
 //===---------------- GatherND.cpp - Lowering GatherND Op -----------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -79,7 +79,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     ArrayRef<int64_t> outputShape = outputMemRefType.getShape();
     int64_t outputRank = outputShape.size();
 
-    // Ensure the operation containts are satisfied.
+    // Ensure the operation constains are satisfied.
     assert(dataRank >= 1 && "The rank of 'data' must be >= 1");
     assert(indicesRank >= 1 && "The rank of 'indices' must be >= 1");
     assert((outputRank == dataRank + indicesRank - indicesLastDim - 1 - b) &&
@@ -110,7 +110,8 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     // Reshape 'data' to shape [batchDimSize, data.shape[b:]]
     DimsExpr newDataShape = {BDS};
     for (int64_t i = b; i < dataRank; ++i) {
-      assert(dataShape[i] > 0 && "Cannot support data with dynamic dimensions");
+      assert(dataShape[i] != ShapedType::kDynamic &&
+             "Cannot support data with dynamic dimensions");
       LiteralIndexExpr dataDim(dataShape[i]);
       newDataShape.emplace_back(dataDim);
     }

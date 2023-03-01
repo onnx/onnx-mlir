@@ -4,7 +4,7 @@
 
 //===------------ CategoryMapper.cpp - Lowering CategoryMapper Op ---------===//
 //
-// Copyright 2021-2022 The IBM Research Authors.
+// Copyright 2021-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -37,8 +37,8 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
   // When true causes injection of print stmts in the generated code.
   static const bool emitPrintStmts = false;
 
-  using LocalDialectBuilder =
-      MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>;
+  using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
+      IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>;
 
   ONNXCategoryMapperOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
@@ -90,8 +90,8 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     Type elementType = inputType.getElementType();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
     // Generate a perfect hash table. The hash table will be used to lookup the
     // index of the input values.

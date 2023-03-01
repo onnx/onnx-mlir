@@ -217,16 +217,15 @@ result in a new Dim variable.
 ```
     // Create an alloc using dimensions as indices.
 
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, outputDims);
+    Value alloc = create.mem.alignedAlloc(outputMemRefType, outputDims);
 
     // Use indices to set loop sizes.
 
     outputLoops(rewriter, loc, outputRank);
-      outputLoops.createDefineOp();
-      outputLoops.pushAllBounds(shapeHelper.dimsForOutput());
-      outputLoops.createIterateOp();
-      rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
+    outputLoops.createDefineOp();
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput());
+    outputLoops.createIterateOp();
+    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // Create a sub-scope for computations inside the loop iteration.
 
@@ -490,6 +489,9 @@ public:
   static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
       llvm::SmallVectorImpl<int64_t> &intDimList,
       bool uniqueQuestionMark = false);
+  static void getDynSymbols(
+      llvm::SmallVectorImpl<IndexExpr> &indexExprList, // Input list.
+      llvm::SmallVectorImpl<mlir::Value> &dynSymbols); // Symbol for dyn ref.
   static void getValues(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::Value> &valueList);
   static void getOpOrFoldResults(

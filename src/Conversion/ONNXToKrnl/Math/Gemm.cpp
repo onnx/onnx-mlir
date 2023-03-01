@@ -4,7 +4,7 @@
 
 //===----------------- Gemm.cpp - Lowering Gemm Op ------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -125,8 +125,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value z = zeroIE.getValue();
 
     // Initialize alloc/R to zero.
-    KrnlBuilder createKrnl(rewriter, loc);
-    createKrnl.memset(R, zeroVal);
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
+    create.krnl.memset(R, zeroVal);
 
     // Prepare for the computations.
     // 1) Define blocking, with simdization along the j axis.
@@ -164,29 +164,26 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     MemRefType bTileType =
         MemRefType::get({kCacheTile, jCacheTile}, elementType);
     SmallVector<IndexExpr, 1> empty;
-    Value aBuff = insertAllocAndDeallocSimple(
-        rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
-    Value bBuff = insertAllocAndDeallocSimple(
-        rewriter, gemmOp, bTileType, loc, empty, true, BUFFER_ALIGN);
+    Value aBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
+    Value bBuff = create.mem.alignedAlloc(bTileType, BUFFER_ALIGN);
     Value rBuff;
     if (mustTileR)
-      rBuff = insertAllocAndDeallocSimple(
-          rewriter, gemmOp, aTileType, loc, empty, true, BUFFER_ALIGN);
+      rBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
 
     // 3) introduce the loops and permute them
     // I, J, K loop.
-    ValueRange origLoop = createKrnl.defineLoops(3);
+    ValueRange origLoop = create.krnl.defineLoops(3);
     Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
     // Tile I.
-    ValueRange iCacheBlock = createKrnl.block(ii, iCacheTile);
-    ValueRange iRegBlock = createKrnl.block(iCacheBlock[1], iRegTile);
+    ValueRange iCacheBlock = create.krnl.block(ii, iCacheTile);
+    ValueRange iRegBlock = create.krnl.block(iCacheBlock[1], iRegTile);
     Value ii1(iCacheBlock[0]), ii2(iRegBlock[0]), ii3(iRegBlock[1]);
     // Tile J.
-    ValueRange jCacheBlock = createKrnl.block(jj, jCacheTile);
-    ValueRange jRegBlock = createKrnl.block(jCacheBlock[1], jRegTile);
+    ValueRange jCacheBlock = create.krnl.block(jj, jCacheTile);
+    ValueRange jRegBlock = create.krnl.block(jCacheBlock[1], jRegTile);
     Value jj1(jCacheBlock[0]), jj2(jRegBlock[0]), jj3(jRegBlock[1]);
     // Tile K.
-    ValueRange kCacheBlock = createKrnl.block(kk, kCacheTile);
+    ValueRange kCacheBlock = create.krnl.block(kk, kCacheTile);
     Value kk1(kCacheBlock[0]), kk2(kCacheBlock[1]);
 
     // If we must tile the result R, then we put I & J in the outermost.
@@ -194,10 +191,10 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // outermost.
     if (mustTileR) {
       // (cache) ii1 jj1 kk1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
-      createKrnl.permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
+      create.krnl.permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
           {/*i*/ 0, 4, 5, /*j*/ 1, 3, 6, /*k*/ 2, 7});
       // Compute: A[i, k] * b[k, j] -> R[i, j])
-      createKrnl.iterateIE({ii, jj, kk}, {ii1, jj1}, {zeroIE, zeroIE, zeroIE},
+      create.krnl.iterateIE({ii, jj, kk}, {ii1, jj1}, {zeroIE, zeroIE, zeroIE},
           {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange i1_j1_indices) {
             Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
             createKrnl.copyToBuffer(rBuff, R, {i1, j1}, zeroVal, false);
@@ -237,13 +234,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       // variable must be consecutive, and different original variables must be
       // ordered in the same permute order. Js must be first as the outermost
       // level is a j, then all the Ks, then all the Is.
-      createKrnl.permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
+      create.krnl.permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
           {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
       // Compute: A[i, k] * b[k, j] -> R[i, j])
       // Krnl Rule: must put all the iter bounds at once, but can only put the
       // "not currently used ones" like ii here last. Gave an error when ii was
       // listed first.
-      createKrnl.iterateIE({jj, kk, ii}, {jj1, kk1}, {zeroIE, zeroIE, zeroIE},
+      create.krnl.iterateIE({jj, kk, ii}, {jj1, kk1}, {zeroIE, zeroIE, zeroIE},
           {J, K, I}, [&](KrnlBuilder &createKrnl, ValueRange j1_k1_indices) {
             Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
             if (bTrans)
@@ -280,8 +277,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       // No need for the multiply/add.
       return;
     }
-    ValueRange outerLoops = createKrnl.defineLoops(2);
-    createKrnl.iterateIE(outerLoops, outerLoops, {zeroIE, zeroIE}, {I, J},
+    ValueRange outerLoops = create.krnl.defineLoops(2);
+    create.krnl.iterateIE(outerLoops, outerLoops, {zeroIE, zeroIE}, {I, J},
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Handle alpha/beta coefficients.
           Value res = createKrnl.load(R, outerIndices);
@@ -314,8 +311,10 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ONNXGemmOpAdaptor operandAdaptor(operands);
     ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
     Location loc = op->getLoc();
-    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
-    ONNXGemmOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
+    ONNXGemmOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
@@ -326,16 +325,15 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Type elementType = outputMemRefType.getElementType();
-    Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-        loc, shapeHelper.getOutputDims(), (int64_t)BUFFER_ALIGN);
+    Value alloc = create.mem.alignedAlloc(
+        outputMemRefType, shapeHelper.getOutputDims(), BUFFER_ALIGN);
 
     // Get the constants: zero, alpha,and beta.
     float alphaLit = gemmOp.getAlpha().convertToFloat();
     float betaLit = gemmOp.getBeta().convertToFloat();
-    MathBuilder createMath(rewriter, loc);
-    Value alpha = createMath.constant(elementType, alphaLit);
-    Value beta = createMath.constant(elementType, betaLit);
-    Value zero = createMath.constant(elementType, 0);
+    Value alpha = create.math.constant(elementType, alphaLit);
+    Value beta = create.math.constant(elementType, betaLit);
+    Value zero = create.math.constant(elementType, 0);
 
     LLVM_DEBUG({
       if (DEBUG_SIMD_OFF)

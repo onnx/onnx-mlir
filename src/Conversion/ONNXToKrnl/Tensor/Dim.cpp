@@ -4,7 +4,7 @@
 
 //===--------------------- Dim.cpp - Lowering Dim Op ----------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -31,7 +31,8 @@ struct ONNXDimOpLowering : public ConversionPattern {
     ONNXDimOpAdaptor operandAdaptor(operands);
     Value data = operandAdaptor.getData();
     int64_t axis = dimOp.getAxis();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
     IndexExprScope scope(&rewriter, loc);
 
@@ -44,8 +45,7 @@ struct ONNXDimOpLowering : public ConversionPattern {
 
     // Output is 1D memref of one element.
     SmallVector<IndexExpr, 1> outputDims(1, LiteralIndexExpr(1));
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, outputDims);
+    Value alloc = create.mem.alignedAlloc(outputMemRefType, outputDims);
 
     // Write the dimension at axis to the output.
     Value dimValue = create.krnlIE.getShapeAsDim(data, axis).getValue();
