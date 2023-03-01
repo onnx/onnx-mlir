@@ -4,7 +4,7 @@
 
 //=============-- LSTMModel.cpp - Building LSTM Models for tests -============//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -149,7 +149,7 @@ bool LSTMLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
       llvm::ArrayRef(hShape), dataRangeHLL, dataRangeHUL);
   list[2] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(cShape), dataRangeCLL, dataRangeCUL);
-  inputs = omTensorListCreateWithOwnership(list, num, true);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1] && list[2];
 }
 

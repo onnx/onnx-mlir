@@ -4,7 +4,7 @@
 
 //==============-- GemmModel.cpp - Building GEMM Models for tests -===========//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -90,7 +90,7 @@ bool GemmLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
       llvm::ArrayRef(bShape), dataRangeLB, dataRangeUB);
   list[2] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(cShape), dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreateWithOwnership(list, num, true);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1] && list[2];
 }
 

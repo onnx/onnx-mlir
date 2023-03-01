@@ -4,7 +4,7 @@
 
 //==============-- MatMulModel.cpp - Building MatMul Models for tests -=======//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -70,7 +70,7 @@ bool MatMul2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
       omTensorCreateWithRandomData<float>({I, K}, dataRangeLB, dataRangeUB);
   list[1] =
       omTensorCreateWithRandomData<float>({K, J}, dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreateWithOwnership(list, num, true);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1];
 }
 
@@ -176,7 +176,7 @@ bool MatMulSingleBroadcastLibBuilder::prepareInputs() {
     return false;
   list[0] = omTensorCreateWithRandomData<float>(aShape);
   list[1] = omTensorCreateWithRandomData<float>(bShape);
-  inputs = omTensorListCreateWithOwnership(list, num, true);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1];
 }
 

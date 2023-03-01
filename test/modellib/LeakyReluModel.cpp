@@ -4,12 +4,12 @@
 
 //==========-- LeakyReluModel.cpp - Building LeakyRelu Models for tests -=====//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022,2023 The IBM Research Authors.
 //
 // =============================================================================
 //
 // This file contains a function that builds a model consisting of onnx.Add,
-// onnx.LeakyRelu and onnx.Sub ops, and compiles it to check if the second 
+// onnx.LeakyRelu and onnx.Sub ops, and compiles it to check if the second
 //
 //===----------------------------------------------------------------------===//
 
@@ -68,7 +68,7 @@ bool LeakyReluLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>({N}, dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreateWithOwnership(list, num, true);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0];
 }
 

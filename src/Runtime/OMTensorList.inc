@@ -4,7 +4,7 @@
 
 //===---------- OMTensorList.cpp - OMTensor C/C++ Implementation ----------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -35,9 +35,7 @@ struct OMTensorList {
    * Create an OMTensorList with specified OMTensor pointer array
    * and the size of the array
    */
-  OMTensorList(OMTensor *omts[], int64_t n) : _omts(omts), _size(n) {
-    _owning = false;
-  };
+  OMTensorList(OMTensor *omts[], int64_t n) : _omts(omts), _size(n){};
 
   /**
    * Constructor
@@ -55,8 +53,7 @@ struct OMTensorList {
     /* Destroy all the OMTensors */
     for (int64_t i = 0; i < _size; i++)
       omTensorDestroy(_omts[i]);
-    if (_owning)
-      free(_omts);
+    free(_omts);
   };
 #endif
 
@@ -67,11 +64,6 @@ struct OMTensorList {
   OMTensor **_omts; // OMTensor array
 
   int64_t _size; // Number of elements in _omts.
-
-  int64_t _owning; // indicates whether the OMTensorList owns the pointer to
-                   // OMTensor array or not. OMTensorList struct will release
-                   // the memory space referred to by '_omts' upon destruction
-                   // if and only if it owns it.
 };
 
 /* OMTensorList creator */
@@ -79,21 +71,18 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
   OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
   if (!list)
     return NULL;
-  list->_omts = tensors;
   list->_size = n;
-  list->_owning = false;
-  return list;
-}
+  list->_omts = (OMTensor **)malloc(sizeof(OMTensor *) * n);
 
-/* OMTensorList creator with ownership */
-OMTensorList *omTensorListCreateWithOwnership(
-    OMTensor **tensors, int64_t n, int64_t owning) {
-  OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
-  if (!list)
+  if (!list->_omts) {
+    free(list); // free the previously allocated memory in case of an error
     return NULL;
-  list->_omts = tensors;
-  list->_size = n;
-  list->_owning = owning;
+  }
+
+  for (int64_t i = 0; i < list->_size; i++)
+    // copy the pointers to the OMTensor array
+    // now OMTensorList will always own the tensor array of pointers
+    list->_omts[i] = tensors[i];
   return list;
 }
 
@@ -103,23 +92,18 @@ void omTensorListDestroy(OMTensorList *list) {
     return;
   for (int64_t i = 0; i < list->_size; i++)
     omTensorDestroy(list->_omts[i]);
-  if (list->_owning) {
-    free(list->_omts);
-  }
+  // Free the list as well as the pointers to the OMTensor array
+  free(list->_omts);
   free(list);
 }
 
-/* OMTensorList destroyer which does not destroy the tensors. Currently an
- * unpublished call that is mainly used to handle the unique tensor scheme used
- * in Execution Session.
+/* OMTensorList destroyer which does not destroy the tensors.
  */
 void omTensorListDestroyShallow(OMTensorList *list) {
   if (!list)
     return;
-  // Omit destruction of the OMTensors.
-  if (list->_owning) {
-    free(list->_omts);
-  }
+  // Free the list as well as the pointer to the OMTensor array
+  free(list->_omts);
   free(list);
 }
 
