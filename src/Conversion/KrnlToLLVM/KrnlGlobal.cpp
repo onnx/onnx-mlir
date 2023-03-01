@@ -233,7 +233,7 @@ private:
     SmallVector<LLVM::GlobalOp> globalOps;
     for (StringRef str : denseAttr.getValues<StringRef>()) {
       LLVM::GlobalOp globalOp = krnl::getOrCreateGlobalString(
-          str.str() + "__", loc, builder, module, getTypeConverter());
+          str, loc, builder, module, getTypeConverter());
       globalOps.push_back(globalOp);
     }
 

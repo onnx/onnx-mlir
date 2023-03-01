@@ -191,7 +191,7 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
     Type i8Type = IntegerType::get(builder.getContext(), 8);
     Type type = LLVM::LLVMArrayType::get(i8Type, str.size());
     global = create.llvm.globalOp(type, /*isConstant=*/true,
-        LLVM::Linkage::Internal, str, builder.getStringAttr(str));
+        LLVM::Linkage::Internal, str.str() + "__", builder.getStringAttr(str));
 
     krnl::setAlignment(global, nullptr, module, builder, *typeConverter);
   }
