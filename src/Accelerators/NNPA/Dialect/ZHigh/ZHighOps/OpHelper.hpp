@@ -54,6 +54,10 @@ mlir::StringAttr getZTensorLayoutAttr(
 mlir::Value getMinusBcastConst(mlir::OpBuilder &builder, mlir::Location loc,
     mlir::FloatAttr floatAttr, mlir::Value input);
 
+// Get a constant tensor of given value and type.
+mlir::Value getConstantOfType(
+    mlir::OpBuilder &builder, mlir::Location loc, mlir::Type type, float val);
+
 /// True if at least one of the types is NHWC layout.
 bool oneIsOfNHWCLayout(mlir::Type t1, mlir::Type t2);
 

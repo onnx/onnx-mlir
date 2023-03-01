@@ -1326,7 +1326,8 @@ struct ZHighShapeTransformOpLowering : public ConversionPattern {
     AffineMap indexMap = operandAdaptor.getIndexMap();
 
     // Helper builders.
-    MultiDialectBuilder<AffineBuilder, IndexExprBuilderForKrnl, KrnlBuilder>
+    MultiDialectBuilder<AffineBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        KrnlBuilder>
         create(rewriter, loc);
     IndexExprScope scope(create.krnlIE);
 
@@ -1341,7 +1342,7 @@ struct ZHighShapeTransformOpLowering : public ConversionPattern {
            "Only support static dimensions in the output at this moment");
 
     // Allocate a buffer for the result MemRef.
-    Value alloc = insertAllocAndDealloc(outputMemRefType, loc, rewriter, false);
+    Value alloc = create.mem.alignedAlloc(outputMemRefType);
 
     // Element-wise moving of data.
     ValueRange loopDef = create.krnl.defineLoops(inputRank);

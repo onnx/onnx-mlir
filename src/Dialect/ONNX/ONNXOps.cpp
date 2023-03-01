@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
@@ -46,6 +47,7 @@
 namespace {
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
 // Get a broadcasted type for RankedTensorType and MemRefType.
@@ -238,4 +240,16 @@ ParseResult ONNXConstantOfShapeOp::parse(
     return failure();
   result.addTypes({res});
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Constant Materializer for ONNX Dialect
+//===----------------------------------------------------------------------===//
+Operation *ONNXDialect::materializeConstant(
+    OpBuilder &builder, Attribute value, Type type, Location loc) {
+  // The atrribute could be DenseElemnemntsAttr, IntAttr, FloatAttr and etc.
+  // onnx builder is used to convert it into value().
+  MultiDialectBuilder<OnnxBuilder> create(builder, loc);
+  Value result = create.onnx.constant(value);
+  return result.getDefiningOp();
 }

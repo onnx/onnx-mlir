@@ -591,7 +591,8 @@ DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
 DenseElementsAttr createDenseElementsAttrFromSize(
     PatternRewriter &rewriter, Value value) {
   auto inType = value.getType().cast<ShapedType>();
-  SmallVector<int64_t, 1> dims(1, 1);
+  // Output Type should be scalar: tensor<i64>
+  SmallVector<int64_t, 1> dims;
   SmallVector<int64_t, 1> values = {inType.getNumElements()};
   auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
   return DenseElementsAttr::get(tensorType, ArrayRef(values));
