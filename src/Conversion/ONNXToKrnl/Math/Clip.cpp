@@ -24,20 +24,23 @@ namespace onnx_mlir {
 // Scalar unary ops for lowering ONNXClipOp
 //===----------------------------------------------------------------------===//
 
-struct ONNXClipOpLowering : public ConversionPattern {
+struct ONNXClipOpLowering : public OpConversionPattern<ONNXClipOp> {
+  // using OpConversionPattern<ONNXClipOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXClipOp::Adaptor;
   ONNXClipOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXClipOp::getOperationName(), 1, ctx) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      : OpConversionPattern(typeConverter, ctx, 1) {}
+  LogicalResult matchAndRewrite(ONNXClipOp clipOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
         IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>;
+    Operation *op = clipOp.getOperation();
     Location loc = op->getLoc();
     LocalDialectBuilder create(rewriter, loc);
-    ONNXClipOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
-    Value min = operandAdaptor.getMin();
-    Value max = operandAdaptor.getMax();
+
+    ValueRange operands = adaptor.getOperands();
+    Value input = adaptor.getInput();
+    Value min = adaptor.getMin();
+    Value max = adaptor.getMax();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
