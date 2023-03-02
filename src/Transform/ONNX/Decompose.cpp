@@ -657,17 +657,24 @@ void DecomposeONNXToONNXPass::runOnOperation() {
     ONNXTransposeOp transposeOp = NULL;
     return !isConcatFuseMatched(op, shapeOp, transposeOp);
   });
-#ifndef ONNX_MLIR_ENABLE_MHLO
-  target.addDynamicallyLegalOp<ONNXConvTransposeOp>([](ONNXConvTransposeOp op) {
-    ONNXConvTransposeOpAdaptor operandAdaptor(op.getOperands());
-    Value X = operandAdaptor.getX();
-    Value W = operandAdaptor.getW();
-    return !(onnx_mlir::hasShapeAndRank(X) && onnx_mlir::hasShapeAndRank(W) &&
-             op.getDilations().has_value() && op.getKernelShape().has_value() &&
-             op.getPads().has_value() && op.getStrides().has_value() &&
-             op.getOutputShape().has_value());
-  });
+#ifdef ONNX_MLIR_ENABLE_MHLO
+  if (this->target != "mhlo") {
 #endif
+    target.addDynamicallyLegalOp<ONNXConvTransposeOp>(
+        [](ONNXConvTransposeOp op) {
+          ONNXConvTransposeOpAdaptor operandAdaptor(op.getOperands());
+          Value X = operandAdaptor.getX();
+          Value W = operandAdaptor.getW();
+          return !(
+              onnx_mlir::hasShapeAndRank(X) && onnx_mlir::hasShapeAndRank(W) &&
+              op.getDilations().has_value() &&
+              op.getKernelShape().has_value() && op.getPads().has_value() &&
+              op.getStrides().has_value() && op.getOutputShape().has_value());
+        });
+#ifdef ONNX_MLIR_ENABLE_MHLO
+  }
+#endif
+
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(&getContext());
