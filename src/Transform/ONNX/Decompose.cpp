@@ -662,7 +662,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 #endif
     target.addDynamicallyLegalOp<ONNXConvTransposeOp>(
         [](ONNXConvTransposeOp op) {
-          ONNXConvTransposeOpAdaptor operandAdaptor(op.getOperands());
+          ONNXConvTransposeOpAdaptor operandAdaptor =
+              ONNXConvTransposeOpAdaptor(op);
           Value X = operandAdaptor.getX();
           Value W = operandAdaptor.getW();
           return !(
