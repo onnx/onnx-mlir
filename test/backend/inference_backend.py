@@ -2,7 +2,7 @@
 
 ##################### inference_backend.py #####################################
 #
-# Copyright 2021 The IBM Research Authors.
+# Copyright 2021, 2023 The IBM Research Authors.
 #
 ################################################################################
 from __future__ import absolute_import
@@ -1280,6 +1280,9 @@ class EndiannessAwareExecutionSession(object):
         for idx in range(num_of_inputs):
             if idx not in input_indices:
                 new_inputs.append(inputs[idx])
+        # Add numpy array entry if empty.
+        if not new_inputs:
+            new_inputs.append(np.zeros((1)))
         return new_inputs
 
     def run(self, inputs, **kwargs):
@@ -1322,6 +1325,9 @@ class EndiannessAwareExecutionSession(object):
             )
             if args.emit == "lib":
                 session = OMExecutionSession(self.exec_name)
+                # Add numpy array entry if empty.
+                if not inputs:
+                    inputs = [np.zeros((1))]
                 outputs = session.run(inputs)
             elif args.emit == "jni":
                 outputs = JniExecutionSession(self.exec_name, inputs)
