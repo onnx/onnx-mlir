@@ -29,7 +29,6 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
   AffineMap indexMap = operandAdaptor.getIndexMap();
 
   auto inputType = input.getType().cast<ShapedType>();
-  uint64_t inputRank = inputType.getRank();
   Type elementType = inputType.getElementType();
   ArrayRef<int64_t> inputDims = inputType.getShape();
   uint64_t outputRank = indexMap.getNumResults();
