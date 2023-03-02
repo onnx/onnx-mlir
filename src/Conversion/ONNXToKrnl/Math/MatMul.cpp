@@ -4,7 +4,7 @@
 
 //===----------------- Matmul.cpp - Lowering Matmul Op --------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -47,7 +47,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     int totLoopNum = outerLoopNum + 1; // Add reduction inner loop.
     ValueRange loopDef = create.krnl.defineLoops(totLoopNum);
     SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LiteralIndexExpr(0));
-    SmallVector<IndexExpr, 4> loopUbs; // All getOutputDimss, plus reduction.
+    SmallVector<IndexExpr, 4> loopUbs; // All getOutputDims, plus reduction.
     SmallVector<Value, 4> outerLoops;  // All but the last loop def.
     for (int i = 0; i < outerLoopNum; ++i) {
       loopUbs.emplace_back(shapeHelper.getOutputDims()[i]);
@@ -277,7 +277,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
               {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
               {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
-              /*unroll*/ true, /*overcompute*/ false);
+              /*unroll*/ true, /*overCompute*/ false);
         });
   }
 
@@ -367,19 +367,19 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
                       broadcastGlobalStart, C, broadcastGlobalStart,
                       {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
                       {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
-                      /*unroll*/ true, /*overcompute*/ false);
+                      /*unroll*/ true, /*overCompute*/ false);
                 } else if (broadcastingB) {
                   // B & C start at broadcastGlobalStart, A starts at {0,0}.
                   createKrnl.matmul(A, {zero, zero}, B, broadcastGlobalStart, C,
                       broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
                       {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
-                      simdize, /*unroll*/ true, /*overcompute*/ false);
+                      simdize, /*unroll*/ true, /*overCompute*/ false);
                 } else {
                   // A & C start at broadcastGlobalStart, B starts at {0,0}.
                   createKrnl.matmul(A, broadcastGlobalStart, B, {zero, zero}, C,
                       broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
                       {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
-                      simdize, /*unroll*/ true, /*overcompute*/ false);
+                      simdize, /*unroll*/ true, /*overCompute*/ false);
                 }
               });
         });
@@ -395,8 +395,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOpAdaptor operandAdaptor(operands);
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
-    MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>
+        create(rewriter, loc);
 
     // Get shape.
     ONNXMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -410,8 +410,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Type elementType = outputMemRefType.getElementType();
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Get the constants: zero.
     Value zero = create.math.constant(elementType, 0);
@@ -444,7 +444,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         auto aShape = A.getType().cast<MemRefType>().getShape();
         auto bShape = B.getType().cast<MemRefType>().getShape();
         for (int i = 0; i < aRank - 2; ++i)
-          if (aShape[i] <= 0 || aShape[i] != bShape[i]) {
+          if (aShape[i] == ShapedType::kDynamic || aShape[i] != bShape[i]) {
             sameStaticBroadcast = false;
             break;
           }
