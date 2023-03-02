@@ -228,6 +228,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
 
 LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
     ArrayRef<Value> initialOperands, DimsExpr *additionalOperand) {
+  assert(hasNoBroadcasting == false && "though it was never set to true");
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
   DimsExpr dimsExpr;
