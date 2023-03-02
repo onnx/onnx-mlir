@@ -424,8 +424,7 @@ struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
       // Unless noop_with_empty_axesDim is false and axesDim is
       // ShapedType::kDynamic.
       Value initVal;
-      if (axesDim == ShapedType::kDynamic &&
-          !adaptor.getNoopWithEmptyAxes()) {
+      if (axesDim == ShapedType::kDynamic && !adaptor.getNoopWithEmptyAxes()) {
         IndexExprScope axesLoopContex(&rewriter, loc);
         Value zeroIndex = create.math.constantIndex(0);
         IndexExpr axesBound0 = create.krnlIE.getShapeAsDim(axesVal, 0);
