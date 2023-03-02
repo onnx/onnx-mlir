@@ -32,206 +32,215 @@ Value emitPostProcessingFor(ConversionPatternRewriter &rewriter, Location loc,
 // =============================================================================
 // Template for functions that can be used as is
 
-// Definition for easier readability
-using NotSupportedOp = void; /* unsupported, e.g. integer version of cos */
-using CustomOp = void; /* support by custom code, e.g. float version of cosh */
-using Off = std::false_type;
-using On = std::true_type;
+template <typename Op>
+static void CheckIfCustomScalarOpIsSupported(Type elementType) {
+  Type actualElementType = MathBuilder::elementTypeWithVector(elementType);
+  if (actualElementType.isa<mlir::IntegerType>()) {
+    if constexpr (std::is_same<ScalarIOp<Op>, CustomScalarOp>::value)
+      return;
+    llvm_unreachable("this op does not supports custom scalar for integers");
+  }
+  if (actualElementType.isa<mlir::FloatType>()) {
+    if constexpr (std::is_same<ScalarFOp<Op>, CustomScalarOp>::value)
+      return;
+    llvm_unreachable("this op does not supports custom scalar for floats");
+  }
+}
 
 template <>
 struct ScalarOp<ONNXTanhOp> {
   using FOp = math::TanhOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAddOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SimdEnabled = On;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAbsOp> {
   using FOp = math::AbsFOp;
   using IOp = math::AbsIOp;
-  using SimdEnabled = On;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXMulOp> {
   using FOp = arith::MulFOp;
   using IOp = arith::MulIOp;
-  using SimdEnabled = On;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXDivOp> {
   using FOp = arith::DivFOp;
   using IOp = arith::DivSIOp;
-  using SimdEnabled = On;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXSubOp> {
   using FOp = arith::SubFOp;
   using IOp = arith::SubIOp;
-  using SimdEnabled = On;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAndOp> {
-  using FOp = NotSupportedOp;
+  using FOp = NotSuportedScalarOp;
   using IOp = arith::AndIOp;
-  using SimdEnabled = On;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXOrOp> {
-  using FOp = NotSupportedOp;
+  using FOp = NotSuportedScalarOp;
   using IOp = arith::OrIOp;
-  using SimdEnabled = On;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXXorOp> {
-  using FOp = NotSupportedOp;
+  using FOp = NotSuportedScalarOp;
   using IOp = arith::XOrIOp;
-  using SimdEnabled = On;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXExpOp> {
   using FOp = math::ExpOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXSumOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SimdEnabled = On;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXCosOp> {
   using FOp = math::CosOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXLogOp> {
   using FOp = math::LogOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXSqrtOp> {
   using FOp = math::SqrtOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAtanOp> {
   using FOp = KrnlAtanOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = Off;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXCeilOp> {
   using FOp = math::CeilOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = Off;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXFloorOp> {
   using FOp = math::FloorOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXSinOp> {
   using FOp = math::SinOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXPowOp> {
   using FOp = math::PowFOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXErfOp> {
   using FOp = KrnlErfOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = Off;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXIsInfOp> {
   using FOp = KrnlIsInfOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = Off;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXIsNaNOp> {
   using FOp = KrnlIsNaNOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = Off;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAcosOp> {
   using FOp = KrnlAcosOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = Off;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAcoshOp> {
   using FOp = KrnlAcoshOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = Off;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAsinOp> {
   using FOp = KrnlAsinOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = Off;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAsinhOp> {
   using FOp = KrnlAsinhOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = Off;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAtanhOp> {
   using FOp = KrnlAtanhOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = Off;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = Off;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 //===----------------------------------------------------------------------===//
@@ -243,8 +252,8 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
 
   // TODO: currently don't support String to * or * to String
-  MathBuilder createMath(rewriter, loc);
-  return createMath.cast(elementType, scalarOperands[0]);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.cast(elementType, scalarOperands[0]);
 }
 
 //===----------------------------------------------------------------------===//
@@ -252,9 +261,9 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXSinhOp> {
-  using FOp = CustomOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -263,14 +272,15 @@ Value emitScalarOpFor<ONNXSinhOp>(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
   // ONNXSinhOp(%X) = DivFOp(SubFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
   //                         ConstantOp 2)
+  CheckIfCustomScalarOpIsSupported<ONNXSinhOp>(elementType);
   Value operand = scalarOperands[0];
-  MathBuilder createMath(rewriter, loc);
-  Value zero = createMath.constant(elementType, 0);
-  Value two = createMath.constant(elementType, 2);
-  Value neg = createMath.sub(zero, operand);
-  Value exp = createMath.exp(operand);
-  Value negExp = createMath.exp(neg);
-  return createMath.div(createMath.sub(exp, negExp), two);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value two = create.math.constant(elementType, 2);
+  Value neg = create.math.sub(zero, operand);
+  Value exp = create.math.exp(operand);
+  Value negExp = create.math.exp(neg);
+  return create.math.div(create.math.sub(exp, negExp), two);
 }
 
 //===----------------------------------------------------------------------===//
@@ -278,9 +288,9 @@ Value emitScalarOpFor<ONNXSinhOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXCoshOp> {
-  using FOp = CustomOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -289,14 +299,15 @@ Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
   // ONNXCoshOp(%X) = DivFOp(AddFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
   //                         ConstantOp 2)
+  CheckIfCustomScalarOpIsSupported<ONNXCoshOp>(elementType);
   Value operand = scalarOperands[0];
-  MathBuilder createMath(rewriter, loc);
-  Value zero = createMath.constant(elementType, 0);
-  Value two = createMath.constant(elementType, 2);
-  Value neg = createMath.sub(zero, operand);
-  Value exp = createMath.exp(operand);
-  Value negExp = createMath.exp(neg);
-  return createMath.div(createMath.add(exp, negExp), two);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value two = create.math.constant(elementType, 2);
+  Value neg = create.math.sub(zero, operand);
+  Value exp = create.math.exp(operand);
+  Value negExp = create.math.exp(neg);
+  return create.math.div(create.math.add(exp, negExp), two);
 }
 
 //===----------------------------------------------------------------------===//
@@ -304,9 +315,9 @@ Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXSigmoidOp> {
-  using FOp = CustomOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -315,13 +326,14 @@ Value emitScalarOpFor<ONNXSigmoidOp>(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
   // ONNXSigmoidOp(%X) = DivFOp(ConstantOp 1,
   //                            AddFOp(ConstantOp 1, ExpOp(NegFOp(%X))))
+  CheckIfCustomScalarOpIsSupported<ONNXSigmoidOp>(elementType);
   Value operand = scalarOperands[0];
-  MathBuilder createMath(rewriter, loc);
-  Value zero = createMath.constant(elementType, 0);
-  Value one = createMath.constant(elementType, 1);
-  Value neg = createMath.sub(zero, operand);
-  Value negExp = createMath.exp(neg);
-  return createMath.div(one, createMath.add(one, negExp));
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value one = create.math.constant(elementType, 1);
+  Value neg = create.math.sub(zero, operand);
+  Value negExp = create.math.exp(neg);
+  return create.math.div(one, create.math.add(one, negExp));
 }
 
 //===----------------------------------------------------------------------===//
@@ -329,9 +341,9 @@ Value emitScalarOpFor<ONNXSigmoidOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXHardSigmoidOp> {
-  using FOp = CustomOp;
-  using IOp = NotSupportedOp;
-  using SimdEnabled = On;
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -345,26 +357,34 @@ Value emitScalarOpFor<ONNXHardSigmoidOp>(ConversionPatternRewriter &rewriter,
   // ONNXHardSigmoidOp(%X) = SelectOp(CmpFOp(OLT, %Z, Constant 1),
   //                                  %Z,
   //                                  Constant 1)
+  CheckIfCustomScalarOpIsSupported<ONNXHardSigmoidOp>(elementType);
   Value operand = scalarOperands[0];
   double alphaLit = dyn_cast<ONNXHardSigmoidOp>(op).getAlpha().convertToFloat();
   double betaLit = dyn_cast<ONNXHardSigmoidOp>(op).getBeta().convertToFloat();
   // Create constants.
-  MathBuilder createMath(rewriter, loc);
-  Value zero = createMath.constant(elementType, 0);
-  Value one = createMath.constant(elementType, 1);
-  Value alpha = createMath.constant(elementType, alphaLit);
-  Value beta = createMath.constant(elementType, betaLit);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value one = create.math.constant(elementType, 1);
+  Value alpha = create.math.constant(elementType, alphaLit);
+  Value beta = create.math.constant(elementType, betaLit);
   // Perform computations.
-  Value add = createMath.add(createMath.mul(alpha, operand), beta);
-  Value maxPredicate = createMath.sgt(add, zero);
-  Value max = createMath.select(maxPredicate, add, zero);
-  Value minPredicate = createMath.slt(max, one);
-  return createMath.select(minPredicate, max, one);
+  Value add = create.math.add(create.math.mul(alpha, operand), beta);
+  Value maxPredicate = create.math.sgt(add, zero);
+  Value max = create.math.select(maxPredicate, add, zero);
+  Value minPredicate = create.math.slt(max, one);
+  return create.math.select(minPredicate, max, one);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXEluOp
 //===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXEluOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
 template <>
 Value emitScalarOpFor<ONNXEluOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -372,35 +392,51 @@ Value emitScalarOpFor<ONNXEluOp>(ConversionPatternRewriter &rewriter,
   // ONNXEluOp(%X) = SelectOp(CmpFOp(OLT, %X, ConstantOp 0),
   //                          MulFOp(alpha, SubFOp(ExpOp(%X), 1)),
   //                          %X)
+  CheckIfCustomScalarOpIsSupported<ONNXEluOp>(elementType);
   Value operand = scalarOperands[0];
   double alphaLit = dyn_cast<ONNXEluOp>(op).getAlpha().convertToFloat();
-  MathBuilder createMath(rewriter, loc);
-  Value zero = createMath.constant(elementType, 0);
-  Value one = createMath.constant(elementType, 1);
-  Value alpha = createMath.constant(elementType, alphaLit);
-  Value exp = createMath.exp(operand);
-  Value lessThanZero = createMath.slt(operand, zero);
-  return createMath.select(
-      lessThanZero, createMath.mul(alpha, createMath.sub(exp, one)), operand);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value one = create.math.constant(elementType, 1);
+  Value alpha = create.math.constant(elementType, alphaLit);
+  Value exp = create.math.exp(operand);
+  Value lessThanZero = create.math.slt(operand, zero);
+  return create.math.select(
+      lessThanZero, create.math.mul(alpha, create.math.sub(exp, one)), operand);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXReluOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXReluOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXReluOp>(elementType);
   Value operand = scalarOperands[0];
-  MathBuilder createMath(rewriter, loc);
-  Value zero = createMath.constant(elementType, 0);
-  Value geZero = createMath.sge(operand, zero);
-  return createMath.select(geZero, operand, zero);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value geZero = create.math.sge(operand, zero);
+  return create.math.select(geZero, operand, zero);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXLeakyReluOp
 //===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXLeakyReluOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
 template <>
 Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -408,36 +444,52 @@ Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
   // ONNXLeakyReluOp(%X) = SelectOp(CmpFOp(OLT, %X, ConstantOp 0),
   //                                MulFOp(alpha, %X),
   //                                %X)
+  CheckIfCustomScalarOpIsSupported<ONNXLeakyReluOp>(elementType);
   Value operand = scalarOperands[0];
   double alphaLit = dyn_cast<ONNXLeakyReluOp>(op).getAlpha().convertToFloat();
-  MathBuilder createMath(rewriter, loc);
-  Value zero = createMath.constant(elementType, 0);
-  auto alpha = createMath.constant(elementType, alphaLit);
-  auto lessThanZero = createMath.slt(operand, zero);
-  return createMath.select(
-      lessThanZero, createMath.mul(alpha, operand), operand);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  auto alpha = create.math.constant(elementType, alphaLit);
+  auto lessThanZero = create.math.slt(operand, zero);
+  return create.math.select(
+      lessThanZero, create.math.mul(alpha, operand), operand);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXPReluOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXPReluOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXPReluOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
   // ONNXPReluOp(%X) = (%slope * %X) if %X < 0 else %X
+  CheckIfCustomScalarOpIsSupported<ONNXPReluOp>(elementType);
   Value operand = scalarOperands[0];
   Value slope = scalarOperands[1];
-  MathBuilder createMath(rewriter, loc);
-  Value zero = createMath.constant(elementType, 0);
-  Value lessThanZero = createMath.slt(operand, zero);
-  return createMath.select(
-      lessThanZero, createMath.mul(slope, operand), operand);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value lessThanZero = create.math.slt(operand, zero);
+  return create.math.select(
+      lessThanZero, create.math.mul(slope, operand), operand);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSeluOp
 //===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXSeluOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
 template <>
 Value emitScalarOpFor<ONNXSeluOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -447,78 +499,111 @@ Value emitScalarOpFor<ONNXSeluOp>(ConversionPatternRewriter &rewriter,
   //                           MulFOp(gamma,
   //                                  SubFOp(MulFOp(alpha, ExpOp(%X)),
   //                                         alpha)))
+  CheckIfCustomScalarOpIsSupported<ONNXSeluOp>(elementType);
   Value operand = scalarOperands[0];
   double alphaLit = dyn_cast<ONNXSeluOp>(op).getAlpha().convertToFloat();
   double gammaLit = dyn_cast<ONNXSeluOp>(op).getGamma().convertToFloat();
-  MathBuilder createMath(rewriter, loc);
-  Value zero = createMath.constant(elementType, 0);
-  Value alpha = createMath.constant(elementType, alphaLit);
-  Value gamma = createMath.constant(elementType, gammaLit);
-  Value exp = createMath.exp(operand);
-  Value greaterThanZero = createMath.sgt(operand, zero);
-  Value select = createMath.select(greaterThanZero, operand,
-      createMath.sub(createMath.mul(alpha, exp), alpha));
-  return createMath.mul(gamma, select);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value alpha = create.math.constant(elementType, alphaLit);
+  Value gamma = create.math.constant(elementType, gammaLit);
+  Value exp = create.math.exp(operand);
+  Value greaterThanZero = create.math.sgt(operand, zero);
+  Value select = create.math.select(greaterThanZero, operand,
+      create.math.sub(create.math.mul(alpha, exp), alpha));
+  return create.math.mul(gamma, select);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXReciprocalOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXReciprocalOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXReciprocalOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
   // ONNXReciprocalOp(%X) = DivFOp(ConstantOp 1, %X)
+  CheckIfCustomScalarOpIsSupported<ONNXReciprocalOp>(elementType);
   Value operand = scalarOperands[0];
-  MathBuilder createMath(rewriter, loc);
-  Value one = createMath.constant(elementType, 1);
-  return createMath.div(one, operand);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value one = create.math.constant(elementType, 1);
+  return create.math.div(one, operand);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSoftplusOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXSoftplusOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXSoftplusOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
   // ONNXSoftplusOp(%X) = LogOp(AddFOp(ExpOp(%X), ConstantOp 1))
+  CheckIfCustomScalarOpIsSupported<ONNXSoftplusOp>(elementType);
   Value operand = scalarOperands[0];
-  MathBuilder createMath(rewriter, loc);
-  Value exp = createMath.exp(operand);
-  Value one = createMath.constant(elementType, 1);
-  Value add = createMath.add(exp, one);
-  return createMath.log(add);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value exp = create.math.exp(operand);
+  Value one = create.math.constant(elementType, 1);
+  Value add = create.math.add(exp, one);
+  return create.math.log(add);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSoftsignOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXSoftsignOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXSoftsignOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
   // ONNXSoftsignOp(%X) = DivFOp(ConstantOp 1, %X)
+  CheckIfCustomScalarOpIsSupported<ONNXSoftsignOp>(elementType);
   Value operand = scalarOperands[0];
-  MathBuilder createMath(rewriter, loc);
-  Value abs = createMath.abs(operand);
-  Value one = createMath.constant(elementType, 1);
-  Value add = createMath.add(abs, one);
-  return createMath.div(operand, add);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value abs = create.math.abs(operand);
+  Value one = create.math.constant(elementType, 1);
+  Value add = create.math.add(abs, one);
+  return create.math.div(operand, add);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSignOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXSignOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXSignOp>(elementType);
   Value operand = scalarOperands[0];
-  MathBuilder createMath(rewriter, loc);
-  Value zero = createMath.constant(elementType, 0);
-  Value one = createMath.constant(elementType, 1);
-  Value minusOne = createMath.constant(elementType, -1);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value one = create.math.constant(elementType, 1);
+  Value minusOne = create.math.constant(elementType, -1);
   // %Y = SelectOP(CmpIOp(GT, %X, ConstantOp 0),
   //               ConstantOp 1,
   //               COnstantOp ShapedType::kDynamic)
@@ -526,20 +611,27 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
   //                           ConstantOp 0,
   //                           %Y)
   Value plusSelect;
-  if (createMath.isUnsignedIntegerWithVector(elementType)) {
+  if (create.math.isUnsignedIntegerWithVector(elementType)) {
     // Unsigned integers are by definition positive.
     plusSelect = one;
   } else {
-    Value plusPredicate = createMath.sgt(operand, zero);
-    plusSelect = createMath.select(plusPredicate, one, minusOne);
+    Value plusPredicate = create.math.sgt(operand, zero);
+    plusSelect = create.math.select(plusPredicate, one, minusOne);
   }
-  Value zeroPredicate = createMath.eq(operand, zero);
-  return createMath.select(zeroPredicate, zero, plusSelect);
+  Value zeroPredicate = create.math.eq(operand, zero);
+  return create.math.select(zeroPredicate, zero, plusSelect);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXMaxOp
 //===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXMaxOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
 template <>
 Value emitScalarOpFor<ONNXMaxOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -547,17 +639,25 @@ Value emitScalarOpFor<ONNXMaxOp>(ConversionPatternRewriter &rewriter,
   // ONNXMaxOp(%X, %Y) = SelectOp(CmpFOp(OGT, %X, %Y),
   //                              %X,
   //                              %Y)
+  CheckIfCustomScalarOpIsSupported<ONNXMaxOp>(elementType);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  MathBuilder createMath(rewriter, loc);
-  // could return createMath.max(lhs, rhs);
-  Value cond = createMath.gt(lhs, rhs);
-  return createMath.select(cond, lhs, rhs);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  // could return create.math.max(lhs, rhs);
+  Value cond = create.math.gt(lhs, rhs);
+  return create.math.select(cond, lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXMinOp
 //===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXMinOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
 template <>
 Value emitScalarOpFor<ONNXMinOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -565,131 +665,195 @@ Value emitScalarOpFor<ONNXMinOp>(ConversionPatternRewriter &rewriter,
   // ONNXMinOp(%X, %Y) = SelectOp(CmpFOp(OLT, %X, %Y),
   //                              %X,
   //                              %Y)
+  CheckIfCustomScalarOpIsSupported<ONNXMinOp>(elementType);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  MathBuilder createMath(rewriter, loc);
-  // could return createMath.min(lhs, rhs);
-  Value cond = createMath.lt(lhs, rhs);
-  return createMath.select(cond, lhs, rhs);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  // could return create.math.min(lhs, rhs);
+  Value cond = create.math.lt(lhs, rhs);
+  return create.math.select(cond, lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXNegOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXNegOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXNegOp>(elementType);
   Value operand = scalarOperands[0];
-  MathBuilder createMath(rewriter, loc);
-  return createMath.neg(operand);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.neg(operand);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXLessOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXLessOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXLessOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXLessOp>(elementType);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  MathBuilder createMath(rewriter, loc);
-  return createMath.lt(lhs, rhs);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.lt(lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXLessOrEqualOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXLessOrEqualOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXLessOrEqualOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXLessOrEqualOp>(elementType);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  MathBuilder createMath(rewriter, loc);
-  return createMath.le(lhs, rhs);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.le(lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXGreaterOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXGreaterOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXGreaterOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXGreaterOp>(elementType);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-
-  MathBuilder createMath(rewriter, loc);
-  return createMath.gt(lhs, rhs);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.gt(lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXGreaterOrEqualOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXGreaterOrEqualOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXGreaterOrEqualOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXGreaterOrEqualOp>(elementType);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  MathBuilder createMath(rewriter, loc);
-  return createMath.ge(lhs, rhs);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.ge(lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXEqualOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXEqualOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXEqualOp>(elementType);
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  MathBuilder createMath(rewriter, loc);
-  return createMath.eq(lhs, rhs);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  return create.math.eq(lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXNotOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXNotOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = NoSimdScalarOp; // issue with bit data representation
+};
+
+template <>
 Value emitScalarOpFor<ONNXNotOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXNotOp>(elementType);
   Value val = scalarOperands[0];
-  MathBuilder createMath(rewriter, loc);
-  Value one = createMath.constant(elementType, 1);
-  return createMath.xori(val, one);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value one = create.math.constant(elementType, 1);
+  return create.math.xori(val, one);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXModOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXModOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+  CheckIfCustomScalarOpIsSupported<ONNXModOp>(elementType);
   Value dividend = scalarOperands[0];
   Value divisor = scalarOperands[1];
-  MathBuilder createMath(rewriter, loc);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
 
   // TODO: here we assume fmod=1, what should if that is not the case?
-  if (createMath.isFloatWithVector(elementType)) {
+  if (create.math.isFloatWithVector(elementType)) {
     // fmod is always 1. Behavior is like numpy.fmod.
     // The sign of the remainder is the same as the dividend.
-    Value rem = createMath.rem(dividend, divisor);
+    Value rem = create.math.rem(dividend, divisor);
 #if 0
     // It seems that the copySign is not needed, from the underlying math and
     // backend test. Leave off for now as it would otherwise fail some lit
     // tests.
     return rem;
 #else
-    return createMath.copySign(rem, dividend);
+    return create.math.copySign(rem, dividend);
 #endif
   }
-  if (createMath.isIntegerWithVector(elementType)) {
+  if (create.math.isIntegerWithVector(elementType)) {
     // TODO: implement
     llvm_unreachable("not support integers at this moment since MLIR integers "
                      "are signless.");
@@ -704,29 +868,35 @@ template <>
 struct ScalarOp<ONNXMeanOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SimdEnabled = On;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
 Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType, Value scalarResult) {
-  MathBuilder createMath(rewriter, loc);
-  Value n = createMath.constant(elementType, op->getNumOperands());
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value n = create.math.constant(elementType, op->getNumOperands());
   // Input and output type are floating point, so it is safe to use DivFOp.
-  return createMath.div(scalarResult, n);
+  return create.math.div(scalarResult, n);
 }
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXRoundOp
 //===----------------------------------------------------------------------===//
 template <>
+struct ScalarOp<ONNXRoundOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = SimdScalarOp;
+};
+
+template <>
 Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
   Value x = scalarOperands[0];
-  MathBuilder createMath(rewriter, loc);
-  assert(
-      createMath.isFloatWithVector(elementType) && "expect float for round op");
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  CheckIfCustomScalarOpIsSupported<ONNXRoundOp>(elementType);
   // Use numpy algorithm for rint as follows.
   // ```
   // double y, r;
@@ -746,24 +916,24 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
   // }
   // return y;
   // ```
-  Value one = createMath.constant(elementType, 1.0);
-  Value two = createMath.constant(elementType, 2.0);
-  Value half = createMath.constant(elementType, 0.5);
-  Value y = createMath.floor(x);
-  Value r = createMath.sub(x, y);
+  Value one = create.math.constant(elementType, 1.0);
+  Value two = create.math.constant(elementType, 2.0);
+  Value half = create.math.constant(elementType, 0.5);
+  Value y = create.math.floor(x);
+  Value r = create.math.sub(x, y);
   // r > 0.5
-  Value rGreaterThanHalf = createMath.sgt(r, half);
-  Value y1 = createMath.select(rGreaterThanHalf, createMath.add(y, one), y);
+  Value rGreaterThanHalf = create.math.sgt(r, half);
+  Value y1 = create.math.select(rGreaterThanHalf, create.math.add(y, one), y);
   // r == 0.5: round to nearest even.
-  Value y2 = createMath.mul(half, y);
-  y2 = createMath.floor(y2);
-  y2 = createMath.mul(y2, two);
-  Value rr = createMath.sub(y, y2);
-  Value rrEqualOne = createMath.eq(rr, one);
-  y2 = createMath.select(rrEqualOne, createMath.add(y, one), y);
+  Value y2 = create.math.mul(half, y);
+  y2 = create.math.floor(y2);
+  y2 = create.math.mul(y2, two);
+  Value rr = create.math.sub(y, y2);
+  Value rrEqualOne = create.math.eq(rr, one);
+  y2 = create.math.select(rrEqualOne, create.math.add(y, one), y);
 
-  Value rEqualHalf = createMath.eq(r, half);
-  return createMath.select(rEqualHalf, y2, y1);
+  Value rEqualHalf = create.math.eq(r, half);
+  return create.math.select(rEqualHalf, y2, y1);
 }
 
 //===----------------------------------------------------------------------===//
@@ -811,21 +981,18 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    //assert(false && "hi alex just checking 0");
+    // assert(false && "hi alex just checking 0");
     bool scalar = hasAllScalarValues(operands);
     if constexpr (SimdizableOp<ElementwiseUnaryOp>::value) {
       // SIMD is enabled for this operation, test if desired and feasible
-      // hi alex: -O3 not working well in backend test
-      //assert(false && "hi alex just checking 1");
-      bool myEnableSIMD = true;
-      if (myEnableSIMD && !scalar && !hasCustomLayout(operands)) {
+      if (enableSIMD && !scalar && !hasCustomLayout(operands)) {
         // generate SIMD code of VL elements per vector.
         IndexExprScope allocScope(create.vec, shapeHelper.getScope());
         int64_t simdUnroll = 1;
         int64_t VL =
             create.vec.getMachineVectorLength(elementType) * simdUnroll;
         fprintf(stderr, "hi alex: simd beneficial with vl %d\n", (int)VL);
-        //assert(false && "hi alex just checking 2");
+        // assert(false && "hi alex just checking 2");
         // Alloc memory with padding for SIMD.
         Value alloc = create.mem.alignedAllocWithSimdPadding(
             memRefType, shapeHelper.getOutputDims(), simdUnroll, alignment);

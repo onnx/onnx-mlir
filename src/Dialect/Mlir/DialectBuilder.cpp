@@ -18,6 +18,7 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
+#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/IRMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -863,7 +864,7 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(
 Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
     ValueRange dynSymbols, int64_t simdUnroll, int64_t alignment) const {
   Type elementType = type.getElementType();
-  assert(type.getLayout().isIdentity() && "unsupported layout");
+  assert(!hasNonIdentityLayout(type) && "unsupported layout");
   assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
   assert(simdUnroll >= 1 && "expected positive simd unroll factor");
   // Compute total size of memref (in unit of element type).
@@ -900,13 +901,23 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
     paddingSize = VL - staticSize % VL;
 
   // Allocate data as byte.
-  // Multiply sizes by byte width of element.
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
-  assert(bitWidth % 8 == 0 && "expected byte sized data");
-  int64_t byteWidth = bitWidth / 8;
-  IndexExpr totByteSize = LiteralIndexExpr(staticSize * byteWidth) * dynSize;
-  IndexExpr totPaddedByteSize =
-      totByteSize + LiteralIndexExpr(paddingSize * byteWidth);
+  IndexExpr totPaddedByteSize;
+  if (bitWidth % 8 == 0) {
+    // We have elements that have sizes of 1 or more bytes.
+    int64_t byteWidth = bitWidth / 8;
+    IndexExpr totByteSize = LiteralIndexExpr(staticSize * byteWidth) * dynSize;
+    totPaddedByteSize = totByteSize + LiteralIndexExpr(paddingSize * byteWidth);
+  } else {
+    // We have sub-byte element sizes. Need to do precise computations. Namely
+    // first compute tot total number of bits (including static/dynamic
+    // and padding bit sizes), and then doing a ceil division by
+    // 8 (number of bits in a byte).
+    IndexExpr totBitSize = LiteralIndexExpr(staticSize * bitWidth) * dynSize;
+    IndexExpr totPaddedBitSize =
+        totBitSize + LiteralIndexExpr(paddingSize * bitWidth);
+    totPaddedByteSize = totPaddedBitSize.ceilDiv(LiteralIndexExpr(8));
+  }
   if (staticShape)
     assert(totPaddedByteSize.isLiteral() && "expected literal padded tot size");
   // Construct memref for padded array of bytes.
@@ -979,7 +990,7 @@ memref::ReshapeOp MemRefBuilder::reshapeToFlat(Value valToReshape,
   // Parse input.
   MemRefType inputType = valToReshape.getType().cast<MemRefType>();
   Type inputElementType = inputType.getElementType();
-  assert(inputType.getLayout().isIdentity() && "MemRef is not normalized");
+  assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
   Type indexType = b().getIndexType();
   // Create scope to avoid issues.
   IndexExprScope innerScope(getBuilderPtr(), loc());
@@ -1004,7 +1015,7 @@ memref::ReshapeOp MemRefBuilder::reshapeToFlat(Value valToReshape,
 
 memref::ReshapeOp MemRefBuilder::reshapeFromFlat(Value valToReshape,
     llvm::SmallVectorImpl<IndexExpr> &dims, MemRefType outputType) const {
-  assert(outputType.getLayout().isIdentity() && "MemRef is not normalized");
+  assert(!hasNonIdentityLayout(outputType) && "MemRef is not normalized");
   MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
   Type indexType = b().getIndexType();
   int64_t rank = outputType.getRank();
@@ -1057,7 +1068,7 @@ Value MemRefBuilder::collapseShape(
   // Extract input info.
   MemRefType inputType = input.getType().cast<MemRefType>();
   assert(inputType && "expected input with memref type");
-  assert(inputType.getLayout().isIdentity() &&
+  assert(!hasNonIdentityLayout(inputType) &&
          "collapse only for identity layout at this time");
   int64_t inputRank = inputType.getRank();
   ArrayRef<int64_t> inputShape = inputType.getShape();
