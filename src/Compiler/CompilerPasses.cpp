@@ -56,8 +56,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
       std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createDecomposeONNXToONNXWithRankPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());

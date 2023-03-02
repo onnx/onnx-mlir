@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --decompose-onnx-after --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --decompose-onnx --canonicalize %s -split-input-file | FileCheck %s
 
 // -----
 
