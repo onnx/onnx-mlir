@@ -184,3 +184,44 @@ namespace onnx_mlir {
 template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeOp>;
 template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeV11Op>;
 } // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
+// Folder
+//===----------------------------------------------------------------------===//
+OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
+  // Fold type
+  if (failed(inferShapes(nullptr)))
+    return nullptr;
+
+  // Fold value
+  if (!adaptor.getData() || !adaptor.getAxes()) {
+    // Use original Op if Data or Axes is not constant
+    return nullptr;
+  }
+
+  assert(hasStaticShape(getSqueezed().getType()) &&
+         "Shape should be static when the inputs are constant");
+
+  OnnxElementsAttrBuilder elementsBuilder(getContext());
+  return elementsBuilder.reshape(
+      adaptor.getData(), getShape(getSqueezed().getType()));
+}
+
+OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
+  // Fold the type of tensor
+  if (failed(inferShapes(nullptr)))
+    return nullptr;
+
+  // Fold the value in tensor
+  if (!adaptor.getData()) {
+    // Use original Op if Data is not constant
+    return nullptr;
+  }
+
+  assert(hasStaticShape(getSqueezed().getType()) &&
+         "Shape should be static when the inputs are constant");
+
+  OnnxElementsAttrBuilder elementsBuilder(getContext());
+  return elementsBuilder.reshape(
+      adaptor.getData(), getShape(getSqueezed().getType()));
+}
