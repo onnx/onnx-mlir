@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_onnx_mlir_rewriter(Decompose)
-add_onnx_mlir_rewriter(DecomposeAfter)
+add_onnx_mlir_rewriter(DecomposeWithRank)
 add_onnx_mlir_rewriter(ConstProp)
 add_onnx_mlir_rewriter(ConvOpt)
 
@@ -9,13 +9,13 @@ add_onnx_mlir_library(OMONNXRewrite
   ConstProp.cpp
   ConvOpt.cpp
   Decompose.cpp
-  DecomposeAfter.cpp
+  DecomposeWithRank.cpp
   DecomposeEinsum.cpp
   ScrubDisposablePass.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen
-  OMONNXDecomposeAfterIncGen
+  OMONNXDecomposeWithRankIncGen
   OMONNXConstPropIncGen
   OMONNXConvOptIncGen
 

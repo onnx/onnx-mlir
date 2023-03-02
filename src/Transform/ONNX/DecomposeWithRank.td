@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//===- ONNXDecompose.td - Decompose Ops after shape inference-*- tablegen --===//
+//===- ONNXDecomposeWithRank.td - Decompose ops with rank   -*- tablegen --===//
 //
 // Copyright 2019-2023 The IBM Research Authors.
 //
@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_DECOMPOSEAFTER
-#define ONNX_DECOMPOSEAFTER
+#ifndef ONNX_DECOMPOSEWITHRANK
+#define ONNX_DECOMPOSEWITHRANK
 
 #ifndef OP_BASE
 include "src/Dialect/ONNX/ONNX.td"
@@ -66,7 +66,7 @@ def insertPadsConvTransposeInput: NativeCodeCall<
   "onnx_mlir::insertPadsConvTransposeInput($_builder, $_loc, $0, $1)">;
 
 def insertAdditionalPadsConvTranspose: NativeCodeCall<
-  "onnx_mlir::insertAdditionalPadsConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(), $0, $1, $2)">;
+  "onnx_mlir::insertAdditionalPadsConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(), $0, $1)">;
 
 def ConvTransposeOpPattern1: Pattern<
    (ONNXConvTransposeOp $x, $w, $b,
@@ -77,9 +77,7 @@ def ConvTransposeOpPattern1: Pattern<
     (getPadsConvTranspose:$new_pads $kernel_shape, $pads, $dilation),
     (ONNXConvOp:$conv_res $x, $reversed_w, $b,
        $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $strides),
-    (insertAdditionalPadsConvTranspose
-        $conv_res,
-        $output_padding, $output_shape)
+    (insertAdditionalPadsConvTranspose $conv_res, $output_shape)
    ],
    [(HasUnitStrides:$strides)],
    (addBenefit 1)
@@ -104,4 +102,4 @@ def ConvTransposeOpPattern2: Pattern<
    (addBenefit 0)
 >;
 
-#endif // ONNX_DECOMPOSEAFTER
+#endif // ONNX_DECOMPOSEWITHRANK

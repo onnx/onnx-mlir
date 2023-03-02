@@ -87,6 +87,8 @@ void ONNXOpTransformPass::runOnOperation() {
     OpPassManager dynamicPM("builtin.module");
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createDecomposeONNXToONNXPass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createDecomposeONNXToONNXWithRankPass());
     dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
     dynamicPM.addPass(onnx_mlir::createShapeInferencePass());

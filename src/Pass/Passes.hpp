@@ -40,7 +40,7 @@ std::unique_ptr<mlir::Pass> createONNXOpTransformPass(
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
     const std::string &target = "");
 
-std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXAfterPass(
+std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXWithRankPass(
     const std::string &target = "");
 
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(

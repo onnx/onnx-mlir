@@ -34,7 +34,7 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createDecomposeONNXToONNXAfterPass();
+    return createDecomposeONNXToONNXWithRankPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

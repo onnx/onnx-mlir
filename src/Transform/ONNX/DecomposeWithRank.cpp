@@ -2,14 +2,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//=== DecomposeAfter.cpp - ONNX High Level Rewriting after shape inference ===//
+//=== DecomposeWithRank.cpp - ONNX High Level Rewriting with rank          ===//
 //
 // Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
 // This file implements a set of rewriters to decompose an ONNX operation into
-// composition of other ONNX operations after shape inference.
+// composition of other ONNX operations with rank after shape inference.
 //
 //===----------------------------------------------------------------------===//
 
@@ -27,7 +27,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-// ConvTranspose Op
 // Create ONNX Transpose op
 // TODO: The same function in ONNXToZHighComon.cpp. Commonize them.
 Value emitONNXTranspose(
@@ -336,8 +335,7 @@ Value insertPadsConvTransposeInput(
 
 // Insert additional padding to output of ConvOp in ConvTransposeOp
 Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
-    ONNXConvOp op, Value input, ArrayAttr outputPaddingAttr,
-    ArrayAttr outputShapeAttr) {
+    ONNXConvOp op, Value input, ArrayAttr outputShapeAttr) {
   ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
   int inputRank = shapeHelper.getOutputDims().size();
@@ -373,27 +371,27 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Transform/ONNX/ONNXDecomposeAfter.inc"
+#include "src/Transform/ONNX/ONNXDecomposeWithRank.inc"
 
-struct DecomposeONNXToONNXAfterPass
-    : public PassWrapper<DecomposeONNXToONNXAfterPass,
+struct DecomposeONNXToONNXWithRankPass
+    : public PassWrapper<DecomposeONNXToONNXWithRankPass,
           OperationPass<func::FuncOp>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXAfterPass)
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXWithRankPass)
 
-  DecomposeONNXToONNXAfterPass(const std::string &target) {
+  DecomposeONNXToONNXWithRankPass(const std::string &target) {
     this->target = target;
   }
-  DecomposeONNXToONNXAfterPass(const DecomposeONNXToONNXAfterPass &pass)
-      : mlir::PassWrapper<DecomposeONNXToONNXAfterPass,
+  DecomposeONNXToONNXWithRankPass(const DecomposeONNXToONNXWithRankPass &pass)
+      : mlir::PassWrapper<DecomposeONNXToONNXWithRankPass,
             OperationPass<func::FuncOp>>() {
     this->target = pass.target;
   }
 
-  StringRef getArgument() const override { return "decompose-onnx-after"; }
+  StringRef getArgument() const override { return "decompose-onnx-with-rank"; }
 
   StringRef getDescription() const override {
     return "Decompose ONNX operations into composition of other ONNX "
-           "operations after shape inference.";
+           "operations with rank.";
   }
 
   Option<std::string> target{*this, "target",
@@ -401,11 +399,12 @@ struct DecomposeONNXToONNXAfterPass
 
   void runOnOperation() final;
 
-  typedef PassWrapper<DecomposeONNXToONNXAfterPass, OperationPass<func::FuncOp>>
+  typedef PassWrapper<DecomposeONNXToONNXWithRankPass,
+      OperationPass<func::FuncOp>>
       BaseType;
 };
 
-void DecomposeONNXToONNXAfterPass::runOnOperation() {
+void DecomposeONNXToONNXWithRankPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
@@ -414,7 +413,16 @@ void DecomposeONNXToONNXAfterPass::runOnOperation() {
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
-  target.addIllegalOp<ONNXConvTransposeOp>();
+  //  target.addIllegalOp<ONNXConvTransposeOp>();
+  target.addDynamicallyLegalOp<ONNXConvTransposeOp>([](ONNXConvTransposeOp op) {
+    ONNXConvTransposeOpAdaptor operandAdaptor(op.getOperands());
+    Value X = operandAdaptor.getX();
+    Value W = operandAdaptor.getW();
+    return !(onnx_mlir::hasShapeAndRank(X) && onnx_mlir::hasShapeAndRank(W) &&
+             op.getDilations().has_value() && op.getKernelShape().has_value() &&
+             op.getPads().has_value() && op.getStrides() &&
+             op.getOutputShape());
+  });
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
@@ -428,11 +436,11 @@ void DecomposeONNXToONNXAfterPass::runOnOperation() {
 namespace onnx_mlir {
 
 /*!
- * Create a DecomposeONNXAfter pass.
+ * Create a DecomposeONNXWithRank pass.
  */
-std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXAfterPass(
+std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXWithRankPass(
     const std::string &target) {
-  return std::make_unique<DecomposeONNXToONNXAfterPass>(target);
+  return std::make_unique<DecomposeONNXToONNXWithRankPass>(target);
 }
 
 } // namespace onnx_mlir
