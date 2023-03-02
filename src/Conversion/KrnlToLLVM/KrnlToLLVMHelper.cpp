@@ -182,7 +182,7 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
     OpBuilder &builder, ModuleOp module, LLVMTypeConverter *typeConverter) {
   MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   assert(typeConverter && "Expecting a valid LLVM type converter");
-  LLVM::GlobalOp global = module.lookupSymbol<LLVM::GlobalOp>(str.str() + "__");
+  LLVM::GlobalOp global = module.lookupSymbol<LLVM::GlobalOp>("om_" + str.str());
   if (!global) {
     // Create the global at the entry of the module.
     OpBuilder::InsertionGuard insertGuard(builder);
@@ -191,7 +191,7 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
     Type i8Type = IntegerType::get(builder.getContext(), 8);
     Type type = LLVM::LLVMArrayType::get(i8Type, str.size());
     global = create.llvm.globalOp(type, /*isConstant=*/true,
-        LLVM::Linkage::Internal, str.str() + "__", builder.getStringAttr(str));
+        LLVM::Linkage::Internal, "om_" + str.str(), builder.getStringAttr(str));
 
     krnl::setAlignment(global, nullptr, module, builder, *typeConverter);
   }
