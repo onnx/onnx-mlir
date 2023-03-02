@@ -43,10 +43,18 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
 //===----------------------------------------------------------------------===//
 LogicalResult ONNXLayoutTransformOp::verify() {
   if (hasShapeAndRank(getData()) && hasShapeAndRank(getOutput())) {
-    if (getShape(getData().getType()) != getShape(getOutput().getType()))
-      return emitOpError("Input and output tensors must have the same shape");
+    // Get the unknown dimension from data.
+    auto dataType = getData().getType().dyn_cast<RankedTensorType>();
+    auto outputType = getOutput().getType().dyn_cast<RankedTensorType>();
+    // Check if input has a static dimension and output has dynamic dimensions
+    if (!dataType && outputType) {
+      return success();
+    } else {
+      if (getShape(getData().getType()) != getShape(getOutput().getType()))
+        return emitOpError("Input and output tensors must have the same shape");
+    }
+    return success();
   }
-  return success();
 }
 
 //===----------------------------------------------------------------------===//
