@@ -45,7 +45,7 @@ file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config.py
   INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
   )
-  
+
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/test_config_compilerlib.py.in
   ${CMAKE_CURRENT_BINARY_DIR}/test_config_compilerlib.py.cfg
@@ -76,7 +76,7 @@ execute_process(
 if (${PYTEST_XDIST_FOUND} EQUAL 0)
   message(STATUS "Parallel backend tests   : ON")
   set(BACKEND_TEST_COMMAND "${Python3_EXECUTABLE}" "-m" "pytest")
-  set(BACKEND_TEST_ARGS "--forked" "-n" "$$\{NPROC:-auto\}" "-q" "--silent")
+  set(BACKEND_TEST_ARGS "-n" "$$\{NPROC:-auto\}" "-q" "--silent")
 else()
   message(STATUS "Parallel backend tests   : OFF (install pytest-xdist to enable)")
   set(BACKEND_TEST_COMMAND ${Python3_EXECUTABLE})
