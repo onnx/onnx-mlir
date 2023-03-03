@@ -456,9 +456,7 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
         outputDims.emplace_back(O); // Set output dim
       } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
         // Set output dim
-        IndexExpr I = createIE->getShapeAsDim(xValue, i + spatialOffset);
-        LiteralIndexExpr S(ArrayAttrIntVal(strideOpt, i));
-        IndexExpr O = I * S;
+        IndexExpr O = I * s;
         outputDims.emplace_back(O);
         // Set pads
         // P = max(0, s * (I - 1) + outPad + ((K - 1) * d + 1) - O);
