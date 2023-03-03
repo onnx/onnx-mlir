@@ -228,7 +228,6 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
 
 LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
     ArrayRef<Value> initialOperands, DimsExpr *additionalOperand) {
-  assert(hasNoBroadcasting == false && "though it was never set to true");
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
   DimsExpr dimsExpr;
@@ -287,8 +286,9 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
       IndexExpr nextDimExpr = inputsDims[i][j];
       // Case: 1 - *.
       if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
-        if (!hasUniBroadcasting && !hasNoBroadcasting)
+        if (!hasUniBroadcasting) {
           dimsExpr[j] = nextDimExpr;
+        }
         continue;
       }
       // Case: LiteralNot1 - *.
@@ -330,7 +330,7 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
-  if (hasNoBroadcasting || (hasUniBroadcasting && operandIndex == 0)) {
+  if (hasUniBroadcasting && operandIndex == 0) {
     for (IndexExpr ie : outputAccessExprs)
       operandAccessExprs.emplace_back(ie);
     return success();

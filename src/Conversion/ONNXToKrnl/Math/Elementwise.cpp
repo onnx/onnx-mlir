@@ -981,7 +981,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    // assert(false && "hi alex just checking 0");
     bool scalar = hasAllScalarValues(operands);
     if constexpr (SimdizableOp<ElementwiseUnaryOp>::value) {
       // SIMD is enabled for this operation, test if desired and feasible
@@ -991,8 +990,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         int64_t simdUnroll = 1;
         int64_t VL =
             create.vec.getMachineVectorLength(elementType) * simdUnroll;
-        fprintf(stderr, "hi alex: simd beneficial with vl %d\n", (int)VL);
-        // assert(false && "hi alex just checking 2");
         // Alloc memory with padding for SIMD.
         Value alloc = create.mem.alignedAllocWithSimdPadding(
             memRefType, shapeHelper.getOutputDims(), simdUnroll, alignment);
