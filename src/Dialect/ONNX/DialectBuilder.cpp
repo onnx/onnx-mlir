@@ -232,6 +232,25 @@ Value OnnxBuilder::transpose(
       loc(), toTensor(outputType), toTensor(input), perm);
 }
 
+Value OnnxBuilder::transposeInt64(
+    Value input, ArrayRef<int64_t> intPerm) const {
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+  Type outputType;
+  if (inputType.hasRank()) {
+    assert((uint64_t)inputType.getRank() == intPerm.size() &&
+           "Permutation array size is different from the input rank");
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+    SmallVector<int64_t, 4> outputShape;
+    for (uint64_t i = 0; i < intPerm.size(); ++i)
+      outputShape.emplace_back(inputShape[intPerm[i]]);
+    outputType = RankedTensorType::get(outputShape, elementType);
+  } else {
+    outputType = UnrankedTensorType::get(elementType);
+  }
+  return transpose(outputType, input, b().getI64ArrayAttr(intPerm));
+}
+
 Value OnnxBuilder::toTensor(Value input) const {
   if (input.getType().isa<TensorType>())
     return input;

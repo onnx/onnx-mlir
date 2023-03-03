@@ -128,6 +128,8 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXTransposeOp
   mlir::Value transpose(
       mlir::Type outputType, mlir::Value input, mlir::ArrayAttr perm) const;
+  mlir::Value transposeInt64(
+      mlir::Value input, mlir::ArrayRef<int64_t> intPerm) const;
 
   // ONNXUnsqueezeOp
   mlir::Value unsqueeze(

@@ -124,30 +124,6 @@ Value createSequenceConstructOp(
   return seq;
 }
 
-// Create ONNX Transpose op
-// TODO: The same function in ONNXToZHighComon.cpp. Commonize them.
-Value emitONNXTranspose(
-    Location loc, PatternRewriter &rewriter, Value x, ArrayRef<int64_t> perms) {
-  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
-  ShapedType inputType = x.getType().cast<ShapedType>();
-  Type elementType = inputType.getElementType();
-  Type transposedType;
-  if (inputType.hasRank()) {
-    assert((uint64_t)inputType.getRank() == perms.size() &&
-           "Permutation array size is different from the input rank");
-    ArrayRef<int64_t> inputShape = inputType.getShape();
-    SmallVector<int64_t, 4> transposedShape;
-    for (uint64_t i = 0; i < perms.size(); ++i)
-      transposedShape.emplace_back(inputShape[perms[i]]);
-    transposedType = RankedTensorType::get(transposedShape, elementType);
-  } else {
-    transposedType = UnrankedTensorType::get(elementType);
-  }
-  Value result =
-      create.onnx.transpose(transposedType, x, rewriter.getI64ArrayAttr(perms));
-  return result;
-}
-
 // Reverse all elements of the first or second dimension of `input`.
 Value reverseAllElements(
     PatternRewriter &rewriter, Location loc, Value input, int64_t dimension) {
@@ -210,7 +186,7 @@ Value reverseWeightTensor(
   for (int i = 0; i < spatialOffset; ++i)
     permsval.emplace_back(i);
   ArrayRef<int64_t> perms(permsval);
-  Value transposedInput = emitONNXTranspose(loc, rewriter, input, perms);
+  Value transposedInput = create.onnx.transposeInt64(input, perms);
   // 2. Reverse the first and second dimensions
   for (int i = 0; i < spatialRank / 2; i += 2) {
     Value reverse0 =
@@ -224,7 +200,7 @@ Value reverseWeightTensor(
     for (int j = 0; j < 2; ++j)
       permsval0.emplace_back(j);
     ArrayRef<int64_t> perms(permsval0);
-    transposedInput = emitONNXTranspose(loc, rewriter, reverse1, permsval0);
+    transposedInput = create.onnx.transposeInt64(reverse1, permsval0);
   }
   // 3. Reverse the rest of dimension if spatial rank is odd
   if (spatialRank % 2 != 0) {
@@ -274,7 +250,7 @@ Value reverseWeightTensor(
       permsval1.emplace_back(j + 1);
     permsval1.emplace_back(0);
     ArrayRef<int64_t> perms(permsval1);
-    transposedInput = emitONNXTranspose(loc, rewriter, reverse0, permsval1);
+    transposedInput = create.onnx.transposeInt64(reverse0, permsval1);
   }
   // 4. Reverse non-spatial dimensions
   SmallVector<int64_t, 4> permsval2;
@@ -283,7 +259,7 @@ Value reverseWeightTensor(
   for (int i = 0; i < spatialRank; ++i)
     permsval2.emplace_back(spatialOffset + i);
   ArrayRef<int64_t> perms2(permsval2);
-  Value result = emitONNXTranspose(loc, rewriter, transposedInput, perms2);
+  Value result = create.onnx.transposeInt64(transposedInput, perms2);
   return result;
 }
 
