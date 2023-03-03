@@ -296,9 +296,7 @@ bool hasUnitStrides(ArrayAttr strides) {
 }
 
 ArrayAttr createUnitStrides(PatternRewriter &rewriter, ArrayAttr strides) {
-  SmallVector<int64_t, 2> unitStrides;
-  for (unsigned int i = 0; i < strides.size(); ++i)
-    unitStrides.emplace_back(1);
+  SmallVector<int64_t, 2> unitStrides(strides.size(), 1);
   return rewriter.getI64ArrayAttr(unitStrides);
 }
 
