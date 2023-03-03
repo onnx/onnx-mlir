@@ -327,6 +327,30 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
   return success();
 }
 
+bool ONNXBroadcastOpShapeHelper::hasNoBroadcast() {
+  // Currently very conservative: constant shape only with no broadcast.
+  // Must be called after computeShape.
+
+  for (uint64_t r = 0; r < outputRank; ++r) {
+    bool hasOne, hasOtherThanOne;
+    hasOne = hasOtherThanOne = false;
+    for (DimsExpr dims : inputsDims) {
+      // Any dynamic values.. possible broadcast, assume the worst.
+      if (!dims[r].isLiteral())
+        return false;
+      int64_t lit = dims[r].getLiteral();
+      if (lit == 1)
+        hasOne = true;
+      else
+        hasOtherThanOne = true;
+    }
+    if (hasOne && hasOtherThanOne)
+      // has a known broadcast situation
+      return false;
+  }
+  return true;
+}
+
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {

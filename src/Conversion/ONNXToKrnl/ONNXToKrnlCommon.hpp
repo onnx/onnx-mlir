@@ -455,9 +455,9 @@ mlir::Value getOptionalScalarValue(mlir::ConversionPatternRewriter &rewriter,
 mlir::MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(mlir::Type type);
 
 // Determine if the MemRef val has a custom layout (i.e. non-identity).
-bool hasCustomLayout(mlir::Value val);
+bool hasNonIdentityLayout(mlir::Value val);
 // Determine if one or more operands have custom layouts. Return false when
 // every layout is an identity layout.
-bool hasCustomLayout(mlir::ArrayRef<mlir::Value> operands);
+bool hasNonIdentityLayout(mlir::ArrayRef<mlir::Value> operands);
 
 } // namespace onnx_mlir

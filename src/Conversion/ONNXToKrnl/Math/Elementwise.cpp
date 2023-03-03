@@ -937,6 +937,140 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// SIMD code gen for kernels where data can be fully flattened.
+//===----------------------------------------------------------------------===//
+
+using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
+    MemRefBuilder, VectorBuilder>;
+
+//
+template <typename ElementwiseUnaryOp>
+static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
+    ConversionPatternRewriter &rewriter, MDBuilder &create,
+    ONNXOpShapeHelper *shapeHelper, Operation *op, MemRefType outputMemRefType,
+    ArrayRef<Value> operands, int64_t alignment, int64_t simdUnroll) {
+  Type outputElementType = outputMemRefType.getElementType();
+
+  // generate SIMD code of VL elements per vector.
+  IndexExprScope allocScope(create.vec, shapeHelper->getScope());
+  int64_t VL =
+      create.vec.getMachineVectorLength(outputElementType) * simdUnroll;
+  // Alloc memory with padding for SIMD.
+  Value alloc = create.mem.alignedAllocWithSimdPadding(
+      outputMemRefType, shapeHelper->getOutputDims(), simdUnroll, alignment);
+  // Create flat inputs.
+  llvm::SmallVector<Value, 4> flatOperands;
+  for (Value oper : operands) {
+    llvm::SmallVector<IndexExpr, 4> operDims;
+    Value operSize;
+    create.krnlIE.getShapeAsSymbols(oper, operDims);
+    Value flatOper = create.mem.reshapeToFlat(oper, operDims, operSize);
+    flatOperands.emplace_back(flatOper);
+  }
+  // Create flat output.
+  Value totOutputSize;
+  Value flatAlloc = create.mem.reshapeToFlat(
+      alloc, shapeHelper->getOutputDims(), totOutputSize);
+  IndexExpr totSize = DimIndexExpr(totOutputSize);
+  // Create loop iteration (flattened to one dim) and blocked by mVL.
+  ValueRange loopDef = create.krnl.defineLoops(1);
+  ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
+  SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
+  SmallVector<IndexExpr, 1> ubs(1, totSize);
+  // Create the vector type to operate over.
+  VectorType vecElementType = VectorType::get({VL}, outputElementType);
+  // Iterate only over the blocks.
+  create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, lbs, ubs,
+      [&](KrnlBuilder &ck, ValueRange loopInd) {
+        MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+        llvm::SmallVector<Value, 4> loadedVals;
+        for (Value flatOper : flatOperands) {
+          MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
+          assert(memRefType && "expected memref");
+          VectorType vecType =
+              VectorType::get({VL}, memRefType.getElementType());
+          Value loadedVal = create.vec.load(vecType, flatOper, loopInd);
+          loadedVals.emplace_back(loadedVal);
+        }
+        Value loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
+            rewriter, create.getLoc(), op, vecElementType, loadedVals);
+        // Store result in the resulting array.
+        create.vec.store(loweredOpResult, flatAlloc, loopInd);
+      });
+  rewriter.replaceOp(op, alloc);
+  return success();
+}
+
+template <typename ElementwiseVariadicOp>
+static LogicalResult getVariadicSimdCodeFullyFlattened(
+    ConversionPatternRewriter &rewriter, MDBuilder &create,
+    ONNXOpShapeHelper *shapeHelper, Operation *op, MemRefType outputMemRefType,
+    ArrayRef<Value> operands, int64_t alignment, int64_t simdUnroll) {
+  Type outputElementType = outputMemRefType.getElementType();
+  unsigned numArgs = op->getNumOperands();
+
+  // generate SIMD code of VL elements per vector.
+  IndexExprScope allocScope(create.vec, shapeHelper->getScope());
+  int64_t VL =
+      create.vec.getMachineVectorLength(outputElementType) * simdUnroll;
+  // Alloc memory with padding for SIMD.
+  Value alloc = create.mem.alignedAllocWithSimdPadding(
+      outputMemRefType, shapeHelper->getOutputDims(), simdUnroll, alignment);
+  // Create flat inputs.
+  llvm::SmallVector<Value, 4> flatOperands;
+  for (Value oper : operands) {
+    llvm::SmallVector<IndexExpr, 4> operDims;
+    Value operSize;
+    create.krnlIE.getShapeAsSymbols(oper, operDims);
+    Value flatOper = create.mem.reshapeToFlat(oper, operDims, operSize);
+    flatOperands.emplace_back(flatOper);
+  }
+  // Create flat output.
+  Value totOutputSize;
+  Value flatAlloc = create.mem.reshapeToFlat(
+      alloc, shapeHelper->getOutputDims(), totOutputSize);
+  IndexExpr totSize = DimIndexExpr(totOutputSize);
+  // Create loop iteration (flattened to one dim) and blocked by mVL.
+  ValueRange loopDef = create.krnl.defineLoops(1);
+  ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
+  SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
+  SmallVector<IndexExpr, 1> ubs(1, totSize);
+  // Create the vector type to operate over.
+  VectorType vecElementType = VectorType::get({VL}, outputElementType);
+  // Iterate only over the blocks.
+  create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, lbs, ubs,
+      [&](KrnlBuilder &ck, ValueRange loopInd) {
+        MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+        llvm::SmallVector<Value, 4> loadedVals;
+        // Load all the values
+        for (Value flatOper : flatOperands) {
+          MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
+          assert(memRefType && "expected memref");
+          VectorType vecType =
+              VectorType::get({VL}, memRefType.getElementType());
+          Value loadedVal = create.vec.load(vecType, flatOper, loopInd);
+          loadedVals.emplace_back(loadedVal);
+        }
+        // Use the first operand as temporary result.
+        Value accumulated = loadedVals[0];
+        // Iterate over the remaining operands.
+        for (unsigned i = 1; i < numArgs; ++i) {
+          Value next = loadedVals[i];
+          // Fold.
+          accumulated = emitScalarOpFor<ElementwiseVariadicOp>(rewriter,
+              create.getLoc(), op, vecElementType, {accumulated, next});
+        }
+        // Postprocessing (dummy op if none).
+        Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
+            rewriter, create.getLoc(), op, vecElementType, accumulated);
+        // Store result in the resulting array.
+        create.vec.store(finalResult, flatAlloc, loopInd);
+      });
+  rewriter.replaceOp(op, alloc);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 
@@ -975,51 +1109,18 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     Type elementType = memRefType.getElementType();
 
     // Shape helper.
-    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder,
-        VectorBuilder>
-        create(rewriter, loc);
+    MDBuilder create(rewriter, loc);
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     bool scalar = hasAllScalarValues(operands);
     if constexpr (SimdizableOp<ElementwiseUnaryOp>::value) {
       // SIMD is enabled for this operation, test if desired and feasible
-      if (enableSIMD && !scalar && !hasCustomLayout(operands)) {
-        // generate SIMD code of VL elements per vector.
-        IndexExprScope allocScope(create.vec, shapeHelper.getScope());
+      if (enableSIMD && !scalar && !hasNonIdentityLayout(operands)) {
         int64_t simdUnroll = 1;
-        int64_t VL =
-            create.vec.getMachineVectorLength(elementType) * simdUnroll;
-        // Alloc memory with padding for SIMD.
-        Value alloc = create.mem.alignedAllocWithSimdPadding(
-            memRefType, shapeHelper.getOutputDims(), simdUnroll, alignment);
-        // Create flat input / output.
-        Value totInputSize, totOutputSize;
-        llvm::SmallVector<IndexExpr, 4> xDims;
-        create.krnlIE.getShapeAsSymbols(X, xDims);
-        Value flatX = create.mem.reshapeToFlat(X, xDims, totInputSize);
-        Value flatAlloc = create.mem.reshapeToFlat(
-            alloc, shapeHelper.getOutputDims(), totOutputSize);
-        IndexExpr totSize = DimIndexExpr(totOutputSize);
-        // Create loop iteration (flattened to one dim) and blocked by mVL.
-        ValueRange loopDef = create.krnl.defineLoops(1);
-        ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
-        SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
-        SmallVector<IndexExpr, 1> ubs(1, totSize);
-        // Create the vector type to operate over.
-        VectorType vecElementType = VectorType::get({VL}, elementType);
-        // Iterate only over the blocks.
-        create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, lbs, ubs,
-            [&](KrnlBuilder &ck, ValueRange loopInd) {
-              MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
-              Value loadedVal = create.vec.load(vecElementType, flatX, loopInd);
-              auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-                  rewriter, loc, op, vecElementType, {loadedVal});
-              // Store result in the resulting array.
-              create.vec.store(loweredOpResult, flatAlloc, loopInd);
-            });
-        rewriter.replaceOp(op, alloc);
-        return success();
+        return getUnaryBinarySimdCodeFullyFlattened<ElementwiseUnaryOp>(
+            rewriter, create, &shapeHelper, op, memRefType, operands, alignment,
+            simdUnroll);
       }
     }
 
@@ -1089,18 +1190,29 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     uint64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder>
-        create(rewriter, loc);
+    MDBuilder create(rewriter, loc);
     ONNXBroadcastOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE, nullptr, isUniBroadcasting);
     shapeHelper.computeShapeAndAssertOnFailure();
+
+    bool scalar = hasAllScalarValues(operands);
+    if constexpr (SimdizableOp<ElementwiseBinaryOp>::value) {
+      // SIMD is enabled for this operation, test if desired and feasible
+      if (enableSIMD && !scalar && !hasNonIdentityLayout(operands) &&
+          shapeHelper.hasNoBroadcast()) {
+        int64_t simdUnroll = 1;
+        return getUnaryBinarySimdCodeFullyFlattened<ElementwiseBinaryOp>(
+            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
+            alignment, simdUnroll);
+      }
+    }
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
         outputMemRefType, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
-    if (!hasAllScalarValues(operands)) {
+    if (!scalar) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
       SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
@@ -1183,10 +1295,21 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     uint64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder>
-        create(rewriter, loc);
+    MDBuilder create(rewriter, loc);
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
+
+    bool scalar = hasAllScalarValues(operands);
+    if constexpr (SimdizableOp<ElementwiseVariadicOp>::value) {
+      // SIMD is enabled for this operation, test if desired and feasible
+      if (enableSIMD && !scalar && !hasNonIdentityLayout(operands) &&
+          shapeHelper.hasNoBroadcast()) {
+        int64_t simdUnroll = 1;
+        return getVariadicSimdCodeFullyFlattened<ElementwiseVariadicOp>(
+            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
+            alignment, simdUnroll);
+      }
+    }
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1214,7 +1337,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
             Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
 
             // Iterate over the remaining operands.
-            for (unsigned i = 1; i < numArgs; i++) {
+            for (unsigned i = 1; i < numArgs; ++i) {
               // Obtain the next operand.
               SmallVector<IndexExpr, 4> oprdAccessExprs;
               LogicalResult res = shapeHelper.getAccessExprs(

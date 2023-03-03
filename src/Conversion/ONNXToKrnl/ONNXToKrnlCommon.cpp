@@ -14,7 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
+
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -596,15 +598,15 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
   return alignment;
 }
 
-bool hasCustomLayout(mlir::Value val) {
+bool hasNonIdentityLayout(Value val) {
   MemRefType type = val.getType().dyn_cast<MemRefType>();
   assert(type && "expected a memref type");
-  return !type.getLayout().isIdentity();
+  return hasNonIdentityLayout(type);
 }
 
-bool hasCustomLayout(mlir::ArrayRef<mlir::Value> operands) {
+bool hasNonIdentityLayout(ArrayRef<Value> operands) {
   for (Value val : operands)
-    if (hasCustomLayout(val))
+    if (hasNonIdentityLayout(val))
       return true;
   return false;
 }

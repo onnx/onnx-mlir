@@ -607,8 +607,22 @@ struct LLVMBuilder final : DialectBuilder {
 // Anchor class.
 template <class... Ts>
 struct MultiDialectBuilder {
-  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc) {}
-  MultiDialectBuilder(const DialectBuilder &db) {}
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : builder(&b), location(loc) {}
+  MultiDialectBuilder(const DialectBuilder &db)
+      : builder(db.getBuilderPtr()), location(db.getLoc()) {}
+
+  // Public getters of builder and location.
+  mlir::OpBuilder &getBuilder() const {
+    assert(builder);
+    return *builder;
+  }
+  mlir::OpBuilder *getBuilderPtr() const { return builder; }
+  mlir::Location getLoc() const { return location; }
+
+private:
+  mlir::OpBuilder *builder;
+  mlir::Location location;
 };
 
 // Recursive class specialized for MathBuilder refereed to as math.
