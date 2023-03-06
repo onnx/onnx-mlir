@@ -20,8 +20,8 @@ func.func @transpose_on_ztensor(%arg0: tensor<3x5xf32>) -> tensor<5x3xf32> {
 // CHECK:           [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x1x32x64xf16>
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 3 {
 // CHECK:             affine.for [[I_1_:%.+]] = 0 to 5 {
-// CHECK:               [[LOAD_RES_1_MEM_:%.+]] = affine.load [[RES_1_]][0, 0, 0, 0, [[I_0_]] mod 32, [[I_1_]] mod 64] : memref<1x1x1x1x32x64xf16>
-// CHECK:               affine.store [[LOAD_RES_1_MEM_]], [[RES_2_]][0, 0, 0, 0, [[I_1_]] mod 32, [[I_0_]] mod 64] : memref<1x1x1x1x32x64xf16>
+// CHECK:               [[LOAD_RES_1_MEM_:%.+]] = affine.load [[RES_1_]][0, 0, 0, 0, [[I_0_]], [[I_1_]]] : memref<1x1x1x1x32x64xf16>
+// CHECK:               affine.store [[LOAD_RES_1_MEM_]], [[RES_2_]][0, 0, 0, 0, [[I_1_]], [[I_0_]]] : memref<1x1x1x1x32x64xf16>
 // CHECK:             }
 // CHECK:           }
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x1x1x1x32x64xf16>
