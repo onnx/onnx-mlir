@@ -19,27 +19,28 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXCompressOpLowering : public ConversionPattern {
+struct ONNXCompressOpLowering : public OpConversionPattern<ONNXCompressOp> {
 
   ONNXCompressOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXCompressOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXCompressOp compressOp,
+      ONNXCompressOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    Operation *op = compressOp.getOperation();
     Location loc = ONNXLoc<ONNXCompressOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
-    ONNXCompressOpAdaptor operandAdaptor(operands);
-    ONNXCompressOp compressOp = cast<ONNXCompressOp>(op);
 
     // Get shape, also deliver normalized "axis", -1 if undef.
     ONNXCompressOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Get input shape.
-    Value inputMemRef = operandAdaptor.getInput();
+    Value inputMemRef = adaptor.getInput();
     int64_t inputRank = create.krnlIE.getShapedTypeRank(inputMemRef);
     Optional<int64_t> axis = compressOp.getAxis();
 
@@ -57,7 +58,7 @@ struct ONNXCompressOpLowering : public ConversionPattern {
     Value sumMemRef = create.mem.alloca(indexMemRefType);
     create.krnl.store(zeroIE.getValue(), sumMemRef);
     // Now create a loop to iterate over all conditions.
-    Value condMemRef = operandAdaptor.getCondition();
+    Value condMemRef = adaptor.getCondition();
     IndexExpr condShapeFirstRank = create.krnlIE.getShapeAsDim(condMemRef, 0);
     ValueRange loopDef = create.krnl.defineLoops(1);
     create.krnl.iterateIE(loopDef, loopDef, {zeroIE}, {condShapeFirstRank},
