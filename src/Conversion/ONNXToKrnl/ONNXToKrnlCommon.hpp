@@ -84,7 +84,7 @@ struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...>
 //===----------------------------------------------------------------------===//
 
 /// Check if all operands are scalar values at compile time.
-bool hasAllScalarValues(llvm::ArrayRef<mlir::Value> values);
+bool hasAllScalarValues(mlir::ValueRange values);
 
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
 /// integer constants.

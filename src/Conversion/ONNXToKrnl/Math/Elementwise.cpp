@@ -1075,16 +1075,21 @@ static LogicalResult getVariadicSimdCodeFullyFlattened(
 //===----------------------------------------------------------------------===//
 
 template <typename ElementwiseUnaryOp>
-struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
+struct ONNXElementwiseUnaryOpLowering
+    : public OpConversionPattern<ElementwiseUnaryOp> {
+  using OpAdaptor = typename ElementwiseUnaryOp::Adaptor;
   bool enableSIMD = false;
+
   ONNXElementwiseUnaryOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
-      : ConversionPattern(
-            typeConverter, ElementwiseUnaryOp::getOperationName(), 1, ctx),
+      : OpConversionPattern<ElementwiseUnaryOp>(typeConverter, ctx),
         enableSIMD(enableSIMD) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ElementwiseUnaryOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    Operation *op = elmsOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
+
     Location loc = ONNXLoc<ElementwiseUnaryOp>(op);
     Value X = operands[0];
 
@@ -1099,8 +1104,8 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     }
 
     // Convert the output type to MemRefType.
-    Type outputTensorType = *op->result_type_begin();
-    Type convertedType = typeConverter->convertType(outputTensorType);
+    Type outputTensorType = elmsOp.getResult().getType();
+    Type convertedType = this->typeConverter->convertType(outputTensorType);
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
     assert(convertedType && convertedType.isa<MemRefType>() &&
@@ -1162,25 +1167,26 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
 //===----------------------------------------------------------------------===//
 
 template <typename ElementwiseBinaryOp>
-struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
+struct ONNXElementwiseBinaryOpLowering
+    : public OpConversionPattern<ElementwiseBinaryOp> {
+  using OpAdaptor = typename ElementwiseBinaryOp::Adaptor;
   bool enableSIMD = false;
   bool isUniBroadcasting = false;
 
   ONNXElementwiseBinaryOpLowering(TypeConverter &typeConverter,
       MLIRContext *ctx, bool enableSIMD, bool isUniBroadcasting = false)
-      : ConversionPattern(
-            typeConverter, ElementwiseBinaryOp::getOperationName(), 1, ctx),
+      : OpConversionPattern<ElementwiseBinaryOp>(typeConverter, ctx),
         enableSIMD(enableSIMD), isUniBroadcasting(isUniBroadcasting) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ElementwiseBinaryOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
-                                    ElementwiseBinaryOp::getOperationName()),
-        op->getLoc());
+    Operation *op = elmsOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Location loc = ONNXLoc<ElementwiseBinaryOp>(op);
 
     // Convert the output type to MemRefType.
-    Type outputTensorType = *op->result_type_begin();
-    Type convertedType = typeConverter->convertType(outputTensorType);
+    Type outputTensorType = elmsOp.getResult().getType();
+    Type convertedType = this->typeConverter->convertType(outputTensorType);
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
     assert(convertedType && convertedType.isa<MemRefType>() &&
@@ -1267,25 +1273,26 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 //===----------------------------------------------------------------------===//
 
 template <typename ElementwiseVariadicOp>
-struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
+struct ONNXElementwiseVariadicOpLowering
+    : public OpConversionPattern<ElementwiseVariadicOp> {
+  using OpAdaptor = typename ElementwiseVariadicOp::Adaptor;
   bool enableSIMD = false;
 
   ONNXElementwiseVariadicOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
-      : ConversionPattern(
-            typeConverter, ElementwiseVariadicOp::getOperationName(), 1, ctx),
+      : OpConversionPattern<ElementwiseVariadicOp>(typeConverter, ctx),
         enableSIMD(enableSIMD) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ElementwiseVariadicOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = NameLoc::get(StringAttr::get(op->getContext(),
-                                    ElementwiseVariadicOp::getOperationName()),
-        op->getLoc());
-    unsigned numArgs = op->getNumOperands();
+    Operation *op = elmsOp.getOperation();
+    Location loc = ONNXLoc<ElementwiseVariadicOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    unsigned numArgs = elmsOp.getNumOperands();
 
     // Convert the output type to MemRefType.
-    Type outputTensorType = *op->result_type_begin();
-    Type convertedType = typeConverter->convertType(outputTensorType);
+    Type outputTensorType = elmsOp.getResult().getType();
+    Type convertedType = this->typeConverter->convertType(outputTensorType);
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
     assert(convertedType && convertedType.isa<MemRefType>() &&

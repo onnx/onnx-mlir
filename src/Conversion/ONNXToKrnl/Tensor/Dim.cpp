@@ -18,19 +18,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXDimOpLowering : public ConversionPattern {
+struct ONNXDimOpLowering : public OpConversionPattern<ONNXDimOp> {
   ONNXDimOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXDimOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXDimOp dimOp, ONNXDimOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Get basic info.
-    Location loc = op->getLoc();
-    auto dimOp = llvm::dyn_cast<ONNXDimOp>(op);
-    ONNXDimOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.getData();
-    int64_t axis = dimOp.getAxis();
+    Operation *op = dimOp.getOperation();
+    Location loc = ONNXLoc<ONNXDimOp>(op);
+    Value data = adaptor.getData();
+    int64_t axis = adaptor.getAxis();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);

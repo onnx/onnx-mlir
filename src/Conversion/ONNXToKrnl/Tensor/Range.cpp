@@ -19,15 +19,14 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXRangeOpLowering : public ConversionPattern {
+struct ONNXRangeOpLowering : public OpConversionPattern<ONNXRangeOp> {
   ONNXRangeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXRangeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXRangeOp rangeOp, ONNXRangeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXRangeOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = rangeOp.getOperation();
+    Location loc = ONNXLoc<ONNXRangeOp>(op);
 
     // Create an index expression scope.
     // Scope for krnl ops
@@ -36,9 +35,9 @@ struct ONNXRangeOpLowering : public ConversionPattern {
         create(rewriter, loc);
     IndexExprScope ieScope(create.krnl);
 
-    Value start = operandAdaptor.getStart();
-    Value limit = operandAdaptor.getLimit();
-    Value delta = operandAdaptor.getDelta();
+    Value start = adaptor.getStart();
+    Value limit = adaptor.getLimit();
+    Value delta = adaptor.getDelta();
 
     auto startShape = start.getType().cast<MemRefType>().getShape();
     auto limitShape = limit.getType().cast<MemRefType>().getShape();

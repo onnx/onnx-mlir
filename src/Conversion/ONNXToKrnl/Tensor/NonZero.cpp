@@ -19,10 +19,9 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXNonZeroOpLowering : public ConversionPattern {
+struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
   ONNXNonZeroOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXNonZeroOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
   /// Given an input of shape (3, 2):
   /// [[2, 1],
@@ -74,10 +73,11 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
   ///   out[0][i] = p
   /// ```
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXNonZeroOp noneZeroOp,
+      ONNXNonZeroOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXNonZeroOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = noneZeroOp.getOperation();
+    Location loc = ONNXLoc<ONNXNonZeroOp>(op);
 
     // Builder helper.
     IndexExprScope outerScope(&rewriter, loc);
@@ -86,7 +86,7 @@ struct ONNXNonZeroOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // Frequently used MemRefType.
-    Value X = operandAdaptor.getX();
+    Value X = adaptor.getX();
     MemRefType xMemRefType = X.getType().cast<MemRefType>();
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
