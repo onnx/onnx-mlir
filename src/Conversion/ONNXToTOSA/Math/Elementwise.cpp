@@ -28,7 +28,7 @@ namespace onnx_mlir {
 namespace {
 
 template <typename OpAdaptorT>
-LogicalResult checkBasicTosaRequirements(ConversionPatternRewriter &rewriter,
+LogicalResult checkBasicTosaRequirementsForBinaryOps(ConversionPatternRewriter &rewriter,
     Operation *op, OpAdaptorT adaptor, Type resultType) {
   Value lhs = adaptor.A();
   auto lhsType = lhs.getType().dyn_cast<TensorType>();
@@ -75,7 +75,7 @@ public:
   LogicalResult matchAndRewrite(ONNXOpT op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    if (failed(checkBasicTosaRequirements<OpAdaptor>(
+    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor>(
             rewriter, op, adaptor, op.getResult().getType())))
       return failure();
 
@@ -93,7 +93,7 @@ public:
   using OpConversionPattern::OpConversionPattern;
   LogicalResult matchAndRewrite(ONNXMulOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
-    if (failed(checkBasicTosaRequirements<OpAdaptor>(
+    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor>(
             rewriter, op, adaptor, op.getResult().getType())))
       return failure();
 
