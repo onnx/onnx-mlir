@@ -24,5 +24,5 @@ module {
   // CHECK-LABEL: return_argument
   // CHECK: llvm.call @_mlir_ciface_return_argument
   // CHECK: llvm.call @omTensorCreateUntyped
-  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
+  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
 }
