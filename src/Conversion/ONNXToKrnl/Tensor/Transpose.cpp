@@ -19,23 +19,24 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXTransposeOpLowering : public ConversionPattern {
+struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, MathBuilder>;
 
   ONNXTransposeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXTransposeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
+      ONNXTransposeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
+    Operation *op = transposeOp.getOperation();
+    Location loc = ONNXLoc<ONNXTransposeOp>(op);
+    ValueRange operands = adaptor.getOperands();
     MDBuilder create(rewriter, loc);
 
     // Operands and attributes.
-    ONNXTransposeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    Value data = operandAdaptor.getData();
-    auto permAttr = operandAdaptor.getPerm();
+    Value data = adaptor.getData();
+    auto permAttr = adaptor.getPerm();
 
     // Input and output types.
     MemRefType inMemRefType = data.getType().cast<MemRefType>();
