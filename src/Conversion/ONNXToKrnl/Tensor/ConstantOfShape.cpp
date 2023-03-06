@@ -4,7 +4,7 @@
 
 //===------------ ConstantOfShape.cpp - Lowering ConstantOfShape Op -------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -48,9 +48,8 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
 
     // Allocate memory for the output.
     Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = create.mem.alignedAlloc(memRefType);
     else {
       SmallVector<Value, 2> allocOperands;
       // Load dimensions from the input.
@@ -64,12 +63,6 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
       }
       // Allocate memory.
       alloc = create.mem.alignedAlloc(memRefType, allocOperands);
-      // Insert deallocation if needed.
-      if (insertDealloc) {
-        Block *parentBlock = alloc.getDefiningOp()->getBlock();
-        memref::DeallocOp dealloc = create.mem.dealloc(alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
     }
 
     // Get the constant value from the attribute 'value'.

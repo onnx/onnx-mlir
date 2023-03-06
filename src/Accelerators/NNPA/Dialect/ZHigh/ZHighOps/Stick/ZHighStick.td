@@ -80,4 +80,42 @@ def ReplaceONNXLeakyReluPattern: Pat<
    (SameLayout $X, $stickout)]
 >;
 
+// Since zDNN does not support Sqrt(X), we calculate it by using zDNN-supported
+// operations, i.e. Exp and Log.
+// Formulas: `sqrt(X) = exp(log(x)/2) = exp(0.5 * log(x))`
+def ReplaceONNXSqrtPattern: Pat<
+  (ZHighStickOp:$stick (ONNXSqrtOp (ZHighUnstickOp $X)), $layout),
+  (ZHighExpOp (ZHighMulOp (ZHighLogOp $X, (returnType $X)),
+                          (ZHighStickOp (GetConstantOfType<"0.5"> $X), $layout),
+                          (returnType $X))),
+  [(IsStaticShapeTensor $X), (SameLayout $X, $stick)]
+>;
+
+// Calulation of `1/sqrt(X)` or reciprocal square root is often found in
+// deep learning models, but zDNN does not support it. Thus, we rewrite it into
+// zDNN-supported operations.
+//
+// In this rewriting pattern we use:
+//   - `exp(log(x)/2)` for `sqrt(x)`, and 
+//   - `div(1,x) for `reciprocal`
+// So, `1/sqrt(X) = div(1, exp(log(x)/2)) = exp(log(x)/(-2))
+//                                        = exp(-0.5 * log(x))`
+//
+// The pattern
+//   zhigh.Stick (onnx.Reciprocal (onnx.Sqrt (zhigh.Unstick (%X))))
+// can be replaced by
+//   zhigh.Exp (zhigh.Mul (zhigh.Log(%X), -0.5))
+//
+// Constraints:
+//   - `1/sqrt(X)` must be sandwiched by an unstick and stick.
+//   - %X should have static shape, and %alpha should be constant.
+//
+def ReplaceONNXReciprocalSqrtPattern: Pat<
+  (ZHighStickOp:$stick (ONNXReciprocalOp (ONNXSqrtOp (ZHighUnstickOp $X))), $layout),
+  (ZHighExpOp (ZHighMulOp (ZHighLogOp $X, (returnType $X)),
+                          (ZHighStickOp (GetConstantOfType<"-0.5"> $X), $layout),
+                          (returnType $X))),
+  [(IsStaticShapeTensor $X), (SameLayout $X, $stick)]
+>;
+
 #endif // STICK_TD

@@ -4,7 +4,7 @@
 
 //===-------------- Reduction.cpp - Lowering Reduction Ops ----------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -181,9 +181,9 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       for (auto axis : definedAxes) {
         if (axis < -inRank || axis > inRank - 1)
           return emitError(loc, "axes value out of range");
-        int64_t newaxis = axis >= 0 ? axis : (inRank + axis);
-        if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
-          axes.push_back(newaxis);
+        int64_t newAxis = axis >= 0 ? axis : (inRank + axis);
+        if (std::find(axes.begin(), axes.end(), newAxis) == axes.end())
+          axes.push_back(newAxis);
       }
     } else
       for (decltype(inRank) i = 0; i < inRank; ++i)
@@ -194,32 +194,12 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     bool isKeepdims = (keepdims == 1) ? true : false;
 
     // Get type information
-    auto memRefOutShape = memRefOutType.getShape();
     auto elementOutType = memRefOutType.getElementType();
     std::map<int64_t, int64_t> outInDimMap =
         getReductionMapping(memRefInType, axes, isKeepdims);
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-    if (hasAllConstantDimensions(memRefOutType))
-      alloc =
-          insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
-    else {
-      SmallVector<Value, 2> allocOperands;
-      for (decltype(outRank) i = 0; i < outRank; ++i) {
-        if (memRefOutShape[i] < 0) {
-          auto dim = create.mem.dim(input, outInDimMap[i]);
-          allocOperands.push_back(dim);
-        }
-      }
-      alloc = create.mem.alignedAlloc(memRefOutType, allocOperands);
-      if (insertDealloc) {
-        auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = create.mem.dealloc(alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
-    }
+    Value alloc = create.mem.alignedAlloc(input, memRefOutType);
 
     // There are two required and one optional Krnl loops:
     // - One to initialize the result memref,
@@ -424,7 +404,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 
       // Define a mask memref with same size of input and bool type
       // maskVal[i] == true if ith dim will be reduced
-      bool insertDealloc = checkInsertDealloc(op);
       auto maskType =
           RankedTensorType::get({inRank}, rewriter.getIntegerType(1));
       // Convert the mask type to MemRefType.
@@ -432,8 +411,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       assert(convertedMaskType && convertedMaskType.isa<MemRefType>() &&
              "Failed to convert type to MemRefType");
       MemRefType maskTypeInMemRefType = convertedMaskType.cast<MemRefType>();
-      maskVal = insertAllocAndDealloc(
-          maskTypeInMemRefType, loc, rewriter, insertDealloc);
+      maskVal = create.mem.alignedAlloc(maskTypeInMemRefType);
       falseVal = create.math.constant(rewriter.getIntegerType(1), 0);
       trueVal = create.math.constant(rewriter.getIntegerType(1), 1);
       valueOne = create.math.constantIndex(1);
@@ -445,7 +423,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       Value initVal;
       if (axesDim == ShapedType::kDynamic &&
           !reduceSumOp.getNoopWithEmptyAxes()) {
-        IndexExprScope axesloopContex(&rewriter, loc);
+        IndexExprScope axesLoopContex(&rewriter, loc);
         Value zeroIndex = create.math.constantIndex(0);
         IndexExpr axesBound0 = create.krnlIE.getShapeAsDim(axesVal, 0);
         Value cond = create.math.eq(axesBound0.getValue(), zeroIndex);
@@ -514,9 +492,9 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           if (axis < -inRank || axis > inRank - 1) {
             return emitError(loc, "axes value out of range");
           }
-          int64_t newaxis = axis >= 0 ? axis : (inRank + axis);
-          if (std::find(axes.begin(), axes.end(), newaxis) == axes.end())
-            axes.push_back(newaxis);
+          int64_t newAxis = axis >= 0 ? axis : (inRank + axis);
+          if (std::find(axes.begin(), axes.end(), newAxis) == axes.end())
+            axes.push_back(newAxis);
         }
       } else if (!reduceSumOp.getNoopWithEmptyAxes()) {
         for (decltype(inRank) i = 0; i < inRank; ++i) {
@@ -528,14 +506,12 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefOutType)) {
-      alloc =
-          insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
+      alloc = create.mem.alignedAlloc(memRefOutType);
     } else {
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
-        if (memRefOutShape[i] < 0) {
+        if (memRefOutShape[i] == ShapedType::kDynamic) {
           if (dynamicAxes) {
             // Dim size: maskVal[i] ? 1 : inputDim[i]
             Value inputDim = create.mem.dim(input, i);
@@ -551,11 +527,6 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         }
       }
       alloc = create.mem.alignedAlloc(memRefOutType, allocOperands);
-      if (insertDealloc) {
-        Block *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = create.mem.dealloc(alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
     }
 
     // There are two required and one optional Krnl loops:
