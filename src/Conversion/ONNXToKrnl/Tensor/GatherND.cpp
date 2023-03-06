@@ -23,10 +23,9 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXGatherNDOpLowering : public ConversionPattern {
+struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
   ONNXGatherNDOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXGatherNDOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
   // When true causes injection of print stmts in the generated code.
   static constexpr bool emitPrintStmts = false;
@@ -44,11 +43,13 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     createKrnl.printf(")\n");
   }
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXGatherNDOp gatherNDOp,
+      ONNXGatherNDOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXGatherNDOpAdaptor operandAdaptor(operands);
-    ONNXGatherNDOp gatherNDOp = cast<ONNXGatherNDOp>(op);
-    Location loc = op->getLoc();
+    Operation *op = gatherNDOp.getOperation();
+    Location loc = ONNXLoc<ONNXGatherNDOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
@@ -60,9 +61,9 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Operands and attributes.
-    Value data = operandAdaptor.getData();
-    Value indices = operandAdaptor.getIndices();
-    int64_t b = gatherNDOp.getBatchDims();
+    Value data = adaptor.getData();
+    Value indices = adaptor.getIndices();
+    int64_t b = adaptor.getBatchDims();
     auto indicesType = indices.getType().cast<ShapedType>();
     auto dataType = data.getType().cast<ShapedType>();
     ArrayRef<int64_t> indicesShape = indicesType.getShape();

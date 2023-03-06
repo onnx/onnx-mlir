@@ -107,7 +107,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
 }
 
 /// Check if all operands are scalar values at compile time.
-bool hasAllScalarValues(ArrayRef<Value> values) {
+bool hasAllScalarValues(ValueRange values) {
   for (Value value : values) {
     if (value.getType().cast<ShapedType>().getRank() != 0)
       return false;

@@ -20,24 +20,23 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXPrintSignatureLowering : public ConversionPattern {
+struct ONNXPrintSignatureLowering
+    : public OpConversionPattern<ONNXPrintSignatureOp> {
   ONNXPrintSignatureLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXPrintSignatureOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXPrintSignatureOp printSignatureOp,
+      ONNXPrintSignatureOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    Location loc = op->getLoc();
+    Operation *op = printSignatureOp.getOperation();
+    Location loc = ONNXLoc<ONNXPrintSignatureOp>(op);
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
-    ONNXPrintSignatureOp printSignatureOp =
-        llvm::dyn_cast<ONNXPrintSignatureOp>(op);
-    ONNXPrintSignatureOpAdaptor operandAdaptor(operands);
 
     std::string opName(printSignatureOp.getOpName().data());
     create.krnl.printf(opName);
     std::string msg = "%t ";
-    for (Value oper : operandAdaptor.getInput())
+    for (Value oper : adaptor.getInput())
       if (!oper.getType().isa<NoneType>())
         create.krnl.printTensor(msg, oper);
     Value noneValue;

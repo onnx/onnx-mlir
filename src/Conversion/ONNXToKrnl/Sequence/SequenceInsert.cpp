@@ -19,28 +19,29 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXSequenceInsertOpLowering : public ConversionPattern {
+struct ONNXSequenceInsertOpLowering
+    : public OpConversionPattern<ONNXSequenceInsertOp> {
   ONNXSequenceInsertOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXSequenceInsertOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXSequenceInsertOp seqOp,
+      ONNXSequenceInsertOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ONNXSequenceInsertOpAdaptor operandAdaptor(operands);
-    ONNXSequenceInsertOp thisOp = dyn_cast<ONNXSequenceInsertOp>(op);
+    Operation *op = seqOp.getOperation();
+    Location loc = ONNXLoc<ONNXSequenceInsertOp>(op);
+
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
         rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType =
-        typeConverter->convertType(thisOp.getResult().getType());
+        typeConverter->convertType(seqOp.getResult().getType());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
-    auto input_sequence = operandAdaptor.getInputSequence();
+    auto input_sequence = adaptor.getInputSequence();
     auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
     auto outputBound = boundIE + 1;
@@ -50,7 +51,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
 
     // Handle Optional and negative position
     IndexExpr positionIE;
-    if (isFromNone(operandAdaptor.getPosition())) {
+    if (isFromNone(adaptor.getPosition())) {
       // Insert at the end of the sequence
       // Could be optimized as: Copy the input sequence and attach input tensor
       // at the end But the size for KrnlMemcpy is integer, not Value
@@ -58,8 +59,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
       // ToDo (chentong): backward shape inference may help
       positionIE = boundIE;
     } else {
-      positionIE =
-          SymbolIndexExpr(create.krnl.load(operandAdaptor.getPosition()));
+      positionIE = SymbolIndexExpr(create.krnl.load(adaptor.getPosition()));
       // Handle the negative position
       IndexExpr condIE = positionIE < 0;
       IndexExpr fixedPosition = positionIE + boundIE;
@@ -84,8 +84,8 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
       ValueRange firstLoopDef = createKrnl.defineLoops(1);
       createKrnl.iterateIE(firstLoopDef, firstLoopDef, lbs, ubs,
           [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
-            auto element = createKrnl.load(
-                operandAdaptor.getInputSequence(), indicesLoopInd[0]);
+            auto element =
+                createKrnl.load(adaptor.getInputSequence(), indicesLoopInd[0]);
             createKrnl.seqstore(element, alloc, positionIE);
             // createKrnl.store(element, alloc, indicesLoopInd[0]);
           });
@@ -98,8 +98,8 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
       ValueRange secondLoopDef = createKrnl.defineLoops(1);
       createKrnl.iterateIE(secondLoopDef, secondLoopDef, lbs1, ubs1,
           [&](KrnlBuilder createKrnl, ValueRange indicesLoopInd) {
-            auto element = createKrnl.load(
-                operandAdaptor.getInputSequence(), indicesLoopInd[0]);
+            auto element =
+                createKrnl.load(adaptor.getInputSequence(), indicesLoopInd[0]);
             auto oneIndex = create.math.constantIndex(1);
             auto outputIndex = create.math.add(indicesLoopInd[0], oneIndex);
             createKrnl.seqstore(element, alloc, outputIndex);
@@ -107,7 +107,7 @@ struct ONNXSequenceInsertOpLowering : public ConversionPattern {
     }
 
     // Insert the element at the position
-    createKrnl.seqstore(operandAdaptor.getTensor(), alloc, positionIE);
+    createKrnl.seqstore(adaptor.getTensor(), alloc, positionIE);
 
     rewriter.replaceOp(op, alloc);
     return success();
