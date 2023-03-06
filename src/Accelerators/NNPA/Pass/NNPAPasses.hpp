@@ -47,6 +47,10 @@ namespace zlow {
 /// Add pass for rewriting ZLow ops.
 std::unique_ptr<mlir::Pass> createZLowRewritePass();
 
+/// Add pass for replacing zlow.unstick and zlow.stick by inserting dlf16
+/// conversion directly into affine.for loops.
+std::unique_ptr<mlir::Pass> createZLowInsertDLF16ConversionPass();
+
 /// Add pass for rewriting ZLow ops.
 std::unique_ptr<mlir::Pass> createZLowDummyOpForMultiDerefPass();
 

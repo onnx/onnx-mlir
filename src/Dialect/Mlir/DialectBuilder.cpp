@@ -1334,6 +1334,11 @@ Value LLVMBuilder::_alloca(
   return b().create<LLVM::AllocaOp>(loc(), resultType, size, alignment);
 }
 
+Value LLVMBuilder::andi(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  return b().create<LLVM::AndOp>(loc(), lhs, rhs);
+}
+
 Value LLVMBuilder::bitcast(Type type, Value val) const {
   return b().create<LLVM::BitcastOp>(loc(), type, val);
 }
@@ -1430,6 +1435,13 @@ Value LLVMBuilder::constant(Type type, double val) const {
   return constant;
 }
 
+Value LLVMBuilder::extractElement(
+    Type resultType, Value container, int64_t position) const {
+  Value posVal = constant(b().getI64Type(), position);
+  return b().create<LLVM::ExtractElementOp>(
+      loc(), resultType, container, posVal);
+}
+
 Value LLVMBuilder::extractValue(
     Type resultType, Value container, ArrayRef<int64_t> position) const {
   return b().create<LLVM::ExtractValueOp>(
@@ -1456,6 +1468,11 @@ Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
   return b().create<LLVM::ICmpOp>(loc(), cond, lhs, rhs);
 }
 
+Value LLVMBuilder::insertElement(Value vec, Value val, int64_t position) const {
+  Value posVal = constant(b().getI64Type(), position);
+  return b().create<LLVM::InsertElementOp>(loc(), vec, val, posVal);
+}
+
 Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
     llvm::ArrayRef<int64_t> position) const {
   return b().create<LLVM::InsertValueOp>(
@@ -1464,6 +1481,10 @@ Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
 
 Value LLVMBuilder::inttoptr(Type type, Value val) const {
   return b().create<LLVM::IntToPtrOp>(loc(), type, val);
+}
+
+Value LLVMBuilder::lshr(Value lhs, Value rhs) const {
+  return b().create<LLVM::LShrOp>(loc(), lhs, rhs);
 }
 
 Value LLVMBuilder::load(Value addr) const {
@@ -1483,6 +1504,11 @@ Value LLVMBuilder::nullI8Ptr() const {
   return b().create<LLVM::NullOp>(loc(), I8PtrTy);
 }
 
+Value LLVMBuilder::ori(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  return b().create<LLVM::OrOp>(loc(), lhs, rhs);
+}
+
 Value LLVMBuilder::ptrtoint(Type type, Value val) const {
   return b().create<LLVM::PtrToIntOp>(loc(), type, val);
 }
@@ -1491,12 +1517,29 @@ void LLVMBuilder::_return(Value val) const {
   b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({val}));
 }
 
+Value LLVMBuilder::select(Value cmp, Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  return b().create<LLVM::SelectOp>(loc(), cmp, lhs, rhs);
+}
+
 Value LLVMBuilder::sext(Type type, Value val) const {
   return b().create<LLVM::SExtOp>(loc(), type, val);
 }
 
+Value LLVMBuilder::shl(Value lhs, Value rhs) const {
+  return b().create<LLVM::ShlOp>(loc(), lhs, rhs);
+}
+
 void LLVMBuilder::store(Value val, Value addr) const {
   b().create<LLVM::StoreOp>(loc(), val, addr);
+}
+
+Value LLVMBuilder::trunc(Type type, Value val) const {
+  return b().create<LLVM::TruncOp>(loc(), type, val);
+}
+
+Value LLVMBuilder::zext(Type type, Value val) const {
+  return b().create<LLVM::ZExtOp>(loc(), type, val);
 }
 
 FlatSymbolRefAttr LLVMBuilder::getOrInsertSymbolRef(ModuleOp module,

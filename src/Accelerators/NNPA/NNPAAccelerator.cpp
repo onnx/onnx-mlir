@@ -87,6 +87,10 @@ void NNPAAccelerator::initPasses(int optLevel) const {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowInsertDLF16ConversionPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::zlow::createZLowRewritePass();
   });
 

@@ -35,5 +35,11 @@ void ZLowDummyOp::getCanonicalizationPatterns(
   results.insert<RemoveDummyOpPattern>(context);
 }
 
+/// ZLowConvertF32ToDLF16Op.
+void ZLowConvertF32ToDLF16Op::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<DLF16ConversionOpPattern>(context);
+}
+
 } // namespace zlow
 } // namespace onnx_mlir
