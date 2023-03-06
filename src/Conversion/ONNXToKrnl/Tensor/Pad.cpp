@@ -19,20 +19,19 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXPadOpLowering : public ConversionPattern {
+struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
   ONNXPadOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXPadOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXPadOp padOp, ONNXPadOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    Location loc = op->getLoc();
-    ONNXPadOp padOp = llvm::dyn_cast<ONNXPadOp>(op);
-    ONNXPadOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.getData();
-    Value constantValue = operandAdaptor.getConstantValue();
-    StringRef padMode = padOp.getMode();
+    Operation *op = padOp.getOperation();
+    Location loc = ONNXLoc<ONNXPadOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    Value data = adaptor.getData();
+    Value constantValue = adaptor.getConstantValue();
+    StringRef padMode = adaptor.getMode();
 
     // Builder helper.
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
