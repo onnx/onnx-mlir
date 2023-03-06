@@ -8,9 +8,10 @@ module {
   }
   "krnl.entry_point"() {func = @return_view_of_argument, numInputs = 0 : i32, numOutputs = 1 : i32, signature = ""} : () -> ()
   // CHECK-LABEL: return_view_of_argument
+  // CHECK: [[OWNING:%.+]] = llvm.mlir.constant(1 : i64) : i64
   // CHECK: llvm.call @_mlir_ciface_return_view_of_argument
   // CHECK: llvm.call @omTensorCreateUntyped
-  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
+  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr<i8>, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
 }
 
 // -----
@@ -22,7 +23,8 @@ module {
   }
   "krnl.entry_point"() {func = @return_argument, numInputs = 1 : i32, numOutputs = 1 : i32, signature = ""} : () -> ()
   // CHECK-LABEL: return_argument
+  // CHECK: [[OWNING:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK: llvm.call @_mlir_ciface_return_argument
   // CHECK: llvm.call @omTensorCreateUntyped
-  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
+  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr<i8>, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
 }
