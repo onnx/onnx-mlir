@@ -125,19 +125,18 @@ void stateToOutput(mlir::ConversionPatternRewriter &rewriter,
 
 // A common template for lowering an RNN operation.
 template <typename RNNOp, typename S, typename A, typename W, typename B>
-struct ONNXRNNOpLowering : public mlir::ConversionPattern {
+struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
+  using OpAdaptor = typename RNNOp::Adaptor;
+
   ONNXRNNOpLowering(mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx)
-      : mlir::ConversionPattern(
-            typeConverter, RNNOp::getOperationName(), 1, ctx) {}
+      : mlir::OpConversionPattern<RNNOp>(typeConverter, ctx) {}
 
-  mlir::LogicalResult matchAndRewrite(mlir::Operation *op,
-      llvm::ArrayRef<mlir::Value> operands,
+  mlir::LogicalResult matchAndRewrite(RNNOp rnnOp, OpAdaptor adaptor,
       mlir::ConversionPatternRewriter &rewriter) const final {
-    mlir::Location loc = op->getLoc();
-
-    RNNOp rnnOp = llvm::dyn_cast<RNNOp>(op);
-    typename RNNOp::Adaptor operandAdaptor(operands);
-    mlir::Value X = operandAdaptor.getX();
+    mlir::Operation *op = rnnOp.getOperation();
+    mlir::Location loc = ONNXLoc<RNNOp>(op);
+    mlir::ValueRange operands = adaptor.getOperands();
+    mlir::Value X = adaptor.getX();
 
     if (hasAllNoneOutput<RNNOp>(&rnnOp)) {
       rewriter.eraseOp(op);
@@ -146,7 +145,7 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
 
     // Initialize output states.
     S state = allocAndInitializeStates<RNNOp, S>(
-        rewriter, loc, typeConverter, &rnnOp, operandAdaptor);
+        rewriter, loc, this->typeConverter, &rnnOp, adaptor);
 
     // Activation functions.
     A activationForward, activationReverse;
