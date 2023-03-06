@@ -196,15 +196,16 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 // Template function that does pooling.
 //
 template <typename PoolOp, typename PoolOpAdaptor, typename PoolOpShapeHelper>
-struct ONNXPoolOpLowering : public ConversionPattern {
+struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
   ONNXPoolOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter, PoolOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern<PoolOp>(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(PoolOp poolOp, PoolOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    PoolOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
-    PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
+    Operation *op = poolOp.getOperation();
+    Location loc = ONNXLoc<PoolOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
         MathBuilder>
         create(rewriter, loc);
@@ -217,11 +218,12 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     auto ceilMode = poolOp.getCeilMode();
 
     // Type information about the input and result of this operation.
-    Value inputOperand = operandAdaptor.getX();
+    Value inputOperand = adaptor.getX();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
 
     // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    Type convertedType =
+        this->typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();

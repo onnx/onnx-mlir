@@ -18,21 +18,21 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXSizeOpLowering : public ConversionPattern {
+struct ONNXSizeOpLowering : public OpConversionPattern<ONNXSizeOp> {
   ONNXSizeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXSizeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXSizeOp sizeOp, ONNXSizeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    Location loc = op->getLoc();
-    ONNXSizeOp sizeOp = cast<ONNXSizeOp>(op);
+    Operation *op = sizeOp.getOperation();
+    Location loc = ONNXLoc<ONNXSizeOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
         rewriter, loc);
 
-    ONNXSizeOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.getData();
+    Value data = adaptor.getData();
     ArrayRef<int64_t> dataShape = data.getType().cast<MemRefType>().getShape();
     Value resultOperand = sizeOp.getSize();
 

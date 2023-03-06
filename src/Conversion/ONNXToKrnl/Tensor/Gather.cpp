@@ -19,16 +19,17 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXGatherOpLowering : public ConversionPattern {
+struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
   ONNXGatherOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXGatherOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXGatherOp gatherOp,
+      ONNXGatherOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXGatherOpAdaptor operandAdaptor(operands);
-    ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
-    Location loc = op->getLoc();
+    Operation *op = gatherOp.getOperation();
+    Location loc = ONNXLoc<ONNXGatherOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
         create(rewriter, loc);
 
@@ -47,9 +48,9 @@ struct ONNXGatherOpLowering : public ConversionPattern {
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Operands and attributes.
-    Value data = operandAdaptor.getData();
-    Value indices = operandAdaptor.getIndices();
-    int64_t axisLit = gatherOp.getAxis();
+    Value data = adaptor.getData();
+    Value indices = adaptor.getIndices();
+    int64_t axisLit = adaptor.getAxis();
     int64_t dataRank = data.getType().cast<MemRefType>().getRank();
     int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
 
