@@ -51,7 +51,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 
   // Try to update inferredDim if existingDim is static.
   for (unsigned i = 0; i < existingDims.size(); ++i) {
-    // Sanity checks for old convention of using -1 for dynamic.
+    // Safety checks for old convention of using -1 for dynamic.
     assert(existingDims[i] != -1 && "dynamic use kDynamic now");
     if (inferredDims[i].isLiteral()) {
       // Index expressions should not use the ShapedType::kDynamic ever to
@@ -75,7 +75,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
       continue;
     }
     // inferredDim is different from existingDim. Believe in existingDim.
-    assert(inferredDims[i].isLiteral() && "sanity");
+    assert(inferredDims[i].isLiteral() && "isLiteral failed");
     if (existingDims[i] != inferredDims[i].getLiteral()) {
       // Warning for users.
       llvm::outs() << "Warning: [Shape inference, dim " << i
