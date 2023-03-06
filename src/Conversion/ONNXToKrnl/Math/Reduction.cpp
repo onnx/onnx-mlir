@@ -118,17 +118,17 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
 }
 
 template <typename ONNXReductionOp>
-struct ONNXReductionOpLowering : public ConversionPattern {
+struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
+  using OpAdaptor = typename ONNXReductionOp::Adaptor;
   bool computeMean = false;
 
   ONNXReductionOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool computeMean = false)
-      : ConversionPattern(
-            typeConverter, ONNXReductionOp::getOperationName(), 1, ctx) {
+      : OpConversionPattern<ONNXReductionOp>(typeConverter, ctx) {
     this->computeMean = computeMean;
   }
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXReductionOp reduceOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     /*
      * Condition: reduction function must be associative and commutative.
@@ -150,11 +150,14 @@ struct ONNXReductionOpLowering : public ConversionPattern {
      * }
      *
      */
-    Location loc = op->getLoc();
+    Operation *op = reduceOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Location loc = ONNXLoc<ONNXReductionOp>(op);
     Value input = operands[0];
     MemRefType memRefInType = input.getType().cast<MemRefType>();
     // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    Type convertedType =
+        this->typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefOutType = convertedType.cast<MemRefType>();
@@ -168,7 +171,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     // Get axes value defined by op
     // Leave empty is not defined
     std::vector<int64_t> definedAxes;
-    ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).getAxesAttr();
+    ArrayAttr axisAttrs = adaptor.getAxesAttr();
     if (axisAttrs) {
       for (auto axisAttr : axisAttrs.getValue()) {
         int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
@@ -190,7 +193,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
         axes.push_back(i);
 
     // KeepDims
-    auto keepdims = llvm::dyn_cast<ONNXReductionOp>(op).getKeepdims();
+    auto keepdims = adaptor.getKeepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
 
     // Get type information
@@ -326,16 +329,15 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 
 // This duplicated code can be eliminated with if constexpr in c++ 17
 // Or onnx uses input for axes for all ops
-struct ONNXReduceSumOpLowering : public ConversionPattern {
+struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
   bool computeMean = false;
 
   ONNXReduceSumOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool computeMean = false)
-      : ConversionPattern(
-            typeConverter, ONNXReduceSumOp::getOperationName(), 1, ctx),
-        computeMean(computeMean) {}
+      : OpConversionPattern(typeConverter, ctx), computeMean(computeMean) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXReduceSumOp reduceSumOp,
+      ONNXReduceSumOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     /*
      * Condition: reduction function must be associative and commutative.
@@ -357,11 +359,11 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
      * }
      *
      */
-    Location loc = op->getLoc();
-    ONNXReduceSumOpAdaptor operandAdaptor(operands);
-    ONNXReduceSumOp reduceSumOp = cast<ONNXReduceSumOp>(op);
-    auto input = operands[0];
-    auto axesVal = operands[1];
+    Operation *op = reduceSumOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Location loc = ONNXLoc<ONNXReduceSumOp>(op);
+    Value input = operands[0];
+    Value axesVal = operands[1];
     auto memRefInType = input.getType().cast<MemRefType>();
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -375,7 +377,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
         create(rewriter, loc);
 
     // KeepDims
-    int64_t keepdims = reduceSumOp.getKeepdims();
+    int64_t keepdims = adaptor.getKeepdims();
     bool isKeepdims = (keepdims == 1);
 
     // Get axes dims
@@ -394,6 +396,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
     Value valueOne = nullptr;
     std::map<int64_t, int64_t> outInDimMap;
 
+    // Axes is an optional input, do not use adaptor to get it.
     Value axesValue = reduceSumOp.getAxes();
     // Dynamic axes
     if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
@@ -421,8 +424,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
       // Unless noop_with_empty_axesDim is false and axesDim is
       // ShapedType::kDynamic.
       Value initVal;
-      if (axesDim == ShapedType::kDynamic &&
-          !reduceSumOp.getNoopWithEmptyAxes()) {
+      if (axesDim == ShapedType::kDynamic && !adaptor.getNoopWithEmptyAxes()) {
         IndexExprScope axesLoopContex(&rewriter, loc);
         Value zeroIndex = create.math.constantIndex(0);
         IndexExpr axesBound0 = create.krnlIE.getShapeAsDim(axesVal, 0);
@@ -496,7 +498,7 @@ struct ONNXReduceSumOpLowering : public ConversionPattern {
           if (std::find(axes.begin(), axes.end(), newAxis) == axes.end())
             axes.push_back(newAxis);
         }
-      } else if (!reduceSumOp.getNoopWithEmptyAxes()) {
+      } else if (!adaptor.getNoopWithEmptyAxes()) {
         for (decltype(inRank) i = 0; i < inRank; ++i) {
           axes.push_back(i);
         }

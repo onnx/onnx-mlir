@@ -19,17 +19,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-template <typename OP_TYPE>
-LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
+template <typename OP_TYPE, typename OP_ADAPTOR>
+LogicalResult ONNXSplitOpLoweringCommon(OP_TYPE splitOp, OP_ADAPTOR adaptor,
     ConversionPatternRewriter &rewriter, TypeConverter *typeConverter) {
   // Gather info.
-  Location loc = op->getLoc();
-  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
-  OP_TYPE splitOp = llvm::cast<OP_TYPE>(op);
+  Operation *op = splitOp.getOperation();
+  Location loc = ONNXLoc<OP_TYPE>(op);
+  ValueRange operands = adaptor.getOperands();
+
   MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder>
       create(rewriter, loc);
 
-  Value input = operandAdaptor.getInput();
+  Value input = adaptor.getInput();
   uint64_t rank = create.krnlIE.getShapedTypeRank(input);
   unsigned outputNum = splitOp.getNumResults();
   unsigned axis = splitOp.getAxis();
@@ -93,27 +94,26 @@ LogicalResult ONNXSplitOpLoweringCommon(Operation *op, ArrayRef<Value> operands,
   return success();
 }
 
-struct ONNXSplitOpLowering : public ConversionPattern {
+struct ONNXSplitOpLowering : public OpConversionPattern<ONNXSplitOp> {
   ONNXSplitOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXSplitOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXSplitOp splitOp, ONNXSplitOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    return ONNXSplitOpLoweringCommon<ONNXSplitOp>(
-        op, operands, rewriter, typeConverter);
+    return ONNXSplitOpLoweringCommon<ONNXSplitOp, ONNXSplitOpAdaptor>(
+        splitOp, adaptor, rewriter, typeConverter);
   }
 };
 
-struct ONNXSplitV11OpLowering : public ConversionPattern {
+struct ONNXSplitV11OpLowering : public OpConversionPattern<ONNXSplitV11Op> {
   ONNXSplitV11OpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXSplitV11Op::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXSplitV11Op splitOp,
+      ONNXSplitV11OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    return ONNXSplitOpLoweringCommon<ONNXSplitV11Op>(
-        op, operands, rewriter, typeConverter);
+    return ONNXSplitOpLoweringCommon<ONNXSplitV11Op, ONNXSplitV11OpAdaptor>(
+        splitOp, adaptor, rewriter, typeConverter);
   }
 };
 

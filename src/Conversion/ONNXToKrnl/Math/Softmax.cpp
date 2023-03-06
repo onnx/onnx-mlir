@@ -234,32 +234,34 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
 }
 
 template <typename SoftmaxOp>
-struct ONNXSoftmaxLowering : public ConversionPattern {
+struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
   ONNXSoftmaxLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, SoftmaxOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern<SoftmaxOp>(typeConverter, ctx) {}
   using OpAdaptor = typename SoftmaxOp::Adaptor;
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+
+  LogicalResult matchAndRewrite(SoftmaxOp softmaxOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // softmax(x) = let max_x = max(x) in
     //                let exp_x = exp(x - max_x) in
     //                  let sum = sum(exp_x) in
     //                    exp_x / sum
 
+    Operation *op = softmaxOp.getOperation();
+    Location loc = ONNXLoc<SoftmaxOp>(op);
+    Value input = adaptor.getInput();
+
     // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    Type convertedType =
+        this->typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     int64_t rank = memRefType.getRank();
-    int64_t axis = llvm::dyn_cast<SoftmaxOp>(op).getAxis();
+    int64_t axis = adaptor.getAxis();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
 
-    Location loc = op->getLoc();
-    OpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
     // Insert an allocation and deallocation for the result of this operation.
     Type elementType = memRefType.getElementType();
     MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);

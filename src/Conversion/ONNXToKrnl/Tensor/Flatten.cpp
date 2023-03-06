@@ -49,20 +49,20 @@ Value insertAllocForFlatten(MemRefType memRefType, Location loc,
   return create.mem.alignedAlloc(memRefType, allocOperands);
 }
 
-struct ONNXFlattenOpLowering : public ConversionPattern {
+struct ONNXFlattenOpLowering : public OpConversionPattern<ONNXFlattenOp> {
   ONNXFlattenOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXFlattenOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXFlattenOp flattenOp,
+      ONNXFlattenOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
 
     // Gather info.
-    Location loc = op->getLoc();
-    ONNXFlattenOp flattenOp = llvm::dyn_cast<ONNXFlattenOp>(op);
+    Operation *op = flattenOp.getOperation();
+    Location loc = ONNXLoc<ONNXFlattenOp>(op);
+    ValueRange operands = adaptor.getOperands();
 
-    ONNXFlattenOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
+    Value input = adaptor.getInput();
     auto inputTy = input.getType().cast<MemRefType>();
     auto inputShape = inputTy.getShape();
     size_t inputRank = inputShape.size();
