@@ -6,9 +6,9 @@ module {
   func.func private @first_entry(%arg0: memref<10xf32>) -> memref<10xf32> {
     return %arg0 : memref<10xf32>
   }
-  "krnl.entry_point"() {func = @first_entry, numInputs = 1 : i32, numOutputs = 1 : i32} : () -> ()
+  "krnl.entry_point"() {func = @first_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
 
-// CHECK:         llvm.func @strncmp(!llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+// CHECK:         llvm.func @strncmp(!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 // CHECK:         llvm.mlir.global external constant @_entry_point_0("run_main_graph\00")
 // CHECK:         llvm.mlir.global external constant @_entry_point_0_in_sig("[in_sig]\00")
 // CHECK:         llvm.mlir.global external constant @_entry_point_0_out_sig("[out_sig]\00")
@@ -87,10 +87,10 @@ module {
   func.func private @second_entry(%arg0: memref<10xf32>) -> memref<10xf32> {
     return %arg0 : memref<10xf32>
   }
-  "krnl.entry_point"() {func = @first_entry, numInputs = 1 : i32, numOutputs = 1 : i32} : () -> ()
-  "krnl.entry_point"() {func = @second_entry, numInputs = 1 : i32, numOutputs = 1 : i32} : () -> ()
+  "krnl.entry_point"() {func = @first_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig_0]\00@[out_sig_0]\00"} : () -> ()
+  "krnl.entry_point"() {func = @second_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig_1]\00@[out_sig_1]\00"} : () -> ()
 
-// CHECK:         llvm.func @strncmp(!llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+// CHECK:         llvm.func @strncmp(!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 // CHECK-DAG:     llvm.mlir.global external constant @_entry_point_0("run_first_entry\00")
 // CHECK-DAG:     llvm.mlir.global external constant @_entry_point_0_in_sig("[in_sig_0]\00")
 // CHECK-DAG:     llvm.mlir.global external constant @_entry_point_0_out_sig("[out_sig_0]\00")
@@ -197,7 +197,7 @@ module attributes {"onnx-mlir.accels" = ["Pseudo-0x10001", "NNPA-0x10000"]} {
   func.func private @main_graph(%arg0: memref<10xf32>) -> memref<10xf32> {
     return %arg0 : memref<10xf32>
   }
-  "krnl.entry_point"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32} : () -> ()
+  "krnl.entry_point"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
 // CHECK:      llvm.func @OMInitCompatibleAccelNNPA(i64)
 // CHECK:      llvm.func @OMInitCompatibleAccelPseudo(i64)
 // CHECK:      llvm.func @run_main_graph({{.*}}: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
