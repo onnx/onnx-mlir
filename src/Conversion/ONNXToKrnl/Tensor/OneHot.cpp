@@ -19,17 +19,19 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXOneHotOpLowering : public ConversionPattern {
+struct ONNXOneHotOpLowering : public OpConversionPattern<ONNXOneHotOp> {
   ONNXOneHotOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXOneHotOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXOneHotOp onehotOp,
+      ONNXOneHotOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXOneHotOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
-    Value indices = operandAdaptor.getIndices();
-    Value values = operandAdaptor.getValues();
+    Operation *op = onehotOp.getOperation();
+    Location loc = ONNXLoc<ONNXOneHotOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    Value indices = adaptor.getIndices();
+    Value values = adaptor.getValues();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
         create(rewriter, loc);
 

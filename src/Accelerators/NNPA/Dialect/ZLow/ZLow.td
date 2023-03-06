@@ -439,8 +439,8 @@ def ZLowDummyOp:ZLow_Op<"dummy", [MemRefsNormalizable]> {
   ZLow operation to forward the input value to the output value.
   It will be removed if canonicalization is called.
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
+  let arguments = (ins AnyType:$input);
+  let results = (outs AnyType:$output);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$input), [{
       build($_builder, $_state, input.getType(), input);

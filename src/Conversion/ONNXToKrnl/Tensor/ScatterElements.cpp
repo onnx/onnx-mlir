@@ -19,24 +19,25 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXScatterElementsOpLowering : public ConversionPattern {
+struct ONNXScatterElementsOpLowering
+    : public OpConversionPattern<ONNXScatterElementsOp> {
   ONNXScatterElementsOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXScatterElementsOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXScatterElementsOp scatterElementsOp,
+      ONNXScatterElementsOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXScatterElementsOpAdaptor operandAdaptor(operands);
-    ONNXScatterElementsOp scatterElements = cast<ONNXScatterElementsOp>(op);
-    Location loc = op->getLoc();
+    Operation *op = scatterElementsOp.getOperation();
+    Location loc = ONNXLoc<ONNXScatterElementsOp>(op);
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
         create(rewriter, loc);
 
     // Operands and attributes.
-    Value data = operandAdaptor.getData();
-    Value updates = operandAdaptor.getUpdates();
-    Value indices = operandAdaptor.getIndices();
-    int64_t axis = scatterElements.getAxis();
+    Value data = adaptor.getData();
+    Value updates = adaptor.getUpdates();
+    Value indices = adaptor.getIndices();
+    int64_t axis = adaptor.getAxis();
     int64_t dataRank = data.getType().cast<MemRefType>().getRank();
     int64_t updatesRank = updates.getType().cast<MemRefType>().getRank();
     int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();

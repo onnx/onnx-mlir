@@ -27,7 +27,8 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-struct ONNXCategoryMapperOpLowering : public ConversionPattern {
+struct ONNXCategoryMapperOpLowering
+    : public OpConversionPattern<ONNXCategoryMapperOp> {
   using PerfectHashTable = struct {
     Value G;
     Value V;
@@ -41,14 +42,14 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
       IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>;
 
   ONNXCategoryMapperOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXCategoryMapperOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXCategoryMapperOp categoryMapperOp,
+      ONNXCategoryMapperOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    auto categoryMapperOp = cast<ONNXCategoryMapperOp>(op);
-    ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = categoryMapperOp.getOperation();
+    Location loc = ONNXLoc<ONNXCategoryMapperOp>(op);
+    ValueRange operands = adaptor.getOperands();
     LocalDialectBuilder create(rewriter, loc);
 
     // Get shape.
@@ -56,9 +57,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Operands and attributes.
-    Value X = operandAdaptor.getX();
-    ArrayAttr cats_int64sAttr = categoryMapperOp.getCatsInt64sAttr();
-    ArrayAttr cats_stringsAttr = categoryMapperOp.getCatsStringsAttr();
+    Value X = adaptor.getX();
+    ArrayAttr cats_int64sAttr = adaptor.getCatsInt64sAttr();
+    ArrayAttr cats_stringsAttr = adaptor.getCatsStringsAttr();
 
     DenseElementsAttr cats_int64s = mlir::DenseElementsAttr::get(
         RankedTensorType::get(
@@ -69,13 +70,13 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
             krnl::StringType::get(rewriter.getContext())),
         cats_stringsAttr.getValue());
 
-    IntegerAttr default_int64 = categoryMapperOp.getDefaultInt64Attr();
+    IntegerAttr default_int64 = adaptor.getDefaultInt64Attr();
     DenseElementsAttr default_string =
-        (categoryMapperOp.getDefaultStringAttr())
+        (adaptor.getDefaultStringAttr())
             ? mlir::DenseElementsAttr::get(
                   RankedTensorType::get(
                       {}, krnl::StringType::get(rewriter.getContext())),
-                  categoryMapperOp.getDefaultStringAttr().getValue())
+                  adaptor.getDefaultStringAttr().getValue())
             : nullptr;
 
     // Convert the output type to MemRefType.
