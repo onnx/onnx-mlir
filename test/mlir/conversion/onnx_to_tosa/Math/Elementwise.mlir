@@ -105,3 +105,75 @@ func.func @test_leaky_relu(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
 // CHECK-DAG: %[[VAR3:.*]] = "tosa.greater_equal"(%arg0, %[[VAR0]])
 // CHECK: %[[VAR6:.*]] = "tosa.select"(%[[VAR3]], %arg0, %[[VAR2]])
 }
+
+// -----
+
+func.func @test_sigmoid(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Sigmoid"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_sigmoid
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.sigmoid"([[PARAM_0_]]) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xf32>
+// CHECK-NEXT:    }
+}
+
+// -----
+
+func.func @test_ceil(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Ceil"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_ceil
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.ceil"([[PARAM_0_]]) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xf32>
+// CHECK-NEXT:    }
+}
+
+// -----
+
+func.func @test_exp(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Exp"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_exp
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.exp"([[PARAM_0_]]) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xf32>
+// CHECK-NEXT:    }
+}
+
+// -----
+
+func.func @test_log(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Log"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_log
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.log"([[PARAM_0_]]) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xf32>
+// CHECK-NEXT:    }
+}
+
+// -----
+
+func.func @test_reciprocal(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Reciprocal"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_reciprocal
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.reciprocal"([[PARAM_0_]]) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xf32>
+// CHECK-NEXT:    }
+}
+
+// -----
+
+func.func @test_tanh(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Tanh"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_tanh
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.tanh"([[PARAM_0_]]) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xf32>
+// CHECK-NEXT:    }
+}

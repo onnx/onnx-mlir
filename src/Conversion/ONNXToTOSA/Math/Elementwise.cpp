@@ -61,7 +61,7 @@ public:
   LogicalResult matchAndRewrite(ElementwiseUnaryOpONNX op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     rewriter.replaceOpWithNewOp<ElementwiseUnaryOpTOSA>(
-        op, op.getType(), adaptor.X());
+        op, op.getType(), *adaptor.getODSOperands(0).begin());
     return success();
   }
 };
@@ -210,8 +210,15 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<
-      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp, mlir::tosa::NegateOp>>(
-      typeConverter, ctx);
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp, mlir::tosa::NegateOp>,
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXCeilOp, mlir::tosa::CeilOp>,
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXExpOp, mlir::tosa::ExpOp>,
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXLogOp, mlir::tosa::LogOp>,
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXReciprocalOp,
+          mlir::tosa::ReciprocalOp>,
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXTanhOp, mlir::tosa::TanhOp>,
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXSigmoidOp,
+          mlir::tosa::SigmoidOp>>(typeConverter, ctx);
 }
 
 void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
