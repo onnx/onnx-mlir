@@ -19,20 +19,22 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXReverseSequenceOpLowering : public ConversionPattern {
+struct ONNXReverseSequenceOpLowering
+    : public OpConversionPattern<ONNXReverseSequenceOp> {
   ONNXReverseSequenceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXReverseSequenceOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXReverseSequenceOp reverseSequenceOp,
+      ONNXReverseSequenceOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXReverseSequenceOpAdaptor operandAdaptor(operands);
-    ONNXReverseSequenceOp reverseSequenceOp =
-        llvm::cast<ONNXReverseSequenceOp>(op);
-    Location loc = op->getLoc();
+    Operation *op = reverseSequenceOp.getOperation();
+    Location loc = ONNXLoc<ONNXReverseSequenceOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
+
     // Get shape.
     ONNXReverseSequenceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
@@ -105,7 +107,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
           SmallVector<IndexExpr, 4> inputAccessFct;
           getIndexExprList<DimIndexExpr>(loopInd, inputAccessFct);
           Value lensVal = createKrnl.loadIE(
-              operandAdaptor.getSequenceLens(), inputAccessFct[batchAxis]);
+              adaptor.getSequenceLens(), inputAccessFct[batchAxis]);
           IndexExpr lens = NonAffineIndexExpr(lensVal);
           IndexExpr timeDim = inputAccessFct[timeAxis];
           IndexExpr cond = timeDim < lens;
@@ -113,7 +115,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
               IndexExpr::select(cond, lens - timeDim - oneIE, timeDim);
           inputAccessFct[timeAxis] = inputIndex;
           Value inputVal =
-              createKrnl.loadIE(operandAdaptor.getInput(), inputAccessFct);
+              createKrnl.loadIE(adaptor.getInput(), inputAccessFct);
 
           // Save data into output
           createKrnl.storeIE(inputVal, alloc, outputAccessFct);

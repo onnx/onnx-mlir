@@ -20,20 +20,21 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXConcatOpLowering : public ConversionPattern {
+struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
   ONNXConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXConcatOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXConcatOp concatOp,
+      ONNXConcatOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    Operation *op = concatOp.getOperation();
+    Location loc = ONNXLoc<ONNXConcatOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     // Gather info.
-    Location loc = op->getLoc();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
         create(rewriter, loc);
 
-    ONNXConcatOpAdaptor operandAdaptor(operands);
-    ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
     // Get shape.
     ONNXConcatOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
