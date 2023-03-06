@@ -222,3 +222,27 @@ func.func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) 
   // CHECK:       [[IF_END]]:
 }
 
+// -----
+
+// Test that 'krnl.global' with 129+ strings can be handled without errors.
+func.func private @test_krnl_global_with_129_elements() -> memref<129x!krnl.string> {
+  %4 = "krnl.global"() {name = "cats_strings", shape = [129], value = dense<["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "70", "71", "72", "73", "74", "75", "76", "77", "78", "79", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "90", "91", "92", "93", "94", "95", "96", "97", "98", "99", "100", "101", "102", "103", "104", "105", "106", "107", "108", "109", "110", "111", "112", "113", "114", "115", "116", "117", "118", "119", "120", "121", "122", "123", "124", "125", "126", "127", "128", "129"]> : tensor<129x!krnl.string>} : () -> memref<129x!krnl.string>
+  return %4 : memref<129x!krnl.string>
+
+  // CHECK:         llvm.func @test_krnl_global_with_129_elements() -> !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<1 x i64>, array<1 x i64>)> attributes {llvm.emit_c_interface, sym_visibility = "private"} {
+  // CHECK:           [[VAR_0_1_:%.+]] = llvm.mlir.addressof @cats_strings : !llvm.ptr<array<129 x ptr<i8>>>
+  // CHECK-DAG:       [[VAR_1_1_:%.+]] = llvm.bitcast [[VAR_0_1_]] : !llvm.ptr<array<129 x ptr<i8>>> to !llvm.ptr<i64>
+  // CHECK-DAG:       [[VAR_2_1_:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<1 x i64>, array<1 x i64>)>
+  // CHECK:           [[VAR_3_1_:%.+]] = llvm.insertvalue [[VAR_1_1_]], [[VAR_2_1_]][0] : !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<1 x i64>, array<1 x i64>)>
+  // CHECK-DAG:       [[VAR_4_1_:%.+]] = llvm.insertvalue [[VAR_1_1_]], [[VAR_3_1_]][1] : !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<1 x i64>, array<1 x i64>)>
+  // CHECK-DAG:       [[VAR_5_1_:%.+]] = llvm.mlir.constant(0 : index) : i64
+  // CHECK-NOT: separator of consecutive DAGs
+  // CHECK-DAG:       [[VAR_6_1_:%.+]] = llvm.insertvalue [[VAR_5_1_]], [[VAR_4_1_]][2] : !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<1 x i64>, array<1 x i64>)>
+  // CHECK-DAG:       [[VAR_7_1_:%.+]] = llvm.mlir.constant(129 : index) : i64
+  // CHECK-NOT: separator of consecutive DAGs
+  // CHECK-DAG:       [[VAR_8_1_:%.+]] = llvm.insertvalue [[VAR_7_1_]], [[VAR_6_1_]][3, 0] : !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<1 x i64>, array<1 x i64>)>
+  // CHECK-DAG:       [[VAR_9_1_:%.+]] = llvm.mlir.constant(1 : index) : i64
+  // CHECK:           [[VAR_10_1_:%.+]] = llvm.insertvalue [[VAR_9_1_]], [[VAR_8_1_]][4, 0] : !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<1 x i64>, array<1 x i64>)>
+  // CHECK:           llvm.return [[VAR_10_1_]] : !llvm.struct<(ptr<i64>, ptr<i64>, i64, array<1 x i64>, array<1 x i64>)>
+
+}
