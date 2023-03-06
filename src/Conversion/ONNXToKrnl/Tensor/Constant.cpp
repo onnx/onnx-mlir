@@ -18,15 +18,15 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXConstantOpLowering : public ConversionPattern {
+struct ONNXConstantOpLowering : public OpConversionPattern<ONNXConstantOp> {
   ONNXConstantOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXConstantOp constantOp,
+      ONNXConstantOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    Operation *op = constantOp.getOperation();
     Location loc = ONNXLoc<ONNXConstantOp>(op);
-    auto constantOp = cast<ONNXConstantOp>(op);
 
     if (constantOp.getSparseValue().has_value())
       return emitError(loc, "Only support dense values at this time");

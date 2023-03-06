@@ -19,20 +19,20 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXScatterNDOpLowering : public ConversionPattern {
+struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
   ONNXScatterNDOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXScatterNDOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXScatterNDOp scatterNDOp,
+      ONNXScatterNDOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXScatterNDOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = scatterNDOp.getOperation();
+    Location loc = ONNXLoc<ONNXScatterNDOp>(op);
 
     // Operands and attributes.
-    Value data = operandAdaptor.getData();
-    Value updates = operandAdaptor.getUpdates();
-    Value indices = operandAdaptor.getIndices();
+    Value data = adaptor.getData();
+    Value updates = adaptor.getUpdates();
+    Value indices = adaptor.getIndices();
     auto dataType = data.getType().cast<ShapedType>();
     auto indicesType = indices.getType().cast<ShapedType>();
     auto updatesType = updates.getType().cast<ShapedType>();

@@ -51,7 +51,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 
   // Try to update inferredDim if existingDim is static.
   for (unsigned i = 0; i < existingDims.size(); ++i) {
-    // Sanity checks for old convention of using -1 for dynamic.
+    // Safety checks for old convention of using -1 for dynamic.
     assert(existingDims[i] != -1 && "dynamic use kDynamic now");
     if (inferredDims[i].isLiteral()) {
       // Index expressions should not use the ShapedType::kDynamic ever to
@@ -75,7 +75,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
       continue;
     }
     // inferredDim is different from existingDim. Believe in existingDim.
-    assert(inferredDims[i].isLiteral() && "sanity");
+    assert(inferredDims[i].isLiteral() && "isLiteral failed");
     if (existingDims[i] != inferredDims[i].getLiteral()) {
       // Warning for users.
       llvm::outs() << "Warning: [Shape inference, dim " << i
@@ -92,7 +92,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 //===----------------------------------------------------------------------===//
 
 ONNXOpShapeHelper::ONNXOpShapeHelper(Operation *inputOp,
-    ArrayRef<Value> inputOperands, IndexExprBuilder *inputIeBuilder,
+    ValueRange inputOperands, IndexExprBuilder *inputIeBuilder,
     IndexExprScope *inputScope)
     : op(inputOp), operands(inputOperands), createIE(inputIeBuilder),
       scope(inputScope), privateOutputsDims(), ownScope(inputScope == nullptr),
@@ -114,7 +114,7 @@ ONNXOpShapeHelper::ONNXOpShapeHelper(Operation *inputOp,
     // could not find one at this time.
     privateOperandsCache = llvm::SmallVector<Value, 4>(
         op->getOperands().begin(), op->getOperands().end());
-    operands = ArrayRef<Value>(privateOperandsCache);
+    operands = ValueRange(privateOperandsCache);
   }
 }
 
@@ -227,7 +227,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
-    ArrayRef<Value> initialOperands, DimsExpr *additionalOperand) {
+    ValueRange initialOperands, DimsExpr *additionalOperand) {
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
   DimsExpr dimsExpr;
