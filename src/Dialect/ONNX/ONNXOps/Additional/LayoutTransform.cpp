@@ -42,11 +42,10 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
 // Verifier
 //===----------------------------------------------------------------------===//
 LogicalResult ONNXLayoutTransformOp::verify() {
-  if (hasShapeAndRank(getData()) && hasShapeAndRank(getOutput())) {
-    if (auto dataType = getData().getType().dyn_cast<RankedTensorType>())
-      if (auto outputType = getOutput().getType().dyn_cast<RankedTensorType>())
-        return (getShape(dataType) == getShape(outputType));
-  }
+  if (auto dataType = getData().getType().dyn_cast<RankedTensorType>())
+    if (auto outputType = getOutput().getType().dyn_cast<RankedTensorType>())
+      return getShape(dataType) == getShape(outputType);
+
   return success();
 }
 
