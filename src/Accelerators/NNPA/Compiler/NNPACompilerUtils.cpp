@@ -139,12 +139,15 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       else {
         // Partially lower Krnl ops to Affine dialect.
         addKrnlToAffinePasses(pm);
+        // Optimizations at ZLow that needs affine map in MemRef.
+        pm.addPass(zlow::createZLowRewritePass());
+        pm.addPass(mlir::createCanonicalizerPass());
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
         // Some Knrl ops, e.g. KrnlMemset, potentially exist and will be lowered
         // to Affine when its operands are normalized.
         addKrnlToAffinePasses(pm);
-        // Optimizations at ZLow.
+        // Optimizations at ZLow after normalizing MemRefs.
         pm.addPass(zlow::createZLowRewritePass());
         pm.addPass(mlir::createCanonicalizerPass());
         // Constant folding for std.alloc.

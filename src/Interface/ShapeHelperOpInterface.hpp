@@ -79,8 +79,8 @@ struct ONNXOpShapeHelper {
    directly enclosing scope vanishes).
    */
 
-  ONNXOpShapeHelper(mlir::Operation *op,    /* Op to be analyzed. */
-      mlir::ArrayRef<mlir::Value> operands, /* If empty, use operands from op.*/
+  ONNXOpShapeHelper(mlir::Operation *op, /* Op to be analyzed. */
+      mlir::ValueRange operands,         /* If empty, use operands from op.*/
       IndexExprBuilder *ieBuilder, /* Use IndexExprBuilderForAnalysis if null.*/
       IndexExprScope *scope);      /* Install local scope if null. */
   virtual ~ONNXOpShapeHelper();
@@ -137,7 +137,7 @@ protected:
   // Data that must be present for every ShapeHelper operation. Op and scope
   // are initialized in the constructor.
   mlir::Operation *op;
-  mlir::ArrayRef<mlir::Value> operands;
+  mlir::ValueRange operands;
   IndexExprBuilder *createIE;
   IndexExprScope *scope;
 
