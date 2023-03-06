@@ -85,7 +85,6 @@ struct ONNXHardmaxOpLowering : public OpConversionPattern<ONNXHardmaxOp> {
       ConversionPatternRewriter &rewriter) const final {
     Operation *op = hardmaxOp.getOperation();
     Location loc = ONNXLoc<ONNXHardmaxOp>(op);
-    ValueRange operands = adaptor.getOperands();
     Value input = adaptor.getInput();
 
     MultiDialectBuilder<MathBuilder, KrnlBuilder, IndexExprBuilderForKrnl,

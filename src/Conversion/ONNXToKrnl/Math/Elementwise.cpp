@@ -948,7 +948,7 @@ template <typename ElementwiseUnaryOp>
 static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
     ConversionPatternRewriter &rewriter, MDBuilder &create,
     ONNXOpShapeHelper *shapeHelper, Operation *op, MemRefType outputMemRefType,
-    ArrayRef<Value> operands, int64_t alignment, int64_t simdUnroll) {
+    ValueRange operands, int64_t alignment, int64_t simdUnroll) {
   Type outputElementType = outputMemRefType.getElementType();
 
   // generate SIMD code of VL elements per vector.
@@ -1005,7 +1005,7 @@ template <typename ElementwiseVariadicOp>
 static LogicalResult getVariadicSimdCodeFullyFlattened(
     ConversionPatternRewriter &rewriter, MDBuilder &create,
     ONNXOpShapeHelper *shapeHelper, Operation *op, MemRefType outputMemRefType,
-    ArrayRef<Value> operands, int64_t alignment, int64_t simdUnroll) {
+    ValueRange operands, int64_t alignment, int64_t simdUnroll) {
   Type outputElementType = outputMemRefType.getElementType();
   unsigned numArgs = op->getNumOperands();
 

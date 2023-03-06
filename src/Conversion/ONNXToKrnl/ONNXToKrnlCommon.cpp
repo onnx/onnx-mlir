@@ -604,7 +604,7 @@ bool hasNonIdentityLayout(Value val) {
   return hasNonIdentityLayout(type);
 }
 
-bool hasNonIdentityLayout(ArrayRef<Value> operands) {
+bool hasNonIdentityLayout(ValueRange operands) {
   for (Value val : operands)
     if (hasNonIdentityLayout(val))
       return true;

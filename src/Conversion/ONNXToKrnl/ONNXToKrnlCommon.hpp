@@ -458,6 +458,6 @@ mlir::MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(mlir::Type type);
 bool hasNonIdentityLayout(mlir::Value val);
 // Determine if one or more operands have custom layouts. Return false when
 // every layout is an identity layout.
-bool hasNonIdentityLayout(mlir::ArrayRef<mlir::Value> operands);
+bool hasNonIdentityLayout(mlir::ValueRange operands);
 
 } // namespace onnx_mlir
