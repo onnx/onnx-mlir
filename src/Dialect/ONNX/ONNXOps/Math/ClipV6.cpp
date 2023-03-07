@@ -48,31 +48,6 @@ LogicalResult ONNXClipV6Op::inferShapes(
     return success();
   RankedTensorType inputTy = getInput().getType().cast<RankedTensorType>();
   Type elementType = inputTy.getElementType();
-  // Look at optional min.
-  if (!getMin().getType().isa<NoneType>()) {
-    // Has a min, make sure its of the right type.
-    if (!hasShapeAndRank(getMin()))
-      return success();
-    // And size.
-    RankedTensorType minTy = getMin().getType().cast<RankedTensorType>();
-    if (minTy.getElementType() != elementType)
-      return emitError("Element type mismatch between input and min tensors");
-    if (minTy.getShape().size() != 0)
-      return emitError("Min tensor ranked with nonzero size");
-  }
-  // Look at optional max
-  if (!getMax().getType().isa<NoneType>()) {
-    // Has a max, make sure its of the right type.
-    if (!hasShapeAndRank(getMax()))
-      return success();
-    // And size.
-    RankedTensorType maxTy = getMax().getType().cast<RankedTensorType>();
-    if (maxTy.getElementType() != elementType)
-      return emitError("Element type mismatch between input and max tensors");
-    if (maxTy.getShape().size() != 0)
-      return emitError("Min tensor ranked with nonzero size");
-  }
-
   ONNXClipV6OpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
