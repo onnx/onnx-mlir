@@ -615,16 +615,25 @@ struct ONNXGenericReductionOpShapeHelper : public ONNXOpShapeHelper {
 
 // clang-format off
 using ONNXReduceL1OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL1Op>;
+using ONNXReduceL1V13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL1V13Op>;
 using ONNXReduceL2OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL2Op>;
+using ONNXReduceL2V13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL2V13Op>;
 using ONNXReduceLogSumOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumOp>;
+using ONNXReduceLogSumV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumV13Op>;
 using ONNXReduceLogSumExpOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumExpOp>;
+using ONNXReduceLogSumExpV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumExpV13Op>;
 using ONNXReduceMaxOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMaxOp>;
+using ONNXReduceMaxV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMaxV13Op>;
 using ONNXReduceMeanOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMeanOp>;
+using ONNXReduceMeanV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMeanV13Op>;
 using ONNXReduceMinOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMinOp>;
+using ONNXReduceMinV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMinV13Op>;
 using ONNXReduceProdOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceProdOp>;
+using ONNXReduceProdV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceProdV13Op>;
 using ONNXReduceSumOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumOp>;
 using ONNXReduceSumV11OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumV11Op>;
 using ONNXReduceSumSquareOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumSquareOp>;
+using ONNXReduceSumSquareV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumSquareV13Op>;
 // clang-format on
 
 //===----------------------------------------------------------------------===//

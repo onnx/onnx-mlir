@@ -29,7 +29,7 @@ Value getIdentityValue(
 }
 
 template <>
-Value getIdentityValue<ONNXReduceMaxOp>(
+Value getIdentityValue<ONNXReduceMaxV13Op>(
     ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
   return rewriter.create<mhlo::ConstantOp>(
       loc, rewriter.getFloatAttr(
@@ -38,7 +38,7 @@ Value getIdentityValue<ONNXReduceMaxOp>(
 }
 
 template <>
-Value getIdentityValue<ONNXReduceMinOp>(
+Value getIdentityValue<ONNXReduceMinV13Op>(
     ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
   return rewriter.create<mhlo::ConstantOp>(
       loc, rewriter.getFloatAttr(
@@ -59,7 +59,7 @@ Value getIdentityValue<ONNXReduceSumV11Op>(
 }
 
 template <>
-Value getIdentityValue<ONNXReduceMeanOp>(
+Value getIdentityValue<ONNXReduceMeanV13Op>(
     ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
 }
@@ -134,17 +134,17 @@ struct BlockReduceOp {
 };
 
 template <>
-struct BlockReduceOp<ONNXReduceMaxOp> {
+struct BlockReduceOp<ONNXReduceMaxV13Op> {
   using Op = mhlo::MaxOp;
 };
 
 template <>
-struct BlockReduceOp<ONNXReduceMinOp> {
+struct BlockReduceOp<ONNXReduceMinV13Op> {
   using Op = mhlo::MinOp;
 };
 
 template <>
-struct BlockReduceOp<ONNXReduceMeanOp> {
+struct BlockReduceOp<ONNXReduceMeanV13Op> {
   using Op = mhlo::AddOp;
 };
 
@@ -331,11 +331,11 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
 
 void populateLoweringONNXReductionOpToMhloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMaxOp>,
-      ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMinOp>,
+  patterns.insert<ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMaxV13Op>,
+      ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMinV13Op>,
       ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceSumOp>,
       ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceSumV11Op>>(ctx);
-  patterns.insert<ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMeanOp>>(
+  patterns.insert<ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMeanV13Op>>(
       ctx, /*computeMean=*/true);
 }
 

@@ -483,8 +483,8 @@ void DimAnalysis::visitDim(
     return;
   }
 
-  // ReduceMeanOp
-  if (auto reduceMeanOp = dyn_cast<ONNXReduceMeanOp>(op)) {
+  // ReduceMeanV13Op
+  if (auto reduceMeanOp = dyn_cast<ONNXReduceMeanV13Op>(op)) {
     // TODO: replace the code here by the following code once ReduceMean uses
     // IndexExpr for its shape inference.
 
