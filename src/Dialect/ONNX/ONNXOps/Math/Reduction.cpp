@@ -92,7 +92,7 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
   OP_TYPE reduceOp = llvm::cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr axes;
-    // Handle simple case where axes is an attribute.
+  // Handle simple case where axes is an attribute.
   if constexpr (!isAxesInput<OP_TYPE>) {
     createIE->getIntFromArrayAsLiterals(operandAdaptor.getAxesAttr(), axes);
     return customComputeShape(axes, /*noopWithEmptyAxes*/ false);
@@ -106,27 +106,28 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
       int64_t dataRank = createIE->getShapedTypeRank(operandAdaptor.getData());
       int64_t axlesSize = createIE->getArraySize(operandAdaptor.getAxes());
       if (!operandAdaptor.getKeepdims() && axlesSize < 0 /*undef shape*/) {
-        // Even though we did not compute the shape in ShapeHelper, return success
-        // as we gen code for dyn sizes too. Ideally, we would have the code here
-        // to compte the shape, it is currently residing in Krnl lowering.
+        // Even though we did not compute the shape in ShapeHelper, return
+        // success as we gen code for dyn sizes too. Ideally, we would have the
+        // code here to compte the shape, it is currently residing in Krnl
+        // lowering.
 
-        // In fact, this case here requires further handling of unranked tensors,
-        // which I doubt we support. But there is currently a lit tests
+        // In fact, this case here requires further handling of unranked
+        // tensors, which I doubt we support. But there is currently a lit tests
         // (onnx/onnx_shape_inference.mlir's test_reduce_sum_5) expect the *xf32
-        // sizes. So leave reporting success here, even though I really suspect we
-        // should report failure. return op->emitError("does not support unranked
-        // reduction output");
+        // sizes. So leave reporting success here, even though I really suspect
+        // we should report failure. return op->emitError("does not support
+        // unranked reduction output");
         return success();
       }
-      // With keep dim, by def the output has the same rank as the input; without
-      // keep dim, we remove 1 rank per value in the 1D axes tensor.
+      // With keep dim, by def the output has the same rank as the input;
+      // without keep dim, we remove 1 rank per value in the 1D axes tensor.
       int64_t outputRank =
           operandAdaptor.getKeepdims() ? dataRank : dataRank - axlesSize;
       assert(outputRank >= 0 && "expected to keep at least one dim");
 
       // Interesting idea below, namely to reuse info from output, or if not
-      // there, from input putting question mark in there. Not sure if successful,
-      // if it is, it should be generalized to all ops.
+      // there, from input putting question mark in there. Not sure if
+      // successful, if it is, it should be generalized to all ops.
 
       if (reduceOp.getResult().getType().template isa<RankedTensorType>()) {
         // Have already some shapes, keep them in ShapeHelper
@@ -140,15 +141,15 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
       DimsExpr outputDims(outputRank, QuestionmarkIndexExpr(/*isFloat*/ false));
       setOutputDims(outputDims);
       return success();
-    } 
-  } 
+    }
+  }
   bool noopWithEmptyAxes = false;
   if constexpr (isAxesInput<OP_TYPE>) {
     noopWithEmptyAxes = operandAdaptor.getNoopWithEmptyAxes() != 0;
   }
   return customComputeShape(axes, noopWithEmptyAxes);
 }
-}//
+} // namespace onnx_mlir
 
 namespace {
 
