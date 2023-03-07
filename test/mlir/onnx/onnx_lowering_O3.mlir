@@ -2,6 +2,19 @@
 
 // -----
 
+// TODO: Remove test_no_argument_1 from the test - empty function body is no longer
+// supported in mlir: https://reviews.llvm.org/D91886
+func.func private @test_no_argument_2() -> tensor<*xf32> {
+  %0 = onnx.Constant {value =  dense<[[1.000000e+0, 2.000000e+00], [3.000000e+00, 4.000000e+00]]> : tensor<2x2xf32>} : tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// CHECK-LABEL: test_no_argument_2
+// CHECK: [[GLOBAL:%.+]] = "{{.*}}"({{.*}}) {{.*}} : ({{.*}}) -> memref<2x2xf32>
+// CHECK: return [[GLOBAL]] : memref<2x2xf32>
+
+// -----
+
 func.func private @test_elementwise_op_with_scalar_values_1(%arg0 : tensor<f32>) -> tensor<*xf32> {
   %0 = "onnx.Exp"(%arg0) : (tensor<f32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -1609,11 +1622,11 @@ func.func private @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func.func private @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceMax"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+func.func private @test_reducemax_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceMaxV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_reducemax
+  // CHECK-LABEL: test_reducemax_v13
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
   // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2){
@@ -1633,56 +1646,56 @@ func.func private @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 
 // -----
 
-func.func private @test_reducemax_negative_inf_f32(%arg0 : tensor<2x3xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceMax"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xf32>)-> tensor<*xf32>
+func.func private @test_reducemax_v13_negative_inf_f32(%arg0 : tensor<2x3xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceMaxV13"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
-  // CHECK-LABEL: test_reducemax_negative_inf_f32
+  // CHECK-LABEL: test_reducemax_v13_negative_inf_f32
   // CHECK: arith.constant 0xFF800000 : f32
 }
 
 // -----
 
-func.func private @test_reducemax_negative_inf_f64(%arg0 : tensor<2x3xf64>) -> tensor<*xf64> {
-  %0 ="onnx.ReduceMax"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xf64>)-> tensor<*xf64>
+func.func private @test_reducemax_v13_negative_inf_f64(%arg0 : tensor<2x3xf64>) -> tensor<*xf64> {
+  %0 ="onnx.ReduceMaxV13"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xf64>)-> tensor<*xf64>
   "func.return"(%0) : (tensor<*xf64>) -> ()
-  // CHECK-LABEL: test_reducemax_negative_inf_f64
+  // CHECK-LABEL: test_reducemax_v13_negative_inf_f64
   // CHECK: arith.constant 0xFFF0000000000000 : f64
 }
 
 // -----
 
-func.func private @test_reducemax_negative_inf_i8(%arg0 : tensor<2x3xi8>) -> tensor<*xi8> {
-  %0 ="onnx.ReduceMax"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi8>)-> tensor<*xi8>
+func.func private @test_reducemax_v13_negative_inf_i8(%arg0 : tensor<2x3xi8>) -> tensor<*xi8> {
+  %0 ="onnx.ReduceMaxV13"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi8>)-> tensor<*xi8>
   "func.return"(%0) : (tensor<*xi8>) -> ()
-  // CHECK-LABEL: test_reducemax_negative_inf_i8
+  // CHECK-LABEL: test_reducemax_v13_negative_inf_i8
   // CHECK: arith.constant -128 : i8
 }
 
 // -----
 
-func.func private @test_reducemax_negative_inf_i32(%arg0 : tensor<2x3xi32>) -> tensor<*xi32> {
-  %0 ="onnx.ReduceMax"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi32>)-> tensor<*xi32>
+func.func private @test_reducemax_v13_negative_inf_i32(%arg0 : tensor<2x3xi32>) -> tensor<*xi32> {
+  %0 ="onnx.ReduceMaxV13"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi32>)-> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
-  // CHECK-LABEL: test_reducemax_negative_inf_i32
+  // CHECK-LABEL: test_reducemax_v13_negative_inf_i32
   // CHECK: arith.constant -2147483648 : i32
 }
 
 // -----
 
-func.func private @test_reducemax_negative_inf_i64(%arg0 : tensor<2x3xi64>) -> tensor<*xi64> {
-  %0 ="onnx.ReduceMax"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi64>)-> tensor<*xi64>
+func.func private @test_reducemax_v13_negative_inf_i64(%arg0 : tensor<2x3xi64>) -> tensor<*xi64> {
+  %0 ="onnx.ReduceMaxV13"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi64>)-> tensor<*xi64>
   "func.return"(%0) : (tensor<*xi64>) -> ()
-  // CHECK-LABEL: test_reducemax_negative_inf_i64
+  // CHECK-LABEL: test_reducemax_v13_negative_inf_i64
   // CHECK: arith.constant -9223372036854775808 : i64
 }
 
 // -----
 
-func.func private @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceMin"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+func.func private @test_reducemin_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceMinV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_reducemin
+  // CHECK-LABEL: test_reducemin_v13
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
   // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2){
@@ -1702,56 +1715,56 @@ func.func private @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 
 // -----
 
-func.func private @test_reducemin_positive_inf_f32(%arg0 : tensor<2x3xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceMin"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xf32>)-> tensor<*xf32>
+func.func private @test_reducemin_v13_positive_inf_f32(%arg0 : tensor<2x3xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceMinV13"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
-  // CHECK-LABEL: test_reducemin_positive_inf_f32
+  // CHECK-LABEL: test_reducemin_v13_positive_inf_f32
   // CHECK: arith.constant 0x7F800000 : f32
 }
 
 // -----
 
-func.func private @test_reducemin_positive_inf_f64(%arg0 : tensor<2x3xf64>) -> tensor<*xf64> {
-  %0 ="onnx.ReduceMin"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xf64>)-> tensor<*xf64>
+func.func private @test_reducemin_v13_positive_inf_f64(%arg0 : tensor<2x3xf64>) -> tensor<*xf64> {
+  %0 ="onnx.ReduceMinV13"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xf64>)-> tensor<*xf64>
   "func.return"(%0) : (tensor<*xf64>) -> ()
-  // CHECK-LABEL: test_reducemin_positive_inf_f64
+  // CHECK-LABEL: test_reducemin_v13_positive_inf_f64
   // CHECK: arith.constant 0x7FF0000000000000 : f64
 }
 
 // -----
 
-func.func private @test_reducemin_positive_inf_i8(%arg0 : tensor<2x3xi8>) -> tensor<*xi8> {
-  %0 ="onnx.ReduceMin"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi8>)-> tensor<*xi8>
+func.func private @test_reducemin_v13_positive_inf_i8(%arg0 : tensor<2x3xi8>) -> tensor<*xi8> {
+  %0 ="onnx.ReduceMinV13"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi8>)-> tensor<*xi8>
   "func.return"(%0) : (tensor<*xi8>) -> ()
-  // CHECK-LABEL: test_reducemin_positive_inf_i8
+  // CHECK-LABEL: test_reducemin_v13_positive_inf_i8
   // CHECK: arith.constant 127 : i8
 }
 
 // -----
 
-func.func private @test_reducemin_positive_inf_i32(%arg0 : tensor<2x3xi32>) -> tensor<*xi32> {
-  %0 ="onnx.ReduceMin"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi32>)-> tensor<*xi32>
+func.func private @test_reducemin_v13_positive_inf_i32(%arg0 : tensor<2x3xi32>) -> tensor<*xi32> {
+  %0 ="onnx.ReduceMinV13"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi32>)-> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
-  // CHECK-LABEL: test_reducemin_positive_inf_i32
+  // CHECK-LABEL: test_reducemin_v13_positive_inf_i32
   // CHECK: arith.constant 2147483647 : i32
 }
 
 // -----
 
-func.func private @test_reducemin_positive_inf_i64(%arg0 : tensor<2x3xi64>) -> tensor<*xi64> {
-  %0 ="onnx.ReduceMin"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi64>)-> tensor<*xi64>
+func.func private @test_reducemin_v13_positive_inf_i64(%arg0 : tensor<2x3xi64>) -> tensor<*xi64> {
+  %0 ="onnx.ReduceMinV13"(%arg0) {axes=[0], keepdims = 0 : si64} : (tensor<2x3xi64>)-> tensor<*xi64>
   "func.return"(%0) : (tensor<*xi64>) -> ()
-  // CHECK-LABEL: test_reducemin_positive_inf_i64
+  // CHECK-LABEL: test_reducemin_v13_positive_inf_i64
   // CHECK: arith.constant 9223372036854775807 : i64
 }
 
 // -----
 
-func.func private @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceProd"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+func.func private @test_reduceprod_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceProdV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_reduceprod
+  // CHECK-LABEL: test_reduceprod_v13
   // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
   // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2){
@@ -3441,32 +3454,61 @@ func.func private @test_floor(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
+
 func.func private @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Ceil"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0)[s0] -> (d0)>
 // CHECK-LABEL:  func.func private @test_ceil
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
 // CHECK:           [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x10xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
+// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
 // CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_2_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10){
-// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
-// CHECK:             [[VAR_3_:%.+]] = math.ceil [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:             krnl.store [[VAR_3_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
+// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]]([[VAR_3_]]){{.}}[[VAR_dim_]]{{.}}){
+// CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:             [[VAR_7_:%.+]] = math.ceil [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
+// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<?x10xf32>
+// CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
 }
 

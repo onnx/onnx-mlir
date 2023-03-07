@@ -156,7 +156,7 @@ template <>
 struct ScalarOp<ONNXCeilOp> {
   using FOp = math::CeilOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
+  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -246,6 +246,13 @@ struct ScalarOp<ONNXTanOp> {
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXCastOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = NoSimdScalarOp; // TODO: can it be simdized?
+};
+
 template <>
 Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
