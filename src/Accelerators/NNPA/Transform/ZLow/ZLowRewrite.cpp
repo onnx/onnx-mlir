@@ -424,19 +424,17 @@ private:
         if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user))
           continue;
         if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
+          // Do not support layout 1D and 2DS since their access index
+          // functions are incorrect:
+          // https://github.com/onnx/onnx-mlir/issues/1940
+          std::string stickLayout = stick.getLayout().value().str();
+          if ((stickLayout == LAYOUT_1D) || (stickLayout == LAYOUT_2DS))
+            return false;
+
           if (myStickOp)
             return false;
-          else {
-            // Check layout.
-            std::string stickLayout = stick.getLayout().value().str();
-            // Do not support layout 1D and 2DS since their access index
-            // functions are incorrect:
-            // https://github.com/onnx/onnx-mlir/issues/1940
-            if ((stickLayout == LAYOUT_1D) || (stickLayout == LAYOUT_2DS))
-              return false;
-            else
-              myStickOp = stick;
-          }
+          else
+            myStickOp = stick;
         } else
           return false;
       }
