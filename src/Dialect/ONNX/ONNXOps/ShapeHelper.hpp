@@ -204,10 +204,9 @@ using ONNXTriluOpShapeHelper = ONNXUnaryOpShapeHelper;
 struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   ONNXBroadcastOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr,
-      bool hasUniBroadcasting = false, bool hasNoBroadcasting = false)
+      bool hasUniBroadcasting = false)
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope), inputsDims(),
-        outputRank(0), hasUniBroadcasting(hasUniBroadcasting),
-        hasNoBroadcasting(hasNoBroadcasting) {}
+        outputRank(0), hasUniBroadcasting(hasUniBroadcasting) {}
   virtual ~ONNXBroadcastOpShapeHelper() {}
 
   // Custom shape compute which takes additional parameters.
@@ -232,21 +231,19 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
       const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
       llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs);
 
+  bool hasNoBroadcast();
+
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank. Instantiated during ComputeShape.
   llvm::SmallVector<DimsExpr, 4> inputsDims;
-  // A vector of IndexExprs representing the output shape.
-  // in upper DimsExpr outputDims;
+  // A vector of IndexExprs representing the output shape (same rank as
+  // outputDims). Instantiated  during computeShape.
   uint64_t outputRank;
 
 protected:
   // When unidirectional broadcasting is true, the other operands are always
   // unidirectional broadcastable to the first operand.
   bool hasUniBroadcasting;
-  // When isNoBroadcasting is true, the shape of all input is assumed to be
-  // same. This flag is used to test dynamic shape. There is no impact on static
-  // shape.
-  bool hasNoBroadcasting;
 };
 
 // clang-format off

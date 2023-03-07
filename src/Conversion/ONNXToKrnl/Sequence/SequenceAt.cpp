@@ -28,7 +28,6 @@ struct ONNXSequenceAtOpLowering : public OpConversionPattern<ONNXSequenceAtOp> {
       ConversionPatternRewriter &rewriter) const final {
     Operation *op = seqOp.getOperation();
     Location loc = ONNXLoc<ONNXSequenceAtOp>(op);
-    ValueRange operands = adaptor.getOperands();
     Value input_sequence = adaptor.getInputSequence();
 
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
