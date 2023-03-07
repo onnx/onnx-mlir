@@ -51,7 +51,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **ConstantOfShape** |9 | | |
 | **Conv** |11 | | |
 | **ConvInteger** | |unsupported | |
-| **ConvTranspose** | |unsupported | |
+| **ConvTranspose** |11 |`SAME_UPPER` and `SAME_LOWER` in `auto_pad` attribute not supported. Unknown dimension in spatial dimensions (such as H and W) not supported. | |
 | **Cos** |7 | | |
 | **Cosh** |9 | | |
 | **CumSum** |14 | | |
