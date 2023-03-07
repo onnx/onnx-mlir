@@ -201,8 +201,8 @@ public:
     Value stickifiedMemRef = unstickOp.getX();
     // cpuMemRef has no affine layout, e.g. MemRef<1x3x5xf32>
     Value cpuMemRef = unstickOp.getOut();
-    std::string layout = unstickOp.getLayout().value().str();
-    bool isNCHWLayout = (layout == LAYOUT_NCHW);
+    std::string unstickLayout = unstickOp.getLayout().value().str();
+    bool unstickNCHWLayout = (unstickLayout == LAYOUT_NCHW);
 
     // Common types.
     Type stickifiedElementType =
@@ -224,7 +224,7 @@ public:
 
     // Do not support layout 1D and 2DS since their access index functions are
     // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
-    if ((layout == LAYOUT_1D) || (layout == LAYOUT_2DS))
+    if ((unstickLayout == LAYOUT_1D) || (unstickLayout == LAYOUT_2DS))
       return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
         diag << "Unsupport layout 1D and 2DS";
       });
@@ -274,7 +274,7 @@ public:
       // Clone loadOp with new Memref, indices and return type.
       IRMapping operandMap;
       operandMap.map(loadOp.getMemref(), stickifiedMemRef);
-      if (isNCHWLayout) {
+      if (unstickNCHWLayout) {
         // Permute indices in case of NCHW layout.
         // for zlow.unstick: input is NHWC, output is NCHW.
         ValueRange NCHWIndices = loadOp.getIndices();
@@ -300,6 +300,8 @@ public:
       Value storeValue = storeOp.getValue();
       ZLowStickOp myStickOp = StoreOpStickOpMap[storeOp];
       Value stickMemref = myStickOp.getOut();
+      std::string stickLayout = myStickOp.getLayout().value().str();
+      bool stickNCHWLayout = (stickLayout == LAYOUT_NCHW);
 
       // Move stickMemref's AllocOp up before affine.for so that it
       // dominates its uses. A good place is just after storeMemref's AllocOp.
@@ -344,7 +346,7 @@ public:
       operandMap.map(storeOp.getMemref(), stickMemref);
       operandMap.map(storeOp.getValue(), dummyConverter);
       // Permute indices in case of NCHW layout.
-      if (isNCHWLayout) {
+      if (stickNCHWLayout) {
         // for zlow.stick: input is NCHW, output is NHWC.
         ValueRange NCHWIndices = storeOp.getIndices();
         SmallVector<Value, 4> NHWCIndices;
@@ -424,14 +426,24 @@ private:
         if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
           if (myStickOp)
             return false;
-          else
-            myStickOp = stick;
+          else {
+            // Check layout.
+            std::string stickLayout = stick.getLayout().value().str();
+            // Do not support layout 1D and 2DS since their access index
+            // functions are incorrect:
+            // https://github.com/onnx/onnx-mlir/issues/1940
+            if ((stickLayout == LAYOUT_1D) || (stickLayout == LAYOUT_2DS))
+              return false;
+            else
+              myStickOp = stick;
+          }
         } else
           return false;
       }
       stickOps.emplace_back(myStickOp);
       StoreOpStickOpMap[storeOp] = myStickOp;
     }
+
     return (stickOps.size() != 0);
   }
 };

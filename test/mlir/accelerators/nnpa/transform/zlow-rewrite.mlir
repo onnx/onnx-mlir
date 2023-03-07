@@ -100,6 +100,52 @@ func.func @unstick_transpose_stick_unknown(%arg0: memref<?x?xf16, #map>) -> memr
 
 // -----
 
+// Remove zlow.stick and zlow.unstick in pattern: unstick -> affine-for -> stick
+// where stick and unstick have different layouts.
+
+#map_nchw = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+#map_2d = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
+#map = affine_map<(d0, d1, d2) -> (d0 + d1 + d2)>
+func.func @unstick_affinefor_stick_diff_layout(%arg0: memref<1x1x1x2048xf16, #map_nchw>) -> memref<1x2048xf16, #map_2d> {
+  %alloc = memref.alloc() {alignment = 4096 : i64} : memref<1x2048x1x1xf32>
+  "zlow.unstick"(%arg0, %alloc) {layout = "NCHW"} : (memref<1x1x1x2048xf16, #map_nchw>, memref<1x2048x1x1xf32>) -> ()
+  %alloc_0 = memref.alloc() {alignment = 16 : i64} : memref<1x2048xf32>
+  affine.for %arg1 = 0 to 1 {
+    affine.for %arg2 = 0 to 2048 {
+      affine.for %arg3 = 0 to 1 {
+        affine.for %arg4 = 0 to 1 {
+          %0 = affine.load %alloc[%arg1, %arg2, %arg3, %arg4] : memref<1x2048x1x1xf32>
+          %1 = affine.apply #map(%arg2, %arg3, %arg4)
+          affine.store %0, %alloc_0[%arg1, %1] : memref<1x2048xf32>
+        }
+      }
+    }
+  }
+  %alloc_1 = memref.alloc() {alignment = 4096 : i64} : memref<1x2048xf16, #map_2d>
+  "zlow.stick"(%alloc_0, %alloc_1) {layout = "2D"} : (memref<1x2048xf32>, memref<1x2048xf16, #map_2d>) -> ()
+  return %alloc_1 : memref<1x2048xf16, #map_2d>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
+// CHECK-LABEL:  func.func @unstick_affinefor_stick_diff_layout
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x1x1x2048xf16, #map>) -> memref<1x2048xf16, #map1> {
+// CHECK:           [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x2048xf16, #map1>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to 1 {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 2048 {
+// CHECK:               affine.for [[I_2_:%.+]] = 0 to 1 {
+// CHECK:                 affine.for [[I_3_:%.+]] = 0 to 1 {
+// CHECK:                   [[LOAD_PARAM_0_MEM_:%.+]] = affine.load [[PARAM_0_]]{{.}}[[I_0_]], [[I_2_]], [[I_3_]], [[I_1_]]{{.}} : memref<1x1x1x2048xf16, #map>
+// CHECK:                   affine.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]] + [[I_2_]] + [[I_3_]]{{.}} : memref<1x2048xf16, #map1>
+// CHECK:                 }
+// CHECK:               }
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<1x2048xf16, #map1>
+// CHECK:         }
+}
+
+// -----
+
 // Remove zlow.stick and zlow.unstick in pattern: unstick -> concat -> stick.
 #map = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
 func.func @unstick_concat_stick(%arg0: memref<5x10xf16, #map>, %arg1: memref<5x10xf16, #map>) -> memref<10x10xf16, #map> attributes {llvm.emit_c_interface} {
