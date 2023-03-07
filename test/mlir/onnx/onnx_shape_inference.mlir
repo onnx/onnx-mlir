@@ -139,6 +139,21 @@ func.func @test_clip(%arg0 : tensor<1x32x112x112xf32>) -> tensor<*xf32> {
 
 // -----
 
+//===----------------------------------------------------------------------===//
+/// Test shape inference for ClipV6.
+//===----------------------------------------------------------------------===//
+
+func.func @test_clipV6(%arg0 : tensor<1x32x112x112xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ClipV6"(%arg0) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<1x32x112x112xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_clipV6
+  // CHECK-NEXT: [[RES:%.+]] = "onnx.ClipV6"(%arg0) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<1x32x112x112xf32>, none, none) -> tensor<1x32x112x112xf32>
+  // CHECK: return [[RES]] : tensor<1x32x112x112xf32>
+}
+
+// -----
+
 /// Test shape inference for transposition when perm attribute is specified.
 
 func.func @test_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
