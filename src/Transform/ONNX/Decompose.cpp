@@ -187,8 +187,12 @@ Value reverseWeightTensor(
     permsval.emplace_back(i);
   ArrayRef<int64_t> perms(permsval);
   Value transposedInput = create.onnx.transposeInt64(input, perms);
-  // 2. Reverse the first and second dimensions
+  // 2. Reverse the first and second spatial dimensions
+  ShapedType tInputType = transposedInput.getType().cast<ShapedType>();
   for (int i = 0; i < spatialRank / 2; i += 2) {
+    // TODO: Support dynamic dim in reverseAllElements()
+    assert((!tInputType.isDynamicDim(0) && !tInputType.isDynamicDim(1)) &&
+           "Spatial dimensions for weight tensor need to be static.");
     Value reverse0 =
         reverseAllElements(rewriter, loc, transposedInput, /*dimension*/ 0);
     Value reverse1 =
@@ -209,9 +213,11 @@ Value reverseWeightTensor(
     Value reverse0;
     if (tInShape[1] == ShapedType::kDynamic) {
       // When N is unknown dim,
-      // reshape "Dn x N x C x D0 xD1 x D2 x ... x Dn-1"
-      // to "Dn x 1 x N x C x D0 xD1 x D2 x ... x Dn-1",
+      // reshape "Dn x N x C x D0 x D1 x D2 x ... x Dn-1"
+      // to "Dn x 1 x N x C x D0 x D1 x D2 x ... x Dn-1",
       // then, reshape back to original shape after reversed.
+      // TODO: Support dynamic dim in reverseAllElements(). If supported, this
+      // code becomes much simpler.
       int64_t tInRank = tInShape.size();
       Type tInShapeType =
           RankedTensorType::get({tInRank}, rewriter.getI64Type());
@@ -309,6 +315,9 @@ ValueRange emitSplitAxisOutputLength1(
   ArrayRef<int64_t> inputShape = inputType.getShape();
   // Create `split` to split each output in `axis` into length 1.
   // Ex. inputShape[axis] = 3, then  onnx.Constant dense<1> : tensor<3xi64>
+  // TODO: Support dynamic dim for spatial dim
+  assert(!inputType.isDynamicDim(axis) &&
+         "Spatial dimensions for input data tensor need to be static.");
   SmallVector<int64_t, 1> values(inputShape[axis], 1);
   Value split = create.onnx.constantInt64(ArrayRef(values));
   SmallVector<int64_t> splitShape;
@@ -631,7 +640,11 @@ void DecomposeONNXToONNXPass::runOnOperation() {
     ONNXTransposeOp transposeOp = NULL;
     return !isConcatFuseMatched(op, shapeOp, transposeOp);
   });
+
 #ifdef ONNX_MLIR_ENABLE_MHLO
+  // ONNXtoMhlo pass has own rewriting for ConvTranspose Op using mhlo ops.
+  // To avoid conflict with it, decomposing for ConvTranspose is disabled
+  // when the target is mhlo.
   if (this->target != "mhlo") {
 #endif
     target.addDynamicallyLegalOp<ONNXConvTransposeOp>(

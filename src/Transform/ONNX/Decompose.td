@@ -90,6 +90,8 @@ def ONNXDataType : NativeCodeCall<
   "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), "
   "::onnx_mlir::mlirTypeToOnnxType($0.getType().front().cast<ShapedType>().getElementType()))">;
 
+def HasShapeAndRank : Constraint<CPred<"onnx_mlir::hasShapeAndRank($0)">>;
+
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
 //===----------------------------------------------------------------------===//
@@ -423,7 +425,7 @@ def ConvTransposeOpPattern1: Pattern<
        $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $strides),
     (insertAdditionalPadsConvTranspose $conv_res, $output_shape)
    ],
-   [(HasUnitStrides:$strides)],
+   [(HasUnitStrides:$strides), (HasShapeAndRank $x), (HasShapeAndRank $w)],
    (addBenefit 1)
 >;
 
@@ -441,7 +443,7 @@ def ConvTransposeOpPattern2: Pattern<
     (insertAdditionalPadsConvTranspose
         $conv_res, $output_shape)
    ],
-   [],
+   [(HasShapeAndRank $x), (HasShapeAndRank $w)],
    (addBenefit 0)
 >;
 
