@@ -78,11 +78,10 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
     free(list); // free the previously allocated memory in case of an error
     return NULL;
   }
+  // copy the pointers to the OMTensor array
+  // now OMTensorList will always own the tensor array of pointers
+  memcpy(tensors, list->_omts, n);
 
-  for (int64_t i = 0; i < list->_size; i++)
-    // copy the pointers to the OMTensor array
-    // now OMTensorList will always own the tensor array of pointers
-    list->_omts[i] = tensors[i];
   return list;
 }
 

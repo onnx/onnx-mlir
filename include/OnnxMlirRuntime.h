@@ -127,12 +127,9 @@
  * When creating an OMTensor with a specified tensor array, a user has the option to
  * create a tensor with or without ownership (omTensorCreateWithOwnership).
  *
- * In the case of OMTensor, if the ownership flag is set to "false", then a user is responsible for freeing memory until the last use.
+ * If the ownership flag is set to "false", then a user is responsible for freeing memory until the last use.
  * Otherwise, if the flag is set to "true", then the destruction of the tensor (omTensorDestroy)
  * will also free any associated memory and data buffers.
- *
- * With respects to OMTensorList, every tensor will be destroyed (omTensorListDestroy).
- * The OMTensorList will free the tensor array upon destruction.
  *
  *
  * \subsection reference Reference

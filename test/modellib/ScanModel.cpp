@@ -130,7 +130,7 @@ bool ScanLibBuilder::prepareInputs() {
 
 bool ScanLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
-  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  OMTensor* list[num];
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(

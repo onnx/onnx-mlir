@@ -57,6 +57,18 @@ OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreate(
 OM_EXTERNAL_VISIBILITY void omTensorListDestroy(OMTensorList *list);
 
 /**
+ * \brief OMTensorList shallow destroyer which does not destroy the tensors.
+ *
+ * It does not destroy the OMTensorList. Rather, both the
+ * ptr to the OMTensor pointers AND the OMTensor pointers are freed.
+ *
+ * @param list pointer to the OMTensorList to be freed. The function
+ * simply returns when pointer is null.
+ *
+ */
+OM_EXTERNAL_VISIBILITY void omTensorListDestroyShallow(OMTensorList *list);
+
+/**
  * \brief OMTensorList OMTensor array getter
  *
  * The pointer to OMTensor pointers are returned without copying, so caller
@@ -86,17 +98,6 @@ OM_EXTERNAL_VISIBILITY int64_t omTensorListGetSize(OMTensorList *list);
 OM_EXTERNAL_VISIBILITY OMTensor *omTensorListGetOmtByIndex(
     OMTensorList *list, int64_t index);
 
-/**
- * \brief OMTensorList shallow destroyer which does not destroy the tensors.
- *
- * It does not destroy the OMTensorList. Rather, both the
- * ptr to the OMTensor pointers AND the OMTensor pointers are freed.
- *
- * @param list pointer to the OMTensorList to be freed. The function
- * simply returns when pointer is null.
- *
- */
-OM_EXTERNAL_VISIBILITY void omTensorListDestroyShallow(OMTensorList *list);
 
 #ifdef __cplusplus
 }
