@@ -3,7 +3,7 @@
 
 # Supported ONNX Operation for Target *NNPA*.
 
-Onnx-mlir currently supports ONNX operations targeting up to opset 16. Limitations are listed when applicable.
+Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitations are listed when applicable.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
 * Opset indicates, for each operation, the ONNX opset that (1) last modified that operation and (2) is supported by the current version of onnx-mlir. For example, "Add" was modified in Opset 14 and carries on unmodified to Opset 16. If onnx-mlir supports Opset 14, we thus list "14" as the Opset associated with the "Add" operation.
@@ -33,10 +33,10 @@ NNPA has hardware limitations in dimension index size and tensor size, which are
 | **Min** |13 |- Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
 | **Mul** |14 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
 | **Pow** |15 |- Exponent should be a scalar integer and less or equal to 64. | |
-| **ReduceMean** |13 |- `keepdims` must be 1.<br>- Input tensor must be 4D tensors and `axis` must be [2, 3]. | |
+| **ReduceMean** |18, 13 |- `keepdims` must be 1.<br>- Input tensor must be 4D tensors and `axis` must be [2, 3]. | |
 | **Relu** |14 |Input tensor must be less than or equal to 4 dimensions. | |
 | **Sigmoid** |13 |Input tensor must be less than or equal to 4 dimensions. | |
-| **Softmax** |13 |- `axis` must be the last dimension, i.e. `rank - 1` or -1. | |
+| **Softmax** |13, 11 |- `axis` must be the last dimension, i.e. `rank - 1` or -1. | |
 | **Sub** |14 |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
 | **Sum** |13 |- All inputs must have the same static shape (Broadcasting not supported.)<br>- Single input not supported. | |
 | **Tanh** |13 |Input tensor must be less than or equal to 4 dimensions. | |
