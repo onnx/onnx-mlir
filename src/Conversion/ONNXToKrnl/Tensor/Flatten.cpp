@@ -60,7 +60,6 @@ struct ONNXFlattenOpLowering : public OpConversionPattern<ONNXFlattenOp> {
     // Gather info.
     Operation *op = flattenOp.getOperation();
     Location loc = ONNXLoc<ONNXFlattenOp>(op);
-    ValueRange operands = adaptor.getOperands();
 
     Value input = adaptor.getInput();
     auto inputTy = input.getType().cast<MemRefType>();

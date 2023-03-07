@@ -135,7 +135,6 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
       mlir::ConversionPatternRewriter &rewriter) const final {
     mlir::Operation *op = rnnOp.getOperation();
     mlir::Location loc = ONNXLoc<RNNOp>(op);
-    mlir::ValueRange operands = adaptor.getOperands();
     mlir::Value X = adaptor.getX();
 
     if (hasAllNoneOutput<RNNOp>(&rnnOp)) {

@@ -27,7 +27,6 @@ struct ONNXSizeOpLowering : public OpConversionPattern<ONNXSizeOp> {
     // Gather info.
     Operation *op = sizeOp.getOperation();
     Location loc = ONNXLoc<ONNXSizeOp>(op);
-    ValueRange operands = adaptor.getOperands();
 
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
         rewriter, loc);

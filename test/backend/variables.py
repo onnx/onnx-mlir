@@ -37,7 +37,7 @@ def get_args_from_env():
     # regardless of the value of xxx (e.g., true, false, y, n, etc.) the
     # casted bool value will be true. Only if xxx is empty, the casted bool
     # value will be false. This is a bit counter intuitive. So we use strtobool
-    # to do the conversion. But note that strtobool can't take an emtpy string.
+    # to do the conversion. But note that strtobool can't take an empty string.
 
     TEST_VERBOSE = os.getenv("TEST_VERBOSE")
     TEST_CASE_CHECK = os.getenv("TEST_CASE_CHECK")
