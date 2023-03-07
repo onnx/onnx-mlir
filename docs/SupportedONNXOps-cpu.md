@@ -151,16 +151,16 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **RandomUniformLike** | |unsupported | |
 | **Range** |11 | | |
 | **Reciprocal** |13 | | |
-| **ReduceL1** |13 | | |
-| **ReduceL2** |13 | | |
-| **ReduceLogSum** |13 | | |
-| **ReduceLogSumExp** |13 | | |
-| **ReduceMax** |13 | | |
-| **ReduceMean** |13 | | |
-| **ReduceMin** |13 | | |
-| **ReduceProd** |13 | | |
+| **ReduceL1** |18, 13 |do_not_keep_dim not supported. | |
+| **ReduceL2** |18, 13 |do_not_keep_dim not supported. | |
+| **ReduceLogSum** |18, 13 |do_not_keep_dim not supported. | |
+| **ReduceLogSumExp** |18, 13 |do_not_keep_dim not supported. | |
+| **ReduceMax** |18, 13 |do_not_keep_dim not supported. | |
+| **ReduceMean** |18, 13 |do_not_keep_dim not supported. | |
+| **ReduceMin** |18, 13 |do_not_keep_dim not supported. | |
+| **ReduceProd** |18, 13 |do_not_keep_dim not supported. | |
 | **ReduceSum** |13, 11 |Default axis and do_not_keep_dim not supported. |Default axis and do_not_keep_dim temporarily removed due to changes in onnx 1.8.1. |
-| **ReduceSumSquare** |13 | | |
+| **ReduceSumSquare** |18, 13 |Default axis and do_not_keep_dim not supported. | |
 | **Relu** |14 | | |
 | **Reshape** |14 |allowzero not supported. | |
 | **Resize** |13, 11, 10 |Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. | |

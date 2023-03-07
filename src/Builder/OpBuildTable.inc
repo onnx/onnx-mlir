@@ -144,16 +144,16 @@ op_dialect_version_map_["RandomUniform"] = {1};
 op_dialect_version_map_["RandomUniformLike"] = {1};
 op_dialect_version_map_["Range"] = {11};
 op_dialect_version_map_["Reciprocal"] = {13};
-op_dialect_version_map_["ReduceL1"] = {13};
-op_dialect_version_map_["ReduceL2"] = {13};
-op_dialect_version_map_["ReduceLogSum"] = {13};
-op_dialect_version_map_["ReduceLogSumExp"] = {13};
-op_dialect_version_map_["ReduceMax"] = {13};
-op_dialect_version_map_["ReduceMean"] = {13};
-op_dialect_version_map_["ReduceMin"] = {13};
-op_dialect_version_map_["ReduceProd"] = {13};
+op_dialect_version_map_["ReduceL1"] = {18, 13};
+op_dialect_version_map_["ReduceL2"] = {18, 13};
+op_dialect_version_map_["ReduceLogSum"] = {18, 13};
+op_dialect_version_map_["ReduceLogSumExp"] = {18, 13};
+op_dialect_version_map_["ReduceMax"] = {18, 13};
+op_dialect_version_map_["ReduceMean"] = {18, 13};
+op_dialect_version_map_["ReduceMin"] = {18, 13};
+op_dialect_version_map_["ReduceProd"] = {18, 13};
 op_dialect_version_map_["ReduceSum"] = {13, 11};
-op_dialect_version_map_["ReduceSumSquare"] = {13};
+op_dialect_version_map_["ReduceSumSquare"] = {18, 13};
 op_dialect_version_map_["Relu"] = {14};
 op_dialect_version_map_["Reshape"] = {14};
 op_dialect_version_map_["Resize"] = {13, 11, 10};
@@ -472,26 +472,44 @@ import_handler_map_["Reciprocal"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReciprocalOp>;
 import_handler_map_["ReduceL1"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceL1Op>;
+import_handler_map_["ReduceL1V13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceL1V13Op>;
 import_handler_map_["ReduceL2"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceL2Op>;
+import_handler_map_["ReduceL2V13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceL2V13Op>;
 import_handler_map_["ReduceLogSum"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceLogSumOp>;
+import_handler_map_["ReduceLogSumV13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceLogSumV13Op>;
 import_handler_map_["ReduceLogSumExp"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceLogSumExpOp>;
+import_handler_map_["ReduceLogSumExpV13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceLogSumExpV13Op>;
 import_handler_map_["ReduceMax"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMaxOp>;
+import_handler_map_["ReduceMaxV13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMaxV13Op>;
 import_handler_map_["ReduceMean"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMeanOp>;
+import_handler_map_["ReduceMeanV13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMeanV13Op>;
 import_handler_map_["ReduceMin"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMinOp>;
+import_handler_map_["ReduceMinV13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMinV13Op>;
 import_handler_map_["ReduceProd"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceProdOp>;
+import_handler_map_["ReduceProdV13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceProdV13Op>;
 import_handler_map_["ReduceSum"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumOp>;
 import_handler_map_["ReduceSumV11"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumV11Op>;
 import_handler_map_["ReduceSumSquare"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumSquareOp>;
+import_handler_map_["ReduceSumSquareV13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumSquareV13Op>;
 import_handler_map_["Relu"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReluOp>;
 import_handler_map_["Reshape"] = 
