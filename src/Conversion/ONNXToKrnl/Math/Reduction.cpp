@@ -30,6 +30,13 @@ Value getIdentityValue<ONNXReduceMaxOp>(
 }
 
 template <>
+Value getIdentityValue<ONNXReduceMaxV13Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  MathBuilder createMath(rewriter, loc);
+  return createMath.negativeInf(type);
+}
+
+template <>
 Value getIdentityValue<ONNXReduceMinOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
   MathBuilder createMath(rewriter, loc);
@@ -37,7 +44,21 @@ Value getIdentityValue<ONNXReduceMinOp>(
 }
 
 template <>
+Value getIdentityValue<ONNXReduceMinV13Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  MathBuilder createMath(rewriter, loc);
+  return createMath.positiveInf(type);
+}
+
+template <>
 Value getIdentityValue<ONNXReduceProdOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 1);
+}
+
+template <>
+Value getIdentityValue<ONNXReduceProdV13Op>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
   MathBuilder createMath(rewriter, loc);
   return createMath.constant(type, 1);
@@ -64,7 +85,20 @@ Value getIdentityValue<ONNXReduceMeanOp>(
   return createMath.constant(type, 0);
 }
 
+template <>
+Value getIdentityValue<ONNXReduceMeanV13Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  MathBuilder createMath(rewriter, loc);
+  return createMath.constant(type, 0);
+}
+
 // Scalar ops
+template <>
+struct ScalarOp<ONNXReduceProdV13Op> {
+  using FOp = arith::MulFOp;
+  using IOp = arith::MulIOp;
+};
+
 template <>
 struct ScalarOp<ONNXReduceProdOp> {
   using FOp = arith::MulFOp;
@@ -84,6 +118,12 @@ struct ScalarOp<ONNXReduceSumOp> {
 };
 
 template <>
+struct ScalarOp<ONNXReduceMeanV13Op> {
+  using FOp = arith::AddFOp;
+  using IOp = arith::AddIOp;
+};
+
+template <>
 struct ScalarOp<ONNXReduceMeanOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
@@ -92,6 +132,17 @@ struct ScalarOp<ONNXReduceMeanOp> {
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXReduceMaxOp
 //===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXReduceMaxV13Op>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  MathBuilder createMath(rewriter, loc);
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
+  Value max = createMath.sgt(lhs, rhs);
+  return createMath.select(max, lhs, rhs);
+}
+
 template <>
 Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
@@ -107,6 +158,17 @@ Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
 // Scalar unary ops for lowering ONNXReduceMinOp
 //===----------------------------------------------------------------------===//
 template <>
+Value emitScalarOpFor<ONNXReduceMinV13Op>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  MathBuilder createMath(rewriter, loc);
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
+  Value min = createMath.slt(lhs, rhs);
+  return createMath.select(min, lhs, rhs);
+}
+
+template <>
 Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
@@ -118,11 +180,12 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
 }
 
 template <typename ONNXReductionOp>
-struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
+struct ONNXOldReductionOpLowering
+    : public OpConversionPattern<ONNXReductionOp> {
   using OpAdaptor = typename ONNXReductionOp::Adaptor;
   bool computeMean = false;
 
-  ONNXReductionOpLowering(
+  ONNXOldReductionOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool computeMean = false)
       : OpConversionPattern<ONNXReductionOp>(typeConverter, ctx) {
     this->computeMean = computeMean;
@@ -329,15 +392,17 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
 // This duplicated code can be eliminated with if constexpr in c++ 17
 // Or onnx uses input for axes for all ops
-struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
+template <typename ONNXReductionOp>
+struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
+  using OpAdaptor = typename ONNXReductionOp::Adaptor;
   bool computeMean = false;
 
-  ONNXReduceSumOpLowering(
+  ONNXReductionOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool computeMean = false)
-      : OpConversionPattern(typeConverter, ctx), computeMean(computeMean) {}
+      : OpConversionPattern<ONNXReductionOp>(typeConverter, ctx),
+        computeMean(computeMean) {}
 
-  LogicalResult matchAndRewrite(ONNXReduceSumOp reduceSumOp,
-      ONNXReduceSumOpAdaptor adaptor,
+  LogicalResult matchAndRewrite(ONNXReductionOp reduceOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     /*
      * Condition: reduction function must be associative and commutative.
@@ -359,14 +424,17 @@ struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
      * }
      *
      */
-    Operation *op = reduceSumOp.getOperation();
+
+    Operation *op = reduceOp.getOperation();
     ValueRange operands = adaptor.getOperands();
-    Location loc = ONNXLoc<ONNXReduceSumOp>(op);
-    Value input = operands[0];
-    Value axesVal = operands[1];
+    Location loc = ONNXLoc<ONNXReductionOp>(op);
+    auto input = operands[0];
+    auto axesVal = operands[1];
+
     auto memRefInType = input.getType().cast<MemRefType>();
     // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    Type convertedType =
+        this->typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefOutType = convertedType.cast<MemRefType>();
@@ -379,6 +447,10 @@ struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
     // KeepDims
     int64_t keepdims = adaptor.getKeepdims();
     bool isKeepdims = (keepdims == 1);
+
+    // Noop
+    auto noop = llvm::dyn_cast<ONNXReductionOp>(op).getNoopWithEmptyAxes();
+    bool isNoop = (noop == 1);
 
     // Get axes dims
     IndexExprScope mainScope(&rewriter, loc);
@@ -396,8 +468,7 @@ struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
     Value valueOne = nullptr;
     std::map<int64_t, int64_t> outInDimMap;
 
-    // Axes is an optional input, do not use adaptor to get it.
-    Value axesValue = reduceSumOp.getAxes();
+    Value axesValue = llvm::dyn_cast<ONNXReductionOp>(op).getAxes();
     // Dynamic axes
     if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
       dynamicAxes = true;
@@ -410,7 +481,7 @@ struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
       auto maskType =
           RankedTensorType::get({inRank}, rewriter.getIntegerType(1));
       // Convert the mask type to MemRefType.
-      Type convertedMaskType = typeConverter->convertType(maskType);
+      Type convertedMaskType = this->typeConverter->convertType(maskType);
       assert(convertedMaskType && convertedMaskType.isa<MemRefType>() &&
              "Failed to convert type to MemRefType");
       MemRefType maskTypeInMemRefType = convertedMaskType.cast<MemRefType>();
@@ -424,7 +495,7 @@ struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
       // Unless noop_with_empty_axesDim is false and axesDim is
       // ShapedType::kDynamic.
       Value initVal;
-      if (axesDim == ShapedType::kDynamic && !adaptor.getNoopWithEmptyAxes()) {
+      if (axesDim == ShapedType::kDynamic && !isNoop) {
         IndexExprScope axesLoopContex(&rewriter, loc);
         Value zeroIndex = create.math.constantIndex(0);
         IndexExpr axesBound0 = create.krnlIE.getShapeAsDim(axesVal, 0);
@@ -498,7 +569,7 @@ struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
           if (std::find(axes.begin(), axes.end(), newAxis) == axes.end())
             axes.push_back(newAxis);
         }
-      } else if (!adaptor.getNoopWithEmptyAxes()) {
+      } else if (!isNoop) {
         for (decltype(inRank) i = 0; i < inRank; ++i) {
           axes.push_back(i);
         }
@@ -561,7 +632,7 @@ struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
     }
 
     Value identity =
-        getIdentityValue<ONNXReduceSumOp>(rewriter, loc, elementOutType);
+        getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
     create.krnl.store(identity, alloc, loopIVs);
 
     // 2. Define an Krnl loop to do reduction.
@@ -606,7 +677,7 @@ struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
 
     Value next = create.krnl.load(input, inLoopIVs);
     Value accumulated = create.krnl.load(alloc, outLoopIVs);
-    accumulated = emitScalarOpFor<ONNXReduceSumOp>(
+    accumulated = emitScalarOpFor<ONNXReductionOp>(
         rewriter, loc, op, memRefOutType.getElementType(), {accumulated, next});
     create.krnl.store(accumulated, alloc, outLoopIVs);
 
@@ -658,12 +729,16 @@ struct ONNXReduceSumOpLowering : public OpConversionPattern<ONNXReduceSumOp> {
 
 void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMaxOp>,
+  patterns.insert<ONNXOldReductionOpLowering<mlir::ONNXReduceMaxV13Op>,
+      ONNXOldReductionOpLowering<mlir::ONNXReduceMinV13Op>,
+      ONNXOldReductionOpLowering<mlir::ONNXReduceProdV13Op>,
+      ONNXOldReductionOpLowering<mlir::ONNXReduceSumV11Op>,
+      ONNXReductionOpLowering<mlir::ONNXReduceMaxOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceProdOp>,
-      ONNXReductionOpLowering<mlir::ONNXReduceSumV11Op>,
-      ONNXReduceSumOpLowering>(typeConverter, ctx);
-  patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
+      ONNXReductionOpLowering<mlir::ONNXReduceSumOp>>(typeConverter, ctx);
+  patterns.insert<ONNXOldReductionOpLowering<mlir::ONNXReduceMeanV13Op>,
+      ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
       typeConverter, ctx, /*computeMean=*/true);
 }
 

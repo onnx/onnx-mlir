@@ -968,10 +968,10 @@ func.func @test_splitv11_unknown_dimension_equal_split(%arg0 : tensor<?x?x64xf32
 
 /// Check computing the divisor in ReduceMean
 /// when the input has unknown dimensions and is of i32.
-func.func @test_reducemean_i32_unknown_dims(%arg0 : tensor<3x?x2xi32>) -> tensor<*xi32> {
-  %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xi32>)-> tensor<*xi32>
+func.func @test_reducemean_v13_i32_unknown_dims(%arg0 : tensor<3x?x2xi32>) -> tensor<*xi32> {
+  %0 ="onnx.ReduceMeanV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xi32>)-> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
-  // CHECK-LABEL: test_reducemean_i32_unknown_dims
+  // CHECK-LABEL: test_reducemean_v13_i32_unknown_dims
   // CHECK: [[ONE:%.+]] = arith.constant 1 : index
   // CHECK: krnl.iterate
   // CHECK: krnl.iterate
@@ -984,10 +984,10 @@ func.func @test_reducemean_i32_unknown_dims(%arg0 : tensor<3x?x2xi32>) -> tensor
 
 /// Check computing the divisor in ReduceMean
 /// when the input has unknown dimensions and is of f32.
-func.func @test_reducemean_f32_unknown_dims(%arg0 : tensor<3x?x2xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xf32>)-> tensor<*xf32>
+func.func @test_reducemean_v13_f32_unknown_dims(%arg0 : tensor<3x?x2xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceMeanV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
-  // CHECK-LABEL: test_reducemean_f32_unknown_dims
+  // CHECK-LABEL: test_reducemean_v13_f32_unknown_dims
   // CHECK: [[ONE:%.+]] = arith.constant 1 : index
   // CHECK: krnl.iterate
   // CHECK: krnl.iterate
@@ -1134,12 +1134,12 @@ func.func @test_prelu_broadcast_unknown_dims1(%arg0: tensor<?x2x?xf32>, %arg1: t
 
 // -----
 
-/// Check ReduceMean with f32.
-func.func private @test_reducemean_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+/// Check ReduceMeanV13 with f32.
+func.func private @test_reducemean_v13_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceMeanV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_reducemean_f32
+  // CHECK-LABEL: test_reducemean_v13_f32
   // CHECK-DAG: [[IDENTITY:%.+]] = arith.constant 0.000000e+00 : f32
   // CHECK-DAG: [[DIVISOR:%.+]] = arith.constant 2.000000e+00 : f32
   // CHECK-DAG: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
@@ -1167,12 +1167,12 @@ func.func private @test_reducemean_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf3
 
 // -----
 
-/// Check ReduceMean with i32.
-func.func private @test_reducemean_i32(%arg0 : tensor<3x2x2xi32>) -> tensor<*xi32> {
-  %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xi32>)-> tensor<*xi32>
+/// Check ReduceMeanV13 with i32.
+func.func private @test_reducemean_v13_i32(%arg0 : tensor<3x2x2xi32>) -> tensor<*xi32> {
+  %0 ="onnx.ReduceMeanV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xi32>)-> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_reducemean_i32
+  // CHECK-LABEL: test_reducemean_v13_i32
   // CHECK-DAG: [[IDENTITY:%.+]] = arith.constant 0 : i32
   // CHECK-DAG: [[DIVISOR:%.+]] = arith.constant 2 : i32
   // CHECK-DAG: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xi32>
