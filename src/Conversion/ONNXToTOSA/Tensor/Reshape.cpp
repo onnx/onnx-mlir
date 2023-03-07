@@ -44,6 +44,11 @@ public:
     if (!outputType) {
       return rewriter.notifyMatchFailure(op, "not a ranked tensor");
     }
+    
+    if (!outputType.hasStaticShape()) {
+      return rewriter.notifyMatchFailure(
+          op, "only static shapes are supported");
+    }
 
     if (adaptor.allowzero() != 0) {
       return rewriter.notifyMatchFailure(op, "only allowZero = 0 is supported");
@@ -53,20 +58,8 @@ public:
       return rewriter.notifyMatchFailure(
           op, "only tosa.const operands are supported");
     }
-    Value shapeConst = adaptor.shape().getDefiningOp<mlir::tosa::ConstOp>();
-    auto shapeConstAttr = tosa::getValueFromTosaConst<ElementsAttr>(shapeConst);
-    for (APInt i : shapeConstAttr.getValues<APInt>()) {
-      if (i.getZExtValue() == 0) {
-        return rewriter.notifyMatchFailure(op, "zero shape not allowed");
-      }
-    }
 
-    llvm::SmallVector<int64_t> shapeValues;
-    for (int i = 0; i < outputType.getShape().size(); i++) {
-      shapeValues.push_back(outputType.getShape()[i]);
-    }
-
-    Value reshapeOp = tosaBuilder.reshape(input, shapeValues);
+    Value reshapeOp = tosaBuilder.reshape(input, outputType.getShape());
 
     rewriter.replaceOp(op, reshapeOp);
 
