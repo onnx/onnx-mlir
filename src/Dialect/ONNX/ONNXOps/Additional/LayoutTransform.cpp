@@ -45,6 +45,7 @@ LogicalResult ONNXLayoutTransformOp::verify() {
   if (auto dataType = getData().getType().dyn_cast<RankedTensorType>())
     if (auto outputType = getOutput().getType().dyn_cast<RankedTensorType>())
       return success(getShape(dataType) == getShape(outputType));
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
