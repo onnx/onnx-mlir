@@ -348,7 +348,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
       &target, &dimAnalysis, execNodesOnCpu);
   addDynamicallyLegalOpFor<ONNXMatMulOp>(&target, &dimAnalysis, execNodesOnCpu);
   addDynamicallyLegalOpFor<ONNXGemmOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXReduceMeanOp>(
+  addDynamicallyLegalOpFor<ONNXReduceMeanV13Op>(
       &target, &dimAnalysis, execNodesOnCpu);
   addDynamicallyLegalOpFor<ONNXLSTMOp>(&target, &dimAnalysis, execNodesOnCpu);
   addDynamicallyLegalOpFor<ONNXGRUOp>(&target, &dimAnalysis, execNodesOnCpu);
