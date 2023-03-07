@@ -156,7 +156,8 @@ private:
 
     int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     LLVM::GlobalOp global;
-    if ((!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
+    if ((!denseAttr.getElementType().isa<StringType>()) &&
+        (!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
       ArrayRef<char> rawData = denseAttr.getRawData();
       assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
