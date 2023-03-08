@@ -394,12 +394,8 @@ private:
         if (user == loadOp.getOperation())
           continue;
         if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user)) {
-          // Store's input must be defined by a memref.alloc.
-          Value storeMemref = storeOp.getMemref();
-          if (storeMemref.isa<BlockArgument>())
-            return false;
-          Operation *allocOp = storeMemref.getDefiningOp();
-          if (!isa<memref::AllocOp>(allocOp))
+          // Check unstick -> load -> store.
+          if (!matchUnstickLoadStore(storeOp))
             return false;
           storeOps.emplace_back(storeOp);
         } else
@@ -415,32 +411,19 @@ private:
     // TODO: Support this situation.
     for (AffineStoreOp storeOp : storeOps) {
       Value destMemref = storeOp.getMemref();
-      ZLowStickOp stickOp;
       for (Operation *user : destMemref.getUsers()) {
-        // Users of AffineStoreOp's MemRef must be AllocOp, StoreOp, and
-        // StickOp.
         if (user == storeOp.getOperation())
           continue;
-        if (llvm::dyn_cast<memref::AllocOp>(user))
-          continue;
-        if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
-          if (stickOp)
-            return false;
-          stickOp = stick;
-          continue;
-        }
         if (auto otherStoreOp = llvm::dyn_cast<AffineStoreOp>(user)) {
           if (llvm::all_of(storeOps,
                   [&](AffineStoreOp op) { return (op != otherStoreOp); })) {
+            // Check unstick -> load -> store.
             if (!matchUnstickLoadStore(otherStoreOp))
               return false;
           }
           continue;
         }
-        return false;
       }
-      if (!stickOp)
-        return false;
     }
 
     return (storeOps.size() != 0);
@@ -481,8 +464,37 @@ private:
 
   // Check this sequence: unstick -> load -> store.
   bool matchUnstickLoadStore(AffineStoreOp storeOp) const {
-    // Check if the store value is from AffineLoadOp or not.
+    Value destMemref = storeOp.getMemref();
     Value storeValue = storeOp.getValue();
+
+    // Store's input must be defined by a memref.alloc.
+    if (destMemref.isa<BlockArgument>())
+      return false;
+    Operation *allocOp = destMemref.getDefiningOp();
+    if (!isa<memref::AllocOp>(allocOp))
+      return false;
+
+    // Users of AffineStoreOp's MemRef must be AllocOp, StoreOp, and StickOp.
+    ZLowStickOp stickOp;
+    for (Operation *user : destMemref.getUsers()) {
+      if (user == storeOp.getOperation())
+        continue;
+      if (llvm::dyn_cast<memref::AllocOp>(user))
+        continue;
+      if (llvm::dyn_cast<AffineStoreOp>(user))
+        continue;
+      if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
+        if (stickOp)
+          return false;
+        stickOp = stick;
+        continue;
+      }
+      return false;
+    }
+    if (!stickOp)
+      return false;
+
+    // Check if the store value is from AffineLoadOp or not.
     if (isa<BlockArgument>(storeValue))
       return false;
     if (auto loadOp = dyn_cast<AffineLoadOp>(storeValue.getDefiningOp())) {
