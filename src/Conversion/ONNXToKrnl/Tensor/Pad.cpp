@@ -31,7 +31,6 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
     ValueRange operands = adaptor.getOperands();
     Value data = adaptor.getData();
     Value constantValue = adaptor.getConstantValue();
-
     StringRef padMode = adaptor.getMode();
 
     // Builder helper.
