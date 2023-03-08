@@ -216,7 +216,6 @@ struct ONNXNonMaxSuppressionOpLowering
       ConversionPatternRewriter &rewriter) const final {
     Operation *op = nmsOp.getOperation();
     Location loc = ONNXLoc<ONNXNonMaxSuppressionOp>(op);
-    ValueRange operands = adaptor.getOperands();
 
     // Builder helper.
     IndexExprScope mainScope(&rewriter, loc);
