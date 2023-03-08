@@ -419,10 +419,10 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
     IndexExpr kdTerm = t0 * d + oneIE; // (k - 1) * d + 1
     IndexExpr t1 = I - oneIE;
     if (outputShapeOpt.has_value()) {
-      // Set output dim, then calculate pads using output dim
+      // Set output dim, then calculate pads using output dim.
       LiteralIndexExpr O(ArrayAttrIntVal(outputShapeOpt, i));
       outputDims.emplace_back(O);
-      // Set pads
+      // Set pads.
       // P = max(0, s * (I - 1) + outPad + ((K - 1) * d + 1) - O);
       IndexExpr pSum = IndexExpr::max(zeroIE, s * t1 + outPad + kdTerm - O);
       IndexExpr pSmall = pSum.floorDiv(2);
@@ -437,11 +437,11 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
         return op->emitError("auto_pad of unknown/unsupported value");
       }
     } else {
-      // Set pads for NOTSET and VALID, then calculate output dim using pads
-      // Set output dim for SAME_UPPER and SAME_LOWER, then calculate pads
+      // Set pads for NOTSET and VALID, then calculate output dim using pads.
+      // Set output dim for SAME_UPPER and SAME_LOWER, then calculate pads.
       IndexExpr pSum;
       if (autoPad == "NOTSET" || autoPad == "VALID") {
-        // Set pads
+        // Set pads.
         if (autoPad == "NOTSET") {
           pSum = pads[i] + pads[i + spatialRank]; // Sum both pads.
           // pads already set, nothing more to do.
@@ -450,12 +450,12 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
           pads[i] = zeroIE;
           pads[i + spatialRank] = zeroIE;
         }
-        // Set output dim
+        // Set output dim.
         // O = s * (I - 1) + outPad + ((K - 1) * d + 1) - P
         IndexExpr O = s * t1 + outPad + kdTerm - pSum;
         outputDims.emplace_back(O); // Set output dim
       } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
-        // Set output dim
+        // Set output dim.
         IndexExpr O = I * s;
         outputDims.emplace_back(O);
         // Set pads
@@ -819,7 +819,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
       }
   }
   // Save original autoPad attribute here because it is updated in
-  // 'processConvTypeParams()'
+  // 'processConvTypeParams()'.
   StringRef autoPad = getAutoPad();
   // Process strides, dilations, kernel_shape and pads.
   LogicalResult res =

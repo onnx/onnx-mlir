@@ -432,18 +432,18 @@ def ReduceSumSquareV13OpPattern2
 // ONNXConvTransposeOp is rewritten into ONNXConv op and other ONNX ops to
 // convert input, weight, and pad.
 //
-// 1. Reverse elements for spatial axis in weight tensor
+// 1. Reverse elements for spatial axis in weight tensor.
 //    Emit ONNXTransposeOp and ONNXReverseSequenceOp in reverseWeightConvTranspose()
-// 2. Insert pads between elements in input data tensor if `strides` is not unit strides
-//    Emit ONNXSplitOp, ONNXPadOp, and ONNXConcatOp in insertPadsConvTransposeInput()
-// 3. Calculate new pads attribute from kernel_shape, original pads, and dilation
-//    Emit no ONNX op in getPadsConvTranspose()
-// 4. Create unit strides if `strides` is not unit strides
-//    Emit no ONNX op in createUnitStrides()
+// 2. Insert pads between elements in input data tensor if `strides` is not unit strides.
+//    Emit ONNXSplitOp, ONNXPadOp, and ONNXConcatOp in insertPadsConvTransposeInput().
+// 3. Calculate new pads attribute from kernel_shape, original pads, and dilation.
+//    Emit no ONNX op in getPadsConvTranspose().
+// 4. Create unit strides if `strides` is not unit strides.
+//    Emit no ONNX op in createUnitStrides().
 // 5. Use ONNXConv op using converted weight tensor, input data tensor, other
 //    attributes.
-// 6. Insert additional pads if needed
-//    Emit ONNXPadOp in insertAdditionalPadsConvTranspose()
+// 6. Insert additional pads if needed.
+//    Emit ONNXPadOp in insertAdditionalPadsConvTranspose().
 //===----------------------------------------------------------------------===//
 
 def reverseWeightConvTranspose: NativeCodeCall<
