@@ -15,7 +15,6 @@ func.func @test_static_reshape_zero(%arg0: tensor<32x512x1x1xf32>) -> tensor<32x
   return %1 : tensor<32x512xf32>
 // CHECK-LABEL:   func.func @test_static_reshape_zero(
 // CHECK-SAME:                                        %[[VAL_0:.*]]: tensor<32x512x1x1xf32>) -> tensor<32x512xf32> {
-// CHECK:           %[[VAL_1:.*]] = "tosa.const"() {value = dense<[0, -1]> : tensor<2xi64>} : () -> tensor<2xi64>
 // CHECK:           %[[VAL_2:.*]] = "tosa.reshape"(%[[VAL_0]]) {new_shape = [32, 512]} : (tensor<32x512x1x1xf32>) -> tensor<32x512xf32>
 // CHECK:           return %[[VAL_2]] : tensor<32x512xf32>
 }
@@ -40,7 +39,6 @@ func.func @test_shape_zero_reshape(%arg0: tensor<32x512x1x1xf32>) -> tensor<32x5
   return %1 : tensor<32x512xf32>
 // CHECK-LABEL:   func.func @test_shape_zero_reshape(
 // CHECK-SAME:                                       %[[VAL_0:.*]]: tensor<32x512x1x1xf32>) -> tensor<32x512xf32> {
-// CHECK:           %[[VAL_1:.*]] = "tosa.const"() {value = dense<[32, 0]> : tensor<2xi64>} : () -> tensor<2xi64>
 // CHECK:           %[[VAL_2:.*]] = "tosa.reshape"(%[[VAL_0]]) {new_shape = [32, 512]} : (tensor<32x512x1x1xf32>) -> tensor<32x512xf32>
 // CHECK:           return %[[VAL_2]] : tensor<32x512xf32>
 }
