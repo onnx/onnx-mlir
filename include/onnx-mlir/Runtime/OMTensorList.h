@@ -17,6 +17,7 @@
 #define ONNX_MLIR_OMTENSORLIST_H
 
 #include "onnx-mlir/Runtime/OMTensor.h"
+#include <stdbool.h>
 
 struct OMTensorList;
 

@@ -27,6 +27,7 @@
 
 #include "onnx-mlir/Runtime/OMTensorList.h"
 #include <string.h>
+#include <stdbool.h>
 
 struct OMTensorList {
 #ifdef __cplusplus
