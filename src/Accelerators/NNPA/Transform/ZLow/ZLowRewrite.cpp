@@ -394,8 +394,8 @@ private:
         if (user == loadOp.getOperation())
           continue;
         if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user)) {
-          // Check unstick -> load -> store.
-          if (!matchUnstickLoadStore(storeOp))
+          // Check unstick -> load -> store -> stick.
+          if (!matchUnstickLoadStoreStick(storeOp))
             return false;
           storeOps.emplace_back(storeOp);
         } else
@@ -417,11 +417,10 @@ private:
         if (auto otherStoreOp = llvm::dyn_cast<AffineStoreOp>(user)) {
           if (llvm::all_of(storeOps,
                   [&](AffineStoreOp op) { return (op != otherStoreOp); })) {
-            // Check unstick -> load -> store.
-            if (!matchUnstickLoadStore(otherStoreOp))
+            // Check unstick -> load -> store -> stick.
+            if (!matchUnstickLoadStoreStick(otherStoreOp))
               return false;
           }
-          continue;
         }
       }
     }
@@ -462,8 +461,8 @@ private:
     return (stickOps.size() != 0);
   }
 
-  // Check this sequence: unstick -> load -> store.
-  bool matchUnstickLoadStore(AffineStoreOp storeOp) const {
+  // Check this sequence: unstick -> load -> store -> stick.
+  bool matchUnstickLoadStoreStick(AffineStoreOp storeOp) const {
     Value destMemref = storeOp.getMemref();
     Value storeValue = storeOp.getValue();
 
@@ -474,24 +473,8 @@ private:
     if (!isa<memref::AllocOp>(allocOp))
       return false;
 
-    // Users of AffineStoreOp's MemRef must be AllocOp, StoreOp, and StickOp.
-    ZLowStickOp stickOp;
-    for (Operation *user : destMemref.getUsers()) {
-      if (user == storeOp.getOperation())
-        continue;
-      if (llvm::dyn_cast<memref::AllocOp>(user))
-        continue;
-      if (llvm::dyn_cast<AffineStoreOp>(user))
-        continue;
-      if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
-        if (stickOp)
-          return false;
-        stickOp = stick;
-        continue;
-      }
-      return false;
-    }
-    if (!stickOp)
+    // Users of AffineStoreOp's MemRef must be StoreOp and StickOp.
+    if (!matchMultipleStoreSingleStick(destMemref))
       return false;
 
     // Check if the store value is from AffineLoadOp or not.
@@ -500,17 +483,61 @@ private:
     if (auto loadOp = dyn_cast<AffineLoadOp>(storeValue.getDefiningOp())) {
       // Check if loading from MemRef that is unstickified.
       Value memRef = loadOp.getMemref();
-      if (isa<BlockArgument>(memRef))
+      if (!matchMultipleLoadSingleUnstick(memRef))
         return false;
-      for (Operation *user : memRef.getUsers()) {
-        if (dyn_cast<AffineLoadOp>(user))
-          continue;
-        if (dyn_cast<ZLowUnstickOp>(user))
-          continue;
-        return false;
-      }
-    }
+    } else
+      return false;
+
     return true;
+  }
+
+  // Users of MemRef must be StoreOp and StickOp.
+  bool matchMultipleStoreSingleStick(Value memRef) const {
+    if (isa<BlockArgument>(memRef))
+      return false;
+    ZLowStickOp stickOp;
+    AffineStoreOp storeOp;
+    for (Operation *user : memRef.getUsers()) {
+      // At least one StoreOp.
+      if (auto store = llvm::dyn_cast<AffineStoreOp>(user)) {
+        storeOp = store;
+        continue;
+      }
+      // Only one StickOp.
+      if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
+        if (stickOp)
+          return false;
+        stickOp = stick;
+        continue;
+      }
+      return false;
+    }
+    return (storeOp && stickOp);
+  }
+
+  // Users of MemRef must be LoadOp and UnstickOp.
+  bool matchMultipleLoadSingleUnstick(Value memRef) const {
+    if (isa<BlockArgument>(memRef))
+      return false;
+    ZLowUnstickOp unstickOp;
+    AffineLoadOp loadOp;
+    for (Operation *user : memRef.getUsers()) {
+      // At least one LoadOp.
+      if (auto load = dyn_cast<AffineLoadOp>(user)) {
+        loadOp = load;
+        continue;
+      }
+      // Only one UnstickOp.
+      if (auto unstick = dyn_cast<ZLowUnstickOp>(user)) {
+        if (unstickOp)
+          return false;
+        else
+          unstickOp = unstick;
+        continue;
+      }
+      return false;
+    }
+    return (loadOp && unstickOp);
   }
 };
 
