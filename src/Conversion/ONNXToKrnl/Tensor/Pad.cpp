@@ -31,6 +31,7 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
     ValueRange operands = adaptor.getOperands();
     Value data = adaptor.getData();
     Value constantValue = adaptor.getConstantValue();
+
     StringRef padMode = adaptor.getMode();
 
     // Builder helper.
@@ -68,9 +69,23 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
       // This way is to avoid using `select` in computing indices as doing for
       // 'edge' and 'reflect' modes.
       Value cValue;
+      bool useConstantIndexZero = false;
+      if (auto constantValueType =
+              constantValue.getType().dyn_cast<MemRefType>()) {
+        if (constantValueType.getElementType().isF32() &&
+            constantValueType.getRank() == 1) {
+          // If the constant_value type is 1xf32 do krnl.load with an index of
+          // 0 to avoid an assertion failure in AffineLoadOp::build().
+          useConstantIndexZero = true;
+        }
+      }
       if (constantValue.getType().isa<NoneType>()) {
         // Default to 0 if constant_value is not specified.
         cValue = create.math.constant(resElementType, 0);
+      } else if (useConstantIndexZero == true) {
+        // Do krnl.load with an index of 0 when constant_value type is 1xf32.
+        auto idx = create.math.constantIndex(0);
+        cValue = create.krnl.load(constantValue, {idx});
       } else
         cValue = create.krnl.load(constantValue, {});
 

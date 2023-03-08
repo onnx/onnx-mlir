@@ -2513,16 +2513,17 @@ func.func @pad_constant_mode_constant_pads(%arg0: tensor<16x16xf32>) -> tensor<1
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 + 3)>
 // CHECK-LABEL:  func @pad_constant_mode_constant_pads
 // CHECK-SAME:   ([[DATA_:%.+]]: memref<16x16xf32>) -> memref<18x20xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = {{.*}}, shape = [1], value = dense<0.000000e+00> : tensor<1xf32>} : () -> memref<1xf32>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [1], value = dense<0.000000e+00> : tensor<1xf32>} : () -> memref<1xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<18x20xf32>
-// CHECK:           [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]][] : memref<1xf32>
+// CHECK:           [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]]{{.}}[[CST_0_]]{{.}} : memref<1xf32>
 // CHECK:           krnl.memset [[RES_]], [[LOAD_VAR_0_MEM_]] : memref<18x20xf32>
 // CHECK:           [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 16, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 16){
-// CHECK:             [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[VAR_5_:%.+]] = affine.apply [[MAP_0_]]([[VAR_4_]]#1)
-// CHECK-DAG:         [[LOAD_DATA_MEM_:%.+]] = krnl.load [[DATA_]]{{.}}[[VAR_4_]]#0, [[VAR_4_]]#1] : memref<16x16xf32>
-// CHECK:             krnl.store [[LOAD_DATA_MEM_]], [[RES_]]{{.}}[[VAR_4_]]#0, [[VAR_5_]]{{.}} : memref<18x20xf32>
+// CHECK:             [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[VAR_4_:%.+]] = affine.apply [[MAP_0_]]([[VAR_3_]]#1)
+// CHECK-DAG:         [[LOAD_DATA_MEM_:%.+]] = krnl.load [[DATA_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<16x16xf32>
+// CHECK:             krnl.store [[LOAD_DATA_MEM_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_4_]]{{.}} : memref<18x20xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<18x20xf32>
 // CHECK:         }
