@@ -406,6 +406,43 @@ private:
           return false;
       }
     }
+
+    // Not match if there is a "strange" AffineStoreOp that stores to MemRef.
+    // The AffineStoreOp is strange in the sense that it does not store a value
+    // that comes from AffineLoadOp. For example, in PadOp, there is a loop that
+    // directly stores a zero constant to a MemRef. In that case there is no way
+    // to create a F16 constant in Z.
+    // TODO: Support this situation.
+    for (AffineStoreOp storeOp : storeOps) {
+      Value destMemref = storeOp.getMemref();
+      ZLowStickOp stickOp;
+      for (Operation *user : destMemref.getUsers()) {
+        // Users of AffineStoreOp's MemRef must be AllocOp, StoreOp, and
+        // StickOp.
+        if (user == storeOp.getOperation())
+          continue;
+        if (llvm::dyn_cast<memref::AllocOp>(user))
+          continue;
+        if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
+          if (stickOp)
+            return false;
+          stickOp = stick;
+          continue;
+        }
+        if (auto otherStoreOp = llvm::dyn_cast<AffineStoreOp>(user)) {
+          if (llvm::all_of(storeOps,
+                  [&](AffineStoreOp op) { return (op != otherStoreOp); })) {
+            if (!matchUnstickLoadStore(otherStoreOp))
+              return false;
+          }
+          continue;
+        }
+        return false;
+      }
+      if (!stickOp)
+        return false;
+    }
+
     return (storeOps.size() != 0);
   }
 
@@ -419,7 +456,7 @@ private:
       for (Operation *user : destMemref.getUsers()) {
         if (user == storeOp.getOperation())
           continue;
-        if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user))
+        if (llvm::dyn_cast<AffineStoreOp>(user))
           continue;
         if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
           // Do not support layout 1D and 2DS since their access index
@@ -439,8 +476,29 @@ private:
       stickOps.emplace_back(myStickOp);
       StoreOpStickOpMap[storeOp] = myStickOp;
     }
-
     return (stickOps.size() != 0);
+  }
+
+  // Check this sequence: unstick -> load -> store.
+  bool matchUnstickLoadStore(AffineStoreOp storeOp) const {
+    // Check if the store value is from AffineLoadOp or not.
+    Value storeValue = storeOp.getValue();
+    if (isa<BlockArgument>(storeValue))
+      return false;
+    if (auto loadOp = dyn_cast<AffineLoadOp>(storeValue.getDefiningOp())) {
+      // Check if loading from MemRef that is unstickified.
+      Value memRef = loadOp.getMemref();
+      if (isa<BlockArgument>(memRef))
+        return false;
+      for (Operation *user : memRef.getUsers()) {
+        if (dyn_cast<AffineLoadOp>(user))
+          continue;
+        if (dyn_cast<ZLowUnstickOp>(user))
+          continue;
+        return false;
+      }
+    }
+    return true;
   }
 };
 
