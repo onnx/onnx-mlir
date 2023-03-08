@@ -30,7 +30,6 @@ def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
-  let useFoldAPI = kEmitFoldAdaptorFolder;
   let dependentDialects = [
     "AffineDialect",
     "arith::ArithDialect",

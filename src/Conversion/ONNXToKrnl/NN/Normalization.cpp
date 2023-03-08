@@ -32,7 +32,6 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
     Operation *op = batchnormOp.getOperation();
     Location loc = ONNXLoc<ONNXBatchNormalizationInferenceModeOp>(op);
-    ValueRange operands = adaptor.getOperands();
 
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
         rewriter, loc);
@@ -149,7 +148,6 @@ struct ONNXInstanceNormalizationOpLowering
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
     Operation *op = instanceOp.getOperation();
     Location loc = ONNXLoc<ONNXInstanceNormalizationOp>(op);
-    ValueRange operands = adaptor.getOperands();
 
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
         MathBuilder>
