@@ -55,7 +55,7 @@ bool CategoryMapperLibBuilder<T1, T2>::build() {
 template <typename T1, typename T2>
 bool CategoryMapperLibBuilder<T1, T2>::prepareInputs() {
   constexpr int num = 1;
-  OMTensor* list[num];
+   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *)
   if (!list)
     return false;
 

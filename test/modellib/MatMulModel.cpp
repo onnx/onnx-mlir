@@ -63,7 +63,7 @@ bool MatMul2DLibBuilder::build() {
 
 bool MatMul2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
-  OMTensor* list[num];
+  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *)
   if (!list)
     return false;
   list[0] =
@@ -171,7 +171,7 @@ bool MatMulSingleBroadcastLibBuilder::build() {
 
 bool MatMulSingleBroadcastLibBuilder::prepareInputs() {
   constexpr int num = 2;
-  OMTensor* list[num];
+  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *)
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(aShape);
