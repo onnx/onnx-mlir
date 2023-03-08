@@ -203,14 +203,11 @@ int main() {
 
   // Create a tensor using omTensorCreateWithOwnership (returns a pointer to the OMTensor).
   // When the parameter, owning is set to "true", the OMTensor will free the data
-  // pointer (img_data) upon destruction. If owning is set to false, the data pointer will not be
-  // freed upon destruction.
+  // pointer (img_data) upon destruction. If owning is set to false, the data pointer will
+  // not be freed upon destruction.
   OMTensor *tensor = omTensorCreate(img_data, shape, rank, ONNX_TYPE_FLOAT, /*owning=*/true);
 
   // Create a tensor list using omTensorListCreate (returns a pointer to the OMTensorList).
-  // The OMTensorList will free the tensor array
-  // upon destruction.
-
   inputTensors[0] = tensor;
   OMTensorList *tensorListIn = omTensorListCreate(inputTensors, inputNum);
 
@@ -231,6 +228,12 @@ int main() {
       prob = prediction[i];
     }
   }
+  // The OMTensorListDestroy will free all tensors in the OMTensorList
+  // upon destruction. It is important to note, that every tensor will be destroyed.
+  // To free the OMTensorList data structure but leave the tensors as is, use
+  // OMTensorListCreateWithShallow and OMTensorListDestroyShallow instead.
+  omTensorListDestroy(tensorListOut);
+  omTensorListDestroy(tensorListIn);
 
   printf("The digit is %d\n", digit);
   return 0;

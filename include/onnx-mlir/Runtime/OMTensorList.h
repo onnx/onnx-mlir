@@ -33,8 +33,8 @@ extern "C" {
  *
  * Create an OMTensorList with specified OMTensor array.
  *
- * OMTensorList owns the tensor array of pointers, which subsequently means the
- * pointers will be freed when OMTensorList gets destroyed.
+ * Internally OMTensorList creates its own copy of the passed-in tensor pointer
+ * array. This copy is freed when the OMTensorList is destroyed.
  *
  * @param tensors array of pointers to OMTensor
  * @param n number of elements in tensors array
@@ -43,6 +43,25 @@ extern "C" {
  */
 OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreate(
     OMTensor **tensors, int64_t n);
+
+/**
+ * \brief OMTensorList creator with shallow
+ *
+ * Create an OMTensorList with specified OMTensor array.
+ *
+ * Internally OMTensorList creates its own copy of the passed-in tensor pointer
+ * array. This copy is freed when the OMTensorList is destroyed.
+ *
+ * @param tensors array of pointers to OMTensor
+ * @param n number of elements in tensors array
+ * @param shallow whether we want to perform an OMTensorList shallow destroy,
+ * if set to true, the list as well as the pointer to the OMTensor
+ * array are freed. The tensors are not destroyed.
+ * @return pointer to the OMTensorList created, NULL if creation failed.
+ *
+ */
+OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreateWithShallow(
+    OMTensor **tensors, int64_t n, bool shallow);
 
 /**
  * \brief OMTensorList destroyer
@@ -97,7 +116,6 @@ OM_EXTERNAL_VISIBILITY int64_t omTensorListGetSize(OMTensorList *list);
  */
 OM_EXTERNAL_VISIBILITY OMTensor *omTensorListGetOmtByIndex(
     OMTensorList *list, int64_t index);
-
 
 #ifdef __cplusplus
 }
