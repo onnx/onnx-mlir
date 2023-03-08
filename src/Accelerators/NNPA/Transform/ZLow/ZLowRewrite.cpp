@@ -197,12 +197,14 @@ public:
       ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
     Location loc = unstickOp.getLoc();
     Operation *op = unstickOp.getOperation();
+    MLIRContext *ctx = unstickOp.getContext();
+
     // stickifiedMemRef has affine layout, e.g. MemRef<1x3x5xf32, #map>
     Value stickifiedMemRef = unstickOp.getX();
     // cpuMemRef has no affine layout, e.g. MemRef<1x3x5xf32>
     Value cpuMemRef = unstickOp.getOut();
-    std::string layout = unstickOp.getLayout().value().str();
-    bool isNCHWLayout = (layout == LAYOUT_NCHW);
+    std::string unstickLayout = unstickOp.getLayout().value().str();
+    bool unstickNCHWLayout = (unstickLayout == LAYOUT_NCHW);
 
     // Common types.
     Type stickifiedElementType =
@@ -224,7 +226,7 @@ public:
 
     // Do not support layout 1D and 2DS since their access index functions are
     // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
-    if ((layout == LAYOUT_1D) || (layout == LAYOUT_2DS))
+    if ((unstickLayout == LAYOUT_1D) || (unstickLayout == LAYOUT_2DS))
       return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
         diag << "Unsupport layout 1D and 2DS";
       });
@@ -274,19 +276,17 @@ public:
       // Clone loadOp with new Memref, indices and return type.
       IRMapping operandMap;
       operandMap.map(loadOp.getMemref(), stickifiedMemRef);
-      if (isNCHWLayout) {
-        // Permute indices in case of NCHW layout.
-        // for zlow.unstick: input is NHWC, output is NCHW.
-        ValueRange NCHWIndices = loadOp.getIndices();
-        SmallVector<Value, 4> NHWCIndices;
-        NHWCIndices.emplace_back(NCHWIndices[0]); // N
-        NHWCIndices.emplace_back(NCHWIndices[2]); // H
-        NHWCIndices.emplace_back(NCHWIndices[3]); // W
-        NHWCIndices.emplace_back(NCHWIndices[1]); // C
-        operandMap.map(NCHWIndices, NHWCIndices);
-      }
       Operation *clonedOp = rewriter.clone(*loadOp.getOperation(), operandMap);
       clonedOp->getResult(0).setType(stickifiedElementType);
+      // Permute affine_map in case of NCHW layout.
+      if (unstickNCHWLayout) {
+        AffineMapAttr oldMap = loadOp.getAffineMapAttr();
+        // NCHW -> NHWC
+        AffineMap permuteMap = AffineMap::getPermutationMap({0, 2, 3, 1}, ctx);
+        AffineMapAttr newMap =
+            AffineMapAttr::get(permuteMap.compose(oldMap.getValue()));
+        clonedOp->setAttr(AffineLoadOp::getMapAttrStrName(), newMap);
+      }
       // This DummyOp is used to make the intermediate generated code valid. It
       // wil be removed automatically via canonicalization.
       Value dummyConverter = rewriter.create<ZLowDummyOp>(
@@ -300,6 +300,8 @@ public:
       Value storeValue = storeOp.getValue();
       ZLowStickOp myStickOp = StoreOpStickOpMap[storeOp];
       Value stickMemref = myStickOp.getOut();
+      std::string stickLayout = myStickOp.getLayout().value().str();
+      bool stickNCHWLayout = (stickLayout == LAYOUT_NCHW);
 
       // Move stickMemref's AllocOp up before affine.for so that it
       // dominates its uses. A good place is just after storeMemref's AllocOp.
@@ -343,18 +345,16 @@ public:
       IRMapping operandMap;
       operandMap.map(storeOp.getMemref(), stickMemref);
       operandMap.map(storeOp.getValue(), dummyConverter);
-      // Permute indices in case of NCHW layout.
-      if (isNCHWLayout) {
-        // for zlow.stick: input is NCHW, output is NHWC.
-        ValueRange NCHWIndices = storeOp.getIndices();
-        SmallVector<Value, 4> NHWCIndices;
-        NHWCIndices.emplace_back(NCHWIndices[0]); // N
-        NHWCIndices.emplace_back(NCHWIndices[2]); // H
-        NHWCIndices.emplace_back(NCHWIndices[3]); // W
-        NHWCIndices.emplace_back(NCHWIndices[1]); // C
-        operandMap.map(NCHWIndices, NHWCIndices);
+      Operation *clonedOp = rewriter.clone(*storeOp.getOperation(), operandMap);
+      // Permute affine_map in case of NCHW layout.
+      if (stickNCHWLayout) {
+        AffineMapAttr oldMap = storeOp.getAffineMapAttr();
+        // NCHW -> NHWC
+        AffineMap permuteMap = AffineMap::getPermutationMap({0, 2, 3, 1}, ctx);
+        AffineMapAttr newMap =
+            AffineMapAttr::get(permuteMap.compose(oldMap.getValue()));
+        clonedOp->setAttr(AffineStoreOp::getMapAttrStrName(), newMap);
       }
-      rewriter.clone(*storeOp.getOperation(), operandMap);
       rewriter.eraseOp(storeOp);
     }
 
@@ -394,18 +394,37 @@ private:
         if (user == loadOp.getOperation())
           continue;
         if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user)) {
-          // Store's input must be defined by a memref.alloc.
-          Value storeMemref = storeOp.getMemref();
-          if (storeMemref.isa<BlockArgument>())
-            return false;
-          Operation *allocOp = storeMemref.getDefiningOp();
-          if (!isa<memref::AllocOp>(allocOp))
+          // Check unstick -> load -> store -> stick.
+          if (!matchUnstickLoadStoreStick(storeOp))
             return false;
           storeOps.emplace_back(storeOp);
         } else
           return false;
       }
     }
+
+    // Not match if there is a "strange" AffineStoreOp that stores to MemRef.
+    // The AffineStoreOp is strange in the sense that it does not store a value
+    // that comes from AffineLoadOp. For example, in PadOp, there is a loop that
+    // directly stores a zero constant to a MemRef. In that case there is no way
+    // to create a F16 constant in Z.
+    // TODO: Support this situation.
+    for (AffineStoreOp storeOp : storeOps) {
+      Value destMemref = storeOp.getMemref();
+      for (Operation *user : destMemref.getUsers()) {
+        if (user == storeOp.getOperation())
+          continue;
+        if (auto otherStoreOp = llvm::dyn_cast<AffineStoreOp>(user)) {
+          if (llvm::all_of(storeOps,
+                  [&](AffineStoreOp op) { return (op != otherStoreOp); })) {
+            // Check unstick -> load -> store -> stick.
+            if (!matchUnstickLoadStoreStick(otherStoreOp))
+              return false;
+          }
+        }
+      }
+    }
+
     return (storeOps.size() != 0);
   }
 
@@ -419,9 +438,16 @@ private:
       for (Operation *user : destMemref.getUsers()) {
         if (user == storeOp.getOperation())
           continue;
-        if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user))
+        if (llvm::dyn_cast<AffineStoreOp>(user))
           continue;
         if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
+          // Do not support layout 1D and 2DS since their access index
+          // functions are incorrect:
+          // https://github.com/onnx/onnx-mlir/issues/1940
+          std::string stickLayout = stick.getLayout().value().str();
+          if ((stickLayout == LAYOUT_1D) || (stickLayout == LAYOUT_2DS))
+            return false;
+
           if (myStickOp)
             return false;
           else
@@ -433,6 +459,85 @@ private:
       StoreOpStickOpMap[storeOp] = myStickOp;
     }
     return (stickOps.size() != 0);
+  }
+
+  // Check this sequence: unstick -> load -> store -> stick.
+  bool matchUnstickLoadStoreStick(AffineStoreOp storeOp) const {
+    Value destMemref = storeOp.getMemref();
+    Value storeValue = storeOp.getValue();
+
+    // Store's input must be defined by a memref.alloc.
+    if (destMemref.isa<BlockArgument>())
+      return false;
+    Operation *allocOp = destMemref.getDefiningOp();
+    if (!isa<memref::AllocOp>(allocOp))
+      return false;
+
+    // Users of AffineStoreOp's MemRef must be StoreOp and StickOp.
+    if (!matchMultipleStoreSingleStick(destMemref))
+      return false;
+
+    // Check if the store value is from AffineLoadOp or not.
+    if (isa<BlockArgument>(storeValue))
+      return false;
+    if (auto loadOp = dyn_cast<AffineLoadOp>(storeValue.getDefiningOp())) {
+      // Check if loading from MemRef that is unstickified.
+      Value memRef = loadOp.getMemref();
+      if (!matchMultipleLoadSingleUnstick(memRef))
+        return false;
+    } else
+      return false;
+
+    return true;
+  }
+
+  // Users of MemRef must be StoreOp and StickOp.
+  bool matchMultipleStoreSingleStick(Value memRef) const {
+    if (isa<BlockArgument>(memRef))
+      return false;
+    ZLowStickOp stickOp;
+    AffineStoreOp storeOp;
+    for (Operation *user : memRef.getUsers()) {
+      // At least one StoreOp.
+      if (auto store = llvm::dyn_cast<AffineStoreOp>(user)) {
+        storeOp = store;
+        continue;
+      }
+      // Only one StickOp.
+      if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
+        if (stickOp)
+          return false;
+        stickOp = stick;
+        continue;
+      }
+      return false;
+    }
+    return (storeOp && stickOp);
+  }
+
+  // Users of MemRef must be LoadOp and UnstickOp.
+  bool matchMultipleLoadSingleUnstick(Value memRef) const {
+    if (isa<BlockArgument>(memRef))
+      return false;
+    ZLowUnstickOp unstickOp;
+    AffineLoadOp loadOp;
+    for (Operation *user : memRef.getUsers()) {
+      // At least one LoadOp.
+      if (auto load = dyn_cast<AffineLoadOp>(user)) {
+        loadOp = load;
+        continue;
+      }
+      // Only one UnstickOp.
+      if (auto unstick = dyn_cast<ZLowUnstickOp>(user)) {
+        if (unstickOp)
+          return false;
+        else
+          unstickOp = unstick;
+        continue;
+      }
+      return false;
+    }
+    return (loadOp && unstickOp);
   }
 };
 
