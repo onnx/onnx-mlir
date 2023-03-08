@@ -32,7 +32,6 @@ struct ONNXRandomNormalLikeOpLowering
       ONNXRandomNormalLikeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     Operation *op = randOp.getOperation();
-    ValueRange operands = adaptor.getOperands();
     Location loc = ONNXLoc<ONNXRandomNormalLikeOp>(op);
     Value input = adaptor.getInput();
 

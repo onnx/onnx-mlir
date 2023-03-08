@@ -15,7 +15,7 @@
 #include "src/Version/Version.hpp"
 
 #include "VCSVersion.inc"
-#include "llvm/Support/Host.h"
+#include "llvm/TargetParser/Host.h"
 
 namespace onnx_mlir {
 
