@@ -37,7 +37,7 @@ struct OMTensorList {
    *
    * Create an OMTensorList with specified OMTensor pointer array, the size of
    * the array and indication of whether or not to perform a shallow destroy of
-   * the OMTensorLisr
+   * the OMTensorList
    */
   OMTensorList(OMTensor *omts[], int64_t n, bool shallow = false)
       : _omts(omts), _size(n), _shallow(shallow){};
@@ -72,8 +72,7 @@ struct OMTensorList {
 
 /* OMTensorList creator */
 OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
-  OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
-  omTensorListCreateWithShallow(tensors, n, false);
+  return omTensorListCreateWithShallow(tensors, n, false);
 }
 
 /* OMTensorList creator with shallow destructor */
