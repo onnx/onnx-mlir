@@ -20,14 +20,16 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXShapeOpLowering : public ConversionPattern {
+struct ONNXShapeOpLowering : public OpConversionPattern<ONNXShapeOp> {
   ONNXShapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXShapeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXShapeOp shapeOp, ONNXShapeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
+    Operation *op = shapeOp.getOperation();
+    Location loc = ONNXLoc<ONNXShapeOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);

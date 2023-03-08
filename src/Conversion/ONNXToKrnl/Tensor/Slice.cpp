@@ -19,15 +19,16 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXSliceOpLowering : public ConversionPattern {
+struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
   ONNXSliceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXSliceOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXSliceOp sliceOp, ONNXSliceOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXSliceOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = sliceOp.getOperation();
+    Location loc = ONNXLoc<ONNXSliceOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
         create(rewriter, loc);
 
@@ -63,8 +64,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
             storeIndices.emplace_back(inductionIndex);
           }
           // Load data and store in alloc data.
-          Value loadVal =
-              createKrnl.loadIE(operandAdaptor.getData(), loadIndices);
+          Value loadVal = createKrnl.loadIE(adaptor.getData(), loadIndices);
           createKrnl.storeIE(loadVal, alloc, storeIndices);
         });
 

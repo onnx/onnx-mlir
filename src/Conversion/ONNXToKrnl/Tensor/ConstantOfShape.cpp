@@ -18,20 +18,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
+struct ONNXConstantOfShapeOpLowering
+    : public OpConversionPattern<ONNXConstantOfShapeOp> {
   ONNXConstantOfShapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXConstantOfShapeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXConstantOfShapeOp constantOp,
+      ONNXConstantOfShapeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ONNXConstantOfShapeOpAdaptor operandAdaptor(operands);
+    Operation *op = constantOp.getOperation();
+    Location loc = ONNXLoc<ONNXConstantOfShapeOp>(op);
 
-    auto valueAttr = llvm::cast<ONNXConstantOfShapeOp>(op)
-                         .getValue()
-                         .value()
-                         .cast<DenseElementsAttr>();
+    auto valueAttr = adaptor.getValue().value().cast<DenseElementsAttr>();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -56,7 +54,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
       for (decltype(rank) i = 0; i < rank; ++i) {
         if (outputShape[i] == ShapedType::kDynamic) {
           Value index = create.math.constantIndex(i);
-          Value dim = create.krnl.load(operandAdaptor.getInput(), index);
+          Value dim = create.krnl.load(adaptor.getInput(), index);
           Value dimIndex = create.math.castToIndex(dim);
           allocOperands.emplace_back(dimIndex);
         }

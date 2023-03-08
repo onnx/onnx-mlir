@@ -285,15 +285,25 @@ def generate_random_input(input_signature, input_shapes):
         np_elem_type = MLIR_TYPE_TO_NP_TYPE[elem_type]
         # Set a range for random values.
         lb = ub = 0
+        random_element_type = np_elem_type
         if (np.issubdtype(np_elem_type, np.floating)):
             lb = -1.0
             ub = 1.0
+
         elif (np.issubdtype(np_elem_type, np.integer)):
             lb = -10
             ub = 10
+        elif (np.issubdtype(np_elem_type, np.dtype(bool).type)):
+            # For some reason, random.uniform with lb/ub to 0/1 resulted in 1 only.
+            lb = -10
+            ub = 9
+            random_element_type = np.dtype("int32")
         else:
             raise AssertionError("Unsuported element type")
-        rinput = np.random.uniform(lb, ub, explicit_shape).astype(np_elem_type)
+        rinput = np.random.uniform(lb, ub, explicit_shape).astype(random_element_type)
+        # For boolean, transform range into True/False using greater_equal
+        if (np.issubdtype(np_elem_type, np.dtype(bool).type)):
+            rinput = np.greater_equal(rinput, [0])
         print(
             "  - {} input's shape {}, element type {}.".format(
                 ordinal(i + 1), rinput.shape, np_elem_type),
@@ -498,10 +508,14 @@ def main():
                 for index, actual_val in np.ndenumerate(outs[i]):
                     total_elements += 1
                     ref_val = ref_outs[i][index]
-                    # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                    diff = float(args.atol) + float(args.rtol) * abs(ref_val)
-                    if (abs(actual_val - ref_val) <= diff):
-                        continue
+                    if (np.issubdtype(outs[i].dtype, bool)):
+                        if ref_val == actual_val:
+                            continue
+                    else:
+                        # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+                        diff = float(args.atol) + float(args.rtol) * abs(ref_val)
+                        if (abs(actual_val - ref_val) <= diff):
+                            continue
                     mismatched_elements += 1
                     print("  at {}".format(index),
                           "mismatch {} (actual)".format(actual_val),

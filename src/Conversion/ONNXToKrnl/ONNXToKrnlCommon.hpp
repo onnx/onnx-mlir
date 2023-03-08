@@ -84,7 +84,7 @@ struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...>
 //===----------------------------------------------------------------------===//
 
 /// Check if all operands are scalar values at compile time.
-bool hasAllScalarValues(llvm::ArrayRef<mlir::Value> values);
+bool hasAllScalarValues(mlir::ValueRange values);
 
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
 /// integer constants.
@@ -159,16 +159,26 @@ mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
+
+// Definition for easier readability
+using NotSuportedScalarOp = void; // unsupported, e.g. integer version of cos.
+using CustomScalarOp = void *;    // custom support, e.g. float version of cosh.
+using SimdScalarOp = std::true_type;    // scalar op can be simdized.
+using NoSimdScalarOp = std::false_type; // scalar op cannot be simdized.
+
 template <typename Op>
 struct ScalarOp {
-  using FOp = void;
-  using IOp = void;
+  using FOp = NotSuportedScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <typename FOp>
 using ScalarFOp = typename ScalarOp<FOp>::FOp;
 template <typename IOp>
 using ScalarIOp = typename ScalarOp<IOp>::IOp;
+template <typename IOp>
+using SimdizableOp = typename ScalarOp<IOp>::SimdEnabled;
 
 // Get the identity element of an operation.
 // Return NULL if the function does not have identity.
@@ -193,20 +203,22 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
   // than its input(s), e.g. isNan where inputs are float and output is boolean
   // int. Thus we look at the type the first input argument, and not the output
   // elementType.
-  mlir::Type actualElementType = scalarOperands[0].getType();
-  mlir::VectorType vectorType = elementType.dyn_cast<mlir::VectorType>();
-  if (vectorType)
-    actualElementType = vectorType.getElementType();
+  mlir::Type actualElementType =
+      MathBuilder::elementTypeWithVector(scalarOperands[0].getType());
   // Perform int or float operation depending on the actual elementary type.
   if (actualElementType.isa<mlir::IntegerType>()) {
-    // Generate the code only if the scalar integer op is non-void.
-    if constexpr (!(std::is_same<ScalarIOp<Op>, void>::value))
+    // Generate the integer code only if the scalar integer op is non-void
+    // (unsupported) and non-int (supported by custom sequence of ops).
+    if constexpr (!(std::is_same<ScalarIOp<Op>, NotSuportedScalarOp>::value) &&
+                  !(std::is_same<ScalarIOp<Op>, CustomScalarOp>::value))
       return rewriter.create<ScalarIOp<Op>>(
           loc, elementType, scalarOperands, std::nullopt);
     llvm_unreachable("unsupported integer operation");
   } else if (actualElementType.isa<mlir::FloatType>()) {
-    // Generate the code only if the scalar float op is non-void.
-    if constexpr (!(std::is_same<ScalarFOp<Op>, void>::value))
+    // Generate the floating point code only if the scalar integer op is
+    // non-void (unsupported) and non-int (supported by custom sequence of ops).
+    if constexpr (!(std::is_same<ScalarFOp<Op>, NotSuportedScalarOp>::value) &&
+                  !(std::is_same<ScalarFOp<Op>, CustomScalarOp>::value))
       return rewriter.create<ScalarFOp<Op>>(
           loc, elementType, scalarOperands, std::nullopt);
     llvm_unreachable("unsupported float operation");
@@ -441,5 +453,11 @@ mlir::Value getOptionalScalarValue(mlir::ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 
 mlir::MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(mlir::Type type);
+
+// Determine if the MemRef val has a custom layout (i.e. non-identity).
+bool hasNonIdentityLayout(mlir::Value val);
+// Determine if one or more operands have custom layouts. Return false when
+// every layout is an identity layout.
+bool hasNonIdentityLayout(mlir::ValueRange operands);
 
 } // namespace onnx_mlir

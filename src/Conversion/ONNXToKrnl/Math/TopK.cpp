@@ -19,15 +19,15 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXTopKOpLowering : public ConversionPattern {
+struct ONNXTopKOpLowering : public OpConversionPattern<ONNXTopKOp> {
   ONNXTopKOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXTopKOp::getOperationName(), 1, ctx) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      : OpConversionPattern(typeConverter, ctx) {}
+  LogicalResult matchAndRewrite(ONNXTopKOp topKOp, ONNXTopKOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    Value X = operandAdaptor.getX();
+    Operation *op = topKOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Location loc = ONNXLoc<ONNXTopKOp>(op);
+    Value X = adaptor.getX();
 
     // Builders.
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
@@ -44,10 +44,10 @@ struct ONNXTopKOpLowering : public ConversionPattern {
 
     // Op's Attributes.
     int64_t rank = resMemRefType.getRank();
-    int64_t axis = operandAdaptor.getAxis();
+    int64_t axis = adaptor.getAxis();
     axis = axis < 0 ? axis + rank : axis;
     assert(axis >= 0 && axis < rank && "axis is out of bound");
-    bool ascendingMode = operandAdaptor.getLargest() != 1;
+    bool ascendingMode = adaptor.getLargest() != 1;
     // According to ONNX TopK: 'If "sorted" is 0, order of returned 'Values' and
     // 'Indices' are undefined'.
     // In this case, we still return sorted values and indices to make them
