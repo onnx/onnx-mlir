@@ -145,6 +145,10 @@ using ONNXCastLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCastOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCeilOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCeluOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXClipOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXClipV11OpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXClipV12OpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXClipV6OpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCosOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCoshOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCumSumOpShapeHelper = ONNXUnaryOpShapeHelper;
@@ -706,10 +710,12 @@ struct ONNXNonSpecificOpShapeHelper : public ONNXOpShapeHelper {
 // clang-format off
 using ONNXBatchNormalizationInferenceModeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXBatchNormalizationInferenceModeOp>;
 using ONNXCategoryMapperOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
+#if 0
 using ONNXClipOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
+using ONNXClipV9OpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipV9Op>;
 using ONNXClipV11OpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipV11Op>;
 using ONNXClipV12OpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipV12Op>;
-using ONNXClipV6OpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipV6Op>;
+#endif
 using ONNXCompressOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
 using ONNXConcatOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
 using ONNXConcatShapeTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;

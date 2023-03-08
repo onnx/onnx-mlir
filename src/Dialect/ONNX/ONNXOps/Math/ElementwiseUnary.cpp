@@ -178,6 +178,42 @@ LogicalResult ONNXCeluOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Clip
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXClipOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// ClipV6
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXClipV6Op::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// ClipV11
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXClipV11Op::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// ClipV12
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXClipV12Op::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
 // Cos
 //===----------------------------------------------------------------------===//
 
