@@ -17,7 +17,6 @@
 #define ONNX_MLIR_OMTENSORLIST_H
 
 #include "onnx-mlir/Runtime/OMTensor.h"
-#include <stdbool.h>
 
 struct OMTensorList;
 
@@ -62,7 +61,7 @@ OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreate(
  *
  */
 OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreateWithShallow(
-    OMTensor **tensors, int64_t n, bool shallow);
+    OMTensor **tensors, int64_t n, int64_t shallow);
 
 /**
  * \brief OMTensorList destroyer

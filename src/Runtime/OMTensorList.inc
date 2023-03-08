@@ -27,7 +27,6 @@
 
 #include "onnx-mlir/Runtime/OMTensorList.h"
 #include <string.h>
-#include <stdbool.h>
 
 struct OMTensorList {
 #ifdef __cplusplus
@@ -39,8 +38,9 @@ struct OMTensorList {
    * the array and indication of whether or not to perform a shallow destroy of
    * the OMTensorList
    */
-  OMTensorList(OMTensor *omts[], int64_t n, bool shallow = false)
-      : _omts(omts), _size(n), _shallow(shallow){};
+  OMTensorList(OMTensor *omts[], int64_t n) : _omts(omts), _size(n) {
+    _shallow = false;
+  };
 
   /**
    * Destructor
@@ -65,9 +65,10 @@ struct OMTensorList {
 
   int64_t _size; // Number of elements in _omts.
 
-  bool _shallow; // indicates whether we want to perform a shallow destroy which
-                 // means the tensors are not destroyed but rather the list as
-                 // well as the pointer to the OMTensor array are freed.
+  int64_t
+      _shallow; // indicates whether we want to perform a shallow destroy which
+                // means the tensors are not destroyed but rather the list as
+                // well as the pointer to the OMTensor array are freed.
 };
 
 /* OMTensorList creator */
@@ -77,7 +78,7 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
 
 /* OMTensorList creator with shallow destructor */
 OMTensorList *omTensorListCreateWithShallow(
-    OMTensor **tensors, int64_t n, bool shallow) {
+    OMTensor **tensors, int64_t n, int64_t shallow) {
   OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
   if (!list)
     return NULL;
