@@ -197,6 +197,8 @@ public:
       ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
     Location loc = unstickOp.getLoc();
     Operation *op = unstickOp.getOperation();
+    MLIRContext *ctx = unstickOp.getContext();
+
     // stickifiedMemRef has affine layout, e.g. MemRef<1x3x5xf32, #map>
     Value stickifiedMemRef = unstickOp.getX();
     // cpuMemRef has no affine layout, e.g. MemRef<1x3x5xf32>
@@ -274,19 +276,17 @@ public:
       // Clone loadOp with new Memref, indices and return type.
       IRMapping operandMap;
       operandMap.map(loadOp.getMemref(), stickifiedMemRef);
-      if (unstickNCHWLayout) {
-        // Permute indices in case of NCHW layout.
-        // for zlow.unstick: input is NHWC, output is NCHW.
-        ValueRange NCHWIndices = loadOp.getIndices();
-        SmallVector<Value, 4> NHWCIndices;
-        NHWCIndices.emplace_back(NCHWIndices[0]); // N
-        NHWCIndices.emplace_back(NCHWIndices[2]); // H
-        NHWCIndices.emplace_back(NCHWIndices[3]); // W
-        NHWCIndices.emplace_back(NCHWIndices[1]); // C
-        operandMap.map(NCHWIndices, NHWCIndices);
-      }
       Operation *clonedOp = rewriter.clone(*loadOp.getOperation(), operandMap);
       clonedOp->getResult(0).setType(stickifiedElementType);
+      // Permute affine_map in case of NCHW layout.
+      if (unstickNCHWLayout) {
+        AffineMapAttr oldMap = loadOp.getAffineMapAttr();
+        // NCHW -> NHWC
+        AffineMap permuteMap = AffineMap::getPermutationMap({0, 2, 3, 1}, ctx);
+        AffineMapAttr newMap =
+            AffineMapAttr::get(permuteMap.compose(oldMap.getValue()));
+        clonedOp->setAttr(AffineLoadOp::getMapAttrStrName(), newMap);
+      }
       // This DummyOp is used to make the intermediate generated code valid. It
       // wil be removed automatically via canonicalization.
       Value dummyConverter = rewriter.create<ZLowDummyOp>(
@@ -345,18 +345,16 @@ public:
       IRMapping operandMap;
       operandMap.map(storeOp.getMemref(), stickMemref);
       operandMap.map(storeOp.getValue(), dummyConverter);
-      // Permute indices in case of NCHW layout.
+      Operation *clonedOp = rewriter.clone(*storeOp.getOperation(), operandMap);
+      // Permute affine_map in case of NCHW layout.
       if (stickNCHWLayout) {
-        // for zlow.stick: input is NCHW, output is NHWC.
-        ValueRange NCHWIndices = storeOp.getIndices();
-        SmallVector<Value, 4> NHWCIndices;
-        NHWCIndices.emplace_back(NCHWIndices[0]); // N
-        NHWCIndices.emplace_back(NCHWIndices[2]); // H
-        NHWCIndices.emplace_back(NCHWIndices[3]); // W
-        NHWCIndices.emplace_back(NCHWIndices[1]); // C
-        operandMap.map(NCHWIndices, NHWCIndices);
+        AffineMapAttr oldMap = storeOp.getAffineMapAttr();
+        // NCHW -> NHWC
+        AffineMap permuteMap = AffineMap::getPermutationMap({0, 2, 3, 1}, ctx);
+        AffineMapAttr newMap =
+            AffineMapAttr::get(permuteMap.compose(oldMap.getValue()));
+        clonedOp->setAttr(AffineStoreOp::getMapAttrStrName(), newMap);
       }
-      rewriter.clone(*storeOp.getOperation(), operandMap);
       rewriter.eraseOp(storeOp);
     }
 

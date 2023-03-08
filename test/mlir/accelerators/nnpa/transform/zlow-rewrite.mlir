@@ -18,6 +18,7 @@ func.func @test_remove_unstick_view_stick(%arg0: memref<7x4x1x8x32x64xf16>) -> (
 
 // Remove zlow.stick and zlow.unstick in pattern: unstick -> transpose -> stick.
 // Test a simple transpose.
+
 #map = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
 func.func @unstick_transpose_stick(%arg0: memref<5x10xf16, #map>) -> memref<10x5xf16, #map> {
   // Unstick
@@ -36,6 +37,7 @@ func.func @unstick_transpose_stick(%arg0: memref<5x10xf16, #map>) -> memref<10x5
   "zlow.stick"(%1, %4) {layout = "2D"} : (memref<10x5xf32>, memref<10x5xf16, #map>) -> ()
   return %4 : memref<10x5xf16, #map>
 
+// mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
 // CHECK-LABEL:  func.func @unstick_transpose_stick
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<5x10xf16, #map>) -> memref<10x5xf16, #map> {
@@ -48,7 +50,6 @@ func.func @unstick_transpose_stick(%arg0: memref<5x10xf16, #map>) -> memref<10x5
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<10x5xf16, #map>
 // CHECK:         }
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
 }
 
 // -----
@@ -80,6 +81,7 @@ func.func @unstick_transpose_stick_unknown(%arg0: memref<?x?xf16, #map>) -> memr
   "zlow.stick"(%1, %4) {layout = "2D"} : (memref<?x?xf32>, memref<?x?xf16, #map>) -> ()
   return %4 : memref<?x?xf16, #map>
 
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
 // CHECK-LABEL:  func.func @unstick_transpose_stick_unknown
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?xf16, #map>) -> memref<?x?xf16, #map> {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
@@ -141,6 +143,74 @@ func.func @unstick_affinefor_stick_diff_layout(%arg0: memref<1x1x1x2048xf16, #ma
 // CHECK:             }
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x2048xf16, #map1>
+// CHECK:         }
+}
+
+// -----
+
+// Remove zlow.stick and zlow.unstick in pattern: unstick -> pad -> stick
+// where layout is NCHW. This is to check whether access indices are rearranged
+// correctly or not.
+
+#map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+func.func @unstick_pad_stick_nchw(%arg0: memref<?x56x56x128xf16, #map>) -> memref<?x58x58x128xf16, #map> {
+  %c0 = arith.constant 0 : index
+  %dim = memref.dim %arg0, %c0 : memref<?x56x56x128xf16, #map>
+  %alloc = memref.alloc(%dim) {alignment = 4096 : i64} : memref<?x128x56x56xf32>
+  "zlow.unstick"(%arg0, %alloc) {layout = "NCHW"} : (memref<?x56x56x128xf16, #map>, memref<?x128x56x56xf32>) -> ()
+  %alloc_0 = memref.alloc(%dim) {alignment = 16 : i64} : memref<?x128x58x58xf32>
+  %cst = arith.constant 0.000000e+00 : f32
+  affine.for %arg1 = 0 to %dim {
+    affine.for %arg2 = 0 to 128 {
+      affine.for %arg3 = 0 to 58 {
+        affine.for %arg4 = 0 to 58 {
+          affine.store %cst, %alloc_0[%arg1, %arg2, %arg3, %arg4] : memref<?x128x58x58xf32>
+        }
+      }
+    }
+  }
+  affine.for %arg1 = 0 to %dim {
+    affine.for %arg2 = 0 to 128 {
+      affine.for %arg3 = 0 to 56 {
+        affine.for %arg4 = 0 to 56 {
+          %0 = affine.load %alloc[%arg1, %arg2, %arg3, %arg4] : memref<?x128x56x56xf32>
+          affine.store %0, %alloc_0[%arg1, %arg2, %arg3 + 1, %arg4 + 1] : memref<?x128x58x58xf32>
+        }
+      }
+    }
+  }
+  %alloc_1 = memref.alloc(%dim) {alignment = 4096 : i64} : memref<?x58x58x128xf16, #map>
+  "zlow.stick"(%alloc_0, %alloc_1) {layout = "NCHW"} : (memref<?x128x58x58xf32>, memref<?x58x58x128xf16, #map>) -> ()
+  return %alloc_1 : memref<?x58x58x128xf16, #map>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
+// CHECK-LABEL:  func.func @unstick_pad_stick_nchw
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x56x56x128xf16, [[MAP_0_]]>) -> memref<?x58x58x128xf16, [[MAP_0_]]> {
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK:           [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x56x56x128xf16, [[MAP_0_]]>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x128x58x58xf32>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x58x58x128xf16, [[MAP_0_]]>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to [[VAR_dim_]] {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 128 {
+// CHECK:               affine.for [[I_2_:%.+]] = 0 to 58 {
+// CHECK:                 affine.for [[I_3_:%.+]] = 0 to 58 {
+// CHECK:                   affine.store [[CST_0_dot_000000_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]], [[I_3_]]{{.}} : memref<?x128x58x58xf32>
+// CHECK:                 }
+// CHECK:               }
+// CHECK:             }
+// CHECK:           }
+// CHECK:           affine.for [[I_4_:%.+]] = 0 to [[VAR_dim_]] {
+// CHECK:             affine.for [[I_5_:%.+]] = 0 to 128 {
+// CHECK:               affine.for [[I_6_:%.+]] = 0 to 56 {
+// CHECK:                 affine.for [[I_7_:%.+]] = 0 to 56 {
+// CHECK:                   [[LOAD_PARAM_0_MEM_:%.+]] = affine.load [[PARAM_0_]]{{.}}[[I_4_]], [[I_6_]], [[I_7_]], [[I_5_]]{{.}} : memref<?x56x56x128xf16, [[MAP_0_]]>
+// CHECK:                   affine.store [[LOAD_PARAM_0_MEM_]], [[RES_1_]]{{.}}[[I_4_]], [[I_6_]] + 1, [[I_7_]] + 1, [[I_5_]]{{.}} : memref<?x58x58x128xf16, [[MAP_0_]]>
+// CHECK:                 }
+// CHECK:               }
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return [[RES_1_]] : memref<?x58x58x128xf16, [[MAP_0_]]>
 // CHECK:         }
 }
 
@@ -434,8 +504,8 @@ func.func @should_not_rewrite_unstick_transpose_stick_1(%arg0: memref<5x10xf16, 
 
 // CHECK-LABEL:  func.func @should_not_rewrite_unstick_transpose_stick_1
 // CHECK: zlow.unstick
-// CHECK: affine.for 
-// CHECK: affine.for 
+// CHECK: affine.for
+// CHECK: affine.for
 // CHECK: affine.load {{.*}} memref<5x10xf32>
 // CHECK: affine.store {{.*}} memref<10x5xf32>
 // CHECK: zlow.stick
@@ -449,7 +519,7 @@ func.func @should_not_rewrite_unstick_transpose_stick_2(%arg0: memref<5x10xf16, 
   %0 = memref.alloc() {alignment = 4096 : i64} : memref<5x10xf32>
   "zlow.unstick"(%arg0, %0) {layout = "2D"} : (memref<5x10xf16, #map>, memref<5x10xf32>) -> ()
 
-  // There are two consumers of %0. We cannot totally remove %0 and zlow.unstick. 
+  // There are two consumers of %0. We cannot totally remove %0 and zlow.unstick.
 
   // First consumer of %0 that is followed by zlow.stick
   %1 = memref.alloc() {alignment = 16 : i64} : memref<10x5xf32>
@@ -474,12 +544,12 @@ func.func @should_not_rewrite_unstick_transpose_stick_2(%arg0: memref<5x10xf16, 
 
 // CHECK-LABEL:  func.func @should_not_rewrite_unstick_transpose_stick_2
 // CHECK: zlow.unstick
-// CHECK: affine.for 
-// CHECK: affine.for 
+// CHECK: affine.for
+// CHECK: affine.for
 // CHECK: affine.load {{.*}} memref<5x10xf32>
 // CHECK: affine.store {{.*}} memref<10x5xf32>
-// CHECK: affine.for 
-// CHECK: affine.for 
+// CHECK: affine.for
+// CHECK: affine.for
 // CHECK: affine.load {{.*}} memref<5x10xf32>
 // CHECK: affine.store {{.*}} memref<5x10xf32>
 // CHECK: zlow.stick
@@ -499,7 +569,7 @@ func.func @should_not_rewrite_unstick_transpose_stick_3(%arg0: memref<5x10xf16, 
       affine.store %3, %1[%arg2, %arg1] : memref<10x5xf32>
     }
   }
-  // There are two consumers of %1. We cannot totally remove %1 and zlow.stick. 
+  // There are two consumers of %1. We cannot totally remove %1 and zlow.stick.
   // First consumer of %1 that is zlow.stick
   %4 = memref.alloc() {alignment = 4096 : i64} : memref<10x5xf16, #map>
   "zlow.stick"(%1, %4) {layout = "2D"} : (memref<10x5xf32>, memref<10x5xf16, #map>) -> ()
@@ -515,13 +585,13 @@ func.func @should_not_rewrite_unstick_transpose_stick_3(%arg0: memref<5x10xf16, 
 
 // CHECK-LABEL:  func.func @should_not_rewrite_unstick_transpose_stick_3
 // CHECK: zlow.unstick
-// CHECK: affine.for 
-// CHECK: affine.for 
+// CHECK: affine.for
+// CHECK: affine.for
 // CHECK: affine.load {{.*}} memref<5x10xf32>
 // CHECK: affine.store {{.*}} memref<10x5xf32>
 // CHECK: zlow.stick
-// CHECK: affine.for 
-// CHECK: affine.for 
+// CHECK: affine.for
+// CHECK: affine.for
 // CHECK: affine.load {{.*}} memref<10x5xf32>
 // CHECK: affine.store {{.*}} memref<10x5xf32>
 }
