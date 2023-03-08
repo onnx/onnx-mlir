@@ -36,7 +36,8 @@ struct OMTensorList {
    *
    * Create an OMTensorList with specified OMTensor pointer array, the size of
    * the array and indication of whether or not to perform a shallow destroy of
-   * the OMTensorList when explicitly calling the OMTensorListDestroy method
+   * the OMTensorList when explicitly calling the OMTensorListDestroyShallow
+   * method
    */
   OMTensorList(OMTensor *omts[], int64_t n) : _omts(omts), _size(n) {
     _shallow = false;
@@ -69,62 +70,63 @@ struct OMTensorList {
                     // regular destroy when calling the explicit
                     // omTensorListDestroyShallow or
                     //  omTensorListDestroy method.
+};
 
-  /* OMTensorList creator */
-  OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
-    return omTensorListCreateWithShallow(tensors, n, false);
+/* OMTensorList creator */
+OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
+  return omTensorListCreateWithShallow(tensors, n, false);
+}
+
+/* OMTensorList creator with shallow destructor */
+OMTensorList *omTensorListCreateWithShallow(
+    OMTensor **tensors, int64_t n, int64_t shallow) {
+  OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
+  if (!list)
+    return NULL;
+  list->_size = n;
+  list->_shallow = shallow;
+  list->_omts = (OMTensor **)malloc(sizeof(OMTensor *) * n);
+
+  if (!list->_omts) {
+    free(list); // free the previously allocated memory in case of an error
+    return NULL;
   }
+  // copy the pointers to the OMTensor array
+  // now OMTensorList will always own the tensor array of pointers
+  memcpy(tensors, list->_omts, list->_size);
 
-  /* OMTensorList creator with shallow destructor */
-  OMTensorList *omTensorListCreateWithShallow(
-      OMTensor **tensors, int64_t n, int64_t shallow) {
-    OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
-    if (!list)
-      return NULL;
-    list->_size = n;
-    list->_shallow = shallow;
-    list->_omts = (OMTensor **)malloc(sizeof(OMTensor *) * n);
+  return list;
+}
 
-    if (!list->_omts) {
-      free(list); // free the previously allocated memory in case of an error
-      return NULL;
-    }
-    // copy the pointers to the OMTensor array
-    // now OMTensorList will always own the tensor array of pointers
-    memcpy(tensors, list->_omts, list->_size);
+/* OMTensorList destroyer */
+void omTensorListDestroy(OMTensorList *list) {
+  if (!list)
+    return;
+  for (int64_t i = 0; i < list->_size; i++)
+    omTensorDestroy(list->_omts[i]);
+  // Free the list as well as the pointers to the OMTensor array
+  omTensorListDestroyShallow(list);
+}
 
-    return list;
-  }
+/* OMTensorList destroyer which does not destroy the tensors.
+ */
+void omTensorListDestroyShallow(OMTensorList *list) {
+  if (!list)
+    return;
+  // Free the list as well as the pointer to the OMTensor array
+  free(list->_omts);
+  free(list);
+}
 
-  /* OMTensorList destroyer */
-  void omTensorListDestroy(OMTensorList *list) {
-    if (!list)
-      return;
-    for (int64_t i = 0; i < list->_size; i++)
-      omTensorDestroy(list->_omts[i]);
-    // Free the list as well as the pointers to the OMTensor array
-    omTensorListDestroyShallow(list);
-  }
+/* OMTensorList OMTensor array getter */
+OMTensor **omTensorListGetOmtArray(OMTensorList *list) { return list->_omts; }
 
-  /* OMTensorList destroyer which does not destroy the tensors.
-   */
-  void omTensorListDestroyShallow(OMTensorList *list) {
-    if (!list)
-      return;
-    // Free the list as well as the pointer to the OMTensor array
-    free(list->_omts);
-    free(list);
-  }
+/* OMTensorList number of OMTensor getter */
+int64_t omTensorListGetSize(OMTensorList *list) { return list->_size; }
 
-  /* OMTensorList OMTensor array getter */
-  OMTensor **omTensorListGetOmtArray(OMTensorList *list) { return list->_omts; }
-
-  /* OMTensorList number of OMTensor getter */
-  int64_t omTensorListGetSize(OMTensorList *list) { return list->_size; }
-
-  /* Return OMTensor at specified index in the OMTensorList */
-  OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int64_t index) {
-    assert(index >= 0);
-    assert(index < rlist->_size);
-    return rlist->_omts[index];
-  }
+/* Return OMTensor at specified index in the OMTensorList */
+OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int64_t index) {
+  assert(index >= 0);
+  assert(index < rlist->_size);
+  return rlist->_omts[index];
+}
