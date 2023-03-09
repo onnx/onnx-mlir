@@ -262,6 +262,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXSequenceLengthOpPattern(patterns, typeConverter, ctx);
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(ctx);
+  // Additional
+  populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
 }
 
 //===----------------------------------------------------------------------===//
