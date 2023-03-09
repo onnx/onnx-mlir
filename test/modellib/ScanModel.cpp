@@ -137,7 +137,7 @@ bool ScanLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
       llvm::ArrayRef(initialShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(xShape), dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreate(list, num);
+  inputs = omTensorListCreate(list, num, false);
   return inputs && list[0] && list[1];
 }
 

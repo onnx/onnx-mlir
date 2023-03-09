@@ -149,7 +149,7 @@ bool LSTMLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
       llvm::ArrayRef(hShape), dataRangeHLL, dataRangeHUL);
   list[2] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(cShape), dataRangeCLL, dataRangeCUL);
-  inputs = omTensorListCreate(list, num);
+  inputs = omTensorListCreate(list, num, false);
   return inputs && list[0] && list[1] && list[2];
 }
 

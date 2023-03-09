@@ -70,7 +70,7 @@ bool MatMul2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
       omTensorCreateWithRandomData<float>({I, K}, dataRangeLB, dataRangeUB);
   list[1] =
       omTensorCreateWithRandomData<float>({K, J}, dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreate(list, num);
+  inputs = omTensorListCreate(list, num, false);
   return inputs && list[0] && list[1];
 }
 
@@ -176,7 +176,7 @@ bool MatMulSingleBroadcastLibBuilder::prepareInputs() {
     return false;
   list[0] = omTensorCreateWithRandomData<float>(aShape);
   list[1] = omTensorCreateWithRandomData<float>(bShape);
-  inputs = omTensorListCreate(list, num);
+  inputs = omTensorListCreate(list, num, false);
   return inputs && list[0] && list[1];
 }
 

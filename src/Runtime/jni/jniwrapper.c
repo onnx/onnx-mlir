@@ -501,7 +501,7 @@ OMTensorList *omtl_java_to_native(
    * OMTensor structs, jni_omts.
    */
   LIB_TYPE_VAR_CALL(OMTensorList *, jni_omtl,
-      omTensorListCreate(jni_omts, (int64_t)jomtl_omtn), jni_omtl != NULL, env,
+      omTensorListCreate(jni_omts, (int64_t)jomtl_omtn, false), jni_omtl != NULL, env,
       japi->jecpt_cls, "jni_omtl=%p", jni_omtl);
 
   return jni_omtl;

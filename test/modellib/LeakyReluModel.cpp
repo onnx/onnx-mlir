@@ -68,7 +68,7 @@ bool LeakyReluLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>({N}, dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreate(list, num);
+  inputs = omTensorListCreate(list, num, false);
   return inputs && list[0];
 }
 

@@ -96,7 +96,7 @@
  *   OMTensor *x2 = omTensorCreate(x2Data, shape, rank, ONNX_TYPE_FLOAT);
  *   // Construct a list of omts as input.
  *   OMTensor *list[2] = {x1, x2};
- *   OMTensorList *input = omTensorListCreate(list, 2);
+ *   OMTensorList *input = omTensorListCreate(list, 2, false);
  *   // Call the compiled onnx model function.
  *   OMTensorList *outputList = run_main_graph(input);
  *   if (!outputList) {

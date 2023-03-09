@@ -90,7 +90,7 @@ bool GemmLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
       llvm::ArrayRef(bShape), dataRangeLB, dataRangeUB);
   list[2] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(cShape), dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreate(list, num);
+  inputs = omTensorListCreate(list, num, false);
   return inputs && list[0] && list[1] && list[2];
 }
 

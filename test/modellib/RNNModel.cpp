@@ -123,7 +123,7 @@ bool RNNLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
       llvm::ArrayRef(xShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(hShape), dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreate(list, num);
+  inputs = omTensorListCreate(list, num, false);
   return inputs && list[0] && list[1];
 }
 

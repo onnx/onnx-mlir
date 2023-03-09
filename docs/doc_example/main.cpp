@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
   OMTensor *x2 = omTensorCreate(x2Data, shape, rank, ONNX_TYPE_FLOAT);
   // Construct a list of omts as input.
   OMTensor *list[2] = {x1, x2};
-  OMTensorList *input = omTensorListCreate(list, 2);
+  OMTensorList *input = omTensorListCreate(list, 2, false);
 
   // Call the compiled onnx model function.
   std::cout << "Start running model " << std::endl;

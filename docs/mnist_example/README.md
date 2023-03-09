@@ -208,8 +208,10 @@ int main() {
   OMTensor *tensor = omTensorCreateWithOwnership(img_data, shape, rank, ONNX_TYPE_FLOAT, /*owning=*/true);
 
   // Create a tensor list using omTensorListCreate (returns a pointer to the OMTensorList).
+  // The shallow flag is set to false which means the OMTensorListDestroy will be used when explicity called.
+
   inputTensors[0] = tensor;
-  OMTensorList *tensorListIn = omTensorListCreate(inputTensors, inputNum);
+  OMTensorList *tensorListIn = omTensorListCreate(inputTensors, inputNum, /*shallow=*/false);
 
   // Compute outputs.
   OMTensorList *tensorListOut = run_main_graph(tensorListIn);
