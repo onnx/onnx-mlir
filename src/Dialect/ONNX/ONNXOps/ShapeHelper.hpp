@@ -732,6 +732,7 @@ using ONNXRandomNormalOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRan
 using ONNXRangeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRangeOp>;
 using ONNXReshapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
 using ONNXReverseSequenceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
+using ONNXShapeTransformOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXShapeTransformOp>;
 using ONNXSizeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSizeOp>;
 using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
 using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
