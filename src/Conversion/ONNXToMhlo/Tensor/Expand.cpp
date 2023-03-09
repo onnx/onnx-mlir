@@ -68,10 +68,8 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     } else if (ONNXConstantOp shapeOp =
                    dyn_cast_or_null<ONNXConstantOp>(shapeDefOp)) {
       llvm::SmallVector<int64_t, 4> shapeValues;
-      mlir::DenseElementsAttr constShape =
-          getONNXConstantOp(shapeOp)
-              .getValueAttr()
-              .dyn_cast_or_null<mlir::DenseElementsAttr>();
+      mlir::ElementsAttr constShape =
+          shapeOp.getValueAttr().dyn_cast<ElementsAttr>();
       for (mlir::IntegerAttr element : constShape.getValues<IntegerAttr>())
         shapeValues.push_back(element.getInt());
       RankedTensorType broadcastedType =
