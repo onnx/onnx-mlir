@@ -88,10 +88,10 @@ std::vector<py::array> PyExecutionSession::pyRun(
     }
 
     auto *inputOMTensor = omTensorCreateWithOwnership(dataPtr,
-        (int64_t *)(const_cast<Py_ssize_t *>(inputPyArray.shape())),
+        const_cast<int64_t *>(inputPyArray.shape()),
         (int64_t)inputPyArray.ndim(), dtype, ownData);
     omTensorSetStridesWithPyArrayStrides(inputOMTensor,
-        (int64_t *)const_cast<Py_ssize_t *>(inputPyArray.strides()));
+        const_cast<int64_t *>(inputPyArray.strides()));
 
     omts.emplace_back(inputOMTensor);
   }
