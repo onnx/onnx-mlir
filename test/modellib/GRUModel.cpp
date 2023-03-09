@@ -127,7 +127,7 @@ bool GRULibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
       llvm::ArrayRef(xShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(hShape), dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreate(list, num, false);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1];
 }
 
