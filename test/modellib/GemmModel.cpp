@@ -81,7 +81,7 @@ bool GemmLibBuilder::build() {
 
 bool GemmLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 3;
-   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *)
+  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(

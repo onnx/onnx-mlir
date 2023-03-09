@@ -136,7 +136,7 @@ bool LSTMLibBuilder::build() {
 
 bool LSTMLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 3;
-  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *)
+  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
   float dataRangeHLL = (isNoneH) ? 0.0 : dataRangeLB;
