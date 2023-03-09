@@ -707,12 +707,6 @@ struct ONNXNonSpecificOpShapeHelper : public ONNXOpShapeHelper {
 // clang-format off
 using ONNXBatchNormalizationInferenceModeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXBatchNormalizationInferenceModeOp>;
 using ONNXCategoryMapperOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
-#if 0
-using ONNXClipOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
-using ONNXClipV9OpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipV9Op>;
-using ONNXClipV11OpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipV11Op>;
-using ONNXClipV12OpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipV12Op>;
-#endif
 using ONNXCompressOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
 using ONNXConcatOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
 using ONNXConcatShapeTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
