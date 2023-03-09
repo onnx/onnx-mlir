@@ -26,6 +26,8 @@
 #endif
 
 #include "onnx-mlir/Runtime/OMTensorList.h"
+#include <cstring>
+
 
 struct OMTensorList {
 #ifdef __cplusplus
