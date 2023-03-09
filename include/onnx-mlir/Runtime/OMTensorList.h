@@ -61,7 +61,7 @@ OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreate(
  *
  */
 OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreateWithShallow(
-    OMTensor **tensors, int64_t n, int64_t shallow);
+    OMTensor **tensors, int64_t n, bool shallow);
 
 /**
  * \brief OMTensorList destroyer

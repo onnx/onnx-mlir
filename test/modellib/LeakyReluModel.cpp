@@ -64,7 +64,7 @@ bool LeakyReluLibBuilder::build() {
 
 bool LeakyReluLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 1;
-  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  OMTensor* list[num];
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>({N}, dataRangeLB, dataRangeUB);
