@@ -38,29 +38,13 @@ extern "C" {
  *
  * @param tensors array of pointers to OMTensor
  * @param n number of elements in tensors array
- * @return pointer to the OMTensorList created, NULL if creation failed.
- *
- */
-OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreate(
-    OMTensor **tensors, int64_t n);
-
-/**
- * \brief OMTensorList creator with shallow
- *
- * Create an OMTensorList with specified OMTensor array.
- *
- * Internally OMTensorList creates its own copy of the passed-in tensor pointer
- * array. This copy is freed when the OMTensorList is destroyed.
- *
- * @param tensors array of pointers to OMTensor
- * @param n number of elements in tensors array
  * @param shallow whether we want to perform an OMTensorList shallow destroy,
  * if set to true, the list as well as the pointer to the OMTensor
  * array are freed. The tensors are not destroyed.
  * @return pointer to the OMTensorList created, NULL if creation failed.
  *
  */
-OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreateWithShallow(
+OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreate(
     OMTensor **tensors, int64_t n, bool shallow);
 
 /**

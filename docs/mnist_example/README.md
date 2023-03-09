@@ -229,9 +229,9 @@ int main() {
     }
   }
   // The OMTensorListDestroy will free all tensors in the OMTensorList
-  // upon destruction. It is important to note, that every tensor will be destroyed.
-  // To free the OMTensorList data structure but leave the tensors as is, use
-  // OMTensorListCreateWithShallow and OMTensorListDestroyShallow instead.
+  // upon destruction. It is important to note, that every tensor will
+  // be destroyed. To free the OMTensorList data structure but leave the
+  // tensors as is, use OMTensorListDestroyShallow instead.
   omTensorListDestroy(tensorListOut);
   omTensorListDestroy(tensorListIn);
 

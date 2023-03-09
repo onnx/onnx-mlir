@@ -48,11 +48,10 @@ struct OMTensorList {
    * Destroy the OMTensorList struct.
    */
   ~OMTensorList() {
-    if (_shallow)
-      omTensorListDestroyShallow(this);
-    else
-      /* Destroy all the OMTensors */
-      omTensorListDestroy(this);
+    /* Destroy all the OMTensors */
+    if (!_shallow)
+      for (int64_t i = 0; i < _size; i++)
+        omTensorDestroy(_omts[i]);
     free(_omts);
   };
 #endif
@@ -66,19 +65,13 @@ struct OMTensorList {
   int64_t _size; // Number of elements in _omts.
 
   bool _shallow; // indicates whether we want to perform a shallow destroy or
-                    // regular destroy when calling the explicit
-                    // omTensorListDestroyShallow or
-                    //  omTensorListDestroy method.
+                 // regular destroy when calling the explicit
+                 // omTensorListDestroyShallow or
+                 //  omTensorListDestroy method.
 };
 
 /* OMTensorList creator */
-OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
-  return omTensorListCreateWithShallow(tensors, n, false);
-}
-
-/* OMTensorList creator with shallow destructor */
-OMTensorList *omTensorListCreateWithShallow(
-    OMTensor **tensors, int64_t n, bool shallow) {
+OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n, bool shallow) {
   OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
   if (!list)
     return NULL;
