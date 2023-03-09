@@ -59,7 +59,8 @@ OM_EXTERNAL_VISIBILITY void omTensorListDestroy(OMTensorList *list);
 /**
  * \brief OMTensorList shallow destroyer which does not destroy the tensors.
  *
- * It does not destroy the OMTensorList. Rather, both the
+ * Destroys the OMTensorList and its internal array of pointers.
+ * The OMTensors inside the list are not destroyed. Rather, both the
  * ptr to the OMTensor pointers AND the OMTensor pointers are freed.
  *
  * @param list pointer to the OMTensorList to be freed. The function
