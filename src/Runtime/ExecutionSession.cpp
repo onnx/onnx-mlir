@@ -83,7 +83,8 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   std::vector<OMTensor *> omts;
   for (const auto &inOmt : ins)
     omts.emplace_back(inOmt.get());
-  auto *wrappedInput = omTensorListCreate(&omts[0], (int64_t)omts.size(), false);
+  auto *wrappedInput =
+      omTensorListCreate(&omts[0], (int64_t)omts.size(), false);
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
