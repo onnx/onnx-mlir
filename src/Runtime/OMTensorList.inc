@@ -34,9 +34,8 @@ struct OMTensorList {
    * Constructor
    *
    * Create an OMTensorList with specified OMTensor pointer array, the size of
-   * the array and indication of whether or not to perform a shallow destroy of
-   * the OMTensorList when explicitly calling the OMTensorListDestroyShallow
-   * method
+   * the array and the array and indication of whether the destructor should 
+   * use OMTensorListDestroyShallow
    */
   OMTensorList(OMTensor *omts[], int64_t n, bool shallow = false)
       : _omts(omts), _size(n), _shallow(shallow){};
