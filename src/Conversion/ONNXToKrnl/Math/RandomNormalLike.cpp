@@ -24,17 +24,16 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
+struct ONNXRandomNormalLikeOpLowering
+    : public OpConversionPattern<ONNXRandomNormalLikeOp> {
   ONNXRandomNormalLikeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXRandomNormalLikeOp::getOperationName(), 1, ctx) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      : OpConversionPattern(typeConverter, ctx) {}
+  LogicalResult matchAndRewrite(ONNXRandomNormalLikeOp randOp,
+      ONNXRandomNormalLikeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-
-    // Get the input memref:
-    ONNXRandomNormalLikeOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
+    Operation *op = randOp.getOperation();
+    Location loc = ONNXLoc<ONNXRandomNormalLikeOp>(op);
+    Value input = adaptor.getInput();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -67,13 +66,11 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     }
 
     // Create the Krnl Random Normal operation:
-    ONNXRandomNormalLikeOp randomNormalLikeOp =
-        cast<ONNXRandomNormalLikeOp>(op);
-    double mean = randomNormalLikeOp.getMean().convertToDouble();
+    double mean = adaptor.getMean().convertToDouble();
     Value meanValue = create.math.constant(elementType, mean);
-    double scale = randomNormalLikeOp.getScale().convertToDouble();
+    double scale = adaptor.getScale().convertToDouble();
     Value scaleValue = create.math.constant(elementType, scale);
-    auto seed = randomNormalLikeOp.getSeed();
+    auto seed = adaptor.getSeed();
     srand(time(NULL));
     double doubleSeed = rand() % 100;
     if (seed)
