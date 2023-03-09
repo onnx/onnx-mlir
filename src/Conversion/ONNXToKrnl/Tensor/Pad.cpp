@@ -74,17 +74,16 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
         cValue = create.math.constant(resElementType, 0);
       } else {
         SmallVector<Value, 1> loadIndices;
-        if (MemRefType constantValueType =
-                constantValue.getType().dyn_cast<MemRefType>()) {
-          if (constantValueType.getElementType().isF32() &&
-              constantValueType.getRank() == 1) {
-            // If the constant_value type is 1xf32 do krnl.load with an index of
-            // 0 to avoid an assertion failure in AffineLoadOp::build(). This is
-            // a work around for an incorrect ResNet50 model. The issue this
-            // fixes is issue number 1844.
-            Value idx = create.math.constantIndex(0);
-            loadIndices = {idx};
-          }
+        MemRefType constantValueType =
+            constantValue.getType().dyn_cast<MemRefType>();
+        if (constantValueType.getElementType().isF32() &&
+            constantValueType.getRank() == 1) {
+          // If the constant_value type is 1xf32 do krnl.load with an index of
+          // 0 to avoid an assertion failure in AffineLoadOp::build(). This is
+          // a work around for an incorrect ResNet50 model. The issue this
+          // fixes is issue number 1844.
+          Value idx = create.math.constantIndex(0);
+          loadIndices = {idx};
         }
         cValue = create.krnl.load(constantValue, loadIndices);
       }
