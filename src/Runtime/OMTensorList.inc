@@ -26,7 +26,6 @@
 #endif
 
 #include "onnx-mlir/Runtime/OMTensorList.h"
-#include <string.h>
 
 struct OMTensorList {
 #ifdef __cplusplus
@@ -64,10 +63,8 @@ struct OMTensorList {
 
   int64_t _size; // Number of elements in _omts.
 
-  bool _shallow; // indicates whether we want to perform a shallow destroy or
-                 // regular destroy when calling the explicit
-                 // omTensorListDestroyShallow or
-                 //  omTensorListDestroy method.
+  bool _shallow; // Internal boolean for the C++ constructor/destructor API
+                 // This indicates whether to perform a shallow destroy.
 };
 
 /* OMTensorList creator */
@@ -76,7 +73,6 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
   if (!list)
     return NULL;
   list->_size = n;
-  list->_shallow = false;
   list->_omts = (OMTensor **)malloc(sizeof(OMTensor *) * n);
 
   if (!list->_omts) {
