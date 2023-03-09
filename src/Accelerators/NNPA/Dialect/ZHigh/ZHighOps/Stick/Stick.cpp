@@ -138,6 +138,8 @@ void ZHighStickOp::getCanonicalizationPatterns(
   results.insert<ReplaceONNXLeakyReluPattern>(context);
   results.insert<ReplaceONNXSqrtPattern>(context);
   results.insert<ReplaceONNXReciprocalSqrtPattern>(context);
+  results.insert<ReshapeTransposeReshape2DTo3DSPattern>(context);
+  results.insert<ReshapeTransposeReshape3DSTo2DPattern>(context);
 }
 
 } // namespace zhigh
