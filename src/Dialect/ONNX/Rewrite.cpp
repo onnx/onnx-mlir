@@ -689,6 +689,13 @@ void ONNXShapeOp::getCanonicalizationPatterns(
   results.insert<ShapeToConstantPattern>(context);
 }
 
+/// on ONNXShapeTransformOp
+void ONNXShapeTransformOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ShapeTransformComposePattern>(context);
+  results.insert<ShapeTransformIdentityPattern>(context);
+}
+
 /// on the ONNXSizeOp.
 void ONNXSizeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
