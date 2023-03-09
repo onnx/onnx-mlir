@@ -34,7 +34,7 @@ struct OMTensorList {
    * Constructor
    *
    * Create an OMTensorList with specified OMTensor pointer array, the size of
-   * the array and the array and indication of whether the destructor should 
+   * the array and the array and indication of whether the destructor should
    * use OMTensorListDestroyShallow
    */
   OMTensorList(OMTensor *omts[], int64_t n, bool shallow = false)
@@ -71,17 +71,18 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
   OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
   if (!list)
     return NULL;
+
+  size_t omts_bytes = sizeof(OMTensor *) * n;
   list->_size = n;
-  list->_omts = (OMTensor **)malloc(sizeof(OMTensor *) * n);
+  list->_omts = (OMTensor **)malloc(omts_bytes);
 
   if (!list->_omts) {
     free(list); // free the previously allocated memory in case of an error
     return NULL;
   }
-  for (int64_t i = 0; i < list->_size; i++)
-    // copy the pointers to the OMTensor array
-    // now OMTensorList will always own the tensor array of pointers
-    list->_omts[i] = tensors[i];
+  // Copy the given OMTensors pointers to an array owned by OMTensorList
+  memcpy(list->_omts, tensors, omts_bytes);
+
   return list;
 }
 
