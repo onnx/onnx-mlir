@@ -31,6 +31,15 @@ struct OnnxBuilder : DialectBuilder {
       : DialectBuilder(b, loc) {}
   OnnxBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~OnnxBuilder(){};
+
+  // Create operation and infer shape.
+  template <typename OnnxOpType, typename... Args>
+  OnnxOpType createOpAndInferShapes(Args &&... args) const;
+
+  template <typename OnnxOpType, typename... Args>
+  OnnxOpType createTypedOpAndInferShapes(
+      mlir::Type result_ty, Args &&... args) const;
+
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
@@ -154,5 +163,8 @@ protected:
   mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
   mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
+
+// Include inline code definitions.
+#include "DialectBuilder.hpp.inc"
 
 } // namespace onnx_mlir
