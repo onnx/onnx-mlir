@@ -200,10 +200,9 @@ using ONNXTriluOpShapeHelper = ONNXUnaryOpShapeHelper;
 struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   ONNXBroadcastOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr,
-      bool hasUniBroadcasting = false, bool hasNoBroadcasting = false)
+      bool hasUniBroadcasting = false)
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope), inputsDims(),
-        outputRank(0), hasUniBroadcasting(hasUniBroadcasting),
-        hasNoBroadcasting(hasNoBroadcasting) {}
+        outputRank(0), hasUniBroadcasting(hasUniBroadcasting) {}
   virtual ~ONNXBroadcastOpShapeHelper() {}
 
   // Custom shape compute which takes additional parameters.
@@ -228,21 +227,19 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
       const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
       llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs);
 
+  bool hasNoBroadcast();
+
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank. Instantiated during ComputeShape.
   llvm::SmallVector<DimsExpr, 4> inputsDims;
-  // A vector of IndexExprs representing the output shape.
-  // in upper DimsExpr outputDims;
+  // A vector of IndexExprs representing the output shape (same rank as
+  // outputDims). Instantiated  during computeShape.
   uint64_t outputRank;
 
 protected:
   // When unidirectional broadcasting is true, the other operands are always
   // unidirectional broadcastable to the first operand.
   bool hasUniBroadcasting;
-  // When isNoBroadcasting is true, the shape of all input is assumed to be
-  // same. This flag is used to test dynamic shape. There is no impact on static
-  // shape.
-  bool hasNoBroadcasting;
 };
 
 // clang-format off
@@ -615,16 +612,25 @@ struct ONNXGenericReductionOpShapeHelper : public ONNXOpShapeHelper {
 
 // clang-format off
 using ONNXReduceL1OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL1Op>;
+using ONNXReduceL1V13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL1V13Op>;
 using ONNXReduceL2OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL2Op>;
+using ONNXReduceL2V13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceL2V13Op>;
 using ONNXReduceLogSumOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumOp>;
+using ONNXReduceLogSumV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumV13Op>;
 using ONNXReduceLogSumExpOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumExpOp>;
+using ONNXReduceLogSumExpV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumExpV13Op>;
 using ONNXReduceMaxOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMaxOp>;
+using ONNXReduceMaxV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMaxV13Op>;
 using ONNXReduceMeanOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMeanOp>;
+using ONNXReduceMeanV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMeanV13Op>;
 using ONNXReduceMinOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMinOp>;
+using ONNXReduceMinV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMinV13Op>;
 using ONNXReduceProdOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceProdOp>;
+using ONNXReduceProdV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceProdV13Op>;
 using ONNXReduceSumOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumOp>;
 using ONNXReduceSumV11OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumV11Op>;
 using ONNXReduceSumSquareOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumSquareOp>;
+using ONNXReduceSumSquareV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumSquareV13Op>;
 // clang-format on
 
 //===----------------------------------------------------------------------===//

@@ -204,7 +204,7 @@ int main(int argc, char **argv) {
           mlir::MlirOptMain(output->os(), std::move(file), passManagerSetupFn,
               registry, split_input_file, verify_diagnostics, verify_passes,
               allowUnregisteredDialects, /*preloadDialectsInContext*/ true,
-              /*emitBytecode*/ false, /*implicitModule*/ true)))
+              /*emitBytecode*/ false, /*explicitModule*/ false)))
     return mlir::asMainReturnCode(failure());
 
   output->keep();
