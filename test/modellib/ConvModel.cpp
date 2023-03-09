@@ -130,7 +130,7 @@ bool Conv2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
       {N, CIn, H, W}, dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
       {COut, CIn, kH, kW}, dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreate(list, num, false);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1];
 }
 

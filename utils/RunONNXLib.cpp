@@ -122,7 +122,7 @@ const char *(*dll_omInputSignature)(const char *);
 const char *(*dll_omOutputSignature)(const char *);
 OMTensor *(*dll_omTensorCreateWithOwnership)(
     void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t);
-OMTensorList *(*dll_omTensorListCreate)(OMTensor **, int, bool);
+OMTensorList *(*dll_omTensorListCreate)(OMTensor **, int);
 void (*dll_omTensorListDestroy)(OMTensorList *);
 
 #if LOAD_MODEL_STATICALLY
@@ -180,7 +180,7 @@ void loadDLL(string name, string entryPointName) {
       (OMTensor * (*)(void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t))
           dlsym(handle, "omTensorCreate");
   assert(!dlerror() && "failed to load omTensorCreate");
-  dll_omTensorListCreate = (OMTensorList * (*)(OMTensor **, int, bool))
+  dll_omTensorListCreate = (OMTensorList * (*)(OMTensor **, int))
       dlsym(handle, "omTensorListCreate");
   assert(!dlerror() && "failed to load omTensorListCreate");
   dll_omTensorListDestroy =

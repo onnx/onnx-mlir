@@ -279,7 +279,7 @@ int main() {
   OMTensor *tensor = omTensorCreate(img_data, shape, rank, ONNX_TYPE_FLOAT);
   // Create a tensor list.
   inputTensors[0] = tensor;
-  OMTensorList *tensorListIn = omTensorListCreate(inputTensors, inputNum, false);
+  OMTensorList *tensorListIn = omTensorListCreate(inputTensors, inputNum);
 
   // Compute outputs.
   OMTensorList *tensorListOut = run_main_graph(tensorListIn);

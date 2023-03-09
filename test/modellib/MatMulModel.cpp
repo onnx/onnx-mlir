@@ -176,7 +176,7 @@ bool MatMulSingleBroadcastLibBuilder::prepareInputs() {
     return false;
   list[0] = omTensorCreateWithRandomData<float>(aShape);
   list[1] = omTensorCreateWithRandomData<float>(bShape);
-  inputs = omTensorListCreate(list, num, false);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1];
 }
 

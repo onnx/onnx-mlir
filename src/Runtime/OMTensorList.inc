@@ -71,12 +71,12 @@ struct OMTensorList {
 };
 
 /* OMTensorList creator */
-OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n, bool shallow) {
+OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
   OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
   if (!list)
     return NULL;
   list->_size = n;
-  list->_shallow = shallow;
+  list->_shallow = false;
   list->_omts = (OMTensor **)malloc(sizeof(OMTensor *) * n);
 
   if (!list->_omts) {

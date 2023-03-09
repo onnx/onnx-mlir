@@ -134,7 +134,7 @@ std::vector<py::array> PyOMCompileExecutionSession::pyRun(
     omts.emplace_back(inputOMTensor);
   }
 
-  auto *wrappedInput = omTensorListCreate(&omts[0], omts.size(), false);
+  auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
   if (!wrappedOutput)
     throw std::runtime_error(reportErrnoError());

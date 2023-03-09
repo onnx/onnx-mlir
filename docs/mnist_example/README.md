@@ -211,7 +211,7 @@ int main() {
   // The shallow flag is set to false which means the OMTensorListDestroy will be used when explicity called.
 
   inputTensors[0] = tensor;
-  OMTensorList *tensorListIn = omTensorListCreate(inputTensors, inputNum, /*shallow=*/false);
+  OMTensorList *tensorListIn = omTensorListCreate(inputTensors, inputNum);
 
   // Compute outputs.
   OMTensorList *tensorListOut = run_main_graph(tensorListIn);
