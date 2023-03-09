@@ -72,8 +72,8 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value pad(mlir::Type outputType, mlir::Value input, mlir::Value pads,
       mlir::Value constantValue, std::string mode = "constant") const;
   // Zero padding
-  mlir::Value padZero(mlir::Type outputType, mlir::Value input,
-      mlir::Value pads, std::string mode = "constant") const;
+  mlir::Value padZero(
+      mlir::Type outputType, mlir::Value input, mlir::Value pads) const;
 
   // ONNXReduceSumOp
   mlir::Value reduceSum(mlir::Type outputType, mlir::Value data,

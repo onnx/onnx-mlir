@@ -150,14 +150,9 @@ Value OnnxBuilder::pad(Type outputType, Value input, Value pads,
       loc(), outputType, input, pads, constantValue, b().getStringAttr(mode));
 }
 
-Value OnnxBuilder::padZero(
-    Type outputType, Value input, Value pads, std::string mode) const {
-  Type tensorTypeF32 = RankedTensorType::get({}, b().getF32Type());
-  DenseElementsAttr denseAttrZero =
-      DenseElementsAttr::get(tensorTypeF32, ArrayRef<float>({0.0}));
-  Value constantValue = constant(denseAttrZero);
-  return b().create<ONNXPadOp>(
-      loc(), outputType, input, pads, constantValue, b().getStringAttr(mode));
+Value OnnxBuilder::padZero(Type outputType, Value input, Value pads) const {
+  return b().create<ONNXPadOp>(loc(), outputType, input, pads,
+      b().create<ONNXNoneOp>(loc()), b().getStringAttr("constant"));
 }
 
 Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
