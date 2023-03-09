@@ -48,7 +48,7 @@ OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreate(
  * \brief OMTensorList destroyer
  *
  * Destroy the OMTensorList struct recursively. That is to say, both the
- * ptr to the OMTensor pointers AND the OMTensor pointers are freed.
+ * OMTensorList and OMTensors it contains are freed.
  *
  * @param list pointer to the OMTensorList to be destroyed.  The function
  * simply returns when pointer is null.
@@ -60,8 +60,7 @@ OM_EXTERNAL_VISIBILITY void omTensorListDestroy(OMTensorList *list);
  * \brief OMTensorList shallow destroyer which does not destroy the tensors.
  *
  * Destroys the OMTensorList and its internal array of pointers.
- * The OMTensors inside the list are not destroyed. Rather, both the
- * ptr to the OMTensor pointers AND the OMTensor pointers are freed.
+ * The OMTensors inside the OMTensorList are not destroyed.
  *
  * @param list pointer to the OMTensorList to be freed. The function
  * simply returns when pointer is null.
