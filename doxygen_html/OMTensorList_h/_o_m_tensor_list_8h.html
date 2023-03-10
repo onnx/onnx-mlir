@@ -89,12 +89,12 @@ Functions</h2></td></tr>
 <tr class="memitem:aaa64f4eb669ba3d3fa6d8c6d3b947566"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY <a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_list_8h.html#aaa64f4eb669ba3d3fa6d8c6d3b947566">omTensorListCreate</a> (OMTensor **tensors, int64_t n)</td></tr>
 <tr class="memdesc:aaa64f4eb669ba3d3fa6d8c6d3b947566"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensorList creator.  <a href="_o_m_tensor_list_8h.html#aaa64f4eb669ba3d3fa6d8c6d3b947566">More...</a><br /></td></tr>
 <tr class="separator:aaa64f4eb669ba3d3fa6d8c6d3b947566"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abdbe902b539b09d65d1acfad0b97fda3"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY <a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_list_8h.html#abdbe902b539b09d65d1acfad0b97fda3">omTensorListCreateWithOwnership</a> (OMTensor **tensors, int64_t n, int64_t owning)</td></tr>
-<tr class="memdesc:abdbe902b539b09d65d1acfad0b97fda3"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensorList creator with tensor array pointers ownership.  <a href="_o_m_tensor_list_8h.html#abdbe902b539b09d65d1acfad0b97fda3">More...</a><br /></td></tr>
-<tr class="separator:abdbe902b539b09d65d1acfad0b97fda3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a365180f0b342a2297c2ebe9b8d8f65c5"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_list_8h.html#a365180f0b342a2297c2ebe9b8d8f65c5">omTensorListDestroy</a> (<a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *list)</td></tr>
 <tr class="memdesc:a365180f0b342a2297c2ebe9b8d8f65c5"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensorList destroyer.  <a href="_o_m_tensor_list_8h.html#a365180f0b342a2297c2ebe9b8d8f65c5">More...</a><br /></td></tr>
 <tr class="separator:a365180f0b342a2297c2ebe9b8d8f65c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af373888f6dc2295088d1727205f8b6a2"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_list_8h.html#af373888f6dc2295088d1727205f8b6a2">omTensorListDestroyShallow</a> (<a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *list)</td></tr>
+<tr class="memdesc:af373888f6dc2295088d1727205f8b6a2"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensorList shallow destroyer which does not destroy the tensors.  <a href="_o_m_tensor_list_8h.html#af373888f6dc2295088d1727205f8b6a2">More...</a><br /></td></tr>
+<tr class="separator:af373888f6dc2295088d1727205f8b6a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a573a21a52a0b7ff91355d6b046e7bc6c"><td class="memItemLeft" align="right" valign="top">OM_EXTERNAL_VISIBILITY OMTensor **&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_list_8h.html#a573a21a52a0b7ff91355d6b046e7bc6c">omTensorListGetOmtArray</a> (<a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *list)</td></tr>
 <tr class="memdesc:a573a21a52a0b7ff91355d6b046e7bc6c"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensorList OMTensor array getter.  <a href="_o_m_tensor_list_8h.html#a573a21a52a0b7ff91355d6b046e7bc6c">More...</a><br /></td></tr>
 <tr class="separator:a573a21a52a0b7ff91355d6b046e7bc6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -148,58 +148,12 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>OMTensorList creator. </p>
-<p>Create an OMTensorList with specified OMTensor array. The array of pointers to OMTensor pointers is used without copying, so caller should not free the <code>tensors</code> ptr.</p>
+<p>Create an OMTensorList with specified OMTensor array.</p>
+<p>Internally OMTensorList creates its own copy of the passed-in tensor pointer array. This copy is freed when the OMTensorList is destroyed.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">tensors</td><td>array of pointers to OMTensor </td></tr>
     <tr><td class="paramname">n</td><td>number of elements in tensors array </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>pointer to the OMTensorList created, NULL if creation failed. </dd></dl>
-
-</div>
-</div>
-<a id="abdbe902b539b09d65d1acfad0b97fda3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abdbe902b539b09d65d1acfad0b97fda3">&#9670;&nbsp;</a></span>omTensorListCreateWithOwnership()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">OM_EXTERNAL_VISIBILITY <a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a>* omTensorListCreateWithOwnership </td>
-          <td>(</td>
-          <td class="paramtype">OMTensor **&#160;</td>
-          <td class="paramname"><em>tensors</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>n</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>owning</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>OMTensorList creator with tensor array pointers ownership. </p>
-<p>Create an OMTensorList with specified OMTensor array. The array of pointers to OMTensor pointers is used without copying, so caller should not free the <code>tensors</code> ptr.</p>
-<p>This call allows the user to specify whether OMTensorList owns the tensor array of pointers, which subsequently determines whether the memory space underlying the pointers will be freed or not when OMTensorList gets destroyed.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">tensors</td><td>array of pointers to OMTensor </td></tr>
-    <tr><td class="paramname">n</td><td>number of elements in tensors array </td></tr>
-    <tr><td class="paramname">owning</td><td>whether OMTensorList owns the tensor array pointers, if set to true, OMTensorList will release memory for the pointers upon destruction. </td></tr>
   </table>
   </dd>
 </dl>
@@ -224,10 +178,37 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>OMTensorList destroyer. </p>
-<p>Destroy the OMTensorList struct recursively. That is to say, both the ptr to the OMTensor pointers AND the OMTensor pointers are freed.</p>
+<p>Destroy the OMTensorList struct recursively. That is to say, both the OMTensorList and OMTensors it contains are freed.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">list</td><td>pointer to the OMTensorList to be destroyed. The function simply returns when pointer is null. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="af373888f6dc2295088d1727205f8b6a2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af373888f6dc2295088d1727205f8b6a2">&#9670;&nbsp;</a></span>omTensorListDestroyShallow()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">OM_EXTERNAL_VISIBILITY void omTensorListDestroyShallow </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *&#160;</td>
+          <td class="paramname"><em>list</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>OMTensorList shallow destroyer which does not destroy the tensors. </p>
+<p>Destroys the OMTensorList and its internal array of pointers. The OMTensors inside the OMTensorList are not destroyed.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">list</td><td>pointer to the OMTensorList to be freed. The function simply returns when pointer is null. </td></tr>
   </table>
   </dd>
 </dl>
