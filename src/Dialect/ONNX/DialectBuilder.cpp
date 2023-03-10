@@ -148,13 +148,16 @@ Value OnnxBuilder::mul(Type resultType, Value A, Value B) const {
 
 Value OnnxBuilder::pad(Type outputType, Value input, Value pads,
     Value constantValue, std::string mode) const {
-  return b().create<ONNXPadOp>(
-      loc(), outputType, input, pads, constantValue, b().getStringAttr(mode));
+  Value constant = constantValue.getType().isa<NoneType>()
+                       ? constantValue
+                       : toTensor(constantValue);
+  return createTypedOpAndInferShapes<ONNXPadOp>(toTensor(outputType),
+      toTensor(input), toTensor(pads), constant, b().getStringAttr(mode));
 }
 
 Value OnnxBuilder::padZero(Type outputType, Value input, Value pads) const {
-  return b().create<ONNXPadOp>(loc(), outputType, input, pads,
-      b().create<ONNXNoneOp>(loc()), b().getStringAttr("constant"));
+  return pad(
+      outputType, input, pads, b().create<ONNXNoneOp>(loc()), "constant");
 }
 
 Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
@@ -178,8 +181,9 @@ Value OnnxBuilder::reverseSequence(Type outputType, Value input,
   IntegerAttr timeAxisAttr =
       IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
           APInt(64, timeAxis, /*isSigned=*/true));
-  return b().create<ONNXReverseSequenceOp>(loc(), toTensor(outputType),
-      toTensor(input), toTensor(sequenceLens), batchAxisAttr, timeAxisAttr);
+  return createTypedOpAndInferShapes<ONNXReverseSequenceOp>(
+      toTensor(outputType), toTensor(input), toTensor(sequenceLens),
+      batchAxisAttr, timeAxisAttr);
 }
 
 Value OnnxBuilder::shape(Type outputType, Value input) const {
@@ -207,9 +211,8 @@ Value OnnxBuilder::slice(Type outputType, Value input, int64_t start,
 
 ValueRange OnnxBuilder::split(
     TypeRange outputTypes, Value input, Value split, int64_t axis) const {
-  return b()
-      .create<ONNXSplitOp>(
-          loc(), toTensors(outputTypes), toTensor(input), toTensor(split), axis)
+  return createOpAndInferShapes<ONNXSplitOp>(
+      toTensors(outputTypes), toTensor(input), toTensor(split), axis)
       .getResults();
 }
 
@@ -235,18 +238,7 @@ Value OnnxBuilder::transposeInt64(
     Value input, ArrayRef<int64_t> intPerm) const {
   ShapedType inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
-  Type outputType;
-  if (inputType.hasRank()) {
-    assert((uint64_t)inputType.getRank() == intPerm.size() &&
-           "Permutation array size is different from the input rank");
-    ArrayRef<int64_t> inputShape = inputType.getShape();
-    SmallVector<int64_t, 4> outputShape;
-    for (uint64_t i = 0; i < intPerm.size(); ++i)
-      outputShape.emplace_back(inputShape[intPerm[i]]);
-    outputType = RankedTensorType::get(outputShape, elementType);
-  } else {
-    outputType = UnrankedTensorType::get(elementType);
-  }
+  Type outputType = UnrankedTensorType::get(elementType);
   return transpose(outputType, input, b().getI64ArrayAttr(intPerm));
 }
 
