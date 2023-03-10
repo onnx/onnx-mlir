@@ -187,7 +187,6 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXLoopOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
-  populateLoweringONNXClipOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXElementwiseOpPattern(
       patterns, typeConverter, ctx, enableSIMD);
