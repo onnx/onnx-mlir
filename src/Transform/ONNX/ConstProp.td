@@ -381,44 +381,44 @@ def ReduceSumConstProp: Pat<
     [(IsFromDenseONNXConstantOp:$data), (IsFromDenseONNXConstantOpOrNone:$axes)]
     >;
 
-// TODO: Check (IsFromDenseONNXConstantOpOrNone:$axes) in opset 18 when axes is input.
 def ReduceProdConstProp: Pat<
       (ONNXReduceProdOp:$reduceProdOp
         (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
         $axes,
+        $_,
         $_),
     (CreateReduceProdConst $reduceProdOp, $data, $axes),
-    [(IsFromDenseONNXConstantOp:$data)]
+    [(IsFromDenseONNXConstantOp:$data), (IsFromDenseONNXConstantOpOrNone:$axes)]
     >;
 
-// TODO: Check (IsFromDenseONNXConstantOpOrNone:$axes) in opset 18 when axes is input.
 def ReduceMinConstProp: Pat<
       (ONNXReduceMinOp:$reduceMinOp
         (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
         $axes,
+        $_,
         $_),
     (CreateReduceMinConst $reduceMinOp, $data, $axes),
-    [(IsFromDenseONNXConstantOp:$data)]
+    [(IsFromDenseONNXConstantOp:$data), (IsFromDenseONNXConstantOpOrNone:$axes)]
     >;
 
-// TODO: Check (IsFromDenseONNXConstantOpOrNone:$axes) in opset 18 when axes is input.
 def ReduceMaxConstProp: Pat<
       (ONNXReduceMaxOp:$reduceMaxOp
         (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
         $axes,
+        $_,
         $_),
     (CreateReduceMaxConst $reduceMaxOp, $data, $axes),
-    [(IsFromDenseONNXConstantOp:$data)]
+    [(IsFromDenseONNXConstantOp:$data), (IsFromDenseONNXConstantOpOrNone:$axes)]
     >;
 
-// TODO: Check (IsFromDenseONNXConstantOpOrNone:$axes) in opset 18 when axes is input.
 def ReduceMeanConstProp: Pat<
       (ONNXReduceMeanOp:$reduceMeanOp
         (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
         $axes,
+        $_,
         $_),
     (CreateReduceMeanConst $reduceMeanOp, $data, $axes),
-    [(IsFromDenseONNXConstantOp:$data)]
+    [(IsFromDenseONNXConstantOp:$data), (IsFromDenseONNXConstantOpOrNone:$axes)]
     >;
 
 //===----------------------------------------------------------------------===//

@@ -1,17 +1,17 @@
 // RUN: onnx-mlir-opt --convert-onnx-to-mhlo %s --canonicalize -split-input-file | FileCheck %s
 
-func.func @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<3x2xf32> {
-  %0 ="onnx.ReduceMax"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<3x2xf32>
+func.func @test_reducemax_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<3x2xf32> {
+  %0 ="onnx.ReduceMaxV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<3x2xf32>
   "func.return"(%0) : (tensor<3x2xf32>) -> ()
-// CHECK-LABEL:  func @test_reducemax
+// CHECK-LABEL:  func @test_reducemax_v13
 // CHECK: %0 = mhlo.constant dense<0xFF800000> : tensor<f32>
 // CHECK: %1 = mhlo.reduce(%arg0 init: %0) applies mhlo.maximum across dimensions = [1] : (tensor<3x2x2xf32>, tensor<f32>) -> tensor<3x2xf32>
 }
 
 // -----
 
-func.func @test_reducemin(%arg0 : tensor<?x2x2xf32>) -> tensor<?x2xf32> {
-  %0 ="onnx.ReduceMin"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x2x2xf32>)-> tensor<?x2xf32>
+func.func @test_reducemin_v13(%arg0 : tensor<?x2x2xf32>) -> tensor<?x2xf32> {
+  %0 ="onnx.ReduceMinV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x2x2xf32>)-> tensor<?x2xf32>
   "func.return"(%0) : (tensor<?x2xf32>) -> ()
 // CHECK-LABEL:  func @test_reducemin
 // CHECK: %0 = mhlo.constant dense<0x7F800000> : tensor<f32>
@@ -62,10 +62,10 @@ func.func @test_reducesum2(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64>) -> te
 
 }
 
-func.func @test_reducemean(%arg0 : tensor<3x2x2xf32>) -> tensor<3x2xf32> {
-  %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<3x2xf32>
+func.func @test_reducemean_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<3x2xf32> {
+  %0 ="onnx.ReduceMeanV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<3x2xf32>
   "func.return"(%0) : (tensor<3x2xf32>) -> ()
-// CHECK-LABEL:  func @test_reducemean
+// CHECK-LABEL:  func @test_reducemean_v13
 // CHECK-DAG:    [[VAR_0:%.+]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:    [[VAR_1:%.+]] = mhlo.reduce([[PARAM_0:%.+]] init: [[VAR_0]]) applies mhlo.add across dimensions = [1] : (tensor<3x2x2xf32>, tensor<f32>) -> tensor<3x2xf32>
 // CHECK-DAG:    [[VAR_2:%.+]] = mhlo.constant dense<2.000000e+00> : tensor<3x2xf32>
@@ -73,10 +73,10 @@ func.func @test_reducemean(%arg0 : tensor<3x2x2xf32>) -> tensor<3x2xf32> {
 // CHECK-DAG:    return [[VAR_3]] : tensor<3x2xf32>
 }
 
-func.func @test_reducemean2(%arg0 : tensor<?x?x?xf32>) -> tensor<?x?xf32> {
-  %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<?x?xf32>
+func.func @test_reducemean_v13_2(%arg0 : tensor<?x?x?xf32>) -> tensor<?x?xf32> {
+  %0 ="onnx.ReduceMeanV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x?x?xf32>)-> tensor<?x?xf32>
   "func.return"(%0) : (tensor<?x?xf32>) -> ()
-// CHECK-LABEL:  func @test_reducemean2
+// CHECK-LABEL:  func @test_reducemean_v13_2
 // CHECK-SAME: ([[PARAM_0:%.+]]: tensor<?x?x?xf32>) -> tensor<?x?xf32> {
 // CHECK-DAG:    [[VAR_0_:%.+]] = mhlo.constant dense<1.000000e+00> : tensor<f32>
 // CHECK-DAG:    [[VAR_1_:%.+]] = mhlo.constant dense<0.000000e+00> : tensor<f32>

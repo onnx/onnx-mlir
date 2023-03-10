@@ -4,7 +4,7 @@
 
 //===--------------- ScatterND.cpp - Lowering ScatterND Op ----------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,20 +19,20 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXScatterNDOpLowering : public ConversionPattern {
+struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
   ONNXScatterNDOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXScatterNDOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXScatterNDOp scatterNDOp,
+      ONNXScatterNDOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXScatterNDOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = scatterNDOp.getOperation();
+    Location loc = ONNXLoc<ONNXScatterNDOp>(op);
 
     // Operands and attributes.
-    Value data = operandAdaptor.getData();
-    Value updates = operandAdaptor.getUpdates();
-    Value indices = operandAdaptor.getIndices();
+    Value data = adaptor.getData();
+    Value updates = adaptor.getUpdates();
+    Value indices = adaptor.getIndices();
     auto dataType = data.getType().cast<ShapedType>();
     auto indicesType = indices.getType().cast<ShapedType>();
     auto updatesType = updates.getType().cast<ShapedType>();
@@ -52,13 +52,12 @@ struct ONNXScatterNDOpLowering : public ConversionPattern {
     assert(outputRank == dataRank && "Output rank not equal to data rank");
 
     // Insert an allocation and deallocation for the result of this operation.
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
     IndexExprScope indexScope(create.krnl);
     DimsExpr dataDims;
     create.krnlIE.getShapeAsDims(data, dataDims);
-    Value output = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, dataDims);
+    Value output = create.mem.alignedAlloc(outputMemRefType, dataDims);
 
     // Step1: copy `data` into `output`.
     Value numOfElements = getDynamicMemRefSize(rewriter, loc, data);

@@ -67,6 +67,14 @@ zdnn_data_layouts convertLayoutAttrToZDNNDataLayout(
   return zDNNDataLayout;
 }
 
+bool is2DLayout(StringAttr layout) {
+  return (layout && layout.getValue().equals_insensitive(LAYOUT_2D));
+}
+
+bool is3DSLayout(StringAttr layout) {
+  return (layout && layout.getValue().equals_insensitive(LAYOUT_3DS));
+}
+
 bool is4DLayout(StringAttr layout) {
   return (layout && layout.getValue().equals_insensitive(LAYOUT_4D));
 }

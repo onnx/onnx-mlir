@@ -5,7 +5,7 @@
 
 //===---------- LayoutTransform.cpp - Lowering Layout Transform Op --------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -20,18 +20,19 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXLayoutTransformOpLowering : public ConversionPattern {
+struct ONNXLayoutTransformOpLowering
+    : public OpConversionPattern<ONNXLayoutTransformOp> {
   ONNXLayoutTransformOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXLayoutTransformOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutOp,
+      ONNXLayoutTransformOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXLayoutTransformOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = layoutOp.getOperation();
+    Location loc = ONNXLoc<ONNXLayoutTransformOp>(op);
 
     // Operands and attributes.
-    Value data = operandAdaptor.getData();
+    Value data = adaptor.getData();
 
     // Convert the input type to MemRefType.
     Type inConvertedType = typeConverter->convertType(data.getType());
@@ -55,8 +56,8 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
 
     // Transform simply copy the input data to the output data. Both must have
     // the same logical size so use the input ones (arbitrary).
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
     IndexExprScope outerScope(create.krnl);
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(data, ubs);
@@ -65,8 +66,7 @@ struct ONNXLayoutTransformOpLowering : public ConversionPattern {
     // operation.
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outMemRefType, loc, ubs, alignment);
+    Value alloc = create.mem.alignedAlloc(outMemRefType, ubs, alignment);
 
     // Insert loop over all inputs.
     ValueRange loopDef = create.krnl.defineLoops(rank);

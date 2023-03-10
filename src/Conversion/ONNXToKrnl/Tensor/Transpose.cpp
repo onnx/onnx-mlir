@@ -4,7 +4,7 @@
 
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,23 +19,24 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXTransposeOpLowering : public ConversionPattern {
+struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, MathBuilder>;
 
   ONNXTransposeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXTransposeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
+      ONNXTransposeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
+    Operation *op = transposeOp.getOperation();
+    Location loc = ONNXLoc<ONNXTransposeOp>(op);
+    ValueRange operands = adaptor.getOperands();
     MDBuilder create(rewriter, loc);
 
     // Operands and attributes.
-    ONNXTransposeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    Value data = operandAdaptor.getData();
-    auto permAttr = operandAdaptor.getPerm();
+    Value data = adaptor.getData();
+    auto permAttr = adaptor.getPerm();
 
     // Input and output types.
     MemRefType inMemRefType = data.getType().cast<MemRefType>();
@@ -59,8 +60,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     }
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc =
-        insertAllocAndDeallocSimple(rewriter, op, outMemRefType, loc, outDims);
+    Value alloc = create.mem.alignedAlloc(outMemRefType, outDims);
 
     // If the last N dimensions are not permuted, do block copying for the last
     // N dimensions. Input and Output's MemRefs must use an identity layout to
@@ -156,7 +156,7 @@ private:
     uint64_t rank = inMemRefType.getRank();
     uint64_t outerRank = rank - numLastDims;
 
-    // Input and output upperbounds.
+    // Input and output upper bounds.
     SmallVector<IndexExpr, 4> inUBs;
     create->krnlIE.getShapeAsDims(inputMemRef, inUBs);
     SmallVector<IndexExpr, 4> outUBs;

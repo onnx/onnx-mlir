@@ -57,7 +57,7 @@ check_operation_version = args.check_operation_version
 list_operation_version = args.list_operation_version
 
 # Change this variable only when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.13.0"
+current_onnx_version = "1.13.1"
 
 # Check the version of onnx package being used.
 if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
@@ -212,16 +212,16 @@ version_dict = {
  'RandomUniformLike': [1],
  'Range': [11],
  'Reciprocal': [13],
- 'ReduceL1': [13],
- 'ReduceL2': [13],
- 'ReduceLogSum': [13],
- 'ReduceLogSumExp': [13],
- 'ReduceMax': [13],
- 'ReduceMean': [13],
- 'ReduceMin': [13],
- 'ReduceProd': [13],
+ 'ReduceL1': [18, 13],
+ 'ReduceL2': [18, 13],
+ 'ReduceLogSum': [18, 13],
+ 'ReduceLogSumExp': [18, 13],
+ 'ReduceMax': [18, 13],
+ 'ReduceMean': [18, 13],
+ 'ReduceMin': [18, 13],
+ 'ReduceProd': [18, 13],
  'ReduceSum': [13, 11],
- 'ReduceSumSquare': [13],
+ 'ReduceSumSquare': [18, 13],
  'Relu': [14],
  'Reshape': [14],
  'Resize': [13, 11, 10],
@@ -408,6 +408,18 @@ OpsWithVerifier = [
     'Xor'
 ]
 
+# Op with fold function
+OpsWithFolder = [
+    'Constant',
+    'Squeeze',
+    'SqueezeV11'
+]
+
+# Op with ConstantLike trait
+OpsWithConstantLike = [
+    'Constant'
+]
+
 # Op with Helper functions
 # Here the functions are for data flow analysis.
 OpsWithHelpers = {
@@ -478,6 +490,7 @@ custom_builder_unranked_ops_list = [
     'Neg',
     'Pad',
     'ReduceLogSum',
+    'ReduceMaxV13',
     'ReduceMax',
     'ReduceSum',
     'ReduceSumSquare',
@@ -485,6 +498,7 @@ custom_builder_unranked_ops_list = [
     'Softmax',
     'Split',
     'Sqrt',
+    'Squeeze',
     'SqueezeV11',
     'UnsqueezeV11',
 ]
@@ -1033,6 +1047,11 @@ def gen_op_def(schema, with_version = False):
 
     # Generate decl for op traits.
     traits = ["Pure"]
+
+    # Generate ConstantLike traits.
+    if opName in OpsWithConstantLike:
+      traits.append("ConstantLike")
+
     # OpsWithShapeInference:
     # Now the ShapeInference traits are added to all operation.
     # Dummy implementations are added to ONNXOps.cpp.
@@ -1210,7 +1229,8 @@ def gen_op_def(schema, with_version = False):
     # Generate decl for verifier.
     if opName in OpsWithVerifier:
         s += indent + 'let hasVerifier = 1;\n'
-
+    if opName in OpsWithFolder:
+        s += indent + 'let hasFolder = 1;\n'
     s += '}\n\n'
     return s
 

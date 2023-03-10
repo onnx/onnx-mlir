@@ -4,7 +4,7 @@
 
 //===------------ ArgMinMax.cpp - Lowering ArgMin/ArgMax Op ---------------===//
 //
-// Copyright 2021-2022 The IBM Research Authors.
+// Copyright 2021-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -36,18 +36,22 @@ inline Value getCondition<ONNXArgMaxOp>(
 }
 
 template <typename ARG_OP>
-struct ONNXArgMinMaxOpLowering : public ConversionPattern {
-  ONNXArgMinMaxOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter, ARG_OP::getOperationName(), 1, ctx) {}
+struct ONNXArgMinMaxOpLowering : public OpConversionPattern<ARG_OP> {
+  using OpAdaptor = typename ARG_OP::Adaptor;
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  ONNXArgMinMaxOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : OpConversionPattern<ARG_OP>(typeConverter, ctx) {}
+
+  LogicalResult matchAndRewrite(ARG_OP argOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    Operation *op = argOp.getOperation();
+    Location loc = ONNXLoc<ARG_OP>(op);
+    ValueRange operands = adaptor.getOperands();
+
     // Gather info.
-    Location loc = op->getLoc();
     IndexExprScope scope(&rewriter, loc);
-    ARG_OP argOp = llvm::cast<ARG_OP>(op);
-    typename ARG_OP::Adaptor operandAdaptor(operands);
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
 
     // Get shape.
@@ -57,7 +61,8 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
     DimsExpr outputDims = shapeHelper.getOutputDims();
 
     // Convert the reduced output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    Type convertedType =
+        this->typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType reducedMemRefType = convertedType.cast<MemRefType>();
@@ -65,7 +70,7 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
     int64_t reducedRank = reducedMemRefType.getRank();
 
     // data input
-    Value data = operandAdaptor.getData();
+    Value data = adaptor.getData();
     MemRefType dataType = data.getType().cast<MemRefType>();
     int64_t dataRank = dataType.getRank();
 
@@ -84,8 +89,7 @@ struct ONNXArgMinMaxOpLowering : public ConversionPattern {
         getReductionMapping(dataType, llvm::ArrayRef(axes), isKeepdims);
 
     // Insert alloc and dealloc
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, reducedMemRefType, loc, outputDims);
+    Value alloc = create.mem.alignedAlloc(reducedMemRefType, outputDims);
 
     // Constant Value
     Value minusOne = create.math.constant(reducedElementType, -1);

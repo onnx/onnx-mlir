@@ -4,7 +4,7 @@
 
 //===----------------- Clip.cpp - Lowering Clip Op ------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -24,23 +24,27 @@ namespace onnx_mlir {
 // Scalar unary ops for lowering ONNXClipOp
 //===----------------------------------------------------------------------===//
 
-struct ONNXClipOpLowering : public ConversionPattern {
+struct ONNXClipOpLowering : public OpConversionPattern<ONNXClipOp> {
+  // using OpConversionPattern<ONNXClipOp>::OpConversionPattern;
   ONNXClipOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXClipOp::getOperationName(), 1, ctx) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      : OpConversionPattern(typeConverter, ctx) {}
+
+  LogicalResult matchAndRewrite(ONNXClipOp clipOp, ONNXClipOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    using LocalDialectBuilder =
-        MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>;
-    Location loc = op->getLoc();
+    using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
+        IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>;
+    Operation *op = clipOp.getOperation();
+    Location loc = ONNXLoc<ONNXClipOp>(op);
     LocalDialectBuilder create(rewriter, loc);
-    ONNXClipOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
-    Value min = operandAdaptor.getMin();
-    Value max = operandAdaptor.getMax();
+
+    ValueRange operands = adaptor.getOperands();
+    Value input = adaptor.getInput();
+    Value min = adaptor.getMin();
+    Value max = adaptor.getMax();
 
     // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    Type convertedType =
+        typeConverter->convertType(clipOp.getResult().getType());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
@@ -50,13 +54,7 @@ struct ONNXClipOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
-    bool insertDealloc = checkInsertDealloc(op);
-    Value alloc =
-        (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, input);
-
+    Value alloc = create.mem.alignedAlloc(input, memRefType);
     auto computeResult = [&](LocalDialectBuilder &create,
                              const ValueRange &indices) { // indices={i,j,k}
       Value loadedVal = create.krnl.load(input, indices); // load input[i,j,k]

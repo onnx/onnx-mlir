@@ -4,7 +4,7 @@
 
 //===---------------- Resize.cpp - Lowering Resize Op ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,20 +19,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXResizeOpLowering : public ConversionPattern {
+struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
   ONNXResizeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXResizeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXResizeOp resizeOp,
+      ONNXResizeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    Location loc = op->getLoc();
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-    ONNXResizeOp resizeOp = llvm::cast<ONNXResizeOp>(op);
-    ONNXResizeOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.getX();
+    Operation *op = resizeOp.getOperation();
+    Location loc = ONNXLoc<ONNXResizeOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    Value data = adaptor.getX();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -54,12 +52,8 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // Shape helper: compute output dims and scales.
     ONNXResizeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
-    if (hasAllConstantDimensions(memRefType)) {
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    } else {
-      alloc = insertAllocAndDeallocSimple(rewriter, op, memRefType, loc,
-          shapeHelper.getOutputDims(), insertDealloc);
-    }
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
     // Call external function when the mode is not "nearest"
     // Create KrnlCallOp and replace the du chain

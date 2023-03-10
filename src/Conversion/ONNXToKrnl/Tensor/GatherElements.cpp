@@ -4,7 +4,7 @@
 
 //===--------- GatherElements.cpp - Lowering GatherElements Op ----------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,18 +19,20 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXGatherElementsOpLowering : public ConversionPattern {
+struct ONNXGatherElementsOpLowering
+    : public OpConversionPattern<ONNXGatherElementsOp> {
   ONNXGatherElementsOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXGatherElementsOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXGatherElementsOp gatherElementsOp,
+      ONNXGatherElementsOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXGatherElementsOpAdaptor operandAdaptor(operands);
-    ONNXGatherElementsOp gatherElementsOp = cast<ONNXGatherElementsOp>(op);
-    Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    Operation *op = gatherElementsOp.getOperation();
+    Location loc = ONNXLoc<ONNXGatherElementsOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
 
     // Get shape.
     ONNXGatherElementsOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -43,13 +45,13 @@ struct ONNXGatherElementsOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value output = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value output =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Operands and attributes.
-    Value data = operandAdaptor.getData();
-    Value indices = operandAdaptor.getIndices();
-    int64_t axis = gatherElementsOp.getAxis();
+    Value data = adaptor.getData();
+    Value indices = adaptor.getIndices();
+    int64_t axis = adaptor.getAxis();
     int64_t dataRank = data.getType().cast<MemRefType>().getRank();
     int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
     int64_t outputRank = outputMemRefType.getShape().size();

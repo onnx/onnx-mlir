@@ -4,7 +4,7 @@
 
 //===----------------- Hardmax.cpp - Hardmax Op ---------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,8 +23,9 @@ namespace onnx_mlir {
 /// Returns the indices of the maximum values along a given axis.
 static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
     Value input, int64_t axis) {
-  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
-      rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+      MemRefBuilder>
+      create(rewriter, loc);
   IndexExprScope scope(create.krnl);
 
   MemRefType memRefType = input.getType().cast<MemRefType>();
@@ -43,9 +44,8 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   for (const IndexExpr &dim : outputUBS)
     outputShape.push_back(
         dim.isLiteral() ? dim.getLiteral() : ShapedType::kDynamic);
-  Value resMemRef = insertAllocAndDeallocSimple(rewriter, nullptr,
-      MemRefType::get(outputShape, indexType), loc, outputUBS,
-      /*insertDealloc=*/true);
+  Value resMemRef = create.mem.alignedAlloc(
+      MemRefType::get(outputShape, indexType), outputUBS);
   create.krnl.memset(resMemRef, zero);
 
   ValueRange loopDef = create.krnl.defineLoops(rank);
@@ -77,19 +77,20 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   return resMemRef;
 }
 
-struct ONNXHardmaxOpLowering : public ConversionPattern {
+struct ONNXHardmaxOpLowering : public OpConversionPattern<ONNXHardmaxOp> {
   ONNXHardmaxOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXHardmaxOp::getOperationName(), 1, ctx) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      : OpConversionPattern(typeConverter, ctx) {}
+  LogicalResult matchAndRewrite(ONNXHardmaxOp hardmaxOp,
+      ONNXHardmaxOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    MultiDialectBuilder<MathBuilder, KrnlBuilder, IndexExprBuilderForKrnl>
+    Operation *op = hardmaxOp.getOperation();
+    Location loc = ONNXLoc<ONNXHardmaxOp>(op);
+    Value input = adaptor.getInput();
+
+    MultiDialectBuilder<MathBuilder, KrnlBuilder, IndexExprBuilderForKrnl,
+        MemRefBuilder>
         create(rewriter, loc);
     IndexExprScope scope(create.krnl);
-
-    ONNXHardmaxOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -109,9 +110,7 @@ struct ONNXHardmaxOpLowering : public ConversionPattern {
     create.krnlIE.getShapeAsDims(input, ubs);
 
     // Insert an allocation and deallocation for the result of this operation.
-    bool insertDealloc = checkInsertDealloc(op);
-    Value resMemRef = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, ubs, insertDealloc);
+    Value resMemRef = create.mem.alignedAlloc(memRefType, ubs);
 
     // Compute argmax.
     Value argmax = emitArgmax(rewriter, loc, input, axis);

@@ -1280,7 +1280,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [Pure, ConstantLike, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let hasCustomAssemblyFormat = 1;
   let hasCanonicalizer = 1;
   let summary = "ONNX Constant operation";
@@ -1338,6 +1338,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
    }
   }]>
   ];
+  let hasFolder = 1;
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
@@ -5916,12 +5917,13 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
-    OptionalAttr<I64ArrayAttr>:$axes,
-    DefaultValuedAttr<SI64Attr, "1">:$keepdims);
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
-      return 1;
+      return 2;
     }
     static int getNumberOfResults() {
       return 1;
@@ -5940,7 +5942,80 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
   }];
 }
 
+def ONNXReduceL1V13Op:ONNX_Op<"ReduceL1V13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceL1 operation";
+  let description = [{
+  Computes the L1 norm of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    OptionalAttr<I64ArrayAttr>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceL1V13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
 def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceL2 operation";
+  let description = [{
+  Computes the L2 norm of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceL2OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceL2V13Op:ONNX_Op<"ReduceL2V13",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceL2 operation";
   let description = [{
@@ -5969,7 +6044,7 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceL2OpShapeHelper(op, oper, ieb, scope);
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceL2V13OpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
@@ -5988,13 +6063,14 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
-    OptionalAttr<I64ArrayAttr>:$axes,
-    DefaultValuedAttr<SI64Attr, "1">:$keepdims);
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let builders = [
-    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
+    OpBuilder<(ins "Value":$data, "Value":$axes, "IntegerAttr":$keepdims, "IntegerAttr":$noop_with_empty_axes), [{
       auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
-      build($_builder, $_state, resultType, data, axes, keepdims);
+      build($_builder, $_state, resultType, data, axes, keepdims, noop_with_empty_axes);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
@@ -6003,7 +6079,7 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
     ];
     let extraClassDeclaration = [{
       static int getNumberOfOperands() {
-        return 1;
+        return 2;
       }
       static int getNumberOfResults() {
         return 1;
@@ -6022,7 +6098,80 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
     }];
 }
 
+def ONNXReduceLogSumV13Op:ONNX_Op<"ReduceLogSumV13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceLogSum operation";
+  let description = [{
+  Computes the log sum of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    OptionalAttr<I64ArrayAttr>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumV13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
 def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceLogSumExp operation";
+  let description = [{
+  Computes the log sum exponent of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumExpOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceLogSumExpV13Op:ONNX_Op<"ReduceLogSumExpV13",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceLogSumExp operation";
   let description = [{
@@ -6051,7 +6200,7 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumExpOpShapeHelper(op, oper, ieb, scope);
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumExpV13OpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
@@ -6059,6 +6208,53 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
 }
 
 def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceMax operation";
+  let description = [{
+  Computes the max of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$reduced);
+  let builders = [
+    OpBuilder<(ins "Value":$data, "Value":$axes, "IntegerAttr":$keepdims, "IntegerAttr":$noop_with_empty_axes), [{
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes, keepdims, noop_with_empty_axes);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+}
+
+def ONNXReduceMaxV13Op:ONNX_Op<"ReduceMaxV13",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMax operation";
   let description = [{
@@ -6097,7 +6293,7 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
     let extraClassDefinition = [{
       onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
           onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxOpShapeHelper(op, oper, ieb, scope);
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxV13OpShapeHelper(op, oper, ieb, scope);
         assert(sh && "failed to allocate shape helper");
         return sh;
       }
@@ -6105,6 +6301,43 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceMean operation";
+  let description = [{
+  Computes the mean of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMeanOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceMeanV13Op:ONNX_Op<"ReduceMeanV13",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMean operation";
   let description = [{
@@ -6133,7 +6366,7 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMeanOpShapeHelper(op, oper, ieb, scope);
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMeanV13OpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
@@ -6141,6 +6374,43 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
 }
 
 def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceMin operation";
+  let description = [{
+  Computes the min of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceMinV13Op:ONNX_Op<"ReduceMinV13",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMin operation";
   let description = [{
@@ -6169,7 +6439,7 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMinOpShapeHelper(op, oper, ieb, scope);
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMinV13OpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
@@ -6177,6 +6447,43 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
 }
 
 def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceProd operation";
+  let description = [{
+  Computes the product of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceProdOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceProdV13Op:ONNX_Op<"ReduceProdV13",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceProd operation";
   let description = [{
@@ -6205,7 +6512,7 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceProdOpShapeHelper(op, oper, ieb, scope);
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceProdV13OpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
@@ -6317,13 +6624,14 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
   False instead of True.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
-    OptionalAttr<I64ArrayAttr>:$axes,
-    DefaultValuedAttr<SI64Attr, "1">:$keepdims);
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let builders = [
-    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
+    OpBuilder<(ins "Value":$data, "Value":$axes, "IntegerAttr":$keepdims, "IntegerAttr":$noop_with_empty_axes), [{
       auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
-      build($_builder, $_state, resultType, data, axes, keepdims);
+      build($_builder, $_state, resultType, data, axes, keepdims, noop_with_empty_axes);
     }]>,
     OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
@@ -6332,7 +6640,7 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
     ];
     let extraClassDeclaration = [{
       static int getNumberOfOperands() {
-        return 1;
+        return 2;
       }
       static int getNumberOfResults() {
         return 1;
@@ -6349,6 +6657,42 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
         return sh;
       }
     }];
+}
+
+def ONNXReduceSumSquareV13Op:ONNX_Op<"ReduceSumSquareV13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceSumSquare operation";
+  let description = [{
+  Computes the sum square of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    OptionalAttr<I64ArrayAttr>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumSquareV13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReluOp:ONNX_Op<"Relu",
@@ -8198,25 +8542,36 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
     AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$squeezed);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 2;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
-  let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqueezeOpShapeHelper(op, oper, ieb, scope);
-      assert(sh && "failed to allocate shape helper");
-      return sh;
-    }
-  }];
+  let builders = [
+    OpBuilder<(ins "Value":$data, "Value":$axes), [{
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqueezeOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+    let hasFolder = 1;
 }
 
 def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
@@ -8261,6 +8616,7 @@ def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
         return sh;
       }
     }];
+    let hasFolder = 1;
 }
 
 def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
