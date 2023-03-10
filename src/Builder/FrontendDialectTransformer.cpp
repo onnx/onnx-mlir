@@ -470,11 +470,17 @@ private:
     }
   }
 
+  //
+  // Build outputs and operation for the specified node.
+  // The K_scan_outputs argument is used for the Scan op only to specifiy number
+  // of scan_outputs.
+  //
   template <typename T>
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<Value> inputs, int expectedNumOperands,
       int expectedNumResults, const std::vector<NamedAttribute> &attributes,
-      std::vector<Type> givenOutputTypes = std::vector<Type>()) {
+      std::vector<Type> givenOutputTypes = std::vector<Type>(),
+      int K_scan_outputs = 0) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -553,7 +559,25 @@ private:
           // Use type info from graph to reset type of output for current op
           for (int i = 0; i < node.output().size(); i++) {
             Type type = funcType.getResults()[i];
-            genericOp->getOpResult(i).setType(type);
+            //
+            // Scan output(=final_state_and_scan_outputs) consists of (1) N
+            // state ovariables and (2) K scan_outputs. K scan outputs.
+            // dimensions of K scan outputs should have an extra leading
+            // dimension to the shapes.
+            //
+            if (i < (node.output().size() - K_scan_outputs)) {
+              // N state variables part
+              genericOp->getOpResult(i).setType(type);
+            } else {
+              // K Scan outputs part
+              // Insert an extra leading dimension to the shapes
+              RankedTensorType rankedType = type.cast<RankedTensorType>();
+              std::vector<int64_t> shape = rankedType.getShape();
+              shape.insert(shape.begin(), ShapedType::kDynamic);
+              Type extendedType =
+                  RankedTensorType::get(shape, rankedType.getElementType());
+              genericOp->getOpResult(i).setType(extendedType);
+            }
           }
         } else {
           llvm_unreachable("Op contains subgraph attributes but does not "
@@ -623,6 +647,37 @@ private:
     }
     buildOutputAndOperation<ONNXCategoryMapperOp>(node, inputs,
         expectedNumOperands, expectedNumResults, attributes, outputTypes);
+  }
+
+  // The output type of Scan needs special handling
+  // The final_stete_and_scan_outputs of Scan shows final values of loop's
+  // N state variables followed by K scan_outputs.
+  // This function calculates number of scan_outputs, that is,
+  // K = node.input().size() - <number of scan_outputs>
+  void ImportScan(const onnx::NodeProto &node) {
+    int expectedNumOperands = ONNXScanOp::getNumberOfOperands();
+    int expectedNumResults = ONNXScanOp::getNumberOfResults();
+    std::vector<Value> inputs;
+    getNodeInputs(node, inputs);
+    auto attributes = ImportNodeAttributes(node);
+    int num_scan_inputs = -1;
+    int i;
+    for (i = 0; i < node.attribute_size(); ++i) {
+      auto attr = node.attribute(i);
+      if (attr.name() == "num_scan_inputs") {
+        num_scan_inputs = attr.i();
+        break;
+      }
+    }
+    assert((i < node.attribute_size()) &&
+           "mandatory num_scan_inputs attr not in onnx.Scan");
+    int K_scan_outputs =
+        node.output().size() - (node.input().size() - num_scan_inputs);
+    buildOutputAndOperation<ONNXScanOp>(node, inputs, expectedNumOperands,
+        expectedNumResults, attributes,
+        /*givenOutputTypes=*/std::vector<Type>(),
+        /*K_scan_outputs=*/K_scan_outputs);
+    return;
   }
 
   std::vector<NamedAttribute> ImportCastAttributes(
