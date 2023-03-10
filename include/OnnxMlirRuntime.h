@@ -4,7 +4,7 @@
 
 //===------- OnnxMlirRuntime.h - ONNX-MLIR Runtime API Declarations -------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -124,16 +124,12 @@
  * \subsection freeing-tensor-memory Freeing Tensor Memory
  *
  *
- * When creating an OMTensor or OMTensorList with a specified tensor array, a user has the option to
- * create a tensor or tensorList with or without ownership (omTensorCreateWithOwnership or omTensorListCreateWithOwnership).
+ * When creating an OMTensor with a specified tensor array, a user has the option to
+ * create a tensor with or without ownership (omTensorCreateWithOwnership).
  *
- * In the case of OMTensor, if the ownership flag is set to "false", then a user is responsible for freeing memory until the last use.
+ * If the ownership flag is set to "false", then a user is responsible for freeing memory until the last use.
  * Otherwise, if the flag is set to "true", then the destruction of the tensor (omTensorDestroy)
  * will also free any associated memory and data buffers.
- *
- * With respects to OMTensorList, no matter the value of the ownership flag, every tensor will be destroyed (omTensorListDestroy). 
- * However, if the ownership flag is set to "true", the OMTensorList will free the tensor array upon destruction. 
- * Otherwise, if owning is set to "false", the tensor array will not be freed upon destruction (needs to be freed manually).
  *
  *
  * \subsection reference Reference
