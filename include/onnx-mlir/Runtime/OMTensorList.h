@@ -4,7 +4,7 @@
 
 //===-------- OMTensorList.h - OMTensorList Declaration header-------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -31,9 +31,10 @@ extern "C" {
 /**
  * \brief OMTensorList creator
  *
- * Create an OMTensorList with specified OMTensor array. The array of pointers
- * to OMTensor pointers is used without copying, so caller should not free the
- * `tensors` ptr.
+ * Create an OMTensorList with specified OMTensor array.
+ *
+ * Internally OMTensorList creates its own copy of the passed-in tensor pointer
+ * array. This copy is freed when the OMTensorList is destroyed.
  *
  * @param tensors array of pointers to OMTensor
  * @param n number of elements in tensors array
@@ -44,38 +45,28 @@ OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreate(
     OMTensor **tensors, int64_t n);
 
 /**
- * \brief OMTensorList creator with tensor array pointers ownership
- *
- * Create an OMTensorList with specified OMTensor array. The array of pointers
- * to OMTensor pointers is used without copying, so caller should not free the
- * `tensors` ptr.
- *
- * This call allows the user to specify whether OMTensorList owns the tensor
- * array of pointers, which subsequently determines whether the memory space
- * underlying the pointers will be freed or not when OMTensorList gets
- * destroyed.
- *
- * @param tensors array of pointers to OMTensor
- * @param n number of elements in tensors array
- * @param owning whether OMTensorList owns the tensor array pointers, if set
- * to true, OMTensorList will release memory for the pointers upon destruction.
- * @return pointer to the OMTensorList created, NULL if creation failed.
- *
- */
-OM_EXTERNAL_VISIBILITY OMTensorList *omTensorListCreateWithOwnership(
-    OMTensor **tensors, int64_t n, int64_t owning);
-
-/**
  * \brief OMTensorList destroyer
  *
  * Destroy the OMTensorList struct recursively. That is to say, both the
- * ptr to the OMTensor pointers AND the OMTensor pointers are freed.
+ * OMTensorList and OMTensors it contains are freed.
  *
  * @param list pointer to the OMTensorList to be destroyed.  The function
  * simply returns when pointer is null.
  *
  */
 OM_EXTERNAL_VISIBILITY void omTensorListDestroy(OMTensorList *list);
+
+/**
+ * \brief OMTensorList shallow destroyer which does not destroy the tensors.
+ *
+ * Destroys the OMTensorList and its internal array of pointers.
+ * The OMTensors inside the OMTensorList are not destroyed.
+ *
+ * @param list pointer to the OMTensorList to be freed. The function
+ * simply returns when pointer is null.
+ *
+ */
+OM_EXTERNAL_VISIBILITY void omTensorListDestroyShallow(OMTensorList *list);
 
 /**
  * \brief OMTensorList OMTensor array getter
