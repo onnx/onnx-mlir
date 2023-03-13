@@ -992,7 +992,7 @@ def parse_type_str(allowedType):
         'bfloat16' : 'BF16',
         'float' : 'F32',
         'double' : 'F64',
-        'unknown' : 'BF16',
+        'undefined' : 'BF16',
         'complex64' : 'Complex<F32>',
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
