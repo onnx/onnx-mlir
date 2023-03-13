@@ -19,18 +19,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXResizeOpLowering : public ConversionPattern {
+struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
   ONNXResizeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXResizeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXResizeOp resizeOp,
+      ONNXResizeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    Location loc = op->getLoc();
-    ONNXResizeOp resizeOp = llvm::cast<ONNXResizeOp>(op);
-    ONNXResizeOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.getX();
+    Operation *op = resizeOp.getOperation();
+    Location loc = ONNXLoc<ONNXResizeOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    Value data = adaptor.getX();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());

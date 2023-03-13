@@ -203,19 +203,19 @@ static Value tryToUnflip(
   return resMemRef;
 }
 
-struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
+struct ONNXNonMaxSuppressionOpLowering
+    : public OpConversionPattern<ONNXNonMaxSuppressionOp> {
   ONNXNonMaxSuppressionOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            ONNXNonMaxSuppressionOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
   /// To understand how code is generated for NonMaxSuppression, look at the
   /// python implementation at the end of this file.
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXNonMaxSuppressionOp nmsOp,
+      ONNXNonMaxSuppressionOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXNonMaxSuppressionOp nmsOp = llvm::cast<ONNXNonMaxSuppressionOp>(op);
-    ONNXNonMaxSuppressionOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = nmsOp.getOperation();
+    Location loc = ONNXLoc<ONNXNonMaxSuppressionOp>(op);
 
     // Builder helper.
     IndexExprScope mainScope(&rewriter, loc);
@@ -237,19 +237,19 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // Operation's operands.
     // Bounding boxes.
-    Value boxes = operandAdaptor.getBoxes();
+    Value boxes = adaptor.getBoxes();
     // Scores.
-    Value scores = operandAdaptor.getScores();
+    Value scores = adaptor.getScores();
     // Maximum number of output boxes per class.
     Value maxOutputBoxPerClass = getOptionalScalarValue(
-        rewriter, loc, operandAdaptor.getMaxOutputBoxesPerClass(), i64Type, 0);
+        rewriter, loc, adaptor.getMaxOutputBoxesPerClass(), i64Type, 0);
     // Score threshold.
     Type scoreType = scores.getType().cast<MemRefType>().getElementType();
     Value scoreTH = getOptionalScalarValue(
-        rewriter, loc, operandAdaptor.getScoreThreshold(), scoreType, 0);
+        rewriter, loc, adaptor.getScoreThreshold(), scoreType, 0);
     // IOU threshold.
     Value iouTH = getOptionalScalarValue(
-        rewriter, loc, operandAdaptor.getIouThreshold(), scoreType, 0);
+        rewriter, loc, adaptor.getIouThreshold(), scoreType, 0);
     // Mode: diagonal corners or center point.
     int64_t centerPointBox = nmsOp.getCenterPointBox();
 

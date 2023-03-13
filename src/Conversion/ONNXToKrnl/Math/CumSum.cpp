@@ -56,10 +56,9 @@ static Value getLoopIndexByAxisAndOffset(MathBuilder &createMath,
   return notSameAsBaseIndex;
 }
 
-struct ONNXCumSumOpLowering : public ConversionPattern {
+struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
   ONNXCumSumOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXCumSumOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
   /// We use a parallel algorithm for cumsum [1] as follows:
   /// Assume that input is x whose shape in [n,m], and axis for cumsum is 0.
@@ -86,11 +85,10 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
   /// [2] Blelloch, Guy E. 1990. "Prefix Sums and Their Applications." Technical
   /// Report CMU-CS-90-190, School of Computer Science, Carnegie Mellon
   /// University.
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXCumSumOp csOp, ONNXCumSumOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXCumSumOp csOp = llvm::cast<ONNXCumSumOp>(op);
-    ONNXCumSumOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = csOp.getOperation();
+    Location loc = ONNXLoc<ONNXCumSumOp>(op);
 
     // Builder helper.
     IndexExprScope mainScope(&rewriter, loc);
@@ -111,8 +109,8 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     Type f32Ty = rewriter.getF32Type();
     Type indexTy = rewriter.getIndexType();
 
-    Value X = operandAdaptor.getX();
-    Value axis = operandAdaptor.getAxis();
+    Value X = adaptor.getX();
+    Value axis = adaptor.getAxis();
     bool exclusive = csOp.getExclusive() == 1;
     bool reverse = csOp.getReverse() == 1;
 

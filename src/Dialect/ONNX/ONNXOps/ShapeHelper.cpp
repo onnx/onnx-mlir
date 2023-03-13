@@ -92,7 +92,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 //===----------------------------------------------------------------------===//
 
 ONNXOpShapeHelper::ONNXOpShapeHelper(Operation *inputOp,
-    ArrayRef<Value> inputOperands, IndexExprBuilder *inputIeBuilder,
+    ValueRange inputOperands, IndexExprBuilder *inputIeBuilder,
     IndexExprScope *inputScope)
     : op(inputOp), operands(inputOperands), createIE(inputIeBuilder),
       scope(inputScope), privateOutputsDims(), ownScope(inputScope == nullptr),
@@ -114,7 +114,7 @@ ONNXOpShapeHelper::ONNXOpShapeHelper(Operation *inputOp,
     // could not find one at this time.
     privateOperandsCache = llvm::SmallVector<Value, 4>(
         op->getOperands().begin(), op->getOperands().end());
-    operands = ArrayRef<Value>(privateOperandsCache);
+    operands = ValueRange(privateOperandsCache);
   }
 }
 
@@ -227,7 +227,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
-    ArrayRef<Value> initialOperands, DimsExpr *additionalOperand) {
+    ValueRange initialOperands, DimsExpr *additionalOperand) {
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
   DimsExpr dimsExpr;
@@ -286,8 +286,9 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
       IndexExpr nextDimExpr = inputsDims[i][j];
       // Case: 1 - *.
       if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
-        if (!hasUniBroadcasting && !hasNoBroadcasting)
+        if (!hasUniBroadcasting) {
           dimsExpr[j] = nextDimExpr;
+        }
         continue;
       }
       // Case: LiteralNot1 - *.
@@ -326,10 +327,34 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
   return success();
 }
 
+bool ONNXBroadcastOpShapeHelper::hasNoBroadcast() {
+  // Currently very conservative: constant shape only with no broadcast.
+  // Must be called after computeShape.
+
+  for (uint64_t r = 0; r < outputRank; ++r) {
+    bool hasOne, hasOtherThanOne;
+    hasOne = hasOtherThanOne = false;
+    for (DimsExpr dims : inputsDims) {
+      // Any dynamic values.. possible broadcast, assume the worst.
+      if (!dims[r].isLiteral())
+        return false;
+      int64_t lit = dims[r].getLiteral();
+      if (lit == 1)
+        hasOne = true;
+      else
+        hasOtherThanOne = true;
+    }
+    if (hasOne && hasOtherThanOne)
+      // has a known broadcast situation
+      return false;
+  }
+  return true;
+}
+
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
-  if (hasNoBroadcasting || (hasUniBroadcasting && operandIndex == 0)) {
+  if (hasUniBroadcasting && operandIndex == 0) {
     for (IndexExpr ie : outputAccessExprs)
       operandAccessExprs.emplace_back(ie);
     return success();

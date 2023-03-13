@@ -21,17 +21,19 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
+struct ONNXConcatShapeTransposeOpLowering
+    : public OpConversionPattern<ONNXConcatShapeTransposeOp> {
   ONNXConcatShapeTransposeOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXConcatShapeTransposeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXConcatShapeTransposeOp concatOp,
+      ONNXConcatShapeTransposeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ONNXConcatShapeTransposeOpAdaptor operandAdaptor(
-        operands, op->getAttrDictionary());
+    Operation *op = concatOp.getOperation();
+    Location loc = ONNXLoc<ONNXConcatShapeTransposeOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
@@ -43,12 +45,12 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
 
     // Compute concat output shape.
     unsigned numInputs = op->getNumOperands();
-    Value firstInput = operandAdaptor.getInputs().front();
+    Value firstInput = adaptor.getInputs().front();
     ArrayRef<int64_t> commonShape =
         firstInput.getType().cast<ShapedType>().getShape();
     // firstInput.getType().cast<ShapedType>().getElementType();
     uint64_t rank = commonShape.size();
-    int64_t axis = operandAdaptor.getAxis();
+    int64_t axis = adaptor.getAxis();
 
     // Negative axis means values are counted from the opposite side.
     // TODO should be in normalization pass
@@ -65,7 +67,7 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
 
     // Handle the rest of input
     for (unsigned i = 1; i < numInputs; ++i) {
-      Value currInput = operandAdaptor.getInputs()[i];
+      Value currInput = adaptor.getInputs()[i];
       for (unsigned dim = 0; dim < rank; dim++) {
         if (dim == axis) {
           IndexExpr currentSize = create.krnlIE.getShapeAsDim(currInput, axis);
@@ -83,10 +85,10 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
     outputConcatDims[axis] = cumulativeAxisSize;
 
     // Shape for Shape
-    int64_t start = operandAdaptor.getStart();
+    int64_t start = adaptor.getStart();
     int64_t end = rank;
-    if (operandAdaptor.getEnd().has_value()) {
-      end = operandAdaptor.getEnd().value();
+    if (adaptor.getEnd().has_value()) {
+      end = adaptor.getEnd().value();
     }
     // Handle negative
     if (start < 0)
@@ -110,7 +112,7 @@ struct ONNXConcatShapeTransposeOpLowering : public ConversionPattern {
 
     // Convert the output type to MemRefType.
     DimsExpr outputTransposeDims = shapeHelper.getOutputDims(1);
-    ArrayAttr permAttr = operandAdaptor.getPermAttr();
+    ArrayAttr permAttr = adaptor.getPermAttr();
     Type t = op->getResultTypes()[1];
     auto outputTransposeType = typeConverter->convertType(t).cast<MemRefType>();
     Value alloc =

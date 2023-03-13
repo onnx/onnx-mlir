@@ -515,10 +515,10 @@ bool isSuitableForZDNN<ONNXGemmOp>(
   return true;
 }
 
-/// Check legality for ONNXReduceMean.
+/// Check legality for ONNXReduceMeanV13.
 template <>
-bool isSuitableForZDNN<ONNXReduceMeanOp>(
-    ONNXReduceMeanOp op, const DimAnalysis *dimAnalysis) {
+bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
+    ONNXReduceMeanV13Op op, const DimAnalysis *dimAnalysis) {
   // Check data type.
   if (!isValidElementTypeAndRank(op.getData()))
     return false;

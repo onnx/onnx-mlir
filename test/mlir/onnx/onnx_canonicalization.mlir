@@ -350,45 +350,45 @@ func.func @test_size2(%arg0 : tensor<*xf32>) -> tensor<*xi64> {
 
 // -----
 
-// COM: Test rewriting GlobalAveragePool into ReduceMean
+// COM: Test rewriting GlobalAveragePool into ReduceMeanV13
 func.func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
   %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
   return %0 : tensor<1x3x1x1xf32>
   // CHECK-LABEL: test_global_average_pool
-  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMeanV13"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
   // CHECK: return [[RES]] : tensor<1x3x1x1xf32>
 }
 
 // -----
 
-// COM: Test rewriting GlobalAveragePool into ReduceMean with dynamic dimensions
+// COM: Test rewriting GlobalAveragePool into ReduceMeanV13 with dynamic dimensions
 func.func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32> {
   %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
   return %0 : tensor<1x?x?x1xf32>
   // CHECK-LABEL: test_global_average_pool_dyn_dims
-  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMeanV13"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
   // CHECK: return [[RES]] : tensor<1x?x?x1xf32>
 }
 
 // -----
 
-// COM: Test rewriting GlobalMaxPool into ReduceMax
+// COM: Test rewriting GlobalMaxPool into ReduceMaxV13
 func.func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
   %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
   return %0 : tensor<1x3x1x1xf32>
   // CHECK-LABEL: test_global_average_pool
-  // CHECK: [[RES:%.+]] = "onnx.ReduceMax"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMaxV13"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
   // CHECK: return [[RES]] : tensor<1x3x1x1xf32>
 }
 
 // -----
 
-// COM: Test rewriting GlobalMaxPool into ReduceMax with dynamic dimensions
+// COM: Test rewriting GlobalMaxPool into ReduceMaxV13 with dynamic dimensions
 func.func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32> {
   %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
   return %0 : tensor<1x?x?x1xf32>
   // CHECK-LABEL: test_global_average_pool_dyn_dims
-  // CHECK: [[RES:%.+]] = "onnx.ReduceMax"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMaxV13"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
   // CHECK: return [[RES]] : tensor<1x?x?x1xf32>
 }
 
@@ -921,5 +921,36 @@ func.func @test_softmax_v11_unranked(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>) -> tensor<*xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Softmax"([[PARAM_0_]]) {axis = -1 : si64} : (tensor<*xf32>) -> tensor<*xf32>
 // CHECK:           return [[VAR_0_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+#transpose = affine_map<(d0, d1, d2, d3) -> (d2, d0, d1, d3)>
+#reshape =  affine_map<(d0, d1) -> (d0 floordiv 32, d0 mod 32, d1 floordiv 64, d1 mod 64)> 
+func.func @shape_transform_compose(%arg0: tensor<128x128xf32>) -> tensor<2x4x32x64xf32> {
+  %0 = "onnx.ShapeTransform"(%arg0) {index_map = #reshape} : (tensor<128x128xf32>) -> tensor<4x32x2x64xf32>
+  %1 = "onnx.ShapeTransform"(%0) {index_map = #transpose} : (tensor<4x32x2x64xf32>) -> tensor<2x4x32x64xf32>
+  return %1 : tensor<2x4x32x64xf32>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (d1 floordiv 64, d0 floordiv 32, d0 mod 32, d1 mod 64)>
+// CHECK-LABEL:  func.func @shape_transform_compose
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x128xf32>) -> tensor<2x4x32x64xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ShapeTransform"([[PARAM_0_]]) {index_map = #map} : (tensor<128x128xf32>) -> tensor<2x4x32x64xf32>
+// CHECK:           return [[VAR_0_]] : tensor<2x4x32x64xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Remove ShapeTransform with identity map.
+#identity = affine_map<(d0, d1) -> (d0, d1)>
+func.func @shape_transform_identity_map(%arg0: tensor<128x128xf32>) -> tensor<128x128xf32> {
+  %0 = "onnx.ShapeTransform"(%arg0) {index_map = #identity} : (tensor<128x128xf32>) -> tensor<128x128xf32>
+  return %0 : tensor<128x128xf32>
+
+// CHECK-LABEL:  func.func @shape_transform_identity_map
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x128xf32>) -> tensor<128x128xf32> {
+// CHECK:           return [[PARAM_0_]] : tensor<128x128xf32>
 // CHECK:         }
 }

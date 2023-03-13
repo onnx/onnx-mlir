@@ -32,20 +32,21 @@ using namespace mlir;
 namespace onnx_mlir {
 
 template <typename GemmOp>
-struct ONNXGemmOpLowering : public ConversionPattern {
+struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
   ONNXGemmOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling)
-      : ConversionPattern(typeConverter, GemmOp::getOperationName(), 1, ctx),
+      : OpConversionPattern<GemmOp>(typeConverter, ctx),
         enableTiling(enableTiling) {}
 
+  using OpAdaptor = typename GemmOp::Adaptor;
   bool enableTiling;
 
-  void genericGemm(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
-      Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
-      Value zeroVal, Value alphaVal, Value betaVal,
-      ConversionPatternRewriter &rewriter, Location loc) const {
+  void genericGemm(ONNXGemmOpAdaptor &adaptor, Type elementType,
+      ONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
+      Value alphaVal, Value betaVal, ConversionPatternRewriter &rewriter,
+      Location loc) const {
     // R is result (alloc).
-    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), R(alloc);
+    Value A(adaptor.getA()), B(adaptor.getB()), R(alloc);
 
     // Create all the loops at once (outer loops followed by inner loop).
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
@@ -74,11 +75,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                     createKrnl);
                 // Handle transposed accesses.
                 SmallVector<Value, 2> aAccess, bAccess;
-                if (gemmOp.getTransA() != 0)
+                if (adaptor.getTransA() != 0)
                   aAccess = {k, i};
                 else
                   aAccess = {i, k};
-                if (gemmOp.getTransB() != 0)
+                if (adaptor.getTransB() != 0)
                   bAccess = {j, k};
                 else
                   bAccess = {k, j};
@@ -101,23 +102,22 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                   IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0)
                       .getValue());
             }
-            Value c = create.krnl.load(operandAdaptor.getC(), cAccess);
+            Value c = create.krnl.load(adaptor.getC(), cAccess);
             res = create.math.add(res, create.math.mul(betaVal, c));
           }
           create.krnl.store(res, R, outerIndices);
         });
   }
 
-  void tiledTransposedGemm(ONNXGemmOp &gemmOp,
-      ONNXGemmOpAdaptor &operandAdaptor, Type elementType,
+  void tiledTransposedGemm(ONNXGemmOpAdaptor &adaptor, Type elementType,
       ONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       Value alphaVal, Value betaVal, ConversionPatternRewriter &rewriter,
       Location loc) const {
 
     // R is result (alloc).
-    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), R(alloc);
-    bool aTrans = gemmOp.getTransA();
-    bool bTrans = gemmOp.getTransB();
+    Value A(adaptor.getA()), B(adaptor.getB()), R(alloc);
+    bool aTrans = adaptor.getTransA();
+    bool bTrans = adaptor.getTransB();
     IndexExpr I = shapeHelper.getOutputDims()[0];
     IndexExpr J = shapeHelper.getOutputDims()[1];
     IndexExpr K = shapeHelper.aDims[1]; // aDims are already transposed.
@@ -271,8 +271,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     }
 
     // Perform the alpha/beta computations.
-    float alphaLit = gemmOp.getAlpha().convertToFloat();
-    float betaLit = gemmOp.getBeta().convertToFloat();
+    float alphaLit = adaptor.getAlpha().convertToFloat();
+    float betaLit = adaptor.getBeta().convertToFloat();
     if (alphaLit == 1.0 && (betaLit == 0.0 || !shapeHelper.hasBias)) {
       // No need for the multiply/add.
       return;
@@ -295,7 +295,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                   IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0)
                       .getValue());
             }
-            Value c = createKrnl.load(operandAdaptor.getC(), cAccess);
+            Value c = createKrnl.load(adaptor.getC(), cAccess);
             if (betaLit != 1.0)
               c = createMath.mul(betaVal, c);
             res = createMath.add(res, c);
@@ -304,13 +304,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         });
   }
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(GemmOp gemmOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    Operation *op = gemmOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Location loc = ONNXLoc<GemmOp>(op);
 
     // Get shape.
-    ONNXGemmOpAdaptor operandAdaptor(operands);
-    ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
-    Location loc = op->getLoc();
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
@@ -318,7 +318,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    Type convertedType =
+        this->typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
@@ -329,8 +330,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         outputMemRefType, shapeHelper.getOutputDims(), BUFFER_ALIGN);
 
     // Get the constants: zero, alpha,and beta.
-    float alphaLit = gemmOp.getAlpha().convertToFloat();
-    float betaLit = gemmOp.getBeta().convertToFloat();
+    float alphaLit = adaptor.getAlpha().convertToFloat();
+    float betaLit = adaptor.getBeta().convertToFloat();
     Value alpha = create.math.constant(elementType, alphaLit);
     Value beta = create.math.constant(elementType, betaLit);
     Value zero = create.math.constant(elementType, 0);
@@ -343,8 +344,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       if (DEBUG_OPTIMIZED_OFF)
         llvm::dbgs() << "Gemm optimized path off\n";
 
-      bool aTrans = gemmOp.getTransA();
-      bool bTrans = gemmOp.getTransB();
+      bool aTrans = adaptor.getTransA();
+      bool bTrans = adaptor.getTransB();
       if (IndexExpr::isLiteral(shapeHelper.aDims) &&
           IndexExpr::isLiteral(shapeHelper.bDims) &&
           IndexExpr::isLiteral(shapeHelper.cDims)) {
@@ -370,11 +371,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     });
 
     if (enableTiling && !DEBUG_OPTIMIZED_OFF) {
-      tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
-          alloc, zero, alpha, beta, rewriter, loc);
+      tiledTransposedGemm(adaptor, elementType, shapeHelper, alloc, zero, alpha,
+          beta, rewriter, loc);
     } else {
-      genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
-          alpha, beta, rewriter, loc);
+      genericGemm(adaptor, elementType, shapeHelper, alloc, zero, alpha, beta,
+          rewriter, loc);
     }
     rewriter.replaceOp(op, alloc);
     return success();
