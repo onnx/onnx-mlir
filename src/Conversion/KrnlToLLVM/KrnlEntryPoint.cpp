@@ -277,7 +277,7 @@ public:
 
     // Create wrapped output.
     Value wrappedOutput = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
+        RuntimeAPI::API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput});
 
     // Return wrapped output.
     create.llvm._return(wrappedOutput);

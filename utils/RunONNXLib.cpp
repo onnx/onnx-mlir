@@ -396,7 +396,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
       cout << "and " << size << " elements" << endl;
     }
   }
-  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum, true);
+  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
 }
 
 // Data structures for timing info.
