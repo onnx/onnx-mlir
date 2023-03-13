@@ -48,6 +48,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
             -j${NPROC} \
             check-onnx-backend-numerical \
     && make check-docs \
+# Run the cppcheck scanner
+    && ${ONNX_MLIR_ROOT}/utils/cppcheck_scan/cppcheck-scan.py \
     && rm -f Debug/bin/*Test Debug/bin/Perf* Debug/bin/Test* \
 # When building for push event to publish the image, unshallow and
 # rename origin to upstream to make the repo a bit more dev friendly.
