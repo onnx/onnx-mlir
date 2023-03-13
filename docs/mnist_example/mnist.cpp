@@ -272,7 +272,7 @@ static float img_data[] = {-0.4242129623889923f, -0.4242129623889923f,
 int main() {
   // Create an input tensor list of 1 tensor.
   int inputNum = 1;
-  OMTensor **inputTensors = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
+  OMTensor *inputTensors[inputNum];
   // The first input is of tensor<1x1x28x28xf32>.
   int64_t rank = 4;
   int64_t shape[] = {1, 1, 28, 28};
