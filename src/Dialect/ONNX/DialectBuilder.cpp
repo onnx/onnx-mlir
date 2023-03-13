@@ -146,6 +146,20 @@ Value OnnxBuilder::mul(Type resultType, Value A, Value B) const {
       resultType, toTensor(A), toTensor(B));
 }
 
+Value OnnxBuilder::pad(Type outputType, Value input, Value pads,
+    Value constantValue, std::string mode) const {
+  Value constant = constantValue.getType().isa<NoneType>()
+                       ? constantValue
+                       : toTensor(constantValue);
+  return createTypedOpAndInferShapes<ONNXPadOp>(toTensor(outputType),
+      toTensor(input), toTensor(pads), constant, b().getStringAttr(mode));
+}
+
+Value OnnxBuilder::padZero(Type outputType, Value input, Value pads) const {
+  return pad(
+      outputType, input, pads, b().create<ONNXNoneOp>(loc()), "constant");
+}
+
 Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
     bool keepDims, bool noop_with_empty_axes) const {
   int64_t i_keepDims = keepDims; // 0 if false, 1 if true
@@ -157,6 +171,19 @@ Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
 Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
   return createTypedOpAndInferShapes<ONNXReshapeOp>(
       toTensor(outputType), toTensor(input), toTensor(shape));
+}
+
+Value OnnxBuilder::reverseSequence(Type outputType, Value input,
+    Value sequenceLens, int64_t batchAxis, int64_t timeAxis) const {
+  IntegerAttr batchAxisAttr =
+      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
+          APInt(64, batchAxis, /*isSigned=*/true));
+  IntegerAttr timeAxisAttr =
+      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
+          APInt(64, timeAxis, /*isSigned=*/true));
+  return createTypedOpAndInferShapes<ONNXReverseSequenceOp>(
+      toTensor(outputType), toTensor(input), toTensor(sequenceLens),
+      batchAxisAttr, timeAxisAttr);
 }
 
 Value OnnxBuilder::shape(Type outputType, Value input) const {
@@ -182,6 +209,13 @@ Value OnnxBuilder::slice(Type outputType, Value input, int64_t start,
   return slice(outputType, input, startVal, endVal, /*axis*/ zeroVal, stepVal);
 }
 
+ValueRange OnnxBuilder::split(
+    TypeRange outputTypes, Value input, Value split, int64_t axis) const {
+  return createOpAndInferShapes<ONNXSplitOp>(
+      toTensors(outputTypes), toTensor(input), toTensor(split), axis)
+      .getResults();
+}
+
 Value OnnxBuilder::squeeze(Type outputType, Value data, Value axes) const {
   return createTypedOpAndInferShapes<ONNXSqueezeOp>(
       toTensor(outputType), toTensor(data), toTensor(axes));
@@ -198,6 +232,14 @@ Value OnnxBuilder::transpose(
     Type outputType, Value input, ArrayAttr perm) const {
   return createTypedOpAndInferShapes<ONNXTransposeOp>(
       toTensor(outputType), toTensor(input), perm);
+}
+
+Value OnnxBuilder::transposeInt64(
+    Value input, ArrayRef<int64_t> intPerm) const {
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+  Type outputType = UnrankedTensorType::get(elementType);
+  return transpose(outputType, input, b().getI64ArrayAttr(intPerm));
 }
 
 Value OnnxBuilder::toTensor(Value input) const {
@@ -223,6 +265,24 @@ TensorType OnnxBuilder::toTensor(Type input) const {
     elementTy = b().getIntegerType(64);
   }
   return RankedTensorType::get(aTy.getShape(), elementTy);
+}
+
+TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
+  assert(inputs.size() >= 2 && "Expect at least two inputs");
+  if (llvm::all_of(inputs, [](Type t) { return (t.isa<TensorType>()); }))
+    return inputs;
+  assert(llvm::all_of(inputs, [](Type t) { return (t.isa<MemRefType>()); }) &&
+         "All inputs expect RankedMemref type when not a TensorType");
+  llvm::SmallVector<Type, 4> resultTypes;
+  for (uint64_t i = 0; i < inputs.size(); ++i) {
+    ShapedType aTy = inputs[i].cast<ShapedType>();
+    Type elementTy = aTy.getElementType();
+    if (elementTy.isa<IndexType>()) {
+      elementTy = b().getIntegerType(64);
+    }
+    resultTypes.emplace_back(RankedTensorType::get(aTy.getShape(), elementTy));
+  }
+  return TypeRange(resultTypes);
 }
 
 Value OnnxBuilder::toMemref(Value input) const {
