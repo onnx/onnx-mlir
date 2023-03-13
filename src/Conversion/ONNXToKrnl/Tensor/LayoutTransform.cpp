@@ -20,18 +20,19 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXLayoutTransformOpLowering : public ConversionPattern {
+struct ONNXLayoutTransformOpLowering
+    : public OpConversionPattern<ONNXLayoutTransformOp> {
   ONNXLayoutTransformOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXLayoutTransformOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutOp,
+      ONNXLayoutTransformOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXLayoutTransformOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = layoutOp.getOperation();
+    Location loc = ONNXLoc<ONNXLayoutTransformOp>(op);
 
     // Operands and attributes.
-    Value data = operandAdaptor.getData();
+    Value data = adaptor.getData();
 
     // Convert the input type to MemRefType.
     Type inConvertedType = typeConverter->convertType(data.getType());

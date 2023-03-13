@@ -33,6 +33,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Additional/EntryPoint.cpp
   ONNXOps/Additional/LayoutTransform.cpp
   ONNXOps/Additional/None.cpp
+  ONNXOps/Additional/ShapeTransform.cpp
   ONNXOps/ControlFlow/If.cpp
   ONNXOps/ControlFlow/Loop.cpp
   ONNXOps/ControlFlow/Scan.cpp
@@ -118,6 +119,7 @@ add_onnx_mlir_library(OMONNXOps
   OMONNXElementsAttr
   onnx
   MLIRFuncDialect
+  MLIRMemRefTransforms
   )
 
 configure_file(ONNXOps.td.inc.dc.in

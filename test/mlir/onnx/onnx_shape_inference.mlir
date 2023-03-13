@@ -2164,34 +2164,34 @@ func.func @test_expand_with_shape(%arg0 : tensor<2x1x6x1xf32>, %arg1: tensor<6x2
 /// Test shape inference for ReduceMean.
 //===----------------------------------------------------------------------===//
 
-func.func @test_reduce_mean_1(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
-  %0 = "onnx.ReduceMean"(%arg0) {axes = [-1], keepdims = 1 : si64} : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
+func.func @test_reduce_mean_v13_1(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [-1], keepdims = 1 : si64} : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_reduce_mean_1
-  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [-1], keepdims = 1 : si64} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x1xf32>
+  // CHECK-LABEL: test_reduce_mean_v13_1
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMeanV13"(%arg0) {axes = [-1], keepdims = 1 : si64} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x1xf32>
   // CHECK: return [[RES]] : tensor<1x2x3x1xf32>
 }
 
 // -----
 
-func.func @test_reduce_mean_2(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
-  %0 = "onnx.ReduceMean"(%arg0) {axes = [2], keepdims = 1 : si64} : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
+func.func @test_reduce_mean_v13_2(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [2], keepdims = 1 : si64} : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_reduce_mean_2
-  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2], keepdims = 1 : si64} : (tensor<1x2x3x4xf32>) -> tensor<1x2x1x4xf32>
+  // CHECK-LABEL: test_reduce_mean_v13_2
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMeanV13"(%arg0) {axes = [2], keepdims = 1 : si64} : (tensor<1x2x3x4xf32>) -> tensor<1x2x1x4xf32>
   // CHECK: return [[RES]] : tensor<1x2x1x4xf32>
 }
 
 // -----
 
-func.func @test_reduce_mean_3(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
-  %0 = "onnx.ReduceMean"(%arg0) {axes = [-1], keepdims = 0 : si64} : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
+func.func @test_reduce_mean_v13_3(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [-1], keepdims = 0 : si64} : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_reduce_mean_3
-  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [-1], keepdims = 0 : si64} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3xf32>
+  // CHECK-LABEL: test_reduce_mean_v13_3
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMeanV13"(%arg0) {axes = [-1], keepdims = 0 : si64} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3xf32>
   // CHECK: return [[RES]] : tensor<1x2x3xf32>
 }
 
@@ -3436,4 +3436,21 @@ func.func @test_onnx_layout_transform(%arg0: tensor<5x3x32x32xf32>) -> tensor<*x
 // CHECK:           [[VAR_1_:%.+]] = "onnx.LayoutTransform"([[VAR_0_]]) : (tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32>
 // CHECK:           return [[VAR_1_]] : tensor<5x3x32x32xf32>
 // CHECK:         }
+}
+
+// -----
+
+#map = affine_map<(d0, d1) -> (d1 floordiv 64, d0, d1 mod 64)>
+module {
+  func.func @test_shape_transform(%arg0: tensor<3x128xf32>) -> tensor<*xf32> {
+    %0 = "onnx.ShapeTransform"(%arg0) {index_map = #map} : (tensor<3x128xf32>) -> tensor<*xf32>
+    return %0 : tensor<*xf32>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (d1 floordiv 64, d0, d1 mod 64)>
+// CHECK-LABEL:  func.func @test_shape_transform
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x128xf32>) -> tensor<2x3x64xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ShapeTransform"([[PARAM_0_]]) {index_map = #map} : (tensor<3x128xf32>) -> tensor<2x3x64xf32>
+// CHECK:           return [[VAR_0_]] : tensor<2x3x64xf32>
+// CHECK:         }
+  }
 }

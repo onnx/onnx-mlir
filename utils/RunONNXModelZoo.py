@@ -323,7 +323,7 @@ def check_model(model_path, model_name, compile_args, report_dir):
         options = [compile_options]
         if has_data_sets:
             options += ['--verify=ref']
-            options += ['--data-folder={}'.format(data_set)]
+            options += ['--load-ref={}'.format(data_set)]
         if model_name in RunONNXModel_additional_options:
             options += RunONNXModel_additional_options[model_name]
         if (args.compile_only):

@@ -14,7 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
+
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -107,7 +109,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
 }
 
 /// Check if all operands are scalar values at compile time.
-bool hasAllScalarValues(ArrayRef<Value> values) {
+bool hasAllScalarValues(ValueRange values) {
   for (Value value : values) {
     if (value.getType().cast<ShapedType>().getRank() != 0)
       return false;
@@ -594,6 +596,19 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
     }
   }
   return alignment;
+}
+
+bool hasNonIdentityLayout(Value val) {
+  MemRefType type = val.getType().dyn_cast<MemRefType>();
+  assert(type && "expected a memref type");
+  return hasNonIdentityLayout(type);
+}
+
+bool hasNonIdentityLayout(ValueRange operands) {
+  for (Value val : operands)
+    if (hasNonIdentityLayout(val))
+      return true;
+  return false;
 }
 
 } // namespace onnx_mlir

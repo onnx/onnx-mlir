@@ -77,20 +77,20 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
   return resMemRef;
 }
 
-struct ONNXHardmaxOpLowering : public ConversionPattern {
+struct ONNXHardmaxOpLowering : public OpConversionPattern<ONNXHardmaxOp> {
   ONNXHardmaxOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXHardmaxOp::getOperationName(), 1, ctx) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      : OpConversionPattern(typeConverter, ctx) {}
+  LogicalResult matchAndRewrite(ONNXHardmaxOp hardmaxOp,
+      ONNXHardmaxOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
+    Operation *op = hardmaxOp.getOperation();
+    Location loc = ONNXLoc<ONNXHardmaxOp>(op);
+    Value input = adaptor.getInput();
+
     MultiDialectBuilder<MathBuilder, KrnlBuilder, IndexExprBuilderForKrnl,
         MemRefBuilder>
         create(rewriter, loc);
     IndexExprScope scope(create.krnl);
-
-    ONNXHardmaxOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());

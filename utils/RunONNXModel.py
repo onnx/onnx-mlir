@@ -3,7 +3,7 @@
 
 ##################### RunONNXModel.py #########################################
 #
-# Copyright 2019-2022 The IBM Research Authors.
+# Copyright 2019-2023 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -54,7 +54,7 @@ parser.add_argument('--compile-only',
 parser.add_argument('--compile-using-input-shape',
                     action='store_true',
                     help="Compile the model by using the shape info getting from"
-                    " the inputs in data folder. Must set --data-folder")
+                    " the inputs in the reference folder set by --load-ref")
 parser.add_argument('--print-input',
                     action='store_true',
                     help="Print out inputs")
@@ -66,18 +66,13 @@ parser.add_argument('--save-onnx',
                     type=str,
                     help="File path to save the onnx model. Only effective if "
                     "--verify=onnxruntime")
-parser.add_argument('--save-data',
-                    metavar='PATH',
-                    type=str,
-                    help="Path to a folder to save the inputs and outputs"
-                    " in protobuf")
 parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
                     " inputs/outputs. By default, no verification")
 parser.add_argument('--verify-all-ops',
                     action='store_true',
-                    help="Verify all operation outputs when using onnxruntime.")
+                    help="Verify all operation outputs when using onnxruntime")
 parser.add_argument('--rtol',
                     type=str,
                     default="0.05",
@@ -99,15 +94,21 @@ lib_group.add_argument('--load-so',
                        help="File path to load a generated shared library for "
                        "inference, and the ONNX model will not be re-compiled")
 
+parser.add_argument('--save-ref',
+                    metavar='PATH',
+                    type=str,
+                    help="Path to a folder to save the inputs and outputs"
+                    " in protobuf")
 data_group = parser.add_mutually_exclusive_group()
-data_group.add_argument('--data-folder',
+data_group.add_argument('--load-ref',
+                        metavar='PATH',
                         type=str,
-                        help="Path to a folder containing inputs and outputs stored in protobuf."
+                        help="Path to a folder containing reference inputs and outputs stored in protobuf."
                         " If --verify=ref, inputs and outputs are reference data for verification")
 data_group.add_argument('--shape-info',
                         type=str,
                         help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
-                        "Used to generate random inputs for the model if --data-folder is not set")
+                        "Used to generate random inputs for the model if --load-ref is not set")
 
 args = parser.parse_args()
 
@@ -167,11 +168,12 @@ def execute_commands(cmds):
                            stdout=subprocess.PIPE,
                            stderr=subprocess.PIPE)
     stdout, stderr = out.communicate()
+    msg = stderr.decode("utf-8") + stdout.decode("utf-8")
     if out.returncode == -signal.SIGSEGV:
         return (False, "Segfault")
     if out.returncode != 0:
-        return (False, stderr.decode("utf-8") + stdout.decode("utf-8"))
-    return (True, stdout.decode("utf-8"))
+        return (False, msg)
+    return (True, msg)
 
 
 def extend_model_output(model, intermediate_outputs):
@@ -285,15 +287,25 @@ def generate_random_input(input_signature, input_shapes):
         np_elem_type = MLIR_TYPE_TO_NP_TYPE[elem_type]
         # Set a range for random values.
         lb = ub = 0
+        random_element_type = np_elem_type
         if (np.issubdtype(np_elem_type, np.floating)):
             lb = -1.0
             ub = 1.0
+
         elif (np.issubdtype(np_elem_type, np.integer)):
             lb = -10
             ub = 10
+        elif (np.issubdtype(np_elem_type, np.dtype(bool).type)):
+            # For some reason, random.uniform with lb/ub to 0/1 resulted in 1 only.
+            lb = -10
+            ub = 9
+            random_element_type = np.dtype("int32")
         else:
             raise AssertionError("Unsuported element type")
-        rinput = np.random.uniform(lb, ub, explicit_shape).astype(np_elem_type)
+        rinput = np.random.uniform(lb, ub, explicit_shape).astype(random_element_type)
+        # For boolean, transform range into True/False using greater_equal
+        if (np.issubdtype(np_elem_type, np.dtype(bool).type)):
+            rinput = np.greater_equal(rinput, [0])
         print(
             "  - {} input's shape {}, element type {}.".format(
                 ordinal(i + 1), rinput.shape, np_elem_type),
@@ -391,6 +403,13 @@ def main():
             # Compile the model.
             start = time.perf_counter()
             ok, msg = execute_commands(command_str)
+            # Dump the compilation log into a file.
+            print("  Compilation log is dumped into compilation.log")
+            original_stdout = sys.stdout
+            with open('compilation.log', 'w') as f:
+                sys.stdout = f
+                print(msg)
+                sys.stdout = original_stdout
             if not ok:
                 print(msg)
                 exit(1)
@@ -498,10 +517,14 @@ def main():
                 for index, actual_val in np.ndenumerate(outs[i]):
                     total_elements += 1
                     ref_val = ref_outs[i][index]
-                    # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                    diff = float(args.atol) + float(args.rtol) * abs(ref_val)
-                    if (abs(actual_val - ref_val) <= diff):
-                        continue
+                    if (np.issubdtype(outs[i].dtype, bool)):
+                        if ref_val == actual_val:
+                            continue
+                    else:
+                        # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+                        diff = float(args.atol) + float(args.rtol) * abs(ref_val)
+                        if (abs(actual_val - ref_val) <= diff):
+                            continue
                     mismatched_elements += 1
                     print("  at {}".format(index),
                           "mismatch {} (actual)".format(actual_val),

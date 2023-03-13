@@ -6502,6 +6502,43 @@ Effects: MemoryEffects::Effect{}
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
+| `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `noop_with_empty_axes` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `axes` | tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+
+### `onnx.ReduceL1V13` (::mlir::ONNXReduceL1V13Op)
+
+ONNX ReduceL1 operation
+
+Computes the L1 norm of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
+
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+False instead of True.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
 | `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
 | `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
@@ -6531,6 +6568,43 @@ False instead of True.
 Traits: AlwaysSpeculatableImplTrait
 
 Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `noop_with_empty_axes` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `axes` | tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+
+### `onnx.ReduceL2V13` (::mlir::ONNXReduceL2V13Op)
+
+ONNX ReduceL2 operation
+
+Computes the L2 norm of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
+
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+False instead of True.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6574,6 +6648,43 @@ Effects: MemoryEffects::Effect{}
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
+| `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `noop_with_empty_axes` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `axes` | tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+
+### `onnx.ReduceLogSumExpV13` (::mlir::ONNXReduceLogSumExpV13Op)
+
+ONNX ReduceLogSumExp operation
+
+Computes the log sum exponent of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
+
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+False instead of True.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
 | `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
 | `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
@@ -6603,6 +6714,43 @@ False instead of True.
 Traits: AlwaysSpeculatableImplTrait
 
 Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `noop_with_empty_axes` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `axes` | tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+
+### `onnx.ReduceLogSumV13` (::mlir::ONNXReduceLogSumV13Op)
+
+ONNX ReduceLogSum operation
+
+Computes the log sum of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
+
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+False instead of True.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6646,6 +6794,43 @@ Effects: MemoryEffects::Effect{}
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
+| `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `noop_with_empty_axes` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values
+| `axes` | tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values
+
+### `onnx.ReduceMaxV13` (::mlir::ONNXReduceMaxV13Op)
+
+ONNX ReduceMax operation
+
+Computes the max of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
+
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+False instead of True.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
 | `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
 | `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
@@ -6675,6 +6860,43 @@ False instead of True.
 Traits: AlwaysSpeculatableImplTrait
 
 Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `noop_with_empty_axes` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `axes` | tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+
+### `onnx.ReduceMeanV13` (::mlir::ONNXReduceMeanV13Op)
+
+ONNX ReduceMean operation
+
+Computes the mean of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
+
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+False instead of True.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6718,6 +6940,43 @@ Effects: MemoryEffects::Effect{}
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
+| `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `noop_with_empty_axes` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values
+| `axes` | tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values
+
+### `onnx.ReduceMinV13` (::mlir::ONNXReduceMinV13Op)
+
+ONNX ReduceMin operation
+
+Computes the min of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
+
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+False instead of True.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
 | `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
 | `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
@@ -6747,6 +7006,43 @@ False instead of True.
 Traits: AlwaysSpeculatableImplTrait
 
 Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `noop_with_empty_axes` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `axes` | tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+
+### `onnx.ReduceProdV13` (::mlir::ONNXReduceProdV13Op)
+
+ONNX ReduceProd operation
+
+Computes the product of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
+
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+False instead of True.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 
@@ -6820,6 +7116,43 @@ False instead of True.
 Traits: AlwaysSpeculatableImplTrait
 
 Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelper, ShapeInference
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `noop_with_empty_axes` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `axes` | tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+
+### `onnx.ReduceSumSquareV13` (::mlir::ONNXReduceSumSquareV13Op)
+
+ONNX ReduceSumSquare operation
+
+Computes the sum square of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+the resulting tensor has the reduced dimension pruned.
+
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+False instead of True.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
 
 Effects: MemoryEffects::Effect{}
 

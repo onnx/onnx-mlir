@@ -21,16 +21,15 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXScanOpLowering : public ConversionPattern {
+struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
   explicit ONNXScanOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXScanOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXScanOp scanOp, ONNXScanOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    Operation *op = scanOp.getOperation();
     Location loc = ONNXLoc<ONNXScanOp>(op);
-    auto scanOp = dyn_cast<ONNXScanOp>(op);
-    ONNXScanOpAdaptor scanOpAdapter(operands, op->getAttrDictionary());
+    ValueRange operands = adaptor.getOperands();
 
     auto &scanBody = scanOp.getBody();
     auto bodyArgs = scanBody.getArguments();
@@ -40,17 +39,16 @@ struct ONNXScanOpLowering : public ConversionPattern {
     // - scan output (all intermediate values returned from body func
     // concatenated together).
     SmallVector<Value, 4> outputs;
-    allocateMemoryForVFinal(
-        loc, rewriter, typeConverter, op, scanOpAdapter, outputs);
+    allocateMemoryForVFinal(loc, rewriter, typeConverter, op, adaptor, outputs);
     allocateMemoryForScanOutput(
-        loc, rewriter, typeConverter, op, scanOpAdapter, outputs);
+        loc, rewriter, typeConverter, op, adaptor, outputs);
 
     // Copy content of vInit to vFinal, which is used to host intermediate
     // values produced by scan body function invocation in a scope accessible
     // by all scan iterations.
     int64_t numInputs = scanOp.getNumScanInputs();
-    auto v_initials =
-        llvm::make_range(operands.begin(), operands.end() - numInputs);
+    auto v_initials = llvm::make_range(
+        operands.begin(), operands.begin() + (operands.size() - numInputs));
     for (const auto &vInitAndFinal : llvm::zip(v_initials, outputs))
       emitCopy(rewriter, loc, std::get<0>(vInitAndFinal),
           std::get<1>(vInitAndFinal));
@@ -83,9 +81,9 @@ struct ONNXScanOpLowering : public ConversionPattern {
       SmallVector<Value, 4> localVars;
 
       auto opScanInputRange = llvm::make_range(
-          operands.end() - scanOp.getNumScanInputs(), operands.end());
+          operands.begin() + (operands.size() - numInputs), operands.end());
       auto bodyScanInputRange = llvm::make_range(
-          bodyArgs.end() - scanOp.getNumScanInputs(), bodyArgs.end());
+          bodyArgs.begin() + (bodyArgs.size() - numInputs), bodyArgs.end());
       for (const auto &opAndBodyScanInput :
           llvm::zip(opScanInputRange, bodyScanInputRange)) {
         auto opScanInput = std::get<0>(opAndBodyScanInput);
@@ -201,7 +199,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
 
   static void allocateMemoryForVFinal(mlir::Location loc,
       ConversionPatternRewriter &rewriter, TypeConverter *typeConverter,
-      Operation *op, ONNXScanOpAdaptor scanOpAdapter,
+      Operation *op, ONNXScanOpAdaptor adaptor,
       SmallVectorImpl<mlir::Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     for (const auto &ioPair :
@@ -226,7 +224,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
 
   static void allocateMemoryForScanOutput(mlir::Location loc,
       ConversionPatternRewriter &rewriter, TypeConverter *typeConverter,
-      Operation *op, ONNXScanOpAdaptor scanOpAdapter,
+      Operation *op, ONNXScanOpAdaptor adaptor,
       SmallVectorImpl<mlir::Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     for (const auto &opScanOutput : scanOp.scan_outputs()) {

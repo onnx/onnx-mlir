@@ -258,13 +258,23 @@ struct MemRefBuilder final : DialectBuilder {
 
   mlir::memref::DeallocOp dealloc(mlir::Value val) const;
 
+  // Reshapes.
+  mlir::memref::ReshapeOp reshape(mlir::MemRefType destType,
+      mlir::Value valToReshape, mlir::Value destShapeStoredInMem) const;
+  mlir::memref::ReshapeOp reshapeToFlat(mlir::Value valToReshape,
+      llvm::SmallVectorImpl<IndexExpr> &nDims, mlir::Value &size1D) const;
+  mlir::memref::ReshapeOp reshapeFromFlat(mlir::Value valToReshape,
+      llvm::SmallVectorImpl<IndexExpr> &nDims,
+      mlir::MemRefType outputType) const;
+
+  // Casts.
   mlir::memref::CastOp cast(
       mlir::Value input, mlir::MemRefType outputType) const;
-
   mlir::Value reinterpretCast(
       mlir::Value input, llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
 
-  // Does not support layouts at this time.
+  // Does not support layouts at this time. Does only work for values that are
+  // then loaded with affine or memref scalar load/store (MLIR limitations).
   mlir::Value collapseShape(mlir::Value input,
       llvm::ArrayRef<mlir::ReassociationIndices> reassociation);
 
@@ -351,7 +361,11 @@ struct VectorBuilder final : DialectBuilder {
   void storeIE(mlir::Value val, mlir::Value memref,
       llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
 
+  // Splat: a single value is copied.
+  mlir::Value splat(mlir::VectorType vecType, mlir::Value val) const;
+  // Broadcast: possibly a N dim vector is copied to M>N dim vector.
   mlir::Value broadcast(mlir::VectorType vecType, mlir::Value val) const;
+  // Shuffle: use mask to determine which value to write to the output.
   mlir::Value shuffle(mlir::Value lhs, mlir::Value rhs,
       llvm::SmallVectorImpl<int64_t> &mask) const;
   mlir::Value fma(mlir::Value lhs, mlir::Value rhs, mlir::Value acc) const;
@@ -409,6 +423,9 @@ struct GenericAffineBuilder final : DialectBuilder {
       mlir::function_ref<void(GenericAffineBuilder &createAffine)> thenFn,
       mlir::function_ref<void(GenericAffineBuilder &createAffine)> elseFn)
       const;
+
+  // AffineApplyOp
+  mlir::Value apply(mlir::AffineMap map, mlir::ValueRange operands) const;
 
   void yield() const;
 
@@ -593,8 +610,22 @@ struct LLVMBuilder final : DialectBuilder {
 // Anchor class.
 template <class... Ts>
 struct MultiDialectBuilder {
-  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc) {}
-  MultiDialectBuilder(const DialectBuilder &db) {}
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : builder(&b), location(loc) {}
+  MultiDialectBuilder(const DialectBuilder &db)
+      : builder(db.getBuilderPtr()), location(db.getLoc()) {}
+
+  // Public getters of builder and location.
+  mlir::OpBuilder &getBuilder() const {
+    assert(builder);
+    return *builder;
+  }
+  mlir::OpBuilder *getBuilderPtr() const { return builder; }
+  mlir::Location getLoc() const { return location; }
+
+private:
+  mlir::OpBuilder *builder;
+  mlir::Location location;
 };
 
 // Recursive class specialized for MathBuilder refereed to as math.

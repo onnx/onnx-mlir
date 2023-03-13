@@ -31,6 +31,15 @@ struct OnnxBuilder : DialectBuilder {
       : DialectBuilder(b, loc) {}
   OnnxBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~OnnxBuilder(){};
+
+  // Create operation and infer shape.
+  template <typename OnnxOpType, typename... Args>
+  OnnxOpType createOpAndInferShapes(Args &&... args) const;
+
+  template <typename OnnxOpType, typename... Args>
+  OnnxOpType createTypedOpAndInferShapes(
+      mlir::Type result_ty, Args &&... args) const;
+
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
@@ -68,6 +77,13 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value mul(mlir::Value A, mlir::Value B) const;
   mlir::Value mul(mlir::Type resultType, mlir::Value A, mlir::Value B) const;
 
+  // ONNXPadOp
+  mlir::Value pad(mlir::Type outputType, mlir::Value input, mlir::Value pads,
+      mlir::Value constantValue, std::string mode = "constant") const;
+  // Zero padding
+  mlir::Value padZero(
+      mlir::Type outputType, mlir::Value input, mlir::Value pads) const;
+
   // ONNXReduceSumOp
   mlir::Value reduceSum(mlir::Type outputType, mlir::Value data,
       mlir::Value axes, bool keepDims = true,
@@ -83,6 +99,10 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value reshapeToNDim(
       mlir::Value val, int64_t N, bool collapseMostSignificant) const;
 
+  // ONNXReverseSequenceOp
+  mlir::Value reverseSequence(mlir::Type outputType, mlir::Value input,
+      mlir::Value sequenceLens, int64_t batchAxis, int64_t timeAxis) const;
+
   // ONNXShapeOp
   mlir::Value shape(mlir::Type outputType, mlir::Value input) const;
 
@@ -92,6 +112,10 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Value steps) const;
   mlir::Value slice(mlir::Type outputType, mlir::Value input, int64_t start,
       int64_t end, int64_t step = 1) const; // 1D slice
+
+  // ONNXSplitOp
+  mlir::ValueRange split(mlir::TypeRange outputTypes, mlir::Value input,
+      mlir::Value split, int64_t axis) const;
 
   // ONNXSqueezeOp
   mlir::Value squeeze(
@@ -105,12 +129,16 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value toTensor(mlir::Value input) const;
   // Convert a Type to TensorType if it is of MemRefType.
   mlir::TensorType toTensor(mlir::Type input) const;
+  // Convert Type to TypeRange of TensorType if it is of MemRefType.
+  mlir::TypeRange toTensors(mlir::TypeRange inputs) const;
   // Convert a Value to MemrefType if it is of TensorType.
   mlir::Value toMemref(mlir::Value input) const;
 
   // ONNXTransposeOp
   mlir::Value transpose(
       mlir::Type outputType, mlir::Value input, mlir::ArrayAttr perm) const;
+  mlir::Value transposeInt64(
+      mlir::Value input, mlir::ArrayRef<int64_t> intPerm) const;
 
   // ONNXUnsqueezeOp
   mlir::Value unsqueeze(
@@ -154,5 +182,8 @@ protected:
   mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
   mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
+
+// Include inline code definitions.
+#include "DialectBuilder.hpp.inc"
 
 } // namespace onnx_mlir
