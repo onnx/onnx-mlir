@@ -485,6 +485,7 @@ OpsWithResultTypeInference = {
 #  - one with operands and attributes having aggregated parameters.
 custom_builder_unranked_ops_list = [
     'Abs',
+    'Conv',
     'Exp',
     'Identity',
     'Neg',
