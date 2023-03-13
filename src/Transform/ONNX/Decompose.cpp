@@ -356,30 +356,6 @@ Value emitPadsAxisEnd(PatternRewriter &rewriter, Location loc, Value input,
   return result;
 }
 
-Value emitConcat(
-    PatternRewriter &rewriter, Location loc, ValueRange inputs, int64_t axis) {
-  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
-  ShapedType inputType = inputs[0].getType().cast<ShapedType>();
-  Type elementType = inputType.getElementType();
-  ArrayRef<int64_t> inputShape = inputType.getShape();
-  int64_t concatAxisSize = 0;
-  for (Value v : inputs) {
-    ShapedType vType = v.getType().cast<ShapedType>();
-    ArrayRef<int64_t> vShape = vType.getShape();
-    concatAxisSize += vShape[axis];
-  }
-  SmallVector<int64_t> concatShape;
-  for (unsigned int i = 0; i < inputShape.size(); ++i) {
-    if (i == axis)
-      concatShape.emplace_back(concatAxisSize);
-    else
-      concatShape.emplace_back(inputShape[i]);
-  }
-  Type concatType = RankedTensorType::get(concatShape, elementType);
-  Value result = create.onnx.concat(concatType, inputs, axis);
-  return result;
-}
-
 // Insert pads in specified axis.
 Value insertPadAxis(PatternRewriter &rewriter, Location loc, Value input,
     int64_t axis, int64_t padSize) {
@@ -397,7 +373,12 @@ Value insertPadAxis(PatternRewriter &rewriter, Location loc, Value input,
   }
   padResults.emplace_back(splitLastResults);
   // Concat padded results.
-  Value concatResult = emitConcat(rewriter, loc, ValueRange(padResults), axis);
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
+  Type elementType =
+      padResults[0].getType().cast<ShapedType>().getElementType();
+  Type concatType = UnrankedTensorType::get(elementType);
+  Value concatResult =
+      create.onnx.concat(concatType, ValueRange(padResults), axis);
   return concatResult;
 }
 
