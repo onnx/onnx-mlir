@@ -522,7 +522,7 @@ def main():
                 for index, actual_val in np.ndenumerate(outs[i]):
                     total_elements += 1
                     ref_val = ref_outs[i][index]
-                    if (np.issubdtype(outs[i].dtype, bool)):
+                    if (np.issubdtype(outs[i].dtype, np.dtype(bool).type)):
                         if ref_val == actual_val:
                             continue
                     else:
