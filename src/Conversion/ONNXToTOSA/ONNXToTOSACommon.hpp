@@ -57,13 +57,13 @@ llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
   if (ceilMode == 0)
     return llvm::SmallVector<int64_t>{0, 0};
 
-  llvm::SmallVector<int64_t, 2> kernelShapeVec =
-      tosa::createInt64VectorFromIndexExpr(shapeHelper.kernelShape);
+  llvm::SmallVector<int64_t, 2> kernelShapeVec;
+  IndexExpr::getLiteral(shapeHelper.kernelShape, kernelShapeVec);
 
   // Get stride and pad vectors.
   llvm::SmallVector<int64_t, 2> stridesVec = shapeHelper.strides;
-  llvm::SmallVector<int64_t, 4> padsVec =
-      tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
+  llvm::SmallVector<int64_t, 4> padsVec;
+  IndexExpr::getLiteral(shapeHelper.pads, padsVec);
 
   // Check if the idiv_check for the output dimentions in
   // https://www.mlplatform.org/tosa/tosa_spec.html#_max_pool2d has no
@@ -101,7 +101,7 @@ llvm::Optional<mlir::Value> convertPoolOp(
   auto inputType = input.getType().cast<mlir::TensorType>();
   if (inputType.getShape().size() != 4) {
     (void)rewriter.notifyMatchFailure(op, "TOSA only supports 2d pooling");
-    return llvm::None;
+    return std::nullopt;
   }
 
   mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
@@ -116,11 +116,22 @@ llvm::Optional<mlir::Value> convertPoolOp(
   // transpose to change the format
   input = tosaBuilder.transpose(input, {0, 2, 3, 1});
 
+  if (!IndexExpr::isLiteral(shapeHelper.pads)) {
+    (void)rewriter.notifyMatchFailure(op, "could not determine pad values");
+    return std::nullopt;
+  }
+  if (!IndexExpr::isLiteral(shapeHelper.kernelShape)) {
+    (void)rewriter.notifyMatchFailure(
+        op, "could not determine kernel_shape values");
+    return std::nullopt;
+  }
+
   // When ceil mode is 1, we need to add values to the padding
   const llvm::SmallVector<int64_t, 4> ceilConstants =
       getCeilConstants<ONNXPoolOp>(inputType.getShape(), shapeHelper, ceilMode);
-  llvm::SmallVector<int64_t, 4> pads =
-      tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
+      
+  llvm::SmallVector<int64_t, 4> pads;
+  IndexExpr::getLiteral(shapeHelper.pads, pads);
 
   // reorder padding values
   mlir::ArrayAttr newPads = rewriter.getI64ArrayAttr({pads[0],
