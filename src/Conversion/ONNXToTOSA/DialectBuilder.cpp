@@ -17,6 +17,7 @@
 
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
@@ -83,7 +84,7 @@ Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
 }
 
 Value TosaBuilder::reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape) {
-  ArrayAttr shapeAttr = rewriter().getI64ArrayAttr(shape);
+  auto shapeAttr = rewriter().getDenseI64ArrayAttr(shape);
   auto valueType = value.getType().cast<ShapedType>();
   Type newValueType =
       RankedTensorType::get(llvm::SmallVector<int64_t, 4>(shape.size(), -1),

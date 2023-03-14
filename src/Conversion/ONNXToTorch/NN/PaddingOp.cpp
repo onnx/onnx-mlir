@@ -86,9 +86,9 @@ public:
     MLIRContext *context = op.getContext();
     Location loc = op.getLoc();
 
-    Value dataTorchTensor = adaptor.data();
-    auto pads = op.pads();
-    Value constValue = op.constant_value(); 
+    Value dataTorchTensor = adaptor.getData();
+    auto pads = op.getPads();
+    Value constValue = op.getConstantValue(); 
 
     // creating the ElementsAttr using pads values.
     ElementsAttr elemAttr = onnx_mlir::getElementAttributeFromONNXValue(pads);

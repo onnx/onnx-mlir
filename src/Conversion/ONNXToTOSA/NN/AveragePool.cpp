@@ -38,7 +38,7 @@ public:
     auto averagePoolOp = llvm::cast<ONNXAveragePoolOp>(op);
     OpAdaptor adaptor(operands, op->getAttrDictionary());
 
-    const int64_t includePad = adaptor.count_include_pad();
+    const int64_t includePad = adaptor.getCountIncludePad();
 
     // The attribute include_pad is unsupported
     if (includePad != 0) {

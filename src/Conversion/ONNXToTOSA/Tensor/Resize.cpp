@@ -77,16 +77,16 @@ public:
 
     TosaBuilder tosaBuilder(rewriter, loc);
 
-    Value input = adaptor.X();
+    Value input = adaptor.getX();
     auto inputType = input.getType().dyn_cast<RankedTensorType>();
 
     auto resultType =
         resizeOp.getResult().getType().dyn_cast<RankedTensorType>();
 
-    StringRef mode = adaptor.mode();
-    StringRef nearestMode = adaptor.nearest_mode();
+    StringRef mode = adaptor.getMode();
+    StringRef nearestMode = adaptor.getNearestMode();
     StringRef coordinateTransformationMode =
-        adaptor.coordinate_transformation_mode();
+        adaptor.getCoordinateTransformationMode();
 
     if (inputType.getRank() != 4) {
       return rewriter.notifyMatchFailure(
@@ -189,9 +189,9 @@ public:
         normalize(inputWidth, outputWidth);
 
     auto scale =
-        rewriter.getI64ArrayAttr({scale_y_n, scale_y_d, scale_x_n, scale_x_d});
-    auto offset = rewriter.getI64ArrayAttr({offset_y, offset_x});
-    auto border = rewriter.getI64ArrayAttr({border_y, border_x});
+        rewriter.getDenseI64ArrayAttr({scale_y_n, scale_y_d, scale_x_n, scale_x_d});
+    auto offset = rewriter.getDenseI64ArrayAttr({offset_y, offset_x});
+    auto border = rewriter.getDenseI64ArrayAttr({border_y, border_x});
     auto resizeModeAttr = rewriter.getStringAttr(resizeMode);
     Type newOutputType = RankedTensorType::get(
         {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());

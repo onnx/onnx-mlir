@@ -30,8 +30,8 @@ public:
   LogicalResult matchAndRewrite(ONNXConcatOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    ValueRange inputs = adaptor.inputs();
-    int64_t axis = adaptor.axis();
+    ValueRange inputs = adaptor.getInputs();
+    int64_t axis = adaptor.getAxis();
     auto resultType = op.getResult().getType();
 
     for (const auto &input : inputs) {

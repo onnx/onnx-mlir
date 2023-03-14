@@ -32,7 +32,7 @@ public:
   LogicalResult matchAndRewrite(ONNXEntryPointOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    auto functionName = op.func().getRootReference().getValue();
+    auto functionName = op.getFunc().getRootReference().getValue();
     // Differs from origin to get module
     auto module = op->getParentOfType<ModuleOp>();
     if (!module)

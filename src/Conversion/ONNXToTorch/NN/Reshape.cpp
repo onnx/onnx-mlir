@@ -70,8 +70,8 @@ public:
     Location loc = op.getLoc();
     MLIRContext *context = op.getContext();
 
-    Value inputData = op.data();
-    Value inputValue = adaptor.data();
+    Value inputData = op.getData();
+    Value inputValue = adaptor.getData();
     TensorType inputTensorType = inputData.getType().cast<TensorType>();
 
     TensorType resultTensorType = op.getResult().getType().cast<TensorType>();

@@ -51,7 +51,7 @@ llvm::Optional<mlir::Value> convertReduceMeanOp(mlir::PatternRewriter &rewriter,
 // simulate the ceil mode
 template <typename ShapeHelperType>
 llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
-    const ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
+    ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
     int64_t ceilMode) {
   // This avoids having more if statements when creating the padding const.
   if (ceilMode == 0)
@@ -97,15 +97,16 @@ llvm::Optional<mlir::Value> convertPoolOp(
 
   TosaBuilder tosaBuilder(rewriter, loc);
 
-  mlir::Value input = adaptor.X();
+  mlir::Value input = adaptor.getX();
   auto inputType = input.getType().cast<mlir::TensorType>();
   if (inputType.getShape().size() != 4) {
     (void)rewriter.notifyMatchFailure(op, "TOSA only supports 2d pooling");
     return std::nullopt;
   }
 
-  mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
-  const int64_t ceilMode = adaptor.ceil_mode();
+  auto kernelShape = adaptor.getKernelShapeAttr();
+
+  const int64_t ceilMode = adaptor.getCeilMode();
 
   // Construct the transposed type for the new Pool OP
   mlir::Type newResultType = mlir::RankedTensorType::get(
@@ -129,18 +130,21 @@ llvm::Optional<mlir::Value> convertPoolOp(
   // When ceil mode is 1, we need to add values to the padding
   const llvm::SmallVector<int64_t, 4> ceilConstants =
       getCeilConstants<ONNXPoolOp>(inputType.getShape(), shapeHelper, ceilMode);
-      
+
   llvm::SmallVector<int64_t, 4> pads;
   IndexExpr::getLiteral(shapeHelper.pads, pads);
 
   // reorder padding values
-  mlir::ArrayAttr newPads = rewriter.getI64ArrayAttr({pads[0],
+  auto newPads = rewriter.getDenseI64ArrayAttr({pads[0],
       pads[2] + ceilConstants[0], pads[1], pads[3] + ceilConstants[1]});
 
-  mlir::ArrayAttr strides = rewriter.getI64ArrayAttr(shapeHelper.strides);
+  auto strides = rewriter.getDenseI64ArrayAttr(shapeHelper.strides);
+
+  auto newKernelShape =
+      rewriter.getDenseI64ArrayAttr(mlir::extractFromI64ArrayAttr(kernelShape));
 
   input = tosa::CreateOpAndInfer<TOSAPoolOp>(
-      rewriter, loc, newResultType, input, kernelShape, strides, newPads);
+      rewriter, loc, newResultType, input, newKernelShape, strides, newPads);
 
   // Revert to original shape (NCHW)
   // Construct the old result shape out of the new one

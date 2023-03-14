@@ -30,7 +30,7 @@ public:
 
     Location loc = op.getLoc();
     mlir::MLIRContext *context = op.getContext();
-    Attribute valueAttribute = op.valueAttr(); // ::mlir::Attribute
+    Attribute valueAttribute = op.getValueAttr(); // ::mlir::Attribute
 
     // Steps
     // 1) Extract float attributes array from ONNX and compare with

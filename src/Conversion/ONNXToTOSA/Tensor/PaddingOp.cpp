@@ -38,11 +38,11 @@ public:
 
     Location loc = op.getLoc();
 
-    Value data = adaptor.data();
-    Value pads = adaptor.pads();
-    Value constValue = adaptor.constant_value();
+    Value data = adaptor.getData();
+    Value pads = adaptor.getPads();
+    Value constValue = adaptor.getConstantValue();
 
-    if (!(adaptor.mode() == "constant")) {
+    if (!(adaptor.getMode() == "constant")) {
       return rewriter.notifyMatchFailure(
           op, "only 'constant' mode is supported");
     }

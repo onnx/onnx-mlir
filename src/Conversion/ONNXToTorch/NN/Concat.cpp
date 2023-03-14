@@ -51,8 +51,8 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op.getLoc();
-    ValueRange inputs = adaptor.inputs();
-    IntegerAttr axisValue = op.axisAttr();
+    ValueRange inputs = adaptor.getInputs();
+    IntegerAttr axisValue = op.getAxisAttr();
     Value axisVal = rewriter.create<ConstantIntOp>(loc, axisValue);
     Value inputShapeList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(

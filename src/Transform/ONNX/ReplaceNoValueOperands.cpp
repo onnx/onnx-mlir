@@ -65,7 +65,7 @@ public:
   using OpRewritePattern<ONNXPadOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
       ONNXPadOp op, PatternRewriter &rewriter) const override {
-    auto constValue = op.constant_value();
+    auto constValue = op.getConstantValue();
     if (isNotNoValue(constValue)) {
       return rewriter.notifyMatchFailure(op, "has no NoValue operand");
     }
@@ -82,7 +82,7 @@ public:
   using OpRewritePattern<ONNXGemmOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
       ONNXGemmOp op, PatternRewriter &rewriter) const override {
-    auto matrixC = op.C();
+    auto matrixC = op.getC();
     if (isNotNoValue(matrixC)) {
       return rewriter.notifyMatchFailure(op, "has no NoValue operand");
     }
@@ -100,12 +100,12 @@ public:
   LogicalResult matchAndRewrite(
       ONNXConvOp op, PatternRewriter &rewriter) const override {
 
-    auto bias = op.B();
+    auto bias = op.getB();
     if (isNotNoValue(bias)) {
       return rewriter.notifyMatchFailure(op, "has no NoValue operand");
     }
 
-    auto weight = op.W();
+    auto weight = op.getW();
     auto weightType = weight.getType().cast<ShapedType>();
     auto weightShape = weightType.getShape();
 

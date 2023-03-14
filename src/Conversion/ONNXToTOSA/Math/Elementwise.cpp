@@ -92,9 +92,8 @@ public:
     if (!isTOSAFloat(scalarType))
       return rewriter.notifyMatchFailure(
           op, "`tosa.floor` only supports float types");
-    }
 
-    rewriter.replaceOpWithNewOp<tosa::FloorOp>(
+    rewriter.replaceOpWithNewOp<mlir::tosa::FloorOp>(
         op, op.getType(), adaptor.getX());
     return success();
   }
@@ -126,10 +125,10 @@ static LogicalResult LegalizeFloatingPointPrelu(Operation *op,
     TensorType outputType) {
   auto loc = op->getLoc();
   TosaBuilder tosaBuilder(rewriter, loc);
-  Value constZero = tosaBuilder.getConst(0.0, outputType.getShape());
+  Value constZero = tosaBuilder.getSplattedConst(0.0, outputType.getShape());
 
   auto mul = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, op->getLoc(),
-      outputType, input, tosaBuilder.getConst(alpha, outputType.getShape()),
+      outputType, input, tosaBuilder.getSplattedConst(alpha, outputType.getShape()),
       /*shift=*/0);
 
   auto greaterEqual =
@@ -158,13 +157,13 @@ public:
 
     // ONNX docs: alpha : float (default 0.01)
     float alpha = 0.01;
-    FloatAttr alphaAttr = adaptor.alphaAttr();
+    FloatAttr alphaAttr = adaptor.getAlphaAttr();
     if (alphaAttr) {
       // No easy interface in MLIR to get value as float
       alpha = alphaAttr.getValueAsDouble();
     }
     return LegalizeFloatingPointPrelu(
-        op, rewriter, adaptor.X(), alpha, outputType);
+        op, rewriter, adaptor.getX(), alpha, outputType);
   }
 };
 

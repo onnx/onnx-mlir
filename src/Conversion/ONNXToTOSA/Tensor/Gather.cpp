@@ -36,9 +36,9 @@ public:
 
     TosaBuilder tosaBuilder(rewriter, loc);
 
-    Value input = adaptor.data();
-    Value indices = adaptor.indices();
-    int64_t axis = adaptor.axis();
+    Value input = adaptor.getData();
+    Value indices = adaptor.getIndices();
+    int64_t axis = adaptor.getAxis();
 
     auto result = op.getResult();
 

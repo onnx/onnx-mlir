@@ -36,8 +36,8 @@ public:
     auto loc = op->getLoc();
     TosaBuilder tosaBuilder(rewriter, loc);
 
-    Value input = adaptor.input();
-    int64_t axis = adaptor.axis();
+    Value input = adaptor.getInput();
+    int64_t axis = adaptor.getAxis();
     auto inputType = input.getType().cast<ShapedType>();
 
     // onnx allows values beetween [-r, r-1] where r is the rank

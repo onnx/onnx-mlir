@@ -41,7 +41,7 @@ std::vector<int> getSortedWithNonNegativeAxes(mlir::ArrayAttr axesRaw) {
 // and returns a vector of integers
 std::vector<int> getAxes(ONNXSqueezeOp squeezeOp) {
   auto builder = mlir::Builder(squeezeOp.getContext());
-  auto axesConstOp = onnx_mlir::getONNXConstantOp(squeezeOp.axes());
+  auto axesConstOp = onnx_mlir::getONNXConstantOp(squeezeOp.getAxes());
   auto axesAttr =
       onnx_mlir::createArrayAttrFromConstantOp(builder, axesConstOp);
   return getSortedWithNonNegativeAxes(axesAttr);
@@ -50,7 +50,7 @@ std::vector<int> getAxes(ONNXSqueezeOp squeezeOp) {
 // This is overloaded function that converts axesAttr parameter in v11 of
 // squeeze and returns a vector of integers
 std::vector<int> getAxes(ONNXSqueezeV11Op squeezeOp) {
-  return getSortedWithNonNegativeAxes(squeezeOp.axesAttr());
+  return getSortedWithNonNegativeAxes(squeezeOp.getAxesAttr());
 }
 
 std::vector<int64_t> getResultShape(
@@ -66,7 +66,7 @@ std::vector<int64_t> getResultShape(
 Torch::ValueTensorType getResultType(std::vector<int64_t> tensorShape,
     mlir::Type elementType, MLIRContext *context) {
   return Torch::ValueTensorType::get(
-      context, llvm::makeArrayRef(tensorShape), elementType);
+      context, llvm::ArrayRef(tensorShape), elementType);
 }
 
 template <typename SqueezeOp>
@@ -75,9 +75,9 @@ mlir::Value squeezeResult(std::vector<int> axes, mlir::Value dataTensor,
     ConversionPatternRewriter &rewriter, mlir::MLIRContext *context,
     Location loc) {
   ArrayRef<int64_t> tensorShape =
-      squeezeOp.data().getType().template dyn_cast<TensorType>().getShape();
+      squeezeOp.getData().getType().template dyn_cast<TensorType>().getShape();
 
-  mlir::Type elementType = squeezeOp.data()
+  mlir::Type elementType = squeezeOp.getData()
                                .getType()
                                .template dyn_cast<TensorType>()
                                .getElementType();

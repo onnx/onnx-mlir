@@ -57,8 +57,8 @@ struct ONNXAddOpToTorchLowering : public OpConversionPattern<ONNXAddOp> {
     auto I64type = IntegerType::get(context, 64);
     auto oneIntAttr = IntegerAttr::get(I64type, 1);
     Value alphaDefaultValue = rewriter.create<ConstantIntOp>(loc, oneIntAttr);
-    Value aTensor = adaptor.A();
-    Value bTensor = adaptor.B();
+    Value aTensor = adaptor.getA();
+    Value bTensor = adaptor.getB();
 
     mlir::Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     Value result = rewriter.create<AtenAddTensorOp>(

@@ -39,10 +39,10 @@ public:
     auto maxpoolOp = llvm::cast<ONNXMaxPoolSingleOutOp>(op);
     OpAdaptor adaptor(operands, op->getAttrDictionary());
 
-    Value input = adaptor.X();
+    Value input = adaptor.getX();
     // The attributes storage_order and dilations are unsupported
-    IntegerAttr storageOrder = adaptor.storage_orderAttr();
-    ArrayAttr dilations = adaptor.dilationsAttr();
+    IntegerAttr storageOrder = adaptor.getStorageOrderAttr();
+    ArrayAttr dilations = adaptor.getDilationsAttr();
 
     if (input.getType().isa<MemRefType>()) {
       return rewriter.notifyMatchFailure(

@@ -25,18 +25,18 @@ namespace onnx_mlir {
 namespace {
 
 class ONNXReduceMeanLoweringToTOSA
-    : public OpConversionPattern<ONNXReduceMeanOp> {
+    : public OpConversionPattern<ONNXReduceMeanV13Op> {
 public:
   using OpConversionPattern::OpConversionPattern;
-  using OpAdaptor = typename ONNXReduceMeanOp::Adaptor;
-  LogicalResult matchAndRewrite(ONNXReduceMeanOp op, OpAdaptor adaptor,
+  using OpAdaptor = typename ONNXReduceMeanV13Op::Adaptor;
+  LogicalResult matchAndRewrite(ONNXReduceMeanV13Op op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
     auto loc = op->getLoc();
     TosaBuilder tosaBuilder(rewriter, loc);
-    Value input = adaptor.data();
-    auto axes = adaptor.axes();
-    auto keepDims = adaptor.keepdims();
+    Value input = adaptor.getData();
+    auto axes = adaptor.getAxes();
+    auto keepDims = adaptor.getKeepdims();
 
     auto resultType = getTypeConverter()
                           ->convertType(op.getResult().getType())
