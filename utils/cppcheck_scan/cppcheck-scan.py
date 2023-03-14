@@ -6,6 +6,7 @@
 import logging
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 WORKSPACE_DIR = os.getenv('WORKSPACE')
@@ -32,11 +33,11 @@ def main():
     excludes_file = Path(EXCLUDES_FILE)
     if excludes_file.is_file():
         with open(EXCLUDES_FILE,'r') as fin:
-           lines = fin.readlines()
-           for line in lines:
-              line = line.strip()
-              if not line.startswith("#") and len(line) != 0:
-                  EXCLUDES = EXCLUDES + '-i' + line + ' '
+            lines = fin.readlines()
+            for line in lines:
+                line = line.strip()
+                if not line.startswith("#") and len(line) != 0:
+                    EXCLUDES = EXCLUDES + '-i' + line + ' '
 
     # Obtain suppressions if the suppressions file exists
     SUPPRESSIONS=""
@@ -54,6 +55,31 @@ def main():
             + ' 2>' + RESULTS_FILE
     logging.info('%s', cppscan_string)
     subprocess.run(cppscan_string, shell=True)
+
+    # Check results file
+    results_file = Path(RESULTS_FILE)
+    if not results_file.is_file():
+        error_string = 'The cppcheck results file ' \
+            + RESULTS_FILE \
+            + ' does not exist'
+        logging.error('%s', error_string)
+        sys.exit(error_string)
+    with open(RESULTS_FILE,'r') as rfin:
+        word_count = 0
+        lines = rfin.readlines()
+        for line in lines:
+            words = line.split()
+            for word in words:
+                # If 'location' is in the results it indicates an error location
+                if 'location' in word :
+                    word_count += 1
+        if not word_count == 0:
+            error_string = str(word_count) \
+                + ' new cppcheck errors were found in ' \
+                + RESULTS_FILE
+            logging.error('%s', error_string)
+            sys.exit(error_string)
+    logging.info('%s', 'No new cppcheck errors were found')
 
 if __name__ == "__main__":
     main()
