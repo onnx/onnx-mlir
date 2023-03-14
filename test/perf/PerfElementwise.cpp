@@ -35,7 +35,7 @@ static void BM_Add(benchmark::State &state) {
   for (auto _ : state)
     model.run();
   state.SetComplexityN(I);
-  perf_recordFlops(state, 1.0 * I * J);
+  perf_recordFlops(state, 1.0 * I * J); // Add.
 }
 BENCHMARK(BM_Add)
     ->RangeMultiplier(2)
@@ -53,7 +53,7 @@ static void BM_HardSigmoid(benchmark::State &state) {
   for (auto _ : state)
     model.run();
   state.SetComplexityN(I);
-  perf_recordFlops(state, 1.0 * I * J);
+  perf_recordFlops(state, 4.0 * I * J); // FMA plus 2 float compare.
 }
 BENCHMARK(BM_HardSigmoid)
     ->RangeMultiplier(2)
