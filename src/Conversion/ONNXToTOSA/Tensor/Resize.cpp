@@ -188,13 +188,15 @@ public:
     auto [scale_x_n, scale_x_d, offset_x, border_x] =
         normalize(inputWidth, outputWidth);
 
-    auto scale =
-        rewriter.getDenseI64ArrayAttr({scale_y_n, scale_y_d, scale_x_n, scale_x_d});
+    auto scale = rewriter.getDenseI64ArrayAttr(
+        {scale_y_n, scale_y_d, scale_x_n, scale_x_d});
     auto offset = rewriter.getDenseI64ArrayAttr({offset_y, offset_x});
     auto border = rewriter.getDenseI64ArrayAttr({border_y, border_x});
     auto resizeModeAttr = rewriter.getStringAttr(resizeMode);
-    Type newOutputType = RankedTensorType::get(
-        {-1, -1, -1, -1}, resultType.cast<ShapedType>().getElementType());
+    Type newOutputType =
+        RankedTensorType::get(llvm::SmallVector<int64_t, 4>(
+                                  inputType.getRank(), ShapedType::kDynamic),
+            resultType.cast<ShapedType>().getElementType());
 
     Value resize = tosa::CreateOpAndInfer<mlir::tosa::ResizeOp>(rewriter, loc,
         newOutputType, newInput, scale, offset, border, resizeModeAttr);

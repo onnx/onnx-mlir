@@ -110,7 +110,7 @@ llvm::Optional<mlir::Value> convertPoolOp(
 
   // Construct the transposed type for the new Pool OP
   mlir::Type newResultType = mlir::RankedTensorType::get(
-      llvm::SmallVector<int64_t, 4>(inputType.getShape().size(), -1),
+      llvm::SmallVector<int64_t, 4>(inputType.getShape().size(), mlir::ShapedType::kDynamic),
       inputType.getElementType());
 
   // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a

@@ -45,7 +45,7 @@ public:
     axis = tosa::convertNegativeAxis(axis, inputRank);
 
     Type newConcatOutputType =
-        RankedTensorType::get(llvm::SmallVector<int64_t, 4>(inputRank, -1),
+        RankedTensorType::get(llvm::SmallVector<int64_t, 4>(inputRank, ShapedType::kDynamic),
             resultType.cast<ShapedType>().getElementType());
 
     tosa::CreateReplaceOpAndInfer<mlir::tosa::ConcatOp>(
