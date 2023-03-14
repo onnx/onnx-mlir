@@ -4,7 +4,7 @@
 
 //===------ RuntimeAPI.cpp - Implementation of Runtime API ----------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022,2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -70,9 +70,9 @@ RuntimeAPIRegistry::RuntimeAPIRegistry(ModuleOp &module, OpBuilder &builder)
   // Declare API type as an enum value, its string name and an LLVM Type
   // specifying its signature.
   // clang-format off
-  using API = RuntimeAPI::API;  
+  using API = RuntimeAPI::API;
   std::vector<RuntimeAPI> RuntimeAPISpecs = {
-    RuntimeAPI(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int64Ty, int64Ty}),
+    RuntimeAPI(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", opaquePtrTy, {opaquePtrPtrTy, int64Ty, int64Ty}),
     RuntimeAPI(API::CREATE_OMTENSOR, "omTensorCreateUntyped", opaquePtrTy, {int64Ty}),
     RuntimeAPI(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
     RuntimeAPI(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int64Ty, opaquePtrTy, opaquePtrTy}),

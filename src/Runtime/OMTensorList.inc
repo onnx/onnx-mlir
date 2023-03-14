@@ -4,7 +4,7 @@
 
 //===---------- OMTensorList.cpp - OMTensor C/C++ Implementation ----------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -26,25 +26,21 @@
 #endif
 
 #include "onnx-mlir/Runtime/OMTensorList.h"
+#include <string.h>
+
 
 struct OMTensorList {
 #ifdef __cplusplus
-  /**
-   * Constructor
-   *
-   * Create an OMTensorList with specified OMTensor pointer array
-   * and the size of the array
-   */
-  OMTensorList(OMTensor *omts[], int64_t n) : _omts(omts), _size(n) {
-    _owning = false;
-  };
 
   /**
    * Constructor
    *
-   * Create an empty OMTensorList for internal API calls.
+   * Create an OMTensorList with specified OMTensor pointer array, the size of
+   * the array and the array and indication of whether the destructor should
+   * use OMTensorListDestroyShallow
    */
-  OMTensorList() = default;
+  OMTensorList(OMTensor *omts[], int64_t n, bool shallow = false)
+      : _omts(omts), _size(n), _shallow(shallow){};
 
   /**
    * Destructor
@@ -53,10 +49,10 @@ struct OMTensorList {
    */
   ~OMTensorList() {
     /* Destroy all the OMTensors */
-    for (int64_t i = 0; i < _size; i++)
-      omTensorDestroy(_omts[i]);
-    if (_owning)
-      free(_omts);
+    if (!_shallow)
+      for (int64_t i = 0; i < _size; i++)
+        omTensorDestroy(_omts[i]);
+    free(_omts);
   };
 #endif
 
@@ -68,10 +64,8 @@ struct OMTensorList {
 
   int64_t _size; // Number of elements in _omts.
 
-  int64_t _owning; // indicates whether the OMTensorList owns the pointer to
-                   // OMTensor array or not. OMTensorList struct will release
-                   // the memory space referred to by '_omts' upon destruction
-                   // if and only if it owns it.
+  bool _shallow; // Internal boolean for the C++ constructor/destructor API
+                 // This indicates whether to perform a shallow destroy.
 };
 
 /* OMTensorList creator */
@@ -79,21 +73,18 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int64_t n) {
   OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
   if (!list)
     return NULL;
-  list->_omts = tensors;
-  list->_size = n;
-  list->_owning = false;
-  return list;
-}
 
-/* OMTensorList creator with ownership */
-OMTensorList *omTensorListCreateWithOwnership(
-    OMTensor **tensors, int64_t n, int64_t owning) {
-  OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
-  if (!list)
-    return NULL;
-  list->_omts = tensors;
+  size_t omts_bytes = sizeof(OMTensor *) * n;
   list->_size = n;
-  list->_owning = owning;
+  list->_omts = (OMTensor **)malloc(omts_bytes);
+
+  if (!list->_omts) {
+    free(list); // free the previously allocated memory in case of an error
+    return NULL;
+  }
+  // Copy the given OMTensors pointers to an array owned by OMTensorList
+  memcpy(list->_omts, tensors, omts_bytes);
+
   return list;
 }
 
@@ -103,23 +94,17 @@ void omTensorListDestroy(OMTensorList *list) {
     return;
   for (int64_t i = 0; i < list->_size; i++)
     omTensorDestroy(list->_omts[i]);
-  if (list->_owning) {
-    free(list->_omts);
-  }
-  free(list);
+  // Free the list as well as the pointers to the OMTensor array
+  omTensorListDestroyShallow(list);
 }
 
-/* OMTensorList destroyer which does not destroy the tensors. Currently an
- * unpublished call that is mainly used to handle the unique tensor scheme used
- * in Execution Session.
+/* OMTensorList destroyer which does not destroy the tensors.
  */
 void omTensorListDestroyShallow(OMTensorList *list) {
   if (!list)
     return;
-  // Omit destruction of the OMTensors.
-  if (list->_owning) {
-    free(list->_omts);
-  }
+  // Free the list as well as the pointer to the OMTensor array
+  free(list->_omts);
   free(list);
 }
 
