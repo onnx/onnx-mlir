@@ -34,6 +34,9 @@ namespace test {
 //    ONNXAddOp
 //    ONNXHardSigmoidOp
 
+const float alphaVal = 2.0;
+const float betaVal = 0.5;
+
 Elementwise2DLibBuilder::Elementwise2DLibBuilder(const std::string &modelName,
     const std::string &onnxOpName, const int inputNum, const int I, const int J)
     : ModelLibBuilder(modelName), onnxOpName(onnxOpName), inputNum(inputNum),
@@ -61,13 +64,13 @@ bool Elementwise2DLibBuilder::build() {
     auto aVal = entryBlock.getArgument(0);
     if (onnxOpName.compare("ONNXHardSigmoidOp") == 0) {
       // Hard Sigmoid.
-      FloatAttr alpha = builder.getFloatAttr(elementType, 1.0);
-      FloatAttr beta = builder.getFloatAttr(elementType, 1.0);
+      FloatAttr alpha = builder.getFloatAttr(elementType, alphaVal);
+      FloatAttr beta = builder.getFloatAttr(elementType, betaVal);
       auto op =
           builder.create<ONNXHardSigmoidOp>(loc, yType, aVal, alpha, beta);
       results.emplace_back(op.getResult());
-    }
-    llvm_unreachable("unsupported unary elementwise op");
+    } else
+      llvm_unreachable("unsupported unary elementwise op");
 
   } else if (inputNum == 2) {
     // Binary operations.
@@ -92,7 +95,8 @@ bool Elementwise2DLibBuilder::build() {
 
 bool Elementwise2DLibBuilder::prepareInputs(
     float dataRangeLB, float dataRangeUB) {
-  OMTensor **list = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
+  // OMTensor **list = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
+  OMTensor *list[inputNum];
 
   // Create elements in the list.
   if (!list)
@@ -116,7 +120,7 @@ bool Elementwise2DLibBuilder::prepareInputs(
     llvm_unreachable("support only unary and binary op");
 
   // Create list.
-  inputs = omTensorListCreateWithOwnership(list, inputNum, true);
+  inputs = omTensorListCreate(list, inputNum);
   return inputs;
 }
 
@@ -153,8 +157,12 @@ bool Elementwise2DLibBuilder::verifyOutputs() {
     // Compute reference
     F1 fct;
     if (onnxOpName.compare("ONNXHardSigmoidOp") == 0)
-      // hi alex: to do, fix this one
-      fct = [](float a) -> float { return a; };
+      fct = [](float a) -> float {
+        float val = a * alphaVal + betaVal;
+        val = (val > 0.0) ? val : 0.0;
+        val = (val < 1.0) ? val : 1.0;
+        return val;
+      };
     else
       llvm_unreachable("unsupported binary elementwise op");
     for (int64_t i = 0; i < I; ++i) {

@@ -39,7 +39,25 @@ static void BM_Add(benchmark::State &state) {
 }
 BENCHMARK(BM_Add)
     ->RangeMultiplier(2)
-    ->Range(256, 4096)
+    ->Range(256, 2048)
+    ->Unit(benchmark::kMillisecond)
+    ->Complexity();
+
+static void BM_HardSigmoid(benchmark::State &state) {
+  int I = state.range(0);
+  int J = state.range(0);
+  onnx_mlir::test::Elementwise2DLibBuilder model(
+      modelName, "ONNXHardSigmoidOp", 1, I, J);
+  assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
+         "failed elementwise add");
+  for (auto _ : state)
+    model.run();
+  state.SetComplexityN(I);
+  perf_recordFlops(state, 1.0 * I * J);
+}
+BENCHMARK(BM_HardSigmoid)
+    ->RangeMultiplier(2)
+    ->Range(256, 2048)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
