@@ -1,4 +1,3 @@
-# By default, use ubuntu:focal
 ARG BASE_IMAGE="onnxmlirczar/onnx-mlir-llvm-static:amd64"
 FROM ${BASE_IMAGE}
 
