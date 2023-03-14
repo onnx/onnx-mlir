@@ -214,13 +214,13 @@ def get_names_in_signature(signature):
     return names
 
 
-def read_input_from_refs(num_inputs, data_folder):
-    print("Reading inputs from {} ...".format(data_folder))
+def read_input_from_refs(num_inputs, load_ref):
+    print("Reading inputs from {} ...".format(load_ref))
     i = 0
     inputs = []
 
     for i in range(num_inputs):
-        input_file = data_folder + '/input_{}.pb'.format(i)
+        input_file = load_ref + '/input_{}.pb'.format(i)
         input_ts = onnx.TensorProto()
         with open(input_file, 'rb') as f:
             input_ts.ParseFromString(f.read())
@@ -234,12 +234,12 @@ def read_input_from_refs(num_inputs, data_folder):
     return inputs
 
 
-def read_output_from_refs(num_outputs, data_folder):
-    print("Reading reference outputs from {} ...".format(data_folder))
+def read_output_from_refs(num_outputs, load_ref):
+    print("Reading reference outputs from {} ...".format(load_ref))
     reference_output = []
 
     for i in range(num_outputs):
-        output_file = data_folder + '/output_{}.pb'.format(i)
+        output_file = load_ref + '/output_{}.pb'.format(i)
         output_ts = onnx.TensorProto()
         with open(output_file, 'rb') as f:
             output_ts.ParseFromString(f.read())
@@ -387,7 +387,7 @@ def main():
                 command_str += args.compile_args.split()
             if args.compile_using_input_shape:
                 # Use shapes of the reference inputs to compile the model.
-                assert args.data_folder, "No data folder given"
+                assert args.load_ref, "No data folder given"
                 assert "shapeInformation" not in command_str, "shape info was set"
                 shape_info = "--shapeInformation="
                 for i in range(len(inputs)):
@@ -441,8 +441,8 @@ def main():
 
         # Prepare input data.
         inputs = []
-        if args.data_folder:
-            inputs = read_input_from_refs(len(input_names), args.data_folder)
+        if args.load_ref:
+            inputs = read_input_from_refs(len(input_names), args.load_ref)
         else:
             inputs = generate_random_input(input_signature, input_shapes)
 
@@ -468,19 +468,19 @@ def main():
                     'x'.join([str(i) for i in out.shape]), out.dtype, out))
 
         # Store the input and output if required.
-        if args.save_data:
-            data_folder = args.save_data
-            if not os.path.exists(data_folder):
-                os.mkdir(data_folder)
+        if args.save_ref:
+            load_ref = args.save_ref
+            if not os.path.exists(load_ref):
+                os.mkdir(load_ref)
             for i in range(len(inputs)):
                 tensor = numpy_helper.from_array(inputs[i])
-                tensor_path = os.path.join(data_folder,
+                tensor_path = os.path.join(load_ref,
                                            'input_{}.pb'.format(i))
                 with open(tensor_path, 'wb') as f:
                     f.write(tensor.SerializeToString())
             for i in range(len(outs)):
                 tensor = numpy_helper.from_array(outs[i])
-                tensor_path = os.path.join(data_folder,
+                tensor_path = os.path.join(load_ref,
                                            'output_{}.pb'.format(i))
                 with open(tensor_path, 'wb') as f:
                     f.write(tensor.SerializeToString())
@@ -501,7 +501,7 @@ def main():
             elif (args.verify.lower() == "ref"):
                 # Reference output available in protobuf.
                 ref_outs = read_output_from_refs(len(output_names),
-                                                 args.data_folder)
+                                                 args.load_ref)
             else:
                 print("Invalid verify option")
                 exit(1)
