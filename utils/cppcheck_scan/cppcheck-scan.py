@@ -56,7 +56,7 @@ def main():
     logging.info('%s', cppscan_string)
     subprocess.run(cppscan_string, shell=True)
 
-    # Check results file
+    # Check results
     results_file = Path(RESULTS_FILE)
     if not results_file.is_file():
         error_string = 'The cppcheck results file ' \
@@ -74,10 +74,11 @@ def main():
                 if 'location' in word :
                     word_count += 1
         if not word_count == 0:
-            error_string = str(word_count) \
-                + ' new cppcheck errors were found in ' \
-                + RESULTS_FILE
+            error_string = str(word_count) + ' new cppcheck errors were found'
             logging.error('%s', error_string)
+            # Print results for debug
+            with open(RESULTS_FILE, 'r') as rfin:
+                print(rfin.read())
             sys.exit(error_string)
     logging.info('%s', 'No new cppcheck errors were found')
 
