@@ -959,21 +959,18 @@ Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
   Value res = scalarOperands[0];
-  //ONNXClipOp clipOp = dyn_cast<ONNXClipOp>(op);
-  //Value min = clipOp.getMin();
-  //Value max = clipOp.getMax();
-  Value minVal = scalarOperands[1];
-  Value maxVal = scalarOperands[2];
-  //if (!isFromNone(min)) {
-    //Value minVal = create.krnl.load(min);             // load min
+  Value min = scalarOperands[1];
+  Value max = scalarOperands[2];
+  if (!isFromNone(min)) {
+    Value minVal = create.krnl.load(min, {}); // load min
     Value lessThanMin = create.math.slt(res, minVal); // (input[i,j,k]<min)
     res = create.math.select(lessThanMin, minVal, res);
-    //}
-    //if (!isFromNone(max)) {
-    //Value maxVal = create.krnl.load(max);             // load max
+  }
+  if (!isFromNone(max)) {
+    Value maxVal = create.krnl.load(max, {}); // load max
     Value lessThanMax = create.math.slt(res, maxVal); // (input[i,j,k]>max)
     res = create.math.select(lessThanMax, res, maxVal);
-    //}
+  }
   return res;
 }
 
@@ -1122,8 +1119,8 @@ struct ONNXElementwiseUnaryOpLowering
   bool enableSIMD = false;
   int numScalarArgs = 0;
 
-  ONNXElementwiseUnaryOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD, int numScalarArgs = 0)
+  ONNXElementwiseUnaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableSIMD, int numScalarArgs = 0)
       : OpConversionPattern<ElementwiseUnaryOp>(typeConverter, ctx),
         enableSIMD(enableSIMD), numScalarArgs(numScalarArgs) {}
 
@@ -1134,7 +1131,7 @@ struct ONNXElementwiseUnaryOpLowering
 
     Location loc = ONNXLoc<ElementwiseUnaryOp>(op);
     Value X = operands[0];
- 
+
     // If type is scalar or vector, there is no need to allocate a buffer. Just
     // call scalar computation and return the result. This is efficient when
     // elementwise ops are used as activations for ops like LSTM/GRU/RNN.
@@ -1177,8 +1174,7 @@ struct ONNXElementwiseUnaryOpLowering
 
     std::vector<Value> scalarArgs;
     for (int i = 0; i < numScalarArgs; i++) {
-      Value sVal  = create.krnl.load(operands[i + 1], {});
-      scalarArgs.emplace_back(sVal);
+      scalarArgs.emplace_back(operands[i + 1]);
     }
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!scalar) {
@@ -1584,7 +1580,6 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXRoundOp>,
-      //ONNXElementwiseUnaryOpLowering<mlir::ONNXClipOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
@@ -1602,7 +1597,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
       typeConverter, ctx, enableSIMD, /*isUniBroadcasting=*/true);
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXClipOp>>(
-                 typeConverter, ctx, /*enableSIMD=*/ false, /*numScalarArgs=*/2);
+      typeConverter, ctx, /*enableSIMD=*/false, /*numScalarArgs=*/2);
 }
 
 } // namespace onnx_mlir
