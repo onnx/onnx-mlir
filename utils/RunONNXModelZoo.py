@@ -365,7 +365,7 @@ def pull_and_check_model(model_path, compile_args, keep_model, work_dir, report_
     model_tar_gz = os.path.join(work_dir, model_path.split('/')[-1])
     model_name = model_path.split('/')[-1][:-len(".tar.gz")]  # remove .tar.gz
     if model_name in excluded_models:
-        logger.warning("The model {} is excluded. Ignored.".format(model_name))
+        logger.warning("[{}] is excluded. Ignored.".format(model_name))
         return state, model_name
 
     # pull the model.
