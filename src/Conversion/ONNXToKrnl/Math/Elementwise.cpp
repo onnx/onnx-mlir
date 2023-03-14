@@ -962,14 +962,12 @@ Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
   Value min = scalarOperands[1];
   Value max = scalarOperands[2];
   if (!isFromNone(min)) {
-    Value minVal = create.krnl.load(min, {});         // load min
-    Value lessThanMin = create.math.slt(res, minVal); // (input[i,j,k]<min)
-    res = create.math.select(lessThanMin, minVal, res);
+    Value lessThanMin = create.math.slt(res, min); // (input[i,j,k]<min)
+    res = create.math.select(lessThanMin, min, res);
   }
   if (!isFromNone(max)) {
-    Value maxVal = create.krnl.load(max, {});         // load max
-    Value lessThanMax = create.math.slt(res, maxVal); // (input[i,j,k]>max)
-    res = create.math.select(lessThanMax, res, maxVal);
+    Value lessThanMax = create.math.slt(res, max); // (input[i,j,k]>max)
+    res = create.math.select(lessThanMax, res, max);
   }
   return res;
 }
@@ -1174,7 +1172,11 @@ struct ONNXElementwiseUnaryOpLowering
 
     std::vector<Value> scalarArgs;
     for (int i = 0; i < numScalarArgs; i++) {
-      scalarArgs.emplace_back(operands[i + 1]);
+      Value scalarArgVal = operands[i + 1];
+      // load scalar arguments out of the loop in advance
+      if (!isFromNone(scalarArgVal))
+        scalarArgVal = create.krnl.load(scalarArgVal, {});
+      scalarArgs.emplace_back(scalarArgVal);
     }
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!scalar) {
