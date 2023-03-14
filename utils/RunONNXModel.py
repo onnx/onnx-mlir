@@ -40,6 +40,11 @@ def valid_onnx_input(fname):
 
 # Command arguments.
 parser = argparse.ArgumentParser()
+parser.add_argument('--log-to-file',
+                    action='store', nargs='?',
+                    const="compilation.log",
+                    default=None,
+                    help="Output compilation messages to file, default compilation.log")
 parser.add_argument('--model',
                     type=lambda s: valid_onnx_input(s),
                     help="Path to an ONNX model (.onnx or .mlir)")
@@ -404,12 +409,12 @@ def main():
             start = time.perf_counter()
             ok, msg = execute_commands(command_str)
             # Dump the compilation log into a file.
-            print("  Compilation log is dumped into compilation.log")
-            original_stdout = sys.stdout
-            with open('compilation.log', 'w') as f:
-                sys.stdout = f
-                print(msg)
-                sys.stdout = original_stdout
+            if args.log_to_file:
+                log_file = (args.log_to_file if args.log_to_file.startswith('/') else
+                            os.path.join(os.getcwd(), args.log_to_file))
+                print("  Compilation log is dumped into {}".format(log_file))
+                with open(log_file, 'w') as f:
+                    f.write(msg)
             if not ok:
                 print(msg)
                 exit(1)
@@ -517,7 +522,7 @@ def main():
                 for index, actual_val in np.ndenumerate(outs[i]):
                     total_elements += 1
                     ref_val = ref_outs[i][index]
-                    if (np.issubdtype(outs[i].dtype, bool)):
+                    if (np.issubdtype(outs[i].dtype, np.dtype(bool).type)):
                         if ref_val == actual_val:
                             continue
                     else:
