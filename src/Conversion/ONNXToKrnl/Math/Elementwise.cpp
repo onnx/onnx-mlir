@@ -962,14 +962,14 @@ Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
   Value min = scalarOperands[1];
   Value max = scalarOperands[2];
   if (!isFromNone(min)) {
-    Value minVal = create.krnl.load(min, {});         // load min
-    Value lessThanMin = create.math.slt(res, minVal); // (input[i,j,k]<min)
-    res = create.math.select(lessThanMin, minVal, res);
+    Value loadedMin = create.krnl.load(min, {});         // load min
+    Value lessThanMin = create.math.slt(res, loadedMin); // (input[i,j,k]<min)
+    res = create.math.select(lessThanMin, loadedMin, res);
   }
   if (!isFromNone(max)) {
-    Value maxVal = create.krnl.load(max, {});         // load max
-    Value lessThanMax = create.math.slt(res, maxVal); // (input[i,j,k]>max)
-    res = create.math.select(lessThanMax, res, maxVal);
+    Value loadedMax = create.krnl.load(max, {});         // load max
+    Value lessThanMax = create.math.slt(res, loadedMax); // (input[i,j,k]>max)
+    res = create.math.select(lessThanMax, res, loadedMax);
   }
   return res;
 }
