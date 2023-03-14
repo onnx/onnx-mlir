@@ -3,4 +3,4 @@
 
 /workdir/onnx-mlir/third_party/pybind11/tests
 /workdir/onnx-mlir/third_party/onnx/third_party/pybind11/tests
-#/workdir/onnx-mlir/third_party/benchmark
+/workdir/onnx-mlir/third_party/benchmark
