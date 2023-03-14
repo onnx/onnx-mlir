@@ -19,6 +19,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   Tensor/PaddingOp.cpp
   Tensor/Flatten.cpp
   Tensor/Slice.cpp
+  Tensor/Transpose.cpp
   NN/MaxPoolSingleOut.cpp
   NN/AveragePool.cpp
   Flow/EntryPoint.cpp
