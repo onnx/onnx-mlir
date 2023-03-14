@@ -20,7 +20,7 @@ reference inputs and outputs in protobuf.
 - To verify using a reference backend, install onnxruntime by running `pip
   install onnxruntime`. To use a different testing backend, simply replace code
   importing onnxruntime to some other ONNX-compliant backend.
-- To verify using reference outputs, use `--verify=ref --data-folder=data_folder`
+- To verify using reference outputs, use `--verify=ref --load-ref=data_folder`
   where `data_folder` is the path to a folder containing protobuf files for
   inputs and outputs. [This
   guideline](https://github.com/onnx/onnx/blob/main/docs/PythonAPIOverview.md#manipulating-tensorproto-and-numpy-array)
@@ -32,10 +32,9 @@ reference inputs and outputs in protobuf.
 
 ```bash
 $ python ../utils/RunONNXModel.py  --help
-usage: RunONNXModel.py [-h] [--model MODEL] [--compile-args COMPILE_ARGS] [--compile-only] [--compile-using-input-shape]
-                       [--print-input] [--print-output] [--save-onnx PATH] [--save-data PATH] [--verify {onnxruntime,ref}]
-                       [--verify-all-ops] [--rtol RTOL] [--atol ATOL] [--save-so PATH | --load-so PATH]
-                       [--data-folder DATA_FOLDER | --shape-info SHAPE_INFO]
+usage: RunONNXModel.py [-h] [--model MODEL] [--compile-args COMPILE_ARGS] [--compile-only] [--compile-using-input-shape] [--print-input] [--print-output] [--save-onnx PATH]
+                       [--verify {onnxruntime,ref}] [--verify-all-ops] [--rtol RTOL] [--atol ATOL] [--save-so PATH | --load-so PATH] [--save-ref PATH]
+                       [--load-ref PATH | --shape-info SHAPE_INFO]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -44,24 +43,21 @@ optional arguments:
                         Arguments passed directly to onnx-mlir command. See bin/onnx-mlir --help
   --compile-only        Only compile the input model
   --compile-using-input-shape
-                        Compile the model by using the shape info getting from the inputs in data folder. Must set --data-folder
+                        Compile the model by using the shape info getting from the inputs in the reference folder set by --load-ref
   --print-input         Print out inputs
   --print-output        Print out inference outputs produced by onnx-mlir
   --save-onnx PATH      File path to save the onnx model. Only effective if --verify=onnxruntime
-  --save-data PATH      Path to a folder to save the inputs and outputs in protobuf
   --verify {onnxruntime,ref}
                         Verify the output by using onnxruntime or reference inputs/outputs. By default, no verification
-  --verify-all-ops      Verify all operation outputs when using onnxruntime.
+  --verify-all-ops      Verify all operation outputs when using onnxruntime
   --rtol RTOL           Relative tolerance for verification
   --atol ATOL           Absolute tolerance for verification
   --save-so PATH        File path to save the generated shared library of the model
   --load-so PATH        File path to load a generated shared library for inference, and the ONNX model will not be re-compiled
-  --data-folder DATA_FOLDER
-                        Path to a folder containing inputs and outputs stored in protobuf. If --verify=ref, inputs and outputs are
-                        reference data for verification
+  --save-ref PATH       Path to a folder to save the inputs and outputs in protobuf
+  --load-ref PATH       Path to a folder containing reference inputs and outputs stored in protobuf. If --verify=ref, inputs and outputs are reference data for verification
   --shape-info SHAPE_INFO
-                        Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. Used to generate random inputs for the
-                        model if --data-folder is not set
+                        Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. Used to generate random inputs for the model if --load-ref is not set
 ```
 
 ## Debugging the Code Generated for an Operator.

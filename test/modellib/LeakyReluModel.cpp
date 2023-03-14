@@ -4,12 +4,12 @@
 
 //==========-- LeakyReluModel.cpp - Building LeakyRelu Models for tests -=====//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022,2023 The IBM Research Authors.
 //
 // =============================================================================
 //
 // This file contains a function that builds a model consisting of onnx.Add,
-// onnx.LeakyRelu and onnx.Sub ops, and compiles it to check if the second 
+// onnx.LeakyRelu and onnx.Sub ops, and compiles it to check if the second
 //
 //===----------------------------------------------------------------------===//
 
@@ -64,11 +64,11 @@ bool LeakyReluLibBuilder::build() {
 
 bool LeakyReluLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 1;
-  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  OMTensor* list[num];
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>({N}, dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreateWithOwnership(list, num, true);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0];
 }
 
@@ -93,7 +93,7 @@ bool LeakyReluLibBuilder::verifyOutputs() {
   if (!x || !res || !ref)
     return false;
   for (int64_t i = 0; i < N; ++i) {
-    float val1= omTensorGetElem<float>(x, {i}) * 2;
+    float val1 = omTensorGetElem<float>(x, {i}) * 2;
     float val2 = (val1 > 0.0) ? val1 : (val1 * alphaVal);
     float val3 = val2 - omTensorGetElem<float>(x, {i});
     omTensorGetElem<float>(ref, {i}) = val3;
