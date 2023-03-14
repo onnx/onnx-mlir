@@ -320,17 +320,10 @@ ValueRange emitSplitAxisOutputLength1(
          "Spatial dimensions for input data tensor need to be static.");
   SmallVector<int64_t, 1> values(inputShape[axis], 1);
   Value split = create.onnx.constantInt64(ArrayRef(values));
-  SmallVector<int64_t> splitShape;
-  for (int i = 0; i < inputType.getRank(); ++i) {
-    if (i == axis)
-      splitShape.emplace_back(1);
-    else
-      splitShape.emplace_back(inputShape[i]);
-  }
-  Type splitType = RankedTensorType::get(splitShape, elementType);
-  SmallVector<Type, 4> splitTypes(inputShape[axis], splitType);
+  Type resultType = UnrankedTensorType::get(elementType);
+  SmallVector<Type, 4> resultTypes(values.size(), resultType);
   ValueRange results =
-      create.onnx.split(ArrayRef(splitTypes), input, split, axis);
+      create.onnx.split(ArrayRef(resultTypes), input, split, axis);
   return results;
 }
 

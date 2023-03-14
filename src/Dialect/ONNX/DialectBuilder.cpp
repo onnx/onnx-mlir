@@ -211,8 +211,11 @@ Value OnnxBuilder::slice(Type outputType, Value input, int64_t start,
 
 ValueRange OnnxBuilder::split(
     TypeRange outputTypes, Value input, Value split, int64_t axis) const {
+  IntegerAttr axisAttr =
+      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
+          APInt(64, axis, /*isSigned=*/true));
   return createOpAndInferShapes<ONNXSplitOp>(
-      toTensors(outputTypes), toTensor(input), toTensor(split), axis)
+      toTensors(outputTypes), toTensor(input), toTensor(split), axisAttr)
       .getResults();
 }
 
