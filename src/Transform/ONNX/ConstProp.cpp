@@ -855,16 +855,18 @@ Value ConstPropReshape(
 Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
     Value shape, Attribute value) {
   ConstPropCounters::count("ConstantOfShape", {shape});
-  llvm::SmallVector<int64_t, 4> shapeVector;
   ElementsAttr shapeAttr =
       getONNXConstantOp(shape).getValueAttr().cast<ElementsAttr>();
-  for (mlir::IntegerAttr dim : shapeAttr.getValues<IntegerAttr>())
-    shapeVector.push_back(dim.getInt());
+  llvm::SmallVector<int64_t, 4> shapeVector(shapeAttr.getValues<int64_t>());
 
+  // ONNXConstantOfShapeOp::inferShapes() makes sure that the 'value' attribute
+  // here is specified
   ElementsAttr constElements = value.cast<ElementsAttr>();
+
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr expandedElements =
-      elementsBuilder.expand(constElements, shapeVector);
+      shapeVector.empty() ? elementsBuilder.reshape(constElements, shapeVector)
+                          : elementsBuilder.expand(constElements, shapeVector);
   return createReplacingConstantOp(rewriter, replacingValue, expandedElements)
       .getResult();
 }
