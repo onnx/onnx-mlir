@@ -73,7 +73,9 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
-    return createLowerToKrnlPass(optLevel, /* enableParallel */ false);
+    return createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
+        /*enableSIMD, should consider disableSimdOption*/ optLevel >= 3,
+        /*enableParallel*/ false);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
