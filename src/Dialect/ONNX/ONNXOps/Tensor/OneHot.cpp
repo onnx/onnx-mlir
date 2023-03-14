@@ -27,16 +27,16 @@ namespace onnx_mlir {
 LogicalResult ONNXOneHotOpShapeHelper::computeShape() {
   ONNXOneHotOp oneHotOp = llvm::cast<ONNXOneHotOp>(op);
   ONNXOneHotOpAdaptor operandAdaptor(operands);
-  Value indices = operandAdaptor.indices();
+  Value indices = operandAdaptor.getIndices();
   int64_t indicesRank = createIE->getShapedTypeRank(indices);
 
   // Axis is a required attribute and should have default value of -1.
-  axis = oneHotOp.axis();
+  axis = oneHotOp.getAxis();
   if (axis < 0)
     axis += indicesRank + 1;
   assert(axis >= 0 && axis <= indicesRank && "tested in verify");
 
-  depth = createIE->getIntAsDim(operandAdaptor.depth());
+  depth = createIE->getIntAsDim(operandAdaptor.getDepth());
   if (depth.isLiteral()) {
     if (depth.getLiteral() < 1)
       return op->emitError("OneHot depth must be greater than 1");
@@ -69,12 +69,12 @@ LogicalResult ONNXOneHotOpShapeHelper::computeShape() {
 LogicalResult ONNXOneHotOp::verify() {
   ONNXOneHotOpAdaptor operandAdaptor = ONNXOneHotOpAdaptor(*this);
   // Check indices.
-  Value indices = operandAdaptor.indices();
+  Value indices = operandAdaptor.getIndices();
   if (hasShapeAndRank(indices)) {
     // Get rank.
     int64_t indicesRank = indices.getType().cast<ShapedType>().getRank();
     // Verify axis.
-    int64_t axisValue = axis();
+    int64_t axisValue = getAxis();
     // Unusually, with a rank of 3, acceptable values are 0 (before first) to 3
     // (after last).
     if (axisValue < 0)
@@ -83,7 +83,7 @@ LogicalResult ONNXOneHotOp::verify() {
       return emitOpError("OneHot axis value is out of range");
   }
   // Check that values is a rank 2 with 2 elements
-  Value values = operandAdaptor.values();
+  Value values = operandAdaptor.getValues();
   if (hasShapeAndRank(values)) {
     ShapedType valuesShape = values.getType().cast<ShapedType>();
     if (valuesShape.getRank() != 1)
@@ -93,7 +93,7 @@ LogicalResult ONNXOneHotOp::verify() {
       return emitOpError("OneHot values must be 1D tensor with 2 elements");
   }
   // Depth is a scalar, check when its a tensor of rank 0 or 1.
-  Value depth = operandAdaptor.depth();
+  Value depth = operandAdaptor.getDepth();
   if (hasShapeAndRank(depth)) {
     ShapedType depthShape = depth.getType().cast<ShapedType>();
     if (depthShape.getRank() == 1) {
@@ -115,10 +115,10 @@ LogicalResult ONNXOneHotOp::verify() {
 LogicalResult ONNXOneHotOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!hasShapeAndRank(indices()))
+  if (!hasShapeAndRank(getIndices()))
     return success();
 
-  Type elementType = values().getType().cast<ShapedType>().getElementType();
+  Type elementType = getValues().getType().cast<ShapedType>().getElementType();
   ONNXOneHotOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

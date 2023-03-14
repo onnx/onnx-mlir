@@ -11,6 +11,7 @@ This document serves as an index for onnx-mlir documents.
 * Installation is covered by [README.md](../README.md).
 * [Workflow.md](Workflow.md) describes how to contribute in github environment.
 * [This guideline](Documentation.md) is used to keep documentation and code consistent.
+* [UpdatingLLVMCommit.md](UpdatingLLVMCommit.md) describes how to update the commit of LLVM that ONNX-MLIR depends on.
 
 # Development
 * Onnx operation are represented with  [ONNX dialect](Dialects/onnx.md) in onnx-mlir.

@@ -28,9 +28,9 @@ template <>
 LogicalResult ONNXTileOpShapeHelper::computeShape() {
   ONNXTileOpAdaptor operandAdaptor(operands);
   // Get info about input data operand.
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   int64_t inputRank = createIE->getShapedTypeRank(input);
-  Value repeats = operandAdaptor.repeats();
+  Value repeats = operandAdaptor.getRepeats();
   // Compute outputDims
   DimsExpr outputDims;
   outputDims.resize(inputRank);
@@ -56,15 +56,15 @@ LogicalResult ONNXTileOpShapeHelper::computeShape() {
 LogicalResult ONNXTileOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!hasShapeAndRank(input()) || !hasShapeAndRank(repeats()))
+  if (!hasShapeAndRank(getInput()) || !hasShapeAndRank(getRepeats()))
     return success();
 
   // 'repeats' tensor is an 1D tensor.
-  auto repeatsTensorTy = repeats().getType().cast<RankedTensorType>();
+  auto repeatsTensorTy = getRepeats().getType().cast<RankedTensorType>();
   if (repeatsTensorTy.getShape().size() != 1)
     return emitError("Repeats tensor must have rank one");
 
-  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXTileOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

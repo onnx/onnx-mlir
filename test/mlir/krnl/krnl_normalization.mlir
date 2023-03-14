@@ -7,8 +7,9 @@
 func.func @test_krnl_memcpy_norm(%arg0: memref<1x16384xf32>) -> memref<1x16x4x4xf32, #map_tile> {
   %0 = memref.alloc() : memref<1x16x4x4xf32, #map_tile>
   // CHECK: [[ALLOC:%.+]] = memref.alloc() : memref<1x16x1x1x32x32xf32>
+  %c0 = arith.constant 0: index
   %c16384 = arith.constant 16384 : i64
-  "krnl.memcpy"(%0, %arg0, %c16384) : (memref<1x16x4x4xf32, #map_tile>, memref<1x16384xf32>, i64) -> ()
+  "krnl.memcpy"(%0, %arg0, %c16384, %c0, %c0) : (memref<1x16x4x4xf32, #map_tile>, memref<1x16384xf32>, i64, index, index) -> ()
   // CHECK: "krnl.memcpy"
   // CHECK-SAME: : (memref<1x16x1x1x32x32xf32>, memref<1x16384xf32>
   return %0 : memref<1x16x4x4xf32, #map_tile>

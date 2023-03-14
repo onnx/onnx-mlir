@@ -22,16 +22,17 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXReshapeOpLowering : public ConversionPattern {
+struct ONNXReshapeOpLowering : public OpConversionPattern<ONNXReshapeOp> {
   ONNXReshapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXReshapeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXReshapeOp reshapeOp,
+      ONNXReshapeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXReshapeOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
-    Value data = operandAdaptor.data();
+    Operation *op = reshapeOp.getOperation();
+    Location loc = ONNXLoc<ONNXReshapeOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    Value data = adaptor.getData();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());

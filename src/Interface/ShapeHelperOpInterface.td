@@ -42,7 +42,7 @@ def ShapeHelperOpInterface : OpInterface<"ShapeHelper"> {
                     "the output shape for the current operation.",
                     "onnx_mlir::ONNXOpShapeHelper *", "getShapeHelper",
                     (ins "mlir::Operation *":$op,
-                         "mlir::ArrayRef<mlir::Value>":$operands,
+                         "llvm::ArrayRef<mlir::Value>":$operands,
                          "onnx_mlir::IndexExprBuilder *":$ieBuilder,
                          "onnx_mlir::IndexExprScope *":$scope)>
   ];

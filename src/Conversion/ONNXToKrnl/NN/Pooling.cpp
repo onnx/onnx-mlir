@@ -4,7 +4,7 @@
 
 //===---------------- Pooling.cpp - Lowering Pooling Ops ------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -65,7 +65,7 @@ template <>
 std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
     ONNXMaxPoolSingleOutOp poolOp) {
   std::vector<int64_t> dilations;
-  auto dilationsAttribute = poolOp.dilationsAttr();
+  auto dilationsAttribute = poolOp.getDilationsAttr();
   bool isDefaultDilations = true;
   for (auto dilation : dilationsAttribute.getValue()) {
     int64_t dilationValue = dilation.cast<IntegerAttr>().getInt();
@@ -84,14 +84,14 @@ std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
 //
 template <typename PoolOp>
 llvm::Optional<ArrayAttr> getDilationAttr(PoolOp poolOp) {
-  return llvm::None;
+  return std::nullopt;
 }
 
 // MaxPool has dilations attribute.
 template <>
 llvm::Optional<ArrayAttr> getDilationAttr<ONNXMaxPoolSingleOutOp>(
     ONNXMaxPoolSingleOutOp poolOp) {
-  return poolOp.dilations();
+  return poolOp.getDilations();
 }
 
 //===----------------------------------------------------------------------===//
@@ -105,7 +105,7 @@ bool getCountIncludePad(PoolOp poolOp) {
 // AveragePool has count_include_pad attribute.
 template <>
 bool getCountIncludePad<ONNXAveragePoolOp>(ONNXAveragePoolOp poolOp) {
-  return (poolOp.count_include_pad() == 1);
+  return (poolOp.getCountIncludePad() == 1);
 }
 
 //===----------------------------------------------------------------------===//
@@ -196,15 +196,16 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 // Template function that does pooling.
 //
 template <typename PoolOp, typename PoolOpAdaptor, typename PoolOpShapeHelper>
-struct ONNXPoolOpLowering : public ConversionPattern {
+struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
   ONNXPoolOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter, PoolOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern<PoolOp>(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(PoolOp poolOp, PoolOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    PoolOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
-    PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
+    Operation *op = poolOp.getOperation();
+    Location loc = ONNXLoc<PoolOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
         MathBuilder>
         create(rewriter, loc);
@@ -214,14 +215,15 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Read ceil_mode attribute
-    auto ceilMode = poolOp.ceil_mode();
+    auto ceilMode = poolOp.getCeilMode();
 
     // Type information about the input and result of this operation.
-    Value inputOperand = operandAdaptor.X();
+    Value inputOperand = adaptor.getX();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
 
     // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    Type convertedType =
+        this->typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
@@ -240,8 +242,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     IndexExprScope ieScope(&rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
     // input = Pool(output)
     //
@@ -264,19 +266,14 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //         # Initialize values for the output.
     //         output[n][c][ho][wo] = getIdentityValue(...);
     //
-    //         # Thanks to Tian (@tjingrant) for the following derivation about
-    //         # firstValid.
-    //         # When dilation is non-unit, the first valid pixel to
-    //         # apply pooling on will not be the 0-th pixel, but rather
-    //         # the smallest integer n to make -pH + n * 3 greater than
-    //         # or equal to 0.
-    //         # We derive what is this smallest n:
-    //         # -pH + n * dH >= 0
-    //         #       n * dH >= pH
-    //         #            n >= pH/dH
-    //         # thus n = ceil(pH/dH)
-    //         # thus the first valid pixel location is
-    //         # ceil(pH / dilation) * dilation - pH
+    //         # Thanks to Tian (@tjingrant) for the following derivation
+    //         about # firstValid. # When dilation is non-unit, the first
+    //         valid pixel to # apply pooling on will not be the 0-th pixel,
+    //         but rather # the smallest integer n to make -pH + n * 3
+    //         greater than # or equal to 0. # We derive what is this
+    //         smallest n: # -pH + n * dH >= 0 #       n * dH >= pH # n >=
+    //         pH/dH # thus n = ceil(pH/dH) # thus the first valid pixel
+    //         location is # ceil(pH / dilation) * dilation - pH
     //
     //         firstValidH = ceil(float(ptH / dH)) * dH - ptH
     //         startH = max(firstValidH, ho * sH - ptH)
@@ -287,12 +284,14 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //         endW = min(W, wo * sW + (kW - 1) * dW + 1 - ptW)
     //
     //         # Apply the pooling window.
-    //         # The pooling window can be smaller than the kernel when slicing
-    //         # over the border edges.
-    //         for hi in range(startH, endH, dH):
+    //         # The pooling window can be smaller than the kernel when
+    //         slicing # over the border edges. for hi in range(startH,
+    //         endH, dH):
     //           for wi in range(startW, endW, dW):
-    //             output[n, c, ho, wo] = emitScalarOpFor(output[n, c, ho, wo],
-    //                                                    input[n, c, hi, wi]);
+    //             output[n, c, ho, wo] = emitScalarOpFor(output[n, c, ho,
+    //             wo],
+    //                                                    input[n, c, hi,
+    //                                                    wi]);
     //
     //         # The above two for-loops are rewritten as follows:
     //         # (since KrnlIterateOp has not supported `step` yet)
@@ -300,8 +299,10 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //           for wp in range(endW - startW):
     //             hi = hp * dH + startH
     //             wi = wp * dW + startW
-    //             output[n, c, ho, wo] = emitScalarOpFor(output[n, c, ho, wo],
-    //                                                    input[n, c, hi, wi]);
+    //             output[n, c, ho, wo] = emitScalarOpFor(output[n, c, ho,
+    //             wo],
+    //                                                    input[n, c, hi,
+    //                                                    wi]);
     //
     //         # Do post processing such as taking average pooling:
     //         postProcessPoolingWindow(...)
@@ -343,8 +344,9 @@ struct ONNXPoolOpLowering : public ConversionPattern {
               MemRefBuilder, MathBuilder>
               create(createKrnl);
 
-          // 2. Emit the body of the output loop nest, which applies a pooling
-          // window to a region in the input, producing one output pixel.
+          // 2. Emit the body of the output loop nest, which applies a
+          // pooling window to a region in the input, producing one output
+          // pixel.
           SmallVector<IndexExpr, 4> outputIndices;
           for (unsigned int i = 0; i < outputShape.size(); ++i)
             outputIndices.emplace_back(DimIndexExpr(loopInd[i]));
@@ -352,8 +354,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
           // 2.1 Emit: output[n][c][ho][wo] = identity
           create.krnl.store(identity, reductionVal);
 
-          // 2.2 Emit affine maps which express the lower and upper bounds for
-          // the pooling window's dimensions. The pooling window can be
+          // 2.2 Emit affine maps which express the lower and upper bounds
+          // for the pooling window's dimensions. The pooling window can be
           // smaller than the kernel when slicing it over the border edges.
           // Thus, we will compute the start and end indices for each
           // dimension as follows.
@@ -445,7 +447,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
           }
           KrnlIterateOp iterateOp = create.krnl.iterate(pack);
           auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
-          Block &iterationBlock = iterateOp.bodyRegion().front();
+          Block &iterationBlock = iterateOp.getBodyRegion().front();
           rewriter.setInsertionPointToStart(&iterationBlock);
           SmallVector<Value, 4> poolingLoopInd(
               iterationBlock.getArguments().begin(),
@@ -487,7 +489,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
           Value output = createKrnl.load(reductionVal);
           create.krnl.storeIE(output, alloc, outputIndices);
 
-          // 2.5 Post-processing for the pooling window, e.g. taking average.
+          // 2.5 Post-processing for the pooling window, e.g. taking
+          // average.
           SmallVector<Value, 4> outputIndicesInValue;
           for (IndexExpr expr : outputIndices)
             outputIndicesInValue.emplace_back(expr.getValue());

@@ -4,7 +4,7 @@
 
 //===------------ ConstantOfShape.cpp - Lowering ConstantOfShape Op -------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,20 +18,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
+struct ONNXConstantOfShapeOpLowering
+    : public OpConversionPattern<ONNXConstantOfShapeOp> {
   ONNXConstantOfShapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXConstantOfShapeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXConstantOfShapeOp constantOp,
+      ONNXConstantOfShapeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ONNXConstantOfShapeOpAdaptor operandAdaptor(operands);
+    Operation *op = constantOp.getOperation();
+    Location loc = ONNXLoc<ONNXConstantOfShapeOp>(op);
 
-    auto valueAttr = llvm::cast<ONNXConstantOfShapeOp>(op)
-                         .value()
-                         .value()
-                         .cast<DenseElementsAttr>();
+    auto valueAttr = adaptor.getValue().value().cast<DenseElementsAttr>();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -48,28 +46,21 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
 
     // Allocate memory for the output.
     Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = create.mem.alignedAlloc(memRefType);
     else {
       SmallVector<Value, 2> allocOperands;
       // Load dimensions from the input.
       for (decltype(rank) i = 0; i < rank; ++i) {
-        if (outputShape[i] == -1) {
+        if (outputShape[i] == ShapedType::kDynamic) {
           Value index = create.math.constantIndex(i);
-          Value dim = create.krnl.load(operandAdaptor.input(), index);
+          Value dim = create.krnl.load(adaptor.getInput(), index);
           Value dimIndex = create.math.castToIndex(dim);
           allocOperands.emplace_back(dimIndex);
         }
       }
       // Allocate memory.
       alloc = create.mem.alignedAlloc(memRefType, allocOperands);
-      // Insert deallocation if needed.
-      if (insertDealloc) {
-        Block *parentBlock = alloc.getDefiningOp()->getBlock();
-        memref::DeallocOp dealloc = create.mem.dealloc(alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
     }
 
     // Get the constant value from the attribute 'value'.

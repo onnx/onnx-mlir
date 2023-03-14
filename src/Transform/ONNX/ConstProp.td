@@ -109,6 +109,21 @@ def CreateDivOfTwoConst :
 def CreateWhereOfThreeConst :
    NativeCodeCall<"ConstPropWhere($_builder, $0, $1, $2, $3)">;
 
+def CreateReduceSumConst :
+    NativeCodeCall<"ConstPropReduce<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
+
+def CreateReduceProdConst :
+    NativeCodeCall<"ConstPropReduce<mlir::ONNXMulOp>($_builder, $0, $1, $2)">;
+
+def CreateReduceMinConst :
+    NativeCodeCall<"ConstPropReduce<mlir::ONNXMinOp>($_builder, $0, $1, $2)">;
+
+def CreateReduceMaxConst :
+    NativeCodeCall<"ConstPropReduce<mlir::ONNXMaxOp>($_builder, $0, $1, $2)">;
+
+def CreateReduceMeanConst :
+    NativeCodeCall<"ConstPropReduce<mlir::ONNXReduceMeanOp>($_builder, $0, $1, $2)">;
+
 def CreateTransposeOfConst :
    NativeCodeCall<"ConstPropTranspose($_builder, $0, $1)">;
 
@@ -352,6 +367,59 @@ def WhereConstProp : Pat<
     [(IsFromDenseONNXConstantOp:$condition),
      (IsFromDenseONNXConstantOp:$X), (IsFromDenseONNXConstantOp:$Y)]>;
 
+//===----------------------------------------------------------------------===//
+// Patterns for Reduce ops.
+//===----------------------------------------------------------------------===//
+
+def ReduceSumConstProp: Pat<
+      (ONNXReduceSumOp:$reduceSumOp
+        (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
+        $axes,
+        $_,
+        $_),
+    (CreateReduceSumConst $reduceSumOp, $data, $axes),
+    [(IsFromDenseONNXConstantOp:$data), (IsFromDenseONNXConstantOpOrNone:$axes)]
+    >;
+
+def ReduceProdConstProp: Pat<
+      (ONNXReduceProdOp:$reduceProdOp
+        (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
+        $axes,
+        $_,
+        $_),
+    (CreateReduceProdConst $reduceProdOp, $data, $axes),
+    [(IsFromDenseONNXConstantOp:$data), (IsFromDenseONNXConstantOpOrNone:$axes)]
+    >;
+
+def ReduceMinConstProp: Pat<
+      (ONNXReduceMinOp:$reduceMinOp
+        (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
+        $axes,
+        $_,
+        $_),
+    (CreateReduceMinConst $reduceMinOp, $data, $axes),
+    [(IsFromDenseONNXConstantOp:$data), (IsFromDenseONNXConstantOpOrNone:$axes)]
+    >;
+
+def ReduceMaxConstProp: Pat<
+      (ONNXReduceMaxOp:$reduceMaxOp
+        (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
+        $axes,
+        $_,
+        $_),
+    (CreateReduceMaxConst $reduceMaxOp, $data, $axes),
+    [(IsFromDenseONNXConstantOp:$data), (IsFromDenseONNXConstantOpOrNone:$axes)]
+    >;
+
+def ReduceMeanConstProp: Pat<
+      (ONNXReduceMeanOp:$reduceMeanOp
+        (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
+        $axes,
+        $_,
+        $_),
+    (CreateReduceMeanConst $reduceMeanOp, $data, $axes),
+    [(IsFromDenseONNXConstantOp:$data), (IsFromDenseONNXConstantOpOrNone:$axes)]
+    >;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Transpose operations.
@@ -412,7 +480,7 @@ def SliceofConst :  Pat<
     (CreateSliceOfConst $resOp, $input),
     [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$starts),
      (IsFromDenseONNXConstantOp:$ends), (IsFromDenseONNXConstantOpOrNone:$axes),
-     (IsFromDenseONNXConstantOpOrNone:$steps)]>;
+     (IsFromDenseONNXConstantOpOrNone:$steps), (HasStaticShape:$resOp)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Concat operations.

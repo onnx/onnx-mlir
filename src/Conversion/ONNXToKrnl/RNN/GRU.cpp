@@ -4,7 +4,7 @@
 
 //===----------------- GRU.cpp - Lowering GRU Op --------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -54,16 +54,16 @@ struct GruBiasPack {
 
 template <>
 bool hasAllNoneOutput<ONNXGRUOp>(ONNXGRUOp *op) {
-  return (isNoneType(op->Y()) && isNoneType(op->Y_h()));
+  return (isFromNone(op->getY()) && isFromNone(op->getYH()));
 }
 
 template <>
 std::tuple<GruActivationPack, GruActivationPack>
 getActivationPack<ONNXGRUOp, GruActivationPack>(ONNXGRUOp *op) {
-  auto direction = op->direction();
-  auto activations = op->activations();
-  auto activationAlpha = op->activation_alpha();
-  auto activationBeta = op->activation_beta();
+  auto direction = op->getDirection();
+  auto activations = op->getActivations();
+  auto activationAlpha = op->getActivationAlpha();
+  auto activationBeta = op->getActivationBeta();
 
   GruActivationPack activationForward, activationReverse;
 
@@ -169,14 +169,14 @@ getWeightPack<ONNXGRUOp, GruWeightPack>(
   GruWeightPack weightForward, weightReverse;
 
   // parameter weight: [direction, 3*hiddenSize, inputSize]
-  Value W = op->W();
+  Value W = op->getW();
   // recurrence weight: [direction, 3*hiddenSize, hiddenSize]
-  Value R = op->R();
+  Value R = op->getR();
   // direction
-  StringRef direction = op->direction();
+  StringRef direction = op->getDirection();
   // linear_before_reset.
   bool linearBeforeReset = true;
-  if (op->linear_before_reset() == 0)
+  if (op->getLinearBeforeReset() == 0)
     linearBeforeReset = false;
 
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
@@ -274,15 +274,15 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
   GruBiasPack biasForward, biasReverse;
 
   // bias: [direction, 6*hiddenSize] for both parameter and recurrence weights.
-  Value B = op->B();
+  Value B = op->getB();
 
   // direction
-  StringRef direction = op->direction();
+  StringRef direction = op->getDirection();
 
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
       create(rewriter, loc);
   // Split B.
-  if (!isNoneType(B)) {
+  if (!isFromNone(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
     Type elementType = B.getType().cast<ShapedType>().getElementType();
     int64_t hiddenSize = bShape[1] / 6;
@@ -345,39 +345,39 @@ GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
   GruState state;
 
   // direction
-  StringRef direction = op->direction();
+  StringRef direction = op->getDirection();
 
   // Insert allocation and deallocation for the results of this operation.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.X(),
-      operandAdaptor.W(), operandAdaptor.R(), op->Y(),
-      checkInsertDealloc(op->getOperation(), 0));
+  state.allH =
+      allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getY());
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.X(),
-      operandAdaptor.W(), operandAdaptor.R(), op->Y_h(),
-      checkInsertDealloc(op->getOperation(), 1));
+  state.ht =
+      allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getYH());
 
-  // Insert allocation and deallocation the intermedidate Ht for the forward and
+  // Insert allocation and deallocation the intermediate Ht for the forward and
   // reverse directions.
   // Ht :: [batch_size, hidden_size]
   if (direction == FORWARD || direction == BIDIRECTIONAL) {
     state.forwardHt = allocIntermediateState(
-        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+        rewriter, loc, operandAdaptor.getX(), operandAdaptor.getR());
   }
   if (direction == REVERSE || direction == BIDIRECTIONAL) {
     state.reverseHt = allocIntermediateState(
-        rewriter, loc, operandAdaptor.X(), operandAdaptor.R());
+        rewriter, loc, operandAdaptor.getX(), operandAdaptor.getR());
   }
 
   // Initialize Ht.
   Value noneValue;
   initializeIntermediateStates(rewriter, loc, state.forwardHt, state.reverseHt,
-      noneValue, noneValue, operandAdaptor.initial_h(), noneValue,
-      operandAdaptor.X().getType().cast<MemRefType>().getElementType(),
+      noneValue, noneValue, operandAdaptor.getInitialH(), noneValue,
+      operandAdaptor.getX().getType().cast<MemRefType>().getElementType(),
       direction, /*onlyHidden=*/true);
 
   // Obtain the value of 'linear_before_reset' attribute.
-  int64_t linearBeforeResetAttr = op->linear_before_reset();
+  int64_t linearBeforeResetAttr = op->getLinearBeforeReset();
   if (linearBeforeResetAttr == 0)
     state.linearBeforeReset = false;
   else
@@ -499,7 +499,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
           // Store the intermediate Ht.
           createKrnl.store(nextHt, Ht, indices);
-          if (!isNoneType(state.allH))
+          if (!isFromNone(state.allH))
             createKrnl.store(
                 nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
         });
@@ -517,8 +517,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
         create.onnx.toMemref(create.onnx.matmul(matrixType, Ht, weightPack.Rr));
     Value rt, rtHt;
     if (hasAllConstantDimensions(matrixType)) {
-      rt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
-      rtHt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
+      rt = create.mem.alignedAlloc(matrixType);
+      rtHt = create.mem.alignedAlloc(matrixType);
     } else {
       // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.
@@ -603,7 +603,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
           // Store the intermediate Ht.
           createKrnl.store(nextHt, Ht, indices);
-          if (!isNoneType(state.allH))
+          if (!isFromNone(state.allH))
             createKrnl.store(
                 nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
         });
@@ -613,12 +613,12 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 template <>
 void stateToOutput<ONNXGRUOp, GruState>(ConversionPatternRewriter &rewriter,
     Location loc, ONNXGRUOp *op, GruState state, std::vector<Value> &outputs) {
-  auto direction = op->direction();
+  auto direction = op->getDirection();
   Value noneValue;
   // First output: all sequences.
-  outputs.emplace_back((isNoneType(op->Y()) ? noneValue : state.allH));
+  outputs.emplace_back((isFromNone(op->getY()) ? noneValue : state.allH));
   // Second output: hidden.
-  if (isNoneType(op->Y_h()))
+  if (isFromNone(op->getYH()))
     outputs.emplace_back(noneValue);
   else {
     stateToOutputForHiddenOrCell(

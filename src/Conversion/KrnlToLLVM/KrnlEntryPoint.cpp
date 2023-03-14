@@ -19,8 +19,8 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/Support/JSON.h"
+#include "llvm/TargetParser/Triple.h"
 
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
@@ -479,7 +479,7 @@ private:
         assert(JSONDimValue && "failed to get value");
         int64_t dim = JSONDimValue.value();
         // Verify.
-        if (ShapedType::isDynamic(dim)) {
+        if (ShapedType::isDynamic(dim) || dim == -1) {
           // In case that the reference dimension size is unknown, verify that
           // the actual dimension size is a non-negative value.
           create.llvm.ifThenElse(/*cond=*/

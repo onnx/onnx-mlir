@@ -45,7 +45,8 @@ std::pair<bool, StringAttr> areProducedByUnstickOpSameLayout(
   Value first = values[0];
   if (first.isa<BlockArgument>() || !isa<ZHighUnstickOp>(first.getDefiningOp()))
     return std::make_pair(false, nullptr);
-  Value firstStickifiedVal = cast<ZHighUnstickOp>(first.getDefiningOp()).In();
+  Value firstStickifiedVal =
+      cast<ZHighUnstickOp>(first.getDefiningOp()).getIn();
   StringAttr firstLayout = convertZTensorDataLayoutToStringAttr(
       rewriter, getZTensorLayout(firstStickifiedVal.getType()));
 
@@ -54,7 +55,7 @@ std::pair<bool, StringAttr> areProducedByUnstickOpSameLayout(
     using namespace onnx_mlir::zhigh;
     if (v.isa<BlockArgument>() || !isa<ZHighUnstickOp>(v.getDefiningOp()))
       return false;
-    Value stickifiedVal = cast<ZHighUnstickOp>(v.getDefiningOp()).In();
+    Value stickifiedVal = cast<ZHighUnstickOp>(v.getDefiningOp()).getIn();
     StringAttr nextLayout = convertZTensorDataLayoutToStringAttr(
         rewriter, getZTensorLayout(stickifiedVal.getType()));
     return (nextLayout == firstLayout);
@@ -81,7 +82,7 @@ Type getZTensorType(
   ZHighStickOp stickOp = rewriter.create<ZHighStickOp>(loc, tensor, layout);
   (void)stickOp.inferShapes([](Region &region) {});
 
-  Type returnType = stickOp.Out().getType();
+  Type returnType = stickOp.getOut().getType();
   rewriter.eraseOp(stickOp);
 
   return returnType;
@@ -116,8 +117,8 @@ public:
     Operation *genericOp = unaryOp.getOperation();
     Location loc = genericOp->getLoc();
 
-    Value input = unaryOp.X();
-    Value output = unaryOp.Y();
+    Value input = unaryOp.getX();
+    Value output = unaryOp.getY();
 
     // Input is a block argument, do nothing.
     if (input.dyn_cast<BlockArgument>())
@@ -130,7 +131,7 @@ public:
 
     // Input is unstickified from a zTensor. Do computation directly on the
     // zTensor.
-    Value zTensor = unstickOp.In();
+    Value zTensor = unstickOp.getIn();
     Value zOutput = rewriter.create<ONNX_OP>(loc, zTensor.getType(), zTensor);
     Value replacedValue =
         rewriter.create<ZHighUnstickOp>(loc, output.getType(), zOutput);
@@ -170,9 +171,9 @@ public:
     Operation *genericOp = binaryOp.getOperation();
     Location loc = genericOp->getLoc();
 
-    Value A = binaryOp.A();
-    Value B = binaryOp.B();
-    Value output = binaryOp.C();
+    Value A = binaryOp.getA();
+    Value B = binaryOp.getB();
+    Value output = binaryOp.getC();
 
     // Input is a block argument, do nothing.
     if (A.dyn_cast<BlockArgument>() || B.dyn_cast<BlockArgument>())
@@ -186,8 +187,8 @@ public:
 
     // Input is unstickified from a zTensor. Do computation directly on the
     // zTensor.
-    Value zTensorA = unstickAOp.In();
-    Value zTensorB = unstickBOp.In();
+    Value zTensorA = unstickAOp.getIn();
+    Value zTensorB = unstickBOp.getIn();
     Type zTensorAType = zTensorA.getType();
     Type zTensorBType = zTensorB.getType();
     ZTensorEncodingAttr::DataLayout ALayout = getZTensorLayout(zTensorAType);
@@ -225,9 +226,9 @@ public:
       ONNXConcatOp concatOp, PatternRewriter &rewriter) const override {
     Operation *genericOp = concatOp.getOperation();
     Location loc = genericOp->getLoc();
-    ValueRange inputs = concatOp.inputs();
-    IntegerAttr axis = concatOp.axisAttr();
-    Value output = concatOp.concat_result();
+    ValueRange inputs = concatOp.getInputs();
+    IntegerAttr axis = concatOp.getAxisAttr();
+    Value output = concatOp.getConcatResult();
 
     // Variables for capturing values and attributes used while creating ops
     StringAttr layout;

@@ -37,6 +37,8 @@ const std::string LAYOUT_BZRH = "BZRH";
 zdnn_data_layouts convertLayoutAttrToZDNNDataLayout(
     int64_t rank, mlir::StringAttr layoutAttr);
 
+bool is2DLayout(mlir::StringAttr layout);
+bool is3DSLayout(mlir::StringAttr layout);
 bool is4DLayout(mlir::StringAttr layout);
 bool isNHWCLayout(mlir::StringAttr layout);
 

@@ -4,7 +4,7 @@
 
 //==============-- GRUModel.cpp - Building GRU Models for tests -=============//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -46,11 +46,11 @@ GRULibBuilder::~GRULibBuilder() {
 bool GRULibBuilder::build() {
   D = abs(direction);
 
-  int S1 = S, B1 = B;
+  int64_t S1 = S, B1 = B;
   if (isDynamicS)
-    S1 = -1;
+    S1 = ShapedType::kDynamic;
   if (isDynamicB)
-    B1 = -1;
+    B1 = ShapedType::kDynamic;
 
   xShape = perm3(S, B, I);
   SmallVector<int64_t, 3> xShapeSymbol = perm3(S1, B1, I);
@@ -92,9 +92,9 @@ bool GRULibBuilder::build() {
 
   int64_t linearBeforeResetArg = linearBeforeReset;
 
-  wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
-  rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
-  bOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1);
+  wOmt = omTensorCreateWithRandomData<float>(llvm::ArrayRef(wShape), 0, 1);
+  rOmt = omTensorCreateWithRandomData<float>(llvm::ArrayRef(rShape), 0, 1);
+  bOmt = omTensorCreateWithRandomData<float>(llvm::ArrayRef(bShape), 0, 1);
   auto wConstant = buildONNXConstantOp(wOmt, wType);
   auto rConstant = buildONNXConstantOp(rOmt, rType);
   auto bConstant = buildONNXConstantOp(bOmt, bType);
@@ -120,14 +120,14 @@ bool GRULibBuilder::build() {
 
 bool GRULibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
-  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  OMTensor* list[num];
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
+      llvm::ArrayRef(xShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(hShape), dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreateWithOwnership(list, num, true);
+      llvm::ArrayRef(hShape), dataRangeLB, dataRangeUB);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1];
 }
 
@@ -146,10 +146,8 @@ bool GRULibBuilder::verifyOutputs() {
   if (!inputs || !outputs)
     return false;
 
-  auto refY =
-      omTensorCreateWithShape<float>(llvm::makeArrayRef(perm4(S, D, B, H)));
-  auto refYh =
-      omTensorCreateWithShape<float>(llvm::makeArrayRef(perm3(D, B, H)));
+  auto refY = omTensorCreateWithShape<float>(llvm::ArrayRef(perm4(S, D, B, H)));
+  auto refYh = omTensorCreateWithShape<float>(llvm::ArrayRef(perm3(D, B, H)));
   // Naive GRU implementation.
   // Equations for GRU.
   // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
@@ -174,7 +172,7 @@ bool GRULibBuilder::verifyOutputs() {
   for (int64_t d = 0; d < D; d++)
     for (int64_t b = 0; b < B; b++)
       for (int64_t h = 0; h < H; h++) {
-        std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(d, b, h));
+        std::vector<int64_t> p3 = llvm::ArrayRef(perm3(d, b, h));
         omTensorGetElem<float>(refYh, p3) =
             omTensorGetElem<float>(initialH, p3);
       }
@@ -203,7 +201,7 @@ bool GRULibBuilder::verifyOutputs() {
           omTensorGetElem<float>(XtWr, {b, h}) = 0;
           omTensorGetElem<float>(XtWh, {b, h}) = 0;
           for (int64_t k = 0; k < I; k++) {
-            std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(seq, b, k));
+            std::vector<int64_t> p3 = llvm::ArrayRef(perm3(seq, b, k));
             float xt = omTensorGetElem<float>(input, p3);
             omTensorGetElem<float>(XtWz, {b, h}) +=
                 xt * omTensorGetElem<float>(weight, {d, h, k});
@@ -216,7 +214,7 @@ bool GRULibBuilder::verifyOutputs() {
           omTensorGetElem<float>(HtRr, {b, h}) = 0;
           omTensorGetElem<float>(HtRh, {b, h}) = 0;
           for (int64_t k = 0; k < H; k++) {
-            std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(d, b, k));
+            std::vector<int64_t> p3 = llvm::ArrayRef(perm3(d, b, k));
             float previousHt = omTensorGetElem<float>(refYh, p3);
             omTensorGetElem<float>(HtRz, {b, h}) +=
                 previousHt * omTensorGetElem<float>(recurr, {d, h, k});
@@ -246,7 +244,7 @@ bool GRULibBuilder::verifyOutputs() {
                       omTensorGetElem<float>(bias, {d, h + 4 * H}));
           if (linearBeforeReset == 0) {
             // rt (.) Ht-1
-            std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(d, b, h));
+            std::vector<int64_t> p3 = llvm::ArrayRef(perm3(d, b, h));
             float previousHt = omTensorGetElem<float>(refYh, p3);
             omTensorGetElem<float>(RtHt, {b, h}) =
                 previousHt * omTensorGetElem<float>(rt, {b, h});
@@ -283,12 +281,12 @@ bool GRULibBuilder::verifyOutputs() {
                           (omTensorGetElem<float>(HtRh, {b, h}) +
                               omTensorGetElem<float>(bias, {d, h + 5 * H})) +
                       omTensorGetElem<float>(bias, {d, h + 2 * H}));
-          std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(d, b, h));
+          std::vector<int64_t> p3 = llvm::ArrayRef(perm3(d, b, h));
           float previousHt = omTensorGetElem<float>(refYh, p3);
           float Ht = (1 - omTensorGetElem<float>(zt, {b, h})) * ht +
                      omTensorGetElem<float>(zt, {b, h}) * previousHt;
           omTensorGetElem<float>(refYh, p3) = Ht;
-          std::vector<int64_t> p4 = llvm::makeArrayRef(perm4(seq, d, b, h));
+          std::vector<int64_t> p4 = llvm::ArrayRef(perm4(seq, d, b, h));
           omTensorGetElem<float>(refY, p4) = Ht;
         }
       }

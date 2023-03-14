@@ -19,6 +19,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
 #include "mlir/IR/DialectImplementation.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -122,6 +123,13 @@ Attribute ONNXDialect::parseAttribute(
   if (Attribute attr;
       generatedAttributeParser(parser, &attrTag, type, attr).has_value())
     return attr;
+  if (attrTag == DisposableElementsAttr::getMnemonic()) {
+    if (auto membuf = DisposableElementsAttr::parse(parser, type))
+      return OnnxElementsAttrBuilder(type.getContext())
+          .fromMemoryBuffer(type, std::move(membuf));
+    else
+      return {};
+  }
   parser.emitError(parser.getCurrentLocation())
       << "unknown attribute `" << attrTag << "` in dialect `ONNX`";
   return {};

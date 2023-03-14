@@ -79,8 +79,8 @@ struct ONNXOpShapeHelper {
    directly enclosing scope vanishes).
    */
 
-  ONNXOpShapeHelper(mlir::Operation *op,    /* Op to be analyzed. */
-      mlir::ArrayRef<mlir::Value> operands, /* If empty, use operands from op.*/
+  ONNXOpShapeHelper(mlir::Operation *op, /* Op to be analyzed. */
+      mlir::ValueRange operands,         /* If empty, use operands from op.*/
       IndexExprBuilder *ieBuilder, /* Use IndexExprBuilderForAnalysis if null.*/
       IndexExprScope *scope);      /* Install local scope if null. */
   virtual ~ONNXOpShapeHelper();
@@ -124,19 +124,20 @@ protected:
   // given input operand's type.
   mlir::LogicalResult setOutputDimsFromOperand(
       mlir::Value operand, int n = 0, bool refineShape = true);
-  // Helper for ops for which the output (n'th) is a constant shape. Value -1
-  // indicates runtime dim.
+  // Helper for ops for which the output (n'th) is a constant shape. Value
+  // ShapedType::kDynamic indicates runtime dim.
   mlir::LogicalResult setOutputDimsFromLiterals(
       llvm::SmallVector<int64_t, 4> shape, int n = 0, bool refineShape = true);
   // Helper for ops for which the output (n'th) is defined by the shape of
-  // another type. Type must have constant shape (all values>=0).
+  // another type. Type must have constant shape (all values !=
+  // ShapedType::kDynamic).
   mlir::LogicalResult setOutputDimsFromTypeWithConstantShape(
       mlir::Type type, int n = 0, bool refineShape = true);
 
   // Data that must be present for every ShapeHelper operation. Op and scope
   // are initialized in the constructor.
   mlir::Operation *op;
-  mlir::ArrayRef<mlir::Value> operands;
+  mlir::ValueRange operands;
   IndexExprBuilder *createIE;
   IndexExprScope *scope;
 

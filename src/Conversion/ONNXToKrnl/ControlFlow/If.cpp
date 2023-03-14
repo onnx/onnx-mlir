@@ -9,7 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
@@ -18,19 +18,17 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXIfOpLowering : public ConversionPattern {
+struct ONNXIfOpLowering : public OpConversionPattern<ONNXIfOp> {
   explicit ONNXIfOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXIfOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXIfOp ifOp, ONNXIfOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    Operation *op = ifOp.getOperation();
     Location loc = ONNXLoc<ONNXIfOp>(op);
-    auto ifOp = dyn_cast<ONNXIfOp>(op);
-    ONNXIfOpAdaptor ifOpAdaptor(operands, op->getAttrDictionary());
 
     KrnlBuilder createKrnl(rewriter, loc);
-    Value cond = createKrnl.load(ifOpAdaptor.cond());
+    Value cond = createKrnl.load(adaptor.getCond());
 
     auto resultTypes = ifOp.getResultTypes();
     SmallVector<Type> convertedResultTypes;
@@ -41,9 +39,9 @@ struct ONNXIfOpLowering : public ConversionPattern {
     scf::IfOp scfIfOp = rewriter.create<scf::IfOp>(
         loc, convertedResultTypes, cond, /*withElseRegion=*/true);
     graphToScfBranch(
-        rewriter, loc, ifOp.then_branch(), scfIfOp.getThenRegion());
+        rewriter, loc, ifOp.getThenBranch(), scfIfOp.getThenRegion());
     graphToScfBranch(
-        rewriter, loc, ifOp.else_branch(), scfIfOp.getElseRegion());
+        rewriter, loc, ifOp.getElseBranch(), scfIfOp.getElseRegion());
     rewriter.replaceOp(op, scfIfOp.getResults());
     return success();
   }

@@ -192,7 +192,7 @@ def IsNotFromONNXConstantOp: Constraint<
 
 def IsFromONNXConstantOpWithDenseElementsAttr: Constraint<
     And<[CPred<" isa<ONNXConstantOp>($_self.getDefiningOp()) ">,
-         CPred<" onnx_mlir::getONNXConstantOp($_self).valueAttr().isa<DenseElementsAttr>() ">
+         CPred<" onnx_mlir::getONNXConstantOp($_self).getValueAttr().isa<DenseElementsAttr>() ">
         ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr">;
 
 def AreTheSameConstantOpDenseAttr: Constraint<
@@ -232,6 +232,17 @@ def AxisIsTheLastDim: Constraint<
         "(onnx_mlir::hasShapeAndRank($0) &&"
         " ($0.getType().cast<ShapedType>().getRank() == $1.getValue().getSExtValue() + 1))">,
   "Axis is the last dimension of the input"
+>;
+
+// Check a AffineMap is identity or not.
+def IsIdentityAffineMap : Constraint<
+  CPred<"$_self.isIdentity()">,
+  "Is identity AffineMap"
+>;
+
+/// Compose two affine maps.
+def GetComposedMap : NativeCodeCall<
+ "mlir::AffineMapAttr::get($0.getValue().compose($1.getValue()))"
 >;
 
 //===----------------------------------------------------------------------===//
@@ -834,13 +845,13 @@ def SizeToConstantPattern: Pat<
 // Rewrite GlobalAveragePool using ReduceMean.
 def GlobalAveragePoolPattern: Pat<
   (ONNXGlobalAveragePoolOp $x),
-  (ONNXReduceMeanOp $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
+  (ONNXReduceMeanV13Op $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
 >;
 
 // Rewrite GlobalMaxPool using ReduceMax.
 def GlobalMaxPoolPattern: Pat<
   (ONNXGlobalMaxPoolOp $x),
-  (ONNXReduceMaxOp $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
+  (ONNXReduceMaxV13Op $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -950,6 +961,33 @@ def SoftmaxV11ToLatestPattern: Pat<
    (ONNXSoftmaxV11Op $input, $axisAttr),
    (ONNXSoftmaxOp $input, $axisAttr),
    [(AxisIsTheLastDim $input, $axisAttr)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXShapeTransform
+//===----------------------------------------------------------------------===//
+
+// Remove ShapeTransform with identity map.
+def ShapeTransformIdentityPattern : Pat<
+  (ONNXShapeTransformOp $arg, $map1),
+  (replaceWithValue $arg),
+  [(IsIdentityAffineMap:$map1)]
+>;
+
+// Rewrite
+// ```
+//   onnx.ShapeTransform {#map1} (onnx.ShapeTransform {#map2} (%X))
+// ```
+// into
+// ```
+//   onnx.ShapeTransform {#map} (%X)
+// ```
+// where `#map = compose(#map1, #map2)
+
+def ShapeTransformComposePattern : Pat<
+  (ONNXShapeTransformOp (ONNXShapeTransformOp $arg, $map1), $map2),
+  (ONNXShapeTransformOp $arg, (GetComposedMap $map2, $map1)),
+  []
 >;
 
 #endif // ONNX_REWRITE

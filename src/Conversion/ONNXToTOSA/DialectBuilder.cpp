@@ -1,11 +1,10 @@
-
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
 
 //====------ DialectBuilder.hpp - TOSA dialect builder --------------------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -19,14 +18,14 @@
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include <src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp>
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
 template <typename T>
-bool testNumberOfElementsMatch(ArrayRef<T> vec, ArrayRef<int64_t> shape) {
+bool TosaBuilder::testNumberOfElementsMatch(
+    ArrayRef<T> vec, ArrayRef<int64_t> shape) {
   uint64_t numTotalElements = 1;
   for (int64_t a : shape) {
     numTotalElements *= a;
@@ -44,41 +43,37 @@ Value TosaBuilder::createConstFromRankedTensorAndVec(
   return constOp;
 }
 
-Value TosaBuilder::getConst(ArrayRef<int64_t> vec, ArrayRef<int64_t> shape) {
-
+template <typename T>
+Value TosaBuilder::createConst(
+    ArrayRef<T> vec, ArrayRef<int64_t> shape, Type &type) {
   assert(testNumberOfElementsMatch(vec, shape) &&
          "getConstTensor(): number of elements mismatch.");
 
-  auto constType = RankedTensorType::get(
-      shape, rewriter().getIntegerType(sizeof(int64_t) * 8));
+  auto constType = RankedTensorType::get(shape, type);
 
   Value constOp = this->createConstFromRankedTensorAndVec(vec, constType);
+  return constOp;
+}
+
+Value TosaBuilder::getConst(ArrayRef<int64_t> vec, ArrayRef<int64_t> shape) {
+  auto elementType = rewriter().getIntegerType(sizeof(int64_t) * 8);
+  Value constOp = this->createConst<int64_t>(vec, shape, elementType);
   return constOp;
 }
 
 Value TosaBuilder::getConst(ArrayRef<int32_t> vec, ArrayRef<int64_t> shape) {
-
-  assert(testNumberOfElementsMatch(vec, shape) &&
-         "getConstTensor(): number of elements mismatch.");
-
-  auto constType = RankedTensorType::get(
-      shape, rewriter().getIntegerType(sizeof(int32_t) * 8));
-
-  Value constOp = this->createConstFromRankedTensorAndVec(vec, constType);
+  auto elementType = rewriter().getIntegerType(sizeof(int32_t) * 8);
+  Value constOp = this->createConst<int32_t>(vec, shape, elementType);
   return constOp;
 }
 
 Value TosaBuilder::getConst(ArrayRef<float> vec, ArrayRef<int64_t> shape) {
-  assert(testNumberOfElementsMatch(vec, shape) &&
-         "getConstTensor(): number of elements mismatch.");
-
-  auto constType = RankedTensorType::get(shape, rewriter().getF32Type());
-
-  Value constOp = this->createConstFromRankedTensorAndVec(vec, constType);
+  auto elementType = rewriter().getF32Type();
+  Value constOp = this->createConst<float>(vec, shape, elementType);
   return constOp;
 }
 
-Value TosaBuilder::getConst(float val, llvm::ArrayRef<int64_t> shape) {
+Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
   auto constType = tosa::reduceAxisToOne(shape, rewriter().getF32Type());
   auto constAttr = DenseElementsAttr::get(constType, val);
 
@@ -98,13 +93,16 @@ Value TosaBuilder::reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape) {
 }
 
 Value TosaBuilder::transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm) {
+  int64_t valueRank = value.getType().cast<RankedTensorType>().getRank();
+  assert((valueRank == (int64_t)perm.size()) &&
+         "value and perm vector don't have the same rank");
   // Create Permutation Const
-  Value permList = this->getConst(
-      perm, {value.getType().cast<RankedTensorType>().getRank()});
+  Value permList = this->getConst(perm, {valueRank});
   auto valueType = value.getType().cast<ShapedType>();
   // get new value type
   Type newValueType = RankedTensorType::get(
-      llvm::SmallVector<int64_t, 4>(valueType.getShape().size(), -1),
+      llvm::SmallVector<int64_t, 4>(
+          valueType.getShape().size(), ShapedType::kDynamic),
       valueType.getElementType());
   // create transpose for value
   Value newValue = tosa::CreateOpAndInfer<mlir::tosa::TransposeOp>(
@@ -114,11 +112,12 @@ Value TosaBuilder::transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm) {
 
 Value TosaBuilder::slice(Value &inputConst, llvm::ArrayRef<int64_t> size,
     llvm::ArrayRef<int64_t> start) {
-  ArrayAttr sizeAttr = rewriter().getI64ArrayAttr(size);
-  ArrayAttr startAttr = rewriter().getI64ArrayAttr(start);
+  DenseI64ArrayAttr sizeAttr = rewriter().getDenseI64ArrayAttr(size);
+  DenseI64ArrayAttr startAttr = rewriter().getDenseI64ArrayAttr(start);
   Value newSliceInput =
       tosa::CreateOpAndInfer<mlir::tosa::SliceOp>(rewriter(), loc(),
-          RankedTensorType::get(llvm::SmallVector<int64_t, 4>(size.size(), -1),
+          RankedTensorType::get(
+              llvm::SmallVector<int64_t, 4>(size.size(), ShapedType::kDynamic),
               inputConst.getType().cast<ShapedType>().getElementType()),
           inputConst, startAttr, sizeAttr);
   return newSliceInput;
@@ -147,8 +146,8 @@ ElementsAttr IndexExprBuilderForTosa::getConst(Value value) {
     if (constOp.getValueAttr())
       return constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
   } else if (auto constOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
-    if (constOp.value().has_value())
-      return constOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    if (constOp.getValue().has_value())
+      return constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
   }
   return nullptr;
 }

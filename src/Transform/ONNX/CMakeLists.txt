@@ -84,6 +84,7 @@ add_onnx_mlir_library(OMONNXDimAnalysis
   OMONNXOps
   OMONNXRewrite
   OMShapeInference
+  OMShapeHelperOpInterface
   MLIRFuncDialect
   MLIRPass
   MLIRTransforms

@@ -73,9 +73,9 @@ static bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
 
 /*!
  *  RewritePattern that replaces:
- *    %0 = alloc() : memref<<dims>x<type>>
+ *    %0 = getAlloc() : memref<<dims>x<type>>
  *  with:
- *    %mem = alloc() : memref<<dims>x<type>>
+ *    %mem = getAlloc() : memref<<dims>x<type>>
  *    %0 = krnl.getref %mem <offset> : memref<<dims>x<type>>
  *
  *  For now, to enable testing, offset will always be 0.
@@ -139,7 +139,7 @@ public:
                      : create.mem.alloc(memPoolMemRefType);
 
     } else {
-      memPoolShape.emplace_back(-1);
+      memPoolShape.emplace_back(ShapedType::kDynamic);
       auto memPoolMemRefType =
           MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
 

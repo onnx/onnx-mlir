@@ -327,12 +327,12 @@ def replaceONNXLogSoftmaxPattern : Pattern<
 >;
 
 //===----------------------------------------------------------------------===//
-// ONNXReduceMeanOp %X = (ZHighUnstickOp
+// ONNXReduceMeanV13Op %X = (ZHighUnstickOp
 //                          (ZHighMeanReduce2DOp
 //                             (ZHighStickOp %X))))
 //===----------------------------------------------------------------------===//
-def replaceONNXReduceMeanPattern : Pat<
-  (ONNXReduceMeanOp:$res $x, $_, $_),
+def replaceONNXReduceMeanV13Pattern : Pat<
+  (ONNXReduceMeanV13Op:$res $x, $_, $_),
   (ZHighUnstickOp (ZHighMeanReduce2DOp (ZHighStickOp $x, (NHWCLayoutAttr))))
 >;
 
@@ -588,7 +588,7 @@ class GetLSTMGRUZDNNWeightFromONNXWeight<string opName> : NativeCodeCall<
 
 def GetLSTMGRUReturnAllStepsAttr : NativeCodeCall<
   "$_builder.getIntegerAttr($_builder.getIntegerType(64, true),"
-  "(isNoneType($0) ? 1 : -1))">;
+  "(isFromNone($0) ? 1 : -1))">;
 
 def GetLSTMGRUGetY :
         NativeCodeCall<"getLSTMGRUGetY($_loc, $_builder, $0, $1)">;

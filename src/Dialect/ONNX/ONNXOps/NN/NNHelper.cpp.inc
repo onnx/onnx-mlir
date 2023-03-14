@@ -219,7 +219,7 @@ static LogicalResult verifyKernelShape(T *op, Value filterOperand,
 template <class T>
 static LogicalResult verifyStrides(T *op, int64_t spatialRank) {
   // 1) Get strides attribute.
-  auto strides = op->strides();
+  auto strides = op->getStrides();
   if (!strides.has_value())
     return success();
   // 2) Verify that we have the right number.
@@ -237,7 +237,7 @@ static LogicalResult verifyStrides(T *op, int64_t spatialRank) {
 template <class T>
 static LogicalResult verifyDilations(T *op, int64_t spatialRank) {
   // 1) Get dilation attribute.
-  auto dilations = op->dilations();
+  auto dilations = op->getDilations();
   if (!dilations.has_value())
     return success();
   // 2) Verify that we have the right number.
@@ -256,7 +256,7 @@ static LogicalResult verifyDilations(T *op, int64_t spatialRank) {
 template <class T>
 static LogicalResult verifyPadding(T *op, int64_t spatialRank) {
   // Verify auto pad field.
-  auto autoPad = op->auto_pad();
+  auto autoPad = op->getAutoPad();
   if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER" ||
       autoPad == "VALID" || autoPad == "NOTSET") {
     // Ok, known auto pad value.
@@ -264,7 +264,7 @@ static LogicalResult verifyPadding(T *op, int64_t spatialRank) {
     return op->emitError("Unknown auto pad option");
   }
   // Verify pad values, if defined.
-  auto pads = op->pads();
+  auto pads = op->getPads();
   if (!pads.has_value())
     return success();
   // Verify that we have the right number of pad values.
@@ -280,6 +280,25 @@ static LogicalResult verifyPadding(T *op, int64_t spatialRank) {
       if (ArrayAttrIntVal(pads, i) != 0)
         return op->emitError("Bad pad value: nonzero pad value only allowed "
                              "with NOTSET option");
+  }
+  return success();
+}
+
+template <class T>
+static LogicalResult verifyOutputShape(T *op, int64_t spatialRank) {
+  // 1) Get output shape attribute.
+  auto outputShape = op->getOutputShape();
+  if (!outputShape.has_value())
+    return success();
+  // 2) Verify that we have the right number.
+  if ((int64_t)ArrayAttrSize(outputShape) != spatialRank)
+    return op->emitError(
+        "output shape length incompatible with spatial dimensions");
+  // 3) Verify that they are all positive.
+  for (int i = 0; i < spatialRank; ++i) {
+    auto attrSize = ArrayAttrIntVal(outputShape, i);
+    if (attrSize < 1)
+      return op->emitError("Bad stride value: must be strictly positive");
   }
   return success();
 }

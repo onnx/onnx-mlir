@@ -4,7 +4,7 @@
 
 //===-------------- KrnlMatmul.cpp - Lower KrnlMatmulOp -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -82,12 +82,12 @@ public:
     auto matmulOp = cast<KrnlMatMulOp>(op);
     KrnlMatMulOpAdaptor operandAdaptor(matmulOp);
     // Option.
-    bool fullUnrollAndJam = matmulOp.unroll();
+    bool fullUnrollAndJam = matmulOp.getUnroll();
 
     // Operands and types.
     Type elementType =
-        operandAdaptor.A().getType().cast<MemRefType>().getElementType();
-    bool simdize = matmulOp.simdize();
+        operandAdaptor.getA().getType().cast<MemRefType>().getElementType();
+    bool simdize = matmulOp.getSimdize();
     // Init scope and emit constants.
     Location loc = matmulOp.getLoc();
     MultiDialectBuilder<AffineBuilderKrnlMem, VectorBuilder,
@@ -97,7 +97,8 @@ public:
 
     // Gather A, B, C tile sizes.
     SmallVector<IndexExpr, 2> aTileSize, bTileSize, cTileSize;
-    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()),
+        C(operandAdaptor.getC());
     SmallVector<IndexExpr, 4> aBounds, bBounds, cBounds, aTileSizeFromAttr,
         bTileSizeFromAttr, cTileSizeFromAttr, computeTileSizeFromAttr;
     create.krnlIE.getShapeAsSymbols(A, aBounds);
@@ -108,19 +109,19 @@ public:
     // specified by an optional argument. That allows A/B/C memrefs to be
     // padded if needed for SIMD/unroll and jam, for example.
     create.krnlIE.getIntFromArrayAsLiterals(
-        matmulOp.aTileSizeAttr(), aTileSizeFromAttr);
+        matmulOp.getATileSizeAttr(), aTileSizeFromAttr);
     if (aTileSizeFromAttr.size())
       aTileSize = {aTileSizeFromAttr[0], aTileSizeFromAttr[1]};
     else
       aTileSize = {aBounds[aRank - 2], aBounds[aRank - 1]};
     create.krnlIE.getIntFromArrayAsLiterals(
-        matmulOp.bTileSizeAttr(), bTileSizeFromAttr);
+        matmulOp.getBTileSizeAttr(), bTileSizeFromAttr);
     if (bTileSizeFromAttr.size())
       bTileSize = {bTileSizeFromAttr[0], bTileSizeFromAttr[1]};
     else
       bTileSize = {bBounds[bRank - 2], bBounds[bRank - 1]};
     create.krnlIE.getIntFromArrayAsLiterals(
-        matmulOp.cTileSizeAttr(), cTileSizeFromAttr);
+        matmulOp.getCTileSizeAttr(), cTileSizeFromAttr);
     if (cTileSizeFromAttr.size())
       cTileSize = {cTileSizeFromAttr[0], cTileSizeFromAttr[1]};
     else
@@ -135,7 +136,7 @@ public:
     IndexExpr jComputeTileSize = cTileSize[1];
     IndexExpr kComputeTileSize = aTileSize[1];
     create.krnlIE.getIntFromArrayAsLiterals(
-        matmulOp.computeTileSizeAttr(), computeTileSizeFromAttr);
+        matmulOp.getComputeTileSizeAttr(), computeTileSizeFromAttr);
 
     if (computeTileSizeFromAttr.size()) {
       iComputeTileSize = computeTileSizeFromAttr[0];
@@ -143,9 +144,9 @@ public:
       kComputeTileSize = computeTileSizeFromAttr[2];
     }
     // Get the global upper bound of the original computations.
-    SymbolIndexExpr iGlobalUB(operandAdaptor.iGlobalUB()),
-        jGlobalUB(operandAdaptor.jGlobalUB()),
-        kGlobalUB(operandAdaptor.kGlobalUB());
+    SymbolIndexExpr iGlobalUB(operandAdaptor.getIGlobalUB()),
+        jGlobalUB(operandAdaptor.getJGlobalUB()),
+        kGlobalUB(operandAdaptor.getKGlobalUB());
 
     // Has a matrix times vector when the J upper bound is literal 1.
     bool matVectorProduct = !DISABLE_MAT_VEC_PRODUCT && jGlobalUB.isLiteral() &&
@@ -191,40 +192,40 @@ public:
     // Now get global start indices, which would define the first element of the
     // tiles in the original computations.
     DimIndexExpr iGlobalIndexComputeStart(
-        operandAdaptor.iGlobalIndexComputeStart()),
-        jGlobalIndexComputeStart(operandAdaptor.jGlobalIndexComputeStart()),
-        kGlobalIndexComputeStart(operandAdaptor.kGlobalIndexComputeStart());
+        operandAdaptor.getIGlobalIndexComputeStart()),
+        jGlobalIndexComputeStart(operandAdaptor.getJGlobalIndexComputeStart()),
+        kGlobalIndexComputeStart(operandAdaptor.getKGlobalIndexComputeStart());
     // A[i, k];
     SmallVector<IndexExpr, 4> aStart, bStart, cStart;
     for (int t = 0; t < aRank - 2; t++)
       aStart.emplace_back(
-          SymbolIndexExpr(operandAdaptor.aGlobalIndexMemStart()[t]));
+          SymbolIndexExpr(operandAdaptor.getAGlobalIndexMemStart()[t]));
     aStart.emplace_back(
         iGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.aGlobalIndexMemStart()[aRank - 2]));
+        DimIndexExpr(operandAdaptor.getAGlobalIndexMemStart()[aRank - 2]));
     aStart.emplace_back(
         kGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.aGlobalIndexMemStart()[aRank - 1]));
+        DimIndexExpr(operandAdaptor.getAGlobalIndexMemStart()[aRank - 1]));
     // B[k, j];
     for (int t = 0; t < bRank - 2; t++)
       bStart.emplace_back(
-          SymbolIndexExpr(operandAdaptor.bGlobalIndexMemStart()[t]));
+          SymbolIndexExpr(operandAdaptor.getBGlobalIndexMemStart()[t]));
     bStart.emplace_back(
         kGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.bGlobalIndexMemStart()[bRank - 2]));
+        DimIndexExpr(operandAdaptor.getBGlobalIndexMemStart()[bRank - 2]));
     bStart.emplace_back(
         jGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.bGlobalIndexMemStart()[bRank - 1]));
+        DimIndexExpr(operandAdaptor.getBGlobalIndexMemStart()[bRank - 1]));
     // C[i, j]
     for (int t = 0; t < cRank - 2; t++)
       cStart.emplace_back(
-          SymbolIndexExpr(operandAdaptor.cGlobalIndexMemStart()[t]));
+          SymbolIndexExpr(operandAdaptor.getCGlobalIndexMemStart()[t]));
     cStart.emplace_back(
         iGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.cGlobalIndexMemStart()[cRank - 2]));
+        DimIndexExpr(operandAdaptor.getCGlobalIndexMemStart()[cRank - 2]));
     cStart.emplace_back(
         jGlobalIndexComputeStart -
-        DimIndexExpr(operandAdaptor.cGlobalIndexMemStart()[cRank - 1]));
+        DimIndexExpr(operandAdaptor.getCGlobalIndexMemStart()[cRank - 1]));
 
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling
@@ -321,7 +322,8 @@ private:
     KrnlMatMulOpAdaptor operandAdaptor(op);
     MemRefBuilder createMemRef(createAffine);
 
-    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()),
+        C(operandAdaptor.getC());
     int64_t unrollFactor = (unrollJam && J.isLiteral()) ? J.getLiteral() : 1;
     // Have to privatize CTmpType by unroll factor (1 if none).
     MemRefType CTmpType = MemRefType::get({unrollFactor}, elementType);
@@ -383,7 +385,8 @@ private:
     int64_t mVL = create.vec.getMachineVectorLength(elementType);
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
-    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()),
+        C(operandAdaptor.getC());
 
     // Generate the vector type conversions.
     assert(VL == mVL && "vector length and VL must be identical for now");
@@ -460,7 +463,8 @@ private:
 
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
-    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()),
+        C(operandAdaptor.getC());
 
     // Generate the vector type conversions.
     int64_t VL = vectorLen.getLiteral();

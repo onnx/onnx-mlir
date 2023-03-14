@@ -8,8 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 
 #include "mlir/IR/Builders.h"
 
@@ -48,7 +48,7 @@ public:
     SmallVector<int64_t, 4> reshapedShape{3, 2, 5};
     auto reshapedExpandedStrides =
         reshapeStrides(expandedShape, expandedStrides, reshapedShape);
-    assert(None == reshapedExpandedStrides);
+    assert(std::nullopt == reshapedExpandedStrides);
 
     return 0;
   }

@@ -64,6 +64,9 @@ bool areStridesContiguous(
 // Returns row-major order strides for the given shape.
 llvm::SmallVector<int64_t, 4> getDefaultStrides(llvm::ArrayRef<int64_t> shape);
 
+// Returns all-zeros strides.
+llvm::SmallVector<int64_t, 4> getSplatStrides(llvm::ArrayRef<int64_t> shape);
+
 // Returns the strides that can map the underlying data to reshapedShape
 // equivalently to restriding it, if such strides exist, otherwise returns None.
 llvm::Optional<llvm::SmallVector<int64_t, 4>> reshapeStrides(
@@ -117,7 +120,7 @@ struct StridedArrayRef : public llvm::ArrayRef<T> {
 };
 
 template <typename Iterator, typename... Args,
-    typename Action = llvm::function_ref<void(Iterator, Args...)>>
+    typename Action = llvm::function_ref<void(Iterator, const Args *...)>>
 Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator begin,
     StridedArrayRef<Args>... src, Action &&act);
 

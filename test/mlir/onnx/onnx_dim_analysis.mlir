@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --onnx-dim-analysis %s -split-input-file | FileCheck %s
 
+// -----
+
 // This test is an excerpt of BertSquad-12 model in the model zoo.
 // It was normalized via calling `--simplify-shape-related-ops-onnx`
 // Expected results: All unknown dimensions have the same group ID that is 0.
@@ -39,7 +41,7 @@ func.func @test_dim_analysis_with_bert(%arg0: tensor<?x256xi64>, %arg1: tensor<?
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<256> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.ConstantOfShape"([[VAR_3_]]) {onnx_node_name = "bert/encoder/ones", value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<?x256x1xf32>
+// CHECK:           [[VAR_4_:%.+]] = onnx.ConstantOfShape([[VAR_3_]]) {onnx_node_name = "bert/encoder/ones", value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<?x256x1xf32>
 // CHECK:           "onnx.DimGroup"([[VAR_4_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x256x1xf32>) -> ()
 
 // CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>

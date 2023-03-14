@@ -28,7 +28,7 @@ template <>
 LogicalResult ONNXQuantizeLinearOpShapeHelper::computeShape() {
   ONNXQuantizeLinearOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr outputDims;
-  createIE->getShapeAsDims(operandAdaptor.x(), outputDims);
+  createIE->getShapeAsDims(operandAdaptor.getX(), outputDims);
   // Save the final result.
   setOutputDims(outputDims);
   return success();
@@ -46,13 +46,13 @@ LogicalResult ONNXQuantizeLinearOpShapeHelper::computeShape() {
 
 LogicalResult ONNXQuantizeLinearOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto inTy = x().getType().dyn_cast<RankedTensorType>();
+  auto inTy = getX().getType().dyn_cast<RankedTensorType>();
   if (!inTy) {
     return success();
   }
 
   Type elementType;
-  Value zero = y_zero_point();
+  Value zero = getYZeroPoint();
   if (isFromNone(zero)) {
     // If zero point type isn't provided, output type defaults to ui8.
     elementType = IntegerType::get(getContext(), 8, IntegerType::Unsigned);

@@ -32,18 +32,18 @@ LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
   OP_TYPE splitOp = llvm::cast<OP_TYPE>(op);
 
   unsigned int numOfResults = splitOp.getNumResults();
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   int64_t rank = createIE->getShapedTypeRank(input);
 
   // Checking value of axis parameter.
-  int64_t axisIndex = operandAdaptor.axis();
+  int64_t axisIndex = operandAdaptor.getAxis();
   if (axisIndex < -rank || axisIndex >= rank)
     return op->emitError("Split axis value out of bound");
   // Negative axis means values are counted from the opposite side.
   if (axisIndex < 0) {
     axisIndex = rank + axisIndex;
     auto builder = Builder(op->getContext());
-    splitOp.axisAttr(
+    splitOp.setAxisAttr(
         IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
             APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
@@ -91,9 +91,9 @@ LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
 template <>
 LogicalResult ONNXSplitOpShapeHelper::computeShape() {
   ONNXSplitOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-  Value split = operandAdaptor.split();
+  Value split = operandAdaptor.getSplit();
   SmallVector<IndexExpr, 4> indexExprArray;
-  if (split.getType().template isa<NoneType>()) {
+  if (isFromNone(split)) {
     // None is fine, indexExprArray will be empty.
   } else {
     createIE->getIntFromArrayAsSymbols(split, indexExprArray);
@@ -107,7 +107,7 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape() {
 template <>
 LogicalResult ONNXSplitV11OpShapeHelper::computeShape() {
   ONNXSplitV11OpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-  ArrayAttr splitAttr = operandAdaptor.splitAttr();
+  ArrayAttr splitAttr = operandAdaptor.getSplitAttr();
   SmallVector<IndexExpr, 4> indexExprArray;
   if (splitAttr) {
     createIE->getIntFromArrayAsLiterals(splitAttr, indexExprArray);
@@ -123,13 +123,13 @@ LogicalResult ONNXSplitV11OpShapeHelper::computeShape() {
 
 LogicalResult ONNXSplitOp::verify() {
   ONNXSplitOpAdaptor operandAdaptor(*this);
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   if (!hasShapeAndRank(input))
     return success(); // Won't be able to do any checking at this stage.
 
   auto inputType = input.getType().cast<ShapedType>();
   int64_t inputRank = inputType.getShape().size();
-  int64_t axisIndex = axis();
+  int64_t axisIndex = getAxis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(input).
   if (axisIndex < -inputRank || axisIndex >= inputRank)
@@ -147,10 +147,10 @@ LogicalResult ONNXSplitOp::verify() {
 LogicalResult ONNXSplitOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape isn't known yet.
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
-  auto inputType = input().getType().cast<ShapedType>();
+  auto inputType = getInput().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
   ONNXSplitOpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.
@@ -160,10 +160,10 @@ LogicalResult ONNXSplitOp::inferShapes(
 LogicalResult ONNXSplitV11Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape isn't known yet.
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
-  auto inputType = input().getType().cast<ShapedType>();
+  auto inputType = getInput().getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
   ONNXSplitV11OpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.

@@ -4,7 +4,7 @@
 
 //===------------ CategoryMapper.cpp - Lowering CategoryMapper Op ---------===//
 //
-// Copyright 2021-2022 The IBM Research Authors.
+// Copyright 2021-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,7 +27,8 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-struct ONNXCategoryMapperOpLowering : public ConversionPattern {
+struct ONNXCategoryMapperOpLowering
+    : public OpConversionPattern<ONNXCategoryMapperOp> {
   using PerfectHashTable = struct {
     Value G;
     Value V;
@@ -37,18 +38,18 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
   // When true causes injection of print stmts in the generated code.
   static const bool emitPrintStmts = false;
 
-  using LocalDialectBuilder =
-      MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>;
+  using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
+      IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>;
 
   ONNXCategoryMapperOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXCategoryMapperOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXCategoryMapperOp categoryMapperOp,
+      ONNXCategoryMapperOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    auto categoryMapperOp = cast<ONNXCategoryMapperOp>(op);
-    ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = categoryMapperOp.getOperation();
+    Location loc = ONNXLoc<ONNXCategoryMapperOp>(op);
+    ValueRange operands = adaptor.getOperands();
     LocalDialectBuilder create(rewriter, loc);
 
     // Get shape.
@@ -56,9 +57,9 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Operands and attributes.
-    Value X = operandAdaptor.X();
-    ArrayAttr cats_int64sAttr = categoryMapperOp.cats_int64sAttr();
-    ArrayAttr cats_stringsAttr = categoryMapperOp.cats_stringsAttr();
+    Value X = adaptor.getX();
+    ArrayAttr cats_int64sAttr = adaptor.getCatsInt64sAttr();
+    ArrayAttr cats_stringsAttr = adaptor.getCatsStringsAttr();
 
     DenseElementsAttr cats_int64s = mlir::DenseElementsAttr::get(
         RankedTensorType::get(
@@ -69,13 +70,13 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
             krnl::StringType::get(rewriter.getContext())),
         cats_stringsAttr.getValue());
 
-    IntegerAttr default_int64 = categoryMapperOp.default_int64Attr();
+    IntegerAttr default_int64 = adaptor.getDefaultInt64Attr();
     DenseElementsAttr default_string =
-        (categoryMapperOp.default_stringAttr())
+        (adaptor.getDefaultStringAttr())
             ? mlir::DenseElementsAttr::get(
                   RankedTensorType::get(
                       {}, krnl::StringType::get(rewriter.getContext())),
-                  categoryMapperOp.default_stringAttr().getValue())
+                  adaptor.getDefaultStringAttr().getValue())
             : nullptr;
 
     // Convert the output type to MemRefType.
@@ -90,8 +91,8 @@ struct ONNXCategoryMapperOpLowering : public ConversionPattern {
     Type elementType = inputType.getElementType();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
     // Generate a perfect hash table. The hash table will be used to lookup the
     // index of the input values.

@@ -53,14 +53,14 @@ int64_t getAllocGetRefTotalSize(memref::AllocOp *allocOp) {
   parentBlock->walk(
       [&totalSize, &seenGetRefs, &alignment, allocOp](KrnlGetRefOp op) {
         // If krnl.getref operation uses a different mempool then exit.
-        if (op.mempool() != allocOp->getResult())
+        if (op.getMempool() != allocOp->getResult())
           return;
 
         // Check that the krnl.getref operation has not already been counted.
         // We must make sure we count the memory footprint of getref operations
         // sharing a slot only once.
         for (auto getRef : seenGetRefs)
-          if (op.offset() == getRef.offset())
+          if (op.getOffset() == getRef.getOffset())
             return;
 
         // Footprint has not been counted yet. Add it to totalSize.
@@ -118,13 +118,13 @@ SmallVector<KrnlGetRefOp, 4> getAllDistinctGetRefsForAlloc(
   SmallVector<KrnlGetRefOp, 4> getRefs;
 
   parentBlock->walk([&getRefs, allocOp](KrnlGetRefOp op) {
-    if (op.mempool() != allocOp->getResult())
+    if (op.getMempool() != allocOp->getResult())
       return;
 
     // If a getRef with the same memory pool and offset has
     // already been added, skip it.
     for (auto getRef : getRefs)
-      if (op.offset() == getRef.offset())
+      if (op.getOffset() == getRef.getOffset())
         return;
 
     getRefs.emplace_back(op);
@@ -141,7 +141,8 @@ SmallVector<KrnlGetRefOp, 4> getAllGetRefWithSameOffset(KrnlGetRefOp *getRef) {
   SmallVector<KrnlGetRefOp, 4> sameOffsetGetRefs;
 
   parentBlock->walk([&sameOffsetGetRefs, getRef](KrnlGetRefOp op) {
-    if (op.mempool() == getRef->mempool() && op.offset() == getRef->offset())
+    if (op.getMempool() == getRef->getMempool() &&
+        op.getOffset() == getRef->getOffset())
       sameOffsetGetRefs.emplace_back(op);
   });
 
@@ -157,15 +158,16 @@ SmallVector<KrnlGetRefOp, 4> getAllGetRefWithSameOffsetExcept(
   Block *parentBlock = getRef->getOperation()->getBlock();
   SmallVector<KrnlGetRefOp, 4> sameOffsetGetRefs;
 
-  parentBlock->walk([&sameOffsetGetRefs, getRef, &exceptionList](
-                        KrnlGetRefOp op) {
-    for (auto exception : exceptionList)
-      if (op == exception)
-        return;
+  parentBlock->walk(
+      [&sameOffsetGetRefs, getRef, &exceptionList](KrnlGetRefOp op) {
+        for (auto exception : exceptionList)
+          if (op == exception)
+            return;
 
-    if (op.mempool() == getRef->mempool() && op.offset() == getRef->offset())
-      sameOffsetGetRefs.emplace_back(op);
-  });
+        if (op.getMempool() == getRef->getMempool() &&
+            op.getOffset() == getRef->getOffset())
+          sameOffsetGetRefs.emplace_back(op);
+      });
 
   // The list contains at least one entry, the input krnl.getref.
   return sameOffsetGetRefs;
@@ -443,7 +445,7 @@ bool checkLiveRangesIntersect(
 // Example:
 //
 // Unoptimized:
-//  %1 = alloc() : memref<2000xi8>
+//  %1 = getAlloc() : memref<2000xi8>
 //  %2 = "krnl.getref"(%1, 1600)
 //  %3 = "krnl.getref"(%1, 1200)
 //  %4 = "krnl.getref"(%1, 800)
@@ -451,7 +453,7 @@ bool checkLiveRangesIntersect(
 //  %6 = "krnl.getref"(%1, 0)
 //
 // Optimized:
-//  %1 = alloc() : memref<2000xi8>
+//  %1 = getAlloc() : memref<2000xi8>
 //  %2 = "krnl.getref"(%1, 1600)
 //  %3 = "krnl.getref"(%1, 400)
 //  %4 = "krnl.getref"(%1, 1600)
@@ -604,7 +606,7 @@ public:
 
       // If the second getref has the same offset as the first then the rewrite
       // rule has already been applied to this getref so there is no work to do.
-      if (firstGetRef.offset() == secondGetRef.offset())
+      if (firstGetRef.getOffset() == secondGetRef.getOffset())
         continue;
 
       // Both first and second getRef ops may have already been processed by
@@ -681,7 +683,7 @@ public:
     // entries.
     for (auto secondGetRef : validSlotReusers) {
       auto newGetRefOp = create.krnl.getRef(secondGetRef.getResult().getType(),
-          staticMemPool, firstGetRef.offset());
+          staticMemPool, firstGetRef.getOffset());
       newGetRefOp.getOperation()->moveBefore(secondGetRef);
       rewriter.replaceOp(secondGetRef, newGetRefOp.getResult());
     }
@@ -697,7 +699,7 @@ public:
 // Example:
 //
 // Optimized memory pool:
-//  %1 = alloc() : memref<2000xi8>
+//  %1 = getAlloc() : memref<2000xi8>
 //  %2 = "krnl.getref"(%1, 1600)
 //  %3 = "krnl.getref"(%1, 400)
 //  %4 = "krnl.getref"(%1, 1600)
@@ -705,7 +707,7 @@ public:
 //  %6 = "krnl.getref"(%1, 400)
 //
 // Compacted optimized memory pool:
-//  %1 = alloc() : memref<800xi8>
+//  %1 = getAlloc() : memref<800xi8>
 //  %2 = "krnl.getref"(%1, 400)
 //  %3 = "krnl.getref"(%1, 0)
 //  %4 = "krnl.getref"(%1, 400)

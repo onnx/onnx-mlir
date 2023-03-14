@@ -56,10 +56,9 @@ static Value getLoopIndexByAxisAndOffset(MathBuilder &createMath,
   return notSameAsBaseIndex;
 }
 
-struct ONNXCumSumOpLowering : public ConversionPattern {
+struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
   ONNXCumSumOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXCumSumOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
   /// We use a parallel algorithm for cumsum [1] as follows:
   /// Assume that input is x whose shape in [n,m], and axis for cumsum is 0.
@@ -86,16 +85,16 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
   /// [2] Blelloch, Guy E. 1990. "Prefix Sums and Their Applications." Technical
   /// Report CMU-CS-90-190, School of Computer Science, Carnegie Mellon
   /// University.
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXCumSumOp csOp, ONNXCumSumOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXCumSumOp csOp = llvm::cast<ONNXCumSumOp>(op);
-    ONNXCumSumOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = csOp.getOperation();
+    Location loc = ONNXLoc<ONNXCumSumOp>(op);
 
     // Builder helper.
     IndexExprScope mainScope(&rewriter, loc);
 
-    MultiDialectBuilder<KrnlBuilder, MathBuilder, IndexExprBuilderForKrnl>
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, IndexExprBuilderForKrnl,
+        MemRefBuilder>
         create(rewriter, loc);
 
     // Convert the output type to MemRefType.
@@ -110,10 +109,10 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     Type f32Ty = rewriter.getF32Type();
     Type indexTy = rewriter.getIndexType();
 
-    Value X = operandAdaptor.x();
-    Value axis = operandAdaptor.axis();
-    bool exclusive = csOp.exclusive() == 1;
-    bool reverse = csOp.reverse() == 1;
+    Value X = adaptor.getX();
+    Value axis = adaptor.getAxis();
+    bool exclusive = csOp.getExclusive() == 1;
+    bool reverse = csOp.getReverse() == 1;
 
     DimsExpr xDims;
     uint64_t rank = create.krnlIE.getShapedTypeRank(X);
@@ -127,17 +126,8 @@ struct ONNXCumSumOpLowering : public ConversionPattern {
     axisIE = axisIE.selectOrSelf(axisIE < 0, axisIE + LiteralIndexExpr(rank));
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value resMemRef, bufMemRef;
-    bool insertDealloc = checkInsertDealloc(op);
-    if (hasAllConstantDimensions(memRefType)) {
-      resMemRef =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-      bufMemRef = insertAllocAndDealloc(memRefType, loc, rewriter, true);
-    } else {
-      resMemRef =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, X);
-      bufMemRef = insertAllocAndDealloc(memRefType, loc, rewriter, true, X);
-    }
+    Value resMemRef = create.mem.alignedAlloc(X, memRefType);
+    Value bufMemRef = create.mem.alignedAlloc(X, memRefType);
 
     // Get the size of dimension 'axis'.
     IndexExpr axisSize = LiteralIndexExpr(-1);

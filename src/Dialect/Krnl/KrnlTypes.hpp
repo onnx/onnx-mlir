@@ -52,7 +52,7 @@ public:
     // type for a memref, so we use an i64 (that type has the same length as a
     // pointer).
     // TODO: change when memref accept aptr types as elements.
-    //    SmallVector<int64_t> shape(1, -1);
+    //    SmallVector<int64_t> shape(1, ShapedType::kDynamic);
     //    return MemRefType::get(
     //  shape, LLVM::LLVMPointerType::get(IntegerType::get(context, 8)));
     return mlir::IntegerType::get(context, 64);

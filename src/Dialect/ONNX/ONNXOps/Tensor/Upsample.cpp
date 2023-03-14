@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -35,15 +36,15 @@ LogicalResult ONNXUpsampleOpShapeHelper::computeShape() {
   // to load the float values, convert the shapes to float, multiply, reconvert
   // back to int. No need for that at this moment.
   DimsExpr outputDims, xShape;
-  createIE->getShapeAsDims(operandAdaptor.X(), xShape);
+  createIE->getShapeAsDims(operandAdaptor.getX(), xShape);
   int64_t xRank = xShape.size();
   for (int64_t i = 0; i < xRank; ++i)
-    outputDims.emplace_back(QuestionmarkIndexExpr());
+    outputDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
 
-  auto scalesConstOp = getONNXConstantOp(operandAdaptor.scales());
+  auto scalesConstOp = getONNXConstantOp(operandAdaptor.getScales());
   if (scalesConstOp) {
     // Can get the scales as constant.
-    auto valueAttr = scalesConstOp.valueAttr().dyn_cast<ElementsAttr>();
+    auto valueAttr = scalesConstOp.getValueAttr().dyn_cast<ElementsAttr>();
     if (!valueAttr)
       return op->emitError("Scales constant is not an ElementsAttr");
     for (int64_t i = 0; i < xRank; ++i) {
@@ -67,14 +68,14 @@ LogicalResult ONNXUpsampleOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXUpsampleOp::verify() {
-  if (!hasShapeAndRank(X()) || !hasShapeAndRank(scales()))
+  if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getScales()))
     return success();
 
-  auto inputTy = X().getType().cast<RankedTensorType>();
+  auto inputTy = getX().getType().cast<RankedTensorType>();
   int32_t inputRank = inputTy.getShape().size();
 
   // Safety checks on scale argument
-  auto scalesTy = scales().getType().cast<RankedTensorType>();
+  auto scalesTy = getScales().getType().cast<RankedTensorType>();
   if (scalesTy.getShape().size() != 1) {
     return emitError("Scales tensor must be rank 1");
   }
@@ -83,11 +84,11 @@ LogicalResult ONNXUpsampleOp::verify() {
   }
 
   // Extract the scale values
-  auto scalesConstOp = getONNXConstantOp(scales());
+  auto scalesConstOp = getONNXConstantOp(getScales());
   if (!scalesConstOp) {
     return success();
   }
-  auto valueAttr = scalesConstOp.valueAttr().dyn_cast<ElementsAttr>();
+  auto valueAttr = scalesConstOp.getValueAttr().dyn_cast<ElementsAttr>();
   if (!valueAttr) {
     return emitError("Scales constant is not an ElementsAttr");
   }
@@ -112,10 +113,10 @@ LogicalResult ONNXUpsampleOp::verify() {
 
 LogicalResult ONNXUpsampleOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X()) || !hasShapeAndRank(scales()))
+  if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getScales()))
     return success();
 
-  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
   ONNXUpsampleOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

@@ -6,7 +6,7 @@ func.func private @test_rnn_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
   return %Y_h : tensor<*xf32>
 // CHECK-LABEL:  func private @test_rnn_forward_mode
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x4x3xf32>, [[PARAM_2_:%.+]]: memref<1x4x4xf32>, [[PARAM_3_:%.+]]: memref<1x8xf32>, [[PARAM_4_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
-// CHECK-DAG:       [[VAR_c32_i64_:%.+]] = arith.constant 32 : i64
+// CHECK-DAG:       [[VAR_c8_i64_:%.+]] = arith.constant 8 : i64
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[VAR_c2_:%.+]] = arith.constant 2 : index
@@ -62,7 +62,7 @@ func.func private @test_rnn_forward_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
 // CHECK:               krnl.store [[VAR_33_]], [[RES_1_]]{{.}}[[VAR_25_1_]]#0, [[VAR_25_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
 // CHECK:           }
-// CHECK:           "krnl.memcpy"([[RES_]], [[RES_1_]], [[VAR_c32_i64_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
+// CHECK:           "krnl.memcpy"([[RES_]], [[RES_1_]], [[VAR_c8_i64_]], [[VAR_c0_]], [[VAR_c0_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64, index, index) -> ()
 // CHECK:           return [[RES_]] : memref<1x2x4xf32>
 // CHECK:         }
 }
@@ -77,12 +77,10 @@ func.func private @test_rnn_forward_mode_constant_weight_and_bias(%arg0: tensor<
 
   %Y, %Y_h = "onnx.RNN"(%arg0, %w, %r, %b, %cst, %arg1) {hidden_size = 4 : si64} : (tensor<7x2x3xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x2x4xf32>) -> (none, tensor<*xf32>)
   return %Y_h : tensor<*xf32>
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (d0, d1)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> (d0)>
+
 // CHECK-LABEL:  func.func private @test_rnn_forward_mode_constant_weight_and_bias
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
-// CHECK-DAG:       [[CST_32_:%.+]] = arith.constant 32 : i64
+// CHECK-DAG:       [[CST_8_:%.+]] = arith.constant 8 : i64
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[CST_4_:%.+]] = arith.constant 4 : index
@@ -132,7 +130,7 @@ func.func private @test_rnn_forward_mode_constant_weight_and_bias(%arg0: tensor<
 // CHECK:               krnl.store [[VAR_25_]], [[RES_1_]]{{.}}[[VAR_17_1_]]#0, [[VAR_17_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
 // CHECK:           }
-// CHECK:           "krnl.memcpy"([[RES_]], [[RES_]]_0, [[CST_32_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
+// CHECK:           "krnl.memcpy"([[RES_]], [[RES_]]_0, [[CST_8_]], [[VAR_c0_]], [[VAR_c0_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64, index, index) -> ()
 // CHECK:           return [[RES_]] : memref<1x2x4xf32>
 // CHECK:         }
 }
@@ -147,7 +145,7 @@ func.func private @test_rnn_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
 // CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0) -> (-d0 + 6)>
 // CHECK-LABEL:  func private @test_rnn_reverse_mode
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<7x2x3xf32>, [[PARAM_1_:%.+]]: memref<1x4x3xf32>, [[PARAM_2_:%.+]]: memref<1x4x4xf32>, [[PARAM_3_:%.+]]: memref<1x8xf32>, [[PARAM_4_:%.+]]: memref<1x2x4xf32>) -> memref<1x2x4xf32> {
-// CHECK-DAG:       [[VAR_c32_i64_:%.+]] = arith.constant 32 : i64
+// CHECK-DAG:       [[VAR_c8_i64_:%.+]] = arith.constant 8 : i64
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[VAR_c2_:%.+]] = arith.constant 2 : index
@@ -204,7 +202,7 @@ func.func private @test_rnn_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor
 // CHECK:               krnl.store [[VAR_34_]], [[RES_1_]]{{.}}[[VAR_26_1_]]#0, [[VAR_26_1_]]#1] : memref<2x4xf32>
 // CHECK:             }
 // CHECK:           }
-// CHECK:           "krnl.memcpy"([[RES_]], [[RES_1_]], [[VAR_c32_i64_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64) -> ()
+// CHECK:           "krnl.memcpy"([[RES_]], [[RES_1_]], [[VAR_c8_i64_]], [[VAR_c0_]], [[VAR_c0_]]) : (memref<1x2x4xf32>, memref<2x4xf32>, i64, index, index) -> ()
 // CHECK:           return [[RES_]] : memref<1x2x4xf32>
 // CHECK:         }
 }
@@ -345,7 +343,7 @@ func.func private @test_rnn_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor
 // CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func private @test_rnn_unknown_dims
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x?xf32>, [[PARAM_1_:%.+]]: memref<1x4x?xf32>, [[PARAM_2_:%.+]]: memref<1x4x4xf32>, [[PARAM_3_:%.+]]: memref<1x8xf32>, [[PARAM_4_:%.+]]: memref<1x?x4xf32>) -> memref<1x?x4xf32> {
-// CHECK-DAG:       [[VAR_c16_i64_:%.+]] = arith.constant 16 : i64
+// CHECK-DAG:       [[VAR_c4_i64_:%.+]] = arith.constant 4 : i64
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c2_:%.+]] = arith.constant 2 : index
 // CHECK-DAG:       [[VAR_c0_:%.+]] = arith.constant 0 : index
@@ -409,8 +407,8 @@ func.func private @test_rnn_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: tensor
 // CHECK:             }
 // CHECK:           }
 // CHECK:           [[VAR_18_:%.+]] = arith.index_cast [[VAR_5_]] : index to i64
-// CHECK:           [[VAR_19_:%.+]] = arith.muli [[VAR_18_]], [[VAR_c16_i64_]] : i64
-// CHECK:           "krnl.memcpy"([[RES_]], [[RES_1_]], [[VAR_19_]]) : (memref<1x?x4xf32>, memref<?x4xf32>, i64) -> ()
+// CHECK:           [[VAR_19_:%.+]] = arith.muli [[VAR_18_]], [[VAR_c4_i64_]] : i64
+// CHECK:           "krnl.memcpy"([[RES_]], [[RES_1_]], [[VAR_19_]], [[VAR_c0_]], [[VAR_c0_]]) : (memref<1x?x4xf32>, memref<?x4xf32>, i64, index, index) -> ()
 // CHECK:           return [[RES_]] : memref<1x?x4xf32>
 // CHECK:         }
 }

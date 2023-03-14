@@ -29,10 +29,10 @@ LogicalResult ONNXDepthToSpaceOpShapeHelper::computeShape() {
   // Get info about input data operand and blocksize.
   ONNXDepthToSpaceOp depthOp = llvm::cast<ONNXDepthToSpaceOp>(op);
   ONNXDepthToSpaceOpAdaptor operandAdaptor(operands);
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   int64_t inputRank = createIE->getShapedTypeRank(input);
   assert(inputRank == 4 && "Unexpected input tensor rank");
-  int64_t blocksize = depthOp.blocksize();
+  int64_t blocksize = depthOp.getBlocksize();
   assert(blocksize > 0 && "blocksize should be strictly positive");
 
   // Compute outputDims.
@@ -66,7 +66,7 @@ LogicalResult ONNXDepthToSpaceOp::verify() {
   ONNXDepthToSpaceOpAdaptor operandAdaptor(*this);
 
   // Check input.
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   if (!hasShapeAndRank(input)) {
     // Won't be able to do any checking at this stage.
     return success();
@@ -77,7 +77,7 @@ LogicalResult ONNXDepthToSpaceOp::verify() {
     return emitOpError("Input should have a rank of four");
 
   // Check blocksize.
-  int64_t blocksize = operandAdaptor.blocksize();
+  int64_t blocksize = operandAdaptor.getBlocksize();
   if (blocksize < 0)
     return emitOpError("Blocksize should be non negative");
 
@@ -87,7 +87,7 @@ LogicalResult ONNXDepthToSpaceOp::verify() {
                        "(blocksize * blocksize)");
 
   // Check mode.
-  StringRef mode = operandAdaptor.mode();
+  StringRef mode = operandAdaptor.getMode();
   if (mode != "DCR" && mode != "CRD")
     return emitOpError("Mode must be DCR or CRD");
 
@@ -101,10 +101,10 @@ LogicalResult ONNXDepthToSpaceOp::verify() {
 LogicalResult ONNXDepthToSpaceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no input shape exists.
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXDepthToSpaceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

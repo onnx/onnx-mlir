@@ -47,7 +47,7 @@ LogicalResult ONNXLoopOp::inferShapes(
   // same type as their counterpart in LoopOp inputs).
   auto bodyInputs = loopBody.getArguments();
   auto bodyVRange = llvm::make_range(bodyInputs.begin() + 2, bodyInputs.end());
-  for (auto opVToBodyVTy : llvm::zip(v_initial(), bodyVRange)) {
+  for (auto opVToBodyVTy : llvm::zip(getVInitial(), bodyVRange)) {
     auto opVTy = std::get<0>(opVToBodyVTy).getType();
     std::get<1>(opVToBodyVTy).setType(opVTy);
   }
@@ -63,7 +63,8 @@ LogicalResult ONNXLoopOp::inferShapes(
   // Compute the type range corresponding to the final values of
   // loop-carried dependencies/scan outputs in the body function output
   // types.
-  auto scanStartItr = std::next(bodyResultTys.begin(), 1 + v_initial().size());
+  auto scanStartItr =
+      std::next(bodyResultTys.begin(), 1 + getVInitial().size());
   auto bodyResVFinalTys =
       llvm::make_range(std::next(bodyResultTys.begin(), 1), scanStartItr);
   auto bodyResScanTys = llvm::make_range(scanStartItr, bodyResultTys.end());
@@ -87,7 +88,7 @@ LogicalResult ONNXLoopOp::inferShapes(
     // dimension, which is very likely just the trip count specified as an
     // input to Loop operation, but we need to eliminate the possibility of
     // early termination to be sure.
-    unsqueezedShape.insert(unsqueezedShape.begin(), -1);
+    unsqueezedShape.insert(unsqueezedShape.begin(), ShapedType::kDynamic);
     updateType(std::get<0>(vScanOutputValToTy), unsqueezedShape,
         rankedScanTy.getElementType(), /*encoding=*/nullptr,
         /*refineShape=*/false);
@@ -105,12 +106,13 @@ LogicalResult ONNXLoopOp::inferShapes(
 Operation::result_range ONNXLoopOp::v_final() {
   auto results = getResults();
   return llvm::make_range(
-      results.begin(), results.begin() + v_initial().size());
+      results.begin(), results.begin() + getVInitial().size());
 }
 
 // Helper function to obtain subset of op results corresponding to the scan
 // outputs.
 Operation::result_range ONNXLoopOp::scan_outputs() {
   auto results = getResults();
-  return llvm::make_range(results.begin() + v_initial().size(), results.end());
+  return llvm::make_range(
+      results.begin() + getVInitial().size(), results.end());
 }

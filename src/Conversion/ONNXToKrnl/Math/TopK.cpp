@@ -4,7 +4,7 @@
 
 //===----------------------- TopK.cpp - TopK Op ---------------------------===//
 //
-// Copyright 2021-2022 The IBM Research Authors.
+// Copyright 2021-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,19 +19,19 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXTopKOpLowering : public ConversionPattern {
+struct ONNXTopKOpLowering : public OpConversionPattern<ONNXTopKOp> {
   ONNXTopKOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXTopKOp::getOperationName(), 1, ctx) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      : OpConversionPattern(typeConverter, ctx) {}
+  LogicalResult matchAndRewrite(ONNXTopKOp topKOp, ONNXTopKOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    Value X = operandAdaptor.X();
+    Operation *op = topKOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Location loc = ONNXLoc<ONNXTopKOp>(op);
+    Value X = adaptor.getX();
 
     // Builders.
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -44,10 +44,10 @@ struct ONNXTopKOpLowering : public ConversionPattern {
 
     // Op's Attributes.
     int64_t rank = resMemRefType.getRank();
-    int64_t axis = operandAdaptor.axis();
+    int64_t axis = adaptor.getAxis();
     axis = axis < 0 ? axis + rank : axis;
     assert(axis >= 0 && axis < rank && "axis is out of bound");
-    bool ascendingMode = operandAdaptor.largest() != 1;
+    bool ascendingMode = adaptor.getLargest() != 1;
     // According to ONNX TopK: 'If "sorted" is 0, order of returned 'Values' and
     // 'Indices' are undefined'.
     // In this case, we still return sorted values and indices to make them
@@ -60,13 +60,9 @@ struct ONNXTopKOpLowering : public ConversionPattern {
     DimsExpr resDims = shapeHelper.getOutputDims();
 
     // Insert an allocation and deallocation for the results of this operation.
-    bool insertDealloc = checkInsertDealloc(op, /*resultIndex=*/0);
-    Value resMemRef = insertAllocAndDeallocSimple(
-        rewriter, op, resMemRefType, loc, resDims, insertDealloc);
-    insertDealloc = checkInsertDealloc(op, /*resultIndex=*/1);
-    Value resIndexMemRef = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(resMemRefType.getShape(), i64Type), loc, resDims,
-        insertDealloc);
+    Value resMemRef = create.mem.alignedAlloc(resMemRefType, resDims);
+    Value resIndexMemRef = create.mem.alignedAlloc(
+        MemRefType::get(resMemRefType.getShape(), i64Type), resDims);
 
     // Compute argSort of X along axis.
     Value argSort = emitArgSort(rewriter, loc, X, axis,

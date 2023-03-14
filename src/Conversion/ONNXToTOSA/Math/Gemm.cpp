@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Gemm.cpp - Gemm Op --------------------===//
+//===---------------- Gemm.cpp - Gemm Op ----------------------------------===//
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
@@ -13,14 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
-#include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/TypeUtilities.h"
+#include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
-#include "llvm/ADT/SmallVector.h"
 #include <cstdint>
-#include <src/Conversion/ONNXToTOSA/DialectBuilder.hpp>
 
 using namespace mlir;
 
@@ -36,22 +32,21 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     // If legal, create a FullyConnected operator instead
-    if (rewriteToTosaFC(op, adaptor, rewriter, tosaBuilder)) {
+    if (rewriteToTosaFC(op, adaptor, rewriter, tosaBuilder))
       return success();
-    }
     return rewriteToTosaMatMul(op, adaptor, rewriter, tosaBuilder);
   }
 
   LogicalResult rewriteToTosaMatMul(ONNXGemmOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter, TosaBuilder &tosaBuilder) const {
     Location loc = op->getLoc();
-    Value A = op.A();
-    Value B = op.B();
-    Value C = op.C();
-    int64_t transA = adaptor.transA();
-    int64_t transB = adaptor.transB();
-    FloatAttr alpha = adaptor.alphaAttr();
-    FloatAttr beta = adaptor.betaAttr();
+    Value A = op.getA();
+    Value B = op.getB();
+    Value C = op.getC();
+    int64_t transA = adaptor.getTransA();
+    int64_t transB = adaptor.getTransB();
+    FloatAttr alpha = adaptor.getAlphaAttr();
+    FloatAttr beta = adaptor.getBetaAttr();
     auto AType = A.getType().cast<TensorType>();
     auto BType = B.getType().cast<TensorType>();
     auto shapeA = AType.getShape();
@@ -71,24 +66,26 @@ public:
     llvm::SmallVector<int64_t> newShapeA{1, shapeA[0], shapeA[1]};
     llvm::SmallVector<int64_t> newShapeB{1, shapeB[0], shapeB[1]};
 
+    llvm::SmallVector<int64_t> dynamicTensorShape = {
+        ShapedType::kDynamic, ShapedType::kDynamic, ShapedType::kDynamic};
     A = tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
-        RankedTensorType::get({-1, -1, -1}, AType.getElementType()), A,
-        rewriter.getI64ArrayAttr(newShapeA))
+        RankedTensorType::get(dynamicTensorShape, AType.getElementType()), A,
+        rewriter.getDenseI64ArrayAttr(newShapeA))
             .getResult();
     B = tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
-        RankedTensorType::get({-1, -1, -1}, BType.getElementType()), B,
-        rewriter.getI64ArrayAttr(newShapeB))
+        RankedTensorType::get(dynamicTensorShape, BType.getElementType()), B,
+        rewriter.getDenseI64ArrayAttr(newShapeB))
             .getResult();
 
     auto tosaResult =
-        RankedTensorType::get({-1, -1, -1}, resultType.getElementType());
+        RankedTensorType::get(dynamicTensorShape, resultType.getElementType());
 
     // If transA or transB are present, create Transpose operators.
     if (transA) {
       Value targetTensor =
           tosaBuilder.getConst(llvm::SmallVector<int32_t>{0, 2, 1}, {3});
       Type outputType =
-          RankedTensorType::get({-1, -1, -1}, AType.getElementType());
+          RankedTensorType::get(dynamicTensorShape, AType.getElementType());
       A = tosa::CreateOpAndInfer<mlir::tosa::TransposeOp>(
           rewriter, loc, outputType, A, targetTensor)
               .getResult();
@@ -97,7 +94,7 @@ public:
       Value targetTensor =
           tosaBuilder.getConst(llvm::SmallVector<int32_t>{0, 2, 1}, {3});
       Type outputType =
-          RankedTensorType::get({-1, -1, -1}, BType.getElementType());
+          RankedTensorType::get(dynamicTensorShape, BType.getElementType());
       B = tosa::CreateOpAndInfer<mlir::tosa::TransposeOp>(
           rewriter, loc, outputType, B, targetTensor)
               .getResult();
@@ -110,7 +107,8 @@ public:
     if (alpha && alpha.getValueAsDouble() != 1.) {
       alphaMulResult =
           tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, tosaResult,
-              tosaBuilder.getConst((float)alpha.getValueAsDouble(), newShapeA),
+              tosaBuilder.getSplattedConst(
+                  (float)alpha.getValueAsDouble(), newShapeA),
               A, 0)
               .getResult();
     }
@@ -121,7 +119,7 @@ public:
       auto shapeC = C.getType().dyn_cast<ShapedType>();
       betaMulResult =
           tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, shapeC,
-              tosaBuilder.getConst((float)beta.getValueAsDouble(),
+              tosaBuilder.getSplattedConst((float)beta.getValueAsDouble(),
                   shapeC.cast<TensorType>().getShape()),
               C, 0)
               .getResult();
@@ -129,7 +127,8 @@ public:
 
     // A * B
     Value matmulRes = tosa::CreateOpAndInfer<mlir::tosa::MatMulOp>(rewriter,
-        loc, RankedTensorType::get({-1, -1, -1}, resultType.getElementType()),
+        loc,
+        RankedTensorType::get(dynamicTensorShape, resultType.getElementType()),
         alphaMulResult, B)
                           .getResult();
 
@@ -145,7 +144,8 @@ public:
 
     // Add reshape to go back to the original shape
     tosa::CreateReplaceOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op,
-        resultType, addRes, rewriter.getI64ArrayAttr(resultType.getShape()));
+        resultType, addRes,
+        rewriter.getDenseI64ArrayAttr(resultType.getShape()));
 
     return success();
   }
@@ -171,9 +171,9 @@ public:
   /// Input C must be of rank 1 (bias).
   bool rewriteToTosaFC(ONNXGemmOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter, TosaBuilder &tosaBuilder) const {
-    Value A = op.A();
-    Value B = op.B();
-    Value C = op.C();
+    Value A = op.getA();
+    Value B = op.getB();
+    Value C = op.getC();
 
     auto AType = A.getType().cast<TensorType>();
     auto BType = B.getType().cast<TensorType>();
@@ -182,23 +182,22 @@ public:
     // If C is present, it can only be of rank 1, if the rank is not 1, return
     // false.
     if (C.getType().isa<RankedTensorType>() &&
-        C.getType().cast<RankedTensorType>().getRank() != 1) {
+        C.getType().cast<RankedTensorType>().getRank() != 1)
       return false;
-    }
+
     // Input tensor must be of rank 2.
     // Weights must also be of rank 2.
-    if (AType.getRank() != 2 || BType.getRank() != 2) {
+    if (AType.getRank() != 2 || BType.getRank() != 2)
       return false;
-    }
+
     // Both alpha and beta must be 1.
-    if ((adaptor.alpha().convertToFloat() != 1.0F) ||
-        (adaptor.beta().convertToFloat() != 1.0F)) {
+    if ((adaptor.getAlpha().convertToFloat() != 1.0F) ||
+        (adaptor.getBeta().convertToFloat() != 1.0F))
       return false;
-    }
+
     // Only Transpose B must be enabled.
-    if (adaptor.transA() != 0 || adaptor.transB() != 1) {
+    if (adaptor.getTransA() != 0 || adaptor.getTransB() != 1)
       return false;
-    }
 
     // If all check passed, we replace the GEMM by a FC operator
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
@@ -222,12 +221,12 @@ public:
                       .getResult();
     // If C was present in the original GEMM, we create an add to take the bias
     // into account.
-    if (isCPresent && needsBroadcasting) {
+    if (isCPresent && needsBroadcasting)
       tosa::CreateReplaceOpAndInfer<mlir::tosa::AddOp>(
           rewriter, op, resultType, fcRes, C);
-    } else {
+    else
       rewriter.replaceOp(op, fcRes);
-    }
+
     return true;
   }
 };

@@ -28,7 +28,7 @@ public:
   ArrayBuffer(const ArrayBuffer &) = delete;
   ArrayBuffer(ArrayBuffer &&other)
       : vec(std::move(other.vec)),
-        ref(vec.empty() ? other.ref : llvm::makeArrayRef(vec)) {}
+        ref(vec.empty() ? other.ref : llvm::ArrayRef(vec)) {}
 
   llvm::ArrayRef<T> get() const { return ref; }
 
@@ -36,7 +36,7 @@ public:
       const std::function<void(llvm::MutableArrayRef<T>)> &filler) {
     Vector vec;
     vec.resize_for_overwrite(length);
-    filler(llvm::makeMutableArrayRef(vec.begin(), length));
+    filler(llvm::MutableArrayRef(vec.begin(), length));
     return std::move(vec);
   }
 
@@ -47,13 +47,13 @@ private:
 
 template <typename New, typename Old = char>
 llvm::ArrayRef<New> castArrayRef(llvm::ArrayRef<Old> a) {
-  return llvm::makeArrayRef(reinterpret_cast<const New *>(a.data()),
+  return llvm::ArrayRef(reinterpret_cast<const New *>(a.data()),
       (a.size() * sizeof(Old)) / sizeof(New));
 }
 
 template <typename New = char>
 llvm::ArrayRef<New> asArrayRef(llvm::StringRef s) {
-  return llvm::makeArrayRef(
+  return llvm::ArrayRef(
       reinterpret_cast<const New *>(s.data()), s.size() / sizeof(New));
 }
 
@@ -65,7 +65,7 @@ llvm::StringRef asStringRef(llvm::ArrayRef<Old> a) {
 
 template <typename New, typename Old = char>
 llvm::MutableArrayRef<New> castMutableArrayRef(llvm::MutableArrayRef<Old> a) {
-  return llvm::makeMutableArrayRef(reinterpret_cast<New *>(a.data()),
+  return llvm::MutableArrayRef(reinterpret_cast<New *>(a.data()),
       (a.size() * sizeof(Old)) / sizeof(New));
 }
 

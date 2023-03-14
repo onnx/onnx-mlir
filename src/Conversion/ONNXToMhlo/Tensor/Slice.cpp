@@ -35,11 +35,11 @@ struct ONNXSliceOpLoweringToMhlo : public ConversionPattern {
     ONNXSliceOp sliceOp = llvm::cast<ONNXSliceOp>(op);
     Location loc = op->getLoc();
 
-    Value data = sliceOp.data();
-    Value starts = sliceOp.starts();
-    Value axes = sliceOp.axes();
-    Value ends = sliceOp.ends();
-    Value steps = sliceOp.steps();
+    Value data = sliceOp.getData();
+    Value starts = sliceOp.getStarts();
+    Value axes = sliceOp.getAxes();
+    Value ends = sliceOp.getEnds();
+    Value steps = sliceOp.getSteps();
 
     assert(isRankedShapedType(data.getType()) &&
            "data must be ranked Shaped Type");
@@ -81,7 +81,7 @@ struct ONNXSliceOpLoweringToMhlo : public ConversionPattern {
 
     for (int64_t i = 0; i < rank; ++i) {
       Value dimValue;
-      if (dataType.getShape()[i] != ShapedType::kDynamicSize)
+      if (dataType.getShape()[i] != ShapedType::kDynamic)
         dimValue = rewriter.create<mhlo::ConstantOp>(
             loc, DenseIntElementsAttr::get(
                      RankedTensorType::get({1}, indexElementType),

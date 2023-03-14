@@ -91,6 +91,12 @@ unsigned getMemRefEltSizeInBytes(mlir::MemRefType memRefType);
 /// Get the size of a MemRef in bytes.
 int64_t getMemRefSizeInBytes(mlir::Value value);
 
+/// Get the size of a MemRef.
+/// If all the dimensions are static, emit a constant.
+/// Otherwise, emit runtime computations.
+mlir::Value getDynamicMemRefSize(
+    mlir::PatternRewriter &rewriter, mlir::Location loc, mlir::Value val);
+
 /// Get the size of a MemRef in bytes.
 /// If all the dimensions are static, emit a constant.
 /// Otherwise, emit runtime computations.

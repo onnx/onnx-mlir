@@ -32,8 +32,8 @@ struct ONNXSplitOpLoweringToMhlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXSplitOpAdaptor operandAdaptor(operands);
     ONNXSplitOp splitOp = llvm::cast<ONNXSplitOp>(op);
-    Value input = splitOp.input();
-    Value split = splitOp.split();
+    Value input = splitOp.getInput();
+    Value split = splitOp.getSplit();
     assert(isRankedShapedType(input.getType()) &&
            "data must be ranked Shaped Type");
     ShapedType inputType = input.getType().cast<ShapedType>();
@@ -41,7 +41,7 @@ struct ONNXSplitOpLoweringToMhlo : public ConversionPattern {
     Location loc = op->getLoc();
     uint64_t rank = inputType.getRank();
     uint64_t outputNum = splitOp.getNumResults();
-    int64_t dimIndex = splitOp.axis();
+    int64_t dimIndex = splitOp.getAxis();
     if (dimIndex < 0)
       dimIndex += rank;
     int64_t inputDimSize = inputType.getDimSize(dimIndex);

@@ -292,7 +292,7 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
 ElementsAttr getElementAttributeFromONNXValue(Value value) {
   ONNXConstantOp constantOp = getONNXConstantOp(value);
   if (constantOp)
-    return constantOp.valueAttr().dyn_cast<ElementsAttr>();
+    return constantOp.getValueAttr().dyn_cast<ElementsAttr>();
   return nullptr;
 }
 
@@ -311,8 +311,7 @@ Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
   SmallVector<int64_t, 1> dims(1, 0);
   SmallVector<int64_t> values;
   auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  auto denseAttr =
-      DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  auto denseAttr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
@@ -321,24 +320,22 @@ Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
   SmallVector<int64_t, 1> dims(1, 0);
   SmallVector<float> values;
   auto tensorType = RankedTensorType::get(dims, rewriter.getF32Type());
-  auto denseAttr =
-      DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  auto denseAttr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
 // Returns true if the Value is defined by a unit constant.
+// The unit constant can  be 1. NoneType, or 2. 1D tensor with 0 length
+// For example, NoneType, tensor<0xf32>
+// Some onnx model uses 0 length tensor for unit constant.
 bool isFromNone(Value v) {
-  if (auto op = v.getDefiningOp()) {
-    if (isa<ONNXNoneOp>(op))
-      return true;
+  if (v.getType().isa<NoneType>())
+    return true;
 
-    if (auto c = dyn_cast<ONNXConstantOp>(op))
-      if (c.value().has_value())
-        if (auto e = c.valueAttr().dyn_cast<ElementsAttr>()) {
-          auto shape = e.getType().getShape();
-          if (shape.size() == 1 && shape[0] == 0)
-            return true;
-        }
+  if (auto ty = v.getType().dyn_cast<ShapedType>()) {
+    auto shape = ty.getShape();
+    if (shape.size() == 1 && shape[0] == 0)
+      return true;
   }
 
   return false;
@@ -587,17 +584,18 @@ DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
   int64_t index = indexAttr.getValue().getSExtValue();
   SmallVector<int64_t, 4> values(1, shape[index]);
   auto tensorType = RankedTensorType::get({1}, rewriter.getIntegerType(64));
-  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
+  return DenseElementsAttr::get(tensorType, ArrayRef(values));
 }
 
 // Create a DenseElementsAttr based on the size of type.
 DenseElementsAttr createDenseElementsAttrFromSize(
     PatternRewriter &rewriter, Value value) {
   auto inType = value.getType().cast<ShapedType>();
-  SmallVector<int64_t, 1> dims(1, 1);
+  // Output Type should be scalar: tensor<i64>
+  SmallVector<int64_t, 1> dims;
   SmallVector<int64_t, 1> values = {inType.getNumElements()};
   auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  return DenseElementsAttr::get(tensorType, makeArrayRef(values));
+  return DenseElementsAttr::get(tensorType, ArrayRef(values));
 }
 
 /// Check whether a value is produced by a dense ONNXConstantOp.
@@ -653,7 +651,7 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
 
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(ONNXConstantOp constantOp, Type type) {
-  ElementsAttr attr = constantOp.valueAttr().dyn_cast<ElementsAttr>();
+  ElementsAttr attr = constantOp.getValueAttr().dyn_cast<ElementsAttr>();
   if (!attr)
     constantOp.emitError("ElementsAttr expected");
   return getScalarValue<RESULT_TYPE>(attr, type);

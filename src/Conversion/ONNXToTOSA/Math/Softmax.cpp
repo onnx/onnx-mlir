@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
@@ -37,7 +38,8 @@ Value computeReduceSum<ONNXSoftmaxV11Op>(PatternRewriter &rewriter,
   // Create shared outputType with dynamic shape. Infer method when creating
   // ops will insert a static shape if possible
   Type outputType = RankedTensorType::get(
-      llvm::SmallVector<int64_t, 4>(inputRank, -1), rsumType.getElementType());
+      llvm::SmallVector<int64_t, 4>(inputRank, ShapedType::kDynamic),
+      rsumType.getElementType());
   // Create first reduce with input from function operands
   Value reducedSum = tosa::CreateOpAndInfer<mlir::tosa::ReduceSumOp>(rewriter,
       op->getLoc(), outputType, op1ExpIn, rewriter.getI64IntegerAttr(axis));
@@ -66,12 +68,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op->getLoc();
-    Value input = adaptor.input();
+    Value input = adaptor.getInput();
     // softmax = exp(logits) / reduce_sum(exp(logits), -1)
     auto outputType =
         op.getResult().getType().template dyn_cast<RankedTensorType>();
     auto inputType =
-        adaptor.input().getType().template dyn_cast<RankedTensorType>();
+        adaptor.getInput().getType().template dyn_cast<RankedTensorType>();
 
     // Not a ranked tensor input/output
     if (!outputType || !inputType) {
@@ -80,7 +82,7 @@ public:
     }
 
     // Get ONNX softmax axis
-    int64_t axis = adaptor.axis();
+    int64_t axis = adaptor.getAxis();
     // Tosa only supports positive values
     int64_t inputRank = inputType.getRank();
     axis = tosa::convertNegativeAxis(axis, inputRank);
@@ -96,9 +98,9 @@ public:
     // op4 = mul(op1, op3)
     auto op1ExpIn = tosa::CreateOpAndInfer<mlir::tosa::ExpOp>(
         rewriter, loc, outputType, input);
-    RankedTensorType rsumType =
-        RankedTensorType::get(llvm::SmallVector<int64_t, 4>(inputRank, -1),
-            outputType.getElementType());
+    RankedTensorType rsumType = RankedTensorType::get(
+        llvm::SmallVector<int64_t, 4>(inputRank, ShapedType::kDynamic),
+        outputType.getElementType());
 
     Value op2ReducesumOp1 = computeReduceSum<SoftmaxOp>(
         rewriter, op, rsumType, op1ExpIn.getResult(), axis);

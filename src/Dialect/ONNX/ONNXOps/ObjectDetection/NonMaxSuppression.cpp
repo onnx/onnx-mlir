@@ -2,10 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------ NonMaxSuppression.cpp - ONNX Operations
-//------------===//
+//===--------------- NonMaxSuppression.cpp - ONNX Operations  -------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -28,9 +27,11 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXNonMaxSuppressionOpShapeHelper::computeShape() {
   // Three is a backend test where the result of ONNXNonMaxSuppressionOp is set
-  // to 1 (first dim), where in fact it the size must be -1 since its data
-  // dependent. Thus disable the refineDims because of this test case.
-  return setOutputDimsFromLiterals({-1, 3}, 0, /*refineDims*/ false);
+  // to 1 (first dim), where in fact it the size must be ShapedType::kDynamic
+  // since its data dependent. Thus disable the refineDims because of this test
+  // case.
+  return setOutputDimsFromLiterals(
+      {ShapedType::kDynamic, 3}, 0, /*refineDims*/ false);
 }
 
 } // namespace onnx_mlir
@@ -43,11 +44,11 @@ LogicalResult ONNXNonMaxSuppressionOp::verify() {
   ONNXNonMaxSuppressionOpAdaptor operandAdaptor =
       ONNXNonMaxSuppressionOpAdaptor(*this);
   // Get operands.
-  auto boxes = operandAdaptor.boxes();
-  auto scores = operandAdaptor.scores();
-  auto MOPC = operandAdaptor.max_output_boxes_per_class();
-  auto scoreThreshold = operandAdaptor.score_threshold();
-  auto iouThreshold = operandAdaptor.iou_threshold();
+  auto boxes = operandAdaptor.getBoxes();
+  auto scores = operandAdaptor.getScores();
+  auto MOPC = operandAdaptor.getMaxOutputBoxesPerClass();
+  auto scoreThreshold = operandAdaptor.getScoreThreshold();
+  auto iouThreshold = operandAdaptor.getIouThreshold();
 
   // Check operands.
   if (hasShapeAndRank(boxes)) {

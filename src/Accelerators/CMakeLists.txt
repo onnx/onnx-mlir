@@ -44,12 +44,12 @@ add_onnx_mlir_library(OMInitAccelerators
   EXCLUDE_FROM_OM_LIBS
 
   DEPENDS 
-    AcceleratorsInc
-    MLIRIR
+    AcceleratorsInc    
 
   LINK_LIBS PUBLIC
     ${ACCEL_LINK_LIST}
     LLVMSupport
+    MLIRIR
   )
 
 add_onnx_mlir_library(OMAccelerator
@@ -58,12 +58,12 @@ add_onnx_mlir_library(OMAccelerator
   EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
-    AcceleratorsInc
-    MLIRIR
+    AcceleratorsInc    
 
   INCLUDE_DIRS PUBLIC
     ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
     LLVMSupport
+    MLIRIR
   )

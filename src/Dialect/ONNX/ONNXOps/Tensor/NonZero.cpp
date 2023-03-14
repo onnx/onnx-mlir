@@ -27,8 +27,10 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXNonZeroOpShapeHelper::computeShape() {
   ONNXNonZeroOpAdaptor operandAdaptor(operands);
-  int64_t xRank = createIE->getShapedTypeRank(operandAdaptor.X());
-  return setOutputDimsFromLiterals({xRank, -1});
+  int64_t xRank = createIE->getShapedTypeRank(operandAdaptor.getX());
+  // Cannot refine shape as we may otherwise loose the dynamic dim.
+  return setOutputDimsFromLiterals(
+      {xRank, ShapedType::kDynamic}, 0, /*refineShape*/ false);
 }
 
 } // namespace onnx_mlir
@@ -43,7 +45,7 @@ LogicalResult ONNXNonZeroOpShapeHelper::computeShape() {
 
 LogicalResult ONNXNonZeroOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X()))
+  if (!hasShapeAndRank(getX()))
     return success();
 
   Type elementType = IntegerType::get(getContext(), 64);

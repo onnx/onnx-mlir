@@ -39,8 +39,8 @@ def ONNX_Dialect : Dialect {
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
   let useDefaultAttributePrinterParser = 0;
-  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
   let dependentDialects = ["func::FuncDialect"];
+  let hasConstantMaterializer = 1;
   let extraClassDeclaration = [{
   private:
     // Register the builtin Attributes.

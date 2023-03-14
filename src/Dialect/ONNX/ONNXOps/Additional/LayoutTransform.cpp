@@ -28,22 +28,22 @@ using namespace onnx_mlir;
 
 LogicalResult ONNXLayoutTransformOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(data()))
+  if (!hasShapeAndRank(getData()))
     return success();
 
   Type elementType =
-      data().getType().dyn_cast<RankedTensorType>().getElementType();
+      getData().getType().dyn_cast<RankedTensorType>().getElementType();
   ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(
-      elementType, target_layoutAttr());
+      elementType, getTargetLayoutAttr());
 }
 
 //===----------------------------------------------------------------------===//
 // Verifier
 //===----------------------------------------------------------------------===//
 LogicalResult ONNXLayoutTransformOp::verify() {
-  if (hasShapeAndRank(data()) && hasShapeAndRank(output())) {
-    if (getShape(data().getType()) != getShape(output().getType()))
+  if (hasShapeAndRank(getData()) && hasShapeAndRank(getOutput())) {
+    if (getShape(getData().getType()) != getShape(getOutput().getType()))
       return emitOpError("Input and output tensors must have the same shape");
   }
   return success();

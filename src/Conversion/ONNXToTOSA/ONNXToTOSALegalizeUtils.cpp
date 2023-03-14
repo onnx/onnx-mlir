@@ -5,7 +5,7 @@
 //==== ONNXToTosaLegalizeUtils.cpp - ONNX dialects to TOSA lowering Utils-===//
 //
 // Copyright 2020 The TensorFlow Authors. All Rights Reserved.
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -15,8 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/Utils/QuantUtils.h"
-#include "mlir/Dialect/Tosa/Utils/ShapeUtils.h"   // from @llvm-project
-#include "mlir/IR/BuiltinAttributes.h"            // from @llvm-project
+#include "mlir/Dialect/Tosa/Utils/ShapeUtils.h" // from @llvm-project
+#include "mlir/IR/BuiltinAttributes.h"          // from @llvm-project
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"                 // from @llvm-project
 #include "mlir/IR/PatternMatch.h"                 // from @llvm-project
 #include "mlir/Interfaces/InferTypeOpInterface.h" // from @llvm-project
@@ -42,14 +43,6 @@ int64_t convertNegativeAxis(int64_t axis, int64_t inputRank) {
       (axis >= 0 && axis < inputRank) && "axis attribute not in correct range");
 
   return axis;
-}
-
-llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
-    llvm::ArrayRef<IndexExpr> indexVector) {
-  llvm::SmallVector<int64_t, 4> literalVector(indexVector.size());
-  llvm::transform(indexVector, literalVector.begin(),
-      [](const auto &indexExpr) { return indexExpr.getLiteral(); });
-  return literalVector;
 }
 
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,

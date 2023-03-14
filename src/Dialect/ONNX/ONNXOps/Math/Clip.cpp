@@ -28,7 +28,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXClipOpShapeHelper::computeShape() {
   ONNXClipOpAdaptor operandAdaptor(operands);
-  return setOutputDimsFromOperand(operandAdaptor.input());
+  return setOutputDimsFromOperand(operandAdaptor.getInput());
 }
 
 } // namespace onnx_mlir
@@ -44,29 +44,29 @@ LogicalResult ONNXClipOpShapeHelper::computeShape() {
 LogicalResult ONNXClipOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Look at input.
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
-  RankedTensorType inputTy = input().getType().cast<RankedTensorType>();
+  RankedTensorType inputTy = getInput().getType().cast<RankedTensorType>();
   Type elementType = inputTy.getElementType();
   // Look at optional min.
-  if (!min().getType().isa<NoneType>()) {
+  if (!getMin().getType().isa<NoneType>()) {
     // Has a min, make sure its of the right type.
-    if (!hasShapeAndRank(min()))
+    if (!hasShapeAndRank(getMin()))
       return success();
     // And size.
-    RankedTensorType minTy = min().getType().cast<RankedTensorType>();
+    RankedTensorType minTy = getMin().getType().cast<RankedTensorType>();
     if (minTy.getElementType() != elementType)
       return emitError("Element type mismatch between input and min tensors");
     if (minTy.getShape().size() != 0)
       return emitError("Min tensor ranked with nonzero size");
   }
   // Look at optional max
-  if (!max().getType().isa<NoneType>()) {
+  if (!getMax().getType().isa<NoneType>()) {
     // Has a max, make sure its of the right type.
-    if (!hasShapeAndRank(max()))
+    if (!hasShapeAndRank(getMax()))
       return success();
     // And size.
-    RankedTensorType maxTy = max().getType().cast<RankedTensorType>();
+    RankedTensorType maxTy = getMax().getType().cast<RankedTensorType>();
     if (maxTy.getElementType() != elementType)
       return emitError("Element type mismatch between input and max tensors");
     if (maxTy.getShape().size() != 0)

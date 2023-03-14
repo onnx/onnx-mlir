@@ -66,7 +66,7 @@ std::string getVendorName() {
 llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
-  return llvm::None;
+  return std::nullopt;
 }
 
 // Make a function that forces preserving all files using the runtime arguments
@@ -231,8 +231,8 @@ int Command::exec(std::string wdir) const {
                  << ": " << llvm::join(argsRef, " ") << "\n";
 
   std::string errMsg;
-  int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
-      /*Env=*/llvm::None, /*Redirects=*/llvm::None,
+  int rc = llvm::sys::ExecuteAndWait(_path, llvm::ArrayRef(argsRef),
+      /*Env=*/std::nullopt, /*Redirects=*/std::nullopt,
       /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
 
   if (rc != 0) {
@@ -836,7 +836,7 @@ static std::string getDataLayout(const Location &loc) {
   llvm::TargetOptions ops;
   auto targetMachine =
       std::unique_ptr<llvm::TargetMachine>{LLVMTarget.createTargetMachine(
-          targetTriple, targetCpu, "" /*features*/, ops, None)};
+          targetTriple, targetCpu, "" /*features*/, ops, std::nullopt)};
   if (!targetMachine) {
     emitError(loc, "failed to create target machine");
     return nullptr;
@@ -910,7 +910,8 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   if (rc != CompilerSuccess)
     return rc;
 
-  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+  mlir::PassManager pm(
+      module.get()->getName(), mlir::OpPassManager::Nesting::Implicit);
   // TODO(tung): Revise adding passes. The current mechanism does not work if
   // there are multiple accelerators enabled at the same time. It's because
   // each `accel->addPasses` is independent and controls the whole compilation

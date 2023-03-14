@@ -10,54 +10,54 @@ add_onnx_mlir_library(OMShapeInferenceOpInterface
   ShapeInferenceOpInterface.cpp
 
   DEPENDS
-  MLIRIR
   OMShapeInferenceOpInterfaceIncGen
 
   LINK_LIBS PUBLIC
+  MLIRIR
   LLVMSupport
   )
 
 add_onnx_mlir_library(OMShapeHelperOpInterface
   ShapeHelperOpInterface.cpp
 
-  DEPENDS
-  MLIRIR
+  DEPENDS  
   OMMlirDialects
   OMShapeHelperOpInterfaceIncGen
 
   LINK_LIBS PUBLIC
+  MLIRIR
   MLIRSupport
   )
 
 add_onnx_mlir_library(OMResultTypeInferenceOpInterface
   ResultTypeInferenceOpInterface.cpp
 
-  DEPENDS
-  MLIRIR
+  DEPENDS  
   OMResultTypeInferenceOpInterfaceIncGen
 
   LINK_LIBS PUBLIC
+  MLIRIR
   LLVMSupport
   )
 
 add_onnx_mlir_library(OMHasOnnxSubgraphOpInterface
   HasOnnxSubgraphOpInterface.cpp
 
-  DEPENDS
-  MLIRIR
+  DEPENDS  
   OMHasOnnxSubgraphOpInterfaceIncGen
 
   LINK_LIBS PUBLIC
+  MLIRIR
   LLVMSupport
   )
 
 add_onnx_mlir_library(OMSpecializedKernelOpInterface
   SpecializedKernelOpInterface.cpp
 
-  DEPENDS
-  MLIRIR
+  DEPENDS  
   OMSpecializedKernelOpInterfaceIncGen
 
   LINK_LIBS PUBLIC
+  MLIRIR
   LLVMSupport
   )

@@ -29,15 +29,15 @@ LogicalResult ONNXRoiAlignOpShapeHelper::computeShape() {
   ONNXRoiAlignOp roiAlignOp = llvm::cast<ONNXRoiAlignOp>(op);
   ONNXRoiAlignOpAdaptor operandAdaptor(operands);
 
-  Value X = operandAdaptor.X();
-  Value batch_indices = operandAdaptor.batch_indices();
+  Value X = operandAdaptor.getX();
+  Value batch_indices = operandAdaptor.getBatchIndices();
 
   // Read X and batch_indices shapes as dim indices.
   createIE->getShapeAsDims(X, xDims);
   createIE->getShapeAsDims(batch_indices, batchIndicesDims);
 
-  int64_t height = roiAlignOp.output_height();
-  int64_t width = roiAlignOp.output_width();
+  int64_t height = roiAlignOp.getOutputHeight();
+  int64_t width = roiAlignOp.getOutputWidth();
 
   DimsExpr outputDims = {batchIndicesDims[0], xDims[1],
       LiteralIndexExpr(height), LiteralIndexExpr(width)};
@@ -56,8 +56,8 @@ LogicalResult ONNXRoiAlignOpShapeHelper::computeShape() {
 LogicalResult ONNXRoiAlignOp::verify() {
   ONNXRoiAlignOpAdaptor operandAdaptor = ONNXRoiAlignOpAdaptor(*this);
   // get input info.
-  Value X = operandAdaptor.X();
-  Value batch_indices = operandAdaptor.batch_indices();
+  Value X = operandAdaptor.getX();
+  Value batch_indices = operandAdaptor.getBatchIndices();
 
   if (!hasShapeAndRank(X) || !hasShapeAndRank(batch_indices))
     return success();
@@ -82,10 +82,10 @@ LogicalResult ONNXRoiAlignOp::verify() {
 LogicalResult ONNXRoiAlignOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!hasShapeAndRank(X()) || !hasShapeAndRank(batch_indices()))
+  if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getBatchIndices()))
     return success();
 
-  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXRoiAlignOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

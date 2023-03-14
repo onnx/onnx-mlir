@@ -4,7 +4,7 @@
 
 //===---------------- MaxPoolSingleOut.cpp - MaxPoolSingleOut Op-----------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -20,6 +20,7 @@
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
+#include <cstdint>
 #include <src/Dialect/Mlir/IndexExpr.hpp>
 
 using namespace mlir;

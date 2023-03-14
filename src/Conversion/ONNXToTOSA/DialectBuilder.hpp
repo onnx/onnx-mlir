@@ -4,12 +4,12 @@
 
 //====------ DialectBuilder.hpp - TOSA dialect builder --------------------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
 // This file contains the dialect build for the TOSA dialect. Uses the same
-// implementation as MHLO with minor differences.
+// implementation as ONNXToMhlo with minor differences.
 //
 //===----------------------------------------------------------------------===//
 
@@ -27,7 +27,7 @@
 namespace onnx_mlir {
 
 // =============================================================================
-// IndexExpr Builder for Shape lowering
+// TOSA Builder
 // =============================================================================
 
 struct TosaBuilder : DialectBuilder {
@@ -52,14 +52,20 @@ struct TosaBuilder : DialectBuilder {
   mlir::Value getConst(
       llvm::ArrayRef<float> vec, llvm::ArrayRef<int64_t> shape);
   // Create a 32-bit float constant operator from a float
-  // The tensor will have the same rank as shape but with axis 1 (differs from
-  // tensorflow impl.)
-  mlir::Value getConst(float val, llvm::ArrayRef<int64_t> shape = {});
+  // The tensor will have the same rank as shape but all dimensions will
+  // have size 1 (differs from tensorflow impl.)
+  mlir::Value getSplattedConst(float val, llvm::ArrayRef<int64_t> shape = {});
 
 protected:
   template <typename T>
+  bool testNumberOfElementsMatch(
+      llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape);
+  template <typename T>
   mlir::Value createConstFromRankedTensorAndVec(
       llvm::ArrayRef<T> vec, mlir::RankedTensorType &constType);
+  template <typename T>
+  mlir::Value createConst(
+      llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape, mlir::Type &type);
 
   // Private getters of builder (concise version).
   mlir::PatternRewriter &rewriter() const {
@@ -70,6 +76,10 @@ protected:
 private:
   mlir::PatternRewriter *patternRewriter;
 };
+
+// =============================================================================
+// IndexExpr Builder for Shape lowering
+// =============================================================================
 
 struct IndexExprBuilderForTosa : IndexExprBuilder {
   IndexExprBuilderForTosa(mlir::Location loc) : IndexExprBuilder(loc) {}

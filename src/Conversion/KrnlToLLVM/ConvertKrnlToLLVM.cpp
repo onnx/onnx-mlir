@@ -63,6 +63,52 @@ namespace krnl {
 
 uint64_t KRNL_ENTRY_POINT_ID = 0;
 
+// Return true if the value owns the storge. A value defined by memref.alloc
+// owns the storage. A value defined by constant, krnl.Global, does not own
+// the storage (in the sense that the storage can not be freed)
+// The result determines whether the returned tensor owns the storage
+// It is assumed that bufferization dealloc pass already added bufferization
+// clone when necessary.
+// Currently, the ViewLikeOp and arith.select are traced back. Any other
+// cases? A general solution is suggested in issue#2033
+// If this function returns a false positive, seg fault may occur when the
+// storage is freed.
+// If this function returns false negative, memory leak may occur.
+static bool shouldOwn(Value v) {
+  bool result = true;
+  Operation *definingOp = v.getDefiningOp();
+  if (!definingOp)
+    // Block argument, do not own this since it is an input that can be owned
+    // by an input OMTensor.
+    result = false;
+  else {
+    // If output is just a view, trace back to find which op was producing the
+    // source memref.
+    while (auto viewOp = llvm::dyn_cast<ViewLikeOpInterface>(definingOp)) {
+      Value source = viewOp.getViewSource();
+      definingOp = source.getDefiningOp();
+      // Block argument, stop.
+      if (!definingOp)
+        break;
+    }
+    if (!definingOp)
+      // Block argument, do not own this since it is an input that can be
+      // owned by an input OMTensor.
+      result = false;
+    else if (llvm::dyn_cast<KrnlGlobalOp>(definingOp))
+      // Do not own a constant that is defined by KrnlGlobalOp.
+      result = false;
+    else if (auto selectOp = llvm::dyn_cast<arith::SelectOp>(definingOp)) {
+      // Temporary fix: the value come from select. Should further track
+      // the false and true inputs of arith.select. But leave it to PR
+      // which will focus on this problem.
+      result = shouldOwn(selectOp.getTrueValue()) &&
+               shouldOwn(selectOp.getFalseValue());
+    }
+  }
+  return result;
+}
+
 void determineOwnershipForOutputOMTensors(
     ModuleOp &module, SmallVectorImpl<bool> &outputOMTensorOwnerships) {
   Operation *entryPointOp;
@@ -110,34 +156,11 @@ void determineOwnershipForOutputOMTensors(
   // Check, for each output, if it was transitively produced by a constant or
   // a block argument.
   for (Value v : returnOp->getOperands()) {
-    bool shouldOwn = true;
-    Operation *definingOp = v.getDefiningOp();
-    if (!definingOp)
-      // Block argument, do not own this since it is an input that can be owned
-      // by an input OMTensor.
-      shouldOwn = false;
-    else {
-      // If output is just a view, trace back to find which op was producing the
-      // source memref.
-      while (auto viewOp = llvm::dyn_cast<ViewLikeOpInterface>(definingOp)) {
-        Value source = viewOp.getViewSource();
-        definingOp = source.getDefiningOp();
-        // Block argument, stop.
-        if (!definingOp)
-          break;
-      }
-      if (!definingOp)
-        // Block argument, do not own this since it is an input that can be
-        // owned by an input OMTensor.
-        shouldOwn = false;
-      else if (llvm::dyn_cast<KrnlGlobalOp>(definingOp))
-        // Do not own a constant that is defined by KrnlGlobalOp.
-        shouldOwn = false;
-    }
-    outputOMTensorOwnerships.emplace_back(shouldOwn);
+    bool shouldOwnResult = shouldOwn(v);
+    outputOMTensorOwnerships.emplace_back(shouldOwnResult);
     LLVM_DEBUG(llvm::dbgs()
                << "Should the OMTensor own the entry function output? "
-               << shouldOwn << "\n");
+               << shouldOwnResult << "\n");
   }
 }
 
@@ -171,7 +194,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   arith::populateArithExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateFuncToLLVMConversionPatterns(typeConverter, patterns);
-  populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
+  populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
   arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
 

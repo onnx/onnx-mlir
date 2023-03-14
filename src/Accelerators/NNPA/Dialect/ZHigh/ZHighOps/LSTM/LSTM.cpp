@@ -28,12 +28,12 @@ LogicalResult ZHighLSTMOpShapeHelper::computeShape() {
   ZHighLSTMOp::Adaptor operandAdaptor(operands);
   // Get operands.
   // X: [S, B, I]
-  Value X = operandAdaptor.input();
+  Value X = operandAdaptor.getInput();
   // R: [D, H, H]
-  Value R = operandAdaptor.hidden_weights();
+  Value R = operandAdaptor.getHiddenWeights();
 
   // Return all timesteps or only the final step;
-  bool isAllTimesteps = (lstmOp.return_all_steps() == -1) ? true : false;
+  bool isAllTimesteps = (lstmOp.getReturnAllSteps() == -1) ? true : false;
 
   // Get bounds
   SmallVector<IndexExpr, 4> XDims, RDims;
@@ -92,13 +92,13 @@ LogicalResult ZHighLSTMOpShapeHelper::computeShape() {
 LogicalResult ZHighLSTMOp::verify() {
   ZHighLSTMOpAdaptor operandAdaptor(*this);
   // Get operands.
-  Value W = operandAdaptor.input_weights();
-  Value R = operandAdaptor.hidden_weights();
-  Value WB = operandAdaptor.input_bias();
-  Value RB = operandAdaptor.hidden_bias();
+  Value W = operandAdaptor.getInputWeights();
+  Value R = operandAdaptor.getHiddenWeights();
+  Value WB = operandAdaptor.getInputBias();
+  Value RB = operandAdaptor.getHiddenBias();
 
   // Hidden size attribute.
-  int64_t hiddenSize = hidden_size();
+  int64_t hiddenSize = getHiddenSize();
 
   // Verify hidden size in W.
   if (hasRankedType(W)) {
@@ -140,7 +140,7 @@ LogicalResult ZHighLSTMOp::verify() {
 
 LogicalResult ZHighLSTMOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(input()) || !hasRankedType(hidden_weights()))
+  if (!hasRankedType(getInput()) || !hasRankedType(getHiddenWeights()))
     return success();
 
   ZHighLSTMOpShapeHelper shapeHelper(getOperation());
@@ -150,7 +150,7 @@ LogicalResult ZHighLSTMOp::inferShapes(
   SmallVector<int64_t, 4> hnOutputDims, cfOutputDims;
   IndexExpr::getShape(shapeHelper.getOutputDims(0), hnOutputDims);
   IndexExpr::getShape(shapeHelper.getOutputDims(1), cfOutputDims);
-  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);
   updateType(getResults()[0], hnOutputDims, elementType, encoding);

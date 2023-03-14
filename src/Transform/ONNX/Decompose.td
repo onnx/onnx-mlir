@@ -90,55 +90,39 @@ def ONNXDataType : NativeCodeCall<
   "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), "
   "::onnx_mlir::mlirTypeToOnnxType($0.getType().front().cast<ShapedType>().getElementType()))">;
 
+def HasShapeAndRank : Constraint<CPred<"onnx_mlir::hasShapeAndRank($0)">>;
+
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
 //===----------------------------------------------------------------------===//
-def ReduceL1OpPattern1
-    : Pat<(ONNXReduceL1Op $oprd, $axes, $keepdims),
-          (ONNXReduceSumOp(ONNXAbsOp $oprd),
-              (CreateUnitConstant), $keepdims, (noop_with_empty_axes)),
-          [(AttributeIsNull:$axes)], (addBenefit 1)>;
-
-def ReduceL1OpPattern2
-    : Pat<(ONNXReduceL1Op $oprd, $axes, $keepdims),
-          (ONNXReduceSumOp(ONNXAbsOp $oprd),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
-              $keepdims, (noop_with_empty_axes)),
-          [], (addBenefit 0)>;
+def ReduceL1OpPattern
+    : Pat<(ONNXReduceL1Op $oprd, $axes, $keepdims, $noop),
+          (ONNXReduceSumOp(ONNXAbsOp $oprd), $axes, $keepdims, $noop)>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceL2Op %X = ONNXSqrtOp (ONNXReduceSumSquareOp (%X))
 //===----------------------------------------------------------------------===//
 def ReduceL2OpPattern
-    : Pat<(ONNXReduceL2Op $oprd, $axes, $keepdims),
-          (ONNXSqrtOp(ONNXReduceSumSquareOp $oprd, $axes, $keepdims))>;
+    : Pat<(ONNXReduceL2Op $oprd, $axes, $keepdims, $noop),
+          (ONNXSqrtOp(ONNXReduceSumSquareOp $oprd, $axes, $keepdims, $noop))>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceLogSumOp %X = ONNXLogOp (ONNXReduceSumOp (%X))
 //===----------------------------------------------------------------------===//
-def ReduceLogSumOpPattern1
-    : Pat<(ONNXReduceLogSumOp $oprd, $axes, $keepdims),
-          (ONNXLogOp(ONNXReduceSumOp $oprd,
-              (CreateUnitConstant), $keepdims, (noop_with_empty_axes))),
-          [(AttributeIsNull:$axes)], (addBenefit 1)>;
-
-def ReduceLogSumOpPattern2
-    : Pat<(ONNXReduceLogSumOp $oprd, $axes, $keepdims),
-          (ONNXLogOp(ONNXReduceSumOp $oprd,
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttrOrEmpty $axes)),
-              $keepdims, (noop_with_empty_axes))),
-          [], (addBenefit 0)>;
+def ReduceLogSumOpPattern
+    : Pat<(ONNXReduceLogSumOp $oprd, $axes, $keepdims, $noop),
+          (ONNXLogOp(ONNXReduceSumOp $oprd, $axes, $keepdims, $noop))>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceLogSumExpOp %X
 //===----------------------------------------------------------------------===//
 // keepdims is true
 def ReduceLogSumExpOpPattern1
-    : Pat<(ONNXReduceLogSumExpOp $oprd, $axes, $keepdims),
+    : Pat<(ONNXReduceLogSumExpOp $oprd, $axes, $keepdims, $noop),
           (ONNXAddOp(ONNXReduceLogSumOp(ONNXExpOp(ONNXSubOp $oprd,
                          (ONNXReduceMaxOp
-                             : $max $oprd, $axes, (KeepdimsTrue)))),
-               $axes, $keepdims),
+                             : $max $oprd, $axes, (KeepdimsTrue), $noop))),
+               $axes, $keepdims, $noop),
               $max),
           [(KeepdimsIsTrue
               : $keepdims)],
@@ -146,29 +130,20 @@ def ReduceLogSumExpOpPattern1
 
 // keepdims is false
 def ReduceLogSumExpOpPattern2
-    : Pat<(ONNXReduceLogSumExpOp $oprd, $axes, $keepdims),
+    : Pat<(ONNXReduceLogSumExpOp $oprd, $axes, $keepdims, $noop),
           (ONNXAddOp(ONNXReduceLogSumOp(ONNXExpOp(ONNXSubOp $oprd,
                          (ONNXReduceMaxOp
-                             : $max $oprd, $axes, (KeepdimsTrue)))),
-               $axes, $keepdims),
-              (ONNXSqueezeV11Op $max, $axes)),
+                             : $max $oprd, $axes, (KeepdimsTrue), $noop))),
+               $axes, $keepdims, $noop),
+              (ONNXSqueezeOp $max, $axes)),
           [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceSumSquareOp %X = ONNXReduceSumOp (ONNXMulOp %X, %X)
 //===----------------------------------------------------------------------===//
-def ReduceSumSquareOpPattern1
-    : Pat<(ONNXReduceSumSquareOp $oprd, $axes, $keepdims),
-          (ONNXReduceSumOp (ONNXMulOp $oprd, $oprd),
-              (CreateUnitConstant), $keepdims, (noop_with_empty_axes)),
-          [(AttributeIsNull:$axes)], (addBenefit 1)>;
-
-def ReduceSumSquareOpPattern2
-    : Pat<(ONNXReduceSumSquareOp $oprd, $axes, $keepdims),
-          (ONNXReduceSumOp(ONNXMulOp $oprd, $oprd),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
-              $keepdims, (noop_with_empty_axes)),
-          [], (addBenefit 0)>;
+def ReduceSumSquareOpPattern
+    : Pat<(ONNXReduceSumSquareOp $oprd, $axes, $keepdims, $noop),
+          (ONNXReduceSumOp (ONNXMulOp $oprd, $oprd), $axes, $keepdims, $noop)>;
 
 //===----------------------------------------------------------------------===//
 // ONNXScalerOp %X, %Offest, %Scale
@@ -368,6 +343,160 @@ def UnsqueezeV11Pattern : Pat<
 def ScatterPattern : Pat<
   (ONNXScatterOp $data, $indices, $updates, $axis),
   (ONNXScatterElementsOp $data, $indices, $updates, $axis, (GetNullStringAttr))
+>;
+
+//===----------------------------------------------------------------------===//
+// ONNXReduceL1V13Op %X -> ONNXReduceL1Op %X = 
+//===----------------------------------------------------------------------===//
+def ReduceL1V13OpPattern1
+    : Pat<(ONNXReduceL1V13Op $oprd, $axes, $keepdims),
+          (ONNXReduceL1Op $oprd,
+              (CreateUnitConstant), $keepdims, (noop_with_empty_axes)),
+          [(AttributeIsNull:$axes)], (addBenefit 1)>;
+
+def ReduceL1V13OpPattern2
+    : Pat<(ONNXReduceL1V13Op $oprd, $axes, $keepdims),
+          (ONNXReduceL1Op $oprd,
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
+              $keepdims, (noop_with_empty_axes)),
+          [], (addBenefit 0)>;
+
+//===----------------------------------------------------------------------===//
+// ONNXReduceL2V13Op %X -> ONNXReduceL2Op %X = 
+//===----------------------------------------------------------------------===//
+def ReduceL2V13OpPattern1
+    : Pat<(ONNXReduceL2V13Op $oprd, $axes, $keepdims),
+          (ONNXReduceL2Op $oprd,
+              (CreateUnitConstant), $keepdims, (noop_with_empty_axes)),
+          [(AttributeIsNull:$axes)], (addBenefit 1)>;
+
+def ReduceL2V13OpPattern2
+    : Pat<(ONNXReduceL2V13Op $oprd, $axes, $keepdims),
+          (ONNXReduceL2Op $oprd,
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
+              $keepdims, (noop_with_empty_axes)),
+          [], (addBenefit 0)>;
+
+//===----------------------------------------------------------------------===//
+// ONNXReduceLogSumV13Op %X -> ONNXReduceLogSumOp %X = 
+//===----------------------------------------------------------------------===//
+def ReduceLogSumV13OpPattern1
+    : Pat<(ONNXReduceLogSumV13Op $oprd, $axes, $keepdims),
+          (ONNXReduceLogSumOp $oprd,
+              (CreateUnitConstant), $keepdims, (noop_with_empty_axes)),
+          [(AttributeIsNull:$axes)], (addBenefit 1)>;
+
+def ReduceLogSumV13OpPattern2
+    : Pat<(ONNXReduceLogSumV13Op $oprd, $axes, $keepdims),
+          (ONNXReduceLogSumOp $oprd,
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
+              $keepdims, (noop_with_empty_axes)),
+          [], (addBenefit 0)>;
+
+//===----------------------------------------------------------------------===//
+// ONNXReduceLogSumExpV13Op %X -> ONNXReduceLogSumExpOp %X = 
+//===----------------------------------------------------------------------===//
+def ReduceLogSumExpV13OpPattern1
+    : Pat<(ONNXReduceLogSumExpV13Op $oprd, $axes, $keepdims),
+          (ONNXReduceLogSumExpOp $oprd,
+              (CreateUnitConstant), $keepdims, (noop_with_empty_axes)),
+          [(AttributeIsNull:$axes)], (addBenefit 1)>;
+
+def ReduceLogSumExpV13OpPattern2
+    : Pat<(ONNXReduceLogSumExpV13Op $oprd, $axes, $keepdims),
+          (ONNXReduceLogSumExpOp $oprd,
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
+              $keepdims, (noop_with_empty_axes)),
+          [], (addBenefit 0)>;
+
+//===----------------------------------------------------------------------===//
+// ONNXReduceSumSquareV13Op %X -> ONNXReduceSumSquareOp %X = 
+//===----------------------------------------------------------------------===//
+def ReduceSumSquareV13OpPattern1
+    : Pat<(ONNXReduceSumSquareV13Op $oprd, $axes, $keepdims),
+          (ONNXReduceSumSquareOp $oprd,
+              (CreateUnitConstant), $keepdims, (noop_with_empty_axes)),
+          [(AttributeIsNull:$axes)], (addBenefit 1)>;
+
+def ReduceSumSquareV13OpPattern2
+    : Pat<(ONNXReduceSumSquareV13Op $oprd, $axes, $keepdims),
+          (ONNXReduceSumSquareOp $oprd,
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
+              $keepdims, (noop_with_empty_axes)),
+          [], (addBenefit 0)>;
+
+// Decomposition for ONNXConvTransposeOp
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// ONNXConvTransposeOp is rewritten into ONNXConv op and other ONNX ops to
+// convert input, weight, and pad.
+//
+// 1. Reverse elements for spatial axis in weight tensor.
+//    Emit ONNXTransposeOp and ONNXReverseSequenceOp in reverseWeightConvTranspose()
+// 2. Insert pads between elements in input data tensor if `strides` is not unit strides.
+//    Emit ONNXSplitOp, ONNXPadOp, and ONNXConcatOp in insertPadsConvTransposeInput().
+// 3. Calculate new pads attribute from kernel_shape, original pads, and dilation.
+//    Emit no ONNX op in getPadsConvTranspose().
+// 4. Create unit strides if `strides` is not unit strides.
+//    Emit no ONNX op in createUnitStrides().
+// 5. Use ONNXConv op using converted weight tensor, input data tensor, other
+//    attributes.
+// 6. Insert additional pads if needed.
+//    Emit ONNXPadOp in insertAdditionalPadsConvTranspose().
+//===----------------------------------------------------------------------===//
+
+def reverseWeightConvTranspose: NativeCodeCall<
+  "onnx_mlir::reverseWeightTensor($_builder, $_loc, $0)">;
+
+def getPadsConvTranspose: NativeCodeCall<
+  "onnx_mlir::getPadsConvTranspose($_builder, $_loc, $0, $1, $2)">;
+
+def HasUnitStrides: Constraint<
+  CPred<"onnx_mlir::hasUnitStrides($_self)">,
+  "has unit strides"
+>;
+
+def createUnitStrides: NativeCodeCall<
+  "onnx_mlir::createUnitStrides($_builder, $0)">;
+
+def insertPadsConvTransposeInput: NativeCodeCall<
+  "onnx_mlir::insertPadsConvTransposeInput($_builder, $_loc, $0, $1)">;
+
+def insertAdditionalPadsConvTranspose: NativeCodeCall<
+  "onnx_mlir::insertAdditionalPadsConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(), $0, $1)">;
+
+def ConvTransposeOpPattern1: Pattern<
+   (ONNXConvTransposeOp $x, $w, $b,
+      $auto_pad, $dilation, $group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides),
+   [
+    (reverseWeightConvTranspose:$reversed_w $w),
+    (getPadsConvTranspose:$new_pads $kernel_shape, $pads, $dilation),
+    (ONNXConvOp:$conv_res $x, $reversed_w, $b,
+       $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $strides),
+    (insertAdditionalPadsConvTranspose $conv_res, $output_shape)
+   ],
+   [(HasUnitStrides:$strides), (HasShapeAndRank $x), (HasShapeAndRank $w)],
+   (addBenefit 1)
+>;
+
+def ConvTransposeOpPattern2: Pattern<
+   (ONNXConvTransposeOp $x, $w, $b,
+      $auto_pad, $dilation, $group, $kernel_shape,
+      $output_padding, $output_shape, $pads, $strides),
+   [
+    (reverseWeightConvTranspose:$reversed_w $w),
+    (insertPadsConvTransposeInput:$new_x $x, $strides),
+    (getPadsConvTranspose:$new_pads $kernel_shape, $pads, $dilation),
+    (createUnitStrides:$unit_strides $strides),
+    (ONNXConvOp:$conv_res $new_x, $reversed_w, $b,
+       $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $unit_strides),
+    (insertAdditionalPadsConvTranspose
+        $conv_res, $output_shape)
+   ],
+   [(HasShapeAndRank $x), (HasShapeAndRank $w)],
+   (addBenefit 0)
 >;
 
 #endif // ONNX_DECOMPOSE

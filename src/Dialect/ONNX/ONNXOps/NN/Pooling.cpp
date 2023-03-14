@@ -31,7 +31,7 @@ template <typename OP_TYPE>
 LogicalResult ONNXGenericGlobalPoolOpShapeHelper<OP_TYPE>::computeShape() {
   typename OP_TYPE::Adaptor operandAdaptor(operands);
   DimsExpr xDims, outputDims;
-  createIE->getShapeAsDims(operandAdaptor.X(), xDims);
+  createIE->getShapeAsDims(operandAdaptor.getX(), xDims);
   if (xDims.size() < 3)
     return op->emitError("Data input shape must be at least (NxCxD1)");
   // Keep first two dims.
@@ -49,16 +49,16 @@ template <>
 LogicalResult ONNXMaxRoiPoolOpShapeHelper::computeShape() {
   ONNXMaxRoiPoolOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
 
-  IndexExpr channel = createIE->getShapeAsDim(operandAdaptor.X(), 1);
-  uint64_t roisRank = createIE->getShapedTypeRank(operandAdaptor.rois());
+  IndexExpr channel = createIE->getShapeAsDim(operandAdaptor.getX(), 1);
+  uint64_t roisRank = createIE->getShapedTypeRank(operandAdaptor.getRois());
   if (roisRank != 2)
     return op->emitError("rois rank is expected to be 2d");
 
   // 2d tensor: (num_rois, 5)
-  IndexExpr numRois = createIE->getShapeAsDim(operandAdaptor.rois(), 0);
+  IndexExpr numRois = createIE->getShapeAsDim(operandAdaptor.getRois(), 0);
   DimsExpr pooledDims;
   createIE->getIntFromArrayAsLiterals(
-      operandAdaptor.pooled_shape(), pooledDims);
+      operandAdaptor.getPooledShape(), pooledDims);
 
   // 4-D tensor : (num_rois, channels, pooled_shape[0], pooled_shape[1]).
   DimsExpr outputDims;
@@ -84,9 +84,10 @@ template <>
 LogicalResult ONNXAveragePoolOpShapeHelper::computeShape() {
   ONNXAveragePoolOpAdaptor operandAdaptor = ONNXAveragePoolOpAdaptor(operands);
   ONNXAveragePoolOp poolOp = llvm::cast<ONNXAveragePoolOp>(op);
-  return customComputeShape(operandAdaptor.X(), /*W*/ nullptr,
-      poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
-      /*dilation*/ None, /*hasFilter*/ false, poolOp.ceil_mode());
+  return customComputeShape(operandAdaptor.getX(), /*W*/ nullptr,
+      poolOp.getKernelShape(), poolOp.getAutoPad(), poolOp.getPads(),
+      poolOp.getStrides(),
+      /*dilation*/ std::nullopt, /*hasFilter*/ false, poolOp.getCeilMode());
 }
 
 } // namespace onnx_mlir
@@ -95,15 +96,15 @@ LogicalResult ONNXAveragePoolOp::verify() {
   ONNXAveragePoolOpAdaptor operandAdaptor = ONNXAveragePoolOpAdaptor(*this);
 
   // Mandatory and unsupported parameters.
-  if (!kernel_shape())
+  if (!getKernelShape())
     return emitOpError("kernel_shape is a mandatory attribute");
   // Get spatial rank from mandatory kernel_shape parameter.
-  int64_t spatialRank = kernel_shape().size();
+  int64_t spatialRank = getKernelShape().size();
   if (spatialRank < 1)
     return emitOpError("Spatial rank must be strictly positive");
 
   // Get operands.
-  auto X = operandAdaptor.X();
+  auto X = operandAdaptor.getX();
   if (hasShapeAndRank(X)) {
     auto xShape = X.getType().cast<ShapedType>().getShape();
     if ((int64_t)xShape.size() - 2 != spatialRank)
@@ -112,7 +113,7 @@ LogicalResult ONNXAveragePoolOp::verify() {
 
   // Verify parameters.
   if (failed(verifyKernelShape<ONNXAveragePoolOp>(
-          this, nullptr, kernel_shape(), spatialRank)))
+          this, nullptr, getKernelShape(), spatialRank)))
     return failure();
   if (failed(verifyStrides<ONNXAveragePoolOp>(this, spatialRank)))
     return failure();
@@ -124,10 +125,10 @@ LogicalResult ONNXAveragePoolOp::verify() {
 LogicalResult ONNXAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!hasShapeAndRank(X()))
+  if (!hasShapeAndRank(getX()))
     return success();
 
-  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXAveragePoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -138,7 +139,7 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 
 LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXGlobalAveragePoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -149,7 +150,7 @@ LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
 
 LogicalResult ONNXGlobalLpPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXGlobalLpPoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -160,7 +161,7 @@ LogicalResult ONNXGlobalLpPoolOp::inferShapes(
 
 LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXGlobalMaxPoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -176,9 +177,10 @@ LogicalResult ONNXMaxPoolSingleOutOpShapeHelper::computeShape() {
   ONNXMaxPoolSingleOutOpAdaptor operandAdaptor =
       ONNXMaxPoolSingleOutOpAdaptor(operands);
   ONNXMaxPoolSingleOutOp poolOp = llvm::cast<ONNXMaxPoolSingleOutOp>(op);
-  return customComputeShape(operandAdaptor.X(), /*W*/ nullptr,
-      poolOp.kernel_shape(), poolOp.auto_pad(), poolOp.pads(), poolOp.strides(),
-      poolOp.dilations(), /*hasFilter*/ false, poolOp.ceil_mode());
+  return customComputeShape(operandAdaptor.getX(), /*W*/ nullptr,
+      poolOp.getKernelShape(), poolOp.getAutoPad(), poolOp.getPads(),
+      poolOp.getStrides(), poolOp.getDilations(), /*hasFilter*/ false,
+      poolOp.getCeilMode());
 }
 
 } // namespace onnx_mlir
@@ -188,18 +190,18 @@ LogicalResult ONNXMaxPoolSingleOutOp::verify() {
       ONNXMaxPoolSingleOutOpAdaptor(*this);
 
   // Mandatory and unsupported parameters.
-  if (!kernel_shape())
+  if (!getKernelShape())
     return emitOpError("kernel_shape is a mandatory attribute");
   // Get spatial rank from mandatory kernel_shape parameter.
-  int64_t spatialRank = kernel_shape().size();
+  int64_t spatialRank = getKernelShape().size();
   if (spatialRank < 1)
     return emitOpError("Spatial rank must be strictly positive");
   // Not supported for storage order in column major mode.
-  if (storage_order() != 0)
+  if (getStorageOrder() != 0)
     return emitOpError("Column major storage order not implemented yet");
 
   // Get operands.
-  auto X = operandAdaptor.X();
+  auto X = operandAdaptor.getX();
   if (hasShapeAndRank(X)) {
     auto xShape = X.getType().cast<ShapedType>().getShape();
     if (static_cast<int64_t>(xShape.size()) - 2 != spatialRank)
@@ -208,7 +210,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::verify() {
 
   // Verify parameters.
   if (failed(verifyKernelShape<ONNXMaxPoolSingleOutOp>(
-          this, nullptr, kernel_shape(), spatialRank)))
+          this, nullptr, getKernelShape(), spatialRank)))
     return failure();
   if (failed(verifyStrides<ONNXMaxPoolSingleOutOp>(this, spatialRank)))
     return failure();
@@ -222,14 +224,14 @@ LogicalResult ONNXMaxPoolSingleOutOp::verify() {
 LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!hasShapeAndRank(X()))
+  if (!hasShapeAndRank(getX()))
     return success();
 
   // Verify parameters: mandatory for kernel shape.
-  auto kernelShape = kernel_shape();
+  auto kernelShape = getKernelShape();
   assert(kernelShape && "verified that we had kernel shape");
 
-  Type elementType = X().getType().cast<ShapedType>().getElementType();
+  Type elementType = getX().getType().cast<ShapedType>().getElementType();
   IndexExprBuilderForAnalysis createIE(getLoc());
   ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(getOperation(), {}, &createIE);
   return shapeHelper.computeShapeAndUpdateType(elementType);
@@ -241,10 +243,10 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
 
 LogicalResult ONNXMaxRoiPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X()) || !hasShapeAndRank(rois()))
+  if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getRois()))
     return success();
 
-  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
   ONNXMaxRoiPoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

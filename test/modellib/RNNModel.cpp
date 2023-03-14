@@ -4,7 +4,7 @@
 
 //==============-- RNNModel.cpp - Building RNN Models for tests -=============//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -40,11 +40,11 @@ RNNLibBuilder::~RNNLibBuilder() {
 
 bool RNNLibBuilder::build() {
   D = abs(direction);
-  int S1 = S, B1 = B;
+  int64_t S1 = S, B1 = B;
   if (isDynamicS)
-    S1 = -1;
+    S1 = ShapedType::kDynamic;
   if (isDynamicB)
-    B1 = -1;
+    B1 = ShapedType::kDynamic;
 
   xShape = perm3(S, B, I);
   SmallVector<int64_t, 3> xShapeSymbol = perm3(S1, B1, I);
@@ -88,9 +88,9 @@ bool RNNLibBuilder::build() {
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, layout, /*isSigned=*/true));
 
-  wOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1);
-  rOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1);
-  bOmt = omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1);
+  wOmt = omTensorCreateWithRandomData<float>(llvm::ArrayRef(wShape), 0, 1);
+  rOmt = omTensorCreateWithRandomData<float>(llvm::ArrayRef(rShape), 0, 1);
+  bOmt = omTensorCreateWithRandomData<float>(llvm::ArrayRef(bShape), 0, 1);
   auto wConstant = buildONNXConstantOp(wOmt, wType);
   auto rConstant = buildONNXConstantOp(rOmt, rType);
   auto bConstant = buildONNXConstantOp(bOmt, bType);
@@ -116,14 +116,14 @@ bool RNNLibBuilder::build() {
 
 bool RNNLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
-  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
+  OMTensor* list[num];
   if (!list)
     return false;
   list[0] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
+      llvm::ArrayRef(xShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
-      llvm::makeArrayRef(hShape), dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreateWithOwnership(list, num, true);
+      llvm::ArrayRef(hShape), dataRangeLB, dataRangeUB);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1];
 }
 
@@ -153,9 +153,9 @@ bool RNNLibBuilder::verifyOutputs() {
   OMTensor *bias = bOmt;
   // Get inputs and outputs.
   OMTensor *refY =
-      omTensorCreateWithShape<float>(llvm::makeArrayRef(perm4(S, D, B, H)));
+      omTensorCreateWithShape<float>(llvm::ArrayRef(perm4(S, D, B, H)));
   OMTensor *refYh =
-      omTensorCreateWithShape<float>(llvm::makeArrayRef(perm3(D, B, H)));
+      omTensorCreateWithShape<float>(llvm::ArrayRef(perm3(D, B, H)));
   OMTensor *input = omTensorListGetOmtByIndex(inputs, 0);
   OMTensor *initialH = omTensorListGetOmtByIndex(inputs, 1);
   OMTensor *rnnY = omTensorListGetOmtByIndex(outputs, 0);
@@ -165,7 +165,7 @@ bool RNNLibBuilder::verifyOutputs() {
   for (int64_t d = 0; d < D; d++)
     for (int64_t b = 0; b < B; b++)
       for (int64_t h = 0; h < H; h++) {
-        std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(d, b, h));
+        std::vector<int64_t> p3 = llvm::ArrayRef(perm3(d, b, h));
         omTensorGetElem<float>(refYh, p3) =
             omTensorGetElem<float>(initialH, p3);
       }
@@ -183,14 +183,14 @@ bool RNNLibBuilder::verifyOutputs() {
         for (int64_t h = 0; h < H; h++) {
           omTensorGetElem<float>(XtWi, {b, h}) = 0;
           for (int64_t k = 0; k < I; k++) {
-            std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(seq, b, k));
+            std::vector<int64_t> p3 = llvm::ArrayRef(perm3(seq, b, k));
             float xt = omTensorGetElem<float>(input, p3);
             omTensorGetElem<float>(XtWi, {b, h}) +=
                 xt * omTensorGetElem<float>(weight, {d, h, k});
           }
           omTensorGetElem<float>(HtRi, {b, h}) = 0;
           for (int64_t k = 0; k < H; k++) {
-            std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(d, b, k));
+            std::vector<int64_t> p3 = llvm::ArrayRef(perm3(d, b, k));
             float previousHt = omTensorGetElem<float>(refYh, p3);
             omTensorGetElem<float>(HtRi, {b, h}) +=
                 previousHt * omTensorGetElem<float>(recurr, {d, h, k});
@@ -204,9 +204,9 @@ bool RNNLibBuilder::verifyOutputs() {
                           omTensorGetElem<float>(HtRi, {b, h}) +
                           omTensorGetElem<float>(bias, {d, h}) +
                           omTensorGetElem<float>(bias, {d, h + H}));
-          std::vector<int64_t> p3 = llvm::makeArrayRef(perm3(d, b, h));
+          std::vector<int64_t> p3 = llvm::ArrayRef(perm3(d, b, h));
           omTensorGetElem<float>(refYh, p3) = Ht;
-          std::vector<int64_t> p4 = llvm::makeArrayRef(perm4(seq, d, b, h));
+          std::vector<int64_t> p4 = llvm::ArrayRef(perm4(seq, d, b, h));
           omTensorGetElem<float>(refY, p4) = Ht;
         }
       }

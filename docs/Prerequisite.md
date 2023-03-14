@@ -11,6 +11,7 @@ cmake >= 3.13.4
 make >= 4.2.1 or ninja >= 1.10.2
 java >= 1.11 (optional)
 ```
+
 Onnx-mlir is tested to work with python 3.8 and 3.9 but not yet fully tested with 3.10+. It may work with older 3.x python versions but not recommended since those either have already reached or are close to reach their EOL. To check the python version, run `python --version`.
 
 GCC can be installed with distro specific package manager on Linux such as yum on RHEL/Fedora, apt on Debian/Ubuntu, or brew on MacOS. If you prefer to compile gcc yourself, instructions can be found [here](https://gcc.gnu.org/install/). To check the gcc version, run `gcc --version`.
@@ -24,3 +25,5 @@ GNU make can be installed with distro specific package manager on Linux such as 
 Ninja can be installed with apt on Debian/Ubuntu Linux, or brew on MacOS. On RHEL/Fedora Linux, or if you want to compile ninja yourself, the instructions can be found [here](https://ninja-build.org/). To check the ninja version, run `ninja --version`.
 
 Java SDK can be installed with distro specific package manager on Linux such as yum on RHEL/Fedora, apt on Debian/Ubuntu, or brew on MacOS. Java SDK is only required if you plan to use the onnx-mlir `--EmitJNI` option to compile a model into a jar file for use in a Java environment. Note that the jar file contains native model runtime library called through JNI so it is not portable across different architectures. To check the java version, run `java --version`.
+
+All the `PyPi` package dependencies and their appropriate versions are captured in [requirements.txt](requirements.txt).

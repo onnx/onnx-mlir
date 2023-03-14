@@ -68,7 +68,8 @@ Type unionOfIfTypes(Type lhs, Type rhs) {
       auto rhsShape = rhsShapedType.getShape();
       SmallVector<int64_t, 4> shape;
       for (int64_t i = 0; i < rank; ++i) {
-        shape.push_back(lhsShape[i] == rhsShape[i] ? lhsShape[i] : -1);
+        shape.push_back(
+            lhsShape[i] == rhsShape[i] ? lhsShape[i] : ShapedType::kDynamic);
       }
       return RankedTensorType::get(shape, elementType);
     } else {
@@ -99,12 +100,12 @@ Type unionOfIfTypes(Type lhs, Type rhs) {
 
 LogicalResult ONNXIfOp::verify() {
   size_t ifNumResults = getNumResults();
-  assert(ifNumResults == outputs().size() && "outputs() != all results");
-  auto thenResults = then_branch().back().getTerminator()->getOperands();
+  assert(ifNumResults == getOutputs().size() && "outputs() != all results");
+  auto thenResults = getThenBranch().back().getTerminator()->getOperands();
   if (ifNumResults != thenResults.size())
     return emitOpError() << "then branch #results=" << thenResults.size()
                          << " differ from if #results=" << ifNumResults;
-  auto elseResults = else_branch().back().getTerminator()->getOperands();
+  auto elseResults = getElseBranch().back().getTerminator()->getOperands();
   if (ifNumResults != elseResults.size())
     return emitOpError() << "else branch #results=" << elseResults.size()
                          << " differ from if #results=" << ifNumResults;
@@ -128,13 +129,13 @@ LogicalResult ONNXIfOp::verify() {
 
 LogicalResult ONNXIfOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  doShapeInference(then_branch());
-  doShapeInference(else_branch());
+  doShapeInference(getThenBranch());
+  doShapeInference(getElseBranch());
   size_t ifNumResults = getNumResults();
   auto thenResultTypes =
-      then_branch().back().getTerminator()->getOperandTypes();
+      getThenBranch().back().getTerminator()->getOperandTypes();
   auto elseResultTypes =
-      else_branch().back().getTerminator()->getOperandTypes();
+      getElseBranch().back().getTerminator()->getOperandTypes();
   // assert is checked in verify()
   assert(ifNumResults == thenResultTypes.size() &&
          ifNumResults == elseResultTypes.size() &&

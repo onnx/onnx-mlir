@@ -114,11 +114,11 @@ public:
       if (isa<KrnlStoreOp>(user)) {
         KrnlStoreOp op = llvm::dyn_cast<KrnlStoreOp>(user);
         storeIndex = *op.getIndices().begin();
-        storeVal = op.getValueToStore();
+        storeVal = op.getValue();
       } else if (isa<memref::StoreOp>(user)) {
         memref::StoreOp op = llvm::dyn_cast<memref::StoreOp>(user);
         storeIndex = *op.getIndices().begin();
-        storeVal = op.getValueToStore();
+        storeVal = op.getValue();
       } else { // AffineStoreOp
         AffineStoreOp op = llvm::dyn_cast<AffineStoreOp>(user);
         SmallVector<Value, 2> indices(op.getMapOperands());
@@ -127,7 +127,7 @@ public:
         if (!maybeExpandedMap)
           continue;
         storeIndex = maybeExpandedMap.value()[0];
-        storeVal = op.getValueToStore();
+        storeVal = op.getValue();
       }
 
       int64_t idx, val;
@@ -166,7 +166,7 @@ public:
     RankedTensorType tensorType =
         RankedTensorType::get(memRefType.getShape(), elementType);
     DenseElementsAttr dataAttr = DenseElementsAttr::get<int64_t>(
-        tensorType, llvm::makeArrayRef<int64_t>(data));
+        tensorType, llvm::ArrayRef<int64_t>(data));
 
     KrnlGlobalOp resOp = rewriter.create<KrnlGlobalOp>(loc, memRefType,
         /*shape=*/
