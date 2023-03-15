@@ -25,7 +25,12 @@
 
 const std::string modelName("./perfelemenmtwise");
 
-static void BM_Add(benchmark::State &state) {
+//===----------------------------------------------------------------------===//
+// Nice SIMD opportunities for backend compiler by having large tiles in both
+// dimensions.
+//===----------------------------------------------------------------------===//
+
+static void BM_Add_nice(benchmark::State &state) {
   int I = state.range(0);
   int J = state.range(0);
   onnx_mlir::test::Elementwise2DLibBuilder model(
@@ -37,13 +42,13 @@ static void BM_Add(benchmark::State &state) {
   state.SetComplexityN(I);
   perf_recordFlops(state, 1.0 * I * J); // Add.
 }
-BENCHMARK(BM_Add)
+BENCHMARK(BM_Add_nice)
     ->RangeMultiplier(2)
     ->Range(256, 2048)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
-static void BM_HardSigmoid(benchmark::State &state) {
+static void BM_HardSigmoid_nice(benchmark::State &state) {
   int I = state.range(0);
   int J = state.range(0);
   onnx_mlir::test::Elementwise2DLibBuilder model(
@@ -55,7 +60,54 @@ static void BM_HardSigmoid(benchmark::State &state) {
   state.SetComplexityN(I);
   perf_recordFlops(state, 4.0 * I * J); // FMA plus 2 float compare.
 }
-BENCHMARK(BM_HardSigmoid)
+BENCHMARK(BM_HardSigmoid_nice)
+    ->RangeMultiplier(2)
+    ->Range(256, 2048)
+    ->Unit(benchmark::kMillisecond)
+    ->Complexity();
+
+//===----------------------------------------------------------------------===//
+// Harder SIMD opportunities for backend compiler by having small tiles in the
+// last dimension.
+//===----------------------------------------------------------------------===//
+
+static void BM_Add_harder(benchmark::State &state) {
+  int I = state.range(0);
+  int J = state.range(0);
+  int tot = I * J;
+  int inner = 7;
+  int outer = tot / inner;
+  onnx_mlir::test::Elementwise2DLibBuilder model(
+      modelName, "ONNXAddOp", 2, outer, inner);
+  assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
+         "failed elementwise add");
+  for (auto _ : state)
+    model.run();
+  state.SetComplexityN(I);
+  perf_recordFlops(state, 1.0 * outer * inner); // Add.
+}
+BENCHMARK(BM_Add_harder)
+    ->RangeMultiplier(2)
+    ->Range(256, 2048)
+    ->Unit(benchmark::kMillisecond)
+    ->Complexity();
+
+static void BM_HardSigmoid_harder(benchmark::State &state) {
+  int I = state.range(0);
+  int J = state.range(0);
+  int tot = I * J;
+  int inner =  7;
+  int outer = tot / inner;
+  onnx_mlir::test::Elementwise2DLibBuilder model(
+      modelName, "ONNXHardSigmoidOp", 1, outer, inner);
+  assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
+         "failed elementwise add");
+  for (auto _ : state)
+    model.run();
+  state.SetComplexityN(I);
+  perf_recordFlops(state, 4.0 * outer * inner); // FMA plus 2 float compare.
+}
+BENCHMARK(BM_HardSigmoid_harder)
     ->RangeMultiplier(2)
     ->Range(256, 2048)
     ->Unit(benchmark::kMillisecond)
