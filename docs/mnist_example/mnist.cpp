@@ -303,7 +303,7 @@ int main() {
   }
 
   // Free the output as it is no longer needed.
-  omTensorListDestroy(tensorListIn);
+  omTensorListDestroy(tensorListOut);
 
   printf("The digit is %d\n", digit);
   return 0;
