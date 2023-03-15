@@ -52,7 +52,10 @@ def main():
             + ' 1>' + LOG_FILE \
             + ' 2>' + RESULTS_FILE
     logging.info('%s', cppscan_string)
-    subprocess.run(cppscan_string, shell=True)
+    completed_process = subprocess.run(cppscan_string, shell=True)
+    if completed_process.returncode != 0:
+        logging.error('%s', 'Error invoking cppcheck, return code = ' + str(completed_process.returncode))
+        sys.exit(completed_process.returncode)
 
     # Check results
     results_file = Path(RESULTS_FILE)
