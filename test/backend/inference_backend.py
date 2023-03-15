@@ -239,7 +239,18 @@ def get_test_models():
 
         # ConvInteger
 
-        # ConvTranspose
+        # ==OP== ConvTranspose
+        # ==LIM== `SAME_UPPER` and `SAME_LOWER` in `auto_pad` attribute not supported. Unknown dimension in spatial dimensions (such as H and W) not supported.
+        # TODO: Support unsupported cases. Fix shape inference for auto_pad and unknown dimensions. Also fix rewriting for unknown dimensions
+        "test_convtranspose_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        # "test_convtranspose_autopad_same_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_dilations_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_kernel_shape_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_output_shape_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_pad_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_pads_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
 
         # ==OP== Cos
         "test_cos_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -1051,14 +1062,11 @@ def get_test_models():
         ############################################################
         # Model (alphabetical order)
     variables.model_test_to_enable_dict = {
-        # From https://github.com/onnx/onnx-mlir/issues/2001: Disable the models below - they are failing to download
-        # correctly because access to them has been lost. Until a better fix is available, unblock everyone by simply
-        # not running them.
-        # "test_densenet121_cpu": {STATIC_SHAPE:{}},
-        # "test_inception_v1_cpu": {STATIC_SHAPE:{}},
-        # "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
-        # "test_shufflenet_cpu": {STATIC_SHAPE:{}},
-        # "test_squeezenet_cpu": {STATIC_SHAPE:{}},
+        "test_densenet121_cpu": {STATIC_SHAPE:{}},
+        "test_inception_v1_cpu": {STATIC_SHAPE:{}},
+        "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
+        "test_shufflenet_cpu": {STATIC_SHAPE:{}},
+        "test_squeezenet_cpu": {STATIC_SHAPE:{}},
         # Failure in version v13
         # "test_vgg19_cpu": {STATIC_SHAPE:{}},
     }

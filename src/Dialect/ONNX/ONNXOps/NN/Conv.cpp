@@ -102,7 +102,7 @@ LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
   auto kernelOffset = inputRank - kernelRank;
 
   // Try to find padding, getting auto_pad attribute first.
-  auto autoPad = op->getAutoPad();
+  StringRef autoPad = op->getAutoPad();
   // And then investigate the various different cases. Prefill pad values with
   // zeros, the most common case.
   SmallVector<int64_t, 4> actualPads(2 * kernelRank, 0);
@@ -419,10 +419,10 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
     IndexExpr kdTerm = t0 * d + oneIE; // (k - 1) * d + 1
     IndexExpr t1 = I - oneIE;
     if (outputShapeOpt.has_value()) {
-      // Set output dim
+      // Set output dim, then calculate pads using output dim.
       LiteralIndexExpr O(ArrayAttrIntVal(outputShapeOpt, i));
       outputDims.emplace_back(O);
-      // Set pads
+      // Set pads.
       // P = max(0, s * (I - 1) + outPad + ((K - 1) * d + 1) - O);
       IndexExpr pSum = IndexExpr::max(zeroIE, s * t1 + outPad + kdTerm - O);
       IndexExpr pSmall = pSum.floorDiv(2);
@@ -437,25 +437,41 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
         return op->emitError("auto_pad of unknown/unsupported value");
       }
     } else {
-      // Set pads
+      // Set pads for NOTSET and VALID, then calculate output dim using pads.
+      // Set output dim for SAME_UPPER and SAME_LOWER, then calculate pads.
       IndexExpr pSum;
-      if (autoPad == "NOTSET") {
-        pSum = pads[i] + pads[i + spatialRank]; // Sum both pads.
-        // pads already set, nothing more to do.
-      } else if (autoPad == "VALID") {
-        pSum = zeroIE;
-        pads[i] = zeroIE;
-        pads[i + spatialRank] = zeroIE;
+      if (autoPad == "NOTSET" || autoPad == "VALID") {
+        // Set pads.
+        if (autoPad == "NOTSET") {
+          pSum = pads[i] + pads[i + spatialRank]; // Sum both pads.
+          // pads already set, nothing more to do.
+        } else if (autoPad == "VALID") {
+          pSum = zeroIE;
+          pads[i] = zeroIE;
+          pads[i + spatialRank] = zeroIE;
+        }
+        // Set output dim.
+        // O = s * (I - 1) + outPad + ((K - 1) * d + 1) - P
+        IndexExpr O = s * t1 + outPad + kdTerm - pSum;
+        outputDims.emplace_back(O); // Set output dim
       } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
-        return op->emitError(
-            "auto_pad of SAME_UPPER/SAME_LOWER not unsupported yet");
+        // Set output dim.
+        IndexExpr O = I * s;
+        outputDims.emplace_back(O);
+        // Set pads
+        // P = max(0, s * (I - 1) + outPad + ((K - 1) * d + 1) - O);
+        IndexExpr pSum = IndexExpr::max(zeroIE, s * t1 + outPad + kdTerm - O);
+        IndexExpr pSmall = pSum.floorDiv(2);
+        if (autoPad == "SAME_UPPER") {
+          pads[i] = pSmall;
+          pads[i + spatialRank] = pSum - pSmall;
+        } else { // SAME_LOWER
+          pads[i] = pSum - pSmall;
+          pads[i + spatialRank] = pSmall;
+        }
       } else {
         return op->emitError("auto_pad of unknown/unsupported value");
       }
-      // Set output dim
-      // O = s * (I - 1) + outPad + ((K - 1) * d + 1) - P
-      IndexExpr O = s * t1 + outPad + kdTerm - pSum;
-      outputDims.emplace_back(O); // Set output dim
     }
   }
   // Save the final result.
@@ -697,6 +713,7 @@ static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferredPads,
       outputPadsVal = ArrayAttrIntVal(outputPadsOpt, i);
     int64_t totalPadding = strideVal * (inputSize - 1) + outputPadsVal +
                            ((kernelSize - 1) * dilationVal + 1) - outputSize;
+    totalPadding = (totalPadding >= 0) ? totalPadding : 0;
     int64_t beginPad = totalPadding / 2;
     int64_t endPad = totalPadding - beginPad;
     if (autoPad != "SAME_UPPER") {
@@ -716,6 +733,7 @@ static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferredPads,
 //   -  kernelShape: inferred from weight matrix if not defined by user;
 //   -  pads: set to proper value, 0 if not defined by user.
 
+// TODO: Use shapeHelper to implement the same way with other conv ops.
 LogicalResult ONNXConvTransposeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Generic shape for data input X, weight tensor W, and optional bias B
@@ -800,7 +818,9 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
         return emitError("bad kernel_shape value");
       }
   }
-
+  // Save original autoPad attribute here because it is updated in
+  // 'processConvTypeParams()'.
+  StringRef autoPad = getAutoPad();
   // Process strides, dilations, kernel_shape and pads.
   LogicalResult res =
       processConvTypeParams<ONNXConvTransposeOp>(this, getX(), getW());
@@ -812,11 +832,20 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   auto padsOpt = getPads();
   auto outputPads = getOutputPadding();
 
+  if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+    SmallVector<int64_t, 2> outputShapeVec;
+    for (int i = 0; i < spatialRank; ++i) {
+      outputShapeVec.emplace_back(
+          xShape[spatialOffset + i] * ArrayAttrIntVal(stridesOpt, i));
+    }
+    setOutputShapeAttr(builder.getI64ArrayAttr(llvm::ArrayRef(outputShapeVec)));
+  }
+
   if (getOutputShape().has_value()) {
     SmallVector<int64_t, 4> inferredPads;
-    // Determine padding values based on output shape.
+    // Determine padding values based on output shape. `pads` and
+    // `output_padding` are ignored.
     auto outputShape = getOutputShape();
-    auto autoPad = getAutoPad();
     insertConvTransposePads(inferredPads, autoPad, xShape, kernelShape, padsOpt,
         stridesOpt, outputPads, outputShape, dilationsOpt);
     setPadsAttr(builder.getI64ArrayAttr(inferredPads));

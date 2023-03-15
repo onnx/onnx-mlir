@@ -4,7 +4,7 @@
 
 //===----------------- RunONNXLib.cpp  ------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 /*
@@ -122,7 +122,7 @@ const char *(*dll_omInputSignature)(const char *);
 const char *(*dll_omOutputSignature)(const char *);
 OMTensor *(*dll_omTensorCreateWithOwnership)(
     void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t);
-OMTensorList *(*dll_omTensorListCreateWithOwnership)(OMTensor **, int, int64_t);
+OMTensorList *(*dll_omTensorListCreate)(OMTensor **, int);
 void (*dll_omTensorListDestroy)(OMTensorList *);
 
 #if LOAD_MODEL_STATICALLY
@@ -130,7 +130,7 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_INPUT_SIGNATURE omInputSignature
 #define OM_OUTPUT_SIGNATURE omOutputSignature
 #define OM_TENSOR_CREATE omTensorCreateWithOwnership
-#define OM_TENSOR_LIST_CREATE omTensorListCreateWithOwnership
+#define OM_TENSOR_LIST_CREATE omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY omTensorListDestroy
 #define OPTIONS "hn:m:vd:r:"
 #else
@@ -138,7 +138,7 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_INPUT_SIGNATURE dll_omInputSignature
 #define OM_OUTPUT_SIGNATURE dll_omOutputSignature
 #define OM_TENSOR_CREATE dll_omTensorCreateWithOwnership
-#define OM_TENSOR_LIST_CREATE dll_omTensorListCreateWithOwnership
+#define OM_TENSOR_LIST_CREATE dll_omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY dll_omTensorListDestroy
 #define OPTIONS "e:hn:m:vd:r:"
 #endif
@@ -180,9 +180,8 @@ void loadDLL(string name, string entryPointName) {
       (OMTensor * (*)(void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t))
           dlsym(handle, "omTensorCreate");
   assert(!dlerror() && "failed to load omTensorCreate");
-  dll_omTensorListCreateWithOwnership =
-      (OMTensorList * (*)(OMTensor **, int, int64_t))
-          dlsym(handle, "omTensorListCreate");
+  dll_omTensorListCreate = (OMTensorList * (*)(OMTensor **, int))
+      dlsym(handle, "omTensorListCreate");
   assert(!dlerror() && "failed to load omTensorListCreate");
   dll_omTensorListDestroy =
       (void (*)(OMTensorList *))dlsym(handle, "omTensorListDestroy");
@@ -326,10 +325,9 @@ OMTensorList *omTensorListCreateFromInputSignature(
   // Allocate array of inputs.
   int inputNum = JSONArray->size();
   assert(inputNum >= 0 && inputNum < 100 && "out of bound number of inputs");
-  OMTensor **inputTensors = nullptr;
-  if (inputNum > 0)
-    inputTensors = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
-  // Scan each input tensor
+
+  OMTensor *inputTensors[inputNum];
+
   int dimKnownAtRuntimeIndex = 0;
   for (int i = 0; i < inputNum; ++i) {
     auto JSONItem = (*JSONArray)[i].getAsObject();
@@ -397,7 +395,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
       cout << "and " << size << " elements" << endl;
     }
   }
-  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum, true);
+  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
 }
 
 // Data structures for timing info.

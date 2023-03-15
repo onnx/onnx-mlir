@@ -79,7 +79,7 @@ else:
         quit()
 
     # Ensure that test names specified in test_to_enable actually exist.
-    for test_name_symbol in test_to_enable:
+    for test_name_symbol in (test_to_enable if not args.type else test_by_type[args.type]):
         test_name_symbol_list = test_name_symbol.split(",")
         test_name = test_name_symbol_list[0]
         if args.instruction_check and len(test_name_symbol_list) == 2:
