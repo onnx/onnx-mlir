@@ -284,6 +284,9 @@ int main() {
   // Compute outputs.
   OMTensorList *tensorListOut = run_main_graph(tensorListIn);
 
+  // Free the input as it is no longer needed.
+  omTensorListDestroy(tensorListIn);
+
   // Extract the output. The model defines one output of type tensor<1x10xf32>.
   OMTensor *y = omTensorListGetOmtByIndex(tensorListOut, 0);
   float *prediction = (float *)omTensorGetDataPtr(y);
@@ -298,6 +301,9 @@ int main() {
       prob = prediction[i];
     }
   }
+
+  // Free the output as it is no longer needed.
+  omTensorListDestroy(tensorListIn);
 
   printf("The digit is %d\n", digit);
   return 0;
