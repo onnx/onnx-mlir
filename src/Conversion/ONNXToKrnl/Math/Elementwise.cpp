@@ -1009,7 +1009,7 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
   Value totOutputSize;
   Value flatAlloc = create.mem.reshapeToFlat(
       alloc, shapeHelper->getOutputDims(), totOutputSize);
-  IndexExpr totSize = DimIndexExpr(totOutputSize);
+  IndexExpr totSize = SymbolIndexExpr(totOutputSize);
   // Create loop iteration (flattened to one dim) and blocked by mVL.
   ValueRange loopDef = create.krnl.defineLoops(1);
   ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
@@ -1067,7 +1067,7 @@ static LogicalResult getVariadicSimdCodeFullyFlattened(
   Value totOutputSize;
   Value flatAlloc = create.mem.reshapeToFlat(
       alloc, shapeHelper->getOutputDims(), totOutputSize);
-  IndexExpr totSize = DimIndexExpr(totOutputSize);
+  IndexExpr totSize = SymbolIndexExpr(totOutputSize);
   // Create loop iteration (flattened to one dim) and blocked by mVL.
   ValueRange loopDef = create.krnl.defineLoops(1);
   ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
