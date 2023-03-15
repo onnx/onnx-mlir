@@ -4,20 +4,18 @@
 # This script invokes cppcheck to scan cpp files.
 
 import logging
-import os
 import subprocess
 import sys
 from pathlib import Path
 
-WORKSPACE_DIR = os.getenv('WORKSPACE')
-if WORKSPACE_DIR is None:
-    WORKSPACE_DIR = '/workdir'
+WORKSPACE_DIR = '/workdir'
 ONNX_MLIR_DIR = WORKSPACE_DIR + '/onnx-mlir/'
 BUILD_DIR = ONNX_MLIR_DIR + 'build/'
 UTILS_DIR = ONNX_MLIR_DIR + 'utils/'
 CPPCHECK_SCAN_DIR = UTILS_DIR + 'cppcheck_scan/'
 EXCLUDES_FILE = CPPCHECK_SCAN_DIR + 'cppcheck_exclude_dirs.txt'
 PROJECT_FILE = BUILD_DIR + 'compile_commands.json'
+LOG_FILE = BUILD_DIR + 'cppcheck_log.xml'
 RESULTS_FILE = BUILD_DIR + 'cppcheck_results.xml'
 SUPPRESSIONS_FILE = CPPCHECK_SCAN_DIR + 'cppcheck_suppressions.txt'
 
@@ -26,9 +24,8 @@ def main():
         level = logging.INFO,
         format = '[%(asctime)s][%(lineno)03d] %(levelname)s: %(message)s',
         datefmt = '%Y-%m-%d %H:%M:%S')
-    logging.info('WORKSPACE_DIR: %s', WORKSPACE_DIR)
 
-    # Obtain excludes the excludes file exists
+    # Obtain excludes if the excludes file exists
     EXCLUDES=""
     excludes_file = Path(EXCLUDES_FILE)
     if excludes_file.is_file():
@@ -52,6 +49,7 @@ def main():
             + ' --project=' \
             + PROJECT_FILE \
             + ' --xml' \
+            + ' 1>' + LOG_FILE \
             + ' 2>' + RESULTS_FILE
     logging.info('%s', cppscan_string)
     subprocess.run(cppscan_string, shell=True)

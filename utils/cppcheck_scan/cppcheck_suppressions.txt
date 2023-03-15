@@ -16,12 +16,3 @@ preprocessorErrorDirective:/workdir/onnx-mlir/build/third_party/onnx/onnx/onnx-o
 #        </error>
 preprocessorErrorDirective:/workdir/llvm-project/llvm/include/llvm-c/DataTypes.h:38
 
-# Cppcheck thinks OMTensorHelper.hpp calls OMTensor's inner_product() but actually
-# std::inner_product() is called.
-#        <error id="derefInvalidIterator" severity="warning" msg="Possible dereference of an invalid iterator: u" verbose="Possible dereference of an invalid iterator: u" cwe="825">
-#            <location file0="/workdir/onnx-mlir/src/Runtime/OMTensor.cpp" file="/onnx-mlir/src/Runtime/OMTensor.inc" line="183" column="22" info="Dereference of an invalid iterator"/>
-#            <location file0="/workdir/onnx-mlir/src/Runtime/OMTensor.cpp" file="/onnx-mlir/src/Runtime/OMTensorHelper.hpp" line="58" column="52" info="Calling function &apos;inner_product&apos;, 2nd argument &apos;indexes.end()&apos; value is end=0"/>
-#            <symbol>u</symbol>
-#        </error>
-derefInvalidIterator:/workdir/onnx-mlir/src/Runtime/OMTensor.inc:183
-

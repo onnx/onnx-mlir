@@ -1,6 +1,4 @@
 # Copyright 2023 The IBM Research Authors.
-# Directories and files to exclude from the cppcheck scan
+# Directories to exclude from the cppcheck scan
 
-/workdir/onnx-mlir/third_party/pybind11/tests
-/workdir/onnx-mlir/third_party/onnx/third_party/pybind11/tests
 /workdir/onnx-mlir/third_party/benchmark
