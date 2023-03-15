@@ -165,6 +165,14 @@ def get_args_from_env():
         help="set compiler optimization level (default: 3 if TEST_OPTLEVEL env var not set)",
     )
     parser.add_argument(
+        "-t",
+        "--type",
+        type=str,
+        choices=["node", "model"],
+        default=os.getenv("TEST_TYPE", ""),
+        help="select subset of backend tests (node or model)",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
