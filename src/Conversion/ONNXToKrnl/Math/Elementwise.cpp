@@ -950,7 +950,7 @@ template <>
 struct ScalarOp<ONNXClipOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
