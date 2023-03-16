@@ -42,8 +42,9 @@ public:
     ModuleOp module = op->getParentOfType<ModuleOp>();
     llvm::SmallVector<Type, 4> parameterTypeList;
     llvm::SmallVector<Value, 4> parameterList;
+    llvm::SmallVector<Value, 4> omTensors;
     handleOneParameter(rewriter, op, krnlCallAdaptor.getResult(),
-        krnlCallOp.getResult(), parameterTypeList, parameterList);
+        krnlCallOp.getResult(), parameterTypeList, parameterList, omTensors);
 
     // Some type of operands has been converted.
     // It is better to check the type of original operands.
@@ -53,7 +54,7 @@ public:
     for (; itConverted != krnlCallAdaptor.getParameters().end();
          itConverted++, itOriginal++) {
       handleOneParameter(rewriter, op, *itConverted, *itOriginal,
-          parameterTypeList, parameterList);
+          parameterTypeList, parameterList, omTensors);
     }
 
     // Handle the Attributes
@@ -70,6 +71,13 @@ public:
             LLVM::LLVMVoidType::get(module.getContext()), parameterTypeList);
     create.llvm.call({}, callRef, parameterList);
 
+    // Destroy OMTensor wrappers of parameters.
+    const auto &apiRegistry = RuntimeAPIRegistry(module, rewriter);
+    for (Value omt : omTensors) {
+      RuntimeAPI::callApi(
+          rewriter, loc, apiRegistry, RuntimeAPI::API::DESTROY_OMTENSOR, {omt});
+    }
+
     rewriter.eraseOp(op);
     return success();
   }
@@ -78,7 +86,8 @@ private:
   static void handleOneParameter(PatternRewriter &rewriter, Operation *op,
       Value parameter, Value original,
       llvm::SmallVector<Type, 4> &parameterTypeList,
-      llvm::SmallVector<Value, 4> &parameterList) {
+      llvm::SmallVector<Value, 4> &parameterList,
+      llvm::SmallVector<Value, 4> &omTensors) {
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
@@ -101,6 +110,7 @@ private:
       auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
       parameterTypeList.emplace_back(opaquePtrTy);
       parameterList.emplace_back(omTensor);
+      omTensors.emplace_back(omTensor);
     } else {
       parameterTypeList.emplace_back(parameter.getType());
       parameterList.emplace_back(parameter);

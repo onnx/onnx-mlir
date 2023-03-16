@@ -4,7 +4,7 @@
 
 //===------ KrnlEntryPoint.cpp - Lower KrnlEntryPointOp -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -236,16 +236,9 @@ public:
 
     Value numOutput =
         create.llvm.constant(int64Ty, (int64_t)outMemRefList.size());
-
-    auto mallocSym = getOrInsertMalloc(rewriter, module);
-    // TODO(tjingrant): get pointer size from data layout.
-    size_t kPtrSize = 8;
-    Value outputOmtPtrsArraySizeInByte = create.llvm.constant(
-        int64Ty, (int64_t)(outMemRefList.size() * kPtrSize));
-    Value outOmtPtrsArr = create.llvm.call(
-        LLVM::LLVMPointerType::get(IntegerType::get(module.getContext(), 8)),
-        mallocSym, ArrayRef<Value>(outputOmtPtrsArraySizeInByte));
-    outOmtPtrsArr = create.llvm.bitcastI8PtrPtr(outOmtPtrsArr);
+    // Assume that OMTensor pointer size is 8
+    Value outOmtPtrsArr = create.llvm._alloca(
+        LLVM::LLVMPointerType::get(opaquePtrTy), numOutput, /*alignment=*/0);
 
     for (unsigned int i = 0; i < outMemRefList.size(); i++) {
       // Get the i-th memref returned, convert to a dynamic memref and store it
@@ -277,7 +270,7 @@ public:
 
     // Create wrapped output.
     Value wrappedOutput = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
+        RuntimeAPI::API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput});
 
     // Return wrapped output.
     create.llvm._return(wrappedOutput);
@@ -349,19 +342,6 @@ private:
     }
 
     create.llvm.store(memRef, ptrToMemRef);
-  }
-
-  FlatSymbolRefAttr getOrInsertMalloc(
-      PatternRewriter &rewriter, ModuleOp module) const {
-    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
-    // Insert the malloc/aligned_alloc declaration if it is not already present.
-    LLVMTypeConverter converter(rewriter.getContext());
-    SmallVector<Type, 2> callArgTypes = {converter.getIndexType()};
-    // aligned_alloc(size_t alignment, size_t size)
-    Type voidPtrType = LLVM::LLVMPointerType::get(
-        IntegerType::get(&converter.getContext(), 8));
-    return create.llvm.getOrInsertSymbolRef(
-        module, StringRef("malloc"), voidPtrType, callArgTypes);
   }
 
   FlatSymbolRefAttr getOrInsertOMInitAccel(
