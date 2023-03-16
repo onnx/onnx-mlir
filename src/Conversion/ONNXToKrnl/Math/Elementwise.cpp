@@ -1117,12 +1117,11 @@ struct ONNXElementwiseUnaryOpLowering
     : public OpConversionPattern<ElementwiseUnaryOp> {
   using OpAdaptor = typename ElementwiseUnaryOp::Adaptor;
   bool enableSIMD = false;
-  int numScalarArgs = 0;
 
-  ONNXElementwiseUnaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableSIMD, int numScalarArgs = 0)
+  ONNXElementwiseUnaryOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
       : OpConversionPattern<ElementwiseUnaryOp>(typeConverter, ctx),
-        enableSIMD(enableSIMD), numScalarArgs(numScalarArgs) {}
+        enableSIMD(enableSIMD) {}
 
   LogicalResult matchAndRewrite(ElementwiseUnaryOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -1172,10 +1171,6 @@ struct ONNXElementwiseUnaryOpLowering
     Value alloc = create.mem.alignedAlloc(
         memRefType, shapeHelper.getOutputDims(), alignment);
 
-    std::vector<Value> scalarArgs;
-    for (int i = 0; i < numScalarArgs; i++) {
-      scalarArgs.emplace_back(operands[i + 1]);
-    }
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!scalar) {
       ValueRange loopDef = create.krnl.defineLoops(memRefType.getRank());
@@ -1185,10 +1180,10 @@ struct ONNXElementwiseUnaryOpLowering
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             Value loadedVal = createKrnl.load(X, loopInd);
-            SmallVector<Value, 4> args;
+            SmallVector<Value> args;
             args.emplace_back(loadedVal);
-            for (int i = 0; i < numScalarArgs; i++)
-              args.emplace_back(scalarArgs[i]);
+            for (uint64_t i = 1; i < operands.size(); i++)
+              args.emplace_back(operands[i]);
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
                 rewriter, loc, op, elementType, args);
             // Store result in the resulting array.
@@ -1196,10 +1191,10 @@ struct ONNXElementwiseUnaryOpLowering
           });
     } else {
       Value loadedVal = create.krnl.load(X);
-      SmallVector<Value, 4> args;
+      SmallVector<Value> args;
       args.emplace_back(loadedVal);
-      for (int i = 0; i < numScalarArgs; i++)
-        args.emplace_back(scalarArgs[i]);
+      for (uint64_t i = 1; i < operands.size(); i++)
+        args.emplace_back(operands[i]);
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
           rewriter, loc, op, elementType, args);
       // Store result in the resulting array.
@@ -1580,6 +1575,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXRoundOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXClipOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
@@ -1596,8 +1592,6 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       typeConverter, ctx, enableSIMD);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
       typeConverter, ctx, enableSIMD, /*isUniBroadcasting=*/true);
-  patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXClipOp>>(
-      typeConverter, ctx, /*enableSIMD=*/false, /*numScalarArgs=*/2);
 }
 
 } // namespace onnx_mlir
