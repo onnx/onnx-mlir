@@ -146,8 +146,10 @@ Value OnnxBuilder::mul(Type resultType, Value A, Value B) const {
       resultType, toTensor(A), toTensor(B));
 }
 
-Value OnnxBuilder::pad(Type outputType, Value input, Value pads,
-    Value constantValue, std::string mode) const {
+Value OnnxBuilder::pad(
+    Value input, Value pads, Value constantValue, std::string mode) const {
+  Type elementType = input.getType().cast<ShapedType>().getElementType();
+  Type outputType = UnrankedTensorType::get(elementType);
   Value constant = constantValue.getType().isa<NoneType>()
                        ? constantValue
                        : toTensor(constantValue);
@@ -155,9 +157,8 @@ Value OnnxBuilder::pad(Type outputType, Value input, Value pads,
       toTensor(input), toTensor(pads), constant, b().getStringAttr(mode));
 }
 
-Value OnnxBuilder::padZero(Type outputType, Value input, Value pads) const {
-  return pad(
-      outputType, input, pads, b().create<ONNXNoneOp>(loc()), "constant");
+Value OnnxBuilder::padZero(Value input, Value pads) const {
+  return pad(input, pads, b().create<ONNXNoneOp>(loc()), "constant");
 }
 
 Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,

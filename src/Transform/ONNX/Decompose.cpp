@@ -25,6 +25,7 @@
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
 
@@ -331,21 +332,11 @@ ValueRange emitSplitAxisOutputLength1(
 Value emitPadsAxisEnd(PatternRewriter &rewriter, Location loc, Value input,
     ArrayRef<int64_t> inputShape, int64_t axis, int64_t size) {
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
-  ShapedType inputType = input.getType().cast<ShapedType>();
-  Type elementType = inputType.getElementType();
-  SmallVector<int64_t> resultShape;
-  for (unsigned int i = 0; i < inputShape.size(); ++i) {
-    if (i == axis)
-      resultShape.emplace_back(inputShape[i] + size);
-    else
-      resultShape.emplace_back(inputShape[i]);
-  }
-  Type resultType = RankedTensorType::get(resultShape, elementType);
   // Specify padding at the end of each axis.
   SmallVector<int64_t, 1> values((int64_t)inputShape.size() * 2, 0);
   values[inputShape.size() + axis] = size;
   Value pads = create.onnx.constantInt64(ArrayRef(values));
-  Value result = create.onnx.padZero(resultType, input, pads);
+  Value result = create.onnx.padZero(input, pads);
   return result;
 }
 
@@ -391,7 +382,9 @@ Value insertPadsConvTransposeInput(
 Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
     ONNXConvOp op, Value input, ArrayAttr outputShapeAttr) {
   ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
-  shapeHelper.computeShapeAndAssertOnFailure();
+  Type elementType = input.getType().cast<ShapedType>().getElementType();
+  assert(succeeded(shapeHelper.computeShapeAndUpdateType(elementType)) &&
+         "unexpected inferShapes failure for Conv op");
   int inputRank = shapeHelper.getOutputDims().size();
   SmallVector<int64_t, 4> inputShape;
   for (int i = 0; i < inputRank; ++i) {
