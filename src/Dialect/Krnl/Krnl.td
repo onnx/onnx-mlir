@@ -66,7 +66,8 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
     The function signature will be determined with the types of parameters.
     An LLVM::CallOp to either a runtime library or a llvm intrinsic function
     will be generated.
-    The krnl.call op will be lowered to llvm at krnl-to-llvm conversion.
+    The krnl.call op will be lowered to llvm at krnl-to-llvm conversion in which
+    OMTensor is used as a container for MemRef arguments.
   }];
 
   let arguments = (ins StrAttr:$funcName, AnyType:$result, Variadic<AnyType>:$parameters);

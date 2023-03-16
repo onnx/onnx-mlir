@@ -124,8 +124,6 @@ bool Conv2DLibBuilder::build() {
 bool Conv2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
   OMTensor* list[num];
-  if (!list)
-    return false;
   list[0] = omTensorCreateWithRandomData<float>(
       {N, CIn, H, W}, dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
