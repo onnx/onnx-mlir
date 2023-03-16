@@ -262,7 +262,7 @@ private:
           ArrayRef<int64_t> shape =
               memref.getType().cast<ShapedType>().getShape();
           SmallVector<int64_t, 4> newShape;
-          for (int i = 0; i < shape.size(); i++)
+          for (uint64_t i = 0; i < shape.size(); i++)
             newShape.emplace_back(
                 (shape[i] == ShapedType::kDynamic) ? 1 : shape[i]);
           auto memRefType = MemRefType::get(
