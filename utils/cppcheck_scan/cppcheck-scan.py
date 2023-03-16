@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+# SPDX-License-Identifier: Apache-2.0
 # Copyright 2023 The IBM Research Authors.
 # This script invokes cppcheck to scan cpp files.
 
@@ -17,7 +18,8 @@ EXCLUDES_FILE = CPPCHECK_SCAN_DIR + 'cppcheck_exclude_dirs.txt'
 PROJECT_FILE = BUILD_DIR + 'compile_commands.json'
 LOG_FILE = BUILD_DIR + 'cppcheck_log.xml'
 RESULTS_FILE = BUILD_DIR + 'cppcheck_results.xml'
-SUPPRESSIONS_FILE = CPPCHECK_SCAN_DIR + 'cppcheck_suppressions.txt'
+SUPPRESSIONS_TXT = 'cppcheck_suppressions.txt'
+SUPPRESSIONS_FILE = CPPCHECK_SCAN_DIR + SUPPRESSIONS_TXT
 
 def main():
     logging.basicConfig(
@@ -75,7 +77,9 @@ def main():
                 if 'location' in word :
                     word_count += 1
         if not word_count == 0:
-            error_string = str(word_count) + ' new cppcheck errors were found'
+            error_string = str(word_count) + ' new cppcheck errors were found. ' \
+                + 'Correct the errors or if false positives add to ' \
+                + SUPPRESSIONS_TXT + '.'
             logging.error('%s', error_string)
             # Print results for debug
             with open(RESULTS_FILE, 'r') as rfin:
