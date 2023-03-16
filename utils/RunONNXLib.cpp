@@ -325,10 +325,9 @@ OMTensorList *omTensorListCreateFromInputSignature(
   // Allocate array of inputs.
   int inputNum = JSONArray->size();
   assert(inputNum >= 0 && inputNum < 100 && "out of bound number of inputs");
-  OMTensor **inputTensors = nullptr;
-  if (inputNum > 0)
-    inputTensors = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
-  // Scan each input tensor
+
+  OMTensor *inputTensors[inputNum];
+
   int dimKnownAtRuntimeIndex = 0;
   for (int i = 0; i < inputNum; ++i) {
     auto JSONItem = (*JSONArray)[i].getAsObject();
@@ -396,7 +395,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
       cout << "and " << size << " elements" << endl;
     }
   }
-  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum, true);
+  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
 }
 
 // Data structures for timing info.

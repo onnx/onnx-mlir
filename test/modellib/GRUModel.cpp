@@ -121,8 +121,6 @@ bool GRULibBuilder::build() {
 bool GRULibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
   OMTensor* list[num];
-  if (!list)
-    return false;
   list[0] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(xShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(
