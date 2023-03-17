@@ -171,7 +171,7 @@ version_dict = {
  'LogSoftmax': [13],
  'Loop': [16],
  'LpNormalization': [1],
- 'LpPool': [11],
+ 'LpPool': [18],
  'MatMul': [13],
  'MatMulInteger': [10],
  'Max': [13],

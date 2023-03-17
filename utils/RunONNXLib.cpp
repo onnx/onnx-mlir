@@ -178,8 +178,8 @@ void loadDLL(string name, string entryPointName) {
   assert(!dlerror() && "failed to load omOutputSignature");
   dll_omTensorCreateWithOwnership =
       (OMTensor * (*)(void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t))
-          dlsym(handle, "omTensorCreate");
-  assert(!dlerror() && "failed to load omTensorCreate");
+          dlsym(handle, "omTensorCreateWithOwnership");
+  assert(!dlerror() && "failed to load omTensorCreateWithOwnership");
   dll_omTensorListCreate = (OMTensorList * (*)(OMTensor **, int))
       dlsym(handle, "omTensorListCreate");
   assert(!dlerror() && "failed to load omTensorListCreate");
@@ -325,10 +325,9 @@ OMTensorList *omTensorListCreateFromInputSignature(
   // Allocate array of inputs.
   int inputNum = JSONArray->size();
   assert(inputNum >= 0 && inputNum < 100 && "out of bound number of inputs");
-  OMTensor **inputTensors = nullptr;
-  if (inputNum > 0)
-    inputTensors = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
-  // Scan each input tensor
+
+  OMTensor *inputTensors[inputNum];
+
   int dimKnownAtRuntimeIndex = 0;
   for (int i = 0; i < inputNum; ++i) {
     auto JSONItem = (*JSONArray)[i].getAsObject();
@@ -396,7 +395,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
       cout << "and " << size << " elements" << endl;
     }
   }
-  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum, true);
+  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
 }
 
 // Data structures for timing info.
