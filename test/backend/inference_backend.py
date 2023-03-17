@@ -1278,59 +1278,51 @@ class EndiannessAwareExecutionSession(object):
         for idx in range(num_of_inputs):
             if idx not in input_indices:
                 new_inputs.append(inputs[idx])
-        # Add numpy array entry if empty.
-        if not new_inputs:
-            new_inputs.append(np.zeros((1)))
         return new_inputs
 
     def run(self, inputs, **kwargs):
         sys.path.append(RUNTIME_DIR)
         from PyRuntime import OMExecutionSession
 
-        if len(inputs):
-            inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
-            endianness_is_consistent = len(set(inputs_endianness)) <= 1
-            # Deduce desired endianness of output from inputs.
-            # Only possible if all inputs are consistent in endiannness.
-            if endianness_is_consistent:
-                sys_is_le = sys.byteorder == "little"
-                inp_is_le = self.is_input_le(inputs)
-                inp_is_not_relevant_endian = self.is_not_relevant_endian(inputs)
-                if not inp_is_not_relevant_endian and sys_is_le != inp_is_le:
-                    inputs = list(map(lambda x: x.byteswap().newbyteorder(), inputs))
-            # If constant test, change the model inputs to constants.
-            if args.constant:
-                inputs = self.turn_model_input_to_constant(inputs)
-                self.exec_name = compile_model(self.model, args.emit)
-            if args.emit == "lib":
-                session = OMExecutionSession(self.exec_name)
-                outputs = session.run(inputs)
-                # print('input='+str(inputs), file=sys.stderr)
-                # print('output='+str(outputs), file=sys.stderr)
-            elif args.emit == "jni":
-                outputs = JniExecutionSession(self.exec_name, inputs)
-            if (
-                endianness_is_consistent
-                and not inp_is_not_relevant_endian
-                and sys_is_le != inp_is_le
-            ):
-                outputs = list(map(lambda x: x.byteswap().newbyteorder(), outputs))
-            return outputs
-        else:
-            # Can't deduce desired output endianess, fingers crossed.
-            warnings.warn(
-                "Cannot deduce desired output endianness, using native endianness by default."
-            )
-            if args.emit == "lib":
-                session = OMExecutionSession(self.exec_name)
-                # Add numpy array entry if empty.
-                if not inputs:
-                    inputs = [np.zeros((1))]
-                outputs = session.run(inputs)
-            elif args.emit == "jni":
-                outputs = JniExecutionSession(self.exec_name, inputs)
-            return outputs
+        # If constant is set, recompile the model so inputs are model constants
+        if args.constant:
+            inputs = self.turn_model_input_to_constant(inputs)
+            self.exec_name = compile_model(self.model, args.emit)
 
+        # Contant tests may create models that no longer expect input tensors.
+        # The input values get built into the model itself. So we create a fake
+        # input of a zero array so the test infrastructure tolerates this scenario.
+        if not inputs:
+            inputs = [np.zeros((1))]
+
+        # Deduce desired endianness of output from inputs.
+        # Only possible if all inputs are consistent in endiannness.
+        inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
+        endianness_is_consistent = len(set(inputs_endianness)) <= 1
+        if endianness_is_consistent:
+            sys_is_le = sys.byteorder == "little"
+            inp_is_le = self.is_input_le(inputs)
+            inp_is_not_relevant_endian = self.is_not_relevant_endian(inputs)
+            if not inp_is_not_relevant_endian and sys_is_le != inp_is_le:
+                inputs = list(map(lambda x: x.byteswap().newbyteorder(), inputs))
+
+        # Run the model
+        if args.emit == "lib":
+            session = OMExecutionSession(self.exec_name)
+            outputs = session.run(inputs)
+            # print('input='+str(inputs), file=sys.stderr)
+            # print('output='+str(outputs), file=sys.stderr)
+        elif args.emit == "jni":
+            outputs = JniExecutionSession(self.exec_name, inputs)
+
+        if (
+            endianness_is_consistent
+            and not inp_is_not_relevant_endian
+            and sys_is_le != inp_is_le
+        ):
+            outputs = list(map(lambda x: x.byteswap().newbyteorder(), outputs))
+
+        return outputs
 
 class InferenceBackend(Backend):
     @classmethod

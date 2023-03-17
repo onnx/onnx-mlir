@@ -178,8 +178,8 @@ void loadDLL(string name, string entryPointName) {
   assert(!dlerror() && "failed to load omOutputSignature");
   dll_omTensorCreateWithOwnership =
       (OMTensor * (*)(void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t))
-          dlsym(handle, "omTensorCreate");
-  assert(!dlerror() && "failed to load omTensorCreate");
+          dlsym(handle, "omTensorCreateWithOwnership");
+  assert(!dlerror() && "failed to load omTensorCreateWithOwnership");
   dll_omTensorListCreate = (OMTensorList * (*)(OMTensor **, int))
       dlsym(handle, "omTensorListCreate");
   assert(!dlerror() && "failed to load omTensorListCreate");
