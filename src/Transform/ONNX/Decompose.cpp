@@ -15,6 +15,9 @@
 // implement shape inference for the decomposed operation. Hence, it is expected
 // that there is no knowledge about tensor shape at this point.
 //
+// TODO: This file is quite busy as the number of decomposing op is increasing.
+// It is better to move decomposition of each operation into a separate file.
+//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/Matchers.h"
@@ -576,6 +579,65 @@ struct ConcatFusePattern : public ConversionPattern {
     return success();
   }
 };
+
+// Decompose the custom op FusedMatMul that is produced by ONNXRuntime.
+// According to FusedMatMul specification, it is the result of fusing MatMul and
+// Transpose.
+//
+// To decompose FusedMatMul, we need to know ranks of inputs A and B, so that
+// we can emit Transpose operations. But, in general, we have no information
+// about the ranks of A and B.
+//
+// The rewriting here only applies to a situation in which the transposed input
+// comes from another Transpose that we have rank information via looking at
+// `perm` // attribute. For example, if `transA = 1`, A must be from a Transpose
+// to determine the rank of A.
+//
+// Example of onnx.Custom:
+// ```
+// "onnx.Custom"(%0, %1) {alpha = 1.250000e-01 : f32,
+//                        domain_name = "com.microsoft",
+//                        function_name = "FusedMatMul",
+//                        transA = 0 : si64, transB = 1 : si64} :
+//              (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+// ```
+
+bool isCustomOpMatched(ONNXCustomOp customOp) {
+  Operation *genericOp = customOp.getOperation();
+  // CustomOp has two operands.
+  if (customOp.getNumOperands() !=2)
+    return false;
+  Value A = genericOp->getOperands()[0];
+  Value B = genericOp->getOperands()[1];
+
+  // function_name is FusedMatMul.
+  StringRef funcName = customOp.getFunctionName();
+  if (!funcName.equals_insensitive("FusedMatMul"))
+    return false;
+
+  // domain_name exists and is "com.microsoft";
+  StringAttr domAttr = genericOp->getAttrOfType<StringAttr>("domain_name");
+  if (!domAttr)
+    return false;
+  if (!domAttr.getValue().equals_insensitive("com.microsoft"))
+    return false;
+
+  // transA and transB exist.
+  IntegerAttr transA = genericOp->getAttrOfType<IntegerAttr>("transA");
+  IntegerAttr transB = genericOp->getAttrOfType<IntegerAttr>("transB");
+  if (!transA || !transB)
+    return false;
+
+  // If transA=true, we have to know A's rank to generate ONNXTransposeOp for A.
+  // In a good condition, A is ranked then its rank is avilable.
+  //
+  // If A is unranked, we hope that A is a result of another ONNXTransposeOp
+  // whose permutation is available and can be used to infer the rank of A. 
+  // For example,
+  // %A = "onnx.Transpose"(%0) {perm = [0, 2, 1, 3]} :
+  //                      (tensor<*xf32>) -> tensor<*xf32>
+  // A must have rank 4 as perm has 4 indices.
+}
 
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
