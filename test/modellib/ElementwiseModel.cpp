@@ -95,8 +95,8 @@ bool Elementwise2DLibBuilder::build() {
 
 bool Elementwise2DLibBuilder::prepareInputs(
     float dataRangeLB, float dataRangeUB) {
-  // OMTensor **list = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
-  OMTensor *list[inputNum];
+  // Create dynamic list (to be freed before end of function).
+  OMTensor **list = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
 
   // Create elements in the list.
   if (!list)
@@ -119,8 +119,9 @@ bool Elementwise2DLibBuilder::prepareInputs(
   } else
     llvm_unreachable("support only unary and binary op");
 
-  // Create list.
+  // Create actual list.
   inputs = omTensorListCreate(list, inputNum);
+  free(list);
   return inputs;
 }
 

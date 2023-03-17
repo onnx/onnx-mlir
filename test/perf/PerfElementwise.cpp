@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//=================-- PerfElementwise.cpp - Simple performance tests
-//-=========//
+//===============-- PerfElementwise.cpp - Simple performance tests -==========//
 //
 // Copyright 2023 The IBM Research Authors.
 //
@@ -48,24 +47,6 @@ BENCHMARK(BM_Add_nice)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
-static void BM_HardSigmoid_nice(benchmark::State &state) {
-  int I = state.range(0);
-  int J = state.range(0);
-  onnx_mlir::test::Elementwise2DLibBuilder model(
-      modelName, "ONNXHardSigmoidOp", 1, I, J);
-  assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
-         "failed elementwise add");
-  for (auto _ : state)
-    model.run();
-  state.SetComplexityN(I);
-  perf_recordFlops(state, 4.0 * I * J); // FMA plus 2 float compare.
-}
-BENCHMARK(BM_HardSigmoid_nice)
-    ->RangeMultiplier(2)
-    ->Range(256, 2048)
-    ->Unit(benchmark::kMillisecond)
-    ->Complexity();
-
 //===----------------------------------------------------------------------===//
 // Harder SIMD opportunities for backend compiler by having small tiles in the
 // last dimension.
@@ -92,11 +73,39 @@ BENCHMARK(BM_Add_harder)
     ->Unit(benchmark::kMillisecond)
     ->Complexity();
 
+//===----------------------------------------------------------------------===//
+// Nice SIMD opportunities for backend compiler by having large tiles in both
+// dimensions.
+//===----------------------------------------------------------------------===//
+
+static void BM_HardSigmoid_nice(benchmark::State &state) {
+  int I = state.range(0);
+  int J = state.range(0);
+  onnx_mlir::test::Elementwise2DLibBuilder model(
+      modelName, "ONNXHardSigmoidOp", 1, I, J);
+  assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
+         "failed elementwise add");
+  for (auto _ : state)
+    model.run();
+  state.SetComplexityN(I);
+  perf_recordFlops(state, 4.0 * I * J); // FMA plus 2 float compare.
+}
+BENCHMARK(BM_HardSigmoid_nice)
+    ->RangeMultiplier(2)
+    ->Range(256, 2048)
+    ->Unit(benchmark::kMillisecond)
+    ->Complexity();
+
+//===----------------------------------------------------------------------===//
+// Harder SIMD opportunities for backend compiler by having small tiles in the
+// last dimension.
+//===----------------------------------------------------------------------===//
+
 static void BM_HardSigmoid_harder(benchmark::State &state) {
   int I = state.range(0);
   int J = state.range(0);
   int tot = I * J;
-  int inner =  7;
+  int inner = 7;
   int outer = tot / inner;
   onnx_mlir::test::Elementwise2DLibBuilder model(
       modelName, "ONNXHardSigmoidOp", 1, outer, inner);
