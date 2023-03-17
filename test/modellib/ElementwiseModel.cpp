@@ -96,7 +96,7 @@ bool Elementwise2DLibBuilder::build() {
 bool Elementwise2DLibBuilder::prepareInputs(
     float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
-  assert(inputNum <= num, "bad constant");
+  assert(inputNum <= num && "bad constant");
   OMTensor *list[num];
 
   // Create elements in the list.
@@ -122,7 +122,6 @@ bool Elementwise2DLibBuilder::prepareInputs(
 
   // Create actual list.
   inputs = omTensorListCreate(list, inputNum);
-  free(list);
   return inputs;
 }
 
