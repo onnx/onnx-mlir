@@ -95,8 +95,9 @@ bool Elementwise2DLibBuilder::build() {
 
 bool Elementwise2DLibBuilder::prepareInputs(
     float dataRangeLB, float dataRangeUB) {
-  // Create dynamic list (to be freed before end of function).
-  OMTensor **list = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
+  constexpr int num = 2;
+  assert(inputNum <= num, "bad constant");
+  OMTensor *list[num];
 
   // Create elements in the list.
   if (!list)
@@ -196,9 +197,7 @@ bool Elementwise2DLibBuilder::verifyOutputs() {
     llvm_unreachable("support only unary and binary op");
 
   // Check similarities.
-  bool ok = areCloseFloat(res, ref);
-  omTensorDestroy(ref);
-  return ok;
+  return areCloseFloat(res, ref);
 }
 
 } // namespace test

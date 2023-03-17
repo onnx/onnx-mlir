@@ -62,8 +62,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // Convolution Optimization for CPU: enable when there are no accelerators.
   if (targetCPU) {
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createConvOptONNXToONNXPass(enableSimdDataLayout));
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
+        enableSimdDataLayout && !disableSimdOption));
     pm.addPass(onnx_mlir::createShapeInferencePass());
   }
   // There are more opportunities for const propagation once all tensors have
@@ -74,7 +74,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   if (onnxOpTransformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
     pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
-        onnxOpTransformReport, targetCPU, enableSimdDataLayout));
+        onnxOpTransformReport, targetCPU,
+        enableSimdDataLayout && !disableSimdOption));
   } else {
     // Statically add extra passes
     for (int i = 0; i < repeatOnnxTransform; i++) {

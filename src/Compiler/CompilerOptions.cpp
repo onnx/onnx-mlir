@@ -199,8 +199,8 @@ llvm::cl::opt<bool> enableParallel("parallel",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> disableSimdOption("disable-simd",
-    llvm::cl::desc("Disable SIMD optimizations (default: on at O3, "
-                   "off otherwise). Set to `true` to disable SIMD at O3."),
+    llvm::cl::desc("Disable SIMD optimizations (default=false). Set to `true` "
+                   "to disable SIMD at O3."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> enableSimdDataLayout("simd-data-layout",
