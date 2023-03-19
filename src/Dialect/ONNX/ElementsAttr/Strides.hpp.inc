@@ -24,6 +24,9 @@ Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator dst,
   //     act(dst, src0.begin() + it->pos[0], src1.begin() + it->pos[1]);
   //   return dst;
   //
+  if (llvm::any_of(shape, [](int64_t dimSize) { return dimSize == 0; })) {
+    return dst; // No traversal because shape is empty.
+  }
   size_t pos0 = 0, pos1 = 0;
   llvm::SmallVector<uint64_t, 6> index(shape.size(), 0);
   for (;;) {

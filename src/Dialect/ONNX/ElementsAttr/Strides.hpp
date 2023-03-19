@@ -40,6 +40,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallVector.h"
 
