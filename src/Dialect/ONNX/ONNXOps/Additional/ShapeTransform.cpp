@@ -31,7 +31,7 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
   auto inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
   ArrayRef<int64_t> inputDims = inputType.getShape();
-  uint64_t outputRank = indexMap.getNumResults();
+  int64_t outputRank = indexMap.getNumResults();
 
   // Use the given affine_map to compute output's shape.
   // IndexExpr does not support construction with an existing affine_map, so
@@ -52,7 +52,7 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
   assert((flatMemRefType.getRank() == outputRank) && "Normalization failed");
 
   DimsExpr outputIEs(outputRank);
-  for (uint64_t i = 0; i < outputRank; ++i) {
+  for (int64_t i = 0; i < outputRank; ++i) {
     LiteralIndexExpr dim(flatMemRefType.getShape()[i]);
     outputIEs[i] = dim;
   }
