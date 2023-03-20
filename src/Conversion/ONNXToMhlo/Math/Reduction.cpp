@@ -86,10 +86,9 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
   // Assume it is verified that axes are known. Convert DenseElementsAttr to
   // ArrayAttr.
   if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
-    mlir::DenseElementsAttr constAxes =
-        getONNXConstantOp(axesValue)
-            .getValueAttr()
-            .dyn_cast_or_null<mlir::DenseElementsAttr>();
+    mlir::ElementsAttr constAxes = getONNXConstantOp(axesValue)
+                                       .getValueAttr()
+                                       .dyn_cast_or_null<mlir::ElementsAttr>();
     for (mlir::IntegerAttr element : constAxes.getValues<IntegerAttr>())
       definedAxes.push_back(element.getInt());
     return definedAxes;
