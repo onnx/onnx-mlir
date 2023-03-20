@@ -583,7 +583,8 @@ struct ConcatFusePattern : public ConversionPattern {
 
 // Decompose the custom op FusedMatMul that is produced by ONNXRuntime.
 // According to FusedMatMul specification, it is the result of fusing MatMul and
-// Transpose.
+// Transpose:
+// https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
 //
 // To decompose FusedMatMul, we need to know ranks of inputs A and B, so that
 // we can emit Transpose operations. But, in general, we have no information
@@ -685,6 +686,8 @@ static bool isCustomOpMatched(ONNXCustomOp customOp, FloatAttr &alphaAttr,
   return true;
 }
 
+// Pattern to decompose CustomOp FusedMatMul introduced by onnxruntime:
+// https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
 struct CustomOpFuseMatMulPattern : public OpConversionPattern<ONNXCustomOp> {
   CustomOpFuseMatMulPattern(MLIRContext *context)
       : OpConversionPattern(context) {}
@@ -844,6 +847,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   populateWithGenerated(patterns);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(&getContext());
   patterns.insert<ConcatFusePattern>(&getContext());
+  // Decompose CustomOp FusedMatMul introduced by onnxruntime:
+  // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   patterns.insert<CustomOpFuseMatMulPattern>(&getContext());
 
 #ifdef ONNX_MLIR_ENABLE_MHLO
