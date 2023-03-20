@@ -98,10 +98,10 @@ public:
     Type outputElementType = outputType.getElementType();
 
     if (failed(InputType::checkType(rewriter, inputElementType, op)))
-      return rewriter.notifyMatchFailure(op, "input type not supported");
+      return failure();
 
     if (failed(InputType::checkType(rewriter, outputElementType, op)))
-      return rewriter.notifyMatchFailure(op, "output type not supported");
+      return failure();
 
     rewriter.replaceOpWithNewOp<ElementwiseUnaryOpTOSA>(
         op, op.getType(), *adaptor.getODSOperands(0).begin());
