@@ -615,13 +615,12 @@ private:
               // N state variables part
               genericOp->getOpResult(i).setType(type);
             } else {
-              // K Scan outputs part
-              // Insert an extra leading dimension to the shapes
-              RankedTensorType rankedType = type.cast<RankedTensorType>();
-              std::vector<int64_t> shape = rankedType.getShape();
-              shape.insert(shape.begin(), ShapedType::kDynamic);
+              // K scan_outputs part
+              // set "unranked" shape to ignore the output shape and to set the
+              // shape at the shape inference pass.
+              TensorType tensorType = type.cast<TensorType>();
               Type extendedType =
-                  RankedTensorType::get(shape, rankedType.getElementType());
+                  UnrankedTensorType::get(tensorType.getElementType());
               genericOp->getOpResult(i).setType(extendedType);
             }
           }
