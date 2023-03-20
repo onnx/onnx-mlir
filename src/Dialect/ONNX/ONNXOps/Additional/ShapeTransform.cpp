@@ -32,17 +32,15 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
   Type elementType = inputType.getElementType();
   ArrayRef<int64_t> inputDims = inputType.getShape();
   int64_t outputRank = indexMap.getNumResults();
-  assert((outputRank >= 0) &&
-         "Affine indexMap results is too large for signed numPy ranks");
 
   // Use the given affine_map to compute output's shape.
   // IndexExpr does not support construction with an existing affine_map, so
   // compute the output's shape manually, and put it inside IndexExpr as result.
   //
   // Note that, affine_map is for index access, but what we want to compute here
-  // is the upperbound for output dimensions.
+  // is the upper bound for output dimensions.
   //
-  // We will borrow memref normalization in MLIR to obtain the upperbound, as
+  // We will borrow memref normalization in MLIR to obtain the upper bound, as
   // follows:
   // - construct a MemRefType using the input shape and affine_map
   // - normalize the MemRefType.

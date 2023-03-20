@@ -247,7 +247,7 @@ public:
     // All consumers of zlow.unstick must be affine.load.
     SmallVector<AffineLoadOp, 4> loadOps;
     if (!matchAndCollectAffineLoad(unstickOp, cpuMemRef, loadOps))
-      rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
         diag << "Failed to match AffineLoadOp";
       });
 
