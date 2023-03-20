@@ -12,7 +12,7 @@
 
 # ask git for the onnx-mlir top level dir
 ONNX_MLIR=$(git rev-parse --show-toplevel)
-if [ $(pwd) != $ONNX_MLIR/build ] ; then
+if [ $(realpath $(pwd)) != $ONNX_MLIR/build ] ; then
   echo "Error: this script must be run from the build dir $ONNX_MLIR/build"
   exit 1
 fi

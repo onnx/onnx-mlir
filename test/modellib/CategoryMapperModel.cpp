@@ -4,7 +4,7 @@
 
 //===-- CategoryMapperModel.cpp - CategoryMapperLibBuilder implementation -===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022,2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -54,14 +54,12 @@ bool CategoryMapperLibBuilder<T1, T2>::build() {
 
 template <typename T1, typename T2>
 bool CategoryMapperLibBuilder<T1, T2>::prepareInputs() {
-  OMTensor **list = (OMTensor **)malloc(sizeof(OMTensor *));
-  if (!list)
-    return false;
-
+  constexpr int num = 1;
+  OMTensor* list[num];
   int64_t shape[1] = {static_cast<int64_t>(input.size())};
   list[0] = createOMTensor<T1>(input, shape, 1,
       (std::is_same<T1, int64_t>::value) ? ONNX_TYPE_INT64 : ONNX_TYPE_STRING);
-  inputs = omTensorListCreateWithOwnership(list, 1, true);
+  inputs = omTensorListCreate(list, num);
 
   return inputs && list[0];
 }

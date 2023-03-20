@@ -16,6 +16,8 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "llvm/Support/Debug.h"
 
+#define DEBUG_TYPE "ONNXOps"
+
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
@@ -68,8 +70,8 @@ LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
     if (!outputDims[a].isLiteral()) {
       outputDims[a] = LiteralIndexExpr(d);
     }
-    llvm::dbgs() << "literal: " << outputDims[a].getLiteral() << " d = " << d
-                 << "\n";
+    LLVM_DEBUG(llvm::dbgs() << "literal: " << outputDims[a].getLiteral()
+                            << " d = " << d << "\n");
     // Checked in verify.
     assert(outputDims[a].getLiteral() == d &&
            "x_scale and x_zero_point 1-D tensor length must match the input "

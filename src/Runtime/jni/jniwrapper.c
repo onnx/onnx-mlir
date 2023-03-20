@@ -4,7 +4,7 @@
 
 //===------------- jniwrapper.c - JNI wrapper Implementation -------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -501,9 +501,8 @@ OMTensorList *omtl_java_to_native(
    * OMTensor structs, jni_omts.
    */
   LIB_TYPE_VAR_CALL(OMTensorList *, jni_omtl,
-      omTensorListCreateWithOwnership(
-          jni_omts, (int64_t)jomtl_omtn, (int64_t)1),
-      jni_omtl != NULL, env, japi->jecpt_cls, "jni_omtl=%p", jni_omtl);
+      omTensorListCreate(jni_omts, (int64_t)jomtl_omtn), jni_omtl != NULL, env,
+      japi->jecpt_cls, "jni_omtl=%p", jni_omtl);
 
   return jni_omtl;
 }

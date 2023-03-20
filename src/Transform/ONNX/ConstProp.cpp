@@ -159,6 +159,11 @@ struct ElementWiseBinaryOpImpl<ONNXMaxOp, T> {
   static T eval(T lhs, T rhs) { return std::max<T>(lhs, rhs); }
 };
 
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXEqualOp, T> {
+  static bool eval(T lhs, T rhs) { return lhs == rhs; }
+};
+
 template <typename ElementwiseBinaryOp>
 constexpr auto elementwiseBinaryOpCombiner(Type elemType) {
   return getWideNumWrappedTemplateFunction<ElementWiseBinaryOpImpl,
@@ -840,6 +845,29 @@ Value ConstPropReshape(
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, constValue, reshapedShape);
   return createReplacingConstantOp(rewriter, replacingValue, reshapedElements)
+      .getResult();
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ConstantOfShape.
+//===----------------------------------------------------------------------===//
+
+Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
+    Value shape, Attribute value) {
+  ConstPropCounters::count("ConstantOfShape", {shape});
+  ElementsAttr shapeAttr =
+      getONNXConstantOp(shape).getValueAttr().cast<ElementsAttr>();
+  llvm::SmallVector<int64_t, 4> shapeVector(shapeAttr.getValues<int64_t>());
+
+  // ONNXConstantOfShapeOp::inferShapes() makes sure that the 'value' attribute
+  // here is specified
+  ElementsAttr constElements = value.cast<ElementsAttr>();
+
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr expandedElements =
+      shapeVector.empty() ? elementsBuilder.reshape(constElements, shapeVector)
+                          : elementsBuilder.expand(constElements, shapeVector);
+  return createReplacingConstantOp(rewriter, replacingValue, expandedElements)
       .getResult();
 }
 
