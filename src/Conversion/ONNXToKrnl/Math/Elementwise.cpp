@@ -16,6 +16,8 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
+#define DEBUG 0 /* Log which functions are simdized. */
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -79,7 +81,7 @@ template <>
 struct ScalarOp<ONNXDivOp> {
   using FOp = arith::DivFOp;
   using IOp = arith::DivSIOp;
-  using SimdEnabled = SimdScalarOp;
+  using SimdEnabled = NoSimdScalarOp; // Disabled for now because of GPT2 error.
 };
 
 template <>
@@ -958,6 +960,9 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
     ValueRange operands, int64_t alignment, int64_t simdUnroll) {
   Type outputElementType = outputMemRefType.getElementType();
 
+  if (DEBUG)
+    fprintf(stderr, "simdizing binary op %s\n",
+        op->getName().getStringRef().str().c_str());
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
   int64_t VL =
@@ -1015,6 +1020,10 @@ static LogicalResult getVariadicSimdCodeFullyFlattened(
     ValueRange operands, int64_t alignment, int64_t simdUnroll) {
   Type outputElementType = outputMemRefType.getElementType();
   unsigned numArgs = op->getNumOperands();
+
+  if (DEBUG)
+    fprintf(stderr, "hi alex, simdizing variadic op %s\n",
+        op->getName().getStringRef().str().c_str());
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
