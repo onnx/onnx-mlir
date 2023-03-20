@@ -272,3 +272,21 @@ func.func @test_leakyrelu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> 
 // CHECK-NEXT:     [[VAR_8_:%.+]] = mhlo.select [[VAR_7_]], [[PARAM_0_]], [[VAR_3_]] : tensor<?x10xi1>, tensor<?x10xf32>
 // CHECK-NEXT:     return [[VAR_8_]] : tensor<?x10xf32>
 }
+
+// -----
+
+func.func @test_neg(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Neg"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL: func @test_neg
+// CHECK: %0 = mhlo.negate %arg0 : tensor<10x10xf32>
+}
+
+// -----
+
+func.func @test_sin(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Sin"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL: func @test_sin
+// CHECK: %0 = mhlo.sine %arg0 : tensor<10x10xf32>
+}
