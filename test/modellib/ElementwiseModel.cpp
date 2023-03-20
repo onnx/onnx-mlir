@@ -100,8 +100,6 @@ bool Elementwise2DLibBuilder::prepareInputs(
   OMTensor *list[num];
 
   // Create elements in the list.
-  if (!list)
-    return false;
   if (inputNum == 1) {
     // Unary operation.
     list[0] =
