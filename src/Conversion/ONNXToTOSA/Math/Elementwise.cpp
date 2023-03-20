@@ -53,10 +53,10 @@ template <typename OpAdaptorT>
 LogicalResult checkBasicTosaRequirementsForBinaryOps(
     ConversionPatternRewriter &rewriter, Operation *op, OpAdaptorT adaptor,
     Type resultType) {
-  Value lhs = adaptor.A();
+  Value lhs = adaptor.getA();
   auto lhsType = lhs.getType().dyn_cast<TensorType>();
 
-  Value rhs = adaptor.B();
+  Value rhs = adaptor.getB();
   auto rhsType = rhs.getType().dyn_cast<TensorType>();
 
   auto resultTensorType = resultType.dyn_cast<TensorType>();
