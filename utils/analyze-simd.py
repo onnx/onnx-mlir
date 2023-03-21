@@ -136,11 +136,6 @@ def characterize_op(line):
         inc_aggr_dict('voverhead')
         inc_aggr_dict('vec')
         return 'vshuffle'
-    if re.match(r'.*\s' +op_name["vfma"], line):
-        inc_op_dict('vfma')
-        inc_aggr_dict('vcompute')
-        inc_aggr_dict('vec')
-        return 'vfma'
     if re.match(r'.*\s' +op_name["vmul"], line):
         inc_op_dict('vmul')
         inc_aggr_dict('vcompute')
@@ -151,6 +146,11 @@ def characterize_op(line):
         inc_aggr_dict('vcompute')
         inc_aggr_dict('vec')
         return 'vadd'
+    if re.match(r'.*\s' +op_name["vfma"], line):
+        inc_op_dict('vfma')
+        inc_aggr_dict('vcompute')
+        inc_aggr_dict('vec')
+        return 'vfma'
     # Scalar
     if re.match(r'.*\s' +op_name["load"], line):
         inc_op_dict('load')
@@ -177,18 +177,18 @@ def characterize_ops(buffer, reset=True):
         characterize_op(l)
 
 def print_characterization(details=False):
-    vcompute = (1.0 * float(get_aggr_dict('vcompute')) / float(get_aggr_dict('vec')))
+    vcompute_vec = (1.0 * float(get_aggr_dict('vcompute')) / float(get_aggr_dict('vec')))
     tot = float(get_aggr_dict('vec')) + float(get_aggr_dict('scalar')) + float(get_aggr_dict('other'))
-    vcompute_tot = (1.0 * float(get_aggr_dict('vcompute')) / tot)
+    vec_tot = (1.0 * float(get_aggr_dict('vec')) / tot)
     print("# vector ops, " + get_aggr_dict('vec') +
           ", compute, " + get_aggr_dict('vcompute') +
           ", mem, " + get_aggr_dict('vmem') +
           ", overhead, " + get_aggr_dict('voverhead') + 
-          ", vcompute/vec, {:.2f}".format(vcompute))
+          ", vcompute/vec, {:.2f}".format(vcompute_vec))
     print("# scalar, " + get_aggr_dict('scalar') +
           ", mem, " + get_aggr_dict('mem'))
     print("# others, " + get_aggr_dict('other') +
-          ", vcompute/tot, {:.2f}".format(vcompute_tot))
+          ", vec/tot, {:.2f}".format(vec_tot))
     if details:
         print("# details:")
         for f in op_name.keys():
