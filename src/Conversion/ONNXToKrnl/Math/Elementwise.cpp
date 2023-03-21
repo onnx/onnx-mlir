@@ -949,10 +949,13 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 // SIMD code gen for kernels where data can be fully flattened.
 //===----------------------------------------------------------------------===//
 
+static char *getOpName(Operation *op) {
+  return op->getName().getStringRef().str().c_str();
+}
+
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MemRefBuilder, VectorBuilder>;
 
-//
 template <typename ElementwiseUnaryOp>
 static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
     ConversionPatternRewriter &rewriter, MDBuilder &create,
@@ -961,8 +964,8 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
   Type outputElementType = outputMemRefType.getElementType();
 
   if (DEBUG)
-    fprintf(stderr, "simdizing binary op %s\n",
-        op->getName().getStringRef().str().c_str());
+    fprintf(stderr, "SIMD code for binary op %s\n", getOpName(op));
+
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
   int64_t VL =
@@ -1022,8 +1025,7 @@ static LogicalResult getVariadicSimdCodeFullyFlattened(
   unsigned numArgs = op->getNumOperands();
 
   if (DEBUG)
-    fprintf(stderr, "hi alex, simdizing variadic op %s\n",
-        op->getName().getStringRef().str().c_str());
+    fprintf(stderr, "SIMD code for variadic op %s\n", getOpName(op));
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
