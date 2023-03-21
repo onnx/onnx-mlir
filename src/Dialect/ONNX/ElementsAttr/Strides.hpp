@@ -175,8 +175,10 @@ public:
   StridesIterator(llvm::ArrayRef<int64_t> shape)
       : StridesIterator(mlir::ShapedType::getNumElements(shape)) {}
 
+  // These declarations are redundant, the compiler generates this constructor
+  // and operator automatically, but included to flag that StridesIterator can
+  // be copied, which is used in the implementation of operator++(int) below.
   StridesIterator(const StridesIterator &) = default;
-
   StridesIterator &operator=(const StridesIterator &) = default;
 
   bool operator==(const StridesIterator &other) const {
@@ -202,6 +204,8 @@ public:
         value.pos[i] += strides[i][axis];
       if (++(value.index[axis]) < dim)
         break;
+      // axis overflowed: rewind the axis and carry over to axis-1 by doing
+      // the next iteration of the loop
       for (unsigned i = 0; i < N; ++i)
         value.pos[i] -= dim * strides[i][axis];
       value.index[axis] = 0;
