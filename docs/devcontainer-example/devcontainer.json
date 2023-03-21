@@ -1,0 +1,74 @@
+{
+  "build": { "dockerfile": "Dockerfile.llvm-project" },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "cmake.mergedCompileCommands": "${workspaceFolder}/compile_commands.json",
+        "cmakeExplorer.suiteDelimiter": ".",
+        "cmakeExplorer.debugConfig": "(gdb) Launch",
+        "editor.formatOnSave": true,
+        "[cpp]": {
+          "editor.defaultFormatter": "xaver.clang-format",
+          "editor.tabSize": 2
+        },
+        "clangd.path": "/usr/bin/clangd-15",
+        "clangd.arguments": [
+          "--background-index",
+          "-header-insertion=never",
+          "-j=4"
+        ],
+        "cmake.buildDirectory": "${workspaceFolder}/build",
+        "cmake.generator": "Ninja",
+        "cmake.defaultVariants": {
+          "buildType": {
+            "default": "reldeb",
+            "description": "The build type.",
+            "choices": {
+              "debug": {
+                "short": "Debug",
+                "long": "Disable optimizations - include debug information.",
+                "buildType": "Debug"
+              },
+              "release": {
+                "short": "Release",
+                "long": "Optimize for speed - exclude debug information.",
+                "buildType": "Release"
+              },
+              "minsize": {
+                "short": "MinSizeRel",
+                "long": "Optimize for smallest binary size - exclude debug information.",
+                "buildType": "MinSizeRel"
+              },
+              "reldeb": {
+                "short": "RelWithDebInfo",
+                "long": "Optimize for speed - include debug information.",
+                "buildType": "RelWithDebInfo"
+              }
+            }
+          }
+        }
+      },
+      "extensions": [
+        "llvm-vs-code-extensions.vscode-clangd",
+        "vadimcn.vscode-lldb",
+        "ms-vscode.cmake-tools",
+        "fredericbonnet.cmake-test-adapter",
+        "twxs.cmake",
+        "xaver.clang-format",
+        "notskm.clang-tidy",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "eamodio.gitlens",
+        "llvm-vs-code-extensions.vscode-mlir",
+        "cschlosser.doxdocgen",
+        "chneau.resource-monitor",
+        "spmeesseman.vscode-taskexplorer",
+        "edonet.vscode-command-runner"
+      ]
+    }
+  },
+  "workspaceFolder": "${localWorkspaceFolder}",
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind,consistency=cached",
+  "postAttachCommand": "ONNX_ROOT=third_party/onnx && cd ${ONNX_ROOT} && python3 -m pip install . && cd ../.."
+}
