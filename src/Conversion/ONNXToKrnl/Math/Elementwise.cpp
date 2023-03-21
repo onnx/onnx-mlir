@@ -949,7 +949,7 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 // SIMD code gen for kernels where data can be fully flattened.
 //===----------------------------------------------------------------------===//
 
-static char *getOpName(Operation *op) {
+static const char *getOpName(Operation *op) {
   return op->getName().getStringRef().str().c_str();
 }
 
