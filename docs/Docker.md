@@ -156,3 +156,16 @@ git push --set-upstream origin main
 
 A Docker container can be used to investigate a bug, or to develop a new feature. Some like to create a new images for each new version of ONNX-MLIR; others prefer to create one image and use git to update the main branch and use git to switch between multiple branches. Both are valid approaches.
 
+## Using a devcontainer
+Another way of building onnx-mlir for development in VSCode is using a devcontainer. This way you only mount your source folder, meaning that changes you do are saved on your local machine. For this setup to work you need a `Dockerfile` and a `devcontainer.json` file. Both are provided in `docs/devcontainer-example`. 
+
+The [`Dockerfile`](devcontainer-example/Dockerfile.llvm-project) is a simple Dockerfile based on the precompiled LLVM/MLIR image that is shared. It installs additional software that is useful for developing and also sets `LLVM_PROJECT_ROOT` to easily refer to the LLVM path.
+
+
+The [`devcontainer.json`](devcontainer-example/devcontainer.json) preinstalls extensions and defines settings for the VS Code server running inside the container. This way you don't have to setup VS Code everytime you enter the container. In `postAttachCommand` ONNX is installed.
+
+To use this setup you first clone onnx-mlir and all submodules (for example with` git clone --recursive https://github.com/onnx/onnx-mlir.git`). You then create a new folder named `.devcontainer` in the source root. After that you copy the two files in `docs/devcontainer-example` into that folder. Now simply press `CTRL+SHIFT+P` and execute `Dev Containers: Reopen in Container`. VS Code will now create the docker image and mount the source folder.
+
+You can now configure onnx-mlir as described in [BuildOnLinuxOSX](BuildOnLinuxOSX.md). `MLIR_DIR` is already set for you, so you can skip that step.
+
+**Note:** To run this on M1/2 Macs something like Rosetta is needed. This is related to https://github.com/docker/roadmap/issues/384

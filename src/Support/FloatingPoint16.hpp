@@ -49,7 +49,7 @@ public:
 
   static FP16 fromAPFloat(llvm::APFloat a);
 
-  // Substitute for reinterpret_cast<FP16>(f), which C++ doesn't allow.
+  // Same as static_cast<FP16>(f).
   static FP16 fromFloat(float f) { return fromAPFloat(llvm::APFloat(f)); }
 
   // Substitute for reinterpret_cast<FP16>(u), which C++ doesn't allow.
