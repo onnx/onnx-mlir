@@ -604,8 +604,8 @@ struct ConcatFusePattern : public ConversionPattern {
 //              (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
 // ```
 
-static bool isCustomOpMatched(ONNXCustomOp customOp, FloatAttr &alphaAttr,
-    int64_t &rankA, int64_t &rankB) {
+static bool isCustomOpFusedMatMulMatched(ONNXCustomOp customOp,
+    FloatAttr &alphaAttr, int64_t &rankA, int64_t &rankB) {
   Operation *genericOp = customOp.getOperation();
   // CustomOp has two operands.
   if (customOp.getNumOperands() != 2)
@@ -700,7 +700,7 @@ struct CustomOpFuseMatMulPattern : public OpConversionPattern<ONNXCustomOp> {
     // Match
     FloatAttr alphaAttr;
     int64_t rankA, rankB;
-    if (!isCustomOpMatched(customOp, alphaAttr, rankA, rankB))
+    if (!isCustomOpFusedMatMulMatched(customOp, alphaAttr, rankA, rankB))
       return failure();
 
     // Rewrite ONNXCustomOp {alpha} (A, B) into `Mul(alpha, MatMul(A, B)`
@@ -815,10 +815,12 @@ void DecomposeONNXToONNXPass::runOnOperation() {
     ONNXTransposeOp transposeOp = NULL;
     return !isConcatFuseMatched(op, shapeOp, transposeOp);
   });
+  // Decompose CustomOp FusedMatMul introduced by onnxruntime:
+  // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   target.addDynamicallyLegalOp<ONNXCustomOp>([](ONNXCustomOp op) {
     int64_t rankA, rankB;
     FloatAttr alpha;
-    return !isCustomOpMatched(op, alpha, rankA, rankB);
+    return !isCustomOpFusedMatMulMatched(op, alpha, rankA, rankB);
   });
 
 #ifdef ONNX_MLIR_ENABLE_MHLO
