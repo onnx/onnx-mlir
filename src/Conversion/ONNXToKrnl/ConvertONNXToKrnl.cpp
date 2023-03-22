@@ -294,9 +294,6 @@ struct FrontendToKrnlLoweringPass
     this->enableSIMD = enableSIMD;
     this->enableParallel = enableParallel;
   }
-  FrontendToKrnlLoweringPass(int optLevel, bool enableParallel)
-      : FrontendToKrnlLoweringPass(/*enableTiling=*/optLevel >= 3,
-            /*enableSIMD=*/optLevel >= 3, enableParallel) {}
 
   void runOnOperation() final;
 
@@ -431,10 +428,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
 std::unique_ptr<Pass> createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
-}
-
-std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel, bool enableParallel) {
-  return std::make_unique<FrontendToKrnlLoweringPass>(optLevel, enableParallel);
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass(

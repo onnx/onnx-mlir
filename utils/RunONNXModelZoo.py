@@ -110,6 +110,11 @@ def get_args():
                         choices=[ 'debug', 'info', 'warning', 'error', 'critical' ],
                         default='info',
                         help="log level, default info")
+    parser.add_argument('--log-to-file',
+                        action='store', nargs='?',
+                        const="compilation.log",
+                        default=None,
+                        help="Output compilation messages to file, default compilation.log")
     parser.add_argument('-m',
                         '--model',
                         metavar='model_name',
@@ -337,6 +342,8 @@ def check_model(model_path, model_name, compile_args, report_dir):
         if (args.compile_only):
             options += ['--compile-only']
         options += ['--model={}'.format(onnx_file)]
+        if args.log_to_file:
+            options += ['--log-to-file={}'.format(args.log_to_file)]
         # Wait up to 30 minutes for compilation and inference to finish
         ok, msg = execute_commands(RUN_ONNX_MODEL_CMD + options, tmout=1800)
         state = TEST_PASSED if ok else TEST_FAILED

@@ -20,6 +20,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -659,33 +660,18 @@ void ConstPropSliceImpl(ShapedType outputType,
     MutableArrayRef<WideNum> outputData) {
   size_t rank = outputType.getRank();
   auto outputShape = outputType.getShape();
-  std::vector<int64_t> outputStrides = getStrides(outputShape);
   std::vector<int64_t> inputStrides =
       getStrides(inputElements.getType().getShape());
-  size_t start = 0;
-  SmallVector<size_t, 4> steps(rank, 0);
+  ArrayBuffer<WideNum> inputBuffer = getElementsWideNums(inputElements);
+  const WideNum *start = inputBuffer.get().begin();
+  SmallVector<int64_t, 4> steps(rank, 0);
   for (size_t axis = 0; axis < rank; ++axis) {
     start += shapeHelper.starts[axis].getLiteral() * inputStrides[axis];
     steps[axis] = shapeHelper.steps[axis].getLiteral() * inputStrides[axis];
   }
-  ArrayBuffer<WideNum> inputBuffer = getElementsWideNums(inputElements);
-  ArrayRef<WideNum> inputData = inputBuffer.get();
-  auto traverse = [&](size_t axis, size_t srcPos, size_t dstPos,
-                      const auto &recurse) -> void {
-    if (axis == rank) {
-      outputData[dstPos] = inputData[srcPos];
-    } else {
-      size_t srcStep = steps[axis];
-      size_t dstStride = outputStrides[axis];
-      size_t dimSize = outputShape[axis];
-      for (size_t i = 0; i < dimSize; ++i) {
-        recurse(axis + 1, srcPos, dstPos, recurse);
-        srcPos += srcStep;
-        dstPos += dstStride;
-      }
-    }
-  };
-  traverse(0, start, 0, traverse);
+  for (StridesIterator<1> it(outputShape, {steps}), end(outputShape); it != end;
+       ++it)
+    outputData[it->flattenedIndex] = *(start + it->pos[0]);
 }
 
 Value ConstPropSlice(
