@@ -98,7 +98,7 @@ set_target_properties(OMExecutionSession
 # also removes some of the compile definitions and include directories
 # which we add back through target_compile_definitions and
 # target_include_directories.
-pybind11_add_module(PyRuntime PyExecutionSession.cpp)
+pybind11_add_module(PyRuntime SHARED PyExecutionSession.cpp)
 add_dependencies(PyRuntime onnx_proto)
 target_compile_options(PyRuntime
   PRIVATE
@@ -142,7 +142,7 @@ target_include_directories(PyCompileAndRuntime
 target_link_libraries(PyCompileAndRuntime
   PRIVATE
   OMCompiler
-  OMExecutionSession
+  PyRuntime
   )
 llvm_update_compile_flags(PyCompileAndRuntime)
 

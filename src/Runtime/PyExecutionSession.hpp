@@ -25,7 +25,7 @@ namespace py = pybind11;
 
 namespace onnx_mlir {
 
-class PyExecutionSession : public onnx_mlir::ExecutionSession {
+class PYBIND11_EXPORT PyExecutionSession : public onnx_mlir::ExecutionSession {
 public:
   PyExecutionSession(std::string sharedLibPath, bool defaultEntryPoint = true);
   std::vector<std::string> pyQueryEntryPoints();
