@@ -205,6 +205,14 @@ struct MemRefBuilder final : DialectBuilder {
   // Constants
   static const int64_t defaultAlign;
 
+  // Info: get static and dynamic size of memory. Return true if static only.
+  bool getStaticAndDynamicMemSize(mlir::MemRefType type,
+      mlir::ValueRange dynSymbols, int64_t &staticSize,
+      IndexExpr &dynSize) const;
+  bool getStaticAndDynamicMemSize(mlir::MemRefType type,
+      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
+      IndexExpr &dynSize) const;
+
   // Alloc for static shapes without alignment.
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
   // Alloc for static/dynamic shapes without alignment.
