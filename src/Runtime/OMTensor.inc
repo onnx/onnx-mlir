@@ -4,7 +4,7 @@
 
 //===--------- OMTensor.inc - C/C++ Neutral OMTensor Implementation--------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -191,7 +191,7 @@ static inline int64_t computeElemOffset(
 
 // Create a OMTensor.
 OMTensor *omTensorCreate(
-    void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
+    void *data_ptr, const int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor = (OMTensor *)malloc(sizeof(OMTensor));
   if (!tensor)
     return NULL;
@@ -221,7 +221,7 @@ OMTensor *omTensorCreate(
 }
 
 // Create a OMTensor with specified ownership.
-OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
+OMTensor *omTensorCreateWithOwnership(void *data_ptr, const int64_t *shape,
     int64_t rank, OM_DATA_TYPE dtype, int64_t owning) {
   OMTensor *tensor = omTensorCreate(data_ptr, shape, rank, dtype);
   // If ctor fails, return NULL.
@@ -267,7 +267,7 @@ OMTensor *omTensorCreateUntyped(int64_t rank) {
 }
 
 OMTensor *omTensorCreateEmpty(
-    int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
+    const int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor;
   void *dataPtr;
   if (((dataPtr = malloc(getNumElems(shape, rank) * getDataTypeSize(dtype))) ==
@@ -323,26 +323,26 @@ void omTensorSetDataPtr(
 }
 
 /* OMTensor data shape getter */
-int64_t *omTensorGetShape(const OMTensor *tensor) { return tensor->_shape; }
+const int64_t *omTensorGetShape(const OMTensor *tensor) { return tensor->_shape; }
 
 /* OMTensor data shape setter */
-void omTensorSetShape(OMTensor *tensor, int64_t *shape) {
+void omTensorSetShape(OMTensor *tensor, const int64_t *shape) {
   for (int64_t i = 0; i < tensor->_rank; i++)
     tensor->_shape[i] = shape[i];
 }
 
 /* OMTensor data strides getter */
-int64_t *omTensorGetStrides(const OMTensor *tensor) { return tensor->_strides; }
+const int64_t *omTensorGetStrides(const OMTensor *tensor) { return tensor->_strides; }
 
 /* OMTensor data strides setter */
-void omTensorSetStrides(OMTensor *tensor, int64_t *strides) {
+void omTensorSetStrides(OMTensor *tensor, const int64_t *strides) {
   for (int64_t i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] = strides[i];
 }
 
 /* OMTensor data strides setter with PyArray stride values */
 void omTensorSetStridesWithPyArrayStrides(
-    OMTensor *tensor, int64_t *stridesInBytes) {
+    OMTensor *tensor, const int64_t *stridesInBytes) {
   for (int64_t i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] =
         stridesInBytes[i] / getDataTypeSize(tensor->_dataType);

@@ -1,3 +1,17 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===---------- OMTensorList.cpp - OMTensor C/C++ Implementation ----------===//
+//
+// Copyright 2022-2023 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains C/C++ neutral implementation of OMTensorList data
+// structures and helper functions.
+//
+//===----------------------------------------------------------------------===//
 #ifdef __cplusplus
 #include <cassert>
 #else
@@ -230,7 +244,7 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
          "Resize runtime: only float type is supported currently");
 
   int64_t rank = omTensorGetRank(data);
-  int64_t *inputShape = omTensorGetShape(data);
+  const int64_t *inputShape = omTensorGetShape(data);
   float *scale_factor = NULL;
   int64_t *output_size = NULL;
   if (scale_factor_OMT != NULL)
