@@ -90,10 +90,6 @@ DenseElementsAttr createScalarDenseAttr(
   llvm_unreachable("unexpected attribute type");
 }
 
-Value createUnitConstant(PatternRewriter &rewriter, Location loc) {
-  return rewriter.create<ONNXNoneOp>(loc);
-}
-
 // Create an DenseElementsAttr of ArrayAttr.
 // When ArrayAttr is Null, an empty Integer DenseElementAttr is returned
 DenseElementsAttr createDenseArrayAttrOrEmpty(

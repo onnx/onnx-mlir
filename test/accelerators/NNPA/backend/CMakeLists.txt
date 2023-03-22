@@ -135,7 +135,7 @@ set(NNPA_TEST_LIST
     # ==LIM== - 3D not supported because Conv3D not supported in zDNN. non-default `dilations` not supported because dilated convolution not supported in zDNN.
     test_convtranspose_1d_cpu,zdnn_conv1d
     # test_convtranspose_3d_cpu
-    # test_convtranspose_autopad_same_cpu,zdnn_conv2d
+    test_convtranspose_autopad_same_cpu,zdnn_conv2d
     test_convtranspose_cpu,zdnn_conv2d
     # test_convtranspose_dilations_cpu,zdnn_conv2d
     test_convtranspose_kernel_shape_cpu,zdnn_conv2d

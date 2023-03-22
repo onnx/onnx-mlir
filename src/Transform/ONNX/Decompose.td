@@ -49,6 +49,8 @@ def GetNullIntegerAttr : NativeCodeCall<"IntegerAttr()">;
 
 def GetNullStringAttr : NativeCodeCall<"StringAttr()">;
 
+def GetNullArrayAttr :  NativeCodeCall<"ArrayAttr()">;
+
 // Create a unit constant that will be used as none input.
 def CreateUnitConstant
     : NativeCodeCall<"::onnx_mlir::createUnitConstant($_builder, $_loc)">;
@@ -474,7 +476,7 @@ def ConvTransposeOpPattern1: Pattern<
     (reverseWeightConvTranspose:$reversed_w $w),
     (getPadsConvTranspose:$new_pads $res),
     (ONNXConvOp:$conv_res $x, $reversed_w, $b,
-       $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $strides),
+       (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, $strides),
     (insertAdditionalPadsConvTranspose $conv_res, $res)
    ],
    [(HasUnitStrides:$res), (HasShapeAndRank $x), (HasShapeAndRank $w)],
@@ -489,9 +491,8 @@ def ConvTransposeOpPattern2: Pattern<
     (reverseWeightConvTranspose:$reversed_w $w),
     (insertPadsConvTransposeInput:$new_x $res, $x),
     (getPadsConvTranspose:$new_pads $res),
-    (createUnitStrides:$unit_strides $x),
     (ONNXConvOp:$conv_res $new_x, $reversed_w, $b,
-       $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $unit_strides),
+       (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, (GetNullArrayAttr)),
     (insertAdditionalPadsConvTranspose
         $conv_res, $res)
    ],
