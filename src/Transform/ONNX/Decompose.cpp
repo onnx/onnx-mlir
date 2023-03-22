@@ -271,39 +271,53 @@ Value reverseWeightTensor(
 }
 
 // Calculate padding size used in Conv op from pads for ConvTranspose op.
-ArrayAttr getPadsConvTranspose(PatternRewriter &rewriter, Location loc,
-    ArrayAttr kernel, ArrayAttr pads, ArrayAttr dilation) {
-  // Calculate pads in generated Conv op by rewriting ConvTranspose op.
+ArrayAttr getPadsConvTranspose(
+    PatternRewriter &rewriter, Location loc, ONNXConvTransposeOp op) {
+  // Calculate pads for generated Conv op.
   // new_pads = kernel -  pads - 1
   // Reference: Dumoulin, Vincent, and Francesco Visin. "A guide to convolution
   // arithmetic for deep learning." arXiv preprint arXiv:1603.07285 (2016).
+  ONNXConvTransposeOpShapeHelper shapeHelper(op.getOperation(), {});
+  LogicalResult shapecomputed = shapeHelper.computeShape();
+  assert(succeeded(shapecomputed) &&
+         "unexpected inferShapes failuer for ConvTrans op");
+  SmallVector<IndexExpr, 2> kernelShape = shapeHelper.kernelShape;
+  SmallVector<int64_t, 2> dilations = shapeHelper.dilations;
+  DimsExpr pads = shapeHelper.pads;
+  assert(IndexExpr::isLiteral(kernelShape) && IndexExpr::isLiteral(pads) &&
+         "Currently only static dims are supported in spatial dims.");
+
   SmallVector<int64_t, 4> newPads;
   SmallVector<int64_t, 2> newKernel;
   // If `dilations` is not default [1, 1], `kernel` is updated by inserting
   // spaces in kernel elements.
   //   ex. kernel [2, 3] and dilation [2, 2], then new `kernel` is [3, 4]
-  for (unsigned int i = 0; i < kernel.size(); ++i)
+  for (unsigned int i = 0; i < kernelShape.size(); ++i)
     newKernel.emplace_back(
-        ArrayAttrIntVal(kernel, i) +
-        (ArrayAttrIntVal(kernel, i) - 1) * (ArrayAttrIntVal(dilation, i) - 1));
-
+        kernelShape[i].getLiteral() +
+        (kernelShape[i].getLiteral() - 1) * (dilations[i] - 1));
   // Calculate new pads. `kernel` size is doubled for the calculation.
-  for (unsigned int i = 0; i < kernel.size() * 2; ++i)
+  for (unsigned int i = 0; i < kernelShape.size() * 2; ++i)
     newPads.emplace_back(
-        newKernel[i % kernel.size()] - ArrayAttrIntVal(pads, i) - 1);
+        newKernel[i % kernelShape.size()] - pads[i].getLiteral() - 1);
   return rewriter.getI64ArrayAttr(newPads);
 }
 
 // Check if strides is unit strides.
-bool hasUnitStrides(ArrayAttr strides) {
-  SmallVector<int64_t, 3> vstrides;
-  for (unsigned int i = 0; i < strides.size(); ++i)
-    vstrides.emplace_back(ArrayAttrIntVal(strides, i));
-  return llvm::all_of(vstrides, [](int64_t s) { return s == 1; });
+bool hasUnitStrides(ONNXConvTransposeOp op) {
+  ONNXConvTransposeOpShapeHelper shapeHelper(op.getOperation(), {});
+  LogicalResult shapecomputed = shapeHelper.computeShape();
+  assert(succeeded(shapecomputed) &&
+         "unexpected inferShapes failuer for ConvTrans op");
+  SmallVector<int64_t, 2> strides = shapeHelper.strides;
+  return llvm::all_of(strides, [](int64_t s) { return s == 1; });
 }
 
-ArrayAttr createUnitStrides(PatternRewriter &rewriter, ArrayAttr strides) {
-  SmallVector<int64_t, 2> unitStrides(strides.size(), 1);
+ArrayAttr createUnitStrides(PatternRewriter &rewriter, Value input) {
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  int64_t spatialOffset = 2;
+  int64_t spatialRank = inputType.getRank() - spatialOffset;
+  SmallVector<int64_t, 2> unitStrides(spatialRank, 1);
   return rewriter.getI64ArrayAttr(unitStrides);
 }
 
@@ -368,43 +382,56 @@ Value insertPadAxis(PatternRewriter &rewriter, Location loc, Value input,
 
 // Insert pads between elements in input tensor in spatial dimensions.
 // The padding size is strides - 1
-Value insertPadsConvTransposeInput(
-    PatternRewriter &rewriter, Location loc, Value input, ArrayAttr strides) {
+Value insertPadsConvTransposeInput(PatternRewriter &rewriter, Location loc,
+    ONNXConvTransposeOp op, Value input) {
+  ONNXConvTransposeOpShapeHelper shapeHelper(op.getOperation(), {});
+  LogicalResult shapecomputed = shapeHelper.computeShape();
+  assert(succeeded(shapecomputed) &&
+         "unexpected inferShapes failuer for ConvTrans op");
+  SmallVector<int64_t, 2> strides = shapeHelper.strides;
   int64_t spatialOffset = 2;
   for (unsigned int i = 0; i < strides.size(); ++i) {
     input = insertPadAxis(rewriter, loc, input, /*axis*/ spatialOffset + i,
-        /*padSize*/ ArrayAttrIntVal(strides, i) - 1);
+        /*padSize*/ strides[i] - 1);
   }
   return input;
 }
 
 // Insert additional padding to output of ConvOp in ConvTransposeOp.
 Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
-    ONNXConvOp op, Value input, ArrayAttr outputShapeAttr) {
-  ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
+    ONNXConvOp convOp, Value input, ONNXConvTransposeOp op) {
+  ONNXConvOpShapeHelper convShapeHelper(convOp.getOperation(), {});
   Type elementType = input.getType().cast<ShapedType>().getElementType();
-  assert(succeeded(shapeHelper.computeShapeAndUpdateType(elementType)) &&
+  assert(succeeded(convShapeHelper.computeShapeAndUpdateType(elementType)) &&
          "unexpected inferShapes failure for Conv op");
-  int inputRank = shapeHelper.getOutputDims().size();
+  int inputRank = convShapeHelper.getOutputDims().size();
   SmallVector<int64_t, 4> inputShape;
   for (int i = 0; i < inputRank; ++i) {
-    int64_t d = shapeHelper.getOutputDims()[i].isLiteral()
-                    ? shapeHelper.getOutputDims()[i].getLiteral()
+    int64_t d = convShapeHelper.getOutputDims()[i].isLiteral()
+                    ? convShapeHelper.getOutputDims()[i].getLiteral()
                     : ShapedType::kDynamic;
     inputShape.emplace_back(d);
   }
+  ONNXConvTransposeOpShapeHelper shapeHelper(op.getOperation(), {});
+  LogicalResult shapecomputed = shapeHelper.computeShape();
+  assert(succeeded(shapecomputed) &&
+         "unexpected inferShapes failuer for ConvTrans op");
   SmallVector<int64_t, 2> padSize;
-  int64_t attrSize = ArrayAttrSize(outputShapeAttr);
-  int64_t offset = inputRank - attrSize;
-  for (int i = 0; i < attrSize; ++i) {
-    IntegerAttr attr = outputShapeAttr.getValue()[i].cast<IntegerAttr>();
-    int64_t size = attr.getValue().getSExtValue() - inputShape[offset + i];
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  int64_t spatialOffset = 2;
+  int64_t spatialRank = inputType.getRank() - spatialOffset;
+  DimsExpr outputDims = shapeHelper.getOutputDims();
+  for (int i = 0; i < spatialRank; ++i) {
+    assert(outputDims[spatialOffset + i].isLiteral() &&
+           "Only static spatial dims supported");
+    int64_t size = outputDims[spatialOffset + i].getLiteral() -
+                   inputShape[spatialOffset + i];
     assert(size >= 0 && "Invalid output_shape attribute");
     padSize.emplace_back(size);
   }
   Value paddedInput = emitPadsAxisEnd(
       rewriter, loc, input, ArrayRef(inputShape), /*axis*/ 2, padSize[0]);
-  for (int i = 1; i < attrSize; ++i) {
+  for (int i = 1; i < spatialRank; ++i) {
     ArrayRef<int64_t> paddedInputShape =
         paddedInput.getType().cast<ShapedType>().getShape();
     paddedInput = emitPadsAxisEnd(rewriter, loc, paddedInput, paddedInputShape,
@@ -621,10 +648,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
           Value X = operandAdaptor.getX();
           Value W = operandAdaptor.getW();
           return !(
-              onnx_mlir::hasShapeAndRank(X) && onnx_mlir::hasShapeAndRank(W) &&
-              op.getDilations().has_value() &&
-              op.getKernelShape().has_value() && op.getPads().has_value() &&
-              op.getStrides().has_value() && op.getOutputShape().has_value());
+              onnx_mlir::hasShapeAndRank(X) && onnx_mlir::hasShapeAndRank(W));
         });
 #ifdef ONNX_MLIR_ENABLE_MHLO
   }

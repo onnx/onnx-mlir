@@ -475,44 +475,6 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
     }
   }
 
-  // Set attributes
-  // TODO: Remove here. Currently these attributes are used in lowering, but not
-  // appropriate in as the result of shape inference. When passing shape
-  // inferene multiple time, the output can be different with the first one. For
-  // example, when auto_pad is SAME_UPPER, the output in second time is wrong.
-  auto builder = Builder(op->getContext());
-  convTransposeOp.setAutoPadAttr(builder.getStringAttr("NOTSET"));
-  if (!strideOpt.has_value())
-    convTransposeOp.setStridesAttr(builder.getI64ArrayAttr(strides));
-  if (!dilationOpt.has_value())
-    convTransposeOp.setDilationsAttr(builder.getI64ArrayAttr(dilations));
-  if (!kernelShapeOpt.has_value()) {
-    llvm::SmallVector<int64_t, 4> kernelShapeLiteral;
-    for (int i = 0; i < spatialRank; ++i)
-      kernelShapeLiteral.emplace_back(kernelShape[i].getLiteral());
-    convTransposeOp.setKernelShapeAttr(
-        builder.getI64ArrayAttr(kernelShapeLiteral));
-  }
-  // if (!outputPaddingOpt.has_value())
-  //     convTransposeOp.setOutputPaddingAttr(builder.getI64ArrayAttr(outputPadding));
-  llvm::SmallVector<int64_t, 4> padsLiteral;
-  for (int i = 0; i < 2 * spatialRank; ++i)
-    padsLiteral.emplace_back(pads[i].getLiteral());
-  convTransposeOp.setPadsAttr(builder.getI64ArrayAttr(padsLiteral));
-  bool allLiteral = true;
-  for (int i = 0; i < spatialRank; ++i) {
-    if (!outputDims[i + spatialOffset].isLiteral())
-      allLiteral = false;
-  }
-  if (allLiteral) {
-    llvm::SmallVector<int64_t, 4> outputShapeSpatial;
-    for (int i = 0; i < spatialRank; ++i)
-      outputShapeSpatial.emplace_back(
-          outputDims[i + spatialOffset].getLiteral());
-    convTransposeOp.setOutputShapeAttr(
-        builder.getI64ArrayAttr(outputShapeSpatial));
-  }
-
   // Save the final result.
   setOutputDims(outputDims);
 

@@ -21,7 +21,7 @@
 // CHECK:           [[VAR_5_:%.+]] = "onnx.ReverseSequence"([[VAR_3_]], [[VAR_4_]]) {batch_axis = 0 : si64, time_axis = 1 : si64} : (tensor<3x3x1x2xf32>, tensor<3xi64>) -> tensor<3x3x1x2xf32>
 // CHECK:           [[VAR_6_:%.+]] = "onnx.Transpose"([[VAR_5_]]) {perm = [2, 3, 0, 1]} : (tensor<3x3x1x2xf32>) -> tensor<1x2x3x3xf32>
 // CHECK:           [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_6_]]) {perm = [1, 0, 2, 3]} : (tensor<1x2x3x3xf32>) -> tensor<2x1x3x3xf32>
-// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_7_]], [[VAR_0_]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [2, 2, 2, 2], strides = [1, 1]} : (tensor<1x1x3x3xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x5x5xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_7_]], [[VAR_0_]]) {auto_pad = "NOTSET", group = 1 : si64, pads = [2, 2, 2, 2]} : (tensor<1x1x3x3xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x5x5xf32>
 // CHECK-DAG:       [[VAR_9_:%.+]] = onnx.Constant dense<0> : tensor<8xi64>
 // CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-NOT: separator of consecutive DAGs
@@ -51,7 +51,7 @@
 // CHECK:           [[VAR_3_:%.+]] = "onnx.ReverseSequence"([[VAR_1_]], [[VAR_2_]]) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<3x1x2xf32>, tensor<1xi64>) -> tensor<3x1x2xf32>
 // CHECK:           [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [1, 2, 0]} : (tensor<3x1x2xf32>) -> tensor<1x2x3xf32>
 // CHECK:           [[VAR_5_:%.+]] = "onnx.Transpose"([[VAR_4_]]) {perm = [1, 0, 2]} : (tensor<1x2x3xf32>) -> tensor<2x1x3xf32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_5_]], [[VAR_0_]]) {auto_pad = "NOTSET", dilations = [1], group = 1 : si64, kernel_shape = [3], pads = [2, 2], strides = [1]} : (tensor<1x1x3xf32>, tensor<2x1x3xf32>, none) -> tensor<1x2x5xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_5_]], [[VAR_0_]]) {auto_pad = "NOTSET", group = 1 : si64, pads = [2, 2]} : (tensor<1x1x3xf32>, tensor<2x1x3xf32>, none) -> tensor<1x2x5xf32>
 // CHECK-DAG:       [[VAR_7_:%.+]] = onnx.Constant dense<0> : tensor<6xi64>
 // CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_9_:%.+]] = "onnx.Pad"([[VAR_6_]], [[VAR_7_]], [[VAR_8_]]) {mode = "constant"} : (tensor<1x2x5xf32>, tensor<6xi64>, none) -> tensor<1x2x5xf32>
@@ -82,7 +82,7 @@
 // CHECK:           [[VAR_8_:%.+]] = "onnx.ReverseSequence"([[VAR_6_]], [[VAR_7_]]) {batch_axis = 1 : si64, time_axis = 0 : si64} : (tensor<3x1x2x3x3xf32>, tensor<1xi64>) -> tensor<3x1x2x3x3xf32>
 // CHECK:           [[VAR_9_:%.+]] = "onnx.Transpose"([[VAR_8_]]) {perm = [1, 2, 3, 4, 0]} : (tensor<3x1x2x3x3xf32>) -> tensor<1x2x3x3x3xf32>
 // CHECK:           [[VAR_10_:%.+]] = "onnx.Transpose"([[VAR_9_]]) {perm = [1, 0, 2, 3, 4]} : (tensor<1x2x3x3x3xf32>) -> tensor<2x1x3x3x3xf32>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_10_]], [[VAR_0_]]) {auto_pad = "NOTSET", dilations = [1, 1, 1], group = 1 : si64, kernel_shape = [3, 3, 3], pads = [2, 2, 2, 2, 2, 2], strides = [1, 1, 1]} : (tensor<1x1x3x4x5xf32>, tensor<2x1x3x3x3xf32>, none) -> tensor<1x2x5x6x7xf32>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_10_]], [[VAR_0_]]) {auto_pad = "NOTSET", group = 1 : si64, pads = [2, 2, 2, 2, 2, 2]} : (tensor<1x1x3x4x5xf32>, tensor<2x1x3x3x3xf32>, none) -> tensor<1x2x5x6x7xf32>
 // CHECK-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<0> : tensor<10xi64>
 // CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-NOT: separator of consecutive DAGs
@@ -140,7 +140,7 @@
 // CHECK-DAG:       [[VAR_23_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_24_:%.+]] = "onnx.Pad"([[VAR_18_]]#1, [[VAR_22_]], [[VAR_23_]]) {mode = "constant"} : (tensor<1x1x7x1xf32>, tensor<8xi64>, none) -> tensor<1x1x7x2xf32>
 // CHECK:           [[VAR_25_:%.+]] = "onnx.Concat"([[VAR_21_]], [[VAR_24_]], [[VAR_18_]]#2) {axis = 3 : si64} : (tensor<1x1x7x2xf32>, tensor<1x1x7x2xf32>, tensor<1x1x7x1xf32>) -> tensor<1x1x7x5xf32>
-// CHECK-DAG:       [[VAR_26_:%.+]] = "onnx.Conv"([[VAR_25_]], [[VAR_7_]], [[VAR_0_]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [1, 0, 1, 0], strides = [1, 1]} : (tensor<1x1x7x5xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x7x3xf32>
+// CHECK-DAG:       [[VAR_26_:%.+]] = "onnx.Conv"([[VAR_25_]], [[VAR_7_]], [[VAR_0_]]) {auto_pad = "NOTSET", group = 1 : si64, pads = [1, 0, 1, 0], strides = [1, 1]} : (tensor<1x1x7x5xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x7x3xf32>
 // CHECK-DAG:       [[VAR_27_:%.+]] = onnx.Constant dense<0> : tensor<8xi64>
 // CHECK-DAG:       [[VAR_28_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-NOT: separator of consecutive DAGs
@@ -194,7 +194,7 @@
 // CHECK-DAG:       [[VAR_23_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_24_:%.+]] = "onnx.Pad"([[VAR_18_]]#1, [[VAR_22_]], [[VAR_23_]]) {mode = "constant"} : (tensor<1x1x7x1xf32>, tensor<8xi64>, none) -> tensor<1x1x7x2xf32>
 // CHECK:           [[VAR_25_:%.+]] = "onnx.Concat"([[VAR_21_]], [[VAR_24_]], [[VAR_18_]]#2) {axis = 3 : si64} : (tensor<1x1x7x2xf32>, tensor<1x1x7x2xf32>, tensor<1x1x7x1xf32>) -> tensor<1x1x7x5xf32>
-// CHECK-DAG:       [[VAR_26_:%.+]] = "onnx.Conv"([[VAR_25_]], [[VAR_7_]], [[VAR_0_]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [2, 2, 2, 2], strides = [1, 1]} : (tensor<1x1x7x5xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x9x7xf32>
+// CHECK-DAG:       [[VAR_26_:%.+]] = "onnx.Conv"([[VAR_25_]], [[VAR_7_]], [[VAR_0_]]) {auto_pad = "NOTSET", group = 1 : si64, pads = [2, 2, 2, 2], strides = [1, 1]} : (tensor<1x1x7x5xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x9x7xf32>
 // CHECK-DAG:       [[VAR_27_:%.+]] = onnx.Constant dense<[0, 0, 0, 0, 0, 0, 1, 0]> : tensor<8xi64>
 // CHECK-DAG:       [[VAR_28_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-NOT: separator of consecutive DAGs
@@ -247,7 +247,7 @@
 // CHECK-DAG:       [[VAR_23_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_24_:%.+]] = "onnx.Pad"([[VAR_18_]]#1, [[VAR_22_]], [[VAR_23_]]) {mode = "constant"} : (tensor<?x?x7x1xf32>, tensor<8xi64>, none) -> tensor<?x?x7x2xf32>
 // CHECK:           [[VAR_25_:%.+]] = "onnx.Concat"([[VAR_21_]], [[VAR_24_]], [[VAR_18_]]#2) {axis = 3 : si64} : (tensor<?x?x7x2xf32>, tensor<?x?x7x2xf32>, tensor<?x?x7x1xf32>) -> tensor<?x?x7x5xf32>
-// CHECK-DAG:       [[VAR_26_:%.+]] = "onnx.Conv"([[VAR_25_]], [[VAR_7_]], [[VAR_0_]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [2, 2, 2, 2], strides = [1, 1]} : (tensor<?x?x7x5xf32>, tensor<?x?x3x3xf32>, none) -> tensor<?x?x9x7xf32>
+// CHECK-DAG:       [[VAR_26_:%.+]] = "onnx.Conv"([[VAR_25_]], [[VAR_7_]], [[VAR_0_]]) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], pads = [2, 2, 2, 2], strides = [1, 1]} : (tensor<?x?x7x5xf32>, tensor<?x?x3x3xf32>, none) -> tensor<?x?x9x7xf32>
 // CHECK-DAG:       [[VAR_27_:%.+]] = onnx.Constant dense<[0, 0, 0, 0, 0, 0, 1, 0]> : tensor<8xi64>
 // CHECK-DAG:       [[VAR_28_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-NOT: separator of consecutive DAGs

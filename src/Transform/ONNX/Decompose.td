@@ -450,10 +450,10 @@ def reverseWeightConvTranspose: NativeCodeCall<
   "onnx_mlir::reverseWeightTensor($_builder, $_loc, $0)">;
 
 def getPadsConvTranspose: NativeCodeCall<
-  "onnx_mlir::getPadsConvTranspose($_builder, $_loc, $0, $1, $2)">;
+  "onnx_mlir::getPadsConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>())">;
 
 def HasUnitStrides: Constraint<
-  CPred<"onnx_mlir::hasUnitStrides($_self)">,
+  CPred<"onnx_mlir::hasUnitStrides($_self.getDefiningOp<ONNXConvTransposeOp>())">,
   "has unit strides"
 >;
 
@@ -461,39 +461,39 @@ def createUnitStrides: NativeCodeCall<
   "onnx_mlir::createUnitStrides($_builder, $0)">;
 
 def insertPadsConvTransposeInput: NativeCodeCall<
-  "onnx_mlir::insertPadsConvTransposeInput($_builder, $_loc, $0, $1)">;
+  "onnx_mlir::insertPadsConvTransposeInput($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>(), $1)">;
 
 def insertAdditionalPadsConvTranspose: NativeCodeCall<
-  "onnx_mlir::insertAdditionalPadsConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(), $0, $1)">;
+  "onnx_mlir::insertAdditionalPadsConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(), $0, $1.getDefiningOp<ONNXConvTransposeOp>())">;
 
 def ConvTransposeOpPattern1: Pattern<
-   (ONNXConvTransposeOp $x, $w, $b,
+   (ONNXConvTransposeOp:$res $x, $w, $b,
       $auto_pad, $dilation, $group, $kernel_shape,
       $output_padding, $output_shape, $pads, $strides),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
-    (getPadsConvTranspose:$new_pads $kernel_shape, $pads, $dilation),
+    (getPadsConvTranspose:$new_pads $res),
     (ONNXConvOp:$conv_res $x, $reversed_w, $b,
        $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $strides),
-    (insertAdditionalPadsConvTranspose $conv_res, $output_shape)
+    (insertAdditionalPadsConvTranspose $conv_res, $res)
    ],
-   [(HasUnitStrides:$strides), (HasShapeAndRank $x), (HasShapeAndRank $w)],
+   [(HasUnitStrides:$res), (HasShapeAndRank $x), (HasShapeAndRank $w)],
    (addBenefit 1)
 >;
 
 def ConvTransposeOpPattern2: Pattern<
-   (ONNXConvTransposeOp $x, $w, $b,
+   (ONNXConvTransposeOp:$res $x, $w, $b,
       $auto_pad, $dilation, $group, $kernel_shape,
       $output_padding, $output_shape, $pads, $strides),
    [
     (reverseWeightConvTranspose:$reversed_w $w),
-    (insertPadsConvTransposeInput:$new_x $x, $strides),
-    (getPadsConvTranspose:$new_pads $kernel_shape, $pads, $dilation),
-    (createUnitStrides:$unit_strides $strides),
+    (insertPadsConvTransposeInput:$new_x $res, $x),
+    (getPadsConvTranspose:$new_pads $res),
+    (createUnitStrides:$unit_strides $x),
     (ONNXConvOp:$conv_res $new_x, $reversed_w, $b,
        $auto_pad, $dilation, $group, $kernel_shape, $new_pads, $unit_strides),
     (insertAdditionalPadsConvTranspose
-        $conv_res, $output_shape)
+        $conv_res, $res)
    ],
    [(HasShapeAndRank $x), (HasShapeAndRank $w)],
    (addBenefit 0)
