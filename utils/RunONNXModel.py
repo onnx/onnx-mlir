@@ -155,6 +155,7 @@ MLIR_TYPE_TO_NP_TYPE = {
     'i32': np.dtype("int32"),
     'i16': np.dtype("int16"),
     'i8': np.dtype("int8"),
+    'ui8': np.dtype("uint8"),
     'i1': np.dtype("bool"),
 }
 
@@ -296,15 +297,17 @@ def generate_random_input(input_signature, input_shapes):
         if (np.issubdtype(np_elem_type, np.floating)):
             lb = -1.0
             ub = 1.0
-
-        elif (np.issubdtype(np_elem_type, np.integer)):
-            lb = -10
+        elif (np.issubdtype(np_elem_type, np.uint8)):
+            lb = 0
             ub = 10
         elif (np.issubdtype(np_elem_type, np.dtype(bool).type)):
             # For some reason, random.uniform with lb/ub to 0/1 resulted in 1 only.
             lb = -10
             ub = 9
             random_element_type = np.dtype("int32")
+        elif (np.issubdtype(np_elem_type, np.integer)):
+            lb = -10
+            ub = 10
         else:
             raise AssertionError("Unsuported element type")
         rinput = np.random.uniform(lb, ub, explicit_shape).astype(random_element_type)
