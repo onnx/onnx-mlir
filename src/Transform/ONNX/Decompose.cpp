@@ -90,6 +90,10 @@ DenseElementsAttr createScalarDenseAttr(
   llvm_unreachable("unexpected attribute type");
 }
 
+Value createUnitConstant(PatternRewriter &rewriter, Location loc) {
+  return rewriter.create<ONNXNoneOp>(loc);
+}
+
 // Create an DenseElementsAttr of ArrayAttr.
 // When ArrayAttr is Null, an empty Integer DenseElementAttr is returned
 DenseElementsAttr createDenseArrayAttrOrEmpty(
@@ -307,14 +311,6 @@ bool hasUnitStrides(ONNXConvTransposeOp op) {
          "unexpected inferShapes failuer for ConvTrans op");
   SmallVector<int64_t, 2> strides = shapeHelper.strides;
   return llvm::all_of(strides, [](int64_t s) { return s == 1; });
-}
-
-ArrayAttr createUnitStrides(PatternRewriter &rewriter, Value input) {
-  ShapedType inputType = input.getType().cast<ShapedType>();
-  int64_t spatialOffset = 2;
-  int64_t spatialRank = inputType.getRank() - spatialOffset;
-  SmallVector<int64_t, 2> unitStrides(spatialRank, 1);
-  return rewriter.getI64ArrayAttr(unitStrides);
 }
 
 // Split on the specified axis. The length of each output is one.
