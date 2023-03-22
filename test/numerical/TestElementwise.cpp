@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====-- TestElementwise.cpp - test elementwise code
-//-=========================//
+//====-- TestElementwise.cpp - test elementwise code =========================//
 //
 // Copyright 2023 The IBM Research Authors.
 //

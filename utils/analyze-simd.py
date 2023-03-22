@@ -201,7 +201,7 @@ def scan_basic_blocks(filename):
     global bb_boundary
 
     last_line_id = "" # When seen end of function, mark last like as basic block boundary.
-    next_line_is_bb = False # New function and new branch signal that
+    next_line_is_bb = False # New function and new branch signal that 
                             # next line is start of a basic block.
     curr_fct_name = "unknown-function" # Mark bb_boundary by function name.
 
@@ -280,7 +280,7 @@ def scan_for_simd(filename, pattern, id):
             if curr_line_id in bb_boundary:
                 # Has a basic block boundary.
                 if debug == 1:
-                    dprint("has basic block at line " + curr_line_id +
+                    dprint("has basic block at line " + curr_line_id + 
                            " in function " + bb_boundary[curr_line_id])
                 match_fct = re.match(fct_match_str, bb_boundary[curr_line_id])
                 if match_fct and hasPattern:
