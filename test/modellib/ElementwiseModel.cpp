@@ -79,12 +79,10 @@ bool Elementwise2DLibBuilder::build() {
     auto bVal = entryBlock.getArgument(1);
     if (onnxOpName.compare("ONNXAddOp") == 0) {
       // Add.
-      assert(inputNum == 2 && "bad input number");
       auto op = builder.create<ONNXAddOp>(loc, yType, aVal, bVal);
       results.emplace_back(op.getResult());
     } else if (onnxOpName.compare("ONNXDivOp") == 0) {
       // Div.
-      assert(inputNum == 2 && "bad input number");
       auto op = builder.create<ONNXDivOp>(loc, yType, aVal, bVal);
       results.emplace_back(op.getResult());
     } else
