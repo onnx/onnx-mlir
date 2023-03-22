@@ -89,7 +89,6 @@ constexpr bool isAxesInput =
 // Default generic computeShape.
 template <typename OP_TYPE>
 LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
-  OP_TYPE reduceOp = llvm::cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr axes;
   // Handle simple case where axes is an attribute.
@@ -128,7 +127,7 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
       // Interesting idea below, namely to reuse info from output, or if not
       // there, from input putting question mark in there. Not sure if
       // successful, if it is, it should be generalized to all ops.
-
+      OP_TYPE reduceOp = llvm::cast<OP_TYPE>(op);
       if (reduceOp.getResult().getType().template isa<RankedTensorType>()) {
         // Have already some shapes, keep them in ShapeHelper
         DimsExpr outputDims;
