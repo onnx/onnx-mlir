@@ -72,6 +72,7 @@ extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
 extern llvm::cl::opt<bool> onnxConstPropReport;
 extern llvm::cl::opt<bool> enableParallel;
+extern llvm::cl::opt<bool> disableSimdOption;
 extern llvm::cl::opt<bool> enableSimdDataLayout;
 
 // The customEnvFlags must be scanned before the normal options.

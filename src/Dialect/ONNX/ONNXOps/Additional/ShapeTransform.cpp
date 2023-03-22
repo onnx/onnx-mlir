@@ -38,9 +38,9 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
   // compute the output's shape manually, and put it inside IndexExpr as result.
   //
   // Note that, affine_map is for index access, but what we want to compute here
-  // is the upperbound for output dimensions.
+  // is the upper bound for output dimensions.
   //
-  // We will borrow memref normalization in MLIR to obtain the upperbound, as
+  // We will borrow memref normalization in MLIR to obtain the upper bound, as
   // follows:
   // - construct a MemRefType using the input shape and affine_map
   // - normalize the MemRefType.
