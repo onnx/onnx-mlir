@@ -603,91 +603,6 @@ struct ConcatFusePattern : public ConversionPattern {
 //                        transA = 0 : si64, transB = 1 : si64} :
 //              (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
 // ```
-
-static bool isCustomOpFusedMatMulMatched(ONNXCustomOp customOp,
-    FloatAttr &alphaAttr, int64_t &rankA, int64_t &rankB) {
-  Operation *genericOp = customOp.getOperation();
-  // CustomOp has two operands.
-  if (customOp.getNumOperands() != 2)
-    return false;
-  Value A = genericOp->getOperands()[0];
-  Value B = genericOp->getOperands()[1];
-
-  // function_name is FusedMatMul.
-  StringRef funcName = customOp.getFunctionName();
-  if (!funcName.equals_insensitive("FusedMatMul"))
-    return false;
-
-  // domain_name exists and is "com.microsoft";
-  StringAttr domAttr = genericOp->getAttrOfType<StringAttr>("domain_name");
-  if (!domAttr)
-    return false;
-  if (!domAttr.getValue().equals_insensitive("com.microsoft"))
-    return false;
-
-  // transA and transB exist.
-  IntegerAttr transA = genericOp->getAttrOfType<IntegerAttr>("transA");
-  IntegerAttr transB = genericOp->getAttrOfType<IntegerAttr>("transB");
-  if (!transA || !transB)
-    return false;
-  bool isTransA = (transA.getValue().getSExtValue() == 1);
-  bool isTransB = (transB.getValue().getSExtValue() == 1);
-
-  // If transA=true, we have to know A's rank to generate ONNXTransposeOp for A.
-  // In a good condition, A is ranked then its rank is avilable.
-  //
-  // If A is unranked, we hope that A is a result of another ONNXTransposeOp
-  // whose permutation is available and can be used to infer the rank of A.
-  // For example,
-  // %A = "onnx.Transpose"(%0) {perm = [0, 2, 1, 3]} :
-  //                      (tensor<*xf32>) -> tensor<*xf32>
-  // A must have rank 4 as perm has 4 indices.
-  if (isTransA) {
-    if (onnx_mlir::hasShapeAndRank(A)) {
-      rankA = A.getType().cast<ShapedType>().getRank();
-    } else {
-      if (isa<BlockArgument>(A))
-        return false;
-      if (auto transOp = dyn_cast<ONNXTransposeOp>(A.getDefiningOp())) {
-        if (transOp.getPermAttr())
-          rankA = transOp.getPermAttr().size();
-        else
-          return false;
-      } else
-        // Cannot determine the rank of A.
-        return false;
-    }
-  } else
-    rankA = -1;
-  if (isTransB) {
-    if (onnx_mlir::hasShapeAndRank(B)) {
-      rankB = B.getType().cast<ShapedType>().getRank();
-    } else {
-      if (isa<BlockArgument>(B))
-        return false;
-      if (auto transOp = dyn_cast<ONNXTransposeOp>(B.getDefiningOp())) {
-        if (transOp.getPermAttr())
-          rankB = transOp.getPermAttr().size();
-        else
-          return false;
-      } else
-        // Cannot determine the rank of B.
-        return false;
-    }
-  } else
-    rankB = -1;
-
-  // Get alpha.
-  alphaAttr = genericOp->getAttrOfType<FloatAttr>("alpha");
-  if (!alphaAttr)
-    return false;
-
-  // CustomOp is in a good form to rewrite.
-  return true;
-}
-
-// Pattern to decompose CustomOp FusedMatMul introduced by onnxruntime:
-// https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
 struct CustomOpFuseMatMulPattern : public OpConversionPattern<ONNXCustomOp> {
   CustomOpFuseMatMulPattern(MLIRContext *context)
       : OpConversionPattern(context) {}
@@ -749,6 +664,89 @@ struct CustomOpFuseMatMulPattern : public OpConversionPattern<ONNXCustomOp> {
 
     rewriter.replaceOp(customOp, res);
     return success();
+  }
+
+public:
+  static bool isCustomOpFusedMatMulMatched(ONNXCustomOp customOp,
+      FloatAttr &alphaAttr, int64_t &rankA, int64_t &rankB) {
+    Operation *genericOp = customOp.getOperation();
+    // CustomOp has two operands.
+    if (customOp.getNumOperands() != 2)
+      return false;
+    Value A = genericOp->getOperands()[0];
+    Value B = genericOp->getOperands()[1];
+
+    // function_name is FusedMatMul.
+    StringRef funcName = customOp.getFunctionName();
+    if (!funcName.equals_insensitive("FusedMatMul"))
+      return false;
+
+    // domain_name exists and is "com.microsoft";
+    StringAttr domAttr = genericOp->getAttrOfType<StringAttr>("domain_name");
+    if (!domAttr)
+      return false;
+    if (!domAttr.getValue().equals_insensitive("com.microsoft"))
+      return false;
+
+    // transA and transB exist.
+    IntegerAttr transA = genericOp->getAttrOfType<IntegerAttr>("transA");
+    IntegerAttr transB = genericOp->getAttrOfType<IntegerAttr>("transB");
+    if (!transA || !transB)
+      return false;
+    bool isTransA = (transA.getValue().getSExtValue() == 1);
+    bool isTransB = (transB.getValue().getSExtValue() == 1);
+
+    // If transA=true, we have to know A's rank to generate ONNXTransposeOp for
+    // A. In a good condition, A is ranked then its rank is avilable.
+    //
+    // If A is unranked, we hope that A is a result of another ONNXTransposeOp
+    // whose permutation is available and can be used to infer the rank of A.
+    // For example,
+    // %A = "onnx.Transpose"(%0) {perm = [0, 2, 1, 3]} :
+    //                      (tensor<*xf32>) -> tensor<*xf32>
+    // A must have rank 4 as perm has 4 indices.
+    if (isTransA) {
+      if (onnx_mlir::hasShapeAndRank(A)) {
+        rankA = A.getType().cast<ShapedType>().getRank();
+      } else {
+        if (isa<BlockArgument>(A))
+          return false;
+        if (auto transOp = dyn_cast<ONNXTransposeOp>(A.getDefiningOp())) {
+          if (transOp.getPermAttr())
+            rankA = transOp.getPermAttr().size();
+          else
+            return false;
+        } else
+          // Cannot determine the rank of A.
+          return false;
+      }
+    } else
+      rankA = -1;
+    if (isTransB) {
+      if (onnx_mlir::hasShapeAndRank(B)) {
+        rankB = B.getType().cast<ShapedType>().getRank();
+      } else {
+        if (isa<BlockArgument>(B))
+          return false;
+        if (auto transOp = dyn_cast<ONNXTransposeOp>(B.getDefiningOp())) {
+          if (transOp.getPermAttr())
+            rankB = transOp.getPermAttr().size();
+          else
+            return false;
+        } else
+          // Cannot determine the rank of B.
+          return false;
+      }
+    } else
+      rankB = -1;
+
+    // Get alpha.
+    alphaAttr = genericOp->getAttrOfType<FloatAttr>("alpha");
+    if (!alphaAttr)
+      return false;
+
+    // CustomOp is in a good form to rewrite.
+    return true;
   }
 };
 
@@ -820,7 +818,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addDynamicallyLegalOp<ONNXCustomOp>([](ONNXCustomOp op) {
     int64_t rankA, rankB;
     FloatAttr alpha;
-    return !isCustomOpFusedMatMulMatched(op, alpha, rankA, rankB);
+    return !CustomOpFuseMatMulPattern::isCustomOpFusedMatMulMatched(
+        op, alpha, rankA, rankB);
   });
 
 #ifdef ONNX_MLIR_ENABLE_MHLO
