@@ -282,6 +282,7 @@ TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
     }
     resultTypes.emplace_back(RankedTensorType::get(aTy.getShape(), elementTy));
   }
+  llvm::errs() << __FILE__ << "::" << __LINE__ << "\n";
   return TypeRange(resultTypes);
 }
 

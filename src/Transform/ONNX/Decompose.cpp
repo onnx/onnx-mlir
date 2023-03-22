@@ -329,6 +329,7 @@ ValueRange emitSplitAxisOutputLength1(
   }
   Type splitType = RankedTensorType::get(splitShape, elementType);
   SmallVector<Type, 4> splitTypes(inputShape[axis], splitType);
+  llvm::errs() << __FILE__ << "::" << __LINE__ << "\n";
   ValueRange results =
       create.onnx.split(ArrayRef(splitTypes), input, split, axis);
   return results;

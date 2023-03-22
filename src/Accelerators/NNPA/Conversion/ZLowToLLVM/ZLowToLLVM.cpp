@@ -90,6 +90,8 @@ public:
     Location loc = op->getLoc();
 
     ZLowStickOpAdaptor operandAdaptor(operands);
+
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = operandAdaptor.getX()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
@@ -148,6 +150,8 @@ public:
     Location loc = op->getLoc();
 
     ZLowStickForLSTMOpAdaptor operandAdaptor(operands);
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = operandAdaptor.getFGate()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
@@ -237,6 +241,8 @@ public:
     Location loc = op->getLoc();
 
     ZLowStickForGRUOpAdaptor operandAdaptor(operands);
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = operandAdaptor.getZGate()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
@@ -325,6 +331,8 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowLSTMOpAdaptor operandAdaptor(operands);
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = operandAdaptor.getInput()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
@@ -524,6 +532,8 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowGRUOpAdaptor operandAdaptor(operands);
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = operandAdaptor.getInput()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
@@ -681,6 +691,8 @@ public:
     Location loc = op->getLoc();
 
     ZLowUnstickOpAdaptor operandAdaptor(operands);
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = operandAdaptor.getOut()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
@@ -744,6 +756,8 @@ public:
     Value input = operands[0];
     Value shape = operands[1];
     Value output = operands[2];
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = input.getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -824,6 +838,8 @@ public:
     Value input2 = operands[1];
     Value shape = operands[2];
     Value output = operands[3];
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = input1.getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -901,6 +917,8 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowSoftmaxOpAdaptor operandAdaptor(operands);
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = operandAdaptor.getX()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
@@ -987,6 +1005,8 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMatMulOpAdaptor operandAdaptor(operands);
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = operandAdaptor.getX()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
@@ -1128,6 +1148,8 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowConv2DOpAdaptor operandAdaptor(operands);
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = operandAdaptor.getInput()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
@@ -1281,6 +1303,8 @@ public:
     Value input = operands[0];
     Value shape = operands[1];
     Value output = operands[2];
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = input.getType()
                              .dyn_cast<LLVM::LLVMStructType>()
                              .getBody()[0]
@@ -1384,6 +1408,8 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMeanReduce2DOpAdaptor operandAdaptor(operands);
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = operandAdaptor.getInput()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()
@@ -1455,6 +1481,8 @@ public:
     Location loc = op->getLoc();
 
     ZLowBatchNormOpAdaptor operandAdaptor(operands);
+    
+    // TODO: how to get this type now that pointers are opaque?
     Type llvmElementTy = operandAdaptor.getInput()
                              .getType()
                              .dyn_cast<LLVM::LLVMStructType>()

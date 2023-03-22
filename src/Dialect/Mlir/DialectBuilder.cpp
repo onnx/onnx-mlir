@@ -1401,8 +1401,9 @@ Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
 }
 
 Value LLVMBuilder::_alloca(
-    Type resultType, Value size, int64_t alignment) const {
-  return b().create<LLVM::AllocaOp>(loc(), resultType, size, alignment);
+    Type resultType, Type elementType, Value size, int64_t alignment) const {
+  return b().create<LLVM::AllocaOp>(
+      loc(), resultType, elementType, size, alignment);
 }
 
 Value LLVMBuilder::bitcast(Type type, Value val) const {
@@ -1411,12 +1412,12 @@ Value LLVMBuilder::bitcast(Type type, Value val) const {
 
 Value LLVMBuilder::bitcastI8Ptr(Value val) const {
   return b().create<LLVM::BitcastOp>(
-      loc(), LLVM::LLVMPointerType::get(b().getI8Type()), val);
+      loc(), LLVM::LLVMPointerType::get(b().getContext()), val);
 }
 
 Value LLVMBuilder::bitcastI8PtrPtr(Value val) const {
   return b().create<LLVM::BitcastOp>(loc(),
-      LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(b().getI8Type())),
+      LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(b().getContext())),
       val);
 }
 
@@ -1537,8 +1538,8 @@ Value LLVMBuilder::inttoptr(Type type, Value val) const {
   return b().create<LLVM::IntToPtrOp>(loc(), type, val);
 }
 
-Value LLVMBuilder::load(Value addr) const {
-  return b().create<LLVM::LoadOp>(loc(), addr);
+Value LLVMBuilder::load(Type type, Value addr) const {
+  return b().create<LLVM::LoadOp>(loc(), type, addr);
 }
 
 Value LLVMBuilder::mul(Value lhs, Value rhs) const {
@@ -1550,7 +1551,7 @@ Value LLVMBuilder::null(Type type) const {
 }
 
 Value LLVMBuilder::nullI8Ptr() const {
-  Type I8PtrTy = LLVM::LLVMPointerType::get(b().getI8Type());
+  Type I8PtrTy = LLVM::LLVMPointerType::get(b().getContext());
   return b().create<LLVM::NullOp>(loc(), I8PtrTy);
 }
 

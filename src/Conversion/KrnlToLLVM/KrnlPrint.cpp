@@ -67,8 +67,7 @@ private:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     MLIRContext *ctx = rewriter.getContext();
     Type voidType = LLVM::LLVMVoidType::get(ctx);
-    Type i8Type = IntegerType::get(ctx, 8);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type i8PtrType = LLVM::LLVMPointerType::get(ctx);
     return create.llvm.getOrInsertSymbolRef(module, StringRef("printf"),
         voidType, {i8PtrType},
         /*isVarArg=*/true);

@@ -82,8 +82,7 @@ private:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
     Type llvmI64Ty = IntegerType::get(context, 64);
-    Type llvmI8Ty = IntegerType::get(context, 8);
-    Type opaquePtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
+    Type opaquePtrTy = LLVM::LLVMPointerType::get(rewriter.getContext());
     return create.llvm.getOrInsertSymbolRef(module,
         StringRef("OMInstrumentPoint"), llvmVoidTy,
         {opaquePtrTy, llvmI64Ty, opaquePtrTy});

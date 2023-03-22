@@ -197,13 +197,13 @@ private:
   // Store the given address into a MemRefDescriptor (a struct).
   MemRefDescriptor createMemRefDescriptor(Value address, MemRefType memRefType,
       Location loc, OpBuilder &builder) const {
+    // TODO: Is this the struct type that I'm looking for in KrnlEntryPoint?
     Type elementType = memRefType.getElementType();
     LLVMTypeConverter &typeConverter = *getTypeConverter();
-    Type llvmElemType = typeConverter.convertType(elementType);
     MultiDialectBuilder<LLVMBuilder> create(builder, loc);
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
-    auto ptrType = LLVM::LLVMPointerType::get(llvmElemType);
+    auto ptrType = LLVM::LLVMPointerType::get(getContext());
     // Bitcast the address to the MemRefType's element type.
     Value bitCastOp = create.llvm.bitcast(ptrType, address);
     // Create llvm MemRef from original MemRef and fill the data pointers.
@@ -225,8 +225,7 @@ private:
     DenseElementsAttr denseAttr =
         krnlGlobalOp.getValue().value().cast<DenseElementsAttr>();
 
-    Type i8Type = IntegerType::get(builder.getContext(), 8);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type i8PtrType = LLVM::LLVMPointerType::get(builder.getContext());
 
     // Generate LLVM GlobalOps for each string in the KrnlGlobalOp dense
     // attribute.

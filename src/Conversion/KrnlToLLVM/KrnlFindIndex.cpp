@@ -52,8 +52,7 @@ public:
           firstOperand = operandAdaptor.getInput();
         })
         .Case<StringType>([&](StringType type) {
-          Type i8Type = IntegerType::get(ctx, 8);
-          Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+          Type i8PtrType = LLVM::LLVMPointerType::get(getContext());
           firstOperand = rewriter.create<LLVM::IntToPtrOp>(
               loc, i8PtrType, operandAdaptor.getInput());
         })
@@ -93,11 +92,9 @@ private:
   static FlatSymbolRefAttr getOrInsertFindIndex(
       PatternRewriter &rewriter, ModuleOp module, Type inputType) {
     MLIRContext *ctx = module.getContext();
-    Type i8Type = IntegerType::get(ctx, 8);
     Type i32Type = IntegerType::get(ctx, 32);
     Type i64Type = IntegerType::get(ctx, 64);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
-    Type i32PtrType = LLVM::LLVMPointerType::get(i32Type);
+    Type ptrTy = LLVM::LLVMPointerType::get(rewriter.getContext());
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
 
     // Select the runtime function to use based on the input type.
@@ -111,7 +108,7 @@ private:
         })
         .Case<StringType>([&](StringType type) {
           funcName += "str";
-          firstArgType = i8PtrType;
+          firstArgType = ptrTy;
         })
         .Default([](Type type) {
           llvm::errs() << "type: " << type << "\n";
@@ -120,7 +117,7 @@ private:
 
     // Create 'find_index_*' signature: `i64 ([i8*|i64], i32*, i32*, i32)`
     return create.llvm.getOrInsertSymbolRef(module, StringRef(funcName),
-        i64Type, {firstArgType, i32PtrType, i32PtrType, i32Type});
+        i64Type, {firstArgType, ptrTy, ptrTy, i32Type});
   }
 };
 

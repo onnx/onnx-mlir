@@ -61,30 +61,27 @@ RuntimeAPIRegistry::RuntimeAPIRegistry(ModuleOp &module, OpBuilder &builder)
     : registry() {
   MLIRContext *context = module.getContext();
   auto voidTy = LLVM::LLVMVoidType::get(context);
-  auto int8Ty = IntegerType::get(context, 8);
-  auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
-  auto opaquePtrPtrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
+  auto ptrTy = LLVM::LLVMPointerType::get(context);
   auto int64Ty = IntegerType::get(context, 64);
-  auto int64PtrTy = LLVM::LLVMPointerType::get(int64Ty);
 
   // Declare API type as an enum value, its string name and an LLVM Type
   // specifying its signature.
   // clang-format off
   using API = RuntimeAPI::API;
   std::vector<RuntimeAPI> RuntimeAPISpecs = {
-    RuntimeAPI(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", opaquePtrTy, {opaquePtrPtrTy, int64Ty}),
-    RuntimeAPI(API::CREATE_OMTENSOR, "omTensorCreateUntyped", opaquePtrTy, {int64Ty}),
-    RuntimeAPI(API::DESTROY_OMTENSOR, "omTensorDestroy", voidTy, {opaquePtrTy}),
-    RuntimeAPI(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
-    RuntimeAPI(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int64Ty, opaquePtrTy, opaquePtrTy}),
-    RuntimeAPI(API::GET_DATA_RANK, "omTensorGetRank", int64Ty, {opaquePtrTy}),
-    RuntimeAPI(API::GET_DATA_SHAPE, "omTensorGetShape", int64PtrTy, {opaquePtrTy}),
-    RuntimeAPI(API::GET_DATA_STRIDES, "omTensorGetStrides", int64PtrTy, {opaquePtrTy}),
-    RuntimeAPI(API::GET_DATA_TYPE, "omTensorGetDataType", int64Ty, {opaquePtrTy}),
-    RuntimeAPI(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int64Ty}),
-    RuntimeAPI(API::GET_OMT_ARRAY, "omTensorListGetOmtArray", opaquePtrPtrTy, {opaquePtrTy}),
-    RuntimeAPI(API::PRINT_OMTENSOR, "omTensorPrint", voidTy, {opaquePtrTy, opaquePtrTy}),
-    RuntimeAPI(API::GET_OMTENSOR_LIST_SIZE, "omTensorListGetSize", int64Ty, {opaquePtrTy}),
+    RuntimeAPI(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", ptrTy, {ptrTy, int64Ty}),
+    RuntimeAPI(API::CREATE_OMTENSOR, "omTensorCreateUntyped", ptrTy, {int64Ty}),
+    RuntimeAPI(API::DESTROY_OMTENSOR, "omTensorDestroy", voidTy, {ptrTy}),
+    RuntimeAPI(API::GET_DATA, "omTensorGetDataPtr", ptrTy, {ptrTy}),
+    RuntimeAPI(API::SET_DATA, "omTensorSetDataPtr", voidTy, {ptrTy, int64Ty, ptrTy, ptrTy}),
+    RuntimeAPI(API::GET_DATA_RANK, "omTensorGetRank", int64Ty, {ptrTy}),
+    RuntimeAPI(API::GET_DATA_SHAPE, "omTensorGetShape", ptrTy, {ptrTy}),
+    RuntimeAPI(API::GET_DATA_STRIDES, "omTensorGetStrides", ptrTy, {ptrTy}),
+    RuntimeAPI(API::GET_DATA_TYPE, "omTensorGetDataType", int64Ty, {ptrTy}),
+    RuntimeAPI(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {ptrTy, int64Ty}),
+    RuntimeAPI(API::GET_OMT_ARRAY, "omTensorListGetOmtArray", ptrTy, {ptrTy}),
+    RuntimeAPI(API::PRINT_OMTENSOR, "omTensorPrint", voidTy, {ptrTy, ptrTy}),
+    RuntimeAPI(API::GET_OMTENSOR_LIST_SIZE, "omTensorListGetSize", int64Ty, {ptrTy}),
   };
   // clang-format on
 

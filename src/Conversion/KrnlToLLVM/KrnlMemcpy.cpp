@@ -110,7 +110,7 @@ private:
     // Create a function declaration for memcpy, the signature is:
     //   * `void (i8*, i8* , i64, i1)`
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    Type llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
+    Type llvmI8PtrTy = LLVM::LLVMPointerType::get(context);
     Type llvmI64Ty = IntegerType::get(context, 64);
     Type llvmI1Ty = IntegerType::get(context, 1);
     return create.llvm.getOrInsertSymbolRef(module,

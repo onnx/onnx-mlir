@@ -81,10 +81,9 @@ private:
     //  (memref<3x4x5xf64>, index, f64, f64, f64)
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
     Type llvmOptionsTy = FloatType::getF32(context);
-    Type llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
+    Type llvmOutputTy = LLVM::LLVMPointerType::get(context);
     if (inType.isF64()) {
       llvmOptionsTy = FloatType::getF64(context);
-      llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
     }
     Type llvmI64Ty = IntegerType::get(context, 64);
     return create.llvm.getOrInsertSymbolRef(module, functionName, llvmVoidTy,

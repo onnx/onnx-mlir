@@ -71,18 +71,11 @@ public:
     auto outputMemPoolTypePtrAlloc =
         create.llvm.getElemPtr(llvmMemPoolType, alignedMemPoolBase, {offset});
 
-    // Bitcast to output MemRef type i.e. from i8* to the element type
-    // of the output MemRef.
-    auto llvmOutputElementType = outputElementType.cast<Type>();
-    Value outputTypedPtrAlloc =
-        create.llvm.bitcast(LLVM::LLVMPointerType::get(llvmOutputElementType),
-            outputMemPoolTypePtrAlloc);
-
     // Handle the static case.
     if (hasAllConstantDimensions(memRefTy)) {
       // Create llvm MemRef from original MemRef and fill the data pointers.
       auto llvmMemRef = MemRefDescriptor::fromStaticShape(
-          rewriter, loc, *getTypeConverter(), memRefTy, outputTypedPtrAlloc);
+          rewriter, loc, *getTypeConverter(), memRefTy, outputMemPoolTypePtrAlloc);
 
       rewriter.replaceOp(op, {llvmMemRef});
       return success();

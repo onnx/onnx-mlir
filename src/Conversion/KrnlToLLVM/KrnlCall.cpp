@@ -106,8 +106,7 @@ private:
 
       krnl::fillOMTensorWithMemRef(parameter, omTensor, false /*outOwning*/,
           rewriter, loc, apiRegistry, module);
-      auto int8Ty = IntegerType::get(context, 8);
-      auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
+      auto opaquePtrTy = LLVM::LLVMPointerType::get(context);
       parameterTypeList.emplace_back(opaquePtrTy);
       parameterList.emplace_back(omTensor);
       omTensors.emplace_back(omTensor);
@@ -133,8 +132,7 @@ private:
               krnl::getOrCreateGlobalString(attrValue, loc, rewriter, module,
                   static_cast<LLVMTypeConverter *>(typeConverter));
           Value strPtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
-          auto int8Ty = IntegerType::get(context, 8);
-          auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
+          auto opaquePtrTy = LLVM::LLVMPointerType::get(context);
           parameterTypeList.emplace_back(opaquePtrTy);
           parameterList.emplace_back(strPtr);
         })
@@ -182,8 +180,7 @@ private:
 
           krnl::fillOMTensorWithMemRef(convertedConstantGlobal, omTensor,
               false /*outOwning*/, rewriter, loc, apiRegistry, module);
-          auto int8Ty = IntegerType::get(context, 8);
-          auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
+          auto opaquePtrTy = LLVM::LLVMPointerType::get(context);
           parameterTypeList.emplace_back(opaquePtrTy);
           parameterList.emplace_back(omTensor);
         })

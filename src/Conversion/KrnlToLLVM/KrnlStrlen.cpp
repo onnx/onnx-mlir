@@ -49,8 +49,7 @@ public:
 
     // Operand.
     MLIRContext *ctx = module.getContext();
-    Type i8Type = IntegerType::get(ctx, 8);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type i8PtrType = LLVM::LLVMPointerType::get(ctx);
     Value strPtr = rewriter.create<LLVM::IntToPtrOp>(
         loc, i8PtrType, operandAdaptor.getStr());
 
@@ -73,8 +72,7 @@ private:
     // Create 'strlen' function signature: `size_t (i8*)`
     // TODO: need to create size_t not i64.
     MLIRContext *ctx = module.getContext();
-    Type i8Type = IntegerType::get(ctx, 8);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type i8PtrType = LLVM::LLVMPointerType::get(ctx);
     return create.llvm.getOrInsertSymbolRef(
         module, StringRef("strlen"), rewriter.getI64Type(), {i8PtrType});
   }

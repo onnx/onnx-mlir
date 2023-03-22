@@ -146,6 +146,7 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
   RuntimeAPI::callApi(rewriter, loc, apiRegistry, RuntimeAPI::API::SET_DATA,
       {outOMTensor, owning, outMemRefAllocatedPtr, outMemRefAlignedPtr});
 
+  // TODO: where to get the element type for this?
   Type elemTy =
       outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
 
@@ -165,14 +166,14 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
     // Transfer size of dimension from memref to dynamic memref.
     Value dimSize = create.llvm.extractValue(int64Ty, outMemRef, {3, i});
     Value dimSizePtr =
-        create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
+        create.llvm.getElemPtr(LLVM::LLVMPointerType::get(context),
             sizesArrayPtr, ArrayRef<Value>({dimIdx}));
     create.llvm.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.
     Value dimStride = create.llvm.extractValue(int64Ty, outMemRef, {4, i});
     Value dimStridePtr =
-        create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
+        create.llvm.getElemPtr(LLVM::LLVMPointerType::get(context),
             stridesArrayPtr, ArrayRef<Value>({dimIdx}));
     create.llvm.store(dimStride, dimStridePtr);
   }
@@ -204,8 +205,7 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
 Value getPtrToGlobalString(
     const LLVM::GlobalOp &global, Location loc, OpBuilder &builder) {
   MultiDialectBuilder<LLVMBuilder> create(builder, loc);
-  Type i8Type = IntegerType::get(builder.getContext(), 8);
-  Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+  Type i8PtrType = LLVM::LLVMPointerType::get(builder.getContext());
   Type i64Type = IntegerType::get(builder.getContext(), 64);
   Value globalPtr = create.llvm.addressOf(global);
   Value zero = create.llvm.constant(i64Type, (int64_t)0);
@@ -233,8 +233,7 @@ void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
 FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
   MultiDialectBuilder<LLVMBuilder> create(builder, module.getLoc());
   MLIRContext *ctx = module.getContext();
-  Type i8Type = IntegerType::get(ctx, 8);
-  Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
+  Type i8PtrTy = LLVM::LLVMPointerType::get(ctx);
   // Create 'strncmp' function signature: `i32 (i8*, i8*, i64)`
   return create.llvm.getOrInsertSymbolRef(module, StringRef("strncmp"),
       builder.getI32Type(), {i8PtrTy, i8PtrTy, builder.getI64Type()});
@@ -256,7 +255,7 @@ std::string e2a_s(std::string e_s) {
 
 void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
   Type int32Ty = builder.getI32Type();
-  Type int32PtrTy = LLVM::LLVMPointerType::get(int32Ty);
+  Type int32PtrTy = LLVM::LLVMPointerType::get(builder.getContext());
   LLVMBuilder createLLVM(builder, loc);
   LLVMBuilder createLLVMModuleLoc(builder, module.getLoc());
   // Create '__errno_location' function signature: `i32 *()`

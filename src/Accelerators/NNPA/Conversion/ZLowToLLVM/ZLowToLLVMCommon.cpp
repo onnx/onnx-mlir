@@ -29,7 +29,7 @@ namespace zlow {
 
 ApiRegistry RegisterAllApis(MLIRContext *context) {
   auto voidTy = LLVM::LLVMVoidType::get(context);
-  auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
+  auto opaquePtrTy = LLVM::LLVMPointerType::get(context);
   auto int32Ty = IntegerType::get(context, 32);
   auto int64Ty = IntegerType::get(context, 64);
 
@@ -105,7 +105,7 @@ Value ZTensorHelper::getPreTransformedDescPtr(zdnn_data_types zDNNDataType,
   Value one = create.llvm.constant(llvmI64Ty, (int64_t)1);
 
   Value preTransformedDescPtr = create.llvm._alloca(
-      LLVM::LLVMPointerType::get(llvmZTensorDescStructTy), one,
+      LLVM::LLVMPointerType::get(context), llvmZTensorDescStructTy, one,
       /*alignment=*/0);
 
   // Prepare operands for calling the function that initializes the zTensor
@@ -119,7 +119,7 @@ Value ZTensorHelper::getPreTransformedDescPtr(zdnn_data_types zDNNDataType,
   operands.emplace_back(dataType);
   // 3. Tensor descriptor.
   operands.emplace_back(
-      toOpaquePtr(rewriter, loc, module, preTransformedDescPtr));
+      preTransformedDescPtr);
   // 4. Dimensions.
   // In zDNN, the order of dims is a logical layout of outermost to
   // innermost.
@@ -145,7 +145,7 @@ Value ZTensorHelper::getTransformedDescPtr(
   Value one = create.llvm.constant(llvmI64Ty, (int64_t)1);
 
   Value transformedDescPtr = create.llvm._alloca(
-      LLVM::LLVMPointerType::get(llvmZTensorDescStructTy), one,
+      LLVM::LLVMPointerType::get(context), llvmZTensorDescStructTy, one,
       /*alignment=*/0);
 
   if (isConcat) {
@@ -202,7 +202,7 @@ ZTensor ZTensorHelper::getZTensor(Value bufferPtr, zdnn_data_types dataType,
       getTransformedDescPtr(preTransformedDescPtr, isConcat, concatInfo);
   // Create the input zTensor.
   Value alloc =
-      create.llvm._alloca(LLVM::LLVMPointerType::get(llvmZTensorStructTy), one,
+      create.llvm._alloca(LLVM::LLVMPointerType::get(context), llvmZTensorStructTy, one,
           /*alignment=*/0);
   // Buffer size.
   Value bufferSize = getBufferSize(transformedDescPtr);
@@ -235,7 +235,7 @@ ZTensor ZTensorHelper::getZTensor(Value preTransformedDescPtr,
   Type llvmZTensorStructTy = getZTensorStructTy(context);
   Value one = create.llvm.constant(rewriter.getI64Type(), (int64_t)1);
   Value alloc =
-      create.llvm._alloca(LLVM::LLVMPointerType::get(llvmZTensorStructTy), one,
+      create.llvm._alloca(LLVM::LLVMPointerType::get(context), llvmZTensorStructTy, one,
           /*alignment=*/0);
   // clang-format off
   fillInZTensor(rewriter, loc, module, alloc,
@@ -372,8 +372,8 @@ std::vector<Value> getDimsFromShapeMemRefBySize(PatternRewriter &rewriter,
   for (int64_t i = 0; i < size; ++i) {
     Value index = create.llvm.constant(int64Ty, i);
     Value alignedGep = create.llvm.getElemPtr(
-        LLVM::LLVMPointerType::get(int64Ty), alignedPtr, {index});
-    Value dimI64 = create.llvm.load(alignedGep);
+        LLVM::LLVMPointerType::get(context), alignedPtr, {index});
+    Value dimI64 = create.llvm.load(int64Ty, alignedGep);
     dims.emplace_back(dimI64);
   }
   return dims;
@@ -462,16 +462,16 @@ Type getZTensorStructTy(MLIRContext *context) {
   Type llvmI1Ty = IntegerType::get(context, 1);
   Type llvmI8Ty = IntegerType::get(context, 8);
   Type llvmArrayI8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, 32);
-  Type llvmI8PtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
+  Type llvmI8PtrTy = LLVM::LLVMPointerType::get(context);
   Type llvmZTensorDescStructTy = getZTensorDescStructTy(context);
 
   SmallVector<Type, 4> zTensorTypeElements;
   // A pointer to pre-transformed descriptor struct type
   zTensorTypeElements.emplace_back(
-      LLVM::LLVMPointerType::get(llvmZTensorDescStructTy));
+      LLVM::LLVMPointerType::get(context));
   // A pointer to transformed descriptor struct type
   zTensorTypeElements.emplace_back(
-      LLVM::LLVMPointerType::get(llvmZTensorDescStructTy));
+      LLVM::LLVMPointerType::get(context));
   // zTensor size in bytes
   zTensorTypeElements.emplace_back(llvmI64Ty);
   // pointer to the zTensor in memory
@@ -487,13 +487,6 @@ Type getZTensorStructTy(MLIRContext *context) {
   return zTensorStructTy;
 }
 
-/// Function to cast an LLVM pointer to an opaque LLVM pointer.
-Value toOpaquePtr(
-    PatternRewriter &rewriter, Location loc, ModuleOp module, Value ptr) {
-  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-  return create.llvm.bitcastI8Ptr(ptr);
-}
-
 void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
     Value zTensor, Value preTransformedDescPtr, Value transformedDescPtr,
     bool isTransformed, Value bufferSize, Value alignedBuffer) {
@@ -502,11 +495,11 @@ void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
 
   Type llvmI1Ty = IntegerType::get(context, 1);
   Type llvmI8Ty = IntegerType::get(context, 8);
-  Type llvmI8PtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
+  Type llvmI8PtrTy = LLVM::LLVMPointerType::get(context);
   Type llvmI32Ty = IntegerType::get(context, 32);
   Type llvmI64Ty = IntegerType::get(context, 64);
   Type llvmZTensorDescTy =
-      LLVM::LLVMPointerType::get(getZTensorDescStructTy(context));
+      LLVM::LLVMPointerType::get(context);
 
   // Got runtime error if using i64 as index to access zTensor. It looks
   // like an error in MLIR. So use i32 here, which does not affect the
@@ -519,30 +512,30 @@ void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
 
   // 1. Set pre-transformed descriptor.
   Value zTensorPreTransformedDescPtr = create.llvm.getElemPtr(
-      LLVM::LLVMPointerType::get(llvmZTensorDescTy), zTensor, {zero, zero});
+      LLVM::LLVMPointerType::get(context), zTensor, {zero, zero});
   create.llvm.store(preTransformedDescPtr, zTensorPreTransformedDescPtr);
 
   // 2. Set transformed descriptor.
   Value zTensorTransformedDescPtr = create.llvm.getElemPtr(
-      LLVM::LLVMPointerType::get(llvmZTensorDescTy), zTensor, {zero, one});
+      LLVM::LLVMPointerType::get(context), zTensor, {zero, one});
   create.llvm.store(transformedDescPtr, zTensorTransformedDescPtr);
 
   // 3. Set buffer_size.
   Value bufferSizePtr = create.llvm.getElemPtr(
-      LLVM::LLVMPointerType::get(llvmI64Ty), zTensor, {zero, two});
+      LLVM::LLVMPointerType::get(context), zTensor, {zero, two});
   create.llvm.store(bufferSize, bufferSizePtr);
 
   // 4. Set buffer. Buffer was allocated in advance by the stickified memref.
   // So get the pointer from the stickified memref and set it to the zTensor.
   Value bufferPtr = create.llvm.getElemPtr(
-      LLVM::LLVMPointerType::get(llvmI8PtrTy), zTensor, {zero, three});
+      LLVM::LLVMPointerType::get(context), zTensor, {zero, three});
   create.llvm.store(alignedBuffer, bufferPtr);
 
   // 5. Set is_transformed.
   Value isTransformedVal =
       create.llvm.constant(llvmI1Ty, (int64_t)((isTransformed) ? 1 : 0));
   Value isTransformedDescPtr = create.llvm.getElemPtr(
-      LLVM::LLVMPointerType::get(llvmI1Ty), zTensor, {zero, four});
+      LLVM::LLVMPointerType::get(context), zTensor, {zero, four});
   create.llvm.store(isTransformedVal, isTransformedDescPtr);
 
   // 6. Set reserved (not currently used), not touch

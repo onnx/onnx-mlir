@@ -233,9 +233,7 @@ void genSignatureFunction(ModuleOp &module,
   Type i8Type = IntegerType::get(context, 8);
   Type i32Type = IntegerType::get(context, 32);
   Type i64Type = IntegerType::get(context, 64);
-  Type i64PtrTy = LLVM::LLVMPointerType::get(i64Type);
-  Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
-  Type i8PtrPtrTy = LLVM::LLVMPointerType::get(i8PtrTy);
+  Type ptrTy = LLVM::LLVMPointerType::get(context);
 
   uint64_t numOfEntryPoints = entryGlobalOps.size();
 
@@ -243,7 +241,7 @@ void genSignatureFunction(ModuleOp &module,
   // point constants. The array ends with NULL.
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToEnd(module.getBody());
-  auto arrayType = LLVM::LLVMArrayType::get(i8PtrTy, entryGlobalOps.size() + 1);
+  auto arrayType = LLVM::LLVMArrayType::get(ptrTy, entryGlobalOps.size() + 1);
   LLVM::GlobalOp entryArrayOp = create.llvm.globalOp(arrayType,
       /*isConstant=*/true, LLVM::Linkage::Internal, "_entry_point_arrays",
       Attribute());
@@ -261,7 +259,7 @@ void genSignatureFunction(ModuleOp &module,
       Value address = create.llvm.addressOf(globalOp);
       Value zeroI64 = create.llvm.constant(i64Type, (int64_t)0);
       Value strAddr =
-          create.llvm.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
+          create.llvm.getElemPtr(ptrTy, address, {zeroI64, zeroI64});
       lastValue =
           create.llvm.insertValue(arrayType, lastValue, strAddr, {index++});
     }
@@ -280,7 +278,7 @@ void genSignatureFunction(ModuleOp &module,
     b.setInsertionPointToEnd(module.getBody());
     // Emit the function type.
     Type llvmFnType =
-        LLVM::LLVMFunctionType::get(i8PtrPtrTy, {i64PtrTy}, false);
+        LLVM::LLVMFunctionType::get(ptrTy, {ptrTy}, false);
     LLVM::LLVMFuncOp funcOp =
         create.llvm.func("omQueryEntryPoints", llvmFnType);
     // Emit the body of the function.
@@ -292,14 +290,14 @@ void genSignatureFunction(ModuleOp &module,
     // entry points.
     create.llvm.ifThenElse(/*cond=*/
         [&](LLVMBuilder &createLLVM) {
-          Value nullPtr = createLLVM.null(i64PtrTy);
+          Value nullPtr = createLLVM.null(ptrTy);
           return createLLVM.icmp(
               LLVM::ICmpPredicate::ne, numOfEntryPoints, nullPtr);
         }, /*then=*/
         [&](LLVMBuilder &createLLVM) {
           Value zero = createLLVM.constant(i64Type, (int64_t)0);
           Value numOfEntryPointsPtr =
-              createLLVM.getElemPtr(i64PtrTy, numOfEntryPoints, {zero});
+              createLLVM.getElemPtr(ptrTy, numOfEntryPoints, {zero});
           Value noep =
               createLLVM.constant(i64Type, (int64_t)entryGlobalOps.size());
           createLLVM.store(noep, numOfEntryPointsPtr);
@@ -318,7 +316,7 @@ void genSignatureFunction(ModuleOp &module,
     OpBuilder::InsertionGuard guard(b);
     b.setInsertionPointToEnd(module.getBody());
     // 1. Emit the function type.
-    Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrTy, {i8PtrTy}, false);
+    Type llvmFnType = LLVM::LLVMFunctionType::get(ptrTy, {ptrTy}, false);
     LLVM::LLVMFuncOp funcOp = create.llvm.func(funcNames[i], llvmFnType);
 
     // 2. Emit the body of the function.
@@ -349,7 +347,7 @@ void genSignatureFunction(ModuleOp &module,
             Value address = createLLVM.addressOf(globalEntryPoint);
             Value zeroI64 = createLLVM.constant(i64Type, (int64_t)0);
             Value entryI8Ptr =
-                createLLVM.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
+                createLLVM.getElemPtr(ptrTy, address, {zeroI64, zeroI64});
             // Compare it with the user's entry point name.
             FlatSymbolRefAttr StrncmpRef = krnl::getOrInsertStrncmp(b, module);
             Value length = createLLVM.constant(

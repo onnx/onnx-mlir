@@ -472,7 +472,7 @@ struct LLVMBuilder final : DialectBuilder {
 
   // AllocaOp
   mlir::Value _alloca(
-      mlir::Type resultType, mlir::Value size, int64_t alignment) const;
+      mlir::Type resultType, mlir::Type elementType, mlir::Value size, int64_t alignment) const;
 
   // BitcastOp
   mlir::Value bitcast(mlir::Type type, mlir::Value val) const;
@@ -527,7 +527,7 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value inttoptr(mlir::Type type, mlir::Value val) const;
 
   // LoadOp
-  mlir::Value load(mlir::Value addr) const;
+  mlir::Value load(mlir::Type type, mlir::Value addr) const;
 
   // MulOp
   mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
