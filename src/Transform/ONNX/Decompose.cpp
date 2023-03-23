@@ -822,6 +822,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
         op, alpha, rankA, rankB);
   });
 
+#ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
 #ifdef ONNX_MLIR_ENABLE_MHLO
   // ONNXtoMhlo pass has own rewriting for ConvTranspose Op using mhlo ops.
   // To avoid conflict with it, decomposing for ConvTranspose is disabled
@@ -842,6 +843,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
         });
 #ifdef ONNX_MLIR_ENABLE_MHLO
   }
+#endif
 #endif
 
   RewritePatternSet patterns(context);
