@@ -171,8 +171,8 @@ std::function<WideNum(WideNum)> widenumWrapped(std::function<Res(Arg)> lambda);
 //
 //   WideNum multiplyBy(int factor, WideNum n, Type type) {
 //     return wideZeroDispatch(type, [factor, n](auto wideZero) {
-//       using TAG = toBType(decltype(wideZero));
-//       return widen<TAG>(factor * narrow<TAG>(n));
+//       constexpr BType TAG = toBType<decltype(wideZero)>;
+//       return WideNum::widen<TAG>(factor * n.narrow<TAG>());
 //     });
 //   }
 //
