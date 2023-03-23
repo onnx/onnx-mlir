@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt --convert-krnl-to-llvm="verify-input-tensors" --canonicalize %s -split-input-file | FileCheck %s
 
 // COM: Check verification code at the beginning of the entry point function.
-module { 
+module {
   func.func @main_graph(%arg0: memref<3x4x5xf32>, %arg1: memref<?x4x5xf32>) -> memref<3x4x5xf32> {
     return %arg0 : memref<3x4x5xf32>
   }

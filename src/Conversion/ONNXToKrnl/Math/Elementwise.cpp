@@ -16,6 +16,8 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
+#define DEBUG 0 /* Log which functions are simdized. */
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -79,7 +81,7 @@ template <>
 struct ScalarOp<ONNXDivOp> {
   using FOp = arith::DivFOp;
   using IOp = arith::DivSIOp;
-  using SimdEnabled = SimdScalarOp;
+  using SimdEnabled = NoSimdScalarOp; // Disabled for now because of GPT2 error.
 };
 
 template <>
@@ -947,16 +949,22 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 // SIMD code gen for kernels where data can be fully flattened.
 //===----------------------------------------------------------------------===//
 
+static const char *getOpName(Operation *op) {
+  return op->getName().getStringRef().str().c_str();
+}
+
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MemRefBuilder, VectorBuilder>;
 
-//
 template <typename ElementwiseUnaryOp>
 static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
     ConversionPatternRewriter &rewriter, MDBuilder &create,
     ONNXOpShapeHelper *shapeHelper, Operation *op, MemRefType outputMemRefType,
     ValueRange operands, int64_t alignment, int64_t simdUnroll) {
   Type outputElementType = outputMemRefType.getElementType();
+
+  if (DEBUG)
+    fprintf(stderr, "SIMD code for binary op %s\n", getOpName(op));
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
@@ -978,7 +986,7 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
   Value totOutputSize;
   Value flatAlloc = create.mem.reshapeToFlat(
       alloc, shapeHelper->getOutputDims(), totOutputSize);
-  IndexExpr totSize = DimIndexExpr(totOutputSize);
+  IndexExpr totSize = SymbolIndexExpr(totOutputSize);
   // Create loop iteration (flattened to one dim) and blocked by mVL.
   ValueRange loopDef = create.krnl.defineLoops(1);
   ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
@@ -1016,6 +1024,9 @@ static LogicalResult getVariadicSimdCodeFullyFlattened(
   Type outputElementType = outputMemRefType.getElementType();
   unsigned numArgs = op->getNumOperands();
 
+  if (DEBUG)
+    fprintf(stderr, "SIMD code for variadic op %s\n", getOpName(op));
+
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
   int64_t VL =
@@ -1036,7 +1047,7 @@ static LogicalResult getVariadicSimdCodeFullyFlattened(
   Value totOutputSize;
   Value flatAlloc = create.mem.reshapeToFlat(
       alloc, shapeHelper->getOutputDims(), totOutputSize);
-  IndexExpr totSize = DimIndexExpr(totOutputSize);
+  IndexExpr totSize = SymbolIndexExpr(totOutputSize);
   // Create loop iteration (flattened to one dim) and blocked by mVL.
   ValueRange loopDef = create.krnl.defineLoops(1);
   ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
