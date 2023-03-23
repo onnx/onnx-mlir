@@ -10,6 +10,8 @@
 
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
+#include "mlir/Dialect/Traits.h"
+
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
@@ -98,6 +100,41 @@ DenseElementsAttr ElementsAttrBuilder::toDenseElementsAttr(
     return dense;
   // TODO: consider supporting more ElementsAttr types
   llvm_unreachable("unexpected ElementsAttr instance");
+}
+
+/*static*/
+bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
+  auto lhsType = lhs.getType();
+  auto rhsType = rhs.getType();
+  auto elementType = lhsType.getElementType();
+
+  // Equality between signed/unsigned or int/fp not supported.
+  assert(wideBTypeOfBType(btypeOfMlirType(elementType)) ==
+             wideBTypeOfBType(btypeOfMlirType(rhsType.getElementType())) &&
+         "equal() requires compatible element types");
+
+  SmallVector<int64_t> combinedShape;
+  if (!OpTrait::util::getBroadcastedShape(
+          lhsType.getShape(), rhsType.getShape(), combinedShape))
+    llvm_unreachable("equal() requires broadcast compatible shapes");
+
+  SmallVector<int64_t, 4> xpLhsStrides;
+  ArrayBuffer<WideNum> lhsNums =
+      getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
+
+  SmallVector<int64_t, 4> xpRhsStrides;
+  ArrayBuffer<WideNum> rhsNums =
+      getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
+
+  auto range =
+      makeStridesIteratorRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides});
+  return wideZeroDispatch(elementType, [&](auto wideZero) {
+    constexpr BType TAG = toBType<decltype(wideZero)>;
+    return llvm::all_of(range, [&](StridesIterator<2>::value_type v) {
+      return lhsNums.get()[v.pos[0]].narrow<TAG>() ==
+             rhsNums.get()[v.pos[1]].narrow<TAG>();
+    });
+  });
 }
 
 ElementsAttr ElementsAttrBuilder::fromWideNums(
@@ -449,7 +486,8 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   });
 }
 
-auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
+/*static*/
+auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     -> ElementsProperties {
   static Transformer nullTransformer = nullptr;
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>()) {
@@ -475,9 +513,10 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
   llvm_unreachable("unexpected ElementsAttr instance");
 }
 
+/*static*/
 ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
     ElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape,
-    llvm::SmallVectorImpl<int64_t> &expandedStrides) const {
+    llvm::SmallVectorImpl<int64_t> &expandedStrides) {
   if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
     expandedStrides = expandStrides(disposable.getStrides(), expandedShape);
     return disposable.getBufferAsWideNums();

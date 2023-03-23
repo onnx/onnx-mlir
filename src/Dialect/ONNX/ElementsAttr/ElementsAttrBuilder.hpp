@@ -50,6 +50,13 @@ public:
   static mlir::DenseElementsAttr toDenseElementsAttr(
       mlir::ElementsAttr elements);
 
+  // Compares contents for equality. Argument shapes must be broadcast
+  // compatible.
+  //
+  // TODO: Move this function to a better place, since it doesn't build
+  //       anything, but it's here for now for efficient elements access.
+  static bool equal(mlir::ElementsAttr lhs, mlir::ElementsAttr rhs);
+
   template <typename T>
   using Filler = std::function<void(llvm::MutableArrayRef<T>)>;
 
@@ -143,17 +150,17 @@ public:
 private:
   struct ElementsProperties;
 
-  ElementsProperties getElementsProperties(mlir::ElementsAttr elements) const;
+  static ElementsProperties getElementsProperties(mlir::ElementsAttr elements);
 
-  ArrayBuffer<WideNum> getWideNumsAndStrides(
-      mlir::ElementsAttr elms, llvm::SmallVectorImpl<int64_t> &strides) const {
+  static ArrayBuffer<WideNum> getWideNumsAndStrides(
+      mlir::ElementsAttr elms, llvm::SmallVectorImpl<int64_t> &strides) {
     return getWideNumsAndExpandedStrides(
         elms, elms.getType().getShape(), strides);
   }
 
-  ArrayBuffer<WideNum> getWideNumsAndExpandedStrides(mlir::ElementsAttr elms,
-      llvm::ArrayRef<int64_t> expandedShape,
-      llvm::SmallVectorImpl<int64_t> &expandedStrides) const;
+  static ArrayBuffer<WideNum> getWideNumsAndExpandedStrides(
+      mlir::ElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape,
+      llvm::SmallVectorImpl<int64_t> &expandedStrides);
 
   // A transformer mutates elements.
   using Transformer = std::function<void(llvm::MutableArrayRef<WideNum>)>;
