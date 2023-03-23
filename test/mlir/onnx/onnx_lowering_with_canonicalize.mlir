@@ -2540,6 +2540,7 @@ func.func @pad_constant_mode_constant_pads(%arg0: tensor<16x16xf32>) -> tensor<1
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = onnx.Constant dense<[0, 3, 2, 1]> : tensor<4xi64>
   %1 = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
+  %cst = "onnx.NoValue"() {value} : () -> none
   %2 = "onnx.Pad"(%arg0, %0, %1, %cst) {mode = "constant"} : (tensor<16x16xf32>, tensor<4xi64>, tensor<1xf32>, none) -> tensor<18x20xf32>
   return %2 : tensor<18x20xf32>
 
