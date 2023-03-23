@@ -614,10 +614,10 @@ func.func @test_Pad_1(%arg0 : tensor<16x13xf32>) -> tensor<*xf32> {
   "func.return"(%2) : (tensor<*xf32>) -> ()
   // CHECK-LABEL: test_Pad_1
   // CHECK-SAME:     ([[VAR_arg0:%.+]]: tensor<16x13xf32>) -> tensor<18x19xf32> {
-  // CHECK: [[VAR_0_:%.+]] = onnx.Constant dense<[0, 2, 2, 4]> : tensor<4xi64>
-  // CHECK: [[VAR_1_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
-  // CHECK: [[VAR_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
-  // CHECK-NEXT: [[VAR_3_:%.+]] = "onnx.Pad"([[VAR_arg0]], [[VAR_0_]], [[VAR_1_]], [[VAR_2_]]) {mode = "constant"} : (tensor<16x13xf32>, tensor<4xi64>, tensor<1xf32>, none) -> tensor<18x19xf32>
+  // CHECK: [[VAR_0:%.+]] = onnx.Constant dense<[0, 2, 2, 4]> : tensor<4xi64>
+  // CHECK: [[VAR_1:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
+  // CHECK: [[VAR_2:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK: [[VAR_3:%.+]] = "onnx.Pad"([[VAR_arg0]], [[VAR_0]], [[VAR_1]], [[VAR_2]]) {mode = "constant"} : (tensor<16x13xf32>, tensor<4xi64>, tensor<1xf32>, none) -> tensor<18x19xf32>
 }
 
 // -----
