@@ -544,7 +544,7 @@ func.func @test_onnx_conv2d_notset_with_pads(%arg0: tensor<5x3x32x32xf32>, %arg1
   // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[0, 0, 0, 0, 0, 0, 2, 2]> : tensor<8xi64>
   // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
-  // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Pad"([[PARAM_0_]], [[VAR_1_]], [[VAR_2_]]) {mode = "constant"} : (tensor<5x3x32x32xf32>, tensor<8xi64>, tensor<f32>) -> tensor<5x3x34x34xf32>
+  // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Pad"([[PARAM_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_0_]]) {mode = "constant"} : (tensor<5x3x32x32xf32>, tensor<8xi64>, tensor<f32>, none) -> tensor<5x3x34x34xf32>
   // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Conv"([[VAR_3_]], [[PARAM_1_]], [[VAR_0_]]) {auto_pad = "VALID", group = 1 : si64, kernel_shape = [2, 2], pads = [0, 0, 0, 0]} : (tensor<5x3x34x34xf32>, tensor<1024x3x2x2xf32>, none) -> tensor<5x1024x33x33xf32>
   // CHECK:           return [[VAR_4_]] : tensor<5x1024x33x33xf32>
   // CHECK:         }
