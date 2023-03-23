@@ -971,10 +971,10 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
   Type xzeroPointTy = XZeroPoint.getType();
 
   // Only support scalar scale and zero_point.
-  if (!(isRankedShapedType(xscaleTy) && getRank(xscaleTy) == 0))
-    llvm_unreachable("[ONNXDequantizeLinearOp] Only per-tensor dequantization");
-  if (!(isRankedShapedType(xzeroPointTy) && getRank(xzeroPointTy) == 0))
-    llvm_unreachable("[ONNXDequantizeLinearOp] Only per-tensor dequantization");
+  assert((isRankedShapedType(xscaleTy) && getRank(xscaleTy) == 0) &&
+         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
+  assert((isRankedShapedType(xzeroPointTy) && getRank(xzeroPointTy) == 0) &&
+         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
 
   Value scaleFloat = create.krnl.load(XScale);
   Value zeroPointInt = create.krnl.load(XZeroPoint);
