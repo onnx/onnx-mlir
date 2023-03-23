@@ -1377,6 +1377,18 @@ struct ONNXElementwiseVariadicOpLowering
       }
     }
 
+    // Try to fuse the unary elementwise consumers
+    SmallVector<Operation *, 2> fusionList;
+    SmallVector<EmitScalarFunc, 2> fusionFunction;
+    if (findFusableUnaryOps(op, fusionList, fusionFunction)) {
+      // After fusion, the only store is for the last Op.
+      // Therefore, the allocation should be the output of the last Op
+      outputMemRefType =
+          this->typeConverter
+              ->convertType((*fusionList.end())->getResults()[0].getType())
+              .template cast<MemRefType>();
+    }
+
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
         outputMemRefType, shapeHelper.getOutputDims(), alignment);
@@ -1387,14 +1399,6 @@ struct ONNXElementwiseVariadicOpLowering
       SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
-
-      // Try to fuse the unary elementwise consumers
-      typedef Value (*EmitScalarFunc)(ConversionPatternRewriter & rewriter,
-          Location loc, Operation * op, Type elementType,
-          ArrayRef<Value> scalarOperands);
-      SmallVector<Operation *, 2> fusionList;
-      SmallVector<EmitScalarFunc, 2> fusionFunction;
-      findFusableUnaryOps(op, fusionList, fusionFunction);
 
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -1427,19 +1431,20 @@ struct ONNXElementwiseVariadicOpLowering
                 rewriter, loc, op, outputElementType, accumulated);
 
             // Handle the fused Ops
-            for (auto *emitScalar : fusionFunction)
-              finalResult =
-                  emitScalar(rewriter, loc, op, outputElementType, finalResult);
+            for (auto current : llvm::zip(fusionList, fusionFunction)) {
+              auto currentOp = std::get<0>(current);
+              auto emitScalar = std::get<1>(current);
+              Type currentElementType = currentOp->getResults()[0]
+                                            .getType()
+                                            .cast<ShapedType>()
+                                            .getElementType();
+              finalResult = emitScalar(
+                  rewriter, loc, currentOp, currentElementType, finalResult);
+            }
 
             // Store result in the resulting array.
             createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
           });
-      auto previous = op;
-      for (Operation *fusedOp : fusionList) {
-        rewriter.eraseOp(previous);
-        previous = fusedOp;
-      }
-      rewriter.replaceOp(previous, alloc);
     } else {
       Value accumulated = create.krnl.load(operands[0]);
 
@@ -1453,10 +1458,28 @@ struct ONNXElementwiseVariadicOpLowering
       }
       Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
           rewriter, loc, op, outputElementType, accumulated);
+      // Handle the fused Ops
+      for (auto current : llvm::zip(fusionList, fusionFunction)) {
+        auto currentOp = std::get<0>(current);
+        auto emitScalar = std::get<1>(current);
+        Type currentElementType = currentOp->getResults()[0]
+                                      .getType()
+                                      .cast<ShapedType>()
+                                      .getElementType();
+        finalResult = emitScalar(
+            rewriter, loc, currentOp, currentElementType, finalResult);
+      }
       // Store result in the resulting array.
       create.krnl.store(finalResult, alloc);
-      rewriter.replaceOp(op, alloc);
     }
+
+    // Replace the last Op with alloc and delete the other Ops
+    auto previous = op;
+    for (Operation *fusedOp : fusionList) {
+      rewriter.eraseOp(previous);
+      previous = fusedOp;
+    }
+    rewriter.replaceOp(previous, alloc);
     return success();
   }
 };
