@@ -233,7 +233,7 @@ private:
       // KrnlGlobalOp dense attribute.
       std::string concatStr;
       uint64_t off = 0;
-      SmallVector<uint64_t> concatOffs;
+      SmallVector<int64_t> concatOffs;
       for (StringRef str : denseAttr.getValues<StringRef>()) {
         concatOffs.push_back(off);
         concatStr += concatStr + "\00";
@@ -256,8 +256,8 @@ private:
       Value array = builder.create<LLVM::UndefOp>(loc, arrayType);
 
       Value lastValue = array;
-      for (int32_t index = 0; index < concatOffs.size(); index++) {
-        uint64_t off = concatOffs[index];
+      for (int64_t index = 0; index < concatOffs.size(); index++) {
+        int64_t off = concatOffs[index];
         Value strAddr = krnl::getPtrToGlobalString(globalOp, loc, builder, off);
         lastValue =
             create.llvm.insertValue(arrayType, lastValue, strAddr, {index});
