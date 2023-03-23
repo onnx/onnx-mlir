@@ -1089,6 +1089,47 @@ static LogicalResult getVariadicSimdCodeFullyFlattened(
 }
 
 //===----------------------------------------------------------------------===//
+// Utilities for Op fusion at lowering
+//===----------------------------------------------------------------------===//
+
+// Function pointer type for emitScalarOpFor<T>
+typedef Value (*EmitScalarFunc)(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands);
+
+// This function starts for elementwise operation, op.
+// A successor op (user) is fusable if it's the only user and an unary
+// elementwise Op. The Op and its EmitScalarOpFor<T> are recorded into
+// the vector.
+static bool findFusableUnaryOps(Operation *op,
+    SmallVector<Operation *, 2> &fusionList,
+    SmallVector<EmitScalarFunc, 2> &fusionFunction) {
+  Operation *currentProducer = op;
+  while (currentProducer->hasOneUse()) {
+    // Check the users is an unary elementwise op
+    // The right solution, I think, is to define EmitScalarOpFor as
+    // an interface of unary elementwise Ops.
+    // In the draft PR, it is assumed that the candidates are Sqrt and Relu
+    Operation *user;
+    for (Operation *temp : currentProducer->getUsers()) {
+      user = temp;
+      break;
+    }
+    if (isa<ONNXSqrtOp>(user)) {
+      fusionList.emplace_back(user);
+      fusionFunction.emplace_back(emitScalarOpFor<ONNXSqrtOp>);
+    } else if (isa<ONNXReluOp>(user)) {
+      fusionFunction.emplace_back(emitScalarOpFor<ONNXReluOp>);
+      fusionList.emplace_back(user);
+    } else {
+      break;
+    }
+    currentProducer = user;
+  }
+  return fusionList.size() > 0;
+}
+
+//===----------------------------------------------------------------------===//
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 
@@ -1348,35 +1389,13 @@ struct ONNXElementwiseVariadicOpLowering
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
       // Try to fuse the unary elementwise consumers
-      bool isFusable = false;
-      typedef Value(*EmitScalarFunc)(ConversionPatternRewriter &rewriter, Location loc, Operation *op, Type elementType, ArrayRef<Value> scalarOperands);
-      SmallVector<Operation*,2> fusionList;
-      SmallVector<EmitScalarFunc,2> fusionFunction;;
-      Operation *currentProducer = elmsOp;
-      while (currentProducer->hasOneUse()) {
-        // Check the users is an elementwise op
-        // I do not have a good solution for this yet
-        // Assume that the candidates are Sqrt and Relu
-        Operation *user;
-        for (Operation *temp : currentProducer->getUsers()) {
-          user = temp;
-          break;
-        }
-        if (isa<ONNXSqrtOp>(user)) {
-          fusionList.emplace_back(user);
-          fusionFunction.emplace_back(emitScalarOpFor<ONNXSqrtOp>);
-        } else if (isa<ONNXReluOp>(user)) {
-          fusionFunction.emplace_back(emitScalarOpFor<ONNXReluOp>);
-          fusionList.emplace_back(user);
-        } else {
-          break;
-        }
-        isFusable = true;
-        currentProducer = user;
-      }
-      for(Operation *tempOp :fusionList)
-        tempOp->dump();
-      
+      typedef Value (*EmitScalarFunc)(ConversionPatternRewriter & rewriter,
+          Location loc, Operation * op, Type elementType,
+          ArrayRef<Value> scalarOperands);
+      SmallVector<Operation *, 2> fusionList;
+      SmallVector<EmitScalarFunc, 2> fusionFunction;
+      findFusableUnaryOps(op, fusionList, fusionFunction);
+
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
@@ -1408,8 +1427,9 @@ struct ONNXElementwiseVariadicOpLowering
                 rewriter, loc, op, outputElementType, accumulated);
 
             // Handle the fused Ops
-            for(auto *emitScalar : fusionFunction)
-              finalResult = emitScalar(rewriter, loc, op, outputElementType, finalResult);
+            for (auto *emitScalar : fusionFunction)
+              finalResult =
+                  emitScalar(rewriter, loc, op, outputElementType, finalResult);
 
             // Store result in the resulting array.
             createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
