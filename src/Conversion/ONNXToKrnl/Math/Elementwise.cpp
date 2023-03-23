@@ -1347,6 +1347,36 @@ struct ONNXElementwiseVariadicOpLowering
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
+      // Try to fuse the unary elementwise consumers
+      bool isFusable = false;
+      typedef Value(*EmitScalarFunc)(ConversionPatternRewriter &rewriter, Location loc, Operation *op, Type elementType, ArrayRef<Value> scalarOperands);
+      SmallVector<Operation*,2> fusionList;
+      SmallVector<EmitScalarFunc,2> fusionFunction;;
+      Operation *currentProducer = elmsOp;
+      while (currentProducer->hasOneUse()) {
+        // Check the users is an elementwise op
+        // I do not have a good solution for this yet
+        // Assume that the candidates are Sqrt and Relu
+        Operation *user;
+        for (Operation *temp : currentProducer->getUsers()) {
+          user = temp;
+          break;
+        }
+        if (isa<ONNXSqrtOp>(user)) {
+          fusionList.emplace_back(user);
+          fusionFunction.emplace_back(emitScalarOpFor<ONNXSqrtOp>);
+        } else if (isa<ONNXReluOp>(user)) {
+          fusionFunction.emplace_back(emitScalarOpFor<ONNXReluOp>);
+          fusionList.emplace_back(user);
+        } else {
+          break;
+        }
+        isFusable = true;
+        currentProducer = user;
+      }
+      for(Operation *tempOp :fusionList)
+        tempOp->dump();
+      
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
@@ -1377,9 +1407,19 @@ struct ONNXElementwiseVariadicOpLowering
             Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
                 rewriter, loc, op, outputElementType, accumulated);
 
+            // Handle the fused Ops
+            for(auto *emitScalar : fusionFunction)
+              finalResult = emitScalar(rewriter, loc, op, outputElementType, finalResult);
+
             // Store result in the resulting array.
             createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
           });
+      auto previous = op;
+      for (Operation *fusedOp : fusionList) {
+        rewriter.eraseOp(previous);
+        previous = fusedOp;
+      }
+      rewriter.replaceOp(previous, alloc);
     } else {
       Value accumulated = create.krnl.load(operands[0]);
 
@@ -1395,8 +1435,8 @@ struct ONNXElementwiseVariadicOpLowering
           rewriter, loc, op, outputElementType, accumulated);
       // Store result in the resulting array.
       create.krnl.store(finalResult, alloc);
+      rewriter.replaceOp(op, alloc);
     }
-    rewriter.replaceOp(op, alloc);
     return success();
   }
 };
