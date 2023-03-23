@@ -228,6 +228,44 @@ private:
     Type i8Type = IntegerType::get(builder.getContext(), 8);
     Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
 
+    if (denseAttr.getValues<StringRef>().size() >= 1024) {
+      // Generate one LLVM GlobalOp for string concatenating all string in the
+      // KrnlGlobalOp dense attribute.
+      std::string concatStr;
+      uint64_t off = 0;
+      SmallVector<uint64_t> concatOffs;
+      for (StringRef str : denseAttr.getValues<StringRef>()) {
+        concatOffs.push_back(off);
+        concatStr += concatStr + "\00";
+        off += str.size() + 1;
+      }
+      LLVM::GlobalOp globalOp = krnl::getOrCreateGlobalString(
+          concatStr, loc, builder, module, getTypeConverter());
+
+      // Generate an LLVM GlobalOps with an initializer region containing one
+      // block.
+      auto arrayType = LLVM::LLVMArrayType::get(i8PtrType, concatOffs.size());
+      auto global = create.llvm.globalOp(arrayType,
+          /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.getName(),
+          Attribute());
+      Region &region = global.getInitializerRegion();
+      Block *block = builder.createBlock(&region);
+
+      // Initialize an array with the addresses of the global strings.
+      builder.setInsertionPoint(block, block->begin());
+      Value array = builder.create<LLVM::UndefOp>(loc, arrayType);
+
+      Value lastValue = array;
+      for (int32_t index = 0; index < concatOffs.size(); index++) {
+        uint64_t off = concatOffs[index];
+        Value strAddr = krnl::getPtrToGlobalString(globalOp, loc, builder, off);
+        lastValue =
+            create.llvm.insertValue(arrayType, lastValue, strAddr, {index});
+      }
+
+      create.llvm._return(lastValue);
+      return global;
+    }
     // Generate LLVM GlobalOps for each string in the KrnlGlobalOp dense
     // attribute.
     SmallVector<LLVM::GlobalOp> globalOps;
