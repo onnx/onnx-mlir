@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- OMTensorList.cpp - OMTensor C/C++ Implementation ----------===//
+//===---------- OMResize.cpp - OMTensor C/C++ Implementation ----------===//
 //
 // Copyright 2022-2023 The IBM Research Authors.
 //
