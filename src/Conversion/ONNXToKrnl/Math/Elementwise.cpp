@@ -1098,12 +1098,12 @@ typedef Value (*EmitScalarFunc)(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands);
 
 // This function starts for elementwise operation, op.
-// A successor op (user) is fusable if it's the only user and an unary
+// A successor op (user) is fusible if it's the only user and an unary
 // elementwise Op. The Op and its EmitScalarOpFor<T> are recorded into
 // the vector.
 static bool findFusableUnaryOps(Operation *op,
-    SmallVector<Operation *, 2> &fusionList,
-    SmallVector<EmitScalarFunc, 2> &fusionFunction) {
+    SmallVector<Operation *, 2> &fuseOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
   Operation *currentProducer = op;
   while (currentProducer->hasOneUse()) {
     // Check the users is an unary elementwise op
@@ -1116,17 +1116,49 @@ static bool findFusableUnaryOps(Operation *op,
       break;
     }
     if (isa<ONNXSqrtOp>(user)) {
-      fusionList.emplace_back(user);
-      fusionFunction.emplace_back(emitScalarOpFor<ONNXSqrtOp>);
+      fuseOps.emplace_back(user);
+      fuseEmitFunctions.emplace_back(emitScalarOpFor<ONNXSqrtOp>);
     } else if (isa<ONNXReluOp>(user)) {
-      fusionFunction.emplace_back(emitScalarOpFor<ONNXReluOp>);
-      fusionList.emplace_back(user);
+      fuseEmitFunctions.emplace_back(emitScalarOpFor<ONNXReluOp>);
+      fuseOps.emplace_back(user);
     } else {
       break;
     }
     currentProducer = user;
   }
-  return fusionList.size() > 0;
+  return fuseOps.size() > 0;
+}
+
+// Emit fusion Ops
+static Value emitFuseOps(ConversionPatternRewriter &rewriter, Location loc,
+    Value finalResult, SmallVector<Operation *, 2> fuseOps,
+    SmallVector<EmitScalarFunc, 2> fuseEmitFunctions) {
+  // Handle the fused Ops
+  for (auto current : llvm::zip(fuseOps, fuseEmitFunctions)) {
+    auto currentOp = std::get<0>(current);
+    auto emitScalar = std::get<1>(current);
+    // ToFix: use the location of each Op.
+    // The current obstacle is that no easy way to know the type of Op,
+    // which is needed for ONNXLoc<T>
+    // Location loc = ONNXLoc<T>(currentOp);
+    Type currentElementType = currentOp->getResults()[0]
+                                  .getType()
+                                  .cast<ShapedType>()
+                                  .getElementType();
+    finalResult =
+        emitScalar(rewriter, loc, currentOp, currentElementType, finalResult);
+  }
+  return finalResult;
+}
+
+static void replaceFuseOps(ConversionPatternRewriter &rewriter, Operation *op,
+    Value alloc, SmallVector<Operation *, 2> fuseOps) {
+  auto previous = op;
+  for (Operation *fusedOp : fuseOps) {
+    rewriter.eraseOp(previous);
+    previous = fusedOp;
+  }
+  rewriter.replaceOp(previous, alloc);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1378,14 +1410,14 @@ struct ONNXElementwiseVariadicOpLowering
     }
 
     // Try to fuse the unary elementwise consumers
-    SmallVector<Operation *, 2> fusionList;
-    SmallVector<EmitScalarFunc, 2> fusionFunction;
-    if (findFusableUnaryOps(op, fusionList, fusionFunction)) {
+    SmallVector<Operation *, 2> fuseOps;
+    SmallVector<EmitScalarFunc, 2> fuseEmitFunctions;
+    if (findFusableUnaryOps(op, fuseOps, fuseEmitFunctions)) {
       // After fusion, the only store is for the last Op.
       // Therefore, the allocation should be the output of the last Op
+      Operation *lastOp = fuseOps[fuseOps.size() - 1];
       outputMemRefType =
-          this->typeConverter
-              ->convertType((*fusionList.end())->getResults()[0].getType())
+          this->typeConverter->convertType(lastOp->getResults()[0].getType())
               .template cast<MemRefType>();
     }
 
@@ -1429,19 +1461,8 @@ struct ONNXElementwiseVariadicOpLowering
 
             Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
                 rewriter, loc, op, outputElementType, accumulated);
-
-            // Handle the fused Ops
-            for (auto current : llvm::zip(fusionList, fusionFunction)) {
-              auto currentOp = std::get<0>(current);
-              auto emitScalar = std::get<1>(current);
-              Type currentElementType = currentOp->getResults()[0]
-                                            .getType()
-                                            .cast<ShapedType>()
-                                            .getElementType();
-              finalResult = emitScalar(
-                  rewriter, loc, currentOp, currentElementType, finalResult);
-            }
-
+            finalResult = emitFuseOps(
+                rewriter, loc, finalResult, fuseOps, fuseEmitFunctions);
             // Store result in the resulting array.
             createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
           });
@@ -1458,28 +1479,14 @@ struct ONNXElementwiseVariadicOpLowering
       }
       Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
           rewriter, loc, op, outputElementType, accumulated);
-      // Handle the fused Ops
-      for (auto current : llvm::zip(fusionList, fusionFunction)) {
-        auto currentOp = std::get<0>(current);
-        auto emitScalar = std::get<1>(current);
-        Type currentElementType = currentOp->getResults()[0]
-                                      .getType()
-                                      .cast<ShapedType>()
-                                      .getElementType();
-        finalResult = emitScalar(
-            rewriter, loc, currentOp, currentElementType, finalResult);
-      }
+      finalResult =
+          emitFuseOps(rewriter, loc, finalResult, fuseOps, fuseEmitFunctions);
       // Store result in the resulting array.
       create.krnl.store(finalResult, alloc);
     }
 
     // Replace the last Op with alloc and delete the other Ops
-    auto previous = op;
-    for (Operation *fusedOp : fusionList) {
-      rewriter.eraseOp(previous);
-      previous = fusedOp;
-    }
-    rewriter.replaceOp(previous, alloc);
+    replaceFuseOps(rewriter, op, alloc, fuseOps);
     return success();
   }
 };
