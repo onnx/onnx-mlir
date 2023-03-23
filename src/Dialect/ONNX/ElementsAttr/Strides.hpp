@@ -147,6 +147,7 @@ struct StridedArrayRef : public llvm::ArrayRef<T> {
 //
 template <size_t N>
 class StridesIterator {
+public:
   struct value_type {
     value_type(unsigned rank, uint64_t flattenedIndex = 0)
         : pos{}, flattenedIndex(flattenedIndex), index(rank, 0) {}
@@ -159,6 +160,7 @@ class StridesIterator {
   using reference = const value_type &;
   using iterator_category = std::forward_iterator_tag;
 
+private:
   const llvm::ArrayRef<int64_t> shape;
   const std::array<llvm::ArrayRef<int64_t>, N> strides;
   value_type value;
@@ -224,6 +226,13 @@ public:
     return copy;
   }
 };
+
+template <size_t N>
+inline auto makeStridesIteratorRange(llvm::ArrayRef<int64_t> shape,
+    std::array<llvm::ArrayRef<int64_t>, N> strides) {
+  return llvm::make_range(
+      StridesIterator<N>(shape, strides), StridesIterator<N>(shape));
+}
 
 template <typename Iterator, typename Arg0,
     typename Action = llvm::function_ref<void(Iterator, const Arg0 *)>>
