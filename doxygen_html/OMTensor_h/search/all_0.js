@@ -2,9 +2,9 @@ var searchData=
 [
   ['omtensor_0',['OMTensor',['../_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e',1,'OMTensor.h']]],
   ['omtensor_2eh_1',['OMTensor.h',['../_o_m_tensor_8h.html',1,'']]],
-  ['omtensorcreate_2',['omTensorCreate',['../_o_m_tensor_8h.html#aaa67f6567279688ddadf16796646b4d6',1,'OMTensor.h']]],
-  ['omtensorcreateempty_3',['omTensorCreateEmpty',['../_o_m_tensor_8h.html#a0156a7c3a213b758254ffbf9daf8b9b7',1,'OMTensor.h']]],
-  ['omtensorcreatewithownership_4',['omTensorCreateWithOwnership',['../_o_m_tensor_8h.html#a63a9ca55154cf9971978654d1da91d38',1,'OMTensor.h']]],
+  ['omtensorcreate_2',['omTensorCreate',['../_o_m_tensor_8h.html#a32c590ff735a56b02e1cd652d56f84bd',1,'OMTensor.h']]],
+  ['omtensorcreateempty_3',['omTensorCreateEmpty',['../_o_m_tensor_8h.html#a9592a0e14c17124989a2d4f9df2fa2df',1,'OMTensor.h']]],
+  ['omtensorcreatewithownership_4',['omTensorCreateWithOwnership',['../_o_m_tensor_8h.html#a554f73705250cf194985d4abab1c2995',1,'OMTensor.h']]],
   ['omtensordestroy_5',['omTensorDestroy',['../_o_m_tensor_8h.html#aee6f0d4c60d11e8f36dc4dc645337bfd',1,'OMTensor.h']]],
   ['omtensorgetbuffersize_6',['omTensorGetBufferSize',['../_o_m_tensor_8h.html#adef64e21a204f8d505df77fb438f4d90',1,'OMTensor.h']]],
   ['omtensorgetdataptr_7',['omTensorGetDataPtr',['../_o_m_tensor_8h.html#ada9e09172c4f447d534b883559669ae4',1,'OMTensor.h']]],
@@ -12,12 +12,12 @@ var searchData=
   ['omtensorgetnumelems_9',['omTensorGetNumElems',['../_o_m_tensor_8h.html#a839c5f68f9d827a27a24b92835722015',1,'OMTensor.h']]],
   ['omtensorgetowning_10',['omTensorGetOwning',['../_o_m_tensor_8h.html#ac97739d73591c02201b367c84b79945c',1,'OMTensor.h']]],
   ['omtensorgetrank_11',['omTensorGetRank',['../_o_m_tensor_8h.html#a892cdaf405ed5991c5597ef28e390e06',1,'OMTensor.h']]],
-  ['omtensorgetshape_12',['omTensorGetShape',['../_o_m_tensor_8h.html#abcbf76fca5d682b501c8d6d6118bd73e',1,'OMTensor.h']]],
-  ['omtensorgetstrides_13',['omTensorGetStrides',['../_o_m_tensor_8h.html#a68ea76ce766fa33386459871c683d529',1,'OMTensor.h']]],
+  ['omtensorgetshape_12',['omTensorGetShape',['../_o_m_tensor_8h.html#aa4a973755c02acfe507087d240b32875',1,'OMTensor.h']]],
+  ['omtensorgetstrides_13',['omTensorGetStrides',['../_o_m_tensor_8h.html#a3268f0658ae0d3dcc4420a9f85723a5a',1,'OMTensor.h']]],
   ['omtensorprint_14',['omTensorPrint',['../_o_m_tensor_8h.html#ab33a7d641c4c4a115228ecd238a138ff',1,'OMTensor.h']]],
   ['omtensorsetdatatype_15',['omTensorSetDataType',['../_o_m_tensor_8h.html#a2db42a2e857e0943429da16ac8dc9865',1,'OMTensor.h']]],
   ['omtensorsetowning_16',['omTensorSetOwning',['../_o_m_tensor_8h.html#afd85d4282220ce580b405a7deb10de21',1,'OMTensor.h']]],
-  ['omtensorsetshape_17',['omTensorSetShape',['../_o_m_tensor_8h.html#a4af07a5e74ee89ae62cbf3dd32241cfc',1,'OMTensor.h']]],
-  ['omtensorsetstrides_18',['omTensorSetStrides',['../_o_m_tensor_8h.html#aa60a5904afc45f264371b23f77b11525',1,'OMTensor.h']]],
-  ['omtensorsetstrideswithpyarraystrides_19',['omTensorSetStridesWithPyArrayStrides',['../_o_m_tensor_8h.html#abcf6b835aa8c600844d1d588e4dc7a94',1,'OMTensor.h']]]
+  ['omtensorsetshape_17',['omTensorSetShape',['../_o_m_tensor_8h.html#a8b88fc76030c023376d9ade8fed848e4',1,'OMTensor.h']]],
+  ['omtensorsetstrides_18',['omTensorSetStrides',['../_o_m_tensor_8h.html#a17cbf11538639b65ad035f944681d049',1,'OMTensor.h']]],
+  ['omtensorsetstrideswithpyarraystrides_19',['omTensorSetStridesWithPyArrayStrides',['../_o_m_tensor_8h.html#a41d206f498a85df046f1211f5fcf8e14',1,'OMTensor.h']]]
 ];
