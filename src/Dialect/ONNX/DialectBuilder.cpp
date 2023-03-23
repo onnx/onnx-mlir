@@ -169,7 +169,7 @@ Value OnnxBuilder::pad(
                        ? constantValue
                        : toTensor(constantValue);
   return createTypedOpAndInferShapes<ONNXPadOp>(toTensor(outputType),
-      toTensor(input), toTensor(pads), constant, b().getStringAttr(mode));
+      toTensor(input), toTensor(pads), constant, b().createOrFold<ONNXNoneOp>(loc()), b().getStringAttr(mode));
 }
 
 Value OnnxBuilder::padZero(Value input, Value pads) const {

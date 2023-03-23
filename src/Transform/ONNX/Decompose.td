@@ -249,19 +249,19 @@ def PadV2Pattern : Pat<
   (ONNXPadV2Op $x, $modeAttr, $padsAttr, $valueAttr),
   (ONNXPadOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $padsAttr)),
      (ONNXConstantOpFromDenseAttr(createDenseArrayAttrFromSingleAttr $valueAttr)),
-     (CreateUnitConstant),
+     (CreateNoneValue),
      $modeAttr)
 >;
 
 // Express PadV11 using the latest Pad version.
 def PadV11Pattern : Pat<
   (ONNXPadV11Op $x, $pads, $mode, $value),
-  (ONNXPadOp $x, $pads, $mode, (CreateUnitConstant), $value)
+  (ONNXPadOp $x, $pads, $mode, (CreateNoneValue), $value)
 >;
 
 def PadV13Pattern : Pat<
   (ONNXPadV13Op $x, $pads, $value, $mode),
-  (ONNXPadOp $x, $pads, $value, (CreateUnitConstant), $mode)
+  (ONNXPadOp $x, $pads, $value, (CreateNoneValue), $mode)
 >;
 
 def ResizeV10Pattern: Pat<

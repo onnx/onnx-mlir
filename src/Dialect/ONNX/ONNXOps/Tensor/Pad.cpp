@@ -86,7 +86,7 @@ LogicalResult ONNXPadOp::verify() {
     }
   }
 
-  if (!IsFromNone(operandAdaptor.getPads())) {
+  if (!isNoneValue(getAxes())) {
     return emitOpError("Axes input is not currently supported");
   }
 
