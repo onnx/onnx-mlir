@@ -308,13 +308,14 @@ ArrayAttr getPadsConvTranspose(
 }
 
 // Check if strides is unit strides.
-bool hasUnitStrides(ONNXConvTransposeOp op) {
-  ONNXConvTransposeOpShapeHelper shapeHelper(op.getOperation(), {});
-  LogicalResult shapecomputed = shapeHelper.computeShape();
-  assert(succeeded(shapecomputed) &&
-         "unexpected inferShapes failuer for ConvTrans op");
-  SmallVector<int64_t, 2> strides = shapeHelper.strides;
-  return llvm::all_of(strides, [](int64_t s) { return s == 1; });
+bool hasUnitStrides(ArrayAttr strides) {
+  // Default is unit strides
+  if (strides == nullptr)
+    return true;
+  SmallVector<int64_t, 3> vstrides;
+  for (unsigned int i = 0; i < ArrayAttrSize(strides); ++i)
+    vstrides.emplace_back(ArrayAttrIntVal(strides, i));
+  return llvm::all_of(vstrides, [](int64_t s) { return s == 1; });
 }
 
 // Split on the specified axis. The length of each output is one.
@@ -395,7 +396,7 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
     ONNXConvOp convOp, Value input, ONNXConvTransposeOp op) {
   ONNXConvOpShapeHelper convShapeHelper(convOp.getOperation(), {});
   Type elementType = getElementType(input.getType());
-  convShapeHelper.computeShapeAndUpdateType(elementType);
+  (void)convShapeHelper.computeShapeAndUpdateType(elementType);
   int inputRank = convShapeHelper.getOutputDims().size();
   SmallVector<int64_t, 4> inputShape;
   for (int i = 0; i < inputRank; ++i) {

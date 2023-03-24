@@ -455,7 +455,7 @@ def getPadsConvTranspose: NativeCodeCall<
   "onnx_mlir::getPadsConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>())">;
 
 def HasUnitStrides: Constraint<
-  CPred<"onnx_mlir::hasUnitStrides($_self.getDefiningOp<ONNXConvTransposeOp>())">,
+  CPred<"onnx_mlir::hasUnitStrides($_self)">,
   "has unit strides"
 >;
 
@@ -479,7 +479,7 @@ def ConvTransposeOpPattern1: Pattern<
        (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, $strides),
     (insertAdditionalPadsConvTranspose $conv_res, $res)
    ],
-   [(HasUnitStrides:$res), (HasShapeAndRank $x), (HasShapeAndRank $w)],
+   [(HasUnitStrides:$strides), (HasShapeAndRank $x), (HasShapeAndRank $w)],
    (addBenefit 1)
 >;
 
