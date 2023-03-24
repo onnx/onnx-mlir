@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
-      argc, argv, "TestGemm\n", nullptr, "TEST_ARGS");
+      argc, argv, "TestElementwise\n", nullptr, "TEST_ARGS");
   std::string target = getCompilerOption(OptionKind::TargetAccel);
   std::cout << "Target options: \"" << target << "\"\n";
   bool success;

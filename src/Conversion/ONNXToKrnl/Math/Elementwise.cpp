@@ -1023,7 +1023,6 @@ static LogicalResult getVariadicSimdCodeFullyFlattened(
 
   if (DEBUG)
     llvm::errs() << "SIMD code for variadic op " << op->getName() << "\n";
-  fprintf(stderr, "hi alex: VL is %d\n", (int)create.vec.getMachineVectorLength(outputElementType));
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
