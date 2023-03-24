@@ -8,6 +8,7 @@ project(onnx-mlir)
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
 option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
 option(ONNX_MLIR_ENABLE_MHLO "Enable MHLO support." ON)
+option(ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE "Enable ONNXConvTransposeOp decomposition." ON)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 
@@ -203,6 +204,10 @@ endif()
 
 if (ONNX_MLIR_ENABLE_MHLO)
   add_compile_definitions(ONNX_MLIR_ENABLE_MHLO)
+endif()
+
+if (ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE)
+  add_compile_definitions(ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE)
 endif()
 
 add_subdirectory(utils)
