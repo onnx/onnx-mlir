@@ -37,7 +37,7 @@ def print_usage(msg = ""):
     dprint("")
     dprint("  -f | --function pattern: investigate only functions whose name match")
     dprint("                           the pattern (default \".*main_graph\").")
-    dprint("  -n | --num num:          investigate only that one occurrence num")
+    dprint("  -n | --num num:          investigate only that one occurrence num(default all)")
     dprint("                           (default all: -1).")
     dprint("")
     dprint("  -d | --details: print detailed op stats.")
@@ -54,7 +54,7 @@ def print_usage(msg = ""):
 ################################################################################
 # Globals.
 
-debug = 0  # 1 for emitting stats, 2 for basic block detection
+debug = 0  # 1 for emitting stats, 2 for basic block detection 
 print_code = False
 print_listing = False
 print_details = False
@@ -69,16 +69,33 @@ bb_boundary = {}
 
 def define_arch_op_names(arch):
     global op_name
+    dprint("# use " + arch + " arch")
     if arch == "z":
         op_name["vload"] = "vl"
         op_name["vload-splat"] = "vlrep"
         op_name["vstore"] = "vst"
-        op_name["vshuffle"] = "(vperm|vmr|vsl|vrep|vpdi|vgm)" # perm | merge | shift left | replicate | permute | gen mask
+        # perm | merge | shift left | replicate | permute | gen mask | gen mask
+        op_name["vshuffle"] = "(vperm|vmr|vsl|vrep|vpdi|vgm|vzero)" 
         op_name["vfma"] = "vfma"
         op_name["vmul"] = "vfm.b"
-        op_name["vadd"] = "(vfa.b|[vw]fmax.b|[vw]fmin.b)" # add | max | min
+        op_name["vdiv"] = "vfd"
+        # add | sub| max | min
+        op_name["vadd"] = "([vw]fa|[vw]fs]|[vw]fmax|[vw]fmin)" 
         op_name["load"] = "lg"
         op_name["store"] = "stg"
+    elif arch == "x86": # generic x86
+        op_name["vload"] = "v?mov[au]p[sd]"
+        op_name["vload-splat"] = "nothingtosee"
+        op_name["vstore"] = "v?movntp[sd]" #non temporal... other store may be just mov too
+        # perm | merge | shift left | replicate | permute | gen mask | gen mask
+        op_name["vshuffle"] = "(v?shufp[sd]])" 
+        op_name["vfma"] = "v?fmadd[123]+p[ds]"
+        op_name["vmul"] = "v?mulp[ds]"
+        op_name["vdiv"] = "v?divp[sd]"
+        # add | sub| max | min
+        op_name["vadd"] = "(v?addp[ds]|v?subp[ds]|v?maxp[ds]|v?min[dp])" 
+        op_name["load"] = "mov"
+        op_name["store"] = "mov"
     else:
         print_usage("unknown arch")
 
@@ -141,6 +158,11 @@ def characterize_op(line):
         inc_aggr_dict('vcompute')
         inc_aggr_dict('vec')
         return 'vmul'
+    if re.match(r'.*\s' +op_name["vdiv"], line):
+        inc_op_dict('vdiv')
+        inc_aggr_dict('vcompute')
+        inc_aggr_dict('vec')
+        return 'vdiv'
     if re.match(r'.*\s' +op_name["vadd"], line):
         inc_op_dict('vadd')
         inc_aggr_dict('vcompute')
@@ -173,17 +195,23 @@ def characterize_ops(buffer, reset=True):
         op_dict = {}
         aggr_dict = {}
     b = io.StringIO(buffer)
-    for l in b:
+    for line in b:
+        l = line.rstrip()
         characterize_op(l)
 
 def print_characterization(details=False):
-    vcompute_vec = (1.0 * float(get_aggr_dict('vcompute')) / float(get_aggr_dict('vec')))
+    vcompute_vec = float(get_aggr_dict('vcompute'))
+    vec = float(get_aggr_dict('vec'))
     tot = float(get_aggr_dict('vec')) + float(get_aggr_dict('scalar')) + float(get_aggr_dict('other'))
-    vec_tot = (1.0 * float(get_aggr_dict('vec')) / tot)
+    if vec>0.0:
+        vcompute_vec = vcompute_vec / vec
+    vec_tot = vec
+    if tot > 0.0:
+        vec_tot = vec_tot / tot
     print("# vector ops, " + get_aggr_dict('vec') +
           ", compute, " + get_aggr_dict('vcompute') +
           ", mem, " + get_aggr_dict('vmem') +
-          ", overhead, " + get_aggr_dict('voverhead') +
+          ", overhead, " + get_aggr_dict('voverhead') + 
           ", vcompute/vec, {:.2f}".format(vcompute_vec))
     print("# scalar, " + get_aggr_dict('scalar') +
           ", mem, " + get_aggr_dict('mem'))
@@ -327,13 +355,11 @@ def main(argv):
     pattern = ""
     num = -1 # All.
     arch = "z"
-    define_arch_op_names(arch)
 
     try:
         opts, args = getopt.gnu_getopt(
-            argv, "a:cmodhln:pf:",
-            ["arch=", "compute", "mem", "overhead", "details", "help", "listing",
-             "num=", "print", "function="])
+            argv, "a:cmodhln:pf:", 
+            ["arch=", "compute", "mem", "overhead", "details", "help", "listing", "num=", "print", "function="])
     except getopt.GetoptError:
         dprint("Error: unknown options")
         print_usage()
@@ -341,18 +367,24 @@ def main(argv):
         if opt in ('-a', "--arch"):
             # This option must come before any patterns to search for.
             arch = arg
-            define_arch_op_names(arch)
             if pattern:
                 print_usage("Arch option must come before search options")
         elif opt in ('-c', "--compute"):
+            if not pattern:
+                define_arch_op_names(arch)
             pattern = add_pattern(pattern, op_name["vfma"])
             pattern = add_pattern(pattern, op_name["vadd"])
             pattern = add_pattern(pattern, op_name["vmul"])
+            pattern = add_pattern(pattern, op_name["vdiv"])
         elif opt in ('-m', "--mem"):
+            if not pattern:
+                define_arch_op_names(arch)
             pattern = add_pattern(pattern, op_name["vload"])
             pattern = add_pattern(pattern, op_name["vload-splat"])
             pattern = add_pattern(pattern, op_name["vstore"])
         elif opt in ('-o', "--overhead"):
+            if not pattern:
+                define_arch_op_names(arch)
             pattern = add_pattern(pattern, op_name["vshuffle"])
         elif opt in ("-n", "--num"):
             num = int(arg)
@@ -382,7 +414,6 @@ def main(argv):
         dprint("# generate asm file with: " + cmd)
         ret = subprocess.call(cmd, shell=True)
         filename = asm_filename
-    define_arch_op_names("z")
     scan_basic_blocks(filename)
     buff = scan_for_simd(filename, pattern, num)
     return
