@@ -228,19 +228,36 @@ private:
     Type i8Type = IntegerType::get(builder.getContext(), 8);
     Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
 
-    if (denseAttr.getValues<StringRef>().size() >= 1024) {
+    if (denseAttr.getValues<StringRef>().size() >= 2) { // XXX 1024??
       // Generate one LLVM GlobalOp for string concatenating all string in the
       // KrnlGlobalOp dense attribute.
       std::string concatStr;
-      uint64_t off = 0;
+      uint64_t off = 1;
       SmallVector<int64_t> concatOffs;
       for (StringRef str : denseAttr.getValues<StringRef>()) {
         concatOffs.push_back(off);
-        concatStr += concatStr + "\00";
-        off += str.size() + 1;
+        concatStr += "@" + str.str();
+        off += 1 + str.size();
       }
-      LLVM::GlobalOp globalOp = krnl::getOrCreateGlobalString(
-          concatStr, loc, builder, module, getTypeConverter());
+      std::string symbol = "@om_concat" + concatStr;
+      LLVM::GlobalOp concatGlobalOp =
+          module.lookupSymbol<LLVM::GlobalOp>(symbol);
+      if (!concatGlobalOp) {
+        // Create the global at the entry of the module.
+        OpBuilder::InsertionGuard insertGuard(builder);
+        builder.setInsertionPointToStart(module.getBody());
+
+        Type i8Type = IntegerType::get(builder.getContext(), 8);
+        Type type = LLVM::LLVMArrayType::get(i8Type, concatStr.size());
+        for (int64_t index = 1; index < (int64_t) concatOffs.size(); index++) {
+          int64_t off = concatOffs[index];
+          concatStr[off - 1] = '\00';
+        }
+        LLVMTypeConverter *typeConverter = getTypeConverter();
+        concatGlobalOp = create.llvm.globalOp(type, /*isConstant=*/true,
+            LLVM::Linkage::Internal, symbol, builder.getStringAttr(concatStr));
+        krnl::setAlignment(concatGlobalOp, nullptr, module, builder, *typeConverter);
+      }
 
       // Generate an LLVM GlobalOps with an initializer region containing one
       // block.
@@ -256,9 +273,9 @@ private:
       Value array = builder.create<LLVM::UndefOp>(loc, arrayType);
 
       Value lastValue = array;
-      for (int64_t index = 0; index < concatOffs.size(); index++) {
+      for (int64_t index = 0; index < (int64_t) concatOffs.size(); index++) {
         int64_t off = concatOffs[index];
-        Value strAddr = krnl::getPtrToGlobalString(globalOp, loc, builder, off);
+        Value strAddr = krnl::getPtrToGlobalString(concatGlobalOp, loc, builder, off);
         lastValue =
             create.llvm.insertValue(arrayType, lastValue, strAddr, {index});
       }
