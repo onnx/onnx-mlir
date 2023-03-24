@@ -249,14 +249,15 @@ private:
 
         Type i8Type = IntegerType::get(builder.getContext(), 8);
         Type type = LLVM::LLVMArrayType::get(i8Type, concatStr.size());
-        for (int64_t index = 1; index < (int64_t) concatOffs.size(); index++) {
+        for (int64_t index = 1; index < (int64_t)concatOffs.size(); index++) {
           int64_t off = concatOffs[index];
           concatStr[off - 1] = '\00';
         }
         LLVMTypeConverter *typeConverter = getTypeConverter();
         concatGlobalOp = create.llvm.globalOp(type, /*isConstant=*/true,
             LLVM::Linkage::Internal, symbol, builder.getStringAttr(concatStr));
-        krnl::setAlignment(concatGlobalOp, nullptr, module, builder, *typeConverter);
+        krnl::setAlignment(
+            concatGlobalOp, nullptr, module, builder, *typeConverter);
       }
 
       // Generate an LLVM GlobalOps with an initializer region containing one
@@ -273,9 +274,10 @@ private:
       Value array = builder.create<LLVM::UndefOp>(loc, arrayType);
 
       Value lastValue = array;
-      for (int64_t index = 0; index < (int64_t) concatOffs.size(); index++) {
+      for (int64_t index = 0; index < (int64_t)concatOffs.size(); index++) {
         int64_t off = concatOffs[index];
-        Value strAddr = krnl::getPtrToGlobalString(concatGlobalOp, loc, builder, off);
+        Value strAddr =
+            krnl::getPtrToGlobalString(concatGlobalOp, loc, builder, off);
         lastValue =
             create.llvm.insertValue(arrayType, lastValue, strAddr, {index});
       }
