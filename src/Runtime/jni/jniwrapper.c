@@ -562,12 +562,12 @@ jobject omtl_native_to_java(
 
     LIB_TYPE_VAR_CALL(void *, jni_data, omTensorGetDataPtr(jni_omts[i]),
         jni_data != NULL, env, japi->jecpt_cls, "omt[%d]:data=%p", i, jni_data);
-    LIB_TYPE_VAR_CALL(int64_t *, jni_shape, omTensorGetShape(jni_omts[i]),
+    LIB_TYPE_VAR_CALL(const int64_t *, jni_shape, omTensorGetShape(jni_omts[i]),
         jni_shape != NULL, env, japi->jecpt_cls, "omt[%d]:shape=%p", i,
         jni_shape);
-    LIB_TYPE_VAR_CALL(int64_t *, jni_strides, omTensorGetStrides(jni_omts[i]),
-        jni_strides != NULL, env, japi->jecpt_cls, "omt[%d]:strides=%p", i,
-        jni_strides);
+    LIB_TYPE_VAR_CALL(const int64_t *, jni_strides,
+        omTensorGetStrides(jni_omts[i]), jni_strides != NULL, env,
+        japi->jecpt_cls, "omt[%d]:strides=%p", i, jni_strides);
     LIB_TYPE_VAR_CALL(OM_DATA_TYPE, jni_dataType,
         omTensorGetDataType(jni_omts[i]), jni_dataType != ONNX_TYPE_UNDEFINED,
         env, japi->jecpt_cls, "omt[%d]:dataType=%d", i, jni_dataType);
