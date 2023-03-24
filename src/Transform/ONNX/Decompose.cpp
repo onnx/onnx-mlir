@@ -377,9 +377,7 @@ Value insertPadAxis(PatternRewriter &rewriter, Location loc, Value input,
 Value insertPadsConvTransposeInput(PatternRewriter &rewriter, Location loc,
     ONNXConvTransposeOp op, Value input) {
   ONNXConvTransposeOpShapeHelper shapeHelper(op.getOperation(), {});
-  LogicalResult shapecomputed = shapeHelper.computeShape();
-  assert(succeeded(shapecomputed) &&
-         "unexpected inferShapes failuer for ConvTrans op");
+  shapeHelper.computeShapeAndAssertOnFailure();
   SmallVector<int64_t, 2> strides = shapeHelper.strides;
   int64_t spatialOffset = 2;
   for (unsigned int i = 0; i < strides.size(); ++i) {
@@ -394,8 +392,7 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
     ONNXConvOp convOp, Value input, ONNXConvTransposeOp op) {
   ONNXConvOpShapeHelper convShapeHelper(convOp.getOperation(), {});
   Type elementType = getElementType(input.getType());
-  assert(succeeded(convShapeHelper.computeShapeAndUpdateType(elementType)) &&
-         "unexpected inferShapes failure for Conv op");
+  convShapeHelper.computeShapeAndUpdateType(elementType);
   int inputRank = convShapeHelper.getOutputDims().size();
   SmallVector<int64_t, 4> inputShape;
   for (int i = 0; i < inputRank; ++i) {
@@ -405,9 +402,7 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
     inputShape.emplace_back(d);
   }
   ONNXConvTransposeOpShapeHelper shapeHelper(op.getOperation(), {});
-  LogicalResult shapecomputed = shapeHelper.computeShape();
-  assert(succeeded(shapecomputed) &&
-         "unexpected inferShapes failuer for ConvTrans op");
+  shapeHelper.computeShapeAndAssertOnFailure();
   SmallVector<int64_t, 2> padSize;
   ShapedType inputType = input.getType().cast<ShapedType>();
   int64_t spatialOffset = 2;
