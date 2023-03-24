@@ -90,11 +90,10 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // Convert Py_ssize_t to int64_t if necessary
     OMTensor *inputOMTensor = nullptr;
     if (sizeof(int64_t) == sizeof(Py_ssize_t)) {
-      inputOMTensor = omTensorCreateWithOwnership(dataPtr,
-          const_cast<int64_t *>(inputPyArray.shape()),
+      inputOMTensor = omTensorCreateWithOwnership(dataPtr, inputPyArray.shape(),
           (int64_t)inputPyArray.ndim(), dtype, ownData);
       omTensorSetStridesWithPyArrayStrides(
-          inputOMTensor, const_cast<int64_t *>(inputPyArray.strides()));
+          inputOMTensor, inputPyArray.strides());
     } else {
       std::vector<int64_t> safeShape(
           inputPyArray.shape(), inputPyArray.shape() + inputPyArray.ndim());
