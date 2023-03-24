@@ -51,7 +51,12 @@ public:
       mlir::ElementsAttr elements);
 
   // Compares contents for equality. Argument shapes must be broadcast
-  // compatible.
+  // compatible. Element types must agree on int vs fp and signed vs unsigned
+  // but can have different bit width.
+  //
+  // Note that elements may be compared for equality at a higher precision than
+  // the precision of the element types and therefore may return false even if
+  // the elements would be identical when narrowed to the element types.
   //
   // TODO: Move this function to a better place, since it doesn't build
   //       anything, but it's here for now for efficient elements access.
