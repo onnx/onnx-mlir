@@ -77,7 +77,7 @@ OM_EXTERNAL_VISIBILITY void omTensorListDestroyShallow(OMTensorList *list);
  * @param list pointer to the OMTensorList
  * @return pointer to the array of OMTensor pointers.
  */
-OM_EXTERNAL_VISIBILITY OMTensor **omTensorListGetOmtArray(OMTensorList *list);
+OM_EXTERNAL_VISIBILITY OMTensor **omTensorListGetOmtArray(const OMTensorList *list);
 
 /**
  * \brief OMTensorList size getter
@@ -86,7 +86,7 @@ OM_EXTERNAL_VISIBILITY OMTensor **omTensorListGetOmtArray(OMTensorList *list);
  * @param list pointer to the OMTensorList
  * @return number of elements in the OMTensor array.
  */
-OM_EXTERNAL_VISIBILITY int64_t omTensorListGetSize(OMTensorList *list);
+OM_EXTERNAL_VISIBILITY int64_t omTensorListGetSize(const OMTensorList *list);
 
 /**
  * \brief OMTensorList OMTensor getter by index
@@ -96,7 +96,7 @@ OM_EXTERNAL_VISIBILITY int64_t omTensorListGetSize(OMTensorList *list);
  * @return pointer to the OMTensor, NULL if not found.
  */
 OM_EXTERNAL_VISIBILITY OMTensor *omTensorListGetOmtByIndex(
-    OMTensorList *list, int64_t index);
+    const OMTensorList *list, int64_t index);
 
 #ifdef __cplusplus
 }
