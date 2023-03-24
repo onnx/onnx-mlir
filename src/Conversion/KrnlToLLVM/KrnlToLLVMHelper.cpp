@@ -201,8 +201,8 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
 }
 
 // Return a pointer to the first character in a global string.
-Value getPtrToGlobalString(
-    const LLVM::GlobalOp &global, Location loc, OpBuilder &builder, int64_t off) {
+Value getPtrToGlobalString(const LLVM::GlobalOp &global, Location loc,
+    OpBuilder &builder, int64_t off) {
   MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   Type i8Type = IntegerType::get(builder.getContext(), 8);
   Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
