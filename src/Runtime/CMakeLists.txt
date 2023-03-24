@@ -71,7 +71,29 @@ set_target_properties(OMExecutionSession
   POSITION_INDEPENDENT_CODE TRUE
   )
   
-# When running on ubi8 image, shared lib backend tests fail with
+add_onnx_mlir_library(OMPyExecutionSessionBase
+  PyExecutionSessionBase.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  LINK_LIBS PUBLIC
+  OMExecutionSession
+  pybind11::pybind11
+  )
+set_target_properties(OMPyExecutionSessionBase
+  PROPERTIES
+  POSITION_INDEPENDENT_CODE TRUE
+  )
+target_compile_definitions(OMPyExecutionSessionBase
+  PRIVATE
+  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
+  )
+target_include_directories(OMPyExecutionSessionBase
+  PRIVATE
+  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
+  )
+
+  # When running on ubi8 image, shared lib backend tests fail with
 # the following error:
 #
 #    [libprotobuf ERROR google/protobuf/descriptor_database.cc:641] File already exists in database: onnx/onnx-ml.proto
@@ -98,7 +120,7 @@ set_target_properties(OMExecutionSession
 # also removes some of the compile definitions and include directories
 # which we add back through target_compile_definitions and
 # target_include_directories.
-pybind11_add_module(PyRuntime SHARED PyExecutionSession.cpp)
+pybind11_add_module(PyRuntime PyExecutionSession.cpp)
 add_dependencies(PyRuntime onnx_proto)
 target_compile_options(PyRuntime
   PRIVATE
@@ -115,7 +137,7 @@ target_include_directories(PyRuntime
   )
 target_link_libraries(PyRuntime
   PRIVATE
-  OMExecutionSession
+  OMPyExecutionSessionBase
   )
 llvm_update_compile_flags(PyRuntime)
 
@@ -142,7 +164,7 @@ target_include_directories(PyCompileAndRuntime
 target_link_libraries(PyCompileAndRuntime
   PRIVATE
   OMCompiler
-  PyRuntime
+  OMPyExecutionSessionBase
   )
 llvm_update_compile_flags(PyCompileAndRuntime)
 

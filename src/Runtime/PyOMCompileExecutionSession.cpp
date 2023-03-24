@@ -26,7 +26,7 @@ namespace onnx_mlir {
 PyOMCompileExecutionSession::PyOMCompileExecutionSession(
     std::string inputFileName, std::string sharedLibPath, std::string flags,
     bool defaultEntryPoint)
-    : onnx_mlir::PyExecutionSession(sharedLibPath, defaultEntryPoint) {
+    : onnx_mlir::PyExecutionSessionBase(sharedLibPath, defaultEntryPoint) {
   this->inputFileName = inputFileName;
   if (this->inputFileName.empty()) {
     errorMessage = "No OMCompileExecuteSession was created with the input file "

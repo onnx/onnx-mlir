@@ -15,24 +15,13 @@
 
 #pragma once
 
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
-namespace py = pybind11;
-
-#include "ExecutionSession.hpp"
+#include "PyExecutionSessionBase.hpp"
 
 namespace onnx_mlir {
 
-class PYBIND11_EXPORT PyExecutionSession : public onnx_mlir::ExecutionSession {
+class PyExecutionSession : public onnx_mlir::PyExecutionSessionBase {
 public:
   PyExecutionSession(std::string sharedLibPath, bool defaultEntryPoint = true);
-  std::vector<std::string> pyQueryEntryPoints();
-  void pySetEntryPoint(std::string entryPointName);
-  std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray);
-  std::string pyInputSignature();
-  std::string pyOutputSignature();
 };
 } // namespace onnx_mlir
 
