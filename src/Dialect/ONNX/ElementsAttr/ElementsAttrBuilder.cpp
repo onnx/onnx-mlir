@@ -128,6 +128,7 @@ bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
 
   auto range =
       makeStridesIteratorRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides});
+  // TODO: Verify that this works correctly for bools.
   return wideZeroDispatch(elementType, [&](auto wideZero) {
     constexpr BType TAG = toBType<decltype(wideZero)>;
     return llvm::all_of(range, [&](StridesIterator<2>::value_type v) {
