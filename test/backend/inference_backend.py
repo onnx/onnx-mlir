@@ -239,7 +239,18 @@ def get_test_models():
 
         # ConvInteger
 
-        # ConvTranspose
+        # ==OP== ConvTranspose
+        # ==LIM== `SAME_UPPER` and `SAME_LOWER` in `auto_pad` attribute not supported. Unknown dimension in spatial dimensions (such as H and W) not supported.
+        # TODO: Support unsupported cases. Fix shape inference for auto_pad and unknown dimensions. Also fix rewriting for unknown dimensions
+        "test_convtranspose_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        # "test_convtranspose_autopad_same_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_dilations_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_kernel_shape_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_output_shape_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_pad_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_pads_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
 
         # ==OP== Cos
         "test_cos_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -1051,14 +1062,11 @@ def get_test_models():
         ############################################################
         # Model (alphabetical order)
     variables.model_test_to_enable_dict = {
-        # From https://github.com/onnx/onnx-mlir/issues/2001: Disable the models below - they are failing to download
-        # correctly because access to them has been lost. Until a better fix is available, unblock everyone by simply
-        # not running them.
-        # "test_densenet121_cpu": {STATIC_SHAPE:{}},
-        # "test_inception_v1_cpu": {STATIC_SHAPE:{}},
-        # "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
-        # "test_shufflenet_cpu": {STATIC_SHAPE:{}},
-        # "test_squeezenet_cpu": {STATIC_SHAPE:{}},
+        "test_densenet121_cpu": {STATIC_SHAPE:{}},
+        "test_inception_v1_cpu": {STATIC_SHAPE:{}},
+        "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
+        "test_shufflenet_cpu": {STATIC_SHAPE:{}},
+        "test_squeezenet_cpu": {STATIC_SHAPE:{}},
         # Failure in version v13
         # "test_vgg19_cpu": {STATIC_SHAPE:{}},
     }
@@ -1270,59 +1278,51 @@ class EndiannessAwareExecutionSession(object):
         for idx in range(num_of_inputs):
             if idx not in input_indices:
                 new_inputs.append(inputs[idx])
-        # Add numpy array entry if empty.
-        if not new_inputs:
-            new_inputs.append(np.zeros((1)))
         return new_inputs
 
     def run(self, inputs, **kwargs):
         sys.path.append(RUNTIME_DIR)
         from PyRuntime import OMExecutionSession
 
-        if len(inputs):
-            inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
-            endianness_is_consistent = len(set(inputs_endianness)) <= 1
-            # Deduce desired endianness of output from inputs.
-            # Only possible if all inputs are consistent in endiannness.
-            if endianness_is_consistent:
-                sys_is_le = sys.byteorder == "little"
-                inp_is_le = self.is_input_le(inputs)
-                inp_is_not_relevant_endian = self.is_not_relevant_endian(inputs)
-                if not inp_is_not_relevant_endian and sys_is_le != inp_is_le:
-                    inputs = list(map(lambda x: x.byteswap().newbyteorder(), inputs))
-            # If constant test, change the model inputs to constants.
-            if args.constant:
-                inputs = self.turn_model_input_to_constant(inputs)
-                self.exec_name = compile_model(self.model, args.emit)
-            if args.emit == "lib":
-                session = OMExecutionSession(self.exec_name)
-                outputs = session.run(inputs)
-                # print('input='+str(inputs), file=sys.stderr)
-                # print('output='+str(outputs), file=sys.stderr)
-            elif args.emit == "jni":
-                outputs = JniExecutionSession(self.exec_name, inputs)
-            if (
-                endianness_is_consistent
-                and not inp_is_not_relevant_endian
-                and sys_is_le != inp_is_le
-            ):
-                outputs = list(map(lambda x: x.byteswap().newbyteorder(), outputs))
-            return outputs
-        else:
-            # Can't deduce desired output endianess, fingers crossed.
-            warnings.warn(
-                "Cannot deduce desired output endianness, using native endianness by default."
-            )
-            if args.emit == "lib":
-                session = OMExecutionSession(self.exec_name)
-                # Add numpy array entry if empty.
-                if not inputs:
-                    inputs = [np.zeros((1))]
-                outputs = session.run(inputs)
-            elif args.emit == "jni":
-                outputs = JniExecutionSession(self.exec_name, inputs)
-            return outputs
+        # If constant is set, recompile the model so inputs are model constants
+        if args.constant:
+            inputs = self.turn_model_input_to_constant(inputs)
+            self.exec_name = compile_model(self.model, args.emit)
 
+        # Contant tests may create models that no longer expect input tensors.
+        # The input values get built into the model itself. So we create a fake
+        # input of a zero array so the test infrastructure tolerates this scenario.
+        if not inputs:
+            inputs = [np.zeros((1))]
+
+        # Deduce desired endianness of output from inputs.
+        # Only possible if all inputs are consistent in endiannness.
+        inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
+        endianness_is_consistent = len(set(inputs_endianness)) <= 1
+        if endianness_is_consistent:
+            sys_is_le = sys.byteorder == "little"
+            inp_is_le = self.is_input_le(inputs)
+            inp_is_not_relevant_endian = self.is_not_relevant_endian(inputs)
+            if not inp_is_not_relevant_endian and sys_is_le != inp_is_le:
+                inputs = list(map(lambda x: x.byteswap().newbyteorder(), inputs))
+
+        # Run the model
+        if args.emit == "lib":
+            session = OMExecutionSession(self.exec_name)
+            outputs = session.run(inputs)
+            # print('input='+str(inputs), file=sys.stderr)
+            # print('output='+str(outputs), file=sys.stderr)
+        elif args.emit == "jni":
+            outputs = JniExecutionSession(self.exec_name, inputs)
+
+        if (
+            endianness_is_consistent
+            and not inp_is_not_relevant_endian
+            and sys_is_le != inp_is_le
+        ):
+            outputs = list(map(lambda x: x.byteswap().newbyteorder(), outputs))
+
+        return outputs
 
 class InferenceBackend(Backend):
     @classmethod

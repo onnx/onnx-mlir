@@ -466,5 +466,23 @@ private:
   OMTensor *wOmt, *rOmt, *bOmt;
 };
 
+// 2D elementwise with no broadcast
+class Elementwise2DLibBuilder : public ModelLibBuilder {
+public:
+  Elementwise2DLibBuilder(const std::string &modelName,
+      const std::string &onnxOpName, const int I, const int J);
+  bool build() final;
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Data that defines model.
+  std::string onnxOpName;
+  const int I, J;
+  const int inputNum;
+};
+
 } // namespace test
 } // namespace onnx_mlir

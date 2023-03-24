@@ -87,6 +87,7 @@ struct ONNXCategoryMapperOpLowering
 
     // Basic information.
     int64_t rank = memRefType.getShape().size();
+    assert(((rank == 1) || (rank == 2)) && "Invalid rank of input");
     ShapedType inputType = X.getType().cast<ShapedType>();
     Type elementType = inputType.getElementType();
 
@@ -259,8 +260,14 @@ private:
           MathBuilder createMath(createKrnl);
           Value zero = createMath.constant(
               createMath.getBuilder().getIntegerType(64), 0);
+          ArrayRef<int64_t> shape =
+              memref.getType().cast<ShapedType>().getShape();
+          SmallVector<int64_t, 4> newShape;
+          for (uint64_t i = 0; i < shape.size(); i++)
+            newShape.emplace_back(
+                (shape[i] == ShapedType::kDynamic) ? 1 : shape[i]);
           auto memRefType = MemRefType::get(
-              {rank}, krnl::StringType::get(elementType.getContext()));
+              newShape, krnl::StringType::get(elementType.getContext()));
           Value stringMemRef = createKrnl.getRef(memRefType, memref, zero);
           inputElem = createKrnl.load(stringMemRef, loopInd);
         })
