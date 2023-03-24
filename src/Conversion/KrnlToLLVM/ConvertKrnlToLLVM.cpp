@@ -410,6 +410,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   MLIRContext *ctx = &getContext();
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
+  options.useOpaquePointers = true;
   KRNL_ENTRY_POINT_ID = 0;
 
   // Record entry point names and their input/output signatures.

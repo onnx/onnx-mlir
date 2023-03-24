@@ -1405,6 +1405,12 @@ Value LLVMBuilder::_alloca(
   return b().create<LLVM::AllocaOp>(loc(), resultType, size, alignment);
 }
 
+Value LLVMBuilder::_alloca_new(
+    Type resultType, Type elementType, Value size, int64_t alignment) const {
+  return b().create<LLVM::AllocaOp>(
+      loc(), resultType, elementType, size, alignment);
+}
+
 Value LLVMBuilder::bitcast(Type type, Value val) const {
   return b().create<LLVM::BitcastOp>(loc(), type, val);
 }
@@ -1516,6 +1522,11 @@ Value LLVMBuilder::getElemPtr(
   return b().create<LLVM::GEPOp>(loc(), resultType, base, indices);
 }
 
+Value LLVMBuilder::getElemPtr_new(
+    Type resultType, Type elemType, Value base, ArrayRef<Value> indices) const {
+  return b().create<LLVM::GEPOp>(loc(), resultType, elemType, base, indices);
+}
+
 LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
     LLVM::Linkage linkage, StringRef name, Attribute valueAttr,
     uint64_t alignment) const {
@@ -1539,6 +1550,10 @@ Value LLVMBuilder::inttoptr(Type type, Value val) const {
 
 Value LLVMBuilder::load(Value addr) const {
   return b().create<LLVM::LoadOp>(loc(), addr);
+}
+
+Value LLVMBuilder::load_new(Type elementType, Value addr) const {
+  return b().create<LLVM::LoadOp>(loc(), elementType, addr);
 }
 
 Value LLVMBuilder::mul(Value lhs, Value rhs) const {

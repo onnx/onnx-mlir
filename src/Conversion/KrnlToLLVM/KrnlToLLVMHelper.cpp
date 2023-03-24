@@ -121,9 +121,10 @@ int64_t mlirTypeToOnnxType(Type elemType) {
   return onnx_mlir::mlirTypeToOnnxType(elemType);
 }
 
-void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
+void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
     int64_t outOwning, PatternRewriter &rewriter, const Location &loc,
-    const RuntimeAPIRegistry &apiRegistry, ModuleOp &module) {
+    const RuntimeAPIRegistry &apiRegistry, ModuleOp &module,
+    LLVMTypeConverter &typeConverter) {
   MLIRContext *context = module.getContext();
   auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
   auto int64Ty = IntegerType::get(context, 64);
@@ -146,9 +147,6 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
   RuntimeAPI::callApi(rewriter, loc, apiRegistry, RuntimeAPI::API::SET_DATA,
       {outOMTensor, owning, outMemRefAllocatedPtr, outMemRefAlignedPtr});
 
-  Type elemTy =
-      outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
-
   int64_t onnxTy = krnl::mlirTypeToOnnxType(elemTy);
   Value onnxTyVal = create.llvm.constant(int64Ty, onnxTy);
   RuntimeAPI::callApi(rewriter, loc, apiRegistry,
@@ -165,15 +163,15 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
     // Transfer size of dimension from memref to dynamic memref.
     Value dimSize = create.llvm.extractValue(int64Ty, outMemRef, {3, i});
     Value dimSizePtr =
-        create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
-            sizesArrayPtr, ArrayRef<Value>({dimIdx}));
+        create.llvm.getElemPtr_new(typeConverter.getPointerType(int64Ty),
+            int64Ty, sizesArrayPtr, ArrayRef<Value>({dimIdx}));
     create.llvm.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.
     Value dimStride = create.llvm.extractValue(int64Ty, outMemRef, {4, i});
     Value dimStridePtr =
-        create.llvm.getElemPtr(LLVM::LLVMPointerType::get(int64Ty),
-            stridesArrayPtr, ArrayRef<Value>({dimIdx}));
+        create.llvm.getElemPtr_new(typeConverter.getPointerType(int64Ty),
+            int64Ty, stridesArrayPtr, ArrayRef<Value>({dimIdx}));
     create.llvm.store(dimStride, dimStridePtr);
   }
 }

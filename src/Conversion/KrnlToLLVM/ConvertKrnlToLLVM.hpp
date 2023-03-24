@@ -43,9 +43,10 @@ void populateKrnlToLLVMConversion(mlir::LLVMTypeConverter &typeConverter,
 void populateLoweringKrnlCallOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlEntryPointOpPattern(mlir::TypeConverter &typeConverter,
-    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx,
-    llvm::ArrayRef<bool> constantOutputs, bool singleEntryPoint,
+void populateLoweringKrnlEntryPointOpPattern(
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx, llvm::ArrayRef<bool> constantOutputs,
+    bool singleEntryPoint,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &inSigGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps,
