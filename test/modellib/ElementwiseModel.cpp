@@ -32,15 +32,16 @@ namespace test {
 // Elementwise without broadcast
 // Support following ops:
 //    ONNXAddOp
+//    ONNXDivOp
 //    ONNXHardSigmoidOp
 
 const float alphaVal = 2.0;
 const float betaVal = 0.5;
 
 Elementwise2DLibBuilder::Elementwise2DLibBuilder(const std::string &modelName,
-    const std::string &onnxOpName, const int inputNum, const int I, const int J)
-    : ModelLibBuilder(modelName), onnxOpName(onnxOpName), inputNum(inputNum),
-      I(I), J(J) {}
+    const std::string &onnxOpName, const int I, const int J)
+    : ModelLibBuilder(modelName), onnxOpName(onnxOpName), I(I), J(J),
+      inputNum((onnxOpName.compare("ONNXHardSigmoidOp") == 0) ? 1 : 2) {}
 
 bool Elementwise2DLibBuilder::build() {
   llvm::SmallVector<int64_t, 4> shape = {I, J};
@@ -78,8 +79,11 @@ bool Elementwise2DLibBuilder::build() {
     auto bVal = entryBlock.getArgument(1);
     if (onnxOpName.compare("ONNXAddOp") == 0) {
       // Add.
-      assert(inputNum == 2 && "bad input number");
       auto op = builder.create<ONNXAddOp>(loc, yType, aVal, bVal);
+      results.emplace_back(op.getResult());
+    } else if (onnxOpName.compare("ONNXDivOp") == 0) {
+      // Div.
+      auto op = builder.create<ONNXDivOp>(loc, yType, aVal, bVal);
       results.emplace_back(op.getResult());
     } else
       llvm_unreachable("unsupported binary elementwise op");
@@ -181,6 +185,8 @@ bool Elementwise2DLibBuilder::verifyOutputs() {
     F2 fct;
     if (onnxOpName.compare("ONNXAddOp") == 0)
       fct = [](float a, float b) -> float { return a + b; };
+    else if (onnxOpName.compare("ONNXDivOp") == 0)
+      fct = [](float a, float b) -> float { return a / b; };
     else
       llvm_unreachable("unsupported binary elementwise op");
     for (int64_t i = 0; i < I; ++i) {
