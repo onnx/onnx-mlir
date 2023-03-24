@@ -4,7 +4,7 @@
 
 //===------- ExecutionSession.cpp - ExecutionSession Implementation -------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -83,7 +83,7 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   std::vector<OMTensor *> omts;
   for (const auto &inOmt : ins)
     omts.emplace_back(inOmt.get());
-  auto *wrappedInput = omTensorListCreate(&omts[0], (int64_t)omts.size());
+  auto *wrappedInput = omTensorListCreate(omts.data(), (int64_t)omts.size());
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
