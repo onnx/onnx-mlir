@@ -71,6 +71,7 @@ set_target_properties(OMExecutionSession
   POSITION_INDEPENDENT_CODE TRUE
   )
   
+# TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
 add_onnx_mlir_library(OMPyExecutionSessionBase
   PyExecutionSessionBase.cpp
 
@@ -79,7 +80,13 @@ add_onnx_mlir_library(OMPyExecutionSessionBase
   LINK_LIBS PUBLIC
   OMExecutionSession
   pybind11::pybind11
+  pybind11::python_link_helper
   )
+if(MSVC)
+  target_link_libraries(OMPyExecutionSessionBase
+    PRIVATE pybind11::windows_extras
+  )
+endif()
 set_target_properties(OMPyExecutionSessionBase
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
