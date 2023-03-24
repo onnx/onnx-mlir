@@ -87,12 +87,23 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       exit(1);
     }
 
-    auto *inputOMTensor = omTensorCreateWithOwnership(dataPtr,
-        const_cast<int64_t *>(inputPyArray.shape()),
-        (int64_t)inputPyArray.ndim(), dtype, ownData);
-    omTensorSetStridesWithPyArrayStrides(
-        inputOMTensor, const_cast<int64_t *>(inputPyArray.strides()));
-
+    // Convert Py_ssize_t to int64_t if necessary
+    OMTensor *inputOMTensor = nullptr;
+    if (sizeof(int64_t) == sizeof(Py_ssize_t)) {
+      inputOMTensor = omTensorCreateWithOwnership(dataPtr,
+          const_cast<int64_t *>(inputPyArray.shape()),
+          (int64_t)inputPyArray.ndim(), dtype, ownData);
+      omTensorSetStridesWithPyArrayStrides(
+          inputOMTensor, const_cast<int64_t *>(inputPyArray.strides()));
+    } else {
+      std::vector<int64_t> safeShape(
+          inputPyArray.shape(), inputPyArray.shape() + inputPyArray.ndim());
+      std::vector<int64_t> safeStrides(
+          inputPyArray.strides(), inputPyArray.strides() + inputPyArray.ndim());
+      inputOMTensor = omTensorCreateWithOwnership(dataPtr, safeShape.data(),
+          (int64_t)inputPyArray.ndim(), dtype, ownData);
+      omTensorSetStridesWithPyArrayStrides(inputOMTensor, safeStrides.data());
+    }
     omts.emplace_back(inputOMTensor);
   }
 

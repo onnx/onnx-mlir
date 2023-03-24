@@ -21,8 +21,8 @@
 
 namespace py = pybind11;
 
-#include "PyExecutionSessionBase.hpp"
 #include "OnnxMlirCompiler.h"
+#include "PyExecutionSessionBase.hpp"
 
 namespace onnx_mlir {
 
