@@ -274,10 +274,11 @@ private:
       Value array = builder.create<LLVM::UndefOp>(loc, arrayType);
 
       Value lastValue = array;
+      Value globalPtr = create.llvm.addressOf(global);
       for (int64_t index = 0; index < (int64_t)concatOffs.size(); index++) {
         int64_t off = concatOffs[index];
-        Value strAddr =
-            krnl::getPtrToGlobalString(concatGlobalOp, loc, builder, off);
+        Value strAddr = krnl::getPtrToGlobalString(
+            concatGlobalOp, loc, builder, off, &globalPtr);
         lastValue =
             create.llvm.insertValue(arrayType, lastValue, strAddr, {index});
       }
