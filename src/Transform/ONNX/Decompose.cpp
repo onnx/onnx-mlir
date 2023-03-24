@@ -15,6 +15,9 @@
 // implement shape inference for the decomposed operation. Hence, it is expected
 // that there is no knowledge about tensor shape at this point.
 //
+// TODO: This file is quite busy as the number of decomposing op is increasing.
+// It is better to move decomposition of each operation into a separate file.
+//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/Matchers.h"
@@ -26,6 +29,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/TypeUtilities.hpp"
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
 
 using namespace mlir;
@@ -577,6 +581,175 @@ struct ConcatFusePattern : public ConversionPattern {
   }
 };
 
+// Decompose the custom op FusedMatMul that is produced by ONNXRuntime.
+// According to FusedMatMul specification, it is the result of fusing MatMul and
+// Transpose:
+// https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
+//
+// To decompose FusedMatMul, we need to know ranks of inputs A and B, so that
+// we can emit Transpose operations. But, in general, we have no information
+// about the ranks of A and B.
+//
+// The rewriting here only applies to a situation in which the transposed input
+// comes from another Transpose that we have rank information via looking at
+// `perm` // attribute. For example, if `transA = 1`, A must be from a Transpose
+// to determine the rank of A.
+//
+// Example of onnx.Custom:
+// ```
+// "onnx.Custom"(%0, %1) {alpha = 1.250000e-01 : f32,
+//                        domain_name = "com.microsoft",
+//                        function_name = "FusedMatMul",
+//                        transA = 0 : si64, transB = 1 : si64} :
+//              (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+// ```
+struct CustomOpFuseMatMulPattern : public OpConversionPattern<ONNXCustomOp> {
+  CustomOpFuseMatMulPattern(MLIRContext *context)
+      : OpConversionPattern(context) {}
+  LogicalResult matchAndRewrite(ONNXCustomOp customOp,
+      ONNXCustomOp::Adaptor adaptor,
+      ConversionPatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = customOp.getLoc();
+
+    // Match
+    FloatAttr alphaAttr;
+    int64_t rankA, rankB;
+    if (!isCustomOpFusedMatMulMatched(customOp, alphaAttr, rankA, rankB))
+      return failure();
+
+    // Rewrite ONNXCustomOp {alpha} (A, B) into `Mul(alpha, MatMul(A, B)`
+    Value A = customOp.getOperands()[0];
+    Value B = customOp.getOperands()[1];
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Type resType = customOp.getResult(0).getType();
+    Type elementType = onnx_mlir::getElementType(resType);
+    UnrankedTensorType unrankedType = UnrankedTensorType::get(elementType);
+
+    Value matmulA = A;
+    Value matmulB = B;
+    // Transpose A if transA.
+    if (rankA != -1) {
+      // Prepare permutation attribute.
+      SmallVector<int64_t, 4> indices;
+      for (int64_t i = 0; i < rankA - 2; ++i)
+        indices.emplace_back(i);
+      // Permute the last two dimensions.
+      indices.emplace_back(rankA - 1);
+      indices.emplace_back(rankA - 2);
+      ArrayAttr permAttr = rewriter.getI64ArrayAttr(llvm::ArrayRef(indices));
+      matmulA = create.onnx.transpose(unrankedType, A, permAttr);
+    }
+    // Transpose B if transB.
+    if (rankB != -1) {
+      // Prepare permutation attribute.
+      SmallVector<int64_t, 4> indices;
+      for (int64_t i = 0; i < rankB - 2; ++i)
+        indices.emplace_back(i);
+      // Permute the last two dimensions.
+      indices.emplace_back(rankB - 1);
+      indices.emplace_back(rankB - 2);
+      ArrayAttr permAttr = rewriter.getI64ArrayAttr(llvm::ArrayRef(indices));
+      matmulB = create.onnx.transpose(unrankedType, B, permAttr);
+    }
+    // alpha
+    DenseElementsAttr alphaDenseAttr =
+        onnx_mlir::createDenseElementsAttrFromFloatAttr(
+            rewriter, elementType, alphaAttr);
+    Value alpha = create.onnx.constant(alphaDenseAttr);
+
+    Value res = create.onnx.matmul(resType, matmulA, matmulB);
+    res = create.onnx.mul(alpha, res);
+
+    rewriter.replaceOp(customOp, res);
+    return success();
+  }
+
+public:
+  static bool isCustomOpFusedMatMulMatched(ONNXCustomOp customOp,
+      FloatAttr &alphaAttr, int64_t &rankA, int64_t &rankB) {
+    Operation *genericOp = customOp.getOperation();
+    // CustomOp has two operands.
+    if (customOp.getNumOperands() != 2)
+      return false;
+    Value A = genericOp->getOperands()[0];
+    Value B = genericOp->getOperands()[1];
+
+    // function_name is FusedMatMul.
+    StringRef funcName = customOp.getFunctionName();
+    if (!funcName.equals_insensitive("FusedMatMul"))
+      return false;
+
+    // domain_name exists and is "com.microsoft";
+    StringAttr domAttr = genericOp->getAttrOfType<StringAttr>("domain_name");
+    if (!domAttr)
+      return false;
+    if (!domAttr.getValue().equals_insensitive("com.microsoft"))
+      return false;
+
+    // transA and transB exist.
+    IntegerAttr transA = genericOp->getAttrOfType<IntegerAttr>("transA");
+    IntegerAttr transB = genericOp->getAttrOfType<IntegerAttr>("transB");
+    if (!transA || !transB)
+      return false;
+    bool isTransA = (transA.getValue().getSExtValue() == 1);
+    bool isTransB = (transB.getValue().getSExtValue() == 1);
+
+    // If transA=true, we have to know A's rank to generate ONNXTransposeOp for
+    // A. In a good condition, A is ranked then its rank is avilable.
+    //
+    // If A is unranked, we hope that A is a result of another ONNXTransposeOp
+    // whose permutation is available and can be used to infer the rank of A.
+    // For example,
+    // %A = "onnx.Transpose"(%0) {perm = [0, 2, 1, 3]} :
+    //                      (tensor<*xf32>) -> tensor<*xf32>
+    // A must have rank 4 as perm has 4 indices.
+    if (isTransA) {
+      if (onnx_mlir::hasShapeAndRank(A)) {
+        rankA = A.getType().cast<ShapedType>().getRank();
+      } else {
+        if (isa<BlockArgument>(A))
+          return false;
+        if (auto transOp = dyn_cast<ONNXTransposeOp>(A.getDefiningOp())) {
+          if (transOp.getPermAttr())
+            rankA = transOp.getPermAttr().size();
+          else
+            return false;
+        } else
+          // Cannot determine the rank of A.
+          return false;
+      }
+    } else
+      rankA = -1;
+    if (isTransB) {
+      if (onnx_mlir::hasShapeAndRank(B)) {
+        rankB = B.getType().cast<ShapedType>().getRank();
+      } else {
+        if (isa<BlockArgument>(B))
+          return false;
+        if (auto transOp = dyn_cast<ONNXTransposeOp>(B.getDefiningOp())) {
+          if (transOp.getPermAttr())
+            rankB = transOp.getPermAttr().size();
+          else
+            return false;
+        } else
+          // Cannot determine the rank of B.
+          return false;
+      }
+    } else
+      rankB = -1;
+
+    // Get alpha.
+    alphaAttr = genericOp->getAttrOfType<FloatAttr>("alpha");
+    if (!alphaAttr)
+      return false;
+
+    // CustomOp is in a good form to rewrite.
+    return true;
+  }
+};
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -640,7 +813,16 @@ void DecomposeONNXToONNXPass::runOnOperation() {
     ONNXTransposeOp transposeOp = NULL;
     return !isConcatFuseMatched(op, shapeOp, transposeOp);
   });
+  // Decompose CustomOp FusedMatMul introduced by onnxruntime:
+  // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
+  target.addDynamicallyLegalOp<ONNXCustomOp>([](ONNXCustomOp op) {
+    int64_t rankA, rankB;
+    FloatAttr alpha;
+    return !CustomOpFuseMatMulPattern::isCustomOpFusedMatMulMatched(
+        op, alpha, rankA, rankB);
+  });
 
+#ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
 #ifdef ONNX_MLIR_ENABLE_MHLO
   // ONNXtoMhlo pass has own rewriting for ConvTranspose Op using mhlo ops.
   // To avoid conflict with it, decomposing for ConvTranspose is disabled
@@ -662,11 +844,15 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 #ifdef ONNX_MLIR_ENABLE_MHLO
   }
 #endif
+#endif
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(&getContext());
   patterns.insert<ConcatFusePattern>(&getContext());
+  // Decompose CustomOp FusedMatMul introduced by onnxruntime:
+  // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
+  patterns.insert<CustomOpFuseMatMulPattern>(&getContext());
 
 #ifdef ONNX_MLIR_ENABLE_MHLO
   if (this->target == "mhlo") {

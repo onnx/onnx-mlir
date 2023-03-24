@@ -80,17 +80,6 @@ def ReplaceONNXLeakyReluPattern: Pat<
    (SameLayout $X, $stickout)]
 >;
 
-// Since zDNN does not support Sqrt(X), we calculate it by using zDNN-supported
-// operations, i.e. Exp and Log.
-// Formulas: `sqrt(X) = exp(log(x)/2) = exp(0.5 * log(x))`
-def ReplaceONNXSqrtPattern: Pat<
-  (ZHighStickOp:$stick (ONNXSqrtOp (ZHighUnstickOp $X)), $layout),
-  (ZHighExpOp (ZHighMulOp (ZHighLogOp $X, (returnType $X)),
-                          (ZHighStickOp (GetConstantOfType<"0.5"> $X), $layout),
-                          (returnType $X))),
-  [(IsStaticShapeTensor $X), (SameLayout $X, $stick)]
->;
-
 // Calulation of `1/sqrt(X)` or reciprocal square root is often found in
 // deep learning models, but zDNN does not support it. Thus, we rewrite it into
 // zDNN-supported operations.
