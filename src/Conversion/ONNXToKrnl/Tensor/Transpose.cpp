@@ -197,6 +197,7 @@ private:
     create->krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createKrnl);
+          IndexExprScope loopScope(createKrnl);
           // Compute destination and source offsets for memcpy.
           IndexExpr destOffsetIE = LiteralIndexExpr(0);
           IndexExpr srcOffsetIE = LiteralIndexExpr(0);
