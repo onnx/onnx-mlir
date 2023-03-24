@@ -27,6 +27,7 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/TypeUtilities.hpp"
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
 
 using namespace mlir;
@@ -364,8 +365,7 @@ Value insertPadAxis(PatternRewriter &rewriter, Location loc, Value input,
   padResults.emplace_back(splitLastResults);
   // Concat padded results.
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
-  Type elementType =
-      padResults[0].getType().cast<ShapedType>().getElementType();
+  Type elementType = getElementType(padResults[0].getType());
   Type concatType = UnrankedTensorType::get(elementType);
   Value concatResult =
       create.onnx.concat(concatType, ValueRange(padResults), axis);
@@ -393,7 +393,7 @@ Value insertPadsConvTransposeInput(PatternRewriter &rewriter, Location loc,
 Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
     ONNXConvOp convOp, Value input, ONNXConvTransposeOp op) {
   ONNXConvOpShapeHelper convShapeHelper(convOp.getOperation(), {});
-  Type elementType = input.getType().cast<ShapedType>().getElementType();
+  Type elementType = getElementType(input.getType());
   assert(succeeded(convShapeHelper.computeShapeAndUpdateType(elementType)) &&
          "unexpected inferShapes failure for Conv op");
   int inputRank = convShapeHelper.getOutputDims().size();

@@ -14,6 +14,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -589,7 +590,7 @@ LogicalResult ONNXConvOp::inferShapes(
       (hasBias && !hasShapeAndRank(getB())))
     return success();
 
-  Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  Type elementType = getElementType(getX().getType());
   ONNXConvOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -675,7 +676,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getW()) ||
       (hasBias && !hasShapeAndRank(getB())))
     return success();
-  Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  Type elementType = getElementType(getX().getType());
   ONNXConvTransposeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -700,7 +701,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
       (hasBias && !hasShapeAndRank(getB())))
     return success();
 
-  Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  Type elementType = getElementType(getX().getType());
   ONNXQLinearConvOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
