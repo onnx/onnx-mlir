@@ -33,7 +33,7 @@ static void BM_Add_nice(benchmark::State &state) {
   int I = state.range(0);
   int J = state.range(0);
   onnx_mlir::test::Elementwise2DLibBuilder model(
-      modelName, "ONNXAddOp", 2, I, J);
+      modelName, "ONNXAddOp", I, J);
   assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
          "failed elementwise add");
   for (auto _ : state)
@@ -59,7 +59,7 @@ static void BM_Add_harder(benchmark::State &state) {
   int inner = 7;
   int outer = tot / inner;
   onnx_mlir::test::Elementwise2DLibBuilder model(
-      modelName, "ONNXAddOp", 2, outer, inner);
+      modelName, "ONNXAddOp", outer, inner);
   assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
          "failed elementwise add");
   for (auto _ : state)
@@ -82,7 +82,7 @@ static void BM_HardSigmoid_nice(benchmark::State &state) {
   int I = state.range(0);
   int J = state.range(0);
   onnx_mlir::test::Elementwise2DLibBuilder model(
-      modelName, "ONNXHardSigmoidOp", 1, I, J);
+      modelName, "ONNXHardSigmoidOp", I, J);
   assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
          "failed elementwise add");
   for (auto _ : state)
@@ -108,7 +108,7 @@ static void BM_HardSigmoid_harder(benchmark::State &state) {
   int inner = 7;
   int outer = tot / inner;
   onnx_mlir::test::Elementwise2DLibBuilder model(
-      modelName, "ONNXHardSigmoidOp", 1, outer, inner);
+      modelName, "ONNXHardSigmoidOp", outer, inner);
   assert(model.build() && model.compileAndLoad() && model.prepareInputs() &&
          "failed elementwise add");
   for (auto _ : state)

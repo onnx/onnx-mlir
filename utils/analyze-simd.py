@@ -37,7 +37,7 @@ def print_usage(msg = ""):
     dprint("")
     dprint("  -f | --function pattern: investigate only functions whose name match")
     dprint("                           the pattern (default \".*main_graph\").")
-    dprint("  -n | --num num:          investigate only that one occurrence num(default all)")
+    dprint("  -n | --num num:          investigate only that one occurrence num")
     dprint("                           (default all: -1).")
     dprint("")
     dprint("  -d | --details: print detailed op stats.")
@@ -54,7 +54,7 @@ def print_usage(msg = ""):
 ################################################################################
 # Globals.
 
-debug = 0  # 1 for emitting stats, 2 for basic block detection 
+debug = 0  # 1 for emitting stats, 2 for basic block detection
 print_code = False
 print_listing = False
 print_details = False
@@ -183,7 +183,7 @@ def print_characterization(details=False):
     print("# vector ops, " + get_aggr_dict('vec') +
           ", compute, " + get_aggr_dict('vcompute') +
           ", mem, " + get_aggr_dict('vmem') +
-          ", overhead, " + get_aggr_dict('voverhead') + 
+          ", overhead, " + get_aggr_dict('voverhead') +
           ", vcompute/vec, {:.2f}".format(vcompute_vec))
     print("# scalar, " + get_aggr_dict('scalar') +
           ", mem, " + get_aggr_dict('mem'))
@@ -331,8 +331,9 @@ def main(argv):
 
     try:
         opts, args = getopt.gnu_getopt(
-            argv, "a:cmodhln:pf:", 
-            ["arch=", "compute", "mem", "overhead", "details", "help", "listing", "num=", "print", "function="])
+            argv, "a:cmodhln:pf:",
+            ["arch=", "compute", "mem", "overhead", "details", "help", "listing",
+             "num=", "print", "function="])
     except getopt.GetoptError:
         dprint("Error: unknown options")
         print_usage()
