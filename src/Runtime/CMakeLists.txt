@@ -80,7 +80,6 @@ add_onnx_mlir_library(OMPyExecutionSessionBase
   LINK_LIBS PUBLIC
   OMExecutionSession
   pybind11::embed
-  pybind11::pybind11
   pybind11::python_link_helper
   )
 if(MSVC)
@@ -101,7 +100,7 @@ target_include_directories(OMPyExecutionSessionBase
   $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
   )
 
-  # When running on ubi8 image, shared lib backend tests fail with
+# When running on ubi8 image, shared lib backend tests fail with
 # the following error:
 #
 #    [libprotobuf ERROR google/protobuf/descriptor_database.cc:641] File already exists in database: onnx/onnx-ml.proto
