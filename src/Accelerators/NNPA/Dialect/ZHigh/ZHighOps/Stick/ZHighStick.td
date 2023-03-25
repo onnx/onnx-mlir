@@ -53,7 +53,9 @@ def StickUnstickSameLayoutRemovalPattern : Pat<
 def StickUnstickDiffLayoutRemovalPattern : Pat<
   (ZHighStickOp:$stick (ZHighUnstickOp:$unstick $arg), $_),
   (ONNXLayoutTransformOp $arg, (GetEncodingAttr $stick)),
-  [(NotSameLayout $arg, $stick), (NoOneIsOfNHWCLayout $arg, $stick)]
+  [(NotSameLayout $arg, $stick), (NoOneIsOfNHWCLayout $arg, $stick),
+   // Do not support 1D and 2DS because of this issue: https://github.com/onnx/onnx-mlir/issues/1940
+   (NoOneIsOf1DLayout $arg, $stick), (NoOneIsOf2DSLayout $arg, $stick)]
 >;
 
 // The pattern
