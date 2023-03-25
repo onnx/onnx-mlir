@@ -86,13 +86,11 @@ func.func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.
   // CHECK-DAG:       [[VAR_3_:%.+]] = llvm.mlir.constant(1 : i64) : i64
   // CHECK:           [[VAR_4_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_3_]]{{.}} : (!llvm.ptr<array<3 x ptr<i8>>>, i64, i64) -> !llvm.ptr<i8>
   // CHECK-DAG:       [[VAR_5_:%.+]] = llvm.insertvalue [[VAR_4_]], [[VAR_0_]][0] : !llvm.array<3 x ptr<i8>>
-  // CHECK-DAG:       [[VAR_6_:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK-DAG:       [[VAR_7_:%.+]] = llvm.mlir.constant(5 : i64) : i64
-  // CHECK:           [[VAR_8_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_6_]], [[VAR_7_]]{{.}} : (!llvm.ptr<array<3 x ptr<i8>>>, i64, i64) -> !llvm.ptr<i8>
+  // CHECK:           [[VAR_8_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_7_]]{{.}} : (!llvm.ptr<array<3 x ptr<i8>>>, i64, i64) -> !llvm.ptr<i8>
   // CHECK-DAG:       [[VAR_9_:%.+]] = llvm.insertvalue [[VAR_8_]], [[VAR_5_]][1] : !llvm.array<3 x ptr<i8>>
-  // CHECK-DAG:       [[VAR_10_:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK-DAG:       [[VAR_11_:%.+]] = llvm.mlir.constant(9 : i64) : i64
-  // CHECK:           [[VAR_12_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_1_]]0, [[VAR_1_]]1] : (!llvm.ptr<array<3 x ptr<i8>>>, i64, i64) -> !llvm.ptr<i8>
+  // CHECK:           [[VAR_12_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_11_]]] : (!llvm.ptr<array<3 x ptr<i8>>>, i64, i64) -> !llvm.ptr<i8>
   // CHECK:           [[VAR_13_:%.+]] = llvm.insertvalue [[VAR_12_]], [[VAR_9_]][2] : !llvm.array<3 x ptr<i8>>
   // CHECK:           llvm.return [[VAR_13_]] : !llvm.array<3 x ptr<i8>>
   // CHECK:         }
@@ -170,13 +168,11 @@ func.func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) 
   // CHECK-DAG:       [[VAR_3_:%.+]] = llvm.mlir.constant(1 : i64) : i64
   // CHECK:           [[VAR_4_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_3_]]{{.}} : (!llvm.ptr<array<3 x ptr<i8>>>, i64, i64) -> !llvm.ptr<i8>
   // CHECK-DAG:       [[VAR_5_:%.+]] = llvm.insertvalue [[VAR_4_]], [[VAR_0_]][0] : !llvm.array<3 x ptr<i8>>
-  // CHECK-DAG:       [[VAR_6_:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK-DAG:       [[VAR_7_:%.+]] = llvm.mlir.constant(5 : i64) : i64
-  // CHECK:           [[VAR_8_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_6_]], [[VAR_7_]]{{.}} : (!llvm.ptr<array<3 x ptr<i8>>>, i64, i64) -> !llvm.ptr<i8>
+  // CHECK:           [[VAR_8_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_7_]]{{.}} : (!llvm.ptr<array<3 x ptr<i8>>>, i64, i64) -> !llvm.ptr<i8>
   // CHECK-DAG:       [[VAR_9_:%.+]] = llvm.insertvalue [[VAR_8_]], [[VAR_5_]][1] : !llvm.array<3 x ptr<i8>>
-  // CHECK-DAG:       [[VAR_10_:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK-DAG:       [[VAR_11_:%.+]] = llvm.mlir.constant(9 : i64) : i64
-  // CHECK:           [[VAR_12_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_1_]]0, [[VAR_1_]]1] : (!llvm.ptr<array<3 x ptr<i8>>>, i64, i64) -> !llvm.ptr<i8>
+  // CHECK:           [[VAR_12_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_11_]]] : (!llvm.ptr<array<3 x ptr<i8>>>, i64, i64) -> !llvm.ptr<i8>
   // CHECK:           [[VAR_13_:%.+]] = llvm.insertvalue [[VAR_12_]], [[VAR_9_]][2] : !llvm.array<3 x ptr<i8>>
   // CHECK:           llvm.return [[VAR_13_]] : !llvm.array<3 x ptr<i8>>
   // CHECK:         }

@@ -41,8 +41,9 @@ mlir::LLVM::GlobalOp getOrCreateGlobalString(llvm::StringRef str,
 
 /// Return a pointer to the first character in a global string.
 mlir::Value getPtrToGlobalString(const mlir::LLVM::GlobalOp &global,
-    mlir::Location loc, mlir::OpBuilder &builder, int64_t off = 0,
-    mlir::Value *globalPtr = nullptr);
+    mlir::Location loc, mlir::OpBuilder &builder,
+    mlir::Value *globalPtr = nullptr, mlir::Value *off1Ptr = nullptr,
+    mlir::Value *off2Ptr = nullptr);
 
 /// If the operation has a valid alignment attribute use it, otherwise attempt
 /// to set the alignment based on the module datalayout (if it exists).
