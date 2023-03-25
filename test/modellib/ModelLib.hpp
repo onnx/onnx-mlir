@@ -470,8 +470,7 @@ private:
 class Elementwise2DLibBuilder : public ModelLibBuilder {
 public:
   Elementwise2DLibBuilder(const std::string &modelName,
-      const std::string &onnxOpName, const int inputNum, const int I,
-      const int J);
+      const std::string &onnxOpName, const int I, const int J);
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRangeLB, float dataRangeUB);
@@ -481,8 +480,8 @@ public:
 private:
   // Data that defines model.
   std::string onnxOpName;
-  const int inputNum;
   const int I, J;
+  const int inputNum;
 };
 
 } // namespace test
