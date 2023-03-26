@@ -87,18 +87,20 @@ def urlretrieve(remote_url, local_file):
 
 def main():
     repo = git.Repo('.')
-    head_commit_hash = repo.head.commit.hexsha
+    head_commit_message = repo.head.commit.message.split('\n', 1)[0]
     head_commit_author = '{} <{}>'.format(
         repo.head.commit.author.name, repo.head.commit.author.email)
+    head_commit_hash = repo.head.commit.hexsha
     head_commit_date = datetime.datetime.utcfromtimestamp(
         repo.head.commit.committed_date).isoformat() + 'Z'
 
     cmd = [ 'docker', 'run', '--rm',
             '-u', str(os.geteuid()) + ':' + str(os.getegid()),
-            '-e', 'ONNX_MLIR_HOME='               + ONNX_MLIR_HOME,
-            '-e', 'ONNX_MLIR_HEAD_COMMIT_HASH='   + head_commit_hash,
-            '-e', 'ONNX_MLIR_HEAD_COMMIT_AUTHOR=' + head_commit_author,
-            '-e', 'ONNX_MLIR_HEAD_COMMIT_DATE='   + head_commit_date,
+            '-e', 'ONNX_MLIR_HOME='                + ONNX_MLIR_HOME,
+            '-e', 'ONNX_MLIR_HEAD_COMMIT_MESSAGE=' + head_commit_message,
+            '-e', 'ONNX_MLIR_HEAD_COMMIT_AUTHOR='  + head_commit_author,
+            '-e', 'ONNX_MLIR_HEAD_COMMIT_HASH='    + head_commit_hash,
+            '-e', 'ONNX_MLIR_HEAD_COMMIT_DATE='    + head_commit_date,
             '-v', workspace_historydir  + ':' + container_historydir,
             '-v', workspace_reportdir   + ':' + container_reportdir,
             '-v', workspace_workdir     + ':' + container_workdir,
