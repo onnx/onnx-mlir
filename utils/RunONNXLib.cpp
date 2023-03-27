@@ -113,7 +113,7 @@ extern "C" OMTensorList *run_main_graph(OMTensorList *);
 extern "C" const char *omInputSignature(const char *);
 extern "C" const char *omOutputSignature(const char *);
 extern "C" OMTensor *omTensorCreateWithOwnership(
-    void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t);
+    void *, const int64_t *, int64_t, OM_DATA_TYPE, int64_t);
 extern "C" OMTensorList *TensorListCreate(OMTensor **, int);
 extern "C" void omTensorListDestroy(OMTensorList *list);
 // DLL definitions
