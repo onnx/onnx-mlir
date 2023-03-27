@@ -62,6 +62,10 @@ public:
   //       anything, but it's here for now for efficient elements access.
   static bool equal(mlir::ElementsAttr lhs, mlir::ElementsAttr rhs);
 
+  // More efficient alternative to
+  // equal(elms, DenseElementsAttr::get(elms.getType(), n.toAPFloat/Int())).
+  static bool allEqual(mlir::ElementsAttr elms, WideNum n);
+
   template <typename T>
   using Filler = std::function<void(llvm::MutableArrayRef<T>)>;
 

@@ -130,12 +130,44 @@ bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
       makeStridesIteratorRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides});
   // TODO: Verify that this works correctly for bools.
   return wideZeroDispatch(elementType, [&](auto wideZero) {
-    constexpr BType TAG = toBType<decltype(wideZero)>;
+    using cpptype = decltype(wideZero);
     return llvm::all_of(range, [&](StridesIterator<2>::value_type v) {
+      constexpr BType TAG = toBType<cpptype>;
       return lhsNums.get()[v.pos[0]].narrow<TAG>() ==
              rhsNums.get()[v.pos[1]].narrow<TAG>();
     });
   });
+}
+
+/*static*/
+bool ElementsAttrBuilder::allEqual(ElementsAttr elms, WideNum n) {
+  return dispatchByBType(
+      btypeOfMlirType(elms.getElementType()), [elms, n](auto btype) {
+        using cpptype = CppType<btype>;
+        auto nEquals = [n](cpptype x) {
+          constexpr BType TAG = toBType<cpptype>;
+          return n.narrow<TAG>() == x;
+        };
+        if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
+          if (disposable.isTransformedOrCast()) {
+            ArrayBuffer<WideNum> nums = disposable.getBufferAsWideNums();
+            return llvm::all_of(nums.get(), [n](WideNum m) {
+              constexpr BType TAG = toBType<cpptype>;
+              return n.narrow<TAG>() == m.narrow<TAG>();
+            });
+          } else {
+            auto values = castArrayRef<cpptype>(disposable.getBufferBytes());
+            return llvm::all_of(values, nEquals);
+          }
+        }
+        if (elms.isSplat()) {
+          cpptype x = elms.getSplatValue<cpptype>();
+          return nEquals(x);
+        } else {
+          auto values = elms.getValues<cpptype>();
+          return llvm::all_of(values, nEquals);
+        }
+      });
 }
 
 ElementsAttr ElementsAttrBuilder::fromWideNums(
