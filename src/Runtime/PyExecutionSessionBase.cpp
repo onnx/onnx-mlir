@@ -91,7 +91,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     OMTensor *inputOMTensor = nullptr;
     if (std::is_same<int64_t, pybind11::ssize_t>::value) {
       inputOMTensor = omTensorCreateWithOwnership(dataPtr,
-          static_cast<const int64_t *>(inputPyArray.shape()),
+          reinterpret_cast<const int64_t *>(inputPyArray.shape()),
           static_cast<int64_t>(inputPyArray.ndim()), dtype, ownData);
       omTensorSetStridesWithPyArrayStrides(
           inputOMTensor, inputPyArray.strides());
