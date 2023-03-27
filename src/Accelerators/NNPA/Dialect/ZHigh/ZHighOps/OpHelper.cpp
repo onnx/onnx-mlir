@@ -195,20 +195,19 @@ Value getConstantOfType(
   return create.onnx.constant(denseAttr);
 }
 
-bool oneIsOfNHWCLayout(Type t1, Type t2) {
+bool oneIsOfLayout(Type t1, Type t2,
+    onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout layout) {
   if (auto rtp1 = llvm::dyn_cast<RankedTensorType>(t1)) {
-    if (onnx_mlir::zhigh::getZTensorLayout(rtp1) ==
-        onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::NHWC)
+    if (onnx_mlir::zhigh::getZTensorLayout(rtp1) == layout)
       return true;
-    // t1 is not of NHWC, check t2.
+    // t1 is not of `layout`, check t2.
     if (auto rtp2 = llvm::dyn_cast<RankedTensorType>(t2)) {
-      return (onnx_mlir::zhigh::getZTensorLayout(rtp2) ==
-              onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::NHWC);
+      return (onnx_mlir::zhigh::getZTensorLayout(rtp2) == layout);
     }
     // t2 is unranked.
   }
   // t1 is unranked.
-  // Unranked type is potentially of NHWC.
+  // Unranked type is potentially of `layout`.
   return true;
 }
 
