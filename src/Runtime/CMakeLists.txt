@@ -80,6 +80,7 @@ add_onnx_mlir_library(OMPyExecutionSessionBase
   LINK_LIBS PUBLIC
   OMExecutionSession
   pybind11::embed
+  pybind11::module
   pybind11::python_link_helper
   )
 if(MSVC)

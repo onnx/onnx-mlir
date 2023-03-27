@@ -93,8 +93,8 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       inputOMTensor = omTensorCreateWithOwnership(dataPtr,
           reinterpret_cast<const int64_t *>(inputPyArray.shape()),
           static_cast<int64_t>(inputPyArray.ndim()), dtype, ownData);
-      omTensorSetStridesWithPyArrayStrides(
-          inputOMTensor, inputPyArray.strides());
+      omTensorSetStridesWithPyArrayStrides(inputOMTensor,
+          reinterpret_cast<const int64_t *>(inputPyArray.strides()));
     } else {
       std::vector<int64_t> safeShape(
           inputPyArray.shape(), inputPyArray.shape() + inputPyArray.ndim());
