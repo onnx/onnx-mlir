@@ -88,3 +88,18 @@ func.func @test_resize_half_pixel_nearest_floor_downsample(%arg0: tensor<1x1x1x1
 // CHECK:  %[[VAL_5:.*]] = "tosa.transpose"(%[[VAL_3]], %[[VAL_4]]) : (tensor<1x1x4x1xf32>, tensor<4xi32>) -> tensor<1x1x1x4xf32>
 // CHECK:  return %[[VAL_5]] : tensor<1x1x1x4xf32>
 }
+
+// -----
+func.func @test_resize_input_one(%arg0: tensor<1x1x1x1xf32>) -> tensor<1x1x4x4xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = "onnx.Constant"() {value = dense<[1, 1, 4, 4]> : tensor<4xi64>} : () -> tensor<4xi64>
+    %2 = "onnx.Resize"(%arg0, %0, %0, %1) {coordinate_transformation_mode = "pytorch_half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "linear", nearest_mode = "floor"} : (tensor<1x1x1x1xf32>, none, none, tensor<4xi64>) -> tensor<1x1x4x4xf32>
+    return %2 : tensor<1x1x4x4xf32>
+// CHECK-LABEL:  func.func @test_resize_input_one(
+// CHECK:  %[[VAL_1:.*]] = "tosa.const"() {value = dense<[0, 2, 3, 1]> : tensor<4xi32>} : () -> tensor<4xi32>
+// CHECK:  %[[VAL_2:.*]] = "tosa.transpose"(%arg0, %[[VAL_1]]) : (tensor<1x1x1x1xf32>, tensor<4xi32>) -> tensor<1x1x1x1xf32>
+// CHECK:  %[[VAL_3:.*]] = "tosa.resize"(%[[VAL_2]]) {border = [3, 3], mode = "BILINEAR", offset = [0, 0], scale = [4, 1, 4, 1]} : (tensor<1x1x1x1xf32>) -> tensor<1x4x4x1xf32>
+// CHECK:  %[[VAL_4:.*]] = "tosa.const"() {value = dense<[0, 3, 1, 2]> : tensor<4xi32>} : () -> tensor<4xi32>
+// CHECK:  %[[VAL_5:.*]] = "tosa.transpose"(%[[VAL_3]], %[[VAL_4]]) : (tensor<1x4x4x1xf32>, tensor<4xi32>) -> tensor<1x1x4x4xf32>
+// CHECK:  return %[[VAL_5]] : tensor<1x1x4x4xf32>
+}
