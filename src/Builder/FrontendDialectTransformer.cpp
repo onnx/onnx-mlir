@@ -106,6 +106,14 @@ private:
 
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
+  Location ImportLoc(const onnx::NodeProto &node) {
+    if (node.has_name()) {
+      return NameLoc::get(builder_.getStringAttr(node.name()));
+    } else {
+      return UnknownLoc();
+    }
+  }
+
   Value none() { return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult(); }
 
   // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
@@ -582,7 +590,8 @@ private:
         outputTypes.emplace_back(builder_.getNoneType());
 
     // TODO: Handle optional inputs.
-    auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
+    auto op =
+        builder_.create<T>(ImportLoc(node), outputTypes, inputs, attributes);
     Operation *genericOp = op.getOperation();
     // Type inference for results.
     for (const auto &attr : node.attribute()) {
