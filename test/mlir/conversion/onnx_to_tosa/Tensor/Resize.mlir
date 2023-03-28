@@ -98,7 +98,7 @@ func.func @test_resize_input_one(%arg0: tensor<1x1x1x1xf32>) -> tensor<1x1x4x4xf
 // CHECK-LABEL:  func.func @test_resize_input_one(
 // CHECK:  %[[VAL_1:.*]] = "tosa.const"() {value = dense<[0, 2, 3, 1]> : tensor<4xi32>} : () -> tensor<4xi32>
 // CHECK:  %[[VAL_2:.*]] = "tosa.transpose"(%arg0, %[[VAL_1]]) : (tensor<1x1x1x1xf32>, tensor<4xi32>) -> tensor<1x1x1x1xf32>
-// CHECK:  %[[VAL_3:.*]] = "tosa.resize"(%[[VAL_2]]) {border = [3, 3], mode = "BILINEAR", offset = [0, 0], scale = [4, 1, 4, 1]} : (tensor<1x1x1x1xf32>) -> tensor<1x4x4x1xf32>
+// CHECK:  %[[VAL_3:.*]] = "tosa.resize"(%[[VAL_2]]) {border = array<i64: 3, 3>, mode = "BILINEAR", offset = array<i64: 0, 0>, scale = array<i64: 4, 1, 4, 1>} : (tensor<1x1x1x1xf32>) -> tensor<1x4x4x1xf32>
 // CHECK:  %[[VAL_4:.*]] = "tosa.const"() {value = dense<[0, 3, 1, 2]> : tensor<4xi32>} : () -> tensor<4xi32>
 // CHECK:  %[[VAL_5:.*]] = "tosa.transpose"(%[[VAL_3]], %[[VAL_4]]) : (tensor<1x4x4x1xf32>, tensor<4xi32>) -> tensor<1x1x4x4xf32>
 // CHECK:  return %[[VAL_5]] : tensor<1x1x4x4xf32>
