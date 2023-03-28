@@ -37,9 +37,12 @@ struct TosaBuilder : DialectBuilder {
   TosaBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~TosaBuilder() {}
 
+  mlir::Value mul(mlir::Value &lhs, mlir::Value &rhs, int32_t shift = 0);
+
   mlir::Value transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm);
   mlir::Value slice(mlir::Value &inputConst, llvm::ArrayRef<int64_t> size,
       llvm::ArrayRef<int64_t> start);
+  mlir::Value reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape);
 
   mlir::Value getConst(
       llvm::ArrayRef<int64_t> vec, llvm::ArrayRef<int64_t> shape);
