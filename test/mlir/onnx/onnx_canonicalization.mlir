@@ -894,7 +894,7 @@ func.func @test_layout_transform_unknown(%arg0: tensor<1x2x3xf32, #onnx.layout<{
     %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<1x2x3xf32,#onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<1x?x3xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
     return %0 : tensor<1x?x3xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
 
-// CHECK-LABEL:  func.func @test_layout_transform_unknown
+// CHECK-LABEL: test_layout_transform_unknown
 // CHECK-NOT: "onnx.LayoutTransform"
 // CHECK: return
 }
