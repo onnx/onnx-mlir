@@ -106,7 +106,7 @@ func.func @test_conv_batchnormtestmode_fusion_nobias(%arg0: tensor<1x3x224x224xf
     // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x224x224xf32>, [[PARAM_1_:%.+]]: tensor<64x3x7x7xf32>, [[PARAM_2_:%.+]]: tensor<64xf32>, [[PARAM_3_:%.+]]: tensor<64xf32>, [[PARAM_4_:%.+]]: tensor<64xf32>, [[PARAM_5_:%.+]]: tensor<64xf32>) -> tensor<1x64x112x112xf32> {
     // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1.00000007E-5> : tensor<1xf32>
     // CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_5_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
-    // CHECK:           [[VAR_2_:%.+]] = "onnx.Sqrt"([[VAR_1_]]) : (tensor<64xf32>) -> tensor<*xf32> 
+    // CHECK:           [[VAR_2_:%.+]] = "onnx.Sqrt"([[VAR_1_]]) : (tensor<64xf32>) -> tensor<*xf32>
     // CHECK:           [[VAR_3_:%.+]] = "onnx.Div"([[PARAM_2_]], [[VAR_2_]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK:           [[VAR_4_:%.+]] = "onnx.UnsqueezeV11"([[VAR_3_]]) {axes = [1, 2, 3]} : (tensor<*xf32>) -> tensor<*xf32>
     // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Mul"([[PARAM_1_]], [[VAR_4_]]) : (tensor<64x3x7x7xf32>, tensor<*xf32>) -> tensor<*xf32>
@@ -440,7 +440,7 @@ func.func @test_remove_unsqueeze_cast_squeeze(%arg0 : tensor<10x10xf32>) -> tens
   // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
   // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
   // CHECK: [[RES:%.+]] = "onnx.Cast"{{.*}}
-  // CHECK: return [[RES]] 
+  // CHECK: return [[RES]]
 }
 
 // -----
@@ -496,7 +496,7 @@ func.func @test_remove_squeeze_cast_unsqueeze(%arg0 : tensor<10x1x10xf32>) -> te
   // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
   // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
   // CHECK: [[RES:%.+]] = "onnx.Cast"{{.*}}
-  // CHECK: return [[RES]] 
+  // CHECK: return [[RES]]
 }
 
 // -----
@@ -605,7 +605,7 @@ func.func @test_constant_1() -> tensor<i64> {
 func.func @test_constant_2() -> tensor<f32> {
   %0 = onnx.Constant {value_float = 2.0 : f32 } : tensor<f32>
   return %0 : tensor<f32>
-// CHECK-LABEL:     func @test_constant_2 
+// CHECK-LABEL:     func @test_constant_2
 // CHECK: [[VAR_0:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<f32>
 // CHECK: return [[VAR_0]] : tensor<f32>
 }
@@ -615,7 +615,7 @@ func.func @test_constant_2() -> tensor<f32> {
 func.func @test_constant_3() -> tensor<3xi64> {
   %0 = onnx.Constant {value_ints = [1, 2, 3] } : tensor<3xi64>
   return %0 : tensor<3xi64>
-// CHECK-LABEL:       func @test_constant_3       
+// CHECK-LABEL:       func @test_constant_3
 // CHECK-SAME:     () -> tensor<3xi64> {
 // CHECK:           [[VAR_0:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xi64>
 // CHECK:           return [[VAR_0]] : tensor<3xi64>
@@ -631,7 +631,7 @@ func.func @test_rewrite_batchnormtestmode_Nd(%arg0 : tensor<1x64x112x112xf32>, %
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64x112x112xf32>, [[PARAM_1_:%.+]]: tensor<64xf32>, [[PARAM_2_:%.+]]: tensor<64xf32>, [[PARAM_3_:%.+]]: tensor<64xf32>, [[PARAM_4_:%.+]]: tensor<64xf32>) -> tensor<1x64x112x112xf32> {
   // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1.00000007E-5> : tensor<1xf32>
   // CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_4_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
-  // CHECK:           [[VAR_2_:%.+]] = "onnx.Sqrt"([[VAR_1_]]) : (tensor<64xf32>) -> tensor<*xf32>    
+  // CHECK:           [[VAR_2_:%.+]] = "onnx.Sqrt"([[VAR_1_]]) : (tensor<64xf32>) -> tensor<*xf32>
   // CHECK:           [[VAR_3_:%.+]] = "onnx.Div"([[PARAM_1_]], [[VAR_2_]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
   // CHECK:           [[VAR_4_:%.+]] = "onnx.UnsqueezeV11"([[VAR_3_]]) {axes = [1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
   // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_4_]]) : (tensor<1x64x112x112xf32>, tensor<*xf32>) -> tensor<*xf32>
@@ -651,8 +651,8 @@ func.func @test_rewrite_batchnormtestmode_1d(%arg0 : tensor<64xf32>, %scale : te
 // CHECK-LABEL:  func.func @test_rewrite_batchnormtestmode_1d
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<64xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>, [[PARAM_2_:%.+]]: tensor<1xf32>, [[PARAM_3_:%.+]]: tensor<1xf32>, [[PARAM_4_:%.+]]: tensor<1xf32>) -> tensor<64xf32> {
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1.00000007E-5> : tensor<1xf32>
-// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_4_]], [[VAR_0_]]) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32> 
-// CHECK:           [[VAR_2_:%.+]] = "onnx.Sqrt"([[VAR_1_]]) : (tensor<1xf32>) -> tensor<*xf32>   
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_4_]], [[VAR_0_]]) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Sqrt"([[VAR_1_]]) : (tensor<1xf32>) -> tensor<*xf32>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Div"([[PARAM_1_]], [[VAR_2_]]) : (tensor<1xf32>, tensor<*xf32>) -> tensor<*xf32>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_3_]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
 // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Mul"([[PARAM_3_]], [[VAR_3_]]) : (tensor<1xf32>, tensor<*xf32>) -> tensor<*xf32>
@@ -666,8 +666,8 @@ func.func @test_rewrite_batchnormtestmode_1d(%arg0 : tensor<64xf32>, %scale : te
 func.func @test_normalize_add(%arg0 : tensor<2xf32>) -> tensor<2xf32> {
     %cst = "onnx.NoValue"() {value} : () -> none
     %0 = onnx.Constant dense<[0.0, 1.0]> : tensor<2xf32>
-    %1 = "onnx.Add"(%0, %arg0) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32> 
-    return %1 : tensor<2xf32> 
+    %1 = "onnx.Add"(%0, %arg0) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
+    return %1 : tensor<2xf32>
     // CHECK-LABEL: test_normalize_add
     // CHECK: [[CONSTANT:%.+]] = onnx.Constant dense<[0.000000e+00, 1.000000e+00]> : tensor<2xf32>
     // CHECK: [[RES:%.+]] = "onnx.Add"(%arg0, [[CONSTANT]]) : (tensor<2xf32>, tensor<2xf32>) -> tensor<2xf32>
@@ -678,10 +678,10 @@ func.func @test_normalize_add(%arg0 : tensor<2xf32>) -> tensor<2xf32> {
 
 func.func @test_fuse_add_conv(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
     %cst = "onnx.NoValue"() {value} : () -> none
-    %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Convolution28", strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, none) -> tensor<1x8x28x28xf32> 
+    %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Convolution28", strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, none) -> tensor<1x8x28x28xf32>
     %1 = onnx.Constant dense<[[[-0.161539719]], [[-0.433835655]], [[0.091641359]], [[-0.0168522168]], [[-0.0650264397]], [[-0.131737873]], [[0.0204175506]], [[-0.121110231]]]> : tensor<8x1x1xf32>
-    %2 = "onnx.Add"(%0, %1) : (tensor<1x8x28x28xf32>, tensor<8x1x1xf32>) -> tensor<1x8x28x28xf32> 
-    return %2 : tensor<1x8x28x28xf32> 
+    %2 = "onnx.Add"(%0, %1) : (tensor<1x8x28x28xf32>, tensor<8x1x1xf32>) -> tensor<1x8x28x28xf32>
+    return %2 : tensor<1x8x28x28xf32>
 // CHECK-LABEL:  func.func @test_fuse_add_conv
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x28x28xf32>, [[PARAM_1_:%.+]]: tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[-0.161539719, -0.433835655, 0.091641359, -0.0168522168, -0.0650264397, -0.131737873, 0.0204175506, -0.121110231]> : tensor<8xf32>
@@ -758,7 +758,7 @@ func.func @test_loop_derive_max_trip_count(%arg0: tensor<?x30xf32>) -> tensor<?x
 // CHECK-LABEL:  func.func @test_loop_derive_max_trip_count
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x30xf32>) -> tensor<?x?x30xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<8> : tensor<i64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<4> : tensor<i32> 
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<4> : tensor<i32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<true> : tensor<i1>
 // CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<0> : tensor<i32>
 // CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<30> : tensor<i32>
@@ -801,7 +801,7 @@ func.func @test_loop_derive_max_trip_count_non_constant_ub(%arg0: tensor<?x30xf3
 // CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Cast"([[VAR_6_]]) {to = f32} : (tensor<i64>) -> tensor<f32>
 // CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Cast"([[VAR_0_]]) {to = f32} : (tensor<i32>) -> tensor<f32>
 // CHECK:           [[VAR_9_:%.+]] = "onnx.Div"([[VAR_7_]], [[VAR_8_]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
-// CHECK:           [[VAR_10_:%.+]] = "onnx.Ceil"([[VAR_9_]]) : (tensor<f32>) -> tensor<f32> 
+// CHECK:           [[VAR_10_:%.+]] = "onnx.Ceil"([[VAR_9_]]) : (tensor<f32>) -> tensor<f32>
 // CHECK:           [[VAR_11_:%.+]] = "onnx.Cast"([[VAR_10_]]) {to = i64} : (tensor<f32>) -> tensor<i64>
 // CHECK:           [[VAR_12_:%.+]] = "onnx.Min"([[VAR_1_]], [[VAR_1_]]1) : (tensor<i64>, tensor<i64>) -> tensor<i64>
 // CHECK:           [[VAR_13_:%.+]]:4 = "onnx.Loop"([[VAR_12_]], [[VAR_2_]], [[VAR_3_]], [[PARAM_1_]], [[PARAM_0_]]) ({
@@ -883,7 +883,18 @@ func.func @test_layout_transform(%arg0: tensor<5x3x32x32xf32, #onnx.layout<{data
     %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<5x3x32x32xf32,#onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
     return %0 : tensor<5x3x32x32xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
 
-// CHECK-LABEL: test_layout_transform 
+// CHECK-LABEL: test_layout_transform
+// CHECK-NOT: "onnx.LayoutTransform"
+// CHECK: return
+}
+
+// -----
+
+func.func @test_layout_transform_unknown(%arg0: tensor<1x2x3xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<1x?x3xf32, #onnx.layout<{dataLayout = "NCHW4C"}>> {
+    %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<1x2x3xf32,#onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<1x?x3xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
+    return %0 : tensor<1x?x3xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
+
+// CHECK-LABEL: test_layout_transform_unknown
 // CHECK-NOT: "onnx.LayoutTransform"
 // CHECK: return
 }
@@ -927,7 +938,7 @@ func.func @test_softmax_v11_unranked(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
 // -----
 
 #transpose = affine_map<(d0, d1, d2, d3) -> (d2, d0, d1, d3)>
-#reshape =  affine_map<(d0, d1) -> (d0 floordiv 32, d0 mod 32, d1 floordiv 64, d1 mod 64)> 
+#reshape =  affine_map<(d0, d1) -> (d0 floordiv 32, d0 mod 32, d1 floordiv 64, d1 mod 64)>
 func.func @shape_transform_compose(%arg0: tensor<128x128xf32>) -> tensor<2x4x32x64xf32> {
   %0 = "onnx.ShapeTransform"(%arg0) {index_map = #reshape} : (tensor<128x128xf32>) -> tensor<4x32x2x64xf32>
   %1 = "onnx.ShapeTransform"(%0) {index_map = #transpose} : (tensor<4x32x2x64xf32>) -> tensor<2x4x32x64xf32>
