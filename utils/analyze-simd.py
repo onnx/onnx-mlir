@@ -36,7 +36,7 @@ def print_usage(msg = ""):
     dprint("  -o | --overhead: search for vector overhead pattern.")
     dprint("")
     dprint("  -f | --function pattern: investigate only functions whose name match")
-    dprint("                           the pattern (default \".*main_graph\").")
+    dprint("                           the regexp pattern (default \"^main_graph$\").")
     dprint("  -n | --num num:          investigate only that one occurrence num(default all)")
     dprint("                           (default all: -1).")
     dprint("")
@@ -46,7 +46,7 @@ def print_usage(msg = ""):
     dprint("  -h | --help:    help")
     dprint("")
     dprint("Typical command (print code and analysis for andy simd in main_graph):")
-    dprint("  analyze-simd -cmop -f main_graph <file>")
+    dprint("  analyze-simd -cmop <file>")
     dprint("")
     sys.exit()
 
@@ -58,7 +58,7 @@ debug = 0  # 1 for emitting stats, 2 for basic block detection
 print_code = False
 print_listing = False
 print_details = False
-fct_match_str = r'.*main_graph'
+fct_match_str = r'^main_graph$'
 op_dict = {}
 aggr_dict = {}
 op_name = {}
