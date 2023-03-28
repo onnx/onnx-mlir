@@ -58,8 +58,9 @@ mlir::Value getMinusBcastConst(mlir::OpBuilder &builder, mlir::Location loc,
 mlir::Value getConstantOfType(
     mlir::OpBuilder &builder, mlir::Location loc, mlir::Type type, float val);
 
-/// True if at least one of the types is NHWC layout.
-bool oneIsOfNHWCLayout(mlir::Type t1, mlir::Type t2);
+/// True if at least one of the types is `layout`.
+bool oneIsOfLayout(
+    mlir::Type t1, mlir::Type t2, ZTensorEncodingAttr::DataLayout layout);
 
 /// Check if ONNXReshapeOp is reshaping 2D/3D to 4D by tiling each input
 /// dimension.
