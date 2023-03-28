@@ -145,7 +145,7 @@ public:
       // Dimension is length 1, we are just sampling from one value.
       int64_t n, d, offset, border;
       if (input == 1) {
-        n = 1;
+        n = output;
         d = 1;
         offset = 0;
         border = output - 1;
