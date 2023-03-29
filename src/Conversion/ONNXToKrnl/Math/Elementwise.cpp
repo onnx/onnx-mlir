@@ -1179,7 +1179,7 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
       analyzeSimdFor<ElementwiseOp>(elementType, vectorizedOpNum, scalarOpNum);
   if (avgSimdWidth < 0.75) {
     if (DEBUG)
-      llvm::errs() << "  SIMD disabled: avg simd width  " << avgSimdWidth
+      llvm::errs() << "SIMD disabled: avg simd width  " << avgSimdWidth
                    << " too small\n";
     return 0;
   }
@@ -1197,10 +1197,13 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
       memRefType, shapeHelper.getOutputDims(), staticSize, dynSize);
   if (isStaticSize && staticSize < simdUnroll) {
     if (DEBUG)
-      llvm::errs() << "  SIMD disabled: trip count " << staticSize
+      llvm::errs() << "SIMD disabled: trip count " << staticSize
                    << " too short \n";
     return 0;
   }
+  if (DEBUG)
+    llvm::errs() << "SIMD with avg width " << avgSimdWidth << " and unroll "
+                 << simdUnroll << "\n";
   return simdUnroll;
 }
 

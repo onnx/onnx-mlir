@@ -284,7 +284,11 @@ def scan_basic_blocks(filename):
 def print_lines(lines, print_it=False):
     output = ""
     for ll in lines:
-        output += ll + "\n"
+        # For some reasons, some .s have line like these:
+        #     235a:       00 00
+        # we would like to skip them.
+        if re.match(r'\s*[0-9a-fA-F]+:[\s0]*$', ll) is None:
+            output += ll + "\n"
     if print_it:
         print(output, end='')
     return output
