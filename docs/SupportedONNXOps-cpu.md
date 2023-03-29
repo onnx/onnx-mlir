@@ -57,7 +57,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **CumSum** |14 | | |
 | **DFT** | |unsupported | |
 | **DepthToSpace** |13 | | |
-| **DequantizeLinear** | |unsupported | |
+| **DequantizeLinear** |13 |Only support for per-tensor or layer dequantization. Not support for per-axis dequantization. | |
 | **Det** | |unsupported | |
 | **DictVectorizer** | |unsupported | |
 | **Div** |14 |No support for short integers. | |
