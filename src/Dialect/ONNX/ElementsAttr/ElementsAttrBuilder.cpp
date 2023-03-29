@@ -519,7 +519,6 @@ ElementsAttr ElementsAttrBuilder::fromRawBytes(
   std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
       llvm::WritableMemoryBuffer::getNewUninitMemBuffer(size);
   bytesFiller(writeBuffer->getBuffer());
-  // We trust bytesFiller and skip testRawBytesValidityAndSplatness()
   return createWithDefaultStrides(type, bufferBType, std::move(writeBuffer));
 }
 
