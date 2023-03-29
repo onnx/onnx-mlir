@@ -4,7 +4,7 @@
 
 //===------------------ LayoutTransform.cpp - ONNX Operations -------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -17,10 +17,6 @@
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
-
-//===----------------------------------------------------------------------===//
-// Verify
-//===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
 // Shape Inference
@@ -44,7 +40,17 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
 LogicalResult ONNXLayoutTransformOp::verify() {
   if (auto dataType = getData().getType().dyn_cast<RankedTensorType>())
     if (auto outputType = getOutput().getType().dyn_cast<RankedTensorType>())
-      return success(getShape(dataType) == getShape(outputType));
+      for (int64_t i = 0; i < dataType.getRank(); ++i)
+        // Check if there is an unknown dimension in the dataShape and
+        // outputShape. If there is an unknown dimension, we will return true.
+        // If we know the dimension of dataShape and outputShape they should be
+        // equal, if not then we return false.
+        if (dataType.getShape()[i] == ShapedType::kDynamicDim ||
+            outputType.getShape()[i] == ShapedType::kDynamicDim)
+          return success();
+        else if (dataType.getShape()[i] != outputType.getShape()[i])
+          return emitOpError(
+              "Input and output tensors must have the same shape");
   return success();
 }
 
