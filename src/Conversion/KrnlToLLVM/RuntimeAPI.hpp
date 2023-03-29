@@ -36,6 +36,7 @@ public:
   enum class API {
     CREATE_OMTENSOR_LIST,
     CREATE_OMTENSOR,
+    DESTROY_OMTENSOR,
     GET_DATA,
     SET_DATA,
     GET_DATA_RANK,

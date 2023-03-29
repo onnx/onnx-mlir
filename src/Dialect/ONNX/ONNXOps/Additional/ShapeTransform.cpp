@@ -31,16 +31,16 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
   auto inputType = input.getType().cast<ShapedType>();
   Type elementType = inputType.getElementType();
   ArrayRef<int64_t> inputDims = inputType.getShape();
-  uint64_t outputRank = indexMap.getNumResults();
+  int64_t outputRank = indexMap.getNumResults();
 
   // Use the given affine_map to compute output's shape.
   // IndexExpr does not support construction with an existing affine_map, so
   // compute the output's shape manually, and put it inside IndexExpr as result.
   //
   // Note that, affine_map is for index access, but what we want to compute here
-  // is the upperbound for output dimensions.
+  // is the upper bound for output dimensions.
   //
-  // We will borrow memref normalization in MLIR to obtain the upperbound, as
+  // We will borrow memref normalization in MLIR to obtain the upper bound, as
   // follows:
   // - construct a MemRefType using the input shape and affine_map
   // - normalize the MemRefType.
@@ -52,7 +52,7 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
   assert((flatMemRefType.getRank() == outputRank) && "Normalization failed");
 
   DimsExpr outputIEs(outputRank);
-  for (uint64_t i = 0; i < outputRank; ++i) {
+  for (int64_t i = 0; i < outputRank; ++i) {
     LiteralIndexExpr dim(flatMemRefType.getShape()[i]);
     outputIEs[i] = dim;
   }

@@ -4,7 +4,7 @@
 
 //===-------------- OMTensor.h - OMTensor Declaration header --------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -90,7 +90,7 @@ extern "C" {
  *
  */
 OM_EXTERNAL_VISIBILITY OMTensor *omTensorCreate(
-    void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
+    void *data_ptr, const int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
 
 /**
  * \brief Create an OMTensor with specified data pointer, shape, rank and
@@ -121,7 +121,7 @@ OM_EXTERNAL_VISIBILITY OMTensor *omTensorCreate(
  *
  */
 OM_EXTERNAL_VISIBILITY OMTensor *omTensorCreateWithOwnership(void *data_ptr,
-    int64_t *shape, int64_t rank, OM_DATA_TYPE dtype, int64_t owning);
+    const int64_t *shape, int64_t rank, OM_DATA_TYPE dtype, int64_t owning);
 
 /**
  * Create an OMTensor with the specified shape, rank and element type,
@@ -141,7 +141,7 @@ OM_EXTERNAL_VISIBILITY OMTensor *omTensorCreateWithOwnership(void *data_ptr,
  *
  */
 OM_EXTERNAL_VISIBILITY OMTensor *omTensorCreateEmpty(
-    int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
+    const int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
 
 /**
  * \brief Destroy the OMTensor struct.
@@ -179,7 +179,7 @@ OM_EXTERNAL_VISIBILITY void *omTensorGetDataPtr(const OMTensor *tensor);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data shape array.
  */
-OM_EXTERNAL_VISIBILITY int64_t *omTensorGetShape(const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY const int64_t *omTensorGetShape(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data shape setter.
@@ -195,7 +195,7 @@ OM_EXTERNAL_VISIBILITY int64_t *omTensorGetShape(const OMTensor *tensor);
  *
  * Set the data shape array of the OMTensor to the values in the input array.
  */
-OM_EXTERNAL_VISIBILITY void omTensorSetShape(OMTensor *tensor, int64_t *shape);
+OM_EXTERNAL_VISIBILITY void omTensorSetShape(OMTensor *tensor, const int64_t *shape);
 
 /**
  * \brief OMTensor data strides getter
@@ -209,7 +209,7 @@ OM_EXTERNAL_VISIBILITY void omTensorSetShape(OMTensor *tensor, int64_t *shape);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data strides array.
  */
-OM_EXTERNAL_VISIBILITY int64_t *omTensorGetStrides(const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY const int64_t *omTensorGetStrides(const OMTensor *tensor);
 
 /**
  * \brief OMTensor data strides setter
@@ -226,7 +226,7 @@ OM_EXTERNAL_VISIBILITY int64_t *omTensorGetStrides(const OMTensor *tensor);
  * Set the data strides array of the OMTensor to the values in the input array.
  */
 OM_EXTERNAL_VISIBILITY void omTensorSetStrides(
-    OMTensor *tensor, int64_t *stride);
+    OMTensor *tensor, const int64_t *stride);
 
 /**
  * \brief OMTensor data strides setter with stride values from PyArray strides
@@ -247,7 +247,7 @@ OM_EXTERNAL_VISIBILITY void omTensorSetStrides(
  * Set the data strides array of the OMTensor to the values in the input array.
  */
 OM_EXTERNAL_VISIBILITY void omTensorSetStridesWithPyArrayStrides(
-    OMTensor *tensor, int64_t *stridesInBytes);
+    OMTensor *tensor, const int64_t *stridesInBytes);
 
 /**
  * \brief OMTensor data type getter
