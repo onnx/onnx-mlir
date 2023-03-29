@@ -51,6 +51,7 @@ int64_t getRank(Type ty) {
 
 /// Get the number of elements.
 int64_t getNumberOfElements(Type ty) {
+  assert(ty.cast<ShapedType>().hasStaticShape() && "Has unknown dimensions");
   ArrayRef<int64_t> shape = getShape(ty);
   return ShapedType::getNumElements(shape);
 }
