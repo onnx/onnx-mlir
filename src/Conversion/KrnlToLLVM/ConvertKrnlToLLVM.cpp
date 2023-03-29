@@ -410,6 +410,11 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   MLIRContext *ctx = &getContext();
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
+
+  // There are many places where we still rely on non-opaque pointers. Disable
+  // opaque-pointers until we migrated the affected code parts
+  options.useOpaquePointers = false;
+
   KRNL_ENTRY_POINT_ID = 0;
 
   // Record entry point names and their input/output signatures.
