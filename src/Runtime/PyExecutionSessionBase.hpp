@@ -25,7 +25,8 @@ namespace py = pybind11;
 
 namespace onnx_mlir {
 
-class PYBIND11_EXPORT PyExecutionSessionBase : public onnx_mlir::ExecutionSession {
+class PYBIND11_EXPORT PyExecutionSessionBase
+    : public onnx_mlir::ExecutionSession {
 public:
   PyExecutionSessionBase(
       std::string sharedLibPath, bool defaultEntryPoint = true);

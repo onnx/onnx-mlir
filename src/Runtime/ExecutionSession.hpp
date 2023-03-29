@@ -42,7 +42,7 @@ using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
  * EPERM when the model executed on a machine without a compatible
  * hardware/specialized accelerator.
  */
-class ExecutionSession {
+class PYBIND11_EXPORT ExecutionSession {
 public:
   // Create an execution session using the model given in sharedLibPath.
   // This path must point to the actual file, local directory is not searched.
