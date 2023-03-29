@@ -45,8 +45,8 @@ LogicalResult ONNXLayoutTransformOp::verify() {
         // outputShape. If there is an unknown dimension, we will return true.
         // If we know the dimension of dataShape and outputShape they should be
         // equal, if not then we return false.
-        if (dataType.getShape()[i] == ShapedType::kDynamicDim ||
-            outputType.getShape()[i] == ShapedType::kDynamicDim)
+        if (dataType.getShape()[i] == ShapedType::kDynamic ||
+            outputType.getShape()[i] == ShapedType::kDynamic)
           return success();
         else if (dataType.getShape()[i] != outputType.getShape()[i])
           return emitOpError(
