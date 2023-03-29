@@ -41,6 +41,7 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
 //===----------------------------------------------------------------------===//
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
@@ -161,10 +162,10 @@ mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 
 // Definition for easier readability
-using NotSuportedScalarOp = void; // unsupported, e.g. integer version of cos.
-using CustomScalarOp = void *;    // custom support, e.g. float version of cosh.
-using SimdScalarOp = std::true_type;    // scalar op can be simdized.
-using NoSimdScalarOp = std::false_type; // scalar op cannot be simdized.
+using NotSuportedScalarOp = void; // Unsupported, e.g. integer version of cos.
+using CustomScalarOp = void *;    // Custom support, e.g. float version of cosh.
+using SimdScalarOp = std::true_type;    // Scalar op can be simdized.
+using NoSimdScalarOp = std::false_type; // Scalar op cannot be simdized.
 
 template <typename Op>
 struct ScalarOp {
@@ -194,6 +195,7 @@ mlir::Value getIdentityValue(mlir::ConversionPatternRewriter &rewriter,
 // composed of one or many scalar ops.
 // Use template specialization for each of different ONNX operations.
 //===----------------------------------------------------------------------===//
+
 template <typename Op>
 mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Operation *op, mlir::Type elementType,

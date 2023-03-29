@@ -29,11 +29,12 @@ def print_usage(msg = ""):
     dprint("  Utility to analyze and print SIMD code located in functions")
     dprint("")
     dprint("Pattern:")
-    dprint("  -a | --arch <arch>: set op names to the given <arch>.")
+    dprint("  -t | --target <arch>: set op names to the given <arch>.")
     dprint("")
-    dprint("  -c | --compute:  search for vector compute (add/mul) pattern.")
-    dprint("  -m | --mem:      search for vector vector memory pattern.")
-    dprint("  -o | --overhead: search for vector overhead pattern.")
+    dprint("  -a | --all:      all patterns below.")
+    dprint("  -c | --compute:  search for vector compute (add/mul) patterns.")
+    dprint("  -m | --mem:      search for vector vector memory patterns.")
+    dprint("  -o | --overhead: search for vector overhead patterns.")
     dprint("")
     dprint("  -f | --function pattern: investigate only functions whose name match")
     dprint("                           the regexp pattern (default \"^main_graph$\").")
@@ -69,7 +70,7 @@ bb_boundary = {}
 
 def define_arch_op_names(arch):
     global op_name
-    dprint("# use " + arch + " arch")
+    dprint("# use " + arch + " target arch")
     if arch == "z":
         op_name["vload"] = "vl"
         op_name["vload-splat"] = "vlrep"
@@ -97,7 +98,7 @@ def define_arch_op_names(arch):
         op_name["load"] = "mov"
         op_name["store"] = "mov"
     else:
-        print_usage("unknown arch")
+        print_usage("unknown arch (z or x86 at this time)")
 
 ################################################################################
 # Dictionary support.
@@ -358,17 +359,31 @@ def main(argv):
 
     try:
         opts, args = getopt.gnu_getopt(
-            argv, "a:cmodhln:pf:", 
-            ["arch=", "compute", "mem", "overhead", "details", "help", "listing", "num=", "print", "function="])
+            argv, "t:acmodhln:pf:", 
+            ["target=", "all", "compute", "mem", "overhead", "details", "help", "listing", "num=", "print", "function="])
     except getopt.GetoptError:
         dprint("Error: unknown options")
         print_usage()
     for opt, arg in opts:
-        if opt in ('-a', "--arch"):
+        if opt in ('-t', "--target"):
             # This option must come before any patterns to search for.
             arch = arg
             if pattern:
                 print_usage("Arch option must come before search options")
+        elif opt in ('-a', "--all"):
+            if not pattern:
+                define_arch_op_names(arch)
+            # Compute
+            pattern = add_pattern(pattern, op_name["vfma"])
+            pattern = add_pattern(pattern, op_name["vadd"])
+            pattern = add_pattern(pattern, op_name["vmul"])
+            pattern = add_pattern(pattern, op_name["vdiv"])
+            # Mem
+            pattern = add_pattern(pattern, op_name["vload"])
+            pattern = add_pattern(pattern, op_name["vload-splat"])
+            pattern = add_pattern(pattern, op_name["vstore"])
+            # Overhead
+            pattern = add_pattern(pattern, op_name["vshuffle"])
         elif opt in ('-c', "--compute"):
             if not pattern:
                 define_arch_op_names(arch)

@@ -26,6 +26,7 @@
 
 // Please do not add dependences on ONNX or KRNL dialects.
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
 #define DEBUG_TYPE "dialect_builder"
 
@@ -1221,6 +1222,12 @@ void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }
 //===----------------------------------------------------------------------===//
 
 int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
+  VectorMachineSupport *vms =
+      VectorMachineSupport::getGlobalVectorMachineSupport();
+  assert(vms && "expected defined global vect machine support is defined");
+#if 1
+  return vms->getVectorLength(elementType);
+#else
   unsigned typeBitSize = elementType.getIntOrFloatBitWidth();
   unsigned simdBitSize;
   // TODO: use march and mcpu to determine the right size, right now assume
@@ -1229,6 +1236,7 @@ int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
   assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
          "bad machine vector length");
   return (simdBitSize / typeBitSize);
+#endif
 }
 
 int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) const {

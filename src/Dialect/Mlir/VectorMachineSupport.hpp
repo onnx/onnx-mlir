@@ -27,31 +27,34 @@ namespace onnx_mlir {
 // (e.g. all the compares).
 
 enum class GenericOps {
-  AbsGOp,
-  ArithmeticGOp, /* Simple compute ops: add/sub */
-  CeilDivGOp,
-  CeilGOp,
-  CompareGOp, /* All compare operations, signed/unsigned fixed/float. */
-  ConversionGOp,
-  CopySignGOP,
-  DivGOp,
-  Exp2GOp,
-  ExpGOp,
-  FloorDivGOp,
-  FloorGOp,
-  FmaGOp,
-  Log2GOp,
-  LogGOp,
-  LogicalGOp, /* All logical ops: and, or, xor, not, nor, nand,... */
-  MinMaxGOp,
-  MulGOp,
-  PowGOp,
-  RemGOp,
-  SelectGOp,
-  ShiftGOp,   /* Shift operations: logical/arithmetic. */
-  ShuffleGOp, /* All bit/byte moving operations: shuffle, rotate, shift. */
-  SqrtGOp,
-  SumAcrossGOp, /* Sum across vector. */
+  AbsGop,
+  ArithmeticGop, /* Simple compute ops: add/sub */
+  CeilDivGop,
+  CeilGop,
+  CompareGop, /* All compare operations, signed/unsigned fixed/float. */
+  ConversionGop,
+  CopySignGop,
+  DivGop,
+  Exp2Gop,
+  ExpGop,
+  FloorDivGop,
+  FloorGop,
+  FmaGop,
+  Log2Gop,
+  LogGop,
+  LogicalGop, /* All logical ops: and, or, xor, not, nor, nand,... */
+  MinMaxGop,
+  MulGop,
+  PowGop,
+  RemGop,
+  SelectGop,
+  ShiftGop,   /* Shift operations: logical/arithmetic. */
+  ShuffleGop, /* All bit/byte moving operations: shuffle, rotate, shift. */
+  SqrtGop,
+  SumAcrossGop,      /* Sum across vector. */
+  TrigGop,           /* Trigonometry ops: sin, cos, tan. */
+  TrigArcGop,        /* Arc trigonometry ops: asin, acos, atan. */
+  TrigHyperbolicGop, /* Hyperbolic trig. */
 };
 
 //===----------------------------------------------------------------------===//
@@ -65,25 +68,32 @@ protected:
 
 public:
   // The class encapsulate a single static vector machine support
-  VectorMachineSupport *getGlobalVectorMachineSupport();
-  void setGlobalVectorMachineSupport(std::string name);
-  void clearGlobalVectorMachineSupport();
+  static VectorMachineSupport *getGlobalVectorMachineSupport() {
+    return globalVectorMachineSupport;
+  }
+  static void setGlobalVectorMachineSupport(
+      std::string arch, std::string cpu, std::string attr);
+  static void clearGlobalVectorMachineSupport();
 
   static const int64_t UNSUPPORTED = 0;
 
   // Return the bit width of the SIMD unit regardless of the type/operation.
+  // This is an upper bound and does not guarantee that an actual operation can
+  // provide this VL.
   virtual int64_t getVectorBitWidth() = 0;
   // Return the number of elements that can be processed in SIMD fashion
-  // regardless of the type/operation.
+  // regardless of the operation. This is an upper bound and does not guarantee
+  // that an actual operation can provide this VL.
   virtual int64_t getVectorLength(mlir::Type elementType);
   // Return the number of elements that can be processed in SIMD fashion if
   // support exists; 0 when there is no support.
   virtual int64_t getVectorLength(GenericOps gop, mlir::Type elementType) = 0;
 
-  // Composite function that return the average vector length among the
-  // operations that support SIMD execution.
-  double getAvgVectorLength(llvm::SmallVectorImpl<GenericOps> &gops,
-      mlir::Type elementType, int64_t &numSupported, int64_t &numUnsupported);
+  // Return the weighted average vector length among the operations provided in
+  // gops list (where each occur gopsNum times).
+  double getAvgVectorLength(mlir::ArrayRef<GenericOps> &gops,
+      mlir::ArrayRef<int64_t> &gopsNum, mlir::Type elementType,
+      int64_t &vectorizedOpNum, int64_t &scalarOpNum);
 
 private:
   static VectorMachineSupport *globalVectorMachineSupport;
@@ -135,7 +145,6 @@ public:
   virtual ~AVX2x86VectorMachineSupport() = default;
 
   int64_t getVectorBitWidth() override { return 258; }
-  int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override;
 };
 
 } // namespace onnx_mlir
