@@ -52,16 +52,19 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
 // =============================================================================
 // Template for SIMD analysis
 
+// Helper for function that support SIMD.
 static double simdAnalysis(ArrayRef<GenericOps> Gops, ArrayRef<int64_t> GopsNum,
     Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
-  assert(vms && "expected global vector machine support here");
   return vms->getAvgVectorLength(
       Gops, GopsNum, elementType, vectorizedOpNum, scalarOpNum);
 }
 
-// Default template for unsupported ops
+// Default template for ops that do not support SIMD. For the ones that support
+// SIMD, we must create an `analyzeSimdFor` template that returns the right
+// values.
+
 template <typename Op>
 double analyzeSimdFor(
     Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
@@ -1185,7 +1188,6 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
   // Determine empirical unroll factor.
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
-  assert(vms && "expected global vector machine support here");
 
   int64_t vrNum = vms->VectorRegisterNum();
   if (vectorizedOpNum >= vrNum / 2)

@@ -68,6 +68,7 @@ protected:
 public:
   // The class encapsulate a single static vector machine support
   static VectorMachineSupport *getGlobalVectorMachineSupport() {
+    assert(globalVectorMachineSupport && "expected nonnull ptr");
     return globalVectorMachineSupport;
   }
   static void setGlobalVectorMachineSupport(
