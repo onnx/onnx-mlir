@@ -124,10 +124,12 @@ int64_t Z16VectorMachineSupport::getVectorLength(
     switch (Gop) {
     case GenericOps::AbsGop:        /* Supported via compare and select */
     case GenericOps::ArithmeticGop: /* Add/sub,... */
+    case GenericOps::CeilGop:       /* Use load integer & rounding modes*/
     case GenericOps::CompareGop:
     case GenericOps::ConversionGop:
     case GenericOps::CopySignGop:
     case GenericOps::DivGop:
+    case GenericOps::FloorGop: /* Use load integer & rounding modes*/
     case GenericOps::FmaGop:
     case GenericOps::MinMaxGop:
     case GenericOps::MulGop:
@@ -195,15 +197,18 @@ int64_t SSE42x86VectorMachineSupport::getVectorLength(
     switch (Gop) {
     case GenericOps::AbsGop:
     case GenericOps::ArithmeticGop: /* Add/sub,... */
+    case GenericOps::CeilGop:
     case GenericOps::CompareGop:
     case GenericOps::ConversionGop:
     case GenericOps::CopySignGop:
     case GenericOps::DivGop:
+    case GenericOps::FloorGop:
     case GenericOps::FmaGop:
     case GenericOps::MinMaxGop:
     case GenericOps::MulGop:
-    case GenericOps::SumAcrossGop:
+    case GenericOps::RoundGop:
     case GenericOps::SqrtGop:
+    case GenericOps::SumAcrossGop:
       return abstractVL;
     default:
       // Unsupported float op.

@@ -1104,10 +1104,9 @@ struct ScalarOp<ONNXRoundOp> {
 template <>
 double analyzeSimdFor<ONNXRoundOp>(Type t, int64_t &von, int64_t &son) {
   return simdAnalysis(
-      {GenericOps::ArithmeticGop, GenericOps::MulGop, GenericOps::MulGop,
-          GenericOps::CompareGop, GenericOps::SelectGop, GenericOps::ExpGop,
-          GenericOps::FloorGop},
-      {4, 2, 3, 3, 2, 2}, t, von, son);
+      {GenericOps::ArithmeticGop, GenericOps::MulGop, GenericOps::CompareGop,
+          GenericOps::SelectGop, GenericOps::FloorGop},
+      {4, 2, 3, 3, 2}, t, von, son);
 }
 
 template <>
@@ -1184,14 +1183,14 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     return 0;
   }
   // Determine empirical unroll factor.
-    VectorMachineSupport *vms =
+  VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
   assert(vms && "expected global vector machine support here");
 
-  int64_t vrNum =vms->VectorRegisterNum();
-  if (vectorizedOpNum >= vrNum/2)
+  int64_t vrNum = vms->VectorRegisterNum();
+  if (vectorizedOpNum >= vrNum / 2)
     simdUnroll = 1;
-  else if (vectorizedOpNum >= vrNum/4)
+  else if (vectorizedOpNum >= vrNum / 4)
     simdUnroll = 4;
   else
     simdUnroll = 8;

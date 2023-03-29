@@ -35,25 +35,24 @@ enum class GenericOps {
   ConversionGop,
   CopySignGop,
   DivGop,
-  Exp2Gop,
   ExpGop,
   FloorDivGop,
   FloorGop,
   FmaGop,
-  Log2Gop,
   LogGop,
   LogicalGop, /* All logical ops: and, or, xor, not, nor, nand,... */
   MinMaxGop,
   MulGop,
   PowGop,
   RemGop,
+  RoundGop,
   SelectGop,
   ShiftGop,   /* Shift operations: logical/arithmetic. */
   ShuffleGop, /* All bit/byte moving operations: shuffle, rotate, shift. */
   SqrtGop,
   SumAcrossGop,      /* Sum across vector. */
-  TrigGop,           /* Trigonometry ops: sin, cos, tan. */
   TrigArcGop,        /* Arc trigonometry ops: asin, acos, atan. */
+  TrigGop,           /* Trigonometry ops: sin, cos, tan. */
   TrigHyperbolicGop, /* Hyperbolic trig. */
 };
 
