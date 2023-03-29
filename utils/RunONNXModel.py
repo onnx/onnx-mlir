@@ -115,6 +115,19 @@ data_group.add_argument('--shape-info',
                         help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
                         "Used to generate random inputs for the model if --load-ref is not set")
 
+parser.add_argument('--lower-bound',
+                    type=str,
+                    help="Lower bound values for each data type. Used inputs."
+                    " E.g. --lower-bound=int64:-10,float32:-0.2,uint8:1."
+                    " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
+                    " uint64, int64,float16, float32, float64")
+parser.add_argument('--upper-bound',
+                    type=str,
+                    help="Upper bound values for each data type. Used to generate random inputs."
+                    " E.g. --upper-bound=int64:10,float32:0.2,uint8:9."
+                    " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
+                    " uint64, int64, float16, float32, float64")
+
 args = parser.parse_args()
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
@@ -155,9 +168,46 @@ MLIR_TYPE_TO_NP_TYPE = {
     'i32': np.dtype("int32"),
     'i16': np.dtype("int16"),
     'i8': np.dtype("int8"),
+    'ui64': np.dtype("uint64"),
+    'ui32': np.dtype("uint32"),
+    'ui16': np.dtype("uint16"),
+    'ui8': np.dtype("uint8"),
     'i1': np.dtype("bool"),
 }
 
+# Default lower bound for generating random inputs.
+DEFAULT_LB = {
+    'float64': -0.1,
+    'float32': -0.1,
+    'float16': -0.1,
+    'int64': -0.1,
+    'int32': -0.1,
+    'int16': -0.1,
+    'int8': -0.1,
+    'uint64': 0,
+    'uint32': 0,
+    'uint16': 0,
+    'uint8': 0,
+    # For some reason, random.uniform with lb/ub to 0/1 resulted in 1 only.
+    'bool': -10, # treated as int32
+}
+
+# Default upper bound for generating random inputs.
+DEFAULT_UB = {
+    'float64': 0.1,
+    'float32': 0.1,
+    'float16': 0.1,
+    'int64': 0.1,
+    'int32': 0.1,
+    'int16': 0.1,
+    'int8': 0.1,
+    'uint64': 10,
+    'uint32': 10,
+    'uint16': 10,
+    'uint8': 10,
+    # For some reason, random.uniform with lb/ub to 0/1 resulted in 1 only.
+    'bool': 9, # treated as int32
+}
 
 def ordinal(n):
     suffix = ['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]
@@ -290,21 +340,64 @@ def generate_random_input(input_signature, input_shapes):
         # Get element type.
         elem_type = sig['type']
         np_elem_type = MLIR_TYPE_TO_NP_TYPE[elem_type]
+
         # Set a range for random values.
+        custom_lb = {}
+        custom_ub = {}
+        # Get user's range if any.
+        if args.lower_bound:
+            for type_lbs in args.lower_bound.strip().split(","):
+                type_lb = type_lbs.split(":")
+                assert not (type_lb[0] in custom_lb), "Duplicate types"
+                custom_lb[type_lb[0]] = type_lb[1]
+        if args.upper_bound:
+            for type_ubs in args.upper_bound.strip().split(","):
+                type_ub = type_ubs.split(":")
+                assert not (type_ub[0] in custom_ub), "Duplicate types"
+                custom_ub[type_ub[0]] = type_ub[1]
+        DEFAULT_LB.update(custom_lb)
+        DEFAULT_UB.update(custom_ub)
+
         lb = ub = 0
         random_element_type = np_elem_type
-        if (np.issubdtype(np_elem_type, np.floating)):
-            lb = -1.0
-            ub = 1.0
-
-        elif (np.issubdtype(np_elem_type, np.integer)):
-            lb = -10
-            ub = 10
-        elif (np.issubdtype(np_elem_type, np.dtype(bool).type)):
+        if (np.issubdtype(np_elem_type, np.dtype(bool).type)):
             # For some reason, random.uniform with lb/ub to 0/1 resulted in 1 only.
-            lb = -10
-            ub = 9
+            lb = int(DEFAULT_LB["bool"])
+            ub = int(DEFAULT_UB["bool"])
             random_element_type = np.dtype("int32")
+        elif (np.issubdtype(np_elem_type, np.uint8)):
+            lb = int(DEFAULT_LB["uint8"])
+            ub = int(DEFAULT_UB["uint8"])
+        elif (np.issubdtype(np_elem_type, np.uint16)):
+            lb = int(DEFAULT_LB["uint16"])
+            ub = int(DEFAULT_UB["uint16"])
+        elif (np.issubdtype(np_elem_type, np.uint32)):
+            lb = int(DEFAULT_LB["uint32"])
+            ub = int(DEFAULT_UB["uint32"])
+        elif (np.issubdtype(np_elem_type, np.uint64)):
+            lb = int(DEFAULT_LB["uint64"])
+            ub = int(DEFAULT_UB["uint64"])
+        elif (np.issubdtype(np_elem_type, np.int8)):
+            lb = int(DEFAULT_LB["int8"])
+            ub = int(DEFAULT_UB["int8"])
+        elif (np.issubdtype(np_elem_type, np.int16)):
+            lb = int(DEFAULT_LB["int16"])
+            ub = int(DEFAULT_UB["int16"])
+        elif (np.issubdtype(np_elem_type, np.int32)):
+            lb = int(DEFAULT_LB["int32"])
+            ub = int(DEFAULT_UB["int32"])
+        elif (np.issubdtype(np_elem_type, np.int64)):
+            lb = int(DEFAULT_LB["int64"])
+            ub = int(DEFAULT_UB["int64"])
+        elif (np.issubdtype(np_elem_type, np.float64)):
+            lb = float(DEFAULT_LB["float64"])
+            ub = float(DEFAULT_UB["float64"])
+        elif (np.issubdtype(np_elem_type, np.float32)):
+            lb = float(DEFAULT_LB["float32"])
+            ub = float(DEFAULT_UB["float32"])
+        elif (np.issubdtype(np_elem_type, np.float16)):
+            lb = float(DEFAULT_LB["float16"])
+            ub = float(DEFAULT_UB["float16"])
         else:
             raise AssertionError("Unsuported element type")
         rinput = np.random.uniform(lb, ub, explicit_shape).astype(random_element_type)
@@ -325,7 +418,7 @@ def warning(msg):
 
 
 def main():
-    if not(args.model or args.load_so):
+    if not (args.model or args.load_so):
         print("error: no input model, use argument --model and/or --load-so.")
         print(parser.format_usage())
         exit(1)
@@ -479,14 +572,12 @@ def main():
                 os.mkdir(load_ref)
             for i in range(len(inputs)):
                 tensor = numpy_helper.from_array(inputs[i])
-                tensor_path = os.path.join(load_ref,
-                                           'input_{}.pb'.format(i))
+                tensor_path = os.path.join(load_ref, 'input_{}.pb'.format(i))
                 with open(tensor_path, 'wb') as f:
                     f.write(tensor.SerializeToString())
             for i in range(len(outs)):
                 tensor = numpy_helper.from_array(outs[i])
-                tensor_path = os.path.join(load_ref,
-                                           'output_{}.pb'.format(i))
+                tensor_path = os.path.join(load_ref, 'output_{}.pb'.format(i))
                 with open(tensor_path, 'wb') as f:
                     f.write(tensor.SerializeToString())
 
