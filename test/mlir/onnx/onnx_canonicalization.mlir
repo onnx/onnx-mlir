@@ -890,17 +890,6 @@ func.func @test_layout_transform(%arg0: tensor<5x3x32x32xf32, #onnx.layout<{data
 
 // -----
 
-func.func @test_layout_transform_unknown(%arg0: tensor<1x2x3xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<1x?x3xf32, #onnx.layout<{dataLayout = "NCHW4C"}>> {
-    %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #onnx.layout<{dataLayout = "NCHW4C"}>} : (tensor<1x2x3xf32,#onnx.layout<{dataLayout = "NCHW4C"}>>) -> tensor<1x?x3xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
-    return %0 : tensor<1x?x3xf32, #onnx.layout<{dataLayout = "NCHW4C"}>>
-
-// CHECK-LABEL: test_layout_transform_unknown
-// CHECK-NOT: "onnx.LayoutTransform"
-// CHECK: return
-}
-
-// -----
-
 func.func @test_softmax_v11_ranked(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
   %0 = "onnx.SoftmaxV11"(%arg0) {axis = 2 : si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>
   return %0 : tensor<10x20x30xf32>

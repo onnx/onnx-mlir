@@ -37,7 +37,7 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // Verifier
 //===----------------------------------------------------------------------===//
-bool ONNXLayoutTransformOp::verify() {
+LogicalResult ONNXLayoutTransformOp::verify() {
   if (auto dataType = getData().getType().dyn_cast<RankedTensorType>())
     if (auto outputType = getOutput().getType().dyn_cast<RankedTensorType>())
       for (int64_t i = 0; i < dataType.getRank(); ++i)
@@ -47,10 +47,11 @@ bool ONNXLayoutTransformOp::verify() {
         // equal, if not then we return false.
         if (dataType.getShape()[i] == ShapedType::kDynamic ||
             outputType.getShape()[i] == ShapedType::kDynamic)
-          return true;
+          return success();
         else if (dataType.getShape()[i] != outputType.getShape()[i])
-          return false;
-  return true;
+          return emitOpError(
+              "Input and output tensors must have the same shape");
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
