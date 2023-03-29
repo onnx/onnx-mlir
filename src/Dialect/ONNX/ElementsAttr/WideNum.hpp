@@ -21,7 +21,11 @@
 namespace onnx_mlir {
 
 // Union of 64-bit integers and double precision floating point numbers.
-// It is tagless and should always be used in a conjunction with a BType.
+//
+// It is tagless and should always be used in a conjunction with a BType,
+// or a type t with implied BType btypeOfMlirType(t)
+// or a shaped type s with implied BType btypeOfMlirType(s.getElementType()).
+//
 // The btype tags which field of the union is populated:
 // dbl if isFloat(btype), i64 or u64 if isSigned/UnsignedInt(btype).
 //
