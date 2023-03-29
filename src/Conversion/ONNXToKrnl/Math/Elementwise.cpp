@@ -1184,9 +1184,14 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     return 0;
   }
   // Determine empirical unroll factor.
-  if (vectorizedOpNum >= 16)
+    VectorMachineSupport *vms =
+      VectorMachineSupport::getGlobalVectorMachineSupport();
+  assert(vms && "expected global vector machine support here");
+
+  int64_t vrNum =vms->VectorRegisterNum();
+  if (vectorizedOpNum >= vrNum/2)
     simdUnroll = 1;
-  else if (vectorizedOpNum >= 4)
+  else if (vectorizedOpNum >= vrNum/4)
     simdUnroll = 4;
   else
     simdUnroll = 8;

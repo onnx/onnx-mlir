@@ -77,6 +77,9 @@ public:
 
   static const int64_t UNSUPPORTED = 0;
 
+  // Number of vector registers available.
+  virtual int64_t VectorRegisterNum() = 0;
+
   // Return the bit width of the SIMD unit regardless of the type/operation.
   // This is an upper bound and does not guarantee that an actual operation can
   // provide this VL.
@@ -105,6 +108,7 @@ public:
   NoVectorMachineSupport() = default;
   virtual ~NoVectorMachineSupport() = default;
 
+  int64_t VectorRegisterNum() override { return 0; }
   int64_t getVectorBitWidth() override { return 0; }
   int64_t getVectorLength(mlir::Type elementType) override {
     return UNSUPPORTED;
@@ -121,6 +125,7 @@ public:
   Z16VectorMachineSupport() = default;
   virtual ~Z16VectorMachineSupport() = default;
 
+  int64_t VectorRegisterNum() override { return 32; }
   int64_t getVectorBitWidth() override { return 128; }
   int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override;
 };
@@ -135,6 +140,7 @@ public:
   SSE42x86VectorMachineSupport() = default;
   virtual ~SSE42x86VectorMachineSupport() = default;
 
+  int64_t VectorRegisterNum() override { return 16; }
   int64_t getVectorBitWidth() override { return 128; }
   int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override;
 };
