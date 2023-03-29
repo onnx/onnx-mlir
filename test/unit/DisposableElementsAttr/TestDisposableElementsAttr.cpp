@@ -11,12 +11,14 @@
 #include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
 #include "mlir/IR/Builders.h"
 #include "llvm/Support/MemoryBuffer.h"
 
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -74,6 +76,7 @@ class Test {
   Type F32;
   Type I32;
   Type I64;
+  Type I8;
 
 public:
   Test()
@@ -82,6 +85,7 @@ public:
     F32 = builder.getF32Type();
     I32 = builder.getI32Type();
     I64 = builder.getI64Type();
+    I8 = builder.getI8Type();
   }
   ~Test() { delete ctx; }
 
@@ -156,10 +160,49 @@ public:
 
     ShapedType type = RankedTensorType::get({1}, I64);
     auto e = elmsBuilder.fromMemoryBuffer(type, buffer<int64_t>({256}));
-    assert(e.getSplatValue<int64_t>() == 256);
-
     auto c = elmsBuilder.castElementType(e, F32);
     assert(c.getSplatValue<float>() == 256.0);
+
+    return 0;
+  }
+
+  int test_equal() {
+    std::cout << "test_equal:" << std::endl;
+
+    ShapedType type1xi64 = RankedTensorType::get({1}, I64);
+    auto e2_i64 = elmsBuilder.fromMemoryBuffer(type1xi64, buffer<int64_t>({2}));
+    auto e3_i64 = elmsBuilder.fromMemoryBuffer(type1xi64, buffer<int64_t>({3}));
+
+    ShapedType type1xi8 = RankedTensorType::get({1}, I8);
+    auto e2_i8 = elmsBuilder.fromMemoryBuffer(type1xi8, buffer<int64_t>({2}));
+
+    assert(ElementsAttrBuilder::equal(e2_i64, e2_i64));
+    assert(!ElementsAttrBuilder::equal(e3_i64, e2_i64));
+    assert(!ElementsAttrBuilder::equal(e3_i64, e2_i8));
+    assert(ElementsAttrBuilder::equal(e2_i64, e2_i8));
+
+    int8_t two = 2;
+    auto d2_i8 = DenseElementsAttr::get(type1xi8, {two});
+
+    assert(ElementsAttrBuilder::equal(d2_i8, e2_i8));
+    assert(ElementsAttrBuilder::equal(d2_i8, e2_i64));
+    assert(!ElementsAttrBuilder::equal(d2_i8, e3_i64));
+
+    ShapedType type2xf32 = RankedTensorType::get({2}, F32);
+    float zero = 0.0;
+    auto d0s_f32_splat = DenseElementsAttr::get(type2xf32, {zero});
+    auto d0s_f32 = DenseElementsAttr::get(type2xf32, {zero, -zero});
+
+    assert(d0s_f32_splat != d0s_f32);
+    assert(ElementsAttrBuilder::equal(d0s_f32_splat, d0s_f32));
+
+    float nan = std::nanf("");
+    assert(std::isnan(nan));
+    auto dnans = DenseElementsAttr::get(type2xf32, {nan});
+
+    // float NaN != NaN and the same goes for ElementsAttr::equal
+    assert(nan != nan);
+    assert(!ElementsAttrBuilder::equal(dnans, dnans));
 
     return 0;
   }
@@ -173,6 +216,7 @@ int main(int argc, char *argv[]) {
   failures += test.test_splat();
   failures += test.test_transpose();
   failures += test.test_cast();
+  failures += test.test_equal();
   if (failures != 0) {
     std::cerr << failures << " test failures\n";
     return 1;
