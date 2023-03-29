@@ -73,7 +73,7 @@ set_target_properties(OMExecutionSession
   
 # TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
 add_onnx_mlir_library(OMPyExecutionSessionBase
-  SHARED PyExecutionSessionBase.cpp
+  PyExecutionSessionBase.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
