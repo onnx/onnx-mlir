@@ -26,20 +26,21 @@ struct InferShapesPattern : public OpInterfaceRewritePattern<ShapeInference> {
   using OpInterfaceRewritePattern<ShapeInference>::OpInterfaceRewritePattern;
 
   LogicalResult matchAndRewrite(
-      ShapeInference shapeOp, PatternRewriter &rewriter) const override {
+      ShapeInference shapeInfOp, PatternRewriter &rewriter) const override {
     // TODO: check if it's necessary to skip ops that satisfy
     // !returnsDynamicOrUnknownShape (see ShapeInferencePass.cpp)
 
     // Verify the operation before attempting to infer the shape of the
     // produced output(s).
     Optional<RegisteredOperationName> registeredInfo =
-        shapeOp->getName().getRegisteredInfo();
-    if (registeredInfo && failed(registeredInfo->verifyInvariants(&*shapeOp)))
-      return shapeOp.emitOpError("verification failed");
+        shapeInfOp->getName().getRegisteredInfo();
+    if (registeredInfo &&
+        failed(registeredInfo->verifyInvariants(&*shapeInfOp)))
+      return shapeInfOp.emitOpError("verification failed");
 
     // Infer the results shapes.
-    if (failed(shapeOp.inferShapes([](Region &region) {})))
-      return shapeOp.emitOpError("shape inference failed");
+    if (failed(shapeInfOp.inferShapes([](Region &region) {})))
+      return shapeInfOp.emitOpError("shape inference failed");
 
     return success();
   }
@@ -53,9 +54,9 @@ struct ReturnShapesPattern : public OpRewritePattern<ONNXReturnOp> {
     Operation *parent = returnOp->getParentOp();
     (void)parent;
     assert(parent && "every onnx.Return op has a parent");
-    if (auto shapeOp = llvm::dyn_cast<ShapeInference>(parent)) {
-      if (failed(shapeOp.inferShapes([](Region &region) {})))
-        return shapeOp.emitOpError("shape inference failed");
+    if (auto shapeInfOp = llvm::dyn_cast<ShapeInference>(parent)) {
+      if (failed(shapeInfOp.inferShapes([](Region &region) {})))
+        return shapeInfOp.emitOpError("shape inference failed");
     } else {
       llvm_unreachable("onnx.Return always has if/loop/scan parent");
     }
