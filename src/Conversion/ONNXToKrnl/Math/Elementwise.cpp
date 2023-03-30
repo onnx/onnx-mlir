@@ -80,7 +80,6 @@ template <>
 struct ScalarOp<ONNXTanhOp> {
   using FOp = math::TanhOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXTanhOp>(Type t, int64_t &von, int64_t &son) {
@@ -91,7 +90,6 @@ template <>
 struct ScalarOp<ONNXAddOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXAddOp>(Type t, int64_t &von, int64_t &son) {
@@ -102,7 +100,6 @@ template <>
 struct ScalarOp<ONNXAbsOp> {
   using FOp = math::AbsFOp;
   using IOp = math::AbsIOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXAbsOp>(Type t, int64_t &von, int64_t &son) {
@@ -113,7 +110,6 @@ template <>
 struct ScalarOp<ONNXMulOp> {
   using FOp = arith::MulFOp;
   using IOp = arith::MulIOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXMulOp>(Type t, int64_t &von, int64_t &son) {
@@ -124,7 +120,6 @@ template <>
 struct ScalarOp<ONNXDivOp> {
   using FOp = arith::DivFOp;
   using IOp = arith::DivSIOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXDivOp>(Type t, int64_t &von, int64_t &son) {
@@ -135,7 +130,6 @@ template <>
 struct ScalarOp<ONNXSubOp> {
   using FOp = arith::SubFOp;
   using IOp = arith::SubIOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXSubOp>(Type t, int64_t &von, int64_t &son) {
@@ -146,28 +140,24 @@ template <>
 struct ScalarOp<ONNXAndOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::AndIOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXOrOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::OrIOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXXorOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::XOrIOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXExpOp> {
   using FOp = math::ExpOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXExpOp>(Type t, int64_t &von, int64_t &son) {
@@ -178,7 +168,6 @@ template <>
 struct ScalarOp<ONNXSumOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXSumOp>(Type t, int64_t &von, int64_t &son) {
@@ -189,7 +178,6 @@ template <>
 struct ScalarOp<ONNXCosOp> {
   using FOp = math::CosOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXCosOp>(Type t, int64_t &von, int64_t &son) {
@@ -200,7 +188,6 @@ template <>
 struct ScalarOp<ONNXLogOp> {
   using FOp = math::LogOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXLogOp>(Type t, int64_t &von, int64_t &son) {
@@ -211,7 +198,6 @@ template <>
 struct ScalarOp<ONNXSqrtOp> {
   using FOp = math::SqrtOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXSqrtOp>(Type t, int64_t &von, int64_t &son) {
@@ -222,14 +208,12 @@ template <>
 struct ScalarOp<ONNXAtanOp> {
   using FOp = KrnlAtanOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXCeilOp> {
   using FOp = math::CeilOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXCeilOp>(Type t, int64_t &von, int64_t &son) {
@@ -240,7 +224,6 @@ template <>
 struct ScalarOp<ONNXFloorOp> {
   using FOp = math::FloorOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXFloorOp>(Type t, int64_t &von, int64_t &son) {
@@ -251,7 +234,6 @@ template <>
 struct ScalarOp<ONNXSinOp> {
   using FOp = math::SinOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXSinOp>(Type t, int64_t &von, int64_t &son) {
@@ -262,7 +244,6 @@ template <>
 struct ScalarOp<ONNXPowOp> {
   using FOp = math::PowFOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXPowOp>(Type t, int64_t &von, int64_t &son) {
@@ -273,63 +254,54 @@ template <>
 struct ScalarOp<ONNXErfOp> {
   using FOp = KrnlErfOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXIsInfOp> {
   using FOp = KrnlIsInfOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXIsNaNOp> {
   using FOp = KrnlIsNaNOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAcosOp> {
   using FOp = KrnlAcosOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAcoshOp> {
   using FOp = KrnlAcoshOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAsinOp> {
   using FOp = KrnlAsinOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAsinhOp> {
   using FOp = KrnlAsinhOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAtanhOp> {
   using FOp = KrnlAtanhOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 //===----------------------------------------------------------------------===//
@@ -339,7 +311,6 @@ template <>
 struct ScalarOp<ONNXCastOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp; // TODO: can it be simdized?
 };
 
 template <>
@@ -359,7 +330,6 @@ template <>
 struct ScalarOp<ONNXSinhOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -393,7 +363,6 @@ template <>
 struct ScalarOp<ONNXCoshOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -427,7 +396,6 @@ template <>
 struct ScalarOp<ONNXSigmoidOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -460,7 +428,6 @@ template <>
 struct ScalarOp<ONNXHardSigmoidOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -506,7 +473,6 @@ template <>
 struct ScalarOp<ONNXEluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -544,7 +510,6 @@ template <>
 struct ScalarOp<ONNXReluOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -572,7 +537,6 @@ template <>
 struct ScalarOp<ONNXLeakyReluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -607,7 +571,6 @@ template <>
 struct ScalarOp<ONNXPReluOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -639,7 +602,6 @@ template <>
 struct ScalarOp<ONNXSeluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -681,7 +643,6 @@ template <>
 struct ScalarOp<ONNXReciprocalOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -708,7 +669,6 @@ template <>
 struct ScalarOp<ONNXSoftplusOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -739,7 +699,6 @@ template <>
 struct ScalarOp<ONNXSoftsignOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -770,7 +729,6 @@ template <>
 struct ScalarOp<ONNXSignOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -814,7 +772,6 @@ template <>
 struct ScalarOp<ONNXMaxOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -846,7 +803,6 @@ template <>
 struct ScalarOp<ONNXMinOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -878,7 +834,6 @@ template <>
 struct ScalarOp<ONNXNegOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -903,7 +858,6 @@ template <>
 struct ScalarOp<ONNXLessOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
@@ -924,7 +878,6 @@ template <>
 struct ScalarOp<ONNXLessOrEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
@@ -945,7 +898,6 @@ template <>
 struct ScalarOp<ONNXGreaterOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
@@ -966,7 +918,6 @@ template <>
 struct ScalarOp<ONNXGreaterOrEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
@@ -987,7 +938,6 @@ template <>
 struct ScalarOp<ONNXEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
@@ -1008,7 +958,6 @@ template <>
 struct ScalarOp<ONNXNotOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp; // issue with bit data representation
 };
 
 template <>
@@ -1029,7 +978,6 @@ template <>
 struct ScalarOp<ONNXModOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -1076,7 +1024,6 @@ template <>
 struct ScalarOp<ONNXMeanOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -1101,7 +1048,6 @@ template <>
 struct ScalarOp<ONNXRoundOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
 
 template <>
@@ -1398,17 +1344,15 @@ struct ONNXElementwiseUnaryOpLowering
     shapeHelper.computeShapeAndAssertOnFailure();
 
     bool isScalar = hasAllScalarValues(operands);
-    if constexpr (SimdizableOp<ElementwiseUnaryOp>::value) {
-      // SIMD is enabled for this operation, test if desired and feasible
-      int64_t simdUnroll =
-          canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, create, memRefType, isScalar, enableSIMD,
-              hasNonIdentityLayout(operands));
-      if (simdUnroll > 0)
-        return getUnaryBinarySimdCodeFullyFlattened<ElementwiseUnaryOp>(
-            rewriter, create, &shapeHelper, op, memRefType, operands, alignment,
-            simdUnroll);
-    }
+    // SIMD is enabled for this operation, test if desired and feasible
+    int64_t simdUnroll =
+        canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(shapeHelper,
+            create, memRefType, isScalar, enableSIMD,
+            hasNonIdentityLayout(operands));
+    if (simdUnroll > 0)
+      return getUnaryBinarySimdCodeFullyFlattened<ElementwiseUnaryOp>(rewriter,
+          create, &shapeHelper, op, memRefType, operands, alignment,
+          simdUnroll);
 
     // Insert an allocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1483,17 +1427,15 @@ struct ONNXElementwiseBinaryOpLowering
     shapeHelper.computeShapeAndAssertOnFailure();
 
     bool isScalar = hasAllScalarValues(operands);
-    if constexpr (SimdizableOp<ElementwiseBinaryOp>::value) {
-      // SIMD is enabled for this operation, test if desired and feasible
-      int64_t simdUnroll =
-          canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
-              shapeHelper, create, outputMemRefType, isScalar, enableSIMD,
-              hasNonIdentityLayout(operands));
-      if (simdUnroll > 0)
-        return getUnaryBinarySimdCodeFullyFlattened<ElementwiseBinaryOp>(
-            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
-            alignment, simdUnroll);
-    }
+    // SIMD is enabled for this operation, test if desired and feasible
+    int64_t simdUnroll =
+        canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
+            shapeHelper, create, outputMemRefType, isScalar, enableSIMD,
+            hasNonIdentityLayout(operands));
+    if (simdUnroll > 0)
+      return getUnaryBinarySimdCodeFullyFlattened<ElementwiseBinaryOp>(rewriter,
+          create, &shapeHelper, op, outputMemRefType, operands, alignment,
+          simdUnroll);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1589,17 +1531,15 @@ struct ONNXElementwiseVariadicOpLowering
     shapeHelper.computeShapeAndAssertOnFailure();
 
     bool isScalar = hasAllScalarValues(operands);
-    if constexpr (SimdizableOp<ElementwiseVariadicOp>::value) {
-      // SIMD is enabled for this operation, test if desired and feasible
-      int64_t simdUnroll =
-          canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
-              shapeHelper, create, outputMemRefType, isScalar, enableSIMD,
-              hasNonIdentityLayout(operands));
-      if (simdUnroll > 0)
-        return getVariadicSimdCodeFullyFlattened<ElementwiseVariadicOp>(
-            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
-            alignment, simdUnroll);
-    }
+    // SIMD is enabled for this operation, test if desired and feasible
+    int64_t simdUnroll =
+        canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
+            shapeHelper, create, outputMemRefType, isScalar, enableSIMD,
+            hasNonIdentityLayout(operands));
+    if (simdUnroll > 0)
+      return getVariadicSimdCodeFullyFlattened<ElementwiseVariadicOp>(rewriter,
+          create, &shapeHelper, op, outputMemRefType, operands, alignment,
+          simdUnroll);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(

@@ -6,6 +6,7 @@
 
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "mlir/IR/BuiltinTypes.h"
+#include <algorithm>
 
 #define DEBUG_TYPE "dialect_builder"
 
@@ -72,7 +73,8 @@ double VectorMachineSupport::getAvgVectorLength(ArrayRef<GenericOps> &gops,
   // Determine which operations support SIMD and accumulate their vector
   // lengths.
   for (int64_t i = 0; i < gopsSize; ++i) {
-    int64_t vl = getVectorLength(gops[i], elementType);
+    // Even if unsupported, we can still proceed with one value per op.
+    int64_t vl = std::max((int64_t)1, getVectorLength(gops[i], elementType));
     // If past last value, assume 1; otherwise use actual value.
     int64_t num = 1;
     if (i < gopsNumSize)

@@ -28,6 +28,8 @@
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
+#include <algorithm>
+
 #define DEBUG_TYPE "dialect_builder"
 
 using namespace mlir;
@@ -1224,7 +1226,8 @@ void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }
 int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
-  return vms->getVectorLength(elementType);
+  // Even if unsupported, we can always compute one result per vector.
+  return std::max((int64_t)1, vms->getVectorLength(elementType));
 }
 
 int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) const {

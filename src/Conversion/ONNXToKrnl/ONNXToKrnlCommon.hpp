@@ -36,12 +36,12 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
-#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
 //===----------------------------------------------------------------------===//
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
@@ -164,22 +164,17 @@ mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
 // Definition for easier readability
 using NotSuportedScalarOp = void; // Unsupported, e.g. integer version of cos.
 using CustomScalarOp = void *;    // Custom support, e.g. float version of cosh.
-using SimdScalarOp = std::true_type;    // Scalar op can be simdized.
-using NoSimdScalarOp = std::false_type; // Scalar op cannot be simdized.
 
 template <typename Op>
 struct ScalarOp {
   using FOp = NotSuportedScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <typename FOp>
 using ScalarFOp = typename ScalarOp<FOp>::FOp;
 template <typename IOp>
 using ScalarIOp = typename ScalarOp<IOp>::IOp;
-template <typename IOp>
-using SimdizableOp = typename ScalarOp<IOp>::SimdEnabled;
 
 // Get the identity element of an operation.
 // Return NULL if the function does not have identity.
