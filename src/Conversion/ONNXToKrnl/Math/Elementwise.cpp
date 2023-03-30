@@ -953,7 +953,6 @@ struct ScalarOp<ONNXClipOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
   using SimdEnabled = NoSimdScalarOp;
-};
 
 template <>
 Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
@@ -973,6 +972,44 @@ Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
     Value lessThanMax = create.math.slt(res, loadedMax); // (input[i,j,k]>max)
     res = create.math.select(lessThanMax, res, loadedMax);
   }
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXDequantizeLinearOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXDequantizeLinearOp> {
+  using FOp = NotSuportedScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
+};
+
+Value emitScalarOpFor<ONNXDequantizeLinearOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Operation *op,
+    Type elementType, ArrayRef<Value> scalarOperands) {
+  MultiDialectBuilder<MathBuilder, KrnlBuilder> create(rewriter, loc);
+  // Dequantization formulas: y = (x - x_zero_point) * x_scale
+  // x and x_zero_point can be of type i8, ui8, int32.
+  // y is of type f32.
+  Value XInt = scalarOperands[0];
+  Value XScale = scalarOperands[1];
+  Value XZeroPoint = scalarOperands[2];
+
+  Type xscaleTy = XScale.getType();
+  Type xzeroPointTy = XZeroPoint.getType();
+
+  // Only support scalar scale and zero_point.
+  assert((isRankedShapedType(xscaleTy) && getRank(xscaleTy) == 0) &&
+         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
+  assert((isRankedShapedType(xzeroPointTy) && getRank(xzeroPointTy) == 0) &&
+         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
+
+  Value scaleFloat = create.krnl.load(XScale);
+  Value zeroPointInt = create.krnl.load(XZeroPoint);
+  Value zeroPointFloat = create.math.cast(elementType, zeroPointInt);
+  Value xFloat = create.math.cast(elementType, XInt);
+  Value sub = create.math.sub(xFloat, zeroPointFloat);
+  Value res = create.math.mul(sub, scaleFloat);
+>>>>>>> main
   return res;
 }
 
@@ -1550,6 +1587,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXDequantizeLinearOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
