@@ -1114,6 +1114,13 @@ struct ScalarOp<ONNXDequantizeLinearOp> {
 };
 
 // SIMD: consider first the handling of casts.
+template <>
+double analyzeSimdFor<ONNXDequantizeLinearOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::ArithmeticGop, GenericOps::MulGop, GenericOps::CompareGop,
+          GenericOps::SelectGop, GenericOps::FloorGop},
+      {4, 2, 3, 3, 2}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXDequantizeLinearOp>(
