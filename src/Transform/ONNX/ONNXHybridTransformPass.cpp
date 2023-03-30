@@ -52,7 +52,6 @@ struct ReturnShapesPattern : public OpRewritePattern<ONNXReturnOp> {
   LogicalResult matchAndRewrite(
       ONNXReturnOp returnOp, PatternRewriter &rewriter) const override {
     Operation *parent = returnOp->getParentOp();
-    (void)parent;
     assert(parent && "every onnx.Return op has a parent");
     if (auto shapeInfOp = llvm::dyn_cast<ShapeInference>(parent)) {
       if (failed(shapeInfOp.inferShapes([](Region &region) {})))
@@ -75,11 +74,11 @@ struct ReturnShapesPattern : public OpRewritePattern<ONNXReturnOp> {
 // recursively into subgraphs. Ops with subgraphs, namely if/loop/scan, are
 // matched by the first pattern before the pass recurses into the subgraph. The
 // recursive subgraph pass ends with the ONNXReturnOp whose pattern reruns shape
-// inference for the parent if/loop/scan op. The effect is that the two runs of
-// the parent if/loop/scan op each accomplishes one half of shape propagation to
-// and from the subgraph: The first run propagates input shapes from the parent
-// op to the subgraph and the second run propagates result shapes from the
-// subgraph to the parent op.
+// inference for the parent if/loop/scan op. The effect is that the 2 or 3 runs
+// of the parent if/loop/scan op accomplish two phases of shape propagation to
+// and from the subgraph(s): The first run propagates input shapes from the
+// parent op to the subgraph(s) and the last run(s) propagate(s) result shapes
+// from the subgraph(s) to the parent op.
 struct ONNXHybridTransformPass
     : public PassWrapper<ONNXHybridTransformPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXHybridTransformPass)
