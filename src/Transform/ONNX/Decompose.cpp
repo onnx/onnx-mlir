@@ -282,9 +282,7 @@ ArrayAttr getPadsConvTranspose(
   // Reference: Dumoulin, Vincent, and Francesco Visin. "A guide to convolution
   // arithmetic for deep learning." arXiv preprint arXiv:1603.07285 (2016).
   ONNXConvTransposeOpShapeHelper shapeHelper(op.getOperation(), {});
-  LogicalResult shapecomputed = shapeHelper.computeShape();
-  assert(succeeded(shapecomputed) &&
-         "unexpected inferShapes failuer for ConvTrans op");
+  shapeHelper.computeShapeAndAssertOnFailure();
   SmallVector<IndexExpr, 2> kernelShape = shapeHelper.kernelShape;
   SmallVector<int64_t, 2> dilations = shapeHelper.dilations;
   DimsExpr pads = shapeHelper.pads;
