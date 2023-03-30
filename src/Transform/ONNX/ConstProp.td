@@ -557,6 +557,7 @@ def ConstantOfShapeofConst :  Pat<
     (ONNXConstantOfShapeOp:$resOp (ONNXConstantOp:$shape $_, $_, $_, $_, $_, $_, $_, $_), $value),
     // To c where c is the expanded value.
     (CreateConstantOfShapeOfConst $resOp, $shape, $value),
-    [(IsFromDenseONNXConstantOp:$shape)]>;
+    [(IsFromDenseONNXConstantOp:$shape),
+     (HasStaticShape:$resOp)]>;
 
 #endif // ONNX_CONSTPROP
