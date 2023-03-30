@@ -1162,7 +1162,7 @@ int64_t canBeVectorized(
   int64_t vectorizedOpNum, scalarOpNum;
   double avgSimdWidth =
       analyzeSimdFor<ElementwiseOp>(elementType, vectorizedOpNum, scalarOpNum);
-  if (avgSimdWidth < 0.75) {
+  if (avgSimdWidth < 1.5) {
     if (DEBUG)
       llvm::errs() << "SIMD disabled: avg simd width  " << avgSimdWidth
                    << " too small\n";
