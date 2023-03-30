@@ -28,7 +28,6 @@ using entryPointFuncType = OMTensorList *(*)(OMTensorList *);
 using queryEntryPointsFuncType = const char **(*)(int64_t *);
 using signatureFuncType = const char *(*)(const char *);
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
-
 /* ExecutionSession
  * Class that supports executing compiled models.
  *
