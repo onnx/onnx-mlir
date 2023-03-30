@@ -25,7 +25,11 @@ namespace py = pybind11;
 
 namespace onnx_mlir {
 
+#if !defined(WIN32) && !defined(_WIN32)
 class PYBIND11_EXPORT PyExecutionSessionBase
+#else
+class PyExecutionSessionBase
+#endif
     : public onnx_mlir::ExecutionSession {
 public:
   PyExecutionSessionBase(

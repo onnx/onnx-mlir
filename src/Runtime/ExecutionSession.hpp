@@ -43,11 +43,7 @@ using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
  * hardware/specialized accelerator.
  */
 
-#if defined(WIN32) || defined(_WIN32)
-class __declspec(dllexport) ExecutionSession {
-#else
 class ExecutionSession {
-#endif
 public:
   // Create an execution session using the model given in sharedLibPath.
   // This path must point to the actual file, local directory is not searched.
