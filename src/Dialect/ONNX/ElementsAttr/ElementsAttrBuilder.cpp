@@ -445,6 +445,7 @@ std::vector<ElementsAttr> ElementsAttrBuilder::split(
 ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     ArrayRef<unsigned> axes, bool keepdims,
     WideNum (*reducer)(WideNum, WideNum)) {
+  assert(!elms.empty());
   if (axes.empty())
     return elms;
 
@@ -477,43 +478,31 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     }
   }
 
-  // StridedArrayRef and traverseStrides are used in an unusual way below.
+  // Strides are used in an unusual way below.
   // (axesShape, axesStrides) on one hand and (reducedShape, reducedStrides)
   // on the other hand partition (shape, strides) into two partial mappings
   // of srcNums to the tensor shape.
   //
+  // (reducedShape, reducedStrides) traverses each element in the resulting
+  // reduced tensor once and calculates that element.
+  //
   // (axesShape, axesStrides) describes all the elements to reduce for each
   // result element, namely count == ShapedType::getNumElements(axesShape).
-  // The outer traverseStrides "loop" runs count many times, each time
+  // The inner while loop runs count-1 many times, each time
   // calculating the offset of the next element to reduce.
-  // (Note that offsets be repeated if there are any zeros in axesStrides.)
-  //
-  // The inner traverseStrides loop reduces the next reduce element into the
-  // result for each each element in the resulting reduced tensor (dstNums).
-  StridedArrayRef<WideNum> axesStrided(srcNums.get(), axesStrides);
-  StridedArrayRef<WideNum> reducedStrided(srcNums.get(), reducedStrides);
+  // (Note that src elements may be repeated if there are zeros in axesStrides.)
   ShapedType reducedType = type.clone(reducedShape);
   return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
-    // First copy the 1st element to reduce to each result element in dstNums.
-    WideNum *end = traverseStrides<WideNum *, WideNum>(reducedShape,
-        dstNums.begin(), reducedStrided,
-        [](WideNum *dst, const WideNum *src) { *dst = *src; });
-    assert(end == dstNums.end() && "traverses every dstNums element");
-    int64_t count = traverseStrides<int64_t, WideNum>(
-        axesShape, 0, axesStrided, [&](int64_t counter, const WideNum *iter) {
-          // Skip if counter == 0 as 1st element is already copied to dstNums.
-          if (counter > 0) {
-            ptrdiff_t offset = iter - axesStrided.begin();
-            WideNum *end = traverseStrides<WideNum *, WideNum>(reducedShape,
-                dstNums.begin(), reducedStrided,
-                [&reducer, offset](WideNum *dst, const WideNum *src) {
-                  *dst = reducer(*dst, *(src + offset));
-                });
-            assert(end == dstNums.end() && "traverses every dstNums element");
-          }
-        });
-    assert(count == ShapedType::getNumElements(axesShape) &&
-           "traverses all reduce axes");
+    for (StridesIterator<1> reducedIter(reducedShape, {reducedStrides}),
+         reducedEnd(reducedShape);
+         reducedIter != reducedEnd; ++reducedIter) {
+      WideNum &d = dstNums[reducedIter->flattenedIndex];
+      d = srcNums.get()[reducedIter->pos[0]];
+      StridesIterator<1> axesIter(axesShape, {axesStrides});
+      StridesIterator<1> axesEnd(axesShape);
+      while (++axesIter != axesEnd)
+        d = reducer(d, srcNums.get()[reducedIter->pos[0] + axesIter->pos[0]]);
+    }
   });
 }
 
