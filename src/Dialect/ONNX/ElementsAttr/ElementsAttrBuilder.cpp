@@ -460,6 +460,11 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
 
   SmallVector<int64_t, 4> strides;
   ArrayBuffer<WideNum> srcNums = getWideNumsAndStrides(elms, strides);
+
+  // axesShape and axesStrides describe the src elements that reduce together
+  // into one dst element.
+  // reducedShape and reducedStrides describe the mapping from src to dst
+  // for the first src element that reduces to each dst element.
   SmallVector<int64_t, 4> axesShape, reducedShape;
   SmallVector<int64_t, 4> axesStrides, reducedStrides;
   auto it = sortedAxes.begin();
@@ -478,30 +483,23 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     }
   }
 
-  // Strides are used in an unusual way below.
-  // (axesShape, axesStrides) on one hand and (reducedShape, reducedStrides)
-  // on the other hand partition (shape, strides) into two partial mappings
-  // of srcNums to the tensor shape.
-  //
-  // (reducedShape, reducedStrides) traverses each element in the resulting
-  // reduced tensor once and calculates that element.
-  //
-  // (axesShape, axesStrides) describes all the elements to reduce for each
-  // result element, namely count == ShapedType::getNumElements(axesShape).
-  // The inner while loop runs count-1 many times, each time
-  // calculating the offset of the next element to reduce.
-  // (Note that src elements may be repeated if there are zeros in axesStrides.)
   ShapedType reducedType = type.clone(reducedShape);
   return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
+    // Traverse and populate each element d in dstNums.
     for (StridesIterator<1> reducedIter(reducedShape, {reducedStrides}),
          reducedEnd(reducedShape);
          reducedIter != reducedEnd; ++reducedIter) {
       WideNum &d = dstNums[reducedIter->flattenedIndex];
-      d = srcNums.get()[reducedIter->pos[0]];
+      auto srcPos = reducedIter->pos[0];
+      // Traverse all the elements that reduce together into d.
+      // srcNums elements may be repeated if there are zeros in axesStrides.
+      d = srcNums.get()[srcPos];
       StridesIterator<1> axesIter(axesShape, {axesStrides});
       StridesIterator<1> axesEnd(axesShape);
-      while (++axesIter != axesEnd)
-        d = reducer(d, srcNums.get()[reducedIter->pos[0] + axesIter->pos[0]]);
+      while (++axesIter != axesEnd) {
+        auto srcOffset = axesIter->pos[0];
+        d = reducer(d, srcNums.get()[srcPos + srcOffset]);
+      }
     }
   });
 }
