@@ -53,6 +53,8 @@ public:
   // Compares contents for equality. Argument shapes must be broadcast
   // compatible. Element types must agree on int vs fp and signed vs unsigned
   // but can have different bit width.
+  // Asserts if these preconditions are violated (doesn't return false as that
+  // would hide whether the lhs and rhs are different or incompatible).
   //
   // Note that elements may be compared for equality at a higher precision than
   // the precision of the element types and therefore may return false even if
@@ -62,9 +64,10 @@ public:
   //       anything, but it's here for now for efficient elements access.
   static bool equal(mlir::ElementsAttr lhs, mlir::ElementsAttr rhs);
 
-  // More efficient alternative to
-  // equal(elms, DenseElementsAttr::get(elms.getType(), n.toAPFloat/Int())).
-  static bool allEqual(mlir::ElementsAttr elms, WideNum n);
+  // More efficient way to test if lhs is equal to a single (broadcasted)
+  // value broadcastedRhsValue. Equivalent to equal(lhs, splatRhs) where
+  // splatRhs is a splat ElementsAttr with value broadcastedRhsValue.
+  static bool allEqual(mlir::ElementsAttr lhs, WideNum broadcastedRhsValue);
 
   template <typename T>
   using Filler = std::function<void(llvm::MutableArrayRef<T>)>;

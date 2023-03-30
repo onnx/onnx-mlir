@@ -140,15 +140,17 @@ bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
 }
 
 /*static*/
-bool ElementsAttrBuilder::allEqual(ElementsAttr elms, WideNum n) {
+bool ElementsAttrBuilder::allEqual(
+    ElementsAttr lhs, WideNum broadcastedRhsValue) {
+  WideNum n = broadcastedRhsValue;
   return dispatchByBType(
-      btypeOfMlirType(elms.getElementType()), [elms, n](auto btype) {
+      btypeOfMlirType(lhs.getElementType()), [lhs, n](auto btype) {
         using cpptype = CppType<btype>;
         auto nEquals = [n](cpptype x) {
           constexpr BType TAG = toBType<cpptype>;
           return n.narrow<TAG>() == x;
         };
-        if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
+        if (auto disposable = lhs.dyn_cast<DisposableElementsAttr>()) {
           if (disposable.isTransformedOrCast()) {
             ArrayBuffer<WideNum> nums = disposable.getBufferAsWideNums();
             return llvm::all_of(nums.get(), [n](WideNum m) {
@@ -160,11 +162,11 @@ bool ElementsAttrBuilder::allEqual(ElementsAttr elms, WideNum n) {
             return llvm::all_of(values, nEquals);
           }
         }
-        if (elms.isSplat()) {
-          cpptype x = elms.getSplatValue<cpptype>();
+        if (lhs.isSplat()) {
+          cpptype x = lhs.getSplatValue<cpptype>();
           return nEquals(x);
         } else {
-          auto values = elms.getValues<cpptype>();
+          auto values = lhs.getValues<cpptype>();
           return llvm::all_of(values, nEquals);
         }
       });
