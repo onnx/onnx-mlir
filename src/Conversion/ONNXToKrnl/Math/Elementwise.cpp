@@ -953,6 +953,7 @@ struct ScalarOp<ONNXClipOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
   using SimdEnabled = NoSimdScalarOp;
+};
 
 template <>
 Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
@@ -972,6 +973,8 @@ Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
     Value lessThanMax = create.math.slt(res, loadedMax); // (input[i,j,k]>max)
     res = create.math.select(lessThanMax, res, loadedMax);
   }
+  return res;
+}
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXDequantizeLinearOp
@@ -983,6 +986,7 @@ struct ScalarOp<ONNXDequantizeLinearOp> {
   using SimdEnabled = NoSimdScalarOp;
 };
 
+template <>
 Value emitScalarOpFor<ONNXDequantizeLinearOp>(
     ConversionPatternRewriter &rewriter, Location loc, Operation *op,
     Type elementType, ArrayRef<Value> scalarOperands) {
@@ -1009,7 +1013,6 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
   Value xFloat = create.math.cast(elementType, XInt);
   Value sub = create.math.sub(xFloat, zeroPointFloat);
   Value res = create.math.mul(sub, scaleFloat);
->>>>>>> main
   return res;
 }
 
