@@ -851,6 +851,24 @@ func.func @test_slice_reversed() -> tensor<*xf32> {
 
 // -----
 
+func.func @test_slice_empty() -> tensor<*xf32> {
+  %0 = onnx.Constant dense<[2.0, 3.0, 4.0, 5.0]> : tensor<4xf32>
+  %starts = onnx.Constant dense<0> : tensor<1xi64>
+  %ends = onnx.Constant dense<0> : tensor<1xi64>
+  %axes = onnx.Constant dense<0> : tensor<1xi64>
+  %steps = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = "onnx.Slice"(%0, %starts, %ends, %axes, %steps) : (tensor<4xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func @test_slice_empty
+  // CHECK-SAME:   () -> tensor<0xf32> {
+  // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<> : tensor<0xf32>
+  // CHECK:           return [[VAR_0_]] : tensor<0xf32>
+  // CHECK:         }
+}
+
+// -----
+
 func.func @test_concat() -> tensor<*xf32> {
   %0 = onnx.Constant dense<[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]> : tensor<3x2xf32>
   %1 = onnx.Constant dense<[[11.0, 12.0], [13.0, 14.0], [15.0, 16.0]]> : tensor<3x2xf32>
