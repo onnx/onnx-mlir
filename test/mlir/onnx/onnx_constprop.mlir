@@ -1004,7 +1004,7 @@ func.func @test_reshape() -> tensor<*xf32> {
 
 func.func @test_constant_of_shape() -> tensor<3xi64> {
   %0 = onnx.Constant dense<3> : tensor<1xi64>
-  %1 = "onnx.ConstantOfShape"(%0) {onnx_node_name = "ConstantOfShape_177", value = dense<2> : tensor<1xi64>} : (tensor<1xi64>) -> tensor<3xi64>
+  %1 = "onnx.ConstantOfShape"(%0) {value = dense<2> : tensor<1xi64>} : (tensor<1xi64>) -> tensor<3xi64>
   "func.return"(%1) : (tensor<3xi64>) -> ()
 
 // CHECK-LABEL:  func.func @test_constant_of_shape
@@ -1018,7 +1018,7 @@ func.func @test_constant_of_shape() -> tensor<3xi64> {
 
 func.func @test_constant_of_shape_empty_tensor() -> tensor<f32> {
   %0 = onnx.Constant dense<> : tensor<0xi64>
-  %1 = "onnx.ConstantOfShape"(%0) {onnx_node_name = "ConstantOfShape_177", value = dense<2.0> : tensor<1xf32>} : (tensor<0xi64>) -> tensor<f32>
+  %1 = "onnx.ConstantOfShape"(%0) {value = dense<2.0> : tensor<1xf32>} : (tensor<0xi64>) -> tensor<f32>
   "func.return"(%1) : (tensor<f32>) -> ()
 
 // CHECK-LABEL:  func.func @test_constant_of_shape_empty_tensor

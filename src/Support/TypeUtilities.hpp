@@ -29,11 +29,11 @@ llvm::ArrayRef<int64_t> getShape(mlir::Type ty);
 /// Get rank.
 int64_t getRank(mlir::Type ty);
 /// Get the number of elements.
-int64_t getNumberOfElements(mlir::Type ty);
+int64_t getNumberOfElements(mlir::ShapedType ty);
 /// Get the element size in bytes.
 int64_t getEltSizeInBytes(mlir::Type ty);
 /// Get the size of a tensor from its ranked type in bytes.
-int64_t getSizeInBytes(mlir::Type ty);
+int64_t getSizeInBytes(mlir::ShapedType ty);
 /// Check if two RankedTensorTypes have the same encoding attribute or not.
 bool sameEncodingAttr(mlir::Type t1, mlir::Type t2);
 /// Get the byte width of an int or float type.

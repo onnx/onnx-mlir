@@ -946,6 +946,46 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXDequantizeLinearOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXDequantizeLinearOp> {
+  using FOp = NotSuportedScalarOp;
+  using IOp = CustomScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
+};
+
+template <>
+Value emitScalarOpFor<ONNXDequantizeLinearOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Operation *op,
+    Type elementType, ArrayRef<Value> scalarOperands) {
+  MultiDialectBuilder<MathBuilder, KrnlBuilder> create(rewriter, loc);
+  // Dequantization formulas: y = (x - x_zero_point) * x_scale
+  // x and x_zero_point can be of type i8, ui8, int32.
+  // y is of type f32.
+  Value XInt = scalarOperands[0];
+  Value XScale = scalarOperands[1];
+  Value XZeroPoint = scalarOperands[2];
+
+  Type xscaleTy = XScale.getType();
+  Type xzeroPointTy = XZeroPoint.getType();
+
+  // Only support scalar scale and zero_point.
+  assert((isRankedShapedType(xscaleTy) && getRank(xscaleTy) == 0) &&
+         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
+  assert((isRankedShapedType(xzeroPointTy) && getRank(xzeroPointTy) == 0) &&
+         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
+
+  Value scaleFloat = create.krnl.load(XScale);
+  Value zeroPointInt = create.krnl.load(XZeroPoint);
+  Value zeroPointFloat = create.math.cast(elementType, zeroPointInt);
+  Value xFloat = create.math.cast(elementType, XInt);
+  Value sub = create.math.sub(xFloat, zeroPointFloat);
+  Value res = create.math.mul(sub, scaleFloat);
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
 // SIMD code gen for kernels where data can be fully flattened.
 //===----------------------------------------------------------------------===//
 
@@ -1156,15 +1196,23 @@ struct ONNXElementwiseUnaryOpLowering
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             Value loadedVal = createKrnl.load(X, loopInd);
+            SmallVector<Value> args;
+            args.emplace_back(loadedVal);
+            for (uint64_t i = 1; i < operands.size(); i++)
+              args.emplace_back(operands[i]);
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-                rewriter, loc, op, elementType, {loadedVal});
+                rewriter, loc, op, elementType, args);
             // Store result in the resulting array.
             createKrnl.store(loweredOpResult, alloc, loopInd);
           });
     } else {
       Value loadedVal = create.krnl.load(X);
+      SmallVector<Value> args;
+      args.emplace_back(loadedVal);
+      for (uint64_t i = 1; i < operands.size(); i++)
+        args.emplace_back(operands[i]);
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-          rewriter, loc, op, elementType, {loadedVal});
+          rewriter, loc, op, elementType, args);
       // Store result in the resulting array.
       create.krnl.store(loweredOpResult, alloc);
     }
@@ -1511,6 +1559,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXDequantizeLinearOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
