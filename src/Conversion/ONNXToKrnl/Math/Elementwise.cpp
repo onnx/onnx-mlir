@@ -1105,7 +1105,48 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
-// Determine if SIMD is profitable.
+// Scalar unary ops for lowering ONNXDequantizeLinearOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXDequantizeLinearOp> {
+  using FOp = NotSuportedScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+// SIMD: consider first the handling of casts.
+
+template <>
+Value emitScalarOpFor<ONNXDequantizeLinearOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Operation *op,
+    Type elementType, ArrayRef<Value> scalarOperands) {
+  MultiDialectBuilder<MathBuilder, KrnlBuilder> create(rewriter, loc);
+  // Dequantization formulas: y = (x - x_zero_point) * x_scale
+  // x and x_zero_point can be of type i8, ui8, int32.
+  // y is of type f32.
+  Value XInt = scalarOperands[0];
+  Value XScale = scalarOperands[1];
+  Value XZeroPoint = scalarOperands[2];
+
+  Type xScaleTy = XScale.getType();
+  Type xZeroPointTy = XZeroPoint.getType();
+
+  // Only support scalar scale and zero_point.
+  assert((isRankedShapedType(xScaleTy) && getRank(xScaleTy) == 0) &&
+         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
+  assert((isRankedShapedType(xZeroPointTy) && getRank(xZeroPointTy) == 0) &&
+         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
+
+  Value scaleFloat = create.krnl.load(XScale);
+  Value zeroPointInt = create.krnl.load(XZeroPoint);
+  Value zeroPointFloat = create.math.cast(elementType, zeroPointInt);
+  Value xFloat = create.math.cast(elementType, XInt);
+  Value sub = create.math.sub(xFloat, zeroPointFloat);
+  Value res = create.math.mul(sub, scaleFloat);
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
+// SIMD code gen for kernels where data can be fully flattened.
 //===----------------------------------------------------------------------===//
 
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
@@ -1113,13 +1154,9 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 
 // Return SIMD unroll; no simd -> return 0;
 template <typename ShapeHelperType, typename ElementwiseOp>
-int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
-    MemRefType memRefType, bool isScalar, bool enableSIMD,
-    bool hasNonIdentityLayouts) {
+int64_t canBeVectorized(
+    ShapeHelperType &shapeHelper, MDBuilder &create, MemRefType memRefType) {
   int64_t simdUnroll = 0;
-  // Test initial conditions.
-  if (!enableSIMD || isScalar || hasNonIdentityLayouts)
-    return false;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
   int64_t vectorizedOpNum, scalarOpNum;
@@ -1345,14 +1382,15 @@ struct ONNXElementwiseUnaryOpLowering
 
     bool isScalar = hasAllScalarValues(operands);
     // SIMD is enabled for this operation, test if desired and feasible
-    int64_t simdUnroll =
-        canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(shapeHelper,
-            create, memRefType, isScalar, enableSIMD,
-            hasNonIdentityLayout(operands));
-    if (simdUnroll > 0)
-      return getUnaryBinarySimdCodeFullyFlattened<ElementwiseUnaryOp>(rewriter,
-          create, &shapeHelper, op, memRefType, operands, alignment,
-          simdUnroll);
+    if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
+      int64_t simdUnroll =
+          canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
+              shapeHelper, create, memRefType);
+      if (simdUnroll > 0)
+        return getUnaryBinarySimdCodeFullyFlattened<ElementwiseUnaryOp>(
+            rewriter, create, &shapeHelper, op, memRefType, operands, alignment,
+            simdUnroll);
+    }
 
     // Insert an allocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1367,15 +1405,23 @@ struct ONNXElementwiseUnaryOpLowering
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             Value loadedVal = createKrnl.load(X, loopInd);
+            SmallVector<Value> args;
+            args.emplace_back(loadedVal);
+            for (uint64_t i = 1; i < operands.size(); i++)
+              args.emplace_back(operands[i]);
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-                rewriter, loc, op, elementType, {loadedVal});
+                rewriter, loc, op, elementType, args);
             // Store result in the resulting array.
             createKrnl.store(loweredOpResult, alloc, loopInd);
           });
     } else {
       Value loadedVal = create.krnl.load(X);
+      SmallVector<Value> args;
+      args.emplace_back(loadedVal);
+      for (uint64_t i = 1; i < operands.size(); i++)
+        args.emplace_back(operands[i]);
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-          rewriter, loc, op, elementType, {loadedVal});
+          rewriter, loc, op, elementType, args);
       // Store result in the resulting array.
       create.krnl.store(loweredOpResult, alloc);
     }
@@ -1428,14 +1474,16 @@ struct ONNXElementwiseBinaryOpLowering
 
     bool isScalar = hasAllScalarValues(operands);
     // SIMD is enabled for this operation, test if desired and feasible
-    int64_t simdUnroll =
-        canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
-            shapeHelper, create, outputMemRefType, isScalar, enableSIMD,
-            hasNonIdentityLayout(operands));
-    if (simdUnroll > 0)
-      return getUnaryBinarySimdCodeFullyFlattened<ElementwiseBinaryOp>(rewriter,
-          create, &shapeHelper, op, outputMemRefType, operands, alignment,
-          simdUnroll);
+    if (enableSIMD && !isScalar && shapeHelper.hasNoBroadcast() &&
+        !hasNonIdentityLayout(operands)) {
+      int64_t simdUnroll =
+          canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
+              shapeHelper, create, outputMemRefType);
+      if (simdUnroll > 0)
+        return getUnaryBinarySimdCodeFullyFlattened<ElementwiseBinaryOp>(
+            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
+            alignment, simdUnroll);
+    }
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1531,15 +1579,17 @@ struct ONNXElementwiseVariadicOpLowering
     shapeHelper.computeShapeAndAssertOnFailure();
 
     bool isScalar = hasAllScalarValues(operands);
-    // SIMD is enabled for this operation, test if desired and feasible
-    int64_t simdUnroll =
-        canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
-            shapeHelper, create, outputMemRefType, isScalar, enableSIMD,
-            hasNonIdentityLayout(operands));
-    if (simdUnroll > 0)
-      return getVariadicSimdCodeFullyFlattened<ElementwiseVariadicOp>(rewriter,
-          create, &shapeHelper, op, outputMemRefType, operands, alignment,
-          simdUnroll);
+    if (enableSIMD && !isScalar && shapeHelper.hasNoBroadcast() &&
+        !hasNonIdentityLayout(operands)) {
+      // SIMD is enabled for this operation, test if desired and feasible
+      int64_t simdUnroll =
+          canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
+              shapeHelper, create, outputMemRefType);
+      if (simdUnroll > 0)
+        return getVariadicSimdCodeFullyFlattened<ElementwiseVariadicOp>(
+            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
+            alignment, simdUnroll);
+    }
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1720,6 +1770,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXDequantizeLinearOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
