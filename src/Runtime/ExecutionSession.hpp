@@ -28,6 +28,7 @@ using entryPointFuncType = OMTensorList *(*)(OMTensorList *);
 using queryEntryPointsFuncType = const char **(*)(int64_t *);
 using signatureFuncType = const char *(*)(const char *);
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
+
 /* ExecutionSession
  * Class that supports executing compiled models.
  *
@@ -41,7 +42,6 @@ using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
  * EPERM when the model executed on a machine without a compatible
  * hardware/specialized accelerator.
  */
-
 class ExecutionSession {
 public:
   // Create an execution session using the model given in sharedLibPath.
