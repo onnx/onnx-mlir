@@ -635,8 +635,9 @@ Value MathBuilder::cast(Type destType, Value src) const {
     // TosaToLinalg in MLIR uses a fancier algorithm that clamps values to
     // min/max signed/unsigned integer values.
     if (destType.isUnsignedInteger()) {
-      Value cast = castToSignless(src, srcWidth);
-      return b().create<arith::FPToUIOp>(loc(), destType, cast);
+      Type castType = b().getIntegerType(destWidth);
+      Value cast = b().create<arith::FPToUIOp>(loc(), castType, src);
+      return castToUnsigned(cast, destWidth);
     } else {
       // Handle signed int.
       Value dest = b().create<arith::FPToSIOp>(loc(), destType, src);
