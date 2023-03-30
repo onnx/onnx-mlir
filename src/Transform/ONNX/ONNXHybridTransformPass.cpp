@@ -83,6 +83,8 @@ struct ONNXHybridTransformPass
     : public PassWrapper<ONNXHybridTransformPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXHybridTransformPass)
 
+  // TODO: Change bool argument to a general control of which transformation
+  // patterns, not just shape inference only, will be added in the hybrid pass.
   ONNXHybridTransformPass(bool shapeInferenceOnly)
       : shapeInferenceOnly(shapeInferenceOnly) {}
 
