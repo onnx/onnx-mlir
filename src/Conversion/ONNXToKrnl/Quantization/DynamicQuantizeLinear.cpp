@@ -59,11 +59,11 @@ struct ONNXDynamicQuantizeLinearOpLowering
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Allocate output buffers.
-    Value y =
+    Value Y =
         create.mem.alignedAlloc(yMemRefType, shapeHelper.getOutputDims(0));
-    Value yScale =
+    Value YScale =
         create.mem.alignedAlloc(yScaleMemRefType, shapeHelper.getOutputDims(1));
-    Value yZeroPoint = create.mem.alignedAlloc(
+    Value YZeroPoint = create.mem.alignedAlloc(
         yZeroPointMemRefType, shapeHelper.getOutputDims(2));
 
     // Equations:
@@ -102,7 +102,7 @@ struct ONNXDynamicQuantizeLinearOpLowering
     // Compute y_scale.
     Value scale = create.math.div(
         create.math.sub(xMax, xMin), create.math.sub(qMax, qMin));
-    create.krnl.store(scale, yScale);
+    create.krnl.store(scale, YScale);
 
     // Compute y_zero_point.
     Value interZeroPoint = create.math.div(create.math.sub(qMin, xMin), scale);
@@ -116,16 +116,15 @@ struct ONNXDynamicQuantizeLinearOpLowering
     // Round zero point.
     Value zeroPoint = create.onnx.round(saturateZeroPoint, /*scalarType=*/true);
     Value zeroPointInt = create.math.cast(quantizedElementType, zeroPoint);
-    create.krnl.store(zeroPointInt, yZeroPoint);
+    create.krnl.store(zeroPointInt, YZeroPoint);
 
     // Compute y.
     ValueRange loopDef = create.krnl.defineLoops(rank);
     SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(0),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-          MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder,
-              OnnxBuilder>
-              create(createKrnl);
+          MultiDialectBuilder<KrnlBuilder, MathBuilder, OnnxBuilder> create(
+              createKrnl);
           Value x = create.krnl.load(X, loopInd);
           // Scale
           Value scaleX = create.math.div(x, scale);
@@ -137,10 +136,10 @@ struct ONNXDynamicQuantizeLinearOpLowering
           Value lessThanMax = create.math.slt(saturateX, qMax);
           saturateX = create.math.select(lessThanMax, saturateX, qMax);
           Value res = create.math.cast(quantizedElementType, saturateX);
-          create.krnl.store(res, y, loopInd);
+          create.krnl.store(res, Y, loopInd);
         });
 
-    rewriter.replaceOp(op, {y, yScale, yZeroPoint});
+    rewriter.replaceOp(op, {Y, YScale, YZeroPoint});
     return success();
   }
 };
