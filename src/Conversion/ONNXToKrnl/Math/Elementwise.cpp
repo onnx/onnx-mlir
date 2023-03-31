@@ -1151,7 +1151,6 @@ struct ScalarOp<ONNXDequantizeLinearOp> {
   using IOp = CustomScalarOp;
 };
 
-// SIMD: consider first the handling of casts.
 template <>
 double analyzeSimdFor<ONNXDequantizeLinearOp>(
     Type t, int64_t &von, int64_t &son) {
