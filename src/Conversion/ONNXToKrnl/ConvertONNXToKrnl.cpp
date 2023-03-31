@@ -204,6 +204,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXNonMaxSuppressionOpPattern(patterns, typeConverter, ctx);
   // Quantization
   populateLoweringONNXDynamicQuantizeLinearOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXQuantizeLinearOpPattern(patterns, typeConverter, ctx);
   // Tensor
   populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);

@@ -321,6 +321,8 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 // `Quantization` directory methods:
 void populateLoweringONNXDynamicQuantizeLinearOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXQuantizeLinearOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
 // `RNN` directory methods:
 void populateLoweringONNXGRUOpPattern(

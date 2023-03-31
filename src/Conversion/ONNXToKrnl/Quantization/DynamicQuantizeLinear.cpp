@@ -128,7 +128,9 @@ struct ONNXDynamicQuantizeLinearOpLowering
           Value x = create.krnl.load(X, loopInd);
           // Scale
           Value scaleX = create.math.div(x, scale);
+          // Round
           Value roundX = create.onnx.round(scaleX, /*scalarType=*/true);
+          // Adjust
           Value adjustX = create.math.add(roundX, zeroPoint);
           // Saturate
           Value lessThanMin = create.math.slt(adjustX, qMin);
