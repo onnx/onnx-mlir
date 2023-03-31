@@ -37,22 +37,13 @@ include "src/Dialect/ONNX/ONNX.td"
 // a new def name.
 //
 // Then you will need to add substitution rules, see examples below.
-//
-// To construct an ONNXConstantOp in the target pattern of a TableGen record,
-// use CreateDenseONNXConstantOp instead of ONNXConstantOp to handle both output
-// types: RankedTensorType and MemRefType.
 
 
-  
-// Useful test definitions.
+// Useful test definitions:
 
 def IsNotAConstant :
-  Constraint<CPred<"! dyn_cast_or_null<ONNXConstantOp>(($_self).getDefiningOp())">,
+  Constraint<CPred<"! isa_and_nonnull<ONNXConstantOp>(($_self).getDefiningOp())">,
   "operation is not a constant">;
-
-def AttributeIsNull :
-    Constraint<CPred<"! ($_self)">,
-  "Attribute is null">;
 
 def IsFromDenseONNXConstantOp:
     Constraint<CPred<"isDenseONNXConstant($_self)">,
@@ -75,12 +66,7 @@ def HasStaticShape: Constraint<CPred<
   "A value has static shape"
 >;
 
-// Useful code generation invocation.
-def GetNullAttr : NativeCodeCall<"Attribute()">;
-
-// Create an dense ONNXConstantOp whose output type is the 1st argument's type.
-def CreateDenseONNXConstantOp:
-   NativeCodeCall<"$_builder.create<ONNXConstantOp>($0.getLoc(), $0.getType(), Attribute(), $1, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr())">;
+// Creation helpers:
 
 def CreateAddOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
