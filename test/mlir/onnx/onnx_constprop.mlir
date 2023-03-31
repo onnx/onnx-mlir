@@ -462,8 +462,8 @@ func.func @test_where_splat_branches() -> tensor<3x2xf32> {
 
 // -----
 
-// CHECK-LABEL: @test_matmulinteger_zero_lhs(%arg0: tensor<3x2xui8>) -> tensor<4x2xi32>
-func.func @test_matmulinteger_zero_lhs(%arg0: tensor<3x2xui8>) -> tensor<4x2xi32> {
+// CHECK-LABEL: @test_matmulinteger_lhs_zero(%arg0: tensor<3x2xui8>) -> tensor<4x2xi32>
+func.func @test_matmulinteger_lhs_zero(%arg0: tensor<3x2xui8>) -> tensor<4x2xi32> {
   %0 = onnx.Constant dense<0> : tensor<4x3xi8>
   %1 = "onnx.NoValue"() {value} : () -> none
   %2 = "onnx.MatMulInteger"(%0, %arg0, %1, %1) : (tensor<4x3xi8>, tensor<3x2xui8>, none, none) -> tensor<4x2xi32>
@@ -474,13 +474,91 @@ func.func @test_matmulinteger_zero_lhs(%arg0: tensor<3x2xui8>) -> tensor<4x2xi32
 
 // -----
 
-// CHECK-LABEL: @test_matmulinteger_zero_rhs(%arg0: tensor<4x3xi8>) -> tensor<4x2xi32>
-func.func @test_matmulinteger_zero_rhs(%arg0: tensor<4x3xi8>) -> tensor<4x2xi32> {
+// CHECK-LABEL: @test_matmulinteger_lhs_scalar(%arg0: tensor<3x2xui8>) -> tensor<4x2xi32>
+func.func @test_matmulinteger_lhs_scalar(%arg0: tensor<3x2xui8>) -> tensor<4x2xi32> {
+  %0 = onnx.Constant dense<7> : tensor<4x3xui8>
+  %1 = onnx.Constant dense<7> : tensor<ui8>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %3 = "onnx.MatMulInteger"(%0, %arg0, %1, %2) : (tensor<4x3xui8>, tensor<3x2xui8>, tensor<ui8>, none) -> tensor<4x2xi32>
+  "func.return"(%3) : (tensor<4x2xi32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<0> : tensor<4x2xi32>
+  // CHECK-NOT: {{.*}} = "onnx.MatMulInteger"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_matmulinteger_lhs_vector(%arg0: tensor<3x4xui8>) -> tensor<2x4xi32>
+func.func @test_matmulinteger_lhs_vector(%arg0: tensor<3x4xui8>) -> tensor<2x4xi32> {
+  %0 = onnx.Constant dense<[[7, 7, 7], [9, 9, 9]]> : tensor<2x3xui8>
+  %1 = onnx.Constant dense<[7, 9]> : tensor<2xui8>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %3 = "onnx.MatMulInteger"(%0, %arg0, %1, %2) : (tensor<2x3xui8>, tensor<3x4xui8>, tensor<2xui8>, none) -> tensor<2x4xi32>
+  "func.return"(%3) : (tensor<2x4xi32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<0> : tensor<2x4xi32>
+  // CHECK-NOT: {{.*}} = "onnx.MatMulInteger"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_matmulinteger_lhs_matrix(%arg0: tensor<3x4xui8>) -> tensor<2x4xi32>
+func.func @test_matmulinteger_lhs_matrix(%arg0: tensor<3x4xui8>) -> tensor<2x4xi32> {
+  %0 = onnx.Constant dense<[[7, 7, 7], [9, 9, 9]]> : tensor<2x3xui8>
+  %1 = onnx.Constant dense<[[7], [9]]> : tensor<2x1xui8>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %3 = "onnx.MatMulInteger"(%0, %arg0, %1, %2) : (tensor<2x3xui8>, tensor<3x4xui8>, tensor<2x1xui8>, none) -> tensor<2x4xi32>
+  "func.return"(%3) : (tensor<2x4xi32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<0> : tensor<2x4xi32>
+  // CHECK-NOT: {{.*}} = "onnx.MatMulInteger"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_matmulinteger_rhs_zero_none(%arg0: tensor<4x3xi8>) -> tensor<4x2xi32>
+func.func @test_matmulinteger_rhs_zero_none(%arg0: tensor<4x3xi8>) -> tensor<4x2xi32> {
   %0 = onnx.Constant dense<0> : tensor<3x2xui8>
   %1 = "onnx.NoValue"() {value} : () -> none
   %2 = "onnx.MatMulInteger"(%arg0, %0, %1, %1) : (tensor<4x3xi8>, tensor<3x2xui8>, none, none) -> tensor<4x2xi32>
   "func.return"(%2) : (tensor<4x2xi32>) -> ()
   // CHECK: {{.*}} = onnx.Constant dense<0> : tensor<4x2xi32>
+  // CHECK-NOT: {{.*}} = "onnx.MatMulInteger"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_matmulinteger_rhs_zero_scalar(%arg0: tensor<4x3xi8>) -> tensor<4x2xi32>
+func.func @test_matmulinteger_rhs_zero_scalar(%arg0: tensor<4x3xi8>) -> tensor<4x2xi32> {
+  %0 = onnx.Constant dense<42> : tensor<3x2xui8>
+  %1 = "onnx.NoValue"() {value} : () -> none
+  %2 = onnx.Constant dense<42> : tensor<ui8>
+  %3 = "onnx.MatMulInteger"(%arg0, %0, %1, %2) : (tensor<4x3xi8>, tensor<3x2xui8>, none, tensor<ui8>) -> tensor<4x2xi32>
+  "func.return"(%3) : (tensor<4x2xi32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<0> : tensor<4x2xi32>
+  // CHECK-NOT: {{.*}} = "onnx.MatMulInteger"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_matmulinteger_rhs_zero_vector(%arg0: tensor<4x3xi8>) -> tensor<4x2xi32>
+func.func @test_matmulinteger_rhs_zero_vector(%arg0: tensor<4x3xi8>) -> tensor<4x2xi32> {
+  %0 = onnx.Constant dense<[[1, 2], [1, 2], [1, 2]]> : tensor<3x2xui8>
+  %1 = "onnx.NoValue"() {value} : () -> none
+  %2 = onnx.Constant dense<[1, 2]> : tensor<2xui8>
+  %3 = "onnx.MatMulInteger"(%arg0, %0, %1, %2) : (tensor<4x3xi8>, tensor<3x2xui8>, none, tensor<2xui8>) -> tensor<4x2xi32>
+  "func.return"(%3) : (tensor<4x2xi32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<0> : tensor<4x2xi32>
+  // CHECK-NOT: {{.*}} = "onnx.MatMulInteger"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_matmulinteger_rhs_zero_tensor(%arg0: tensor<1x4x3xi8>) -> tensor<1x4x2xi32>
+func.func @test_matmulinteger_rhs_zero_tensor(%arg0: tensor<1x4x3xi8>) -> tensor<1x4x2xi32> {
+  %0 = onnx.Constant dense<[[[1, 2], [1, 2], [1, 2]]]> : tensor<1x3x2xui8>
+  %1 = "onnx.NoValue"() {value} : () -> none
+  %2 = onnx.Constant dense<[[[1, 2]]]> : tensor<1x1x2xui8>
+  %3 = "onnx.MatMulInteger"(%arg0, %0, %1, %2) : (tensor<1x4x3xi8>, tensor<1x3x2xui8>, none, tensor<1x1x2xui8>) -> tensor<1x4x2xi32>
+  "func.return"(%3) : (tensor<1x4x2xi32>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<0> : tensor<1x4x2xi32>
   // CHECK-NOT: {{.*}} = "onnx.MatMulInteger"{{.*}}
 }
 
