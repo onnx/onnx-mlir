@@ -1258,11 +1258,9 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
   for (Value oper : operands) {
     if (isNoneValue(oper) || isScalarValue(oper)) {
       // If its a none / scalar, it is not meant to be flattened.
-      fprintf(stderr, "hi alex, scalar here\n");
       flatOperands.emplace_back(oper);
       continue;
     }
-    fprintf(stderr, "hi alex, flatten array here\n");
     llvm::SmallVector<IndexExpr, 4> operDims;
     Value operSize;
     create.krnlIE.getShapeAsSymbols(oper, operDims);
