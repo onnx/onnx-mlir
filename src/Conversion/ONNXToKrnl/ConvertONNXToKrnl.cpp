@@ -21,6 +21,7 @@
 #include "src/Builder/ModelInputShaper.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
 using namespace mlir;
 
@@ -324,6 +325,7 @@ public:
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
+  VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -424,6 +426,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
   }
+  VectorMachineSupport::clearGlobalVectorMachineSupport();
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass() {
