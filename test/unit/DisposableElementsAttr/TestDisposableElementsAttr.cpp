@@ -74,18 +74,22 @@ class Test {
   OpBuilder builder;
   OnnxElementsAttrBuilder elmsBuilder;
   Type F32;
+  Type U32;
   Type I32;
   Type I64;
   Type I8;
+  Type I1;
 
 public:
   Test()
       : ctx(createCtx()), loc(UnknownLoc::get(ctx)), builder(ctx),
         elmsBuilder(ctx) {
     F32 = builder.getF32Type();
+    U32 = builder.getIntegerType(32, /*isSigned=*/false);
     I32 = builder.getI32Type();
     I64 = builder.getI64Type();
     I8 = builder.getI8Type();
+    I1 = builder.getI1Type();
   }
   ~Test() { delete ctx; }
 
@@ -212,6 +216,23 @@ public:
 
     return 0;
   }
+
+  int test_equal_bools() {
+    std::cout << "test_equal_bools:" << std::endl;
+
+    ShapedType type2xu32 = RankedTensorType::get({2}, U32);
+    uint32_t u0 = 0, u2 = 2;
+    auto d0_2_u32 = DenseElementsAttr::get(type2xu32, {u0, u2});
+    auto e0_2_i1 = elmsBuilder.castElementType(d0_2_u32, I1);
+
+    ShapedType type2xi1 = RankedTensorType::get({2}, I1);
+    auto dF_T_i1 = DenseElementsAttr::get(type2xi1, {false, true});
+
+    assert(e0_2_i1 != dF_T_i1);
+    assert(ElementsAttrBuilder::equal(e0_2_i1, dF_T_i1));
+
+    return 0;
+  }
 };
 
 } // namespace
@@ -224,6 +245,7 @@ int main(int argc, char *argv[]) {
   failures += test.test_cast();
   failures += test.test_equal_ints();
   failures += test.test_equal_fps();
+  failures += test.test_equal_bools();
   if (failures != 0) {
     std::cerr << failures << " test failures\n";
     return 1;
