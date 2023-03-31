@@ -74,6 +74,7 @@ class Test {
   OpBuilder builder;
   OnnxElementsAttrBuilder elmsBuilder;
   Type F32;
+  Type F16;
   Type U32;
   Type U8;
   Type I32;
@@ -86,6 +87,7 @@ public:
       : ctx(createCtx()), loc(UnknownLoc::get(ctx)), builder(ctx),
         elmsBuilder(ctx) {
     F32 = builder.getF32Type();
+    F16 = builder.getF16Type();
     U32 = builder.getIntegerType(32, /*isSigned=*/false);
     U8 = builder.getIntegerType(8, /*isSigned=*/false);
     I32 = builder.getI32Type();
@@ -221,6 +223,18 @@ public:
     // float NaN != NaN and the same goes for ElementsAttr::equal
     assert(nan != nan);
     assert(!ElementsAttrBuilder::equal(dnans, dnans));
+
+    // one+delta can be expressed with f32 precision but not f16
+    float one = 1.0, delta = 0.00001;
+
+    ShapedType type1xf32 = RankedTensorType::get({1}, F32);
+    auto d_one_f32 = DenseElementsAttr::get(type1xf32, {one});
+    auto d_oneplus_f32 = DenseElementsAttr::get(type1xf32, {one + delta});
+    assert(!ElementsAttrBuilder::equal(d_one_f32, d_oneplus_f32));
+
+    auto d_one_f16 = elmsBuilder.castElementType(d_one_f32, F16);
+    auto d_oneplus_f16 = elmsBuilder.castElementType(d_oneplus_f32, F16);
+    assert(ElementsAttrBuilder::equal(d_one_f16, d_oneplus_f16));
 
     return 0;
   }
