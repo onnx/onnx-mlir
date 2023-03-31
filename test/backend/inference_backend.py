@@ -273,6 +273,16 @@ def get_test_models():
         "test_depthtospace_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_depthtospace_crd_mode_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
+        # ==OP== DynamicQuantizeLinear
+        # expaned_* tests expand DynamicQuantizeLinear to QuantizeLinear, so there is no DynamicQuantizeLinear operation.
+        # To support them, have to implement QuantizeLinear.
+        "test_dynamicquantizelinear_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        #"test_dynamicquantizelinear_expanded_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_max_adjusted_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        #"test_dynamicquantizelinear_max_adjusted_expanded_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_min_adjusted_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        #"test_dynamicquantizelinear_min_adjusted_expanded_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+
         # ==OP== DequantizeLinear
         # ==LIM== Only support for per-tensor or layer dequantization. Not support for per-axis dequantization.
         #"test_dequantizelinear_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},

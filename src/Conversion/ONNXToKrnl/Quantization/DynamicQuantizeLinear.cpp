@@ -90,6 +90,14 @@ struct ONNXDynamicQuantizeLinearOpLowering
         create.onnx.reduceMin(yScaleMemRefType, X, none, false));
     Value xMax = create.krnl.load(XMax);
     Value xMin = create.krnl.load(XMin);
+    // Include 0 to max(x) and min(x).
+    // x_min = min(min(x), 0)
+    // x_max = max(max(x), 0)
+    Value zero = create.math.constant(elementType, 0.0);
+    Value greaterThanZero = create.math.sgt(xMax, zero);
+    xMax = create.math.select(greaterThanZero, xMax, zero);
+    Value lessThanZero = create.math.slt(xMin, zero);
+    xMin = create.math.select(lessThanZero, xMin, zero);
 
     // Compute y_scale.
     Value scale = create.math.div(

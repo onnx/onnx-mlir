@@ -4009,9 +4009,9 @@ func.func @test_dynamic_quantize_linear(%arg0: tensor<?x2xf32>) -> (tensor<?x2xu
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_dim_11_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
 // CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<?x2xf32>
 // CHECK-DAG:         [[LOAD_RES_5_MEM_:%.+]] = krnl.load [[RES_5_]][] : memref<f32>
-// CHECK:             [[VAR_31_:%.+]] = arith.cmpf ogt, [[LOAD_RES_5_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:             [[VAR_32_:%.+]] = arith.select [[VAR_31_]], [[LOAD_RES_5_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:             krnl.store [[VAR_32_]], [[RES_5_]][] : memref<f32>
+// CHECK:             [[VAR_35_:%.+]] = arith.cmpf ogt, [[LOAD_RES_5_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             [[VAR_36_:%.+]] = arith.select [[VAR_35_]], [[LOAD_RES_5_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_36_]], [[RES_5_]][] : memref<f32>
 // CHECK:           }
 // CHECK:           [[RES_6_:%.+]] = memref.alloc() : memref<f32>
 // CHECK:           krnl.define_loops 0
@@ -4023,69 +4023,73 @@ func.func @test_dynamic_quantize_linear(%arg0: tensor<?x2xf32>) -> (tensor<?x2xu
 // CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to [[VAR_dim_13_]], [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to 2){
 // CHECK-DAG:         [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[I_2_]], [[I_3_]]{{.}} : memref<?x2xf32>
 // CHECK-DAG:         [[LOAD_RES_5_MEM_1_:%.+]] = krnl.load [[RES_6_]][] : memref<f32>
-// CHECK:             [[VAR_31_1_:%.+]] = arith.cmpf olt, [[LOAD_RES_5_MEM_1_]], [[LOAD_PARAM_0_MEM_1_]] : f32
-// CHECK:             [[VAR_32_1_:%.+]] = arith.select [[VAR_31_1_]], [[LOAD_RES_5_MEM_1_]], [[LOAD_PARAM_0_MEM_1_]] : f32
-// CHECK:             krnl.store [[VAR_32_1_]], [[RES_6_]][] : memref<f32>
+// CHECK:             [[VAR_35_1_:%.+]] = arith.cmpf olt, [[LOAD_RES_5_MEM_1_]], [[LOAD_PARAM_0_MEM_1_]] : f32
+// CHECK:             [[VAR_36_1_:%.+]] = arith.select [[VAR_35_1_]], [[LOAD_RES_5_MEM_1_]], [[LOAD_PARAM_0_MEM_1_]] : f32
+// CHECK:             krnl.store [[VAR_36_1_]], [[RES_6_]][] : memref<f32>
 // CHECK:           }
 // CHECK-DAG:       [[LOAD_RES_5_MEM_2_:%.+]] = krnl.load [[RES_5_]][] : memref<f32>
 // CHECK-DAG:       [[LOAD_RES_6_MEM_:%.+]] = krnl.load [[RES_6_]][] : memref<f32>
-// CHECK:           [[VAR_4_:%.+]] = arith.subf [[LOAD_RES_5_MEM_2_]], [[LOAD_RES_6_MEM_]] : f32
-// CHECK:           [[VAR_5_:%.+]] = arith.divf [[VAR_4_]], [[CST_2_dot_550000_]] : f32
-// CHECK:           krnl.store [[VAR_5_]], [[RES_1_]][] : memref<f32>
-// CHECK:           [[VAR_6_:%.+]] = arith.subf [[CST_0_dot_000000_]], [[LOAD_RES_6_MEM_]] : f32
-// CHECK:           [[VAR_7_:%.+]] = arith.divf [[VAR_6_]], [[VAR_5_]] : f32
-// CHECK:           [[VAR_8_:%.+]] = arith.cmpf olt, [[VAR_7_]], [[CST_0_dot_000000_]] : f32
-// CHECK:           [[VAR_9_:%.+]] = arith.select [[VAR_8_]], [[CST_0_dot_000000_]], [[VAR_7_]] : f32
-// CHECK:           [[VAR_10_:%.+]] = arith.cmpf olt, [[VAR_9_]], [[CST_2_dot_550000_]] : f32
-// CHECK:           [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[VAR_9_]], [[CST_2_dot_550000_]] : f32
-// CHECK:           [[VAR_12_:%.+]] = math.floor [[VAR_11_]] : f32
-// CHECK:           [[VAR_13_:%.+]] = arith.subf [[VAR_11_]], [[VAR_12_]] : f32
-// CHECK-DAG:       [[VAR_14_:%.+]] = arith.cmpf ogt, [[VAR_13_]], [[CST_5_dot_000000_]] : f32
-// CHECK-DAG:       [[VAR_15_:%.+]] = arith.addf [[VAR_12_]], [[CST_1_dot_000000_]] : f32
+// CHECK:           [[VAR_4_:%.+]] = arith.cmpf ogt, [[LOAD_RES_5_MEM_2_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:       [[VAR_5_:%.+]] = arith.select [[VAR_4_]], [[LOAD_RES_5_MEM_2_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:       [[VAR_6_:%.+]] = arith.cmpf olt, [[LOAD_RES_6_MEM_]], [[CST_0_dot_000000_]] : f32
+// CHECK:           [[VAR_7_:%.+]] = arith.select [[VAR_6_]], [[LOAD_RES_6_MEM_]], [[CST_0_dot_000000_]] : f32
+// CHECK:           [[VAR_8_:%.+]] = arith.subf [[VAR_5_]], [[VAR_7_]] : f32
+// CHECK:           [[VAR_9_:%.+]] = arith.divf [[VAR_8_]], [[CST_2_dot_550000_]] : f32
+// CHECK:           krnl.store [[VAR_9_]], [[RES_1_]][] : memref<f32>
+// CHECK:           [[VAR_10_:%.+]] = arith.subf [[CST_0_dot_000000_]], [[VAR_7_]] : f32
+// CHECK:           [[VAR_11_:%.+]] = arith.divf [[VAR_10_]], [[VAR_9_]] : f32
+// CHECK:           [[VAR_12_:%.+]] = arith.cmpf olt, [[VAR_11_]], [[CST_0_dot_000000_]] : f32
+// CHECK:           [[VAR_13_:%.+]] = arith.select [[VAR_12_]], [[CST_0_dot_000000_]], [[VAR_11_]] : f32
+// CHECK:           [[VAR_14_:%.+]] = arith.cmpf olt, [[VAR_13_]], [[CST_2_dot_550000_]] : f32
+// CHECK:           [[VAR_15_:%.+]] = arith.select [[VAR_14_]], [[VAR_13_]], [[CST_2_dot_550000_]] : f32
+// CHECK:           [[VAR_16_:%.+]] = math.floor [[VAR_15_]] : f32
+// CHECK:           [[VAR_17_:%.+]] = arith.subf [[VAR_15_]], [[VAR_16_]] : f32
+// CHECK-DAG:       [[VAR_18_:%.+]] = arith.cmpf ogt, [[VAR_17_]], [[CST_5_dot_000000_]] : f32
+// CHECK-DAG:       [[VAR_19_:%.+]] = arith.addf [[VAR_16_]], [[CST_1_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_16_:%.+]] = arith.select [[VAR_14_]], [[VAR_15_]], [[VAR_12_]] : f32
-// CHECK-DAG:       [[VAR_17_:%.+]] = arith.mulf [[VAR_12_]], [[CST_5_dot_000000_]] : f32
-// CHECK:           [[VAR_18_:%.+]] = math.floor [[VAR_17_]] : f32
-// CHECK:           [[VAR_19_:%.+]] = arith.mulf [[VAR_18_]], [[CST_2_dot_000000_]] : f32
-// CHECK:           [[VAR_20_:%.+]] = arith.subf [[VAR_12_]], [[VAR_19_]] : f32
-// CHECK-DAG:       [[VAR_21_:%.+]] = arith.cmpf oeq, [[VAR_20_]], [[CST_1_dot_000000_]] : f32
-// CHECK-DAG:       [[VAR_22_:%.+]] = arith.addf [[VAR_12_]], [[CST_1_dot_000000_]] : f32
+// CHECK-DAG:       [[VAR_20_:%.+]] = arith.select [[VAR_18_]], [[VAR_19_]], [[VAR_16_]] : f32
+// CHECK-DAG:       [[VAR_21_:%.+]] = arith.mulf [[VAR_16_]], [[CST_5_dot_000000_]] : f32
+// CHECK:           [[VAR_22_:%.+]] = math.floor [[VAR_21_]] : f32
+// CHECK:           [[VAR_23_:%.+]] = arith.mulf [[VAR_22_]], [[CST_2_dot_000000_]] : f32
+// CHECK:           [[VAR_24_:%.+]] = arith.subf [[VAR_16_]], [[VAR_23_]] : f32
+// CHECK-DAG:       [[VAR_25_:%.+]] = arith.cmpf oeq, [[VAR_24_]], [[CST_1_dot_000000_]] : f32
+// CHECK-DAG:       [[VAR_26_:%.+]] = arith.addf [[VAR_16_]], [[CST_1_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_23_:%.+]] = arith.select [[VAR_21_]], [[VAR_22_]], [[VAR_12_]] : f32
-// CHECK-DAG:       [[VAR_24_:%.+]] = arith.cmpf oeq, [[VAR_13_]], [[CST_5_dot_000000_]] : f32
-// CHECK:           [[VAR_25_:%.+]] = arith.select [[VAR_24_]], [[VAR_23_]], [[VAR_16_]] : f32
-// CHECK:           [[VAR_26_:%.+]] = arith.fptoui [[VAR_25_]] : f32 to i8
-// CHECK:           [[VAR_27_:%.+]] = builtin.unrealized_conversion_cast [[VAR_26_]] : i8 to ui8
-// CHECK:           krnl.store [[VAR_27_]], [[RES_2_]][] : memref<ui8>
+// CHECK-DAG:       [[VAR_27_:%.+]] = arith.select [[VAR_25_]], [[VAR_26_]], [[VAR_16_]] : f32
+// CHECK-DAG:       [[VAR_28_:%.+]] = arith.cmpf oeq, [[VAR_17_]], [[CST_5_dot_000000_]] : f32
+// CHECK:           [[VAR_29_:%.+]] = arith.select [[VAR_28_]], [[VAR_27_]], [[VAR_20_]] : f32
+// CHECK:           [[VAR_30_:%.+]] = arith.fptoui [[VAR_29_]] : f32 to i8
+// CHECK:           [[VAR_31_:%.+]] = builtin.unrealized_conversion_cast [[VAR_30_]] : i8 to ui8
+// CHECK:           krnl.store [[VAR_31_]], [[RES_2_]][] : memref<ui8>
 // CHECK:           [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_]]), [[LOOP_2_]]#1 -> [[I_5_:%.+]] = 0 to 2){
 // CHECK:             [[LOAD_PARAM_0_MEM_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             [[LOAD_PARAM_0_MEM_2_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[LOAD_PARAM_0_MEM_1_]]#0, [[LOAD_PARAM_0_MEM_1_]]#1] : memref<?x2xf32>
-// CHECK:             [[VAR_31_2_:%.+]] = arith.divf [[LOAD_PARAM_0_MEM_2_]], [[VAR_5_]] : f32
-// CHECK:             [[VAR_32_2_:%.+]] = math.floor [[VAR_31_2_]] : f32
-// CHECK:             [[VAR_33_:%.+]] = arith.subf [[VAR_31_2_]], [[VAR_32_2_]] : f32
-// CHECK-DAG:         [[VAR_34_:%.+]] = arith.cmpf ogt, [[VAR_33_]], [[CST_5_dot_000000_]] : f32
-// CHECK-DAG:         [[VAR_35_:%.+]] = arith.addf [[VAR_32_2_]], [[CST_1_dot_000000_]] : f32
+// CHECK:             [[VAR_35_2_:%.+]] = arith.divf [[LOAD_PARAM_0_MEM_2_]], [[VAR_9_]] : f32
+// CHECK:             [[VAR_36_2_:%.+]] = math.floor [[VAR_35_2_]] : f32
+// CHECK:             [[VAR_37_:%.+]] = arith.subf [[VAR_35_2_]], [[VAR_36_2_]] : f32
+// CHECK-DAG:         [[VAR_38_:%.+]] = arith.cmpf ogt, [[VAR_37_]], [[CST_5_dot_000000_]] : f32
+// CHECK-DAG:         [[VAR_39_:%.+]] = arith.addf [[VAR_36_2_]], [[CST_1_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_36_:%.+]] = arith.select [[VAR_34_]], [[VAR_35_]], [[VAR_32_2_]] : f32
-// CHECK-DAG:         [[VAR_37_:%.+]] = arith.mulf [[VAR_32_2_]], [[CST_5_dot_000000_]] : f32
-// CHECK:             [[VAR_38_:%.+]] = math.floor [[VAR_37_]] : f32
-// CHECK:             [[VAR_39_:%.+]] = arith.mulf [[VAR_38_]], [[CST_2_dot_000000_]] : f32
-// CHECK:             [[VAR_40_:%.+]] = arith.subf [[VAR_32_2_]], [[VAR_39_]] : f32
-// CHECK-DAG:         [[VAR_41_:%.+]] = arith.cmpf oeq, [[VAR_40_]], [[CST_1_dot_000000_]] : f32
-// CHECK-DAG:         [[VAR_42_:%.+]] = arith.addf [[VAR_32_2_]], [[CST_1_dot_000000_]] : f32
+// CHECK-DAG:         [[VAR_40_:%.+]] = arith.select [[VAR_38_]], [[VAR_39_]], [[VAR_36_2_]] : f32
+// CHECK-DAG:         [[VAR_41_:%.+]] = arith.mulf [[VAR_36_2_]], [[CST_5_dot_000000_]] : f32
+// CHECK:             [[VAR_42_:%.+]] = math.floor [[VAR_41_]] : f32
+// CHECK:             [[VAR_43_:%.+]] = arith.mulf [[VAR_42_]], [[CST_2_dot_000000_]] : f32
+// CHECK:             [[VAR_44_:%.+]] = arith.subf [[VAR_36_2_]], [[VAR_43_]] : f32
+// CHECK-DAG:         [[VAR_45_:%.+]] = arith.cmpf oeq, [[VAR_44_]], [[CST_1_dot_000000_]] : f32
+// CHECK-DAG:         [[VAR_46_:%.+]] = arith.addf [[VAR_36_2_]], [[CST_1_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_43_:%.+]] = arith.select [[VAR_41_]], [[VAR_42_]], [[VAR_32_2_]] : f32
-// CHECK-DAG:         [[VAR_44_:%.+]] = arith.cmpf oeq, [[VAR_33_]], [[CST_5_dot_000000_]] : f32
-// CHECK:             [[VAR_45_:%.+]] = arith.select [[VAR_44_]], [[VAR_43_]], [[VAR_36_]] : f32
-// CHECK:             [[VAR_46_:%.+]] = arith.addf [[VAR_45_]], [[VAR_25_]] : f32
-// CHECK:             [[VAR_47_:%.+]] = arith.cmpf olt, [[VAR_46_]], [[CST_0_dot_000000_]] : f32
-// CHECK:             [[VAR_48_:%.+]] = arith.select [[VAR_47_]], [[CST_0_dot_000000_]], [[VAR_46_]] : f32
-// CHECK:             [[VAR_49_:%.+]] = arith.cmpf olt, [[VAR_48_]], [[CST_2_dot_550000_]] : f32
-// CHECK:             [[VAR_50_:%.+]] = arith.select [[VAR_49_]], [[VAR_48_]], [[CST_2_dot_550000_]] : f32
-// CHECK:             [[VAR_51_:%.+]] = arith.fptoui [[VAR_50_]] : f32 to i8
-// CHECK:             [[VAR_52_:%.+]] = builtin.unrealized_conversion_cast [[VAR_51_]] : i8 to ui8
-// CHECK:             krnl.store [[VAR_52_]], [[RES_]]{{.}}[[LOAD_PARAM_0_MEM_1_]]#0, [[LOAD_PARAM_0_MEM_1_]]#1] : memref<?x2xui8>
+// CHECK-DAG:         [[VAR_47_:%.+]] = arith.select [[VAR_45_]], [[VAR_46_]], [[VAR_36_2_]] : f32
+// CHECK-DAG:         [[VAR_48_:%.+]] = arith.cmpf oeq, [[VAR_37_]], [[CST_5_dot_000000_]] : f32
+// CHECK:             [[VAR_49_:%.+]] = arith.select [[VAR_48_]], [[VAR_47_]], [[VAR_40_]] : f32
+// CHECK:             [[VAR_50_:%.+]] = arith.addf [[VAR_49_]], [[VAR_29_]] : f32
+// CHECK:             [[VAR_51_:%.+]] = arith.cmpf olt, [[VAR_50_]], [[CST_0_dot_000000_]] : f32
+// CHECK:             [[VAR_52_:%.+]] = arith.select [[VAR_51_]], [[CST_0_dot_000000_]], [[VAR_50_]] : f32
+// CHECK:             [[VAR_53_:%.+]] = arith.cmpf olt, [[VAR_52_]], [[CST_2_dot_550000_]] : f32
+// CHECK:             [[VAR_54_:%.+]] = arith.select [[VAR_53_]], [[VAR_52_]], [[CST_2_dot_550000_]] : f32
+// CHECK:             [[VAR_55_:%.+]] = arith.fptoui [[VAR_54_]] : f32 to i8
+// CHECK:             [[VAR_56_:%.+]] = builtin.unrealized_conversion_cast [[VAR_55_]] : i8 to ui8
+// CHECK:             krnl.store [[VAR_56_]], [[RES_]]{{.}}[[LOAD_PARAM_0_MEM_1_]]#0, [[LOAD_PARAM_0_MEM_1_]]#1] : memref<?x2xui8>
 // CHECK:           }
 // CHECK:           return [[RES_]], [[RES_]]_6, [[RES_]]_7 : memref<?x2xui8>, memref<f32>, memref<ui8>
 // CHECK:         }
