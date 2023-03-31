@@ -117,6 +117,8 @@ bool isScalarValue(Value value) {
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ValueRange values) {
   for (Value value : values) {
+    if (isFromNone(value))
+      continue;
     if (!isScalarValue(value))
       return false;
   }

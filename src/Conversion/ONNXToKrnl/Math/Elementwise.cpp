@@ -65,12 +65,16 @@ static double simdAnalysis(ArrayRef<GenericOps> Gops, ArrayRef<int64_t> GopsNum,
 // SIMD, we must create an `analyzeSimdFor` template that returns the right
 // values.
 
+static double noSimd(int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
+  vectorizedOpNum = 0;
+  scalarOpNum = 1;
+  return 1.0;
+}
+
 template <typename Op>
 double analyzeSimdFor(
     Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
-  vectorizedOpNum = 0;
-  scalarOpNum = 1;
-  return 0.0;
+  return noSimd(vectorizedOpNum, scalarOpNum);
 }
 
 // =============================================================================
@@ -1110,8 +1114,14 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 template <>
 struct ScalarOp<ONNXClipOp> {
   using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
+  using IOp = CustomScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXClipOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::CompareGop, GenericOps::SelectGop}, {2, 2}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
@@ -1122,14 +1132,12 @@ Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
   Value min = scalarOperands[1];
   Value max = scalarOperands[2];
   if (!isFromNone(min)) {
-    Value loadedMin = create.krnl.load(min, {});         // load min
-    Value lessThanMin = create.math.slt(res, loadedMin); // (input[i,j,k]<min)
-    res = create.math.select(lessThanMin, loadedMin, res);
+    Value lessThanMin = create.math.slt(res, min); // (input[i,j,k]<min)
+    res = create.math.select(lessThanMin, min, res);
   }
   if (!isFromNone(max)) {
-    Value loadedMax = create.krnl.load(max, {});         // load max
-    Value lessThanMax = create.math.slt(res, loadedMax); // (input[i,j,k]>max)
-    res = create.math.select(lessThanMax, res, loadedMax);
+    Value lessThanMax = create.math.slt(res, max); // (input[i,j,k]>max)
+    res = create.math.select(lessThanMax, res, max);
   }
   return res;
 }
@@ -1147,9 +1155,12 @@ struct ScalarOp<ONNXDequantizeLinearOp> {
 template <>
 double analyzeSimdFor<ONNXDequantizeLinearOp>(
     Type t, int64_t &von, int64_t &son) {
-  return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
-                          GenericOps::ConversionGop},
-      {1, 1, 2}, t, von, son);
+  // Right now, MLIR vector:splat does not support unsigned int types.
+  // Thus we must disable SIMD here for now.
+  return noSimd(von, son);
+  // return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
+  //                        GenericOps::ConversionGop},
+  //    {1, 1, 2}, t, von, son);
 }
 
 template <>
@@ -1246,18 +1257,18 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
   // Create flat inputs.
   llvm::SmallVector<Value, 4> flatOperands;
   for (Value oper : operands) {
-    if (isScalarValue(oper)) {
-      // If its a scalar, it is not meant to be flattened.
+    if (isFromNone(oper) || isScalarValue(oper)) {
+      // If its a none / scalar, it is not meant to be flattened.
       fprintf(stderr, "hi alex, scalar here\n");
       flatOperands.emplace_back(oper);
-    } else {
-      fprintf(stderr, "hi alex, flatten array here\n");
-      llvm::SmallVector<IndexExpr, 4> operDims;
-      Value operSize;
-      create.krnlIE.getShapeAsSymbols(oper, operDims);
-      Value flatOper = create.mem.reshapeToFlat(oper, operDims, operSize);
-      flatOperands.emplace_back(flatOper);
+      continue;
     }
+    fprintf(stderr, "hi alex, flatten array here\n");
+    llvm::SmallVector<IndexExpr, 4> operDims;
+    Value operSize;
+    create.krnlIE.getShapeAsSymbols(oper, operDims);
+    Value flatOper = create.mem.reshapeToFlat(oper, operDims, operSize);
+    flatOperands.emplace_back(flatOper);
   }
   // Create flat output.
   Value totOutputSize;
@@ -1277,6 +1288,11 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
         MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
         llvm::SmallVector<Value, 4> loadedVals;
         for (Value flatOper : flatOperands) {
+          if (isFromNone(flatOper)) {
+            // None, just pass it on unmodified.
+            loadedVals.emplace_back(flatOper);
+            continue;
+          }
           MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
           assert(memRefType && "expected memref");
           VectorType vecType =
@@ -1449,6 +1465,10 @@ struct ONNXElementwiseUnaryOpLowering
             args.emplace_back(loadedVal);
             // Load the remaining (scalar) values.
             for (uint64_t i = 1; i < operands.size(); i++) {
+              if (isFromNone(operands[i])) {
+                args.emplace_back(operands[i]);
+                continue;
+              }
               assert(isScalarValue(operands[i]) &&
                      "unary expected scalar additional values");
               Value loadedVal = create.krnl.load(operands[i]);
