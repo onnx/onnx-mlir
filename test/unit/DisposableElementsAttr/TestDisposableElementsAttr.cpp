@@ -166,8 +166,8 @@ public:
     return 0;
   }
 
-  int test_equal() {
-    std::cout << "test_equal:" << std::endl;
+  int test_equal_ints() {
+    std::cout << "test_equal_ints:" << std::endl;
 
     ShapedType type1xi64 = RankedTensorType::get({1}, I64);
     auto e2_i64 = elmsBuilder.fromMemoryBuffer(type1xi64, buffer<int64_t>({2}));
@@ -187,6 +187,12 @@ public:
     assert(ElementsAttrBuilder::equal(d2_i8, e2_i8));
     assert(ElementsAttrBuilder::equal(d2_i8, e2_i64));
     assert(!ElementsAttrBuilder::equal(d2_i8, e3_i64));
+
+    return 0;
+  }
+
+  int test_equal_fps() {
+    std::cout << "test_equal_fps:" << std::endl;
 
     ShapedType type2xf32 = RankedTensorType::get({2}, F32);
     float zero = 0.0;
@@ -216,7 +222,8 @@ int main(int argc, char *argv[]) {
   failures += test.test_splat();
   failures += test.test_transpose();
   failures += test.test_cast();
-  failures += test.test_equal();
+  failures += test.test_equal_ints();
+  failures += test.test_equal_fps();
   if (failures != 0) {
     std::cerr << failures << " test failures\n";
     return 1;
