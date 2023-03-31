@@ -16,7 +16,7 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
-#define DEBUG 0 /* Log which functions are simdized. */
+#define DEBUG 1 /* Log which functions are simdized. */
 
 using namespace mlir;
 
@@ -1115,11 +1115,11 @@ struct ScalarOp<ONNXDequantizeLinearOp> {
 
 // SIMD: consider first the handling of casts.
 template <>
-double analyzeSimdFor<ONNXDequantizeLinearOp>(Type t, int64_t &von, int64_t &son) {
-  return simdAnalysis(
-      {GenericOps::ArithmeticGop, GenericOps::MulGop, GenericOps::CompareGop,
-          GenericOps::SelectGop, GenericOps::FloorGop},
-      {4, 2, 3, 3, 2}, t, von, son);
+double analyzeSimdFor<ONNXDequantizeLinearOp>(
+    Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
+                          GenericOps::ConversionGop},
+      {1, 1, 2}, t, von, son);
 }
 
 template <>
@@ -1131,20 +1131,9 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
   // x and x_zero_point can be of type i8, ui8, int32.
   // y is of type f32.
   Value XInt = scalarOperands[0];
-  Value XScale = scalarOperands[1];
-  Value XZeroPoint = scalarOperands[2];
+  Value scaleFloat = scalarOperands[1];
+  Value zeroPointInt = scalarOperands[2];
 
-  Type xScaleTy = XScale.getType();
-  Type xZeroPointTy = XZeroPoint.getType();
-
-  // Only support scalar scale and zero_point.
-  assert((isRankedShapedType(xScaleTy) && getRank(xScaleTy) == 0) &&
-         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
-  assert((isRankedShapedType(xZeroPointTy) && getRank(xZeroPointTy) == 0) &&
-         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
-
-  Value scaleFloat = create.krnl.load(XScale);
-  Value zeroPointInt = create.krnl.load(XZeroPoint);
   Value zeroPointFloat = create.math.cast(elementType, zeroPointInt);
   Value xFloat = create.math.cast(elementType, XInt);
   Value sub = create.math.sub(xFloat, zeroPointFloat);
@@ -1227,11 +1216,18 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
   // Create flat inputs.
   llvm::SmallVector<Value, 4> flatOperands;
   for (Value oper : operands) {
-    llvm::SmallVector<IndexExpr, 4> operDims;
-    Value operSize;
-    create.krnlIE.getShapeAsSymbols(oper, operDims);
-    Value flatOper = create.mem.reshapeToFlat(oper, operDims, operSize);
-    flatOperands.emplace_back(flatOper);
+    if (isScalarValue(oper)) {
+      // If its a scalar, it is not meant to be flattened.
+      fprintf(stderr, "hi alex, scalar here\n");
+      flatOperands.emplace_back(oper);
+    } else {
+      fprintf(stderr, "hi alex, flatten array here\n");
+      llvm::SmallVector<IndexExpr, 4> operDims;
+      Value operSize;
+      create.krnlIE.getShapeAsSymbols(oper, operDims);
+      Value flatOper = create.mem.reshapeToFlat(oper, operDims, operSize);
+      flatOperands.emplace_back(flatOper);
+    }
   }
   // Create flat output.
   Value totOutputSize;
@@ -1255,8 +1251,15 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
           assert(memRefType && "expected memref");
           VectorType vecType =
               VectorType::get({VL}, memRefType.getElementType());
-          Value loadedVal = create.vec.load(vecType, flatOper, loopInd);
-          loadedVals.emplace_back(loadedVal);
+          if (isScalarValue(flatOper)) {
+            // If its a scalar, do a scalar load and splat.
+            Value loadedVal = create.krnl.load(flatOper);
+            Value splatValue = create.vec.splat(vecType, loadedVal);
+            loadedVals.emplace_back(splatValue);
+          } else {
+            Value loadedVal = create.vec.load(vecType, flatOper, loopInd);
+            loadedVals.emplace_back(loadedVal);
+          }
         }
         Value loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
             rewriter, create.getLoc(), op, vecElementType, loadedVals);
@@ -1411,11 +1414,16 @@ struct ONNXElementwiseUnaryOpLowering
       create.krnlIE.getShapeAsDims(X, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-            Value loadedVal = createKrnl.load(X, loopInd);
             SmallVector<Value> args;
+            Value loadedVal = createKrnl.load(X, loopInd);
             args.emplace_back(loadedVal);
-            for (uint64_t i = 1; i < operands.size(); i++)
-              args.emplace_back(operands[i]);
+            // Load the remaining (scalar) values.
+            for (uint64_t i = 1; i < operands.size(); i++) {
+              assert(isScalarValue(operands[i]) &&
+                     "unary expected scalar additional values");
+              Value loadedVal = create.krnl.load(operands[i]);
+              args.emplace_back(loadedVal);
+            }
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
                 rewriter, loc, op, elementType, args);
             // Store result in the resulting array.

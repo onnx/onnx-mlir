@@ -84,7 +84,8 @@ struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...>
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
 
-/// Check if all operands are scalar values at compile time.
+/// Check if one/all operands are scalar values at compile time.
+bool isScalarValue(mlir::Value value);
 bool hasAllScalarValues(mlir::ValueRange values);
 
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
