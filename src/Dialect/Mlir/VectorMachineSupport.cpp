@@ -77,7 +77,6 @@ double VectorMachineSupport::getAvgVectorLength(ArrayRef<GenericOps> &gops,
   // Determine which operations support SIMD and accumulate their vector
   // lengths.
   for (int64_t i = 0; i < gopsSize; ++i) {
-    // Even if unsupported, we can still proceed with one value per op.
     int64_t vl = getVectorLength(gops[i], elementType);
     // If past last value, assume 1; otherwise use actual value.
     int64_t num = gopsNum[i];
