@@ -75,6 +75,7 @@ class Test {
   OnnxElementsAttrBuilder elmsBuilder;
   Type F32;
   Type U32;
+  Type U8;
   Type I32;
   Type I64;
   Type I8;
@@ -86,6 +87,7 @@ public:
         elmsBuilder(ctx) {
     F32 = builder.getF32Type();
     U32 = builder.getIntegerType(32, /*isSigned=*/false);
+    U8 = builder.getIntegerType(8, /*isSigned=*/false);
     I32 = builder.getI32Type();
     I64 = builder.getI64Type();
     I8 = builder.getI8Type();
@@ -173,24 +175,30 @@ public:
   int test_equal_ints() {
     std::cout << "test_equal_ints:" << std::endl;
 
-    ShapedType type1xi64 = RankedTensorType::get({1}, I64);
-    auto e2_i64 = elmsBuilder.fromMemoryBuffer(type1xi64, buffer<int64_t>({2}));
-    auto e3_i64 = elmsBuilder.fromMemoryBuffer(type1xi64, buffer<int64_t>({3}));
+    ShapedType type2xi64 = RankedTensorType::get({2}, I64);
+    auto e2s_i64 =
+        elmsBuilder.fromMemoryBuffer(type2xi64, buffer<int64_t>({-2, 2}));
+    auto e3s_i64 =
+        elmsBuilder.fromMemoryBuffer(type2xi64, buffer<int64_t>({-3, 3}));
 
-    ShapedType type1xi8 = RankedTensorType::get({1}, I8);
-    auto e2_i8 = elmsBuilder.fromMemoryBuffer(type1xi8, buffer<int64_t>({2}));
+    assert(ElementsAttrBuilder::equal(e2s_i64, e2s_i64));
+    assert(!ElementsAttrBuilder::equal(e3s_i64, e2s_i64));
 
-    assert(ElementsAttrBuilder::equal(e2_i64, e2_i64));
-    assert(!ElementsAttrBuilder::equal(e3_i64, e2_i64));
-    assert(!ElementsAttrBuilder::equal(e3_i64, e2_i8));
-    assert(ElementsAttrBuilder::equal(e2_i64, e2_i8));
+    ShapedType type2xu8 = RankedTensorType::get({2}, U8);
+    auto e2s_u8 =
+        elmsBuilder.fromMemoryBuffer(type2xu8, buffer<uint8_t>({0xfe, 2}));
+    auto e2s_i64_u8 = elmsBuilder.castElementType(e2s_i64, U8);
+    auto e3s_i64_u8 = elmsBuilder.castElementType(e3s_i64, U8);
 
-    int8_t two = 2;
-    auto d2_i8 = DenseElementsAttr::get(type1xi8, {two});
+    assert(!ElementsAttrBuilder::equal(e3s_i64_u8, e2s_u8));
+    assert(ElementsAttrBuilder::equal(e2s_i64_u8, e2s_u8));
 
-    assert(ElementsAttrBuilder::equal(d2_i8, e2_i8));
-    assert(ElementsAttrBuilder::equal(d2_i8, e2_i64));
-    assert(!ElementsAttrBuilder::equal(d2_i8, e3_i64));
+    uint8_t u8_0xfe = 0xfe, u8_2 = 2;
+    auto d2s_u8 = DenseElementsAttr::get(type2xu8, {u8_0xfe, u8_2});
+
+    assert(ElementsAttrBuilder::equal(d2s_u8, e2s_u8));
+    assert(ElementsAttrBuilder::equal(d2s_u8, e2s_i64_u8));
+    assert(!ElementsAttrBuilder::equal(d2s_u8, e3s_i64_u8));
 
     return 0;
   }
@@ -221,8 +229,8 @@ public:
     std::cout << "test_equal_bools:" << std::endl;
 
     ShapedType type2xu32 = RankedTensorType::get({2}, U32);
-    uint32_t u0 = 0, u2 = 2;
-    auto d0_2_u32 = DenseElementsAttr::get(type2xu32, {u0, u2});
+    uint32_t u32_0 = 0, u32_2 = 2;
+    auto d0_2_u32 = DenseElementsAttr::get(type2xu32, {u32_0, u32_2});
     auto e0_2_i1 = elmsBuilder.castElementType(d0_2_u32, I1);
 
     ShapedType type2xi1 = RankedTensorType::get({2}, I1);

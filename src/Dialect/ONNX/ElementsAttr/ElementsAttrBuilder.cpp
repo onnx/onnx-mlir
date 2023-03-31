@@ -107,11 +107,8 @@ bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
   auto lhsType = lhs.getType();
   auto rhsType = rhs.getType();
   auto elementType = lhsType.getElementType();
-
-  // Equality between signed/unsigned or int/fp not supported.
-  assert(wideBTypeOfBType(btypeOfMlirType(elementType)) ==
-             wideBTypeOfBType(btypeOfMlirType(rhsType.getElementType())) &&
-         "equal() requires compatible element types");
+  assert(elementType == rhsType.getElementType() &&
+         "equal() requires identical element types");
 
   SmallVector<int64_t> combinedShape;
   if (!OpTrait::util::getBroadcastedShape(
@@ -128,9 +125,8 @@ bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
 
   auto range =
       makeStridesIteratorRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides});
-  // TODO: Verify that this works correctly for bools.
-  return wideZeroDispatch(elementType, [&](auto wideZero) {
-    using cpptype = decltype(wideZero);
+  return dispatchByBType(btypeOfMlirType(elementType), [&](auto btype) {
+    using cpptype = CppType<btype>;
     return llvm::all_of(range, [&](StridesIterator<2>::value_type v) {
       constexpr BType TAG = toBType<cpptype>;
       return lhsNums.get()[v.pos[0]].narrow<TAG>() ==
