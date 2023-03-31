@@ -247,13 +247,11 @@ ParseResult ONNXConstantOfShapeOp::parse(
 //===----------------------------------------------------------------------===//
 Operation *ONNXDialect::materializeConstant(
     OpBuilder &builder, Attribute value, Type type, Location loc) {
-  if (value.isa<UnitAttr>()) {
-    assert(type.isa<NoneType>());
-    return builder.create<ONNXNoneOp>(loc);
-  }
-  // The atrribute could be DenseElemnemntsAttr, IntAttr, FloatAttr and etc.
-  // onnx builder is used to convert it into value().
+  // The atrribute could be either a UnitAttr or DenseElementsAttr, IntAttr,
+  // FloatAttr and etc.
+  // OnnxBuilder converts it into (the result of) a ONNXNoneOp or ONNXContantOp.
   MultiDialectBuilder<OnnxBuilder> create(builder, loc);
-  Value result = create.onnx.constant(value);
+  Value result =
+      isa<UnitAttr>(value) ? create.onnx.none() : create.onnx.constant(value);
   return result.getDefiningOp();
 }

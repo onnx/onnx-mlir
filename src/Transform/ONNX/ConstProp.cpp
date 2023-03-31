@@ -94,7 +94,7 @@ bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
 }
 
 ElementsAttr getConstValueElements(Value constValue) {
-  ONNXConstantOp constOp = getONNXConstantOp(constValue);
+  ONNXConstantOp constOp = cast<ONNXConstantOp>(constValue.getDefiningOp());
   return constOp.getValueAttr().cast<ElementsAttr>();
 }
 

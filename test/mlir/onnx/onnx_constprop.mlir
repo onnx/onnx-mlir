@@ -375,7 +375,7 @@ func.func @test_where() -> tensor<3x2xf32> {
   %3 = "onnx.Where"(%0, %1, %2) : (tensor<2xi1>, tensor<3x2xf32>, tensor<1x1xf32>) -> tensor<3x2xf32>
   "func.return"(%3) : (tensor<3x2xf32>) -> ()
   // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[2.000000e+00, 2.000000e+00], [6.000000e+00, 2.000000e+00], [1.000000e+01, 2.000000e+00]{{\]}}> : tensor<3x2xf32>
-  // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Where"{{.*}}
 }
 
 // -----
@@ -388,7 +388,7 @@ func.func @test_where_true() -> tensor<3x2xf32> {
   %3 = "onnx.Where"(%0, %1, %2) : (tensor<2xi1>, tensor<3x2xf32>, tensor<1x1xf32>) -> tensor<3x2xf32>
   "func.return"(%3) : (tensor<3x2xf32>) -> ()
   // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[2.000000e+00, 4.000000e+00], [6.000000e+00, 8.000000e+00], [1.000000e+01, 1.200000e+01]{{\]}}> : tensor<3x2xf32>
-  // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Where"{{.*}}
 }
 
 // -----
@@ -401,7 +401,7 @@ func.func @test_where_false() -> tensor<3x2xf32> {
   %3 = "onnx.Where"(%0, %1, %2) : (tensor<2xi1>, tensor<3x2xf32>, tensor<1x1xf32>) -> tensor<3x2xf32>
   "func.return"(%3) : (tensor<3x2xf32>) -> ()
   // CHECK: {{.*}} = onnx.Constant dense<2.000000e+00> : tensor<3x2xf32>
-  // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Where"{{.*}}
 }
 
 // -----
@@ -414,7 +414,7 @@ func.func @test_where_splat_branches() -> tensor<3x2xf32> {
   %3 = "onnx.Where"(%0, %1, %2) : (tensor<2xi1>, tensor<3x2xf32>, tensor<1x1xf32>) -> tensor<3x2xf32>
   "func.return"(%3) : (tensor<3x2xf32>) -> ()
   // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[1.000000e+00, 2.000000e+00], [1.000000e+00, 2.000000e+00], [1.000000e+00, 2.000000e+00]{{\]}}> : tensor<3x2xf32>
-  // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Where"{{.*}}
 }
 
 //===----------------------------------------------------------------------===//
@@ -851,6 +851,24 @@ func.func @test_slice_reversed() -> tensor<*xf32> {
 
 // -----
 
+func.func @test_slice_empty() -> tensor<*xf32> {
+  %0 = onnx.Constant dense<[2.0, 3.0, 4.0, 5.0]> : tensor<4xf32>
+  %starts = onnx.Constant dense<0> : tensor<1xi64>
+  %ends = onnx.Constant dense<0> : tensor<1xi64>
+  %axes = onnx.Constant dense<0> : tensor<1xi64>
+  %steps = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = "onnx.Slice"(%0, %starts, %ends, %axes, %steps) : (tensor<4xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func @test_slice_empty
+  // CHECK-SAME:   () -> tensor<0xf32> {
+  // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<> : tensor<0xf32>
+  // CHECK:           return [[VAR_0_]] : tensor<0xf32>
+  // CHECK:         }
+}
+
+// -----
+
 func.func @test_concat() -> tensor<*xf32> {
   %0 = onnx.Constant dense<[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]> : tensor<3x2xf32>
   %1 = onnx.Constant dense<[[11.0, 12.0], [13.0, 14.0], [15.0, 16.0]]> : tensor<3x2xf32>
@@ -1004,7 +1022,7 @@ func.func @test_reshape() -> tensor<*xf32> {
 
 func.func @test_constant_of_shape() -> tensor<3xi64> {
   %0 = onnx.Constant dense<3> : tensor<1xi64>
-  %1 = "onnx.ConstantOfShape"(%0) {onnx_node_name = "ConstantOfShape_177", value = dense<2> : tensor<1xi64>} : (tensor<1xi64>) -> tensor<3xi64>
+  %1 = "onnx.ConstantOfShape"(%0) {value = dense<2> : tensor<1xi64>} : (tensor<1xi64>) -> tensor<3xi64>
   "func.return"(%1) : (tensor<3xi64>) -> ()
 
 // CHECK-LABEL:  func.func @test_constant_of_shape
@@ -1018,7 +1036,7 @@ func.func @test_constant_of_shape() -> tensor<3xi64> {
 
 func.func @test_constant_of_shape_empty_tensor() -> tensor<f32> {
   %0 = onnx.Constant dense<> : tensor<0xi64>
-  %1 = "onnx.ConstantOfShape"(%0) {onnx_node_name = "ConstantOfShape_177", value = dense<2.0> : tensor<1xf32>} : (tensor<0xi64>) -> tensor<f32>
+  %1 = "onnx.ConstantOfShape"(%0) {value = dense<2.0> : tensor<1xf32>} : (tensor<0xi64>) -> tensor<f32>
   "func.return"(%1) : (tensor<f32>) -> ()
 
 // CHECK-LABEL:  func.func @test_constant_of_shape_empty_tensor
