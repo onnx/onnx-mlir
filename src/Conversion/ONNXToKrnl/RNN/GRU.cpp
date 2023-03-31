@@ -54,7 +54,7 @@ struct GruBiasPack {
 
 template <>
 bool hasAllNoneOutput<ONNXGRUOp>(ONNXGRUOp *op) {
-  return (isFromNone(op->getY()) && isFromNone(op->getYH()));
+  return (isNoneValue(op->getY()) && isNoneValue(op->getYH()));
 }
 
 template <>
@@ -282,7 +282,7 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
       create(rewriter, loc);
   // Split B.
-  if (!isFromNone(B)) {
+  if (!isNoneValue(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
     Type elementType = B.getType().cast<ShapedType>().getElementType();
     int64_t hiddenSize = bShape[1] / 6;
@@ -499,7 +499,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
           // Store the intermediate Ht.
           createKrnl.store(nextHt, Ht, indices);
-          if (!isFromNone(state.allH))
+          if (!isNoneValue(state.allH))
             createKrnl.store(
                 nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
         });
@@ -603,7 +603,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
           // Store the intermediate Ht.
           createKrnl.store(nextHt, Ht, indices);
-          if (!isFromNone(state.allH))
+          if (!isNoneValue(state.allH))
             createKrnl.store(
                 nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
         });
@@ -616,9 +616,9 @@ void stateToOutput<ONNXGRUOp, GruState>(ConversionPatternRewriter &rewriter,
   auto direction = op->getDirection();
   Value noneValue;
   // First output: all sequences.
-  outputs.emplace_back((isFromNone(op->getY()) ? noneValue : state.allH));
+  outputs.emplace_back((isNoneValue(op->getY()) ? noneValue : state.allH));
   // Second output: hidden.
-  if (isFromNone(op->getYH()))
+  if (isNoneValue(op->getYH()))
     outputs.emplace_back(noneValue);
   else {
     stateToOutputForHiddenOrCell(

@@ -368,7 +368,7 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
 template <typename ReduceOp>
 Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
     Value dataValue, Value axesValue) {
-  if (isFromNone(axesValue)) {
+  if (isNoneValue(axesValue)) {
     return ConstPropReduceAxesRange<ReduceOp>(
         rewriter, replacingValue, dataValue, {});
   } else {

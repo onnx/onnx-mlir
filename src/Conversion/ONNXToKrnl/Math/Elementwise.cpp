@@ -1131,11 +1131,11 @@ Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
   Value res = scalarOperands[0];
   Value min = scalarOperands[1];
   Value max = scalarOperands[2];
-  if (!isFromNone(min)) {
+  if (!isNoneValue(min)) {
     Value lessThanMin = create.math.slt(res, min); // (input[i,j,k]<min)
     res = create.math.select(lessThanMin, min, res);
   }
-  if (!isFromNone(max)) {
+  if (!isNoneValue(max)) {
     Value lessThanMax = create.math.slt(res, max); // (input[i,j,k]>max)
     res = create.math.select(lessThanMax, res, max);
   }
@@ -1257,7 +1257,7 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
   // Create flat inputs.
   llvm::SmallVector<Value, 4> flatOperands;
   for (Value oper : operands) {
-    if (isFromNone(oper) || isScalarValue(oper)) {
+    if (isNoneValue(oper) || isScalarValue(oper)) {
       // If its a none / scalar, it is not meant to be flattened.
       fprintf(stderr, "hi alex, scalar here\n");
       flatOperands.emplace_back(oper);
@@ -1288,7 +1288,7 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
         MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
         llvm::SmallVector<Value, 4> loadedVals;
         for (Value flatOper : flatOperands) {
-          if (isFromNone(flatOper)) {
+          if (isNoneValue(flatOper)) {
             // None, just pass it on unmodified.
             loadedVals.emplace_back(flatOper);
             continue;
@@ -1465,7 +1465,7 @@ struct ONNXElementwiseUnaryOpLowering
             args.emplace_back(loadedVal);
             // Load the remaining (scalar) values.
             for (uint64_t i = 1; i < operands.size(); i++) {
-              if (isFromNone(operands[i])) {
+              if (isNoneValue(operands[i])) {
                 args.emplace_back(operands[i]);
                 continue;
               }

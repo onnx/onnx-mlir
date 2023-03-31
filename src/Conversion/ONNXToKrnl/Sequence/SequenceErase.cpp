@@ -52,7 +52,7 @@ struct ONNXSequenceEraseOpLowering
     // Fill the output sequence
 
     IndexExpr positionIE;
-    if (isFromNone(adaptor.getPosition())) {
+    if (isNoneValue(adaptor.getPosition())) {
       // Erase the end of the sequence
       positionIE = boundIE - 1;
     } else {

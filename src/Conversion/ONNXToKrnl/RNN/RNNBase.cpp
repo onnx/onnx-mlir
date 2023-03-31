@@ -33,7 +33,7 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
 
   IndexExprScope scope(create.krnlIE);
   Value alloc;
-  if (!isFromNone(output)) {
+  if (!isNoneValue(output)) {
     SmallVector<IndexExpr, 4> dims;
     // Get seq_length from X.
     dims.emplace_back(create.krnlIE.getShapeAsDim(X, 0));
@@ -109,14 +109,14 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
           initialIVs.emplace_back(zeroIndex);
           initialIVs.emplace_back(loopInd[0]);
           initialIVs.emplace_back(loopInd[1]);
-          if (isFromNone(initialH))
+          if (isNoneValue(initialH))
             createKrnl.store(zero, forwardHt, IVs);
           else {
             Value h = createKrnl.load(initialH, initialIVs);
             createKrnl.store(h, forwardHt, IVs);
           }
           if (!onlyHidden) {
-            if (isFromNone(initialC))
+            if (isNoneValue(initialC))
               createKrnl.store(zero, forwardCt, IVs);
             else {
               Value c = createKrnl.load(initialC, initialIVs);
@@ -133,14 +133,14 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
             initialIVs.emplace_back(oneIndex);
           initialIVs.emplace_back(loopInd[0]);
           initialIVs.emplace_back(loopInd[1]);
-          if (isFromNone(initialH))
+          if (isNoneValue(initialH))
             createKrnl.store(zero, reverseHt, IVs);
           else {
             Value h = createKrnl.load(initialH, initialIVs);
             createKrnl.store(h, reverseHt, IVs);
           }
           if (!onlyHidden) {
-            if (isFromNone(initialC))
+            if (isNoneValue(initialC))
               createKrnl.store(zero, reverseCt, IVs);
             else {
               Value c = createKrnl.load(initialC, initialIVs);
@@ -159,7 +159,7 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
       rewriter, loc);
   IndexExprScope scope(create.krnlIE);
   Value alloc;
-  if (!isFromNone(output)) {
+  if (!isNoneValue(output)) {
     SmallVector<IndexExpr, 3> dims;
     // Get num_directions from W.
     dims.emplace_back(create.krnlIE.getShapeAsDim(W, 0));
@@ -198,13 +198,13 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
   create.krnl.iterate(loops, loops, htLbs, htUbs,
       [&](KrnlBuilder &createKrnl, ValueRange indices) {
         Value hiddenVal = zero;
-        if (!isFromNone(initialH))
+        if (!isNoneValue(initialH))
           hiddenVal = createKrnl.load(initialH, indices);
         createKrnl.store(hiddenVal, ht, indices);
 
         if (!onlyHidden) {
           Value cellVal = zero;
-          if (!isFromNone(initialC))
+          if (!isNoneValue(initialC))
             cellVal = createKrnl.load(initialC, indices);
           createKrnl.store(cellVal, ct, indices);
         }

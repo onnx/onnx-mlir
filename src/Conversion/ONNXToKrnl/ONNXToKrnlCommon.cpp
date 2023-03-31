@@ -117,7 +117,7 @@ bool isScalarValue(Value value) {
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ValueRange values) {
   for (Value value : values) {
-    if (isFromNone(value))
+    if (isNoneValue(value))
       continue;
     if (!isScalarValue(value))
       return false;
@@ -608,7 +608,7 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
 
 bool hasNonIdentityLayout(Value val) {
   // None values have no layout... we are safe.
-  if (isFromNone(val))
+  if (isNoneValue(val))
     return false;
   // Expect a memref now.
   MemRefType type = val.getType().dyn_cast<MemRefType>();
