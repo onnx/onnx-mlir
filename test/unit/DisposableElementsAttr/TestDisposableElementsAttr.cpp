@@ -209,7 +209,7 @@ public:
     std::cout << "test_equal_fps:" << std::endl;
 
     ShapedType type2xf32 = RankedTensorType::get({2}, F32);
-    float zero = 0.0;
+    float zero = 0.0f;
     auto d0s_f32_splat = DenseElementsAttr::get(type2xf32, {zero});
     auto d0s_f32 = DenseElementsAttr::get(type2xf32, {zero, -zero});
 
@@ -225,7 +225,7 @@ public:
     assert(!ElementsAttrBuilder::equal(dnans, dnans));
 
     // one+delta can be expressed with f32 precision but not f16
-    float one = 1.0, delta = 0.00001;
+    float one = 1.0f, delta = 0.00001f;
 
     ShapedType type1xf32 = RankedTensorType::get({1}, F32);
     auto d_one_f32 = DenseElementsAttr::get(type1xf32, {one});
