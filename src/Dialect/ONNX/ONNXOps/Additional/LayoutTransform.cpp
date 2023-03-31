@@ -41,8 +41,8 @@ LogicalResult ONNXLayoutTransformOp::verify() {
   if (auto dataType = getData().getType().dyn_cast<RankedTensorType>()) {
     RankedTensorType outputType =
         getOutput().getType().dyn_cast<RankedTensorType>();
-    if (outputType)
-      for (int64_t i = 0; i < dataType.getRank(); ++i)
+    if (outputType) {
+      for (int64_t i = 0; i < dataType.getRank(); ++i) {
         // Check if there is an unknown dimension in the dataShape and
         // outputShape. If there is an unknown dimension, we will return true.
         // If we know the dimension of dataShape and outputShape they should be
@@ -53,6 +53,8 @@ LogicalResult ONNXLayoutTransformOp::verify() {
         else if (dataType.getShape()[i] != outputType.getShape()[i])
           return emitOpError(
               "Input and output tensors must have the same shape");
+      }
+    }
   }
   return success();
 }
