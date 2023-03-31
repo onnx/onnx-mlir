@@ -1105,6 +1105,37 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXClipOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXClipOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+  using SimdEnabled = NoSimdScalarOp;
+};
+
+template <>
+Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+  Value res = scalarOperands[0];
+  Value min = scalarOperands[1];
+  Value max = scalarOperands[2];
+  if (!isFromNone(min)) {
+    Value loadedMin = create.krnl.load(min, {});         // load min
+    Value lessThanMin = create.math.slt(res, loadedMin); // (input[i,j,k]<min)
+    res = create.math.select(lessThanMin, loadedMin, res);
+  }
+  if (!isFromNone(max)) {
+    Value loadedMax = create.krnl.load(max, {});         // load max
+    Value lessThanMax = create.math.slt(res, loadedMax); // (input[i,j,k]>max)
+    res = create.math.select(lessThanMax, res, loadedMax);
+  }
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXDequantizeLinearOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -1803,6 +1834,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXRoundOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXClipOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
