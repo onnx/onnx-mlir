@@ -195,13 +195,13 @@ mlir::Value getIdentityValue(mlir::ConversionPatternRewriter &rewriter,
 // Use template specialization for each of different ONNX operations.
 //
 // Note that all values passed in scalarOperands are already loaded in memory.
-// *  If they are scalar, then a scalar is loaded. If used in SIMD mode, that 
+// *  If they are scalar, then a scalar is loaded. If used in SIMD mode, that
 //    vector was splatted to the right shape.
 // *  If they have a non value, then that non-value is simply passed on.
 // *  If they are a variable with a rank>0, then that the loaded value has been
 //    loaded with the right loop indices in it.
 //
-// So there should be no "loading" of any values inside the emitScalarOpFor 
+// So there should be no "loading" of any values inside the emitScalarOpFor
 // functions
 //===----------------------------------------------------------------------===//
 
