@@ -62,7 +62,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **DictVectorizer** | |unsupported | |
 | **Div** |14 |No support for short integers. | |
 | **Dropout** |13 |Does not support masked and training. | |
-| **DynamicQuantizeLinear** | |unsupported | |
+| **DynamicQuantizeLinear** |11 | | |
 | **Einsum** |12 |Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. | |
 | **Elu** |6 | | |
 | **Equal** |13 | | |
