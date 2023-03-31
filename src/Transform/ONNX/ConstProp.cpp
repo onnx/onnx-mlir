@@ -88,6 +88,19 @@ struct ConstPropCounters {
 
 std::unordered_map<std::string, ConstPropCounters> ConstPropCounters::map;
 
+/// A helper function to check whether a variadic value is produced by dense
+/// ONNXConstantOps.
+bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
+  return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
+}
+
+ONNXConstantOp createZeroTensor(
+    PatternRewriter &rewriter, Location loc, ShapedType type) {
+  return createONNXConstantOpWithDenseAttr(rewriter, loc,
+      DenseElementsAttr::get(
+          type, rewriter.getZeroAttr(type.getElementType())));
+}
+
 ElementsAttr getConstValueElements(Value constValue) {
   ONNXConstantOp constOp = cast<ONNXConstantOp>(constValue.getDefiningOp());
   return constOp.getValueAttr().cast<ElementsAttr>();

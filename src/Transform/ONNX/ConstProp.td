@@ -88,10 +88,8 @@ def IsZeroRhsOfMatMulInteger: Constraint<
     CPred<"isZeroRhsOfMatMulInteger($0, $1)">,
     "MatMulInteger rhs matrix is zero for given zero point">;
 
-def CreateZeroOfType: NativeCodeCall<
-  "createONNXConstantOpWithDenseAttr($_builder, $_loc,"
-  " mlir::DenseElementsAttr::get($0.getType(),"
-  "  $_builder.getZeroAttr(mlir::getElementTypeOrSelf($0))))"
+def CreateZeroTensorOfType: NativeCodeCall<
+  "createZeroTensor($_builder, $_loc, $0.getType())"
 >;
 
 def CreateAddOfTwoConst :
@@ -514,7 +512,7 @@ def MatMulIntegerConstZeroLhs : Pat<
       $B,
       $a_zero_point, $b_zero_point
     ),
-    (CreateZeroOfType $resOp),
+    (CreateZeroTensorOfType $resOp),
     [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
      (IsZeroLhsOfMatMulInteger $A, $a_zero_point)]>;
 
@@ -524,7 +522,7 @@ def MatMulIntegerConstZeroRhs : Pat<
       (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
       $a_zero_point, $b_zero_point
     ),
-    (CreateZeroOfType $resOp),
+    (CreateZeroTensorOfType $resOp),
     [(IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point),
      (IsZeroRhsOfMatMulInteger $B, $b_zero_point)]>;
 
