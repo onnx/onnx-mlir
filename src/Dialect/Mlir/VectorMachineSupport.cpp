@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-- VectorMachineSupport.cpp - Helper for what SIMD ops are supported -===//
 //
 // Copyright 2023 The IBM Research Authors.
@@ -65,33 +69,31 @@ int64_t VectorMachineSupport::getVectorLength(Type elementType) {
 double VectorMachineSupport::getAvgVectorLength(ArrayRef<GenericOps> &gops,
     ArrayRef<int64_t> &gopsNum, Type elementType, int64_t &vectorizedOpNum,
     int64_t &scalarOpNum) {
+  assert(gopsNum.size() == gops.size() && "expect same length for both lists");
   int64_t gopsSize = gops.size();
-  int64_t gopsNumSize = gopsNum.size();
-  int64_t totVL = 0.0;
+  int64_t totProcessedValues = 0.0;
   vectorizedOpNum = 0;
   scalarOpNum = 0;
   // Determine which operations support SIMD and accumulate their vector
   // lengths.
   for (int64_t i = 0; i < gopsSize; ++i) {
     // Even if unsupported, we can still proceed with one value per op.
-    int64_t vl = std::max((int64_t)1, getVectorLength(gops[i], elementType));
+    int64_t vl = getVectorLength(gops[i], elementType);
     // If past last value, assume 1; otherwise use actual value.
-    int64_t num = 1;
-    if (i < gopsNumSize)
-      num = gopsNum[i];
+    int64_t num = gopsNum[i];
     // Accumulate weighted scalar/vectorized num and vl length.
     if (vl > 0)
       vectorizedOpNum += num;
     else
       scalarOpNum += num;
-    totVL += vl * num;
+    // For totVL, when an operation is scalar, it still process 1 element
+    int64_t processedValues = std::max((int64_t)1, vl);
+    totProcessedValues += processedValues * num;
   }
   // Compute final values
   int64_t totNum = vectorizedOpNum + scalarOpNum;
   scalarOpNum = gopsSize - vectorizedOpNum;
-  if (totNum == 0)
-    return 0.0;
-  return totNum != 0 ? (1.0 * totVL) / (1.0 * totNum) : 0.0;
+  return totNum != 0 ? (1.0 * totProcessedValues) / (1.0 * totNum) : 0.0;
 }
 
 // =============================================================================
