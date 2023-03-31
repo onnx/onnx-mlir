@@ -605,6 +605,10 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
 }
 
 bool hasNonIdentityLayout(Value val) {
+  // None values have no layout... we are safe.
+  if (isFromNone(val))
+    return false;
+  // Expect a memref now.
   MemRefType type = val.getType().dyn_cast<MemRefType>();
   assert(type && "expected a memref type");
   return hasNonIdentityLayout(type);

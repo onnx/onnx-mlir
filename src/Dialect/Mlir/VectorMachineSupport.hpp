@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-- VectorMachineSupport.hpp - Helper for what SIMD ops are supported -===//
 //
 // Copyright 2023 The IBM Research Authors.
@@ -28,7 +32,7 @@ namespace onnx_mlir {
 
 enum class GenericOps {
   AbsGop,
-  ArithmeticGop, /* Simple compute ops: add/sub */
+  ArithmeticGop, /* Simple compute ops: add/sub/neg + ops of same complexity */
   CeilDivGop,
   CeilGop,
   CompareGop, /* All compare operations, signed/unsigned fixed/float. */
@@ -82,18 +86,25 @@ public:
 
   // Return the bit width of the SIMD unit regardless of the type/operation.
   // This is an upper bound and does not guarantee that an actual operation can
-  // provide this VL.
+  // provide this VL. A value of zero means no SIMD available.
   virtual int64_t getVectorBitWidth() = 0;
   // Return the number of elements that can be processed in SIMD fashion
   // regardless of the operation. This is an upper bound and does not guarantee
-  // that an actual operation can provide this VL.
+  // that an actual operation can provide this VL. A value of zero means no SIMD
+  // available.
   virtual int64_t getVectorLength(mlir::Type elementType);
   // Return the number of elements that can be processed in SIMD fashion if
-  // support exists; 0 when there is no support.
+  // support exists. A value of zero means no SIMD available.
   virtual int64_t getVectorLength(GenericOps gop, mlir::Type elementType) = 0;
 
-  // Return the weighted average vector length among the operations provided in
-  // gops list (where each occur gopsNum times).
+  // Analyze the benefits of using SIMD on a list of generic ops in an algorithm
+  // where each op on the list occurs a given number of times. The function
+  // returns the weighted average vector length among the operations listed in
+  // the gops list, where each operation gops[i] occur exactly gopsNum[i] times
+  // in the algorithm. Note that scalar operation have a vector length of
+  // one in the weighted average as they still contribute one result. The opNums
+  // are also weighted by the gopsNum to better represent the mix of
+  // vectorized and scalar operations present in the algorithm.
   double getAvgVectorLength(mlir::ArrayRef<GenericOps> &gops,
       mlir::ArrayRef<int64_t> &gopsNum, mlir::Type elementType,
       int64_t &vectorizedOpNum, int64_t &scalarOpNum);
