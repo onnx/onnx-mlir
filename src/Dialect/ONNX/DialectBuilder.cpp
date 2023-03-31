@@ -213,9 +213,9 @@ Value OnnxBuilder::reverseSequence(Type outputType, Value input,
       batchAxisAttr, timeAxisAttr);
 }
 
-Value OnnxBuilder::round(Value input, bool isScalarType) const {
-  if (isScalarType)
-    return b().create<ONNXRoundOp>(input.getType(), input);
+Value OnnxBuilder::round(Value input, bool scalarType) const {
+  if (scalarType)
+    return b().create<ONNXRoundOp>(loc(), input.getType(), input);
   else
     return createOpAndInferShapes<ONNXRoundOp>(
         toTensor(input.getType()), toTensor(input));

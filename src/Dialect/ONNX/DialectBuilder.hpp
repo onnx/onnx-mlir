@@ -121,7 +121,7 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Value sequenceLens, int64_t batchAxis, int64_t timeAxis) const;
 
   // ONNXRoundOp
-  mlir::Value round(mlir::Value input) const;
+  mlir::Value round(mlir::Value input, bool scalarType = false) const;
 
   // ONNXShapeOp
   mlir::Value shape(mlir::Type outputType, mlir::Value input) const;

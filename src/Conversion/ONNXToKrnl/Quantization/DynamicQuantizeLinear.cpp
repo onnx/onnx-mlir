@@ -99,21 +99,18 @@ struct ONNXDynamicQuantizeLinearOpLowering
     // Compute y_zero_point.
     Value interZeroPoint = create.math.div(create.math.sub(qMin, xMin), scale);
     Value lessThanMin = create.math.slt(interZeroPoint, qMin);
+    // Saturate zero point.
     Value saturateZeroPoint =
         create.math.select(lessThanMin, qMin, interZeroPoint);
     Value lessThanMax = create.math.slt(saturateZeroPoint, qMax);
     saturateZeroPoint =
         create.math.select(lessThanMax, saturateZeroPoint, qMax);
-    Value zeroPoint = create.onnx.round(saturateZeroPoint);
+    // Round zero point.
+    Value zeroPoint = create.onnx.round(saturateZeroPoint, /*scalarType=*/true);
     Value zeroPointInt = create.math.cast(quantizedElementType, zeroPoint);
     create.krnl.store(zeroPointInt, yZeroPoint);
 
     // Compute y.
-    // Value roundXScaleFP = create.onnx.round(create.onnx.div(X, scaleFP));
-    // Value yFP = create.onnx.clip(
-    //     create.onnx.add(roundXScaleFP, zeroPointFP), QMin, QMax);
-    // Value y = create.onnx.cast(yFP, quantizedElementType);
-
     ValueRange loopDef = create.krnl.defineLoops(rank);
     SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(0),
@@ -122,17 +119,17 @@ struct ONNXDynamicQuantizeLinearOpLowering
               OnnxBuilder>
               create(createKrnl);
           Value x = create.krnl.load(X, loopInd);
-          Value div = create.math.div(x, scale);
-          Value round = create.onnx.round(div);
-          Value add = create.math.add(round, zeroPoint);
-          // TODO: replace this with create.onnx.clip(add, qMin, qMax).
-          Value addTensor = create.mem.alignedAlloc(yScaleMemRefType);
-          create.krnl.store(add, addTensor);
-          Value clipTensor =
-              create.onnx.toMemref(create.onnx.clip(addTensor, QMin, QMax));
-          Value clip = create.krnl.load(clipTensor);
-          Value res = create.math.cast(quantizedElementType, clip);
-          create.krnl.store(res, y);
+          // Scale
+          Value scaleX = create.math.div(x, scale);
+          Value roundX = create.onnx.round(scaleX, /*scalarType=*/true);
+          Value adjustX = create.math.add(roundX, zeroPoint);
+          // Saturate
+          Value lessThanMin = create.math.slt(adjustX, qMin);
+          Value saturateX = create.math.select(lessThanMin, qMin, adjustX);
+          Value lessThanMax = create.math.slt(saturateX, qMax);
+          saturateX = create.math.select(lessThanMax, saturateX, qMax);
+          Value res = create.math.cast(quantizedElementType, saturateX);
+          create.krnl.store(res, y, loopInd);
         });
 
     rewriter.replaceOp(op, {y, yScale, yZeroPoint});
