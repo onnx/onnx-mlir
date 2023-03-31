@@ -147,7 +147,8 @@ private:
 
   Value ImportTensor(const onnx::TensorProto &tensor) {
     return EmitInitializerForInputTensor(
-        UnknownLoc(), builder_, options_.externalDataDir, tensor);
+        NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name())),
+        builder_, options_.externalDataDir, tensor);
   }
 
   /*!
