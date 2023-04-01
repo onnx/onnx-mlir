@@ -134,7 +134,7 @@ class HaveSameDim<int dim>: Constraint<
   "Two tensors have the same specified dimension">;
 
 // Create a unit constant that will be used as none input.
-def CreateNoneConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
+def CreateNoneConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
 
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 
