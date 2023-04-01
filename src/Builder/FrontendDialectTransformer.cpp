@@ -108,6 +108,7 @@ private:
 
   Location ImportLoc(const onnx::NodeProto &node) {
     if (node.has_name()) {
+      // Use the the node name as Location.
       return NameLoc::get(builder_.getStringAttr(node.name()));
     } else {
       return UnknownLoc();
@@ -146,6 +147,7 @@ private:
   }
 
   Value ImportTensor(const onnx::TensorProto &tensor) {
+    // Use the tensor name as Location.
     return EmitInitializerForInputTensor(
         NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name())),
         builder_, options_.externalDataDir, tensor);
