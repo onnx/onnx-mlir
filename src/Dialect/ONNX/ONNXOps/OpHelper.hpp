@@ -166,6 +166,7 @@ mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
 // Test if the value is none. Since none is a unit value it never makes a
 // difference whether it's a constant (the result of ONNXNoneOp) or the
 // optional result of some other op (e.g. ONNXDropoutOp mask result).
+// Note: It's ok to inline the isa<NoneType> test and not call this function.
 inline bool isNoneValue(mlir::Value value) {
   return llvm::isa<mlir::NoneType>(value.getType());
 }
