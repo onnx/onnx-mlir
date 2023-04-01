@@ -94,7 +94,7 @@ bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
   return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
 }
 
-ONNXConstantOp createZeroTensor(
+Value ConstZeroTensor(
     PatternRewriter &rewriter, Location loc, ShapedType type) {
   return createONNXConstantOpWithDenseAttr(rewriter, loc,
       DenseElementsAttr::get(

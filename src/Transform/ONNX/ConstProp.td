@@ -66,8 +66,6 @@ def HasStaticShape: Constraint<CPred<
   "A value has static shape"
 >;
 
-// Creation helpers:
-
 def IsConstOfZeros : Constraint<
   CPred<"isConstOf($_self, 0.0)">,
   "Value is an all-zeros constant tensor">;
@@ -88,8 +86,10 @@ def IsZeroRhsOfMatMulInteger: Constraint<
     CPred<"isZeroRhsOfMatMulInteger($0, $1)">,
     "MatMulInteger rhs matrix is zero for given zero point">;
 
+// Creation helpers:
+
 def CreateZeroTensorOfType: NativeCodeCall<
-  "createZeroTensor($_builder, $_loc, $0.getType())"
+  "ConstZeroTensor($_builder, $_loc, $0.getType())"
 >;
 
 def CreateAddOfTwoConst :
