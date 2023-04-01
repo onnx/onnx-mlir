@@ -133,7 +133,8 @@ class HaveSameDim<int dim>: Constraint<
         "$1.getType().cast<RankedTensorType>().getShape()[" # dim # "])">,
   "Two tensors have the same specified dimension">;
 
-def GetUnitAttr: NativeCodeCall<"$_builder.getUnitAttr()">;
+// Create a unit constant that will be used as none input.
+def CreateNoneConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
 
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 
@@ -387,11 +388,14 @@ def FuseMulConvNullBiasPattern: Pat<
 def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
                                      (replaceWithValue $arg)>;
 
-// y, mask = onnx.Dropout(x) -> y, mask = x, none
-def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $arg1, $arg2, $ratio),
-  [(replaceWithValue $arg), (ONNXConstantOp (GetNullAttr), (GetUnitAttr), 
-   (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), 
-   (GetNullAttr))]>;
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXDropoutOp
+//===----------------------------------------------------------------------===//
+
+// We assume that training_mode is not true so output, mask become data, none.
+// output, mask = onnx.Dropout(data) -> output, mask = data, none
+def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $data, $ratio, $training_mode, $seed),
+  [(replaceWithValue $data), (CreateNoneConstant)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXCastOp
