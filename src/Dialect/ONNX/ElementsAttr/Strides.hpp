@@ -39,6 +39,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
@@ -139,6 +140,11 @@ struct StridedArrayRef : public llvm::ArrayRef<T> {
 //         [](const auto &it) { return src0[it.pos[0]] == src1[it.pos[1]]; })
 //   }
 //
+// Note: The iteration example above works when shape is empty because
+//       begin == end and the iterator is never derefenced or incremented.
+//       If the shape is empty then the iterator shouldn't be dereferenced or
+//       incremented because the internal state will not make sense.
+//
 template <size_t N>
 class StridesIterator {
   struct value_type {
@@ -162,8 +168,7 @@ public:
   StridesIterator(llvm::ArrayRef<int64_t> shape,
       std::array<llvm::ArrayRef<int64_t>, N> strides)
       : shape(shape), strides(strides), value(shape.size()) {
-    for (auto dim : shape)
-      assert(dim > 0 && "shape must describe non-empty tensor");
+    assert(!mlir::ShapedType::isDynamicShape(shape) && "shape must be static");
     for (unsigned i = 0; i < N; ++i)
       assert(shape.size() == strides[i].size() && "shape, strides mismatch");
   }

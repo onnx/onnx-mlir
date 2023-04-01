@@ -13,18 +13,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 namespace py = pybind11;
 
-#include "ExecutionSession.hpp"
 #include "OnnxMlirCompiler.h"
+#include "PyExecutionSessionBase.hpp"
 
 namespace onnx_mlir {
 
-class PyOMCompileExecutionSession : public onnx_mlir::ExecutionSession {
+class PyOMCompileExecutionSession : public onnx_mlir::PyExecutionSessionBase {
 public:
   PyOMCompileExecutionSession(std::string inputFileName,
       std::string sharedLibPath, std::string flags,
@@ -32,11 +34,6 @@ public:
   std::string pyGetCompiledFileName();
   std::string pyGetErrorMessage();
   int64_t pyGetCompiledResult();
-  std::vector<std::string> pyQueryEntryPoints();
-  void pySetEntryPoint(std::string entryPointName);
-  std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray);
-  std::string pyInputSignature();
-  std::string pyOutputSignature();
 
 private:
   std::string inputFileName;

@@ -53,7 +53,9 @@ def StickUnstickSameLayoutRemovalPattern : Pat<
 def StickUnstickDiffLayoutRemovalPattern : Pat<
   (ZHighStickOp:$stick (ZHighUnstickOp:$unstick $arg), $_),
   (ONNXLayoutTransformOp $arg, (GetEncodingAttr $stick)),
-  [(NotSameLayout $arg, $stick), (NoOneIsOfNHWCLayout $arg, $stick)]
+  [(NotSameLayout $arg, $stick), (NoOneIsOfNHWCLayout $arg, $stick),
+   // Do not support 1D and 2DS because of this issue: https://github.com/onnx/onnx-mlir/issues/1940
+   (NoOneIsOf1DLayout $arg, $stick), (NoOneIsOf2DSLayout $arg, $stick)]
 >;
 
 // The pattern
@@ -78,17 +80,6 @@ def ReplaceONNXLeakyReluPattern: Pat<
                   (returnType $X))),
   [(IsStaticShapeTensor $X), (IsPlusConstantFloat $alpha),
    (SameLayout $X, $stickout)]
->;
-
-// Since zDNN does not support Sqrt(X), we calculate it by using zDNN-supported
-// operations, i.e. Exp and Log.
-// Formulas: `sqrt(X) = exp(log(x)/2) = exp(0.5 * log(x))`
-def ReplaceONNXSqrtPattern: Pat<
-  (ZHighStickOp:$stick (ONNXSqrtOp (ZHighUnstickOp $X)), $layout),
-  (ZHighExpOp (ZHighMulOp (ZHighLogOp $X, (returnType $X)),
-                          (ZHighStickOp (GetConstantOfType<"0.5"> $X), $layout),
-                          (returnType $X))),
-  [(IsStaticShapeTensor $X), (SameLayout $X, $stick)]
 >;
 
 // Calulation of `1/sqrt(X)` or reciprocal square root is often found in
