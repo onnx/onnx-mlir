@@ -162,13 +162,13 @@ int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
 mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
-mlir::Value createNoneIntegerConstant(
-    mlir::PatternRewriter &rewriter, mlir::Location loc);
-mlir::Value createNoneFloatConstant(
-    mlir::PatternRewriter &rewriter, mlir::Location loc);
 
-// Test if the value is from a NoneType or tensor<0 x ELEMENTARY_TYPE>
-bool isNoneValue(mlir::Value value);
+// Test if the value is none. Since none is a unit value it never makes a
+// difference whether it's a constant (the result of ONNXNoneOp) or the
+// optional result of some other op (e.g. ONNXDropoutOp mask result).
+inline bool isNoneValue(mlir::Value value) {
+  return llvm::isa<mlir::NoneType>(value.getType());
+}
 
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.

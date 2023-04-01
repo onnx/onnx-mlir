@@ -54,7 +54,7 @@ class VariadicSizeIsGT<int N> : Constraint<
 >;
 
 // Create a unit constant that will be used as none input.
-def CreateUnitConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
+def CreateNoneConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
 
 class getNth<int n, string x> : NativeCodeCall<x # "[" # n # "]">;
 
@@ -437,7 +437,7 @@ def GetMatMulBiasLayoutStringAttr : NativeCodeCall<
 //                          (ZHighMatMulOp
 //                              (ZHighStickOp %X),
 //                              (ZHighStickOp %Y),
-//                              CreateUnitConstant)
+//                              CreateNoneConstant)
 //===----------------------------------------------------------------------===//
 
 def replaceONNXMatMulPattern : Pat<
@@ -446,7 +446,7 @@ def replaceONNXMatMulPattern : Pat<
      (ZHighMatMulOp
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x))),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y))),
-        (CreateUnitConstant)))
+        (CreateNoneConstant)))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -567,7 +567,7 @@ def replaceONNXGemmBias2DPattern : Pat<
        (ZHighMatMulOp
           (ZHighStickOp $a, (_2DLayoutAttr)),
           (ZHighStickOp $b, (_2DLayoutAttr)),
-          (CreateUnitConstant)),
+          (CreateNoneConstant)),
        (returnType $res)),
     $c),
   [(HasRankOf<2> $c)],
