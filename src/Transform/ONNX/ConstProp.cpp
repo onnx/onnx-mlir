@@ -427,12 +427,9 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
 // returns the zero point reshaped so it broadcasts to the matrix shape.
 ElementsAttr reshapeMatMulIntegerLhsZero(
     ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
-  // The following conditional checks whether zeroPoint is well-formed and
-  // broadcasts to matrix's shape, and reshapes zeroPoint if necessary.
-  if (zeroPoint.isSplat() || zeroPoint.getType().getRank() == 0) {
-    // Splat case is easy: zeroPoint trivially broadcasts to matrix's shape.
+  if (zeroPoint.getType().getRank() == 0) {
+    // Scalar case is easy: zeroPoint trivially broadcasts to matrix's shape.
   } else {
-    auto matrixRank = matrixShape.size();
     ShapedType zeroPointType = zeroPoint.getType();
     auto zeroPointShape = zeroPointType.getShape();
     auto zeroPointRank = zeroPointShape.size();
@@ -449,6 +446,7 @@ ElementsAttr reshapeMatMulIntegerLhsZero(
       assert(rows != 1 && "non-splat zero_point cannot be singleton");
       // Per-row zero point is a proper vector we need to broadcast, unless
       // matrix is also a vector so the broadcasts cancel out.
+      auto matrixRank = matrixShape.size();
       if (matrixRank == 1) {
         // Broadcast of matrix and zero point vectors cancel out.
         assert(matrixShape == zeroPointShape &&
