@@ -183,15 +183,14 @@ mlir::ArrayAttr CombinedTransposePattern(mlir::PatternRewriter &rewriter,
 bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
 
 /// Test if two axis arrays contain the same values or not.
-bool AreTheSameAxisArray(
+bool AreTheSameAxesArrayAttr(
     int64_t rank, mlir::ArrayAttr lhsAttr, mlir::ArrayAttr rhsAttr);
 
 /// Test if the value has the specified constant shape
 bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
 
-/// Test if two constant ops contain the same values or not.
-bool AreTheSameConstantOpDenseAttr(
-    mlir::Builder &builder, int64_t rank, mlir::Value lhsOp, mlir::Value rhsOp);
+/// Test if two values are constants with the same axis values.
+bool AreTheSameAxesConstant(int64_t rank, mlir::Value lhs, mlir::Value rhs);
 
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(mlir::Value val);
@@ -219,8 +218,7 @@ mlir::DenseElementsAttr createDenseElementsAttrFromSize(
     mlir::PatternRewriter &rewriter, mlir::Value value);
 
 // Create an ArrayAttr from a dense ConstantOp
-mlir::ArrayAttr createArrayAttrFromConstantOp(
-    mlir::Builder &builder, mlir::Value constOp);
+mlir::ArrayAttr createArrayAttrFromConstantOp(mlir::ONNXConstantOp constOp);
 
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);

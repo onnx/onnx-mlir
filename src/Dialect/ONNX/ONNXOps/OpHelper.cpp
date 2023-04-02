@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/TypeUtilities.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
@@ -393,49 +394,34 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
 }
 
 /// Test if two axis arrays contain the same values or not.
-bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
+bool AreTheSameAxesArrayAttr(
+    int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
   // false if one of the array attributes is null.
   if (!(lhsAttr) || !(rhsAttr))
     return false;
 
-  SmallVector<int64_t, 4> lhs;
-  for (auto attr : lhsAttr.getValue()) {
-    int64_t axis = attr.cast<IntegerAttr>().getInt();
-    if (axis < 0)
-      axis += rank;
-    lhs.emplace_back(axis);
-  }
+  auto asSet = [rank](ArrayRef<Attribute> array) {
+    llvm::SmallSet<int64_t, 6> axes;
+    for (auto attr : array) {
+      int64_t axis = attr.cast<IntegerAttr>().getInt();
+      axes.insert(axis < 0 ? axis + rank : axis);
+    }
+    return axes;
+  };
 
-  size_t rhsSize = 0;
-  for (auto attr : rhsAttr.getValue()) {
-    int64_t axis = attr.cast<IntegerAttr>().getInt();
-    if (axis < 0)
-      axis += rank;
-    // false if axis is not in the lhs. Early stop.
-    if (!llvm::any_of(lhs, [&](int64_t lhsAxis) { return lhsAxis == axis; }))
-      return false;
-    rhsSize++;
-  }
-
-  // false if having different number of elements.
-  if (lhs.size() != rhsSize)
-    return false;
-
-  return true;
+  // We don't check for duplicate axes. That invariant is checked elsewhere.
+  return asSet(lhsAttr.getValue()) == asSet(rhsAttr.getValue());
 }
 
-/// Convert ConstantOp to ArrayAttr and test if they have the same values
-bool AreTheSameConstantOpDenseAttr(
-    Builder &builder, int64_t rank, Value lhsOp, Value rhsOp) {
-  ONNXConstantOp lhsConstOp = dyn_cast<ONNXConstantOp>(lhsOp.getDefiningOp());
-  ONNXConstantOp rhsConstOp = dyn_cast<ONNXConstantOp>(rhsOp.getDefiningOp());
-  if (lhsConstOp && rhsConstOp) {
-    auto lhsArrAttr = createArrayAttrFromConstantOp(builder, lhsConstOp);
-    auto rhsArrAttr = createArrayAttrFromConstantOp(builder, rhsConstOp);
-    return AreTheSameAxisArray(rank, lhsArrAttr, rhsArrAttr);
-  } else {
-    return false;
-  }
+bool AreTheSameAxesConstant(int64_t rank, Value lhs, Value rhs) {
+  assert(cast<ShapedType>(lhs.getType()).getElementType().isInteger(64));
+  assert(cast<ShapedType>(rhs.getType()).getElementType().isInteger(64));
+  auto lhsConstOp = dyn_cast_or_null<ONNXConstantOp>(lhs.getDefiningOp());
+  auto rhsConstOp = dyn_cast_or_null<ONNXConstantOp>(rhs.getDefiningOp());
+  return lhsConstOp && rhsConstOp &&
+         AreTheSameAxesArrayAttr(rank,
+             createArrayAttrFromConstantOp(lhsConstOp),
+             createArrayAttrFromConstantOp(rhsConstOp));
 }
 
 /// Test if 'val' has shape and rank or not.
@@ -464,14 +450,10 @@ bool hasShapeAndRank(Operation *op) {
 //===----------------------------------------------------------------------===//
 
 // Create an ArrayAttr from a dense ConstantOp
-ArrayAttr createArrayAttrFromConstantOp(Builder &builder, Value constOp) {
-  auto elementsAttr = getElementAttributeFromONNXValue(constOp);
-  assert(elementsAttr && "ConstantOp is not an ElementsAttr");
-  SmallVector<int64_t, 4> intVals;
-  for (auto val : elementsAttr.getValues<IntegerAttr>()) {
-    intVals.emplace_back(val.getInt());
-  }
-  return builder.getI64ArrayAttr(ArrayRef<int64_t>(intVals));
+ArrayAttr createArrayAttrFromConstantOp(ONNXConstantOp constOp) {
+  auto elements = cast<ElementsAttr>(constOp.getValueAttr());
+  SmallVector<Attribute> values(elements.getValues<Attribute>());
+  return ArrayAttr::get(constOp.getContext(), values);
 }
 
 // Create a DenseElementsAttr from a float attribute.
