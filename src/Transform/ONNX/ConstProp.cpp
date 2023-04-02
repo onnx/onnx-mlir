@@ -509,6 +509,38 @@ bool isMatMulIntegerRhsZero(Value matrixValue, Value zeroPointValue) {
       matrixValue, zeroPointValue, reshapeMatMulIntegerRhsZero);
 }
 
+ElementsAttr getMatMulIntegerMatrixElements(
+    ElementsAttrBuilder &elementsBuilder, Value matrixValue,
+    Value zeroPointValue,
+    function_ref<ElementsAttr(ArrayRef<int64_t>, ElementsAttr)> reshapeZero) {
+  Type I32 = IntegerType::get(matrixValue.getContext(), 32);
+  ElementsAttr matrix8 = getConstValueElements(matrixValue);
+  ElementsAttr matrix32 = elementsBuilder.castElementType(matrix8, I32);
+  if (isFromNone(zeroPointValue)) {
+    return matrix32;
+  } else {
+    ElementsAttr zeroPoint8 = getConstValueElements(zeroPointValue);
+    ElementsAttr reshapedZeroPoint8 =
+        reshapeZero(matrix8.getType().getShape(), zeroPoint8);
+    ElementsAttr reshapedZeroPoint32 =
+        elementsBuilder.castElementType(reshapedZeroPoint8, I32);
+    return elementsBuilder.combine(matrix32, reshapedZeroPoint32,
+        matrix32.getType(), elementwiseBinaryOpCombiner<ONNXSubOp>(I32));
+  }
+}
+
+Value ConstPropMatMulInteger(PatternRewriter &rewriter, Value replacingValue,
+    Value lhsMatrixValue, Value lhsZeroPointValue, Value rhsMatrixValue,
+    Value rhsZeroPointValue) {
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr lhs = getMatMulIntegerMatrixElements(elementsBuilder,
+      lhsMatrixValue, lhsZeroPointValue, reshapeMatMulIntegerLhsZero);
+  ElementsAttr rhs = getMatMulIntegerMatrixElements(elementsBuilder,
+      rhsMatrixValue, rhsZeroPointValue, reshapeMatMulIntegerRhsZero);
+  // TODO: do the matrix multiply
+  return nullptr;
+}
+
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for transpose.
 //===----------------------------------------------------------------------===//
