@@ -427,39 +427,38 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
 // returns the zero point reshaped so it broadcasts to the matrix shape.
 ElementsAttr reshapeMatMulIntegerLhsZero(
     ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
-  if (zeroPoint.getType().getRank() == 0) {
+  ShapedType zeroPointType = zeroPoint.getType();
+  auto zeroPointShape = zeroPointType.getShape();
+  auto zeroPointRank = zeroPointShape.size();
+  if (zeroPointRank == 0) {
     // Scalar case is easy: zeroPoint trivially broadcasts to matrix's shape.
-  } else {
-    ShapedType zeroPointType = zeroPoint.getType();
-    auto zeroPointShape = zeroPointType.getShape();
-    auto zeroPointRank = zeroPointShape.size();
-    if (zeroPointRank > 1) {
-      // Proper tensor is easy: last axis broadcasts to matrix's shape.
-      assert(zeroPointShape.back() == 1 &&
-             "last dim is 1 when LHS zero_point is a proper tensor");
-      assert(zeroPointShape.drop_back() == matrixShape.drop_back() &&
-             "MatMulInteger LHS matrix, zero_point tensors mismatch");
+  } else if (zeroPointRank == 1) {
+    // Vector with zero point scalar per row. Same shape as a matrix column.
+    assert(zeroPointRank == 1);
+    int64_t rows = zeroPointShape[0];
+    assert(rows != 1 && "non-splat zero_point cannot be singleton");
+    // Per-row zero point is a proper vector we need to broadcast, unless
+    // matrix is also a vector so the broadcasts cancel out.
+    auto matrixRank = matrixShape.size();
+    if (matrixRank == 1) {
+      // Broadcast of matrix and zero point vectors cancel out.
+      assert(matrixShape == zeroPointShape &&
+             "MatMulInteger LHS matrix, zero_point vectors mismatch");
     } else {
-      // Vector with zero point scalar per row. Same shape as a matrix column.
-      assert(zeroPointRank == 1);
-      int64_t rows = zeroPointShape[0];
-      assert(rows != 1 && "non-splat zero_point cannot be singleton");
-      // Per-row zero point is a proper vector we need to broadcast, unless
-      // matrix is also a vector so the broadcasts cancel out.
-      auto matrixRank = matrixShape.size();
-      if (matrixRank == 1) {
-        // Broadcast of matrix and zero point vectors cancel out.
-        assert(matrixShape == zeroPointShape &&
-               "MatMulInteger LHS matrix, zero_point vectors mismatch");
-      } else {
-        // When matrix is a proper tensor, reshape by appending zero point axis
-        // with dim size 1 to broadcast to matrix's shape.
-        assert(rows == matrixShape[matrixRank - 2] &&
-               "MatMulInteger LHS matrix, zero_point rows mismatch");
-        return OnnxElementsAttrBuilder(zeroPoint.getContext())
-            .reshape(zeroPoint, {rows, 1});
-      }
+      assert(matrixRank > 1 && "MatMulInteger LHS matrix cannot be scalar");
+      // When matrix is a proper tensor, reshape by appending zero point axis
+      // with dim size 1 to broadcast to matrix's shape.
+      assert(rows == matrixShape[matrixRank - 2] &&
+             "MatMulInteger LHS matrix, zero_point rows mismatch");
+      return OnnxElementsAttrBuilder(zeroPoint.getContext())
+          .reshape(zeroPoint, {rows, 1});
     }
+  } else {
+    // Proper tensor is easy: last axis broadcasts to matrix's shape.
+    assert(zeroPointShape.back() == 1 &&
+           "last dim is 1 when LHS zero_point is a proper tensor");
+    assert(zeroPointShape.drop_back() == matrixShape.drop_back() &&
+           "MatMulInteger LHS matrix, zero_point tensors mismatch");
   }
   return zeroPoint;
 }
