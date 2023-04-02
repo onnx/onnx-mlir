@@ -422,50 +422,26 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
 // Code to perform constant propagation for matrix multiplication.
 //===----------------------------------------------------------------------===//
 
-bool isZeroLhsOfMatMulInteger(Value matrixValue, Value zeroPointValue) {
-  ElementsAttr matrix = getConstValueElements(matrixValue);
-  assert(matrix.getElementType().isInteger(8) &&
-         "MatMulInteger input elements are u8 or i8");
-
-  // An empty matrix is trivially zero.
-  if (matrix.empty())
-    return true;
-
-  // If zeroPointValue is omitted, "zero" means all elements are zero.
-  if (isFromNone(zeroPointValue)) {
-    WideNum zero = matrix.getElementType().isUnsignedInteger()
-                       ? WideNum::widen<BType::UINT8>(0u)
-                       : WideNum::widen<BType::INT8>(0);
-    return ElementsAttrBuilder::allEqual(matrix, zero);
-  }
-
-  ElementsAttr zeroPoint = getConstValueElements(zeroPointValue);
-  assert(zeroPoint.getElementType() == matrix.getElementType() &&
-         "MatMulInteger input matrix's zero_point element type mismatch");
-  assert(!zeroPoint.empty() && "zero_point must be non-empty when matrix is");
-
+// Takes the matrix shape and zero point for the LHS argument to MatMulInteger
+// and returns the zero point if it broadcasts to the matrix shape or else
+// returns the zero point reshaped so it broadcasts to the matrix shape.
+ElementsAttr reshapeMatMulIntegerLhsZero(
+    ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
   // The following conditional checks whether zeroPoint is well-formed and
   // broadcasts to matrix's shape, and reshapes zeroPoint if necessary.
-  if (zeroPoint.isSplat()) {
+  if (zeroPoint.isSplat() || zeroPoint.getType().getRank() == 0) {
     // Splat case is easy: zeroPoint trivially broadcasts to matrix's shape.
   } else {
-    ShapedType matrixType = matrix.getType();
-    auto matrixShape = matrixType.getShape();
     auto matrixRank = matrixShape.size();
     ShapedType zeroPointType = zeroPoint.getType();
     auto zeroPointShape = zeroPointType.getShape();
     auto zeroPointRank = zeroPointShape.size();
     if (zeroPointRank > 1) {
-      if (matrixRank == 1) {
-        // This is probably invalid and we should do
-        // llvm_unreachable("matrix must be proper tensor when zero_point is").
-        // Simplest to return false and disable zero optimization in this case.
-        return false;
-      }
       // Proper tensor is easy: last axis broadcasts to matrix's shape.
       assert(zeroPointShape.back() == 1 &&
-             "last dim is 1 when zero_point is a proper tensor");
-      assert(zeroPointShape.drop_back() == matrixShape.drop_back());
+             "last dim is 1 when LHS zero_point is a proper tensor");
+      assert(zeroPointShape.drop_back() == matrixShape.drop_back() &&
+             "MatMulInteger LHS matrix, zero_point tensors mismatch");
     } else {
       // Vector with zero point scalar per row. Same shape as a matrix column.
       assert(zeroPointRank == 1);
@@ -476,25 +452,25 @@ bool isZeroLhsOfMatMulInteger(Value matrixValue, Value zeroPointValue) {
       if (matrixRank == 1) {
         // Broadcast of matrix and zero point vectors cancel out.
         assert(matrixShape == zeroPointShape &&
-               "MatMulInteger matrix, zero_point vectors mismatch");
+               "MatMulInteger LHS matrix, zero_point vectors mismatch");
       } else {
         // When matrix is a proper tensor, reshape by appending zero point axis
         // with dim size 1 to broadcast to matrix's shape.
         assert(rows == matrixShape[matrixRank - 2] &&
-               "MatMulInteger matrix, zero_point rows mismatch");
-        zeroPoint = OnnxElementsAttrBuilder(zeroPoint.getContext())
-                        .reshape(zeroPoint, {rows, 1});
+               "MatMulInteger LHS matrix, zero_point rows mismatch");
+        return OnnxElementsAttrBuilder(zeroPoint.getContext())
+            .reshape(zeroPoint, {rows, 1});
       }
     }
   }
-
-  return ElementsAttrBuilder::equal(matrix, zeroPoint);
+  return zeroPoint;
 }
 
-bool isZeroRhsOfMatMulInteger(Value matrixValue, Value zeroPointValue) {
+bool isMatMulIntegerMatrixZero(Value matrixValue, Value zeroPointValue,
+    function_ref<ElementsAttr(ArrayRef<int64_t>, ElementsAttr)> reshapeZero) {
   ElementsAttr matrix = getConstValueElements(matrixValue);
   assert(matrix.getElementType().isInteger(8) &&
-         "MatMulInteger input elements are u8 or i8");
+         "MatMulInteger input element types must be u8 or i8");
 
   // An empty matrix is trivially zero.
   if (matrix.empty())
@@ -510,12 +486,25 @@ bool isZeroRhsOfMatMulInteger(Value matrixValue, Value zeroPointValue) {
 
   ElementsAttr zeroPoint = getConstValueElements(zeroPointValue);
   assert(zeroPoint.getElementType() == matrix.getElementType() &&
-         "MatMulInteger input matrix's zero_point element type mismatch");
-  assert(!zeroPoint.empty() && "zero_point must be non-empty when matrix is");
+         "MatMulInteger matrix, zero_point element types mismatch");
+  assert(!zeroPoint.empty() &&
+         "MatMulInteger zero_point must be non-empty when matrix is");
 
-  // Rhs zero point scalar / vector / tensor always broadcasts to
-  // matrix's shape.
-  return ElementsAttrBuilder::equal(matrix, zeroPoint);
+  ElementsAttr reshapedZeroPoint =
+      reshapeZero(matrix.getType().getShape(), zeroPoint);
+  return ElementsAttrBuilder::equal(matrix, reshapedZeroPoint);
+}
+
+bool isMatMulIntegerLhsZero(Value matrixValue, Value zeroPointValue) {
+  return isMatMulIntegerMatrixZero(
+      matrixValue, zeroPointValue, reshapeMatMulIntegerLhsZero);
+}
+
+bool isMatMulIntegerRhsZero(Value matrixValue, Value zeroPointValue) {
+  auto noReshape = [](ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
+    return zeroPoint;
+  };
+  return isMatMulIntegerMatrixZero(matrixValue, zeroPointValue, noReshape);
 }
 
 //===----------------------------------------------------------------------===//

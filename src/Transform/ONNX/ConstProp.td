@@ -78,12 +78,12 @@ def ValuesHaveSameType : Constraint<
   CPred<"$0.getType() == $1.getType()">,
   "Values have same type">;
 
-def IsZeroLhsOfMatMulInteger: Constraint<
-    CPred<"isZeroLhsOfMatMulInteger($0, $1)">,
+def IsMatMulIntegerLhsZero: Constraint<
+    CPred<"isMatMulIntegerLhsZero($0, $1)">,
     "MatMulInteger lhs matrix is zero for given zero point">;
 
-def IsZeroRhsOfMatMulInteger: Constraint<
-    CPred<"isZeroRhsOfMatMulInteger($0, $1)">,
+def IsMatMulIntegerRhsZero: Constraint<
+    CPred<"isMatMulIntegerRhsZero($0, $1)">,
     "MatMulInteger rhs matrix is zero for given zero point">;
 
 // Creation helpers:
@@ -514,7 +514,7 @@ def MatMulIntegerConstZeroLhs : Pat<
     ),
     (CreateZeroTensorOfType $resOp),
     [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
-     (IsZeroLhsOfMatMulInteger $A, $a_zero_point)]>;
+     (IsMatMulIntegerLhsZero $A, $a_zero_point)]>;
 
 def MatMulIntegerConstZeroRhs : Pat<
     (ONNXMatMulIntegerOp:$resOp
@@ -524,7 +524,7 @@ def MatMulIntegerConstZeroRhs : Pat<
     ),
     (CreateZeroTensorOfType $resOp),
     [(IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point),
-     (IsZeroRhsOfMatMulInteger $B, $b_zero_point)]>;
+     (IsMatMulIntegerRhsZero $B, $b_zero_point)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Transpose operations.
