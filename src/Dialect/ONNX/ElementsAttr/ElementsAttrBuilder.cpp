@@ -504,6 +504,76 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   });
 }
 
+ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
+  ShapedType lhsType = lhs.getType();
+  ShapedType rhsType = rhs.getType();
+  Type elementType = lhsType.getElementType();
+  assert(elementType == rhsType.getElementType() &&
+         "matMul() requires identical element types");
+
+  ArrayRef<int64_t> lhsShape = lhsType.getShape();
+  size_t lhsRank = lhsShape.size();
+
+  ArrayRef<int64_t> rhsShape = rhsType.getShape();
+  size_t rhsRank = rhsShape.size();
+
+  // TODO: Handle care where lhs and/or rhs have rank 1.
+  assert(lhsRank >= 2);
+  assert(rhsRank >= 2);
+  int64_t reductionDimSize = lhsShape[lhsRank - 1];
+  assert(reductionDimSize == rhsShape[rhsRank - 2]);
+
+  ArrayRef<int64_t> lhsBatchShape = lhsShape.drop_back(2);
+  ArrayRef<int64_t> rhsBatchShape = rhsShape.drop_back(2);
+  SmallVector<int64_t> combinedBatchShape;
+  if (!OpTrait::util::getBroadcastedShape(
+          lhsBatchShape, rhsBatchShape, combinedBatchShape))
+    llvm_unreachable("matMul() requires broadcast compatible batch shapes");
+  SmallVector<int64_t> matMulShape = combinedBatchShape;
+  matMulShape.push_back(lhsShape[lhsRank - 2]);
+  matMulShape.push_back(rhsShape[rhsRank - 1]);
+
+  SmallVector<int64_t> xpLhsStrides;
+  ArrayBuffer<WideNum> lhsNums =
+      getWideNumsAndExpandedStrides(lhs, matMulShape, xpLhsStrides);
+  int64_t matMulAxisLhsStride = *(xpLhsStrides.end() - 2);
+  SmallVector<int64_t> lhsReducedStrides(xpLhsStrides);
+  lhsReducedStrides.erase(lhsReducedStrides.end() - 2);
+  StridedArrayRef<WideNum> reducedStridedLhs(lhsNums.get(), lhsReducedStrides);
+
+  SmallVector<int64_t> xpRhsStrides;
+  ArrayBuffer<WideNum> rhsNums =
+      getWideNumsAndExpandedStrides(rhs, matMulShape, xpRhsStrides);
+  int64_t matMulAxisRhsStride = *(xpRhsStrides.end() - 1);
+  SmallVector<int64_t> rhsReducedStrides(xpRhsStrides);
+  rhsReducedStrides.erase(rhsReducedStrides.end() - 1);
+  StridedArrayRef<WideNum> reducedStridedRhs(rhsNums.get(), rhsReducedStrides);
+
+  using CombinerType =
+      std::function<void(WideNum *, const WideNum *, const WideNum *)>;
+  auto combiner =
+      wideZeroDispatchNonBool(elementType, [&](auto wideZero) -> CombinerType {
+        using cpptype = decltype(wideZero);
+        return [&](WideNum *res, const WideNum *arg0,
+                   const WideNum *arg1) -> void {
+          constexpr BType TAG = toBType<cpptype>;
+          cpptype accumulator = 0;
+          for (int64_t i = 0; i < reductionDimSize; ++i) {
+            accumulator += arg0->narrow<TAG>() * arg1->narrow<TAG>();
+            arg0 += matMulAxisLhsStride;
+            arg1 += matMulAxisRhsStride;
+          }
+          *res = WideNum::widen<TAG>(accumulator);
+        };
+      });
+  ShapedType matMulType = lhsType.clone(matMulShape);
+  return fromWideNums(matMulType, [&](MutableArrayRef<WideNum> dstNums) {
+    WideNum *end = traverseStrides<WideNum *, WideNum, WideNum>(matMulShape,
+        dstNums.begin(), reducedStridedLhs, reducedStridedRhs, combiner);
+    assert(end == dstNums.end() && "traverses every dst element");
+  });
+}
+
 /*static*/
 auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     -> ElementsProperties {

@@ -137,6 +137,9 @@ def CreateReduceMaxConst :
 def CreateReduceMeanConst :
     NativeCodeCall<"ConstPropReduce<mlir::ONNXReduceMeanOp>($_builder, $0, $1, $2)">;
 
+def CreateMatMulIntegerOfConsts :
+    NativeCodeCall<"ConstPropMatMulInteger($_builder, $0, $1, $2, $3, $4)">;
+
 def CreateTransposeOfConst :
    NativeCodeCall<"ConstPropTranspose($_builder, $0, $1)">;
 
@@ -514,7 +517,8 @@ def MatMulIntegerConstZeroLhs : Pat<
     ),
     (CreateZeroTensorOfType $resOp),
     [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
-     (IsMatMulIntegerLhsZero $A, $a_zero_point)]>;
+     (IsMatMulIntegerLhsZero $A, $a_zero_point)]
+    >;
 
 def MatMulIntegerConstZeroRhs : Pat<
     (ONNXMatMulIntegerOp:$resOp
@@ -524,7 +528,19 @@ def MatMulIntegerConstZeroRhs : Pat<
     ),
     (CreateZeroTensorOfType $resOp),
     [(IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point),
-     (IsMatMulIntegerRhsZero $B, $b_zero_point)]>;
+     (IsMatMulIntegerRhsZero $B, $b_zero_point)]
+    >;
+
+def MatMulIntegerOfConsts : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
+      $a_zero_point, $b_zero_point
+    ),
+    (CreateMatMulIntegerOfConsts $resOp, $A, $B, $a_zero_point, $b_zero_point),
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
+     (IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point)]
+    >;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Transpose operations.

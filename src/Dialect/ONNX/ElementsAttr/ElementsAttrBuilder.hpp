@@ -154,6 +154,8 @@ public:
       llvm::ArrayRef<unsigned> axes, bool keepdims,
       WideNum (*reducer)(WideNum, WideNum));
 
+  mlir::ElementsAttr matMul(mlir::ElementsAttr lhs, mlir::ElementsAttr rhs);
+
 private:
   struct ElementsProperties;
 

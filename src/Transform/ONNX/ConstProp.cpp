@@ -530,15 +530,16 @@ ElementsAttr getMatMulIntegerMatrixElements(
 }
 
 Value ConstPropMatMulInteger(PatternRewriter &rewriter, Value replacingValue,
-    Value lhsMatrixValue, Value lhsZeroPointValue, Value rhsMatrixValue,
+    Value lhsMatrixValue, Value rhsMatrixValue, Value lhsZeroPointValue,
     Value rhsZeroPointValue) {
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr lhs = getMatMulIntegerMatrixElements(elementsBuilder,
       lhsMatrixValue, lhsZeroPointValue, reshapeMatMulIntegerLhsZero);
   ElementsAttr rhs = getMatMulIntegerMatrixElements(elementsBuilder,
       rhsMatrixValue, rhsZeroPointValue, reshapeMatMulIntegerRhsZero);
-  // TODO: do the matrix multiply
-  return nullptr;
+  ElementsAttr matMulElements = elementsBuilder.matMul(lhs, rhs);
+  return createReplacingConstantOp(rewriter, replacingValue, matMulElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
