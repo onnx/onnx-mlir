@@ -463,6 +463,13 @@ ElementsAttr reshapeMatMulIntegerLhsZero(
   return zeroPoint;
 }
 
+// Rhs zero point scalar / vector / tensor always broadcasts to
+// matrix's shape.
+ElementsAttr reshapeMatMulIntegerRhsZero(
+    ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
+  return zeroPoint;
+}
+
 bool isMatMulIntegerMatrixZero(Value matrixValue, Value zeroPointValue,
     function_ref<ElementsAttr(ArrayRef<int64_t>, ElementsAttr)> reshapeZero) {
   ElementsAttr matrix = getConstValueElements(matrixValue);
@@ -498,10 +505,8 @@ bool isMatMulIntegerLhsZero(Value matrixValue, Value zeroPointValue) {
 }
 
 bool isMatMulIntegerRhsZero(Value matrixValue, Value zeroPointValue) {
-  auto noReshape = [](ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
-    return zeroPoint;
-  };
-  return isMatMulIntegerMatrixZero(matrixValue, zeroPointValue, noReshape);
+  return isMatMulIntegerMatrixZero(
+      matrixValue, zeroPointValue, reshapeMatMulIntegerRhsZero);
 }
 
 //===----------------------------------------------------------------------===//
