@@ -305,6 +305,48 @@ struct ScalarOp<ONNXTanOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXIsInfOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  // ONNXIsInfOp isInfOp = llvm::cast<ONNXIsInfOp>(op);
+
+  Value x = scalarOperands[0]; // x-> input
+  Value result;
+
+  MathBuilder createMath(rewriter, loc);
+  // double posInf = INFINITY;
+  // double negInf = -INFINITY;
+  // Value pinf = createMath.constant(elementType, posInf);
+  // Value ninf = createMath.constant(elementType, negInf);
+
+  auto detectNegAttribute = IntegerAttr::get(rewriter.getI64Type(),
+      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectNegative().convertToIndex());
+  auto detectPosAttribute = IntegerAttr::get(rewriter.getI64Type(),
+      llvm::dyn_cast<ONNXIsInfOp>(op).getDetectPositive().convertToIndex());
+
+  bool detectNeg = detectNegAttribute == 1;
+  bool detectPos = detectPosAttribute == 1;
+
+  if (!detectNeg) {
+    // Check if input == pinf
+    Value posInfinity =
+        rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, INFINITY);
+    result = createMath.select(posInfinity, INFINITY, -INFINITY);
+  } else if (!detectPos) {
+    // Check if input == ninf
+    Value negInfinity =
+        rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, -INFINITY);
+    result = createMath.select(negInfinity, -INFINITY, INFINITY);
+  } else
+    llvm_unreachable("unsupported element type");
+
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
 template <>
