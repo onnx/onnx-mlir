@@ -512,14 +512,16 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
          "matMul() requires identical element types");
 
   ArrayRef<int64_t> lhsShape = lhsType.getShape();
-  size_t lhsRank = lhsShape.size();
+  unsigned lhsRank = lhsShape.size();
 
   ArrayRef<int64_t> rhsShape = rhsType.getShape();
-  size_t rhsRank = rhsShape.size();
+  unsigned rhsRank = rhsShape.size();
 
   // TODO: Handle care where lhs and/or rhs have rank 1.
   assert(lhsRank >= 2);
   assert(rhsRank >= 2);
+  int64_t lhsDimSize = lhsShape[lhsRank - 2];
+  int64_t rhsDimSize = rhsShape[rhsRank - 1];
   int64_t reductionDimSize = lhsShape[lhsRank - 1];
   assert(reductionDimSize == rhsShape[rhsRank - 2]);
 
@@ -530,47 +532,54 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
           lhsBatchShape, rhsBatchShape, combinedBatchShape))
     llvm_unreachable("matMul() requires broadcast compatible batch shapes");
   SmallVector<int64_t> matMulShape = combinedBatchShape;
-  matMulShape.push_back(lhsShape[lhsRank - 2]);
-  matMulShape.push_back(rhsShape[rhsRank - 1]);
+  matMulShape.push_back(lhsDimSize);
+  matMulShape.push_back(rhsDimSize);
+  unsigned matMulRank = matMulShape.size();
 
-  SmallVector<int64_t> xpLhsStrides;
+  SmallVector<int64_t> xpLhsShape = combinedBatchShape;
+  xpLhsShape.push_back(lhsDimSize);
+  xpLhsShape.push_back(reductionDimSize);
+  SmallVector<int64_t> lhsReducedStrides;
   ArrayBuffer<WideNum> lhsNums =
-      getWideNumsAndExpandedStrides(lhs, matMulShape, xpLhsStrides);
-  int64_t matMulAxisLhsStride = *(xpLhsStrides.end() - 2);
-  SmallVector<int64_t> lhsReducedStrides(xpLhsStrides);
-  lhsReducedStrides.erase(lhsReducedStrides.end() - 2);
-  StridedArrayRef<WideNum> reducedStridedLhs(lhsNums.get(), lhsReducedStrides);
+      getWideNumsAndExpandedStrides(lhs, xpLhsShape, lhsReducedStrides);
+  assert(lhsReducedStrides.size() == matMulRank);
+  int64_t matMulAxisLhsStride = lhsReducedStrides[matMulRank - 1];
+  lhsReducedStrides[matMulRank - 1] = 0;
 
-  SmallVector<int64_t> xpRhsStrides;
+  SmallVector<int64_t> xpRhsShape = combinedBatchShape;
+  xpRhsShape.push_back(reductionDimSize);
+  xpRhsShape.push_back(rhsDimSize);
+  SmallVector<int64_t> rhsReducedStrides;
   ArrayBuffer<WideNum> rhsNums =
-      getWideNumsAndExpandedStrides(rhs, matMulShape, xpRhsStrides);
-  int64_t matMulAxisRhsStride = *(xpRhsStrides.end() - 1);
-  SmallVector<int64_t> rhsReducedStrides(xpRhsStrides);
-  rhsReducedStrides.erase(rhsReducedStrides.end() - 1);
-  StridedArrayRef<WideNum> reducedStridedRhs(rhsNums.get(), rhsReducedStrides);
+      getWideNumsAndExpandedStrides(rhs, xpRhsShape, rhsReducedStrides);
+  assert(rhsReducedStrides.size() == matMulRank);
+  int64_t matMulAxisRhsStride = rhsReducedStrides[matMulRank - 2];
+  rhsReducedStrides[matMulRank - 2] = 0;
 
-  using CombinerType =
-      std::function<void(WideNum *, const WideNum *, const WideNum *)>;
-  auto combiner =
-      wideZeroDispatchNonBool(elementType, [&](auto wideZero) -> CombinerType {
-        using cpptype = decltype(wideZero);
-        return [&](WideNum *res, const WideNum *arg0,
-                   const WideNum *arg1) -> void {
-          constexpr BType TAG = toBType<cpptype>;
-          cpptype accumulator = 0;
-          for (int64_t i = 0; i < reductionDimSize; ++i) {
-            accumulator += arg0->narrow<TAG>() * arg1->narrow<TAG>();
-            arg0 += matMulAxisLhsStride;
-            arg1 += matMulAxisRhsStride;
-          }
-          *res = WideNum::widen<TAG>(accumulator);
-        };
-      });
   ShapedType matMulType = lhsType.clone(matMulShape);
   return fromWideNums(matMulType, [&](MutableArrayRef<WideNum> dstNums) {
-    WideNum *end = traverseStrides<WideNum *, WideNum, WideNum>(matMulShape,
-        dstNums.begin(), reducedStridedLhs, reducedStridedRhs, combiner);
-    assert(end == dstNums.end() && "traverses every dst element");
+    wideZeroDispatchNonBool(elementType, [&](auto wideZero) {
+      using cpptype = decltype(wideZero);
+      constexpr BType TAG = toBType<cpptype>;
+      // Traverse and populate each element d in dstNums.
+      for (StridesIterator<2>
+               iter(matMulShape, {lhsReducedStrides, rhsReducedStrides}),
+           end(matMulShape);
+           iter != end; ++iter) {
+        // Traverse all the elements that reduce together into d.
+        // srcNums elements may be repeated if there are zeros in axesStrides.
+        cpptype accumulator = 0;
+        auto lhsPos = iter->pos[0];
+        auto rhsPos = iter->pos[1];
+        for (int64_t i = 0; i < reductionDimSize; ++i) {
+          accumulator += lhsNums.get()[lhsPos].narrow<TAG>() *
+                         rhsNums.get()[rhsPos].narrow<TAG>();
+          lhsPos += matMulAxisLhsStride;
+          rhsPos += matMulAxisRhsStride;
+        }
+        dstNums[iter->flattenedIndex] = WideNum::widen<TAG>(accumulator);
+      }
+    });
   });
 }
 

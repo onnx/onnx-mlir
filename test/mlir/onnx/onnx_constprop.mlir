@@ -562,6 +562,18 @@ func.func @test_matmulinteger_rhs_zero_tensor(%arg0: tensor<1x4x3xi8>) -> tensor
   // CHECK-NOT: {{.*}} = "onnx.MatMulInteger"{{.*}}
 }
 
+// -----
+
+func.func @test_matmulinteger_2d() -> (tensor<2x1xi32>) {
+  %0 = "onnx.Constant"() {value = dense<1> : tensor<2x3xi8>} : () -> tensor<2x3xi8>
+  %1 = "onnx.Constant"() {value = dense<1> : tensor<3x1xi8>} : () -> tensor<3x1xi8>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %3 = "onnx.MatMulInteger"(%0, %1, %2, %2) : (tensor<2x3xi8>, tensor<3x1xi8>, none, none) -> tensor<2x1xi32>
+  return %3 : tensor<2x1xi32>
+  // CHECK-LABEL: test_matmulinteger_2d
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<3> : tensor<2x1xi32>
+}
+
 //===----------------------------------------------------------------------===//
 /// Reduce tests
 
