@@ -149,7 +149,7 @@ public:
   std::vector<mlir::ElementsAttr> split(
       mlir::ElementsAttr elms, unsigned axis, llvm::ArrayRef<int64_t> sizes);
 
-  // Assumption: reducer is associative and commutative.
+  // Assumptions: elms is non-empty, reducer is associative and commutative.
   mlir::ElementsAttr reduce(mlir::ElementsAttr elms,
       llvm::ArrayRef<unsigned> axes, bool keepdims,
       WideNum (*reducer)(WideNum, WideNum));
