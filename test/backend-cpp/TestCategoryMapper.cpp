@@ -23,8 +23,8 @@ static bool testInt64ToStr() {
 
   const CategoryMapperBuilder::CMAttributes attributes = {{1, 2, 3, 4, 5},
       {"cat", "dog", "human", "tiger", "beaver"}, -1, "unknown"};
-  const llvm::ArrayRef<int64_t> input = {1, 2, 3, 6, 4, 5};
-  const llvm::ArrayRef<const char *> expResult = {
+  const llvm::SmallVector<int64_t, 6> input = {1, 2, 3, 6, 4, 5};
+  const llvm::SmallVector<const char *, 6> expResult = {
       "cat", "dog", "human", "unknown", "tiger", "beaver"};
 
   CategoryMapperBuilder categoryMapper(
@@ -45,9 +45,9 @@ static bool testStrToInt64() {
 
   const CategoryMapperBuilder::CMAttributes attributes = {{1, 2, 3, 4, 5},
       {"cat", "dog", "human", "tiger", "beaver"}, -1, "unknown"};
-  const llvm::ArrayRef<const char *> input = {
+  const llvm::SmallVector<const char *, 6> input = {
       "dog", "human", "cat", "beaver", "tiger", "bird"};
-  const llvm::ArrayRef<int64_t> expResult = {2, 3, 1, 5, 4, -1};
+  const llvm::SmallVector<int64_t, 6> expResult = {2, 3, 1, 5, 4, -1};
 
   CategoryMapperBuilder categoryMapper(
       SharedLibBaseName, attributes, input, expResult);
