@@ -574,6 +574,37 @@ func.func @test_matmulinteger_2d() -> (tensor<2x1xi32>) {
   // CHECK: [[CONST:%.+]] = onnx.Constant dense<3> : tensor<2x1xi32>
 }
 
+func.func @test_matmulinteger_lhs_vector() -> (tensor<3xi32>) {
+  %0 = "onnx.Constant"() {value = dense<[100, 200]> : tensor<2xui8>} : () -> tensor<2xui8>
+  %1 = "onnx.Constant"() {value = dense<10> : tensor<2x3xi8>} : () -> tensor<2x3xi8>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %3 = "onnx.MatMulInteger"(%0, %1, %2, %2) : (tensor<2xui8>, tensor<2x3xi8>, none, none) -> tensor<3xi32>
+  return %3 : tensor<3xi32>
+  // CHECK-LABEL: test_matmulinteger_lhs_vector
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<3000> : tensor<3xi32>
+}
+
+func.func @test_matmulinteger_rhs_vector() -> (tensor<2xi32>) {
+  %0 = "onnx.Constant"() {value = dense<100> : tensor<2x3xui8>} : () -> tensor<2x3xui8>
+  %1 = "onnx.Constant"() {value = dense<[10, 20, 30]> : tensor<3xi8>} : () -> tensor<3xi8>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %3 = "onnx.MatMulInteger"(%0, %1, %2, %2) : (tensor<2x3xui8>, tensor<3xi8>, none, none) -> tensor<2xi32>
+  return %3 : tensor<2xi32>
+  // CHECK-LABEL: test_matmulinteger_rhs_vector
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<6000> : tensor<2xi32>
+}
+
+// 1486 == 200 * 7 + 40 * 2 + 2 * 3
+func.func @test_matmulinteger_two_vectors() -> (tensor<i32>) {
+  %0 = "onnx.Constant"() {value = dense<[200, 40, 2]> : tensor<3xui8>} : () -> tensor<3xui8>
+  %1 = "onnx.Constant"() {value = dense<[7, 2, 3]> : tensor<3xi8>} : () -> tensor<3xi8>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %3 = "onnx.MatMulInteger"(%0, %1, %2, %2) : (tensor<3xui8>, tensor<3xi8>, none, none) -> tensor<i32>
+  return %3 : tensor<i32>
+  // CHECK-LABEL: test_matmulinteger_two_vectors
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<1486> : tensor<i32>
+}
+
 //===----------------------------------------------------------------------===//
 /// Reduce tests
 
