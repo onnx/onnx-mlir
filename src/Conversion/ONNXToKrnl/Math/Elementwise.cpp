@@ -1371,50 +1371,85 @@ typedef Value (*EmitScalarFunc)(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands);
 
+// Variadic template to iterate all the fusible Ops
+template <typename T>
+bool enqueueFusedOpImpl(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+  if (isa<T>(op)) {
+    fusibleOps.emplace_back(op);
+    fuseEmitFunctions.emplace_back(emitScalarOpFor<T>);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+template <typename T = void, class... Ts>
+bool enqueueFusedOp(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions);
+
+template <typename T, class... Ts>
+bool enqueueFusedOp(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+  if (enqueueFusedOpImpl<T>(op, fusibleOps, fuseEmitFunctions)) {
+    return true;
+  } else {
+    return enqueueFusedOp<Ts...>(op, fusibleOps, fuseEmitFunctions);
+  }
+}
+
+template <>
+bool enqueueFusedOp(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+  return false;
+}
+
+bool enqueueFusedOp(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+  return enqueueFusedOp<ONNXCastOp, ONNXSinhOp, ONNXCoshOp, ONNXSigmoidOp,
+      ONNXHardSigmoidOp, ONNXEluOp, ONNXReluOp, ONNXLeakyReluOp, ONNXPReluOp,
+      ONNXSeluOp, ONNXReciprocalOp, ONNXSoftplusOp, ONNXSoftsignOp, ONNXSignOp,
+      ONNXMaxOp, ONNXMinOp, ONNXNegOp, ONNXLessOp, ONNXLessOrEqualOp,
+      ONNXGreaterOp, ONNXGreaterOrEqualOp, ONNXEqualOp, ONNXNotOp, ONNXModOp,
+      ONNXMeanOp, ONNXRoundOp, ONNXClipOp, ONNXDequantizeLinearOp, ONNXSqrtOp>(
+      op, fusibleOps, fuseEmitFunctions);
+}
+
 // This function starts for elementwise operation, op.
 // A successor op (user) is fusible if it's the only user and an unary
 // elementwise Op. The Op and its EmitScalarOpFor<T> are recorded into
 // the vector.
-static bool findFusableUnaryOps(Operation *op,
-    SmallVector<Operation *, 2> &fuseOps,
+static bool findFusibleUnaryOps(Operation *op,
+    SmallVector<Operation *, 2> &fusibleOps,
     SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
   Operation *currentProducer = op;
   while (currentProducer->hasOneUse()) {
     // Check the users is an unary elementwise op
     // The right solution, I think, is to define EmitScalarOpFor as
     // an interface of unary elementwise Ops.
-    // In the draft PR, it is assumed that the candidates are Sqrt and Relu
-    Operation *user;
-    for (Operation *temp : currentProducer->getUsers()) {
-      user = temp;
+    // In the draft PR, variadic template is used to iterate through
+    // the possible ONNX Ops.
+    Operation *user = *currentProducer->getUsers().begin();
+    if (!enqueueFusedOp(user, fusibleOps, fuseEmitFunctions))
       break;
-    }
-    if (isa<ONNXSqrtOp>(user)) {
-      fuseOps.emplace_back(user);
-      fuseEmitFunctions.emplace_back(emitScalarOpFor<ONNXSqrtOp>);
-    } else if (isa<ONNXReluOp>(user)) {
-      fuseEmitFunctions.emplace_back(emitScalarOpFor<ONNXReluOp>);
-      fuseOps.emplace_back(user);
-    } else {
-      break;
-    }
+
     currentProducer = user;
   }
-  return fuseOps.size() > 0;
+  return fusibleOps.size() > 0;
 }
 
 // Emit fusion Ops
 static Value emitFuseOps(ConversionPatternRewriter &rewriter, Location loc,
-    Value finalResult, SmallVector<Operation *, 2> fuseOps,
+    Value finalResult, SmallVector<Operation *, 2> fusibleOps,
     SmallVector<EmitScalarFunc, 2> fuseEmitFunctions) {
   // Handle the fused Ops
-  for (auto current : llvm::zip(fuseOps, fuseEmitFunctions)) {
-    auto currentOp = std::get<0>(current);
-    auto emitScalar = std::get<1>(current);
-    // ToFix: use the location of each Op.
+  for (size_t i = 0; i < fusibleOps.size(); i++) {
+    auto currentOp = fusibleOps[i];
+    auto emitScalar = fuseEmitFunctions[i];
+    // ToFix: use the ONNX location(ONNXLoc) of each Op.
     // The current obstacle is that no easy way to know the type of Op,
-    // which is needed for ONNXLoc<T>
-    // Location loc = ONNXLoc<T>(currentOp);
+    // which is needed by ONNXLoc<T>(op).
+    Location loc = currentOp->getLoc();
     Type currentElementType = currentOp->getResults()[0]
                                   .getType()
                                   .cast<ShapedType>()
@@ -1426,9 +1461,9 @@ static Value emitFuseOps(ConversionPatternRewriter &rewriter, Location loc,
 }
 
 static void replaceFuseOps(ConversionPatternRewriter &rewriter, Operation *op,
-    Value alloc, SmallVector<Operation *, 2> fuseOps) {
+    Value alloc, SmallVector<Operation *, 2> fusibleOps) {
   auto previous = op;
-  for (Operation *fusedOp : fuseOps) {
+  for (Operation *fusedOp : fusibleOps) {
     rewriter.eraseOp(previous);
     previous = fusedOp;
   }
@@ -1695,12 +1730,14 @@ struct ONNXElementwiseVariadicOpLowering
     }
 
     // Try to fuse the unary elementwise consumers
-    SmallVector<Operation *, 2> fuseOps;
+    SmallVector<Operation *, 2> fusibleOps;
     SmallVector<EmitScalarFunc, 2> fuseEmitFunctions;
-    if (findFusableUnaryOps(op, fuseOps, fuseEmitFunctions)) {
+    bool fusibleOpsFound =
+        findFusibleUnaryOps(op, fusibleOps, fuseEmitFunctions);
+    if (fusibleOpsFound) {
       // After fusion, the only store is for the last Op.
       // Therefore, the allocation should be the output of the last Op
-      Operation *lastOp = fuseOps[fuseOps.size() - 1];
+      Operation *lastOp = fusibleOps[fusibleOps.size() - 1];
       outputMemRefType =
           this->typeConverter->convertType(lastOp->getResults()[0].getType())
               .template cast<MemRefType>();
@@ -1746,8 +1783,9 @@ struct ONNXElementwiseVariadicOpLowering
 
             Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
                 rewriter, loc, op, outputElementType, accumulated);
-            finalResult = emitFuseOps(
-                rewriter, loc, finalResult, fuseOps, fuseEmitFunctions);
+            if (fusibleOpsFound)
+              finalResult = emitFuseOps(
+                  rewriter, loc, finalResult, fusibleOps, fuseEmitFunctions);
             // Store result in the resulting array.
             createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
           });
@@ -1764,14 +1802,15 @@ struct ONNXElementwiseVariadicOpLowering
       }
       Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
           rewriter, loc, op, outputElementType, accumulated);
-      finalResult =
-          emitFuseOps(rewriter, loc, finalResult, fuseOps, fuseEmitFunctions);
+      if (fusibleOpsFound)
+        finalResult = emitFuseOps(
+            rewriter, loc, finalResult, fusibleOps, fuseEmitFunctions);
       // Store result in the resulting array.
       create.krnl.store(finalResult, alloc);
     }
 
     // Replace the last Op with alloc and delete the other Ops
-    replaceFuseOps(rewriter, op, alloc, fuseOps);
+    replaceFuseOps(rewriter, op, alloc, fusibleOps);
     return success();
   }
 }; // namespace onnx_mlir
