@@ -311,7 +311,7 @@ template <>
 Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-    ONNXIsInfOp isInfOp = llvm::dyn_cast<ONNXIsInfOp>(op);
+  ONNXIsInfOp isInfOp = llvm::dyn_cast<ONNXIsInfOp>(op);
 
   Value x = scalarOperands[0]; // x-> input
   Value result;
@@ -322,10 +322,13 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value pinf = createMath.constant(elementType, posInf);
   Value ninf = createMath.constant(elementType, negInf);
 
-  auto detectNegAttribute = IntegerAttr::get(rewriter.getI64Type(),
-      isInfOp.getDetectNegative());
-  auto detectPosAttribute = IntegerAttr::get(rewriter.getI64Type(),
-      isInfOp.getDetectPositive());
+  // auto detectNegAttribute = IntegerAttr::get(rewriter.getI64Type(),
+  //     isInfOp.getDetectNegative());
+  // auto detectPosAttribute = IntegerAttr::get(rewriter.getI64Type(),
+  //     isInfOp.getDetectPositive());
+
+  double detectNegAttribute = isInfOp.getDetectNegative().convertToFloat();
+  double detectPosAttribute = isInfOp.getDetectPositive().convertToFloat();
 
   bool detectNeg = detectNegAttribute == 1;
   bool detectPos = detectPosAttribute == 1;
