@@ -130,6 +130,16 @@ func.func @test_add_constant_5(%arg0 : tensor<3xi32>, %arg1: tensor<3xi32>, %arg
   // CHECK-NEXT: [[ADD3:%.+]] = "onnx.Add"([[ADD2]], [[CONST1]]) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
 }
 
+// -----
+
+// CHECK-LABEL: @test_add_zeros(%arg0: tensor<3xi32>) -> tensor<3xi32>
+func.func @test_add_zeros(%arg0 : tensor<3xi32>) -> tensor<3xi32> {
+  %0 = onnx.Constant dense<[0, 0, 0]> : tensor<3xi32>
+  %1 = "onnx.Add"(%arg0, %0) : (tensor<3xi32> , tensor<3xi32>) -> tensor<3xi32>
+  return %1 : tensor<3xi32>
+  // CHECK: return %arg0 : tensor<3xi32>
+}
+
 /// Test broadcast 1 -> 2d
 
 // -----
@@ -213,6 +223,16 @@ func.func @test_mul_constant_5(%arg0 : tensor<3xi32>, %arg1: tensor<3xi32>, %arg
   // CHECK-NEXT: [[MUL3:%.+]] = "onnx.Mul"([[MUL2]], [[CONST1]]) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
 }
 
+// -----
+
+// CHECK-LABEL: @test_mul_ones(%arg0: tensor<2x2xf32>) -> tensor<2x2xf32>
+func.func @test_mul_ones(%arg0 : tensor<2x2xf32>) -> tensor<2x2xf32> {
+  %0 = onnx.Constant dense<1.0> : tensor<2x2xf32>
+  %1 = "onnx.Mul"(%arg0, %0) : (tensor<2x2xf32> , tensor<2x2xf32>) -> tensor<2x2xf32>
+  return %1 : tensor<2x2xf32>
+  // CHECK: return %arg0 : tensor<2x2xf32>
+}
+
 //===----------------------------------------------------------------------===//
 /// SUB and NEG tests.
 
@@ -227,6 +247,16 @@ func.func @test_sub_1(%arg0: tensor<3x2xi32>) -> tensor<3x2xi32> {
   %2 = "onnx.Sub"(%0, %1) : (tensor<3x2xi32>, tensor<1x1xi32>) -> tensor<3x2xi32>
   "func.return"(%2) : (tensor<3x2xi32>) -> ()
   // CHECK-NEXT: [[CONST1:%.+]] = onnx.Constant dense<{{.}}[0, 1], [2, 3], [4, 5]]> : tensor<3x2xi32>
+}
+
+// -----
+
+// CHECK-LABEL: @test_sub_zeros(%arg0: tensor<f32>) -> tensor<f32>
+func.func @test_sub_zeros(%arg0 : tensor<f32>) -> tensor<f32> {
+  %0 = onnx.Constant dense<0.0> : tensor<f32>
+  %1 = "onnx.Sub"(%arg0, %0) : (tensor<f32> , tensor<f32>) -> tensor<f32>
+  return %1 : tensor<f32>
+  // CHECK: return %arg0 : tensor<f32>
 }
 
 /// check sub to add of negative
@@ -318,6 +348,16 @@ func.func @test_div() -> tensor<3x2xf32> {
   "func.return"(%2) : (tensor<3x2xf32>) -> ()
   // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[1.000000e+00, 2.000000e+00], [3.000000e+00, 4.000000e+00], [5.000000e+00, 6.000000e+00]{{\]}}> : tensor<3x2xf32>
   // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_div_ones(%arg0: tensor<1x2xui8>) -> tensor<1x2xui8>
+func.func @test_div_ones(%arg0 : tensor<1x2xui8>) -> tensor<1x2xui8> {
+  %0 = onnx.Constant dense<[[1, 1]]> : tensor<1x2xui8>
+  %1 = "onnx.Div"(%arg0, %0) : (tensor<1x2xui8> , tensor<1x2xui8>) -> tensor<1x2xui8>
+  return %1 : tensor<1x2xui8>
+  // CHECK: return %arg0 : tensor<1x2xui8>
 }
 
 //===----------------------------------------------------------------------===//
