@@ -6,12 +6,12 @@ module {
   func.func private @first_entry(%arg0: memref<10xf32>) -> memref<10xf32> {
     return %arg0 : memref<10xf32>
   }
-  "krnl.entry_point"() {func = @first_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[    { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22input_0\22 }\0A\0A]\00@[   { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22output_0\22 }\0A\0A]\00"} : () -> ()
+  "krnl.entry_point"() {func = @first_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
 
 // CHECK:         llvm.func @strncmp(!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 // CHECK:         llvm.mlir.global external constant @_entry_point_0("run_main_graph\00")
-// CHECK:         llvm.mlir.global external constant @_entry_point_0_in_sig("[    { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22input_0\22 }\0A\0A]\00") {addr_space = 0 : i32}
-// CHECK:         llvm.mlir.global external constant @_entry_point_0_out_sig("[   { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22output_0\22 }\0A\0A]\00") {addr_space = 0 : i32}  
+// CHECK:         llvm.mlir.global external constant @_entry_point_0_in_sig("[in_sig]\00")
+// CHECK:         llvm.mlir.global external constant @_entry_point_0_out_sig("[out_sig]\00")
 
 // CHECK-LABEL:   llvm.func @run_main_graph
 // CHECK:             ([[ARG0:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8>
@@ -50,8 +50,8 @@ module {
 // CHECK:           [[VAR_8_1_:%.+]] = llvm.icmp "eq" [[VAR_7_1_]], [[VAR_0_4_]] : i32
 // CHECK:           llvm.cond_br [[VAR_8_1_]], ^bb1, ^bb2
 // CHECK:         ^bb1:  // pred: ^bb0
-// CHECK:           [[VAR_9_1_:%.+]] = llvm.mlir.addressof @_entry_point_0_in_sig : !llvm.ptr<array<64 x i8>>
-// CHECK:           [[VAR_10_1_:%.+]] = llvm.bitcast [[VAR_9_1_]] : !llvm.ptr<array<64 x i8>> to !llvm.ptr<i8>
+// CHECK:           [[VAR_9_1_:%.+]] = llvm.mlir.addressof @_entry_point_0_in_sig : !llvm.ptr<array<9 x i8>>
+// CHECK:           [[VAR_10_1_:%.+]] = llvm.bitcast [[VAR_9_1_]] : !llvm.ptr<array<9 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_10_1_]] : !llvm.ptr<i8>
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_11_1_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
@@ -67,8 +67,8 @@ module {
 // CHECK:           [[VAR_8_2_:%.+]] = llvm.icmp "eq" [[VAR_7_2_]], [[VAR_0_5_]] : i32
 // CHECK:           llvm.cond_br [[VAR_8_2_]], ^bb1, ^bb2
 // CHECK:         ^bb1:  // pred: ^bb0
-// CHECK:           [[VAR_9_2_:%.+]] = llvm.mlir.addressof @_entry_point_0_out_sig : !llvm.ptr<array<64 x i8>>
-// CHECK:           [[VAR_10_2_:%.+]] = llvm.bitcast [[VAR_9_2_]] : !llvm.ptr<array<64 x i8>> to !llvm.ptr<i8>
+// CHECK:           [[VAR_9_2_:%.+]] = llvm.mlir.addressof @_entry_point_0_out_sig : !llvm.ptr<array<10 x i8>>
+// CHECK:           [[VAR_10_2_:%.+]] = llvm.bitcast [[VAR_9_2_]] : !llvm.ptr<array<10 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_10_2_]] : !llvm.ptr<i8>
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_11_2_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
@@ -87,16 +87,16 @@ module {
   func.func private @second_entry(%arg0: memref<10xf32>) -> memref<10xf32> {
     return %arg0 : memref<10xf32>
   }
-  "krnl.entry_point"() {func = @first_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[    { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22input_0\22 }\0A\0A]\00@[   { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22output_0\22 }\0A\0A]\00"} : () -> ()
-  "krnl.entry_point"() {func = @second_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[    { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22input_0\22 }\0A\0A]\00@[   { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22output_0\22 }\0A\0A]\00"} : () -> ()
+  "krnl.entry_point"() {func = @first_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig_0]\00@[out_sig_0]\00"} : () -> ()
+  "krnl.entry_point"() {func = @second_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig_1]\00@[out_sig_1]\00"} : () -> ()
 
 // CHECK:         llvm.func @strncmp(!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 // CHECK-DAG:     llvm.mlir.global external constant @_entry_point_0("run_first_entry\00")
-// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_0_in_sig("[    { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22input_0\22 }\0A\0A]\00")
-// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_0_out_sig("[   { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22output_0\22 }\0A\0A]\00")
+// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_0_in_sig("[in_sig_0]\00")
+// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_0_out_sig("[out_sig_0]\00")
 // CHECK-DAG:     llvm.mlir.global external constant @_entry_point_1("run_second_entry\00")
-// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_1_in_sig("[    { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22input_0\22 }\0A\0A]\00")
-// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_1_out_sig("[   { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22output_0\22 }\0A\0A]\00")
+// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_1_in_sig("[in_sig_1]\00")
+// CHECK-DAG:     llvm.mlir.global external constant @_entry_point_1_out_sig("[out_sig_1]\00")
 
 // CHECK:         llvm.func @run_first_entry([[ARG0:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
 // CHECK:           {{.*}} = llvm.call @omTensorListGetOmtArray([[ARG0]]) : (!llvm.ptr<i8>) -> !llvm.ptr<ptr<i8>>
@@ -141,8 +141,8 @@ module {
 // CHECK:           [[VAR_8_6_:%.+]] = llvm.icmp "eq" [[VAR_7_6_]], [[VAR_0_12_]] : i32
 // CHECK:           llvm.cond_br [[VAR_8_6_]], ^bb1, ^bb2
 // CHECK:         ^bb1:  // pred: ^bb0
-// CHECK:           [[VAR_9_6_:%.+]] = llvm.mlir.addressof @_entry_point_0_in_sig : !llvm.ptr<array<64 x i8>>
-// CHECK:           [[VAR_10_6_:%.+]] = llvm.bitcast [[VAR_9_6_]] : !llvm.ptr<array<64 x i8>> to !llvm.ptr<i8>
+// CHECK:           [[VAR_9_6_:%.+]] = llvm.mlir.addressof @_entry_point_0_in_sig : !llvm.ptr<array<11 x i8>>
+// CHECK:           [[VAR_10_6_:%.+]] = llvm.bitcast [[VAR_9_6_]] : !llvm.ptr<array<11 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_10_6_]] : !llvm.ptr<i8>
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_12_4_:%.+]] = llvm.mlir.addressof @_entry_point_1 : !llvm.ptr<array<17 x i8>>
@@ -152,8 +152,8 @@ module {
 // CHECK:           [[LOAD_VAR_13_MEM_1_1_:%.+]] = llvm.icmp "eq" [[VAR_15_3_]], [[VAR_0_12_]] : i32
 // CHECK:           llvm.cond_br [[LOAD_VAR_13_MEM_1_1_]], ^bb3, ^bb4
 // CHECK:         ^bb3:  // pred: ^bb2
-// CHECK:           [[VAR_17_3_:%.+]] = llvm.mlir.addressof @_entry_point_1_in_sig : !llvm.ptr<array<64 x i8>>
-// CHECK:           [[LOAD_VAR_2_3_MEM_1_1_:%.+]] = llvm.bitcast [[VAR_17_3_]] : !llvm.ptr<array<64 x i8>> to !llvm.ptr<i8>
+// CHECK:           [[VAR_17_3_:%.+]] = llvm.mlir.addressof @_entry_point_1_in_sig : !llvm.ptr<array<11 x i8>>
+// CHECK:           [[LOAD_VAR_2_3_MEM_1_1_:%.+]] = llvm.bitcast [[VAR_17_3_]] : !llvm.ptr<array<11 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.return [[LOAD_VAR_2_3_MEM_1_1_]] : !llvm.ptr<i8>
 // CHECK:         ^bb4:  // pred: ^bb2
 // CHECK:           [[VAR_19_3_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
@@ -170,8 +170,8 @@ module {
 // CHECK:           [[VAR_8_7_:%.+]] = llvm.icmp "eq" [[VAR_7_7_]], [[VAR_0_13_]] : i32
 // CHECK:           llvm.cond_br [[VAR_8_7_]], ^bb1, ^bb2
 // CHECK:         ^bb1:  // pred: ^bb0
-// CHECK:           [[VAR_9_7_:%.+]] = llvm.mlir.addressof @_entry_point_0_out_sig : !llvm.ptr<array<64 x i8>>
-// CHECK:           [[VAR_10_7_:%.+]] = llvm.bitcast [[VAR_9_7_]] : !llvm.ptr<array<64 x i8>> to !llvm.ptr<i8>
+// CHECK:           [[VAR_9_7_:%.+]] = llvm.mlir.addressof @_entry_point_0_out_sig : !llvm.ptr<array<12 x i8>>
+// CHECK:           [[VAR_10_7_:%.+]] = llvm.bitcast [[VAR_9_7_]] : !llvm.ptr<array<12 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_10_7_]] : !llvm.ptr<i8>
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_12_5_:%.+]] = llvm.mlir.addressof @_entry_point_1 : !llvm.ptr<array<17 x i8>>
@@ -181,8 +181,8 @@ module {
 // CHECK:           [[LOAD_VAR_13_MEM_1_1_:%.+]] = llvm.icmp "eq" [[VAR_15_4_]], [[VAR_0_13_]] : i32
 // CHECK:           llvm.cond_br [[LOAD_VAR_13_MEM_1_1_]], ^bb3, ^bb4
 // CHECK:         ^bb3:  // pred: ^bb2
-// CHECK:           [[VAR_17_4_:%.+]] = llvm.mlir.addressof @_entry_point_1_out_sig : !llvm.ptr<array<64 x i8>>
-// CHECK:           [[LOAD_VAR_2_3_MEM_1_1_:%.+]] = llvm.bitcast [[VAR_17_4_]] : !llvm.ptr<array<64 x i8>> to !llvm.ptr<i8>
+// CHECK:           [[VAR_17_4_:%.+]] = llvm.mlir.addressof @_entry_point_1_out_sig : !llvm.ptr<array<12 x i8>>
+// CHECK:           [[LOAD_VAR_2_3_MEM_1_1_:%.+]] = llvm.bitcast [[VAR_17_4_]] : !llvm.ptr<array<12 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.return [[LOAD_VAR_2_3_MEM_1_1_]] : !llvm.ptr<i8>
 // CHECK:         ^bb4:  // pred: ^bb2
 // CHECK:           [[VAR_19_4_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
@@ -197,7 +197,7 @@ module attributes {"onnx-mlir.accels" = ["Pseudo-0x10001", "NNPA-0x10000"]} {
   func.func private @main_graph(%arg0: memref<10xf32>) -> memref<10xf32> {
     return %arg0 : memref<10xf32>
   }
-  "krnl.entry_point"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[    { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22input_0\22 }\0A\0A]\00@[   { \22type\22 : \22f32\22 , \22dims\22 : [10] , \22name\22 : \22output_0\22 }\0A\0A]\00"} : () -> ()
+  "krnl.entry_point"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
 // CHECK:      llvm.func @OMInitCompatibleAccelNNPA(i64)
 // CHECK:      llvm.func @OMInitCompatibleAccelPseudo(i64)
 // CHECK:      llvm.func @run_main_graph({{.*}}: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
