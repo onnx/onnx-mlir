@@ -656,14 +656,25 @@ func.func @test_matmulinteger_two_vectors() -> (tensor<i32>) {
 }
 
 // This example is taken from the onnx MatMulInteger operation specification.
-func.func @test_matmulinteger_with_zeros() -> (tensor<4x2xi32>) {
+func.func @test_matmulinteger_with_1Dzeros() -> (tensor<4x2xi32>) {
+  %0 = "onnx.Constant"() {value = dense<[[11, 7, 3], [10, 6, 2], [9, 5, 1], [8, 4, 0]]> : tensor<4x3xui8>} : () -> tensor<4x3xui8>
+  %1 = "onnx.Constant"() {value = dense<[[1, 4], [2, 5], [3, 6]]> : tensor<3x2xui8>} : () -> tensor<3x2xui8>
+  %2 = "onnx.Constant"() {value = dense<[12]> : tensor<1xui8>} : () -> tensor<1xui8>
+  %3 = "onnx.Constant"() {value = dense<[0]> : tensor<1xui8>} : () -> tensor<1xui8>
+  %4 = "onnx.MatMulInteger"(%0, %1, %2, %3) : (tensor<4x3xui8>, tensor<3x2xui8>, tensor<1xui8>, tensor<1xui8>) -> tensor<4x2xi32>
+  return %4 : tensor<4x2xi32>
+  // CHECK-LABEL: test_matmulinteger_with_1Dzeros
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{\[}}[-38, -83], [-44, -98], [-50, -113], [-56, -128]{{\]}}> : tensor<4x2xi32>
+}
+
+func.func @test_matmulinteger_with_0dzeros() -> (tensor<4x2xi32>) {
   %0 = "onnx.Constant"() {value = dense<[[11, 7, 3], [10, 6, 2], [9, 5, 1], [8, 4, 0]]> : tensor<4x3xui8>} : () -> tensor<4x3xui8>
   %1 = "onnx.Constant"() {value = dense<[[1, 4], [2, 5], [3, 6]]> : tensor<3x2xui8>} : () -> tensor<3x2xui8>
   %2 = "onnx.Constant"() {value = dense<12> : tensor<ui8>} : () -> tensor<ui8>
   %3 = "onnx.Constant"() {value = dense<0> : tensor<ui8>} : () -> tensor<ui8>
   %4 = "onnx.MatMulInteger"(%0, %1, %2, %3) : (tensor<4x3xui8>, tensor<3x2xui8>, tensor<ui8>, tensor<ui8>) -> tensor<4x2xi32>
   return %4 : tensor<4x2xi32>
-  // CHECK-LABEL: test_matmulinteger_with_zeros
+  // CHECK-LABEL: test_matmulinteger_with_0dzeros
   // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{\[}}[-38, -83], [-44, -98], [-50, -113], [-56, -128]{{\]}}> : tensor<4x2xi32>
 }
 

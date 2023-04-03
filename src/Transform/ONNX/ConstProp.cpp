@@ -430,8 +430,9 @@ ElementsAttr reshapeMatMulIntegerLhsZero(
   ShapedType zeroPointType = zeroPoint.getType();
   auto zeroPointShape = zeroPointType.getShape();
   auto zeroPointRank = zeroPointShape.size();
-  if (zeroPointRank == 0) {
+  if (zeroPointRank == 0 || (zeroPointRank == 1 && zeroPointShape[0] == 1)) {
     // Scalar case is easy: zeroPoint trivially broadcasts to matrix's shape.
+    // Scalars can be represented as singleton tensors with rank 0 or 1.
   } else if (zeroPointRank == 1) {
     // Vector with zero point scalar per row. Same shape as a matrix column.
     assert(zeroPointRank == 1);
