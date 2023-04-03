@@ -220,7 +220,7 @@ def AddConstProp : Pat<
     // Additional constraints (dense)
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
-// TODO: Expand $a to $result's shape instead of requiring ValuesHaveSameType.
+// TODO: Expand $x to $result's shape instead of requiring ValuesHaveSameType.
 def AddZerosOnRhs : Pat<
     // From add(x, c).
     (ONNXAddOp:$result
