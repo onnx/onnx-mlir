@@ -531,7 +531,8 @@ private:
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<Value> inputs, int expectedNumOperands,
       int expectedNumResults, const std::vector<NamedAttribute> &attributes,
-      std::vector<Type> givenOutputTypes = std::vector<Type>()) {
+      std::vector<Type> givenOutputTypes = std::vector<Type>(),
+      int num_use_inference_outputs = -1) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -611,7 +612,15 @@ private:
           // Use type info from graph to reset type of output for current op
           for (int i = 0; i < node.output().size(); i++) {
             Type type = funcType.getResults()[i];
-            genericOp->getOpResult(i).setType(type);
+            if ((num_use_inference_outputs < 0) ||
+                (i < num_use_inference_outputs)) {
+              genericOp->getOpResult(i).setType(type);
+            } else {
+              TensorType tensorType = type.cast<TensorType>();
+              Type extendedType =
+                  UnrankedTensorType::get(tensorType.getElementType());
+              genericOp->getOpResult(i).setType(extendedType);
+            }
           }
         } else {
           llvm_unreachable("Op contains subgraph attributes but does not "
@@ -681,6 +690,33 @@ private:
     }
     buildOutputAndOperation<ONNXCategoryMapperOp>(node, inputs,
         expectedNumOperands, expectedNumResults, attributes, outputTypes);
+  }
+
+  // The output type of Scan needs special handling
+  // The final_stete_and_scan_outputs of Scan shows final values of loop's
+  // N state variables followed by K scan_outputs.
+  void ImportScan(const onnx::NodeProto &node) {
+    int expectedNumOperands = ONNXScanOp::getNumberOfOperands();
+    int expectedNumResults = ONNXScanOp::getNumberOfResults();
+    std::vector<Value> inputs;
+    getNodeInputs(node, inputs);
+    auto attributes = ImportNodeAttributes(node);
+    int num_scan_inputs = -1;
+    int i;
+    for (i = 0; i < node.attribute_size(); ++i) {
+      auto attr = node.attribute(i);
+      if (attr.name() == "num_scan_inputs") {
+        num_scan_inputs = attr.i();
+        break;
+      }
+    }
+    assert((i < node.attribute_size()) &&
+           "mandatory num_scan_inputs attr not in onnx.Scan");
+    buildOutputAndOperation<ONNXScanOp>(node, inputs, expectedNumOperands,
+        expectedNumResults, attributes,
+        /*givenOutputTypes=*/std::vector<Type>(),
+        /*num_use_inference_outputs=*/num_scan_inputs);
+    return;
   }
 
   std::vector<NamedAttribute> ImportCastAttributes(
