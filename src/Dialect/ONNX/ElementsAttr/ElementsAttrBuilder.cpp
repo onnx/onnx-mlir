@@ -513,10 +513,10 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
   assert(!elementType.isInteger(1) && "matMul() elements must be numbers");
 
   ArrayRef<int64_t> lhsShape = lhsType.getShape();
-  unsigned lhsRank = lhsShape.size();
+  size_t lhsRank = lhsShape.size();
 
   ArrayRef<int64_t> rhsShape = rhsType.getShape();
-  unsigned rhsRank = rhsShape.size();
+  size_t rhsRank = rhsShape.size();
 
   assert(lhsRank >= 1);
   assert(rhsRank >= 1);
@@ -553,7 +553,7 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
   SmallVector<int64_t> matMulShape = combinedBatchShape;
   matMulShape.push_back(M);
   matMulShape.push_back(N);
-  unsigned matMulRank = matMulShape.size();
+  size_t matMulRank = matMulShape.size();
 
   SmallVector<int64_t> xpLhsShape = combinedBatchShape;
   if (lhsRank != 1)
