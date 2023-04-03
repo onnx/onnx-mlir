@@ -510,6 +510,7 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
   Type elementType = lhsType.getElementType();
   assert(elementType == rhsType.getElementType() &&
          "matMul() requires identical element types");
+  assert(!elementType.isInteger(1) && "matMul() elements must be numbers");
 
   ArrayRef<int64_t> lhsShape = lhsType.getShape();
   unsigned lhsRank = lhsShape.size();
