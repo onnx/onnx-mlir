@@ -75,6 +75,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   OMAccelerator
   OMCompilerOptions
   OMONNXOps
+  OMONNXDimAnalysis
   OMSupport
   MLIRFuncDialect
   MLIRFuncTransforms

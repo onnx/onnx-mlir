@@ -368,7 +368,7 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   // operators, e.g. ONNXExtendOp). Dismiss such cases as we need here the
   // values of each of the inputs.
   int64_t inputNum = inputsDims.size();
-  if ((int64_t) operands.size() != inputNum)
+  if ((int64_t)operands.size() != inputNum)
     return false;
   // Check if we can prove that each operand has the same shape.
   for (int i = 1; i < inputNum; ++i)
