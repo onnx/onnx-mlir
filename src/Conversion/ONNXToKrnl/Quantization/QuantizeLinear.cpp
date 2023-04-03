@@ -40,20 +40,22 @@ struct ONNXQuantizeLinearOpLowering
     Value YScale = adaptor.getYScale();
     Value YZeroPoint = qlOp.getYZeroPoint(); // Optional input.
 
-    // Only support per-tensor/layer quantization.
-    MemRefType yScaleMemRefType = YScale.getType().cast<MemRefType>();
-    assert(yScaleMemRefType.getRank() == 0 &&
-           "Does not support per-axis quantization");
-
     // MemRefType for inputs and outputs.
     auto xMemRefType = dyn_cast<MemRefType>(X.getType());
     auto yMemRefType = dyn_cast<MemRefType>(
         typeConverter->convertType(qlOp.getResult().getType()));
+    MemRefType yScaleMemRefType = YScale.getType().cast<MemRefType>();
 
     // Types
     Type elementType = xMemRefType.getElementType();
     Type quantizedElementType = yMemRefType.getElementType();
     int64_t rank = xMemRefType.getRank();
+
+    // Does not support per-axis and i8.
+    assert(yScaleMemRefType.getRank() == 0 &&
+           "Does not support per-axis quantization");
+    assert(quantizedElementType.isUnsignedInteger() &&
+           "Does not support i8 quantization");
 
     // Get shape.
     ONNXQuantizeLinearOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -66,7 +68,7 @@ struct ONNXQuantizeLinearOpLowering
     // Equations:
     // y = saturate (round (x / y_scale) + y_zero_point)
     //
-    // where, saturate is to clip to [0, 255] for ui8 or [-128, 127] it's int8.
+    // where, saturate is to clip to [0, 255] for ui8 or [-128, 127] it's i8.
 
     // Quantization bounds.
     Value qMax, qMin;

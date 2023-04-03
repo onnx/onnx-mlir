@@ -143,7 +143,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **Pow** |15 |No support for power with integer types. | |
 | **QLinearConv** | |unsupported | |
 | **QLinearMatMul** | |unsupported | |
-| **QuantizeLinear** |13 |Do not support per-axis quantization. | |
+| **QuantizeLinear** |13 |Do not support per-axis and i8 quantization. | |
 | **RNN** |14 | | |
 | **RandomNormal** | |unsupported | |
 | **RandomNormalLike** | |unsupported | |

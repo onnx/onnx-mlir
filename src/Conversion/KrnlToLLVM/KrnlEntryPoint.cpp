@@ -107,10 +107,11 @@ public:
     recordEntryPointSignatures(module, dynEntryPointName, op, entryGlobalOps,
         inSigGlobalOps, outSigGlobalOps);
 
-    // When input and output MemRefs was lowered to LLVM Struct where there is
-    // no information about signed/unsigned integers. At the time of lowering
-    // this operation, integers are signless. To set data type for OMTensor
-    // correctly, we get element type from original MemRefTypes.
+    // When input and output MemRefs are lowered to LLVM Struct, there is
+    // no information about signed/unsigned integers anymore. In other words,
+    // integers are signless at the time of lowering this operation. To set data
+    // type for OMTensor correctly, we have to obtain element types from
+    // original MemRefTypes.
     SmallVector<Type, 4> elemOutputTypes;
     for (MemRefType ty : outputMemRefTypes[staticEntryPointFuncName.str()])
       elemOutputTypes.emplace_back(ty.getElementType());

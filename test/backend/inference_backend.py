@@ -673,7 +673,7 @@ def get_test_models():
         # QLinearMatmul
 
         # ==OP== QuantizeLinear
-        # ==LIM== Do not support per-axis quantization.
+        # ==LIM== Do not support per-axis and i8 quantization.
         # "test_quantizelinear_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_quantizelinear_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
