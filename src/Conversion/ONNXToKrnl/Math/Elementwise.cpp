@@ -322,11 +322,6 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value pinf = createMath.constant(elementType, posInf);
   Value ninf = createMath.constant(elementType, negInf);
 
-  // auto detectNegAttribute = IntegerAttr::get(rewriter.getI64Type(),
-  //     isInfOp.getDetectNegative());
-  // auto detectPosAttribute = IntegerAttr::get(rewriter.getI64Type(),
-  //     isInfOp.getDetectPositive());
-
   double detectNegAttribute = isInfOp.getDetectNegative().convertToFloat();
   double detectPosAttribute = isInfOp.getDetectPositive().convertToFloat();
 
