@@ -66,11 +66,17 @@ struct ONNXQuantizeLinearOpLowering
     // Equations:
     // y = saturate (round (x / y_scale) + y_zero_point)
     //
-    // where, saturate is to clip to [0, 255] for ui8.
+    // where, saturate is to clip to [0, 255] for ui8 or [-128, 127] it's int8.
 
-    // ui8 bounds.
-    Value qMax = create.math.constant(elementType, 255.0);
-    Value qMin = create.math.constant(elementType, 0.0);
+    // Quantization bounds.
+    Value qMax, qMin;
+    if (quantizedElementType.isUnsignedInteger()) {
+      qMax = create.math.constant(elementType, 255.0);
+      qMin = create.math.constant(elementType, 0.0);
+    } else {
+      qMax = create.math.constant(elementType, 127.0);
+      qMin = create.math.constant(elementType, -128.0);
+    }
 
     // Load y_scale.
     Value scale = create.krnl.load(YScale);
