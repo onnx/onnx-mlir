@@ -196,6 +196,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, enableTiling);
+  populateLoweringONNXMatMulIntegerOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
