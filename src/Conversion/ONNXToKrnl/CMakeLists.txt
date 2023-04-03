@@ -11,7 +11,6 @@ add_onnx_mlir_library(OMONNXToKrnl
   ControlFlow/Scan.cpp
   ConvertONNXToKrnl.cpp
   ML/CategoryMapper.cpp
-  Math/Clip.cpp
   Math/CumSum.cpp
   Math/Elementwise.cpp
   Math/Gemm.cpp
@@ -74,6 +73,7 @@ add_onnx_mlir_library(OMONNXToKrnl
 
   LINK_LIBS PUBLIC
   OMAccelerator
+  OMCompilerOptions
   OMONNXOps
   OMSupport
   MLIRFuncDialect

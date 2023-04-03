@@ -37,22 +37,13 @@ include "src/Dialect/ONNX/ONNX.td"
 // a new def name.
 //
 // Then you will need to add substitution rules, see examples below.
-//
-// To construct an ONNXConstantOp in the target pattern of a TableGen record,
-// use CreateDenseONNXConstantOp instead of ONNXConstantOp to handle both output
-// types: RankedTensorType and MemRefType.
 
 
-  
-// Useful test definitions.
+// Useful test definitions:
 
 def IsNotAConstant :
-  Constraint<CPred<"! dyn_cast_or_null<ONNXConstantOp>(($_self).getDefiningOp())">,
+  Constraint<CPred<"! isa_and_nonnull<ONNXConstantOp>(($_self).getDefiningOp())">,
   "operation is not a constant">;
-
-def AttributeIsNull :
-    Constraint<CPred<"! ($_self)">,
-  "Attribute is null">;
 
 def IsFromDenseONNXConstantOp:
     Constraint<CPred<"isDenseONNXConstant($_self)">,
@@ -75,12 +66,19 @@ def HasStaticShape: Constraint<CPred<
   "A value has static shape"
 >;
 
-// Useful code generation invocation.
-def GetNullAttr : NativeCodeCall<"Attribute()">;
+// Creation helpers:
 
-// Create an dense ONNXConstantOp whose output type is the 1st argument's type.
-def CreateDenseONNXConstantOp:
-   NativeCodeCall<"$_builder.create<ONNXConstantOp>($0.getLoc(), $0.getType(), Attribute(), $1, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr())">;
+def IsConstOfZeros : Constraint<
+  CPred<"isConstOf($_self, 0.0)">,
+  "Value is an all-zeros constant tensor">;
+
+def IsConstOfOnes : Constraint<
+  CPred<"isConstOf($_self, 1.0)">,
+  "Value is an all-ones constant tensor">;
+
+def ValuesHaveSameType : Constraint<
+  CPred<"$0.getType() == $1.getType()">,
+  "Values have same type">;
 
 def CreateAddOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
@@ -222,6 +220,19 @@ def AddConstProp : Pat<
     // Additional constraints (dense)
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
+// TODO: Expand $x to $result's shape instead of requiring ValuesHaveSameType.
+def AddZerosOnRhs : Pat<
+    // From add(x, c).
+    (ONNXAddOp:$result
+      $x,
+      (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    // To x.
+    (replaceWithValue $x),
+    [
+      (IsNotAConstant:$x), (IsConstOfZeros:$c),
+      (ValuesHaveSameType $result, $x)
+    ]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise SUB / NEG operations.
@@ -235,6 +246,20 @@ def SubConstProp : Pat<
     // To c1-c2
     (CreateSubOfTwoConst $subOp, $lhs, $rhs),
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+
+// TODO: Expand $a to $result's shape instead of requiring ValuesHaveSameType.
+def SubZerosOnRhs : Pat<
+    // From sub(x, c).
+    (ONNXSubOp:$result
+      $x,
+      (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    // To x.
+    (replaceWithValue $x),
+    [
+      (IsNotAConstant:$x), (IsConstOfZeros:$c),
+      (ValuesHaveSameType $result, $x)
+    ]>;
 
 // Cast of constant is simply a constant with the new type.
 def CastofConst :  Pat<
@@ -346,6 +371,20 @@ def MulConstProp : Pat<
     // Multiplication constraints
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
+// TODO: Expand $a to $result's shape instead of requiring ValuesHaveSameType.
+def MulOnesOnRhs : Pat<
+    // From mul(x, c).
+    (ONNXMulOp:$result
+      $x,
+      (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    // To x.
+    (replaceWithValue $x),
+    [
+      (IsNotAConstant:$x), (IsConstOfOnes:$c),
+      (ValuesHaveSameType $result, $x)
+    ]>;
+
 // Constant Propagation for Div 
 def DivConstProp : Pat<
     // From div(c1, c2).
@@ -355,6 +394,20 @@ def DivConstProp : Pat<
     (CreateDivOfTwoConst $divOp, $lhs, $rhs),
     // Division constraints
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+
+// TODO: Expand $a to $result's shape instead of requiring ValuesHaveSameType.
+def DivOnesOnRhs : Pat<
+    // From div(x, c).
+    (ONNXDivOp:$result
+      $x,
+      (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    // To x.
+    (replaceWithValue $x),
+    [
+      (IsNotAConstant:$x), (IsConstOfOnes:$c),
+      (ValuesHaveSameType $result, $x)
+    ]>;
 
 // Constant Propagation for Equal
 def EqualConstProp : Pat<
