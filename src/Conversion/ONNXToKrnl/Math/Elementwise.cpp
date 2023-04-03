@@ -332,13 +332,13 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
 
   if (!detectNeg) {
     // Check if input == pinf
-    Value posInfinity =
-        rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, INFINITY);
+    Value posInfinity = rewriter.create<arith::CmpFOp>(
+        loc, arith::CmpFPredicate::OEQ, x, INFINITY);
     result = createMath.select(posInfinity, INFINITY, -INFINITY);
   } else if (!detectPos) {
     // Check if input == ninf
-    Value negInfinity =
-        rewriter.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ, x, -INFINITY);
+    Value negInfinity = rewriter.create<arith::CmpFOp>(
+        loc, arith::CmpFPredicate::OEQ, x, -INFINITY);
     result = createMath.select(negInfinity, -INFINITY, INFINITY);
   } else
     llvm_unreachable("unsupported element type");
