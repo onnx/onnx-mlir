@@ -315,8 +315,8 @@ def ConvOpPaddingPattern: Pattern<
      (ONNXPadOp $x,
         (ONNXConstantOpFromDenseAttr (insertZerosForNonPaddedDims<2> $nnpapads)),
         (ONNXConstantOpFromDenseAttr (FloatAttrOfValue<0> $res)),
-        (StringAttrOfValue<"constant">),
         (CreateUnitConstant),
+        (StringAttrOfValue<"constant">),
         (returnType (NativeCodeCall<"CreatePaddedXType($0, $1)"> $x, $nnpapads))),
 
      $w, $b, (StringAttrOfValue<"VALID">), $dilation, $group, $kernel_shape,
