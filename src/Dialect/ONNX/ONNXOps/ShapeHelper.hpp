@@ -28,6 +28,7 @@
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
+#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 #define GET_OP_FWD_DEFINES 1
 #include "src/Dialect/ONNX/ONNXOps.hpp.inc"
@@ -228,7 +229,7 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
       const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
       llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs);
 
-  bool hasNoBroadcast();
+  bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
 
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank. Instantiated during ComputeShape.

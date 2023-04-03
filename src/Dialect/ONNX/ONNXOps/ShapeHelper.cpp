@@ -327,17 +327,22 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
   return success();
 }
 
-bool ONNXBroadcastOpShapeHelper::hasNoBroadcast() {
-  // Currently very conservative: constant shape only with no broadcast.
+bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   // Must be called after computeShape.
 
-  for (uint64_t r = 0; r < outputRank; ++r) {
+  bool hasNoBroadcast = true;
+
+  // First use static analysis to rule out broadcast. If we cannot rule out
+  // broadcasting for any reasons, hasNoBroadcast is set to false.
+  for (uint64_t r = 0; r < outputRank && hasNoBroadcast; ++r) {
     bool hasOne, hasOtherThanOne;
     hasOne = hasOtherThanOne = false;
     for (DimsExpr dims : inputsDims) {
-      // Any dynamic values.. possible broadcast, assume the worst.
-      if (!dims[r].isLiteral())
-        return false;
+      if (!dims[r].isLiteral()) {
+        // Has dynamic values.. possible broadcast, assume the worst.
+        hasNoBroadcast = false;
+        break;
+      }
       int64_t lit = dims[r].getLiteral();
       if (lit == 1)
         hasOne = true;
@@ -345,9 +350,31 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast() {
         hasOtherThanOne = true;
     }
     if (hasOne && hasOtherThanOne)
-      // has a known broadcast situation
+      // Has a known broadcast situation. No need for further analysis,
+      // broadcasting has been detected.
       return false;
   }
+
+  // Using the most conservative analysis, we did not detect any broadcasting,
+  // we are good.
+  if (hasNoBroadcast)
+    return true;
+
+  // We have dynamic dimensions that prevented us to rule out broadcasting, try
+  // the more expensive dimAnalysis approach now, if available.
+  if (!dimAnalysis)
+    return false;
+  // In some cases, we can have more inputDims than operands (custom broadcast
+  // operators, e.g. ONNXExtendOp). Dismiss such cases as we need here the
+  // values of each of the inputs.
+  int64_t inputNum = inputsDims.size();
+  if ((int64_t) operands.size() != inputNum)
+    return false;
+  // Check if we can prove that each operand has the same shape.
+  for (int i = 1; i < inputNum; ++i)
+    if (!dimAnalysis->sameShape(operands[0], operands[i]))
+      return false;
+  // All have the same shape.
   return true;
 }
 

@@ -1393,12 +1393,13 @@ template <typename ElementwiseUnaryOp>
 struct ONNXElementwiseUnaryOpLowering
     : public OpConversionPattern<ElementwiseUnaryOp> {
   using OpAdaptor = typename ElementwiseUnaryOp::Adaptor;
+  DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
 
-  ONNXElementwiseUnaryOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
+  ONNXElementwiseUnaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      DimAnalysis *dimAnalysis, bool enableSIMD)
       : OpConversionPattern<ElementwiseUnaryOp>(typeConverter, ctx),
-        enableSIMD(enableSIMD) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {}
 
   LogicalResult matchAndRewrite(ElementwiseUnaryOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -1503,13 +1504,16 @@ template <typename ElementwiseBinaryOp>
 struct ONNXElementwiseBinaryOpLowering
     : public OpConversionPattern<ElementwiseBinaryOp> {
   using OpAdaptor = typename ElementwiseBinaryOp::Adaptor;
+  DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
   bool isUniBroadcasting = false;
 
   ONNXElementwiseBinaryOpLowering(TypeConverter &typeConverter,
-      MLIRContext *ctx, bool enableSIMD, bool isUniBroadcasting = false)
+      MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD,
+      bool isUniBroadcasting = false)
       : OpConversionPattern<ElementwiseBinaryOp>(typeConverter, ctx),
-        enableSIMD(enableSIMD), isUniBroadcasting(isUniBroadcasting) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
+        isUniBroadcasting(isUniBroadcasting) {}
 
   LogicalResult matchAndRewrite(ElementwiseBinaryOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -1535,8 +1539,11 @@ struct ONNXElementwiseBinaryOpLowering
     shapeHelper.computeShapeAndAssertOnFailure();
 
     bool isScalar = hasAllScalarValues(operands);
+    // Shape helper can determine if there is no static broadcast.
+    bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
+
     // SIMD is enabled for this operation, test if desired and feasible
-    if (enableSIMD && !isScalar && shapeHelper.hasNoBroadcast() &&
+    if (enableSIMD && !isScalar && hasNoBroadcast &&
         !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
@@ -1610,12 +1617,13 @@ template <typename ElementwiseVariadicOp>
 struct ONNXElementwiseVariadicOpLowering
     : public OpConversionPattern<ElementwiseVariadicOp> {
   using OpAdaptor = typename ElementwiseVariadicOp::Adaptor;
+  DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
 
-  ONNXElementwiseVariadicOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
+  ONNXElementwiseVariadicOpLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD)
       : OpConversionPattern<ElementwiseVariadicOp>(typeConverter, ctx),
-        enableSIMD(enableSIMD) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {}
 
   LogicalResult matchAndRewrite(ElementwiseVariadicOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -1723,13 +1731,14 @@ struct ONNXElementwiseVariadicOpLowering
 //===----------------------------------------------------------------------===//
 
 struct ONNXWhereOpLowering : public ConversionPattern {
+  DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
 
-  ONNXWhereOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
+  ONNXWhereOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      DimAnalysis *dimAnalysis, bool enableSIMD)
       : ConversionPattern(
             typeConverter, ONNXWhereOp::getOperationName(), 1, ctx),
-        enableSIMD(enableSIMD) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -1823,7 +1832,8 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD) {
+    TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
+    bool enableSIMD) {
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
@@ -1879,9 +1889,9 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>, ONNXWhereOpLowering,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(
-      typeConverter, ctx, enableSIMD);
+      typeConverter, ctx, dimAnalysis, enableSIMD);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
-      typeConverter, ctx, enableSIMD, /*isUniBroadcasting=*/true);
+      typeConverter, ctx, dimAnalysis, enableSIMD, /*isUniBroadcasting=*/true);
 }
 
 } // namespace onnx_mlir

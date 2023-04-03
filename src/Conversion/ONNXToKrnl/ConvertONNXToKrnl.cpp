@@ -172,8 +172,8 @@ std::map<std::string, std::string> ONNXEntryPointLowering::typeMap = {
     {std::string(" ui8 "), std::string(" \"ui8\" ")}};
 
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling,
-    bool enableSIMD, bool enableParallel) {
+    TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
+    bool enableTiling, bool enableSIMD, bool enableParallel) {
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
@@ -190,7 +190,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXElementwiseOpPattern(
-      patterns, typeConverter, ctx, enableSIMD);
+      patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
   populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx);
@@ -325,7 +325,11 @@ public:
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
+  // Define vector machine.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
+  // Perform dim analysis (TODO: analyze only if has simd?) hi alex
+  DimAnalysis *dimAnalysis = new DimAnalysis(module);
+  dimAnalysis->analyze();
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -414,7 +418,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Define patterns.
   populateONNXToKrnlConversionPattern(patterns, krnlTypeConverter,
-      &getContext(), enableTiling, enableSIMD, enableParallel);
+      &getContext(), dimAnalysis, enableTiling, enableSIMD, enableParallel);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -427,6 +431,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     signalPassFailure();
   }
   VectorMachineSupport::clearGlobalVectorMachineSupport();
+  delete dimAnalysis;
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass() {
