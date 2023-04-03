@@ -429,9 +429,7 @@ ElementsAttr reshapeMatMulIntegerLhsZero(
     // Scalars can be represented as singleton tensors with rank 0 or 1.
   } else if (zeroPointRank == 1) {
     // Vector with zero point scalar per row. Same shape as a matrix column.
-    assert(zeroPointRank == 1);
     int64_t rows = zeroPointShape[0];
-    assert(rows != 1 && "non-splat zero_point cannot be singleton");
     // Per-row zero point is a proper vector we need to broadcast, unless
     // matrix is also a vector so the broadcasts cancel out.
     auto matrixRank = matrixShape.size();
