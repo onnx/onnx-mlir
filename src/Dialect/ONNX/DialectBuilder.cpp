@@ -106,8 +106,7 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
   auto aValue = toTensor(A);
   auto bValue = toTensor(B);
   if (canUseGemm)
-    return createOpAndInferShapes<ONNXGemmOp>(Y, aValue, bValue,
-        b().createOrFold<ONNXNoneOp>(loc()),
+    return createOpAndInferShapes<ONNXGemmOp>(Y, aValue, bValue, none(),
         /*alpha=*/b().getF32FloatAttr(1.0), /*beta=*/b().getF32FloatAttr(1.0),
         /*transA=*/
         IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
@@ -146,6 +145,8 @@ Value OnnxBuilder::mul(Type resultType, Value A, Value B) const {
       resultType, toTensor(A), toTensor(B));
 }
 
+Value OnnxBuilder::none() const { return b().create<ONNXNoneOp>(loc()); }
+
 Value OnnxBuilder::pad(Type outputType, Value input, Value pads,
     Value constantValue, std::string mode) const {
   Value constant = constantValue.getType().isa<NoneType>()
@@ -156,8 +157,7 @@ Value OnnxBuilder::pad(Type outputType, Value input, Value pads,
 }
 
 Value OnnxBuilder::padZero(Type outputType, Value input, Value pads) const {
-  return pad(
-      outputType, input, pads, b().create<ONNXNoneOp>(loc()), "constant");
+  return pad(outputType, input, pads, none(), "constant");
 }
 
 Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
