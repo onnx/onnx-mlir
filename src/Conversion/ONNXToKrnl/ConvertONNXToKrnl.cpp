@@ -61,13 +61,6 @@ public:
   }
 
 private:
-  // New line for JSON string.
-#if defined(_WIN32)
-  std::string newLine = "\r\n";
-#else
-  std::string newLine = "\n";
-#endif
-
   // Construct JSON type from the argument type.
   // for example - a 3D array of f32 would produce something like
   //     {"type" : "f32" , "dims" : [4, 256, 16] , "name": "t1"}
@@ -106,7 +99,7 @@ private:
           dstream << ", \"name\" : \"" << name << "\"";
         })
         .Default([&](Type type) { llvm_unreachable("input is not a tensor"); });
-    dstream << " }" << newLine;
+    dstream << " }\n";
   }
 
   std::string getSignature(FunctionType funcType, Operation *op) const {
@@ -138,7 +131,7 @@ private:
       concatTypeString(inputs[i], inputNames[i], dstream);
       comma = std::string(" , ");
     }
-    dstream << newLine << "]";
+    dstream << "\n]";
     dstream.flush();
     dstring.push_back('\0'); // null terminate the input signature string
     dstream << "@[";
@@ -148,7 +141,7 @@ private:
       concatTypeString(outputs[i], outputNames[i], dstream);
       comma = std::string(" , ");
     }
-    dstream << newLine << "]";
+    dstream << "\n]";
     dstream.flush();
     dstring.push_back('\0'); // null terminate the output signature string
     for (auto const &x : typeMap) {

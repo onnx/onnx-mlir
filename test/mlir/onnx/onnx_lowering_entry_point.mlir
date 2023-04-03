@@ -1,6 +1,5 @@
 // RUN: onnx-mlir-opt --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
-// REQUIRES: system-linux
 
 // -----
 

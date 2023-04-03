@@ -1,7 +1,5 @@
 // RUN: onnx-mlir-opt --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
 
-// REQUIRES: system-linux
-
 // COM: Generate the default entry point "run_main_graph" since there is only
 // COM: one single point.
 module {
