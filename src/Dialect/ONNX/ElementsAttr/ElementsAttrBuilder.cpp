@@ -123,14 +123,13 @@ bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
   ArrayBuffer<WideNum> rhsNums =
       getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
 
-  auto range =
-      makeStridesIteratorRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides});
+  StridesRange<2> range(combinedShape, {xpLhsStrides, xpRhsStrides});
   return dispatchByBType(btypeOfMlirType(elementType), [&](auto btype) {
     using cpptype = CppType<btype>;
-    return llvm::all_of(range, [&](StridesIterator<2>::value_type v) {
+    return llvm::all_of(range, [&](StridesRange<2>::value_type ipos) {
       constexpr BType TAG = toBType<cpptype>;
-      return lhsNums.get()[v.pos[0]].narrow<TAG>() ==
-             rhsNums.get()[v.pos[1]].narrow<TAG>();
+      return lhsNums.get()[ipos.pos[0]].narrow<TAG>() ==
+             rhsNums.get()[ipos.pos[1]].narrow<TAG>();
     });
   });
 }
@@ -486,16 +485,16 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   ShapedType reducedType = type.clone(reducedShape);
   return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
     // Traverse and populate each element d in dstNums.
-    for (StridesIterator<1> reducedIter(reducedShape, {reducedStrides}),
-         reducedEnd(reducedShape);
-         reducedIter != reducedEnd; ++reducedIter) {
-      WideNum &d = dstNums[reducedIter->flattenedIndex];
-      auto srcPos = reducedIter->pos[0];
+    for (auto &ipos : StridesRange<1>(reducedShape, {reducedStrides})) {
+      WideNum &d = dstNums[ipos.flattenedIndex];
+      auto srcPos = ipos.pos[0];
       // Traverse all the elements that reduce together into d.
       // srcNums elements may be repeated if there are zeros in axesStrides.
+      StridesRange<1> axesRange(axesShape, {axesStrides});
+      auto axesIter = axesRange.begin();
+      auto axesEnd = axesRange.end();
+      assert(axesIter->pos[0] == 0 && "initial src offset must be zero");
       d = srcNums.get()[srcPos];
-      StridesIterator<1> axesIter(axesShape, {axesStrides});
-      StridesIterator<1> axesEnd(axesShape);
       while (++axesIter != axesEnd) {
         auto srcOffset = axesIter->pos[0];
         d = reducer(d, srcNums.get()[srcPos + srcOffset]);

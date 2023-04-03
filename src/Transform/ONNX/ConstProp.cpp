@@ -799,9 +799,8 @@ void ConstPropSliceImpl(ShapedType outputType,
     start += shapeHelper.starts[axis].getLiteral() * inputStrides[axis];
     steps[axis] = shapeHelper.steps[axis].getLiteral() * inputStrides[axis];
   }
-  for (StridesIterator<1> it(outputShape, {steps}), end(outputShape); it != end;
-       ++it)
-    outputData[it->flattenedIndex] = *(start + it->pos[0]);
+  for (auto &ipos : StridesRange<1>(outputShape, {steps}))
+    outputData[ipos.flattenedIndex] = *(start + ipos.pos[0]);
 }
 
 Value ConstPropSlice(

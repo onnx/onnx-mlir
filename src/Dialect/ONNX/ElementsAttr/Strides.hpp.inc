@@ -7,9 +7,10 @@
 template <typename Iterator, typename Arg0, typename Action>
 Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator dst,
     StridedArrayRef<Arg0> src0, Action &&act) {
-  for (StridesIterator<1> it(shape, {src0.strides}), end(shape); it != end;
-       ++it, ++dst)
-    act(dst, src0.begin() + it->pos[0]);
+  for (auto &ipos : StridesRange<1>(shape, {src0.strides})) {
+    act(dst, src0.begin() + ipos.pos[0]);
+    ++dst;
+  }
   return dst;
 }
 
@@ -19,9 +20,8 @@ Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator dst,
   // The implementation below effectively inlines this iterator implementation
   // (manually inlined below to get 1.5x speedup):
   //
-  //   for (StridesIterator<2> it(shape, {src0.strides, src1.strides}),
-  //          end(shape); it != end; ++it, ++dst)
-  //     act(dst, src0.begin() + it->pos[0], src1.begin() + it->pos[1]);
+  //   for (auto &ipos : StridesRange<2>(shape, {src0.strides, src1.strides}))
+  //     act(dst, src0.begin() + ipos.pos[0], src1.begin() + ipos.pos[1]);
   //   return dst;
   //
   if (llvm::any_of(shape, [](int64_t dimSize) { return dimSize == 0; })) {

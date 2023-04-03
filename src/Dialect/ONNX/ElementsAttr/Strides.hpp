@@ -136,8 +136,8 @@ struct StridedArrayRef : public llvm::ArrayRef<T> {
 //   template <typename T, typename StridedArray = StridedArrayRef<T>>
 //   bool equal(ArrayRef<int64_t> shape, StridedArray lhs, StridedArray rhs) {
 //     StridesIterator<2> begin(shape, {lhs.strides, rhs.strides}), end(shape);
-//     return llvm::all_of(llvm::make_range(begin, end),
-//         [](const auto &it) { return src0[it.pos[0]] == src1[it.pos[1]]; })
+//     return std::all_of(begin, end,
+//       [](const auto &ipos) { return src0[ipos.pos[0]]==src1[ipos.pos[1]]; });
 //   }
 //
 // Note: The iteration example above works when shape is empty because
@@ -145,6 +145,7 @@ struct StridedArrayRef : public llvm::ArrayRef<T> {
 //       If the shape is empty then the iterator shouldn't be dereferenced or
 //       incremented because the internal state will not make sense.
 //
+// It is best to access StridesIterator through the StridesRange wrapper below.
 template <size_t N>
 class StridesIterator {
 public:
@@ -227,12 +228,39 @@ public:
   }
 };
 
+// Almost the same as llvm::make_range(iteator(shape, strides), iterator(shape))
+// where iterator = StridesIterator<N>, but a little more concise and efficient
+// to use.
+//
+// For example, content comparison of two strided arrays with the same shape:
+//
+//   template <typename T, typename StridedArray = StridedArrayRef<T>>
+//   bool equal(ArrayRef<int64_t> shape, StridedArray lhs, StridedArray rhs) {
+//     return llvm::all_of(StridesRange<2>(shape, {lhs.strides, rhs.strides}),
+//       [](const auto &ipos) { return src0[ipos.pos[0]]==src1[ipos.pos[1]]; });
+//   }
+//
 template <size_t N>
-inline auto makeStridesIteratorRange(llvm::ArrayRef<int64_t> shape,
-    std::array<llvm::ArrayRef<int64_t>, N> strides) {
-  return llvm::make_range(
-      StridesIterator<N>(shape, strides), StridesIterator<N>(shape));
-}
+class StridesRange {
+public:
+  using iterator = StridesIterator<N>;
+  using value_type = typename iterator::value_type;
+
+private:
+  const llvm::ArrayRef<int64_t> shape;
+  const std::array<llvm::ArrayRef<int64_t>, N> strides;
+  const size_t numElements;
+
+public:
+  StridesRange(llvm::ArrayRef<int64_t> shape,
+      std::array<llvm::ArrayRef<int64_t>, N> strides)
+      : shape(shape), strides(strides),
+        numElements(mlir::ShapedType::getNumElements(shape)) {}
+  iterator begin() const { return iterator(shape, strides); }
+  iterator end() const { return iterator(numElements); }
+  size_t size() const { return numElements; }
+  bool empty() const { return size() == 0; }
+};
 
 template <typename Iterator, typename Arg0,
     typename Action = llvm::function_ref<void(Iterator, const Arg0 *)>>
