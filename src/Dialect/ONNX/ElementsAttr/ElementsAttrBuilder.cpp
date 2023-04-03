@@ -528,6 +528,21 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
   int64_t K = lhsShape[lhsRank - 1];
   assert(K == rhsShape[rhsRank == 1 ? 0 : (rhsRank - 2)]);
 
+  // MatMul is similar to Reduce, because a MatMul is the same as broadcasts
+  // followed by element wise multiplication and then ReduceSum on the
+  // reduction axis. The implementation is is similar to Reduce:
+  // An outer loop runs over the elements of the result tensor and, for
+  // each result element, the dot product of a LHS row and a RHS column is
+  // computed in an inner loop.
+  //
+  // matMulShape is the result shape before the M or N axes are collapsed in
+  // the cases where lhs or rhs is a vector (has rank 1), it is used to
+  // drive the iteration in the outer loop.
+  //
+  // lhsReducedStrides/rhsReducedStrides are LHS/RHS strides for the outer loop.
+  //
+  // matMulAxisLhsStride/matMulAxisRhsStride are the inner loop strides.
+
   ArrayRef<int64_t> lhsBatchShape = lhsShape.drop_back(lhsRank == 1 ? 1 : 2);
   ArrayRef<int64_t> rhsBatchShape = rhsShape.drop_back(rhsRank == 1 ? 1 : 2);
   SmallVector<int64_t> combinedBatchShape;
@@ -549,6 +564,9 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
   if (lhsRank == 1)
     lhsReducedStrides.insert(lhsReducedStrides.end() - 1, 0);
   assert(lhsReducedStrides.size() == matMulRank);
+  // Record the LHS stride on the MatMul reduction axis and then clear it in
+  // the strides so it is ignored during the outer reduction loop below.
+  // (The MatMul reduction axis stride is used in the inner reduction loop.)
   int64_t matMulAxisLhsStride = lhsReducedStrides[matMulRank - 1];
   lhsReducedStrides[matMulRank - 1] = 0;
 
@@ -562,6 +580,9 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
   if (rhsRank == 1)
     rhsReducedStrides.push_back(0);
   assert(rhsReducedStrides.size() == matMulRank);
+  // Record the RHS stride on the MatMul reduction axis and then clear it in
+  // the strides so it is ignored during the outer reduction loop below.
+  // (The MatMul reduction axis stride is used in the inner reduction loop.)
   int64_t matMulAxisRhsStride = rhsReducedStrides[matMulRank - 2];
   rhsReducedStrides[matMulRank - 2] = 0;
 
