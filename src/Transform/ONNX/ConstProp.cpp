@@ -88,19 +88,6 @@ struct ConstPropCounters {
 
 std::unordered_map<std::string, ConstPropCounters> ConstPropCounters::map;
 
-/// A helper function to check whether a variadic value is produced by dense
-/// ONNXConstantOps.
-bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
-  return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
-}
-
-Value ConstZeroTensor(
-    PatternRewriter &rewriter, Location loc, ShapedType type) {
-  return createONNXConstantOpWithDenseAttr(rewriter, loc,
-      DenseElementsAttr::get(
-          type, rewriter.getZeroAttr(type.getElementType())));
-}
-
 ElementsAttr getConstValueElements(Value constValue) {
   ONNXConstantOp constOp = cast<ONNXConstantOp>(constValue.getDefiningOp());
   return constOp.getValueAttr().cast<ElementsAttr>();
@@ -121,6 +108,13 @@ using EnableNotBool = std::enable_if_t<!std::is_same_v<T, bool>>;
 /// Checks whether a variadic value is produced by dense ONNXConstantOps.
 bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
   return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
+}
+
+Value ConstZeroTensor(
+    PatternRewriter &rewriter, Location loc, ShapedType type) {
+  return createONNXConstantOpWithDenseAttr(rewriter, loc,
+      DenseElementsAttr::get(
+          type, rewriter.getZeroAttr(type.getElementType())));
 }
 
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
