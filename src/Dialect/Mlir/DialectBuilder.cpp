@@ -26,6 +26,9 @@
 
 // Please do not add dependences on ONNX or KRNL dialects.
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
+
+#include <algorithm>
 
 #define DEBUG_TYPE "dialect_builder"
 
@@ -854,6 +857,41 @@ memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
 }
 
 //===----------------------------------------------------------------------===//
+// Info about memory size.
+
+// Compute static and dynamic size of memref. Return true if has static size.
+bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
+    ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize) const {
+  Type elementType = type.getElementType();
+  assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
+  ArrayRef<int64_t> shape = type.getShape();
+  staticSize = 1;                // Multiplication of static sizes.
+  dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
+  bool staticShape = (dynSymbols.size() == 0);
+  int64_t rank = type.getRank();
+  int64_t iDim = 0;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (shape[i] == ShapedType::kDynamic) {
+      assert(!staticShape && "expected static shape");
+      assert(iDim < (int64_t)dynSymbols.size() && "not enough dynamic symbols");
+      dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
+    } else {
+      // Has constant shape.
+      staticSize *= shape[i];
+    }
+  }
+  return staticShape;
+}
+
+bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
+    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
+    IndexExpr &dynSize) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(type, dims, dynSymbols);
+  return getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
+}
+
+//===----------------------------------------------------------------------===//
 // Alloc functions with alignment and padding for SIMD
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(
@@ -869,22 +907,10 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
   assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
   assert(simdUnroll >= 1 && "expected positive simd unroll factor");
   // Compute total size of memref (in unit of element type).
-  ArrayRef<int64_t> shape = type.getShape();
-  int64_t staticSize = 1;                  // Multiplication of static sizes.
-  IndexExpr dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
-  bool staticShape = (dynSymbols.size() == 0);
-  int64_t rank = type.getRank();
-  int64_t iDim = 0;
-  for (int64_t i = 0; i < rank; ++i) {
-    if (shape[i] == ShapedType::kDynamic) {
-      assert(!staticShape && "expected static shape");
-      assert(iDim < (int64_t)dynSymbols.size() && "not enough dynamic symbols");
-      dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
-    } else {
-      // Has constant shape.
-      staticSize *= shape[i];
-    }
-  }
+  int64_t staticSize;
+  IndexExpr dynSize;
+  bool staticShape =
+      getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
   // Get vector length for this element type, multiplied by the unroll factor.
   MultiDialectBuilder<VectorBuilder> create(*this);
   int64_t VL = create.vec.getMachineVectorLength(elementType) * simdUnroll;
@@ -1199,14 +1225,10 @@ void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }
 //===----------------------------------------------------------------------===//
 
 int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
-  unsigned typeBitSize = elementType.getIntOrFloatBitWidth();
-  unsigned simdBitSize;
-  // TODO: use march and mcpu to determine the right size, right now assume
-  // 4*32=128 bits.
-  simdBitSize = 128;
-  assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
-         "bad machine vector length");
-  return (simdBitSize / typeBitSize);
+  VectorMachineSupport *vms =
+      VectorMachineSupport::getGlobalVectorMachineSupport();
+  // Even if unsupported, we can always compute one result per vector.
+  return std::max((int64_t)1, vms->getVectorLength(elementType));
 }
 
 int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) const {

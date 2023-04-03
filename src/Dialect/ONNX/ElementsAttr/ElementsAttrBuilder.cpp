@@ -10,6 +10,8 @@
 
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
+#include "mlir/Dialect/Traits.h"
+
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
@@ -98,6 +100,72 @@ DenseElementsAttr ElementsAttrBuilder::toDenseElementsAttr(
     return dense;
   // TODO: consider supporting more ElementsAttr types
   llvm_unreachable("unexpected ElementsAttr instance");
+}
+
+/*static*/
+bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
+  auto lhsType = lhs.getType();
+  auto rhsType = rhs.getType();
+  auto elementType = lhsType.getElementType();
+  assert(elementType == rhsType.getElementType() &&
+         "equal() requires identical element types");
+
+  SmallVector<int64_t> combinedShape;
+  if (!OpTrait::util::getBroadcastedShape(
+          lhsType.getShape(), rhsType.getShape(), combinedShape))
+    llvm_unreachable("equal() requires broadcast compatible shapes");
+
+  SmallVector<int64_t, 4> xpLhsStrides;
+  ArrayBuffer<WideNum> lhsNums =
+      getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
+
+  SmallVector<int64_t, 4> xpRhsStrides;
+  ArrayBuffer<WideNum> rhsNums =
+      getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
+
+  auto range =
+      makeStridesIteratorRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides});
+  return dispatchByBType(btypeOfMlirType(elementType), [&](auto btype) {
+    using cpptype = CppType<btype>;
+    return llvm::all_of(range, [&](StridesIterator<2>::value_type v) {
+      constexpr BType TAG = toBType<cpptype>;
+      return lhsNums.get()[v.pos[0]].narrow<TAG>() ==
+             rhsNums.get()[v.pos[1]].narrow<TAG>();
+    });
+  });
+}
+
+/*static*/
+bool ElementsAttrBuilder::allEqual(
+    ElementsAttr lhs, WideNum broadcastedRhsValue) {
+  WideNum n = broadcastedRhsValue;
+  return dispatchByBType(
+      btypeOfMlirType(lhs.getElementType()), [lhs, n](auto btype) {
+        using cpptype = CppType<btype>;
+        auto nEquals = [n](cpptype x) {
+          constexpr BType TAG = toBType<cpptype>;
+          return n.narrow<TAG>() == x;
+        };
+        if (auto disposable = lhs.dyn_cast<DisposableElementsAttr>()) {
+          if (disposable.isTransformedOrCast()) {
+            ArrayBuffer<WideNum> nums = disposable.getBufferAsWideNums();
+            return llvm::all_of(nums.get(), [n](WideNum m) {
+              constexpr BType TAG = toBType<cpptype>;
+              return n.narrow<TAG>() == m.narrow<TAG>();
+            });
+          } else {
+            auto values = castArrayRef<cpptype>(disposable.getBufferBytes());
+            return llvm::all_of(values, nEquals);
+          }
+        }
+        if (lhs.isSplat()) {
+          cpptype x = lhs.getSplatValue<cpptype>();
+          return nEquals(x);
+        } else {
+          auto values = lhs.getValues<cpptype>();
+          return llvm::all_of(values, nEquals);
+        }
+      });
 }
 
 ElementsAttr ElementsAttrBuilder::fromWideNums(
@@ -449,7 +517,8 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   });
 }
 
-auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
+/*static*/
+auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     -> ElementsProperties {
   static Transformer nullTransformer = nullptr;
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>()) {
@@ -475,9 +544,10 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
   llvm_unreachable("unexpected ElementsAttr instance");
 }
 
+/*static*/
 ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
     ElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape,
-    llvm::SmallVectorImpl<int64_t> &expandedStrides) const {
+    llvm::SmallVectorImpl<int64_t> &expandedStrides) {
   if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
     expandedStrides = expandStrides(disposable.getStrides(), expandedShape);
     return disposable.getBufferAsWideNums();
