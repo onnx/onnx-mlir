@@ -105,7 +105,6 @@ add_onnx_mlir_library(OMONNXOps
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
   OMONNXIncGen
-  OMONNXDimAnalysis
   OMONNXRewriteIncGen
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
@@ -116,6 +115,7 @@ add_onnx_mlir_library(OMONNXOps
   LINK_LIBS PUBLIC
   OMMlirDialects
   OMMlirUtilities
+  OMONNXDimAnalysis
   OMONNXElementsAttr
   onnx
   MLIRFuncDialect
