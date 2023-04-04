@@ -66,6 +66,8 @@ protected:
   mlir::Value createConst(
       llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape, mlir::Type &type);
 
+  mlir::Value expandRank(mlir::Value input, int64_t rank);
+
   // Private getters of builder (concise version).
   mlir::PatternRewriter &rewriter() const {
     assert(patternRewriter && "rewriter is null");
