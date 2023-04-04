@@ -27,7 +27,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
@@ -114,8 +113,8 @@ bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
 
 Value ConstZeroTensor(
     PatternRewriter &rewriter, Location loc, ShapedType type) {
-  return OnnxBuilder(rewriter, loc).constant(
-      DenseElementsAttr::get(
+  return OnnxBuilder(rewriter, loc)
+      .constant(DenseElementsAttr::get(
           type, rewriter.getZeroAttr(type.getElementType())));
 }
 
