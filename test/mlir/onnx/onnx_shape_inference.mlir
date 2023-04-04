@@ -3440,17 +3440,17 @@ func.func @test_if_1(%arg0: tensor<i1>) -> (tensor<*xf32>, tensor<*xi16>, tensor
 
 // CHECK-LABEL:  func @test_if_1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<i1>) -> (tensor<2xf32>, tensor<?xi16>, tensor<*xui8>) {
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[2.000000e+00, 1.000000e+00]> : tensor<2xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[1, 2]> : tensor<2xi16>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<1> : tensor<2x3xui8>
+// CHECK-DAG:       [[VAR_1_1_:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>
+// CHECK-DAG:       [[VAR_2_1_:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xi16>
+// CHECK-DAG:       [[VAR_3_1_:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xui8>
 // CHECK-DAG:       [[VAR_0_:%.+]]:3 = "onnx.If"([[PARAM_0_]]) ({
-// CHECK-DAG:         [[VAR_1_:%.+]] = onnx.Constant dense<[2.000000e+00, 1.000000e+00]> : tensor<2xf32>
-// CHECK-DAG:         [[VAR_2_:%.+]] = onnx.Constant dense<[1, 2]> : tensor<2xi16>
-// CHECK-DAG:         [[VAR_3_:%.+]] = onnx.Constant dense<1> : tensor<2x3xui8>
-// CHECK:             onnx.Return [[VAR_1_]], [[VAR_2_]], [[VAR_3_]] : tensor<2xf32>, tensor<2xi16>, tensor<2x3xui8>
-// CHECK:           }, {
-// CHECK-DAG:         [[VAR_1_1_:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>
-// CHECK-DAG:         [[VAR_2_1_:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xi16>
-// CHECK-DAG:         [[VAR_3_1_:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xui8>
-// CHECK:             onnx.Return [[VAR_1_1_]], [[VAR_2_1_]], [[VAR_3_1_]] : tensor<2xf32>, tensor<3xi16>, tensor<3xui8>
-// CHECK:           }) : (tensor<i1>) -> (tensor<2xf32>, tensor<?xi16>, tensor<*xui8>)
+// CHECK-DAG:         onnx.Return [[VAR_1_]], [[VAR_2_]], [[VAR_3_]] : tensor<2xf32>, tensor<2xi16>, tensor<2x3xui8>
+// CHECK-DAG:       }, {
+// CHECK-DAG:         onnx.Return [[VAR_1_1_]], [[VAR_2_1_]], [[VAR_3_1_]] : tensor<2xf32>, tensor<3xi16>, tensor<3xui8>
+// CHECK-DAG:       }) : (tensor<i1>) -> (tensor<2xf32>, tensor<?xi16>, tensor<*xui8>)
 // CHECK:           return [[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2 : tensor<2xf32>, tensor<?xi16>, tensor<*xui8>
 }
 
