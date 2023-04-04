@@ -39,6 +39,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
@@ -139,8 +140,14 @@ struct StridedArrayRef : public llvm::ArrayRef<T> {
 //         [](const auto &it) { return src0[it.pos[0]] == src1[it.pos[1]]; })
 //   }
 //
+// Note: The iteration example above works when shape is empty because
+//       begin == end and the iterator is never derefenced or incremented.
+//       If the shape is empty then the iterator shouldn't be dereferenced or
+//       incremented because the internal state will not make sense.
+//
 template <size_t N>
 class StridesIterator {
+public:
   struct value_type {
     value_type(unsigned rank, uint64_t flattenedIndex = 0)
         : pos{}, flattenedIndex(flattenedIndex), index(rank, 0) {}
@@ -153,6 +160,7 @@ class StridesIterator {
   using reference = const value_type &;
   using iterator_category = std::forward_iterator_tag;
 
+private:
   const llvm::ArrayRef<int64_t> shape;
   const std::array<llvm::ArrayRef<int64_t>, N> strides;
   value_type value;
@@ -162,8 +170,7 @@ public:
   StridesIterator(llvm::ArrayRef<int64_t> shape,
       std::array<llvm::ArrayRef<int64_t>, N> strides)
       : shape(shape), strides(strides), value(shape.size()) {
-    for (auto dim : shape)
-      assert(dim > 0 && "shape must describe non-empty tensor");
+    assert(!mlir::ShapedType::isDynamicShape(shape) && "shape must be static");
     for (unsigned i = 0; i < N; ++i)
       assert(shape.size() == strides[i].size() && "shape, strides mismatch");
   }
@@ -219,6 +226,13 @@ public:
     return copy;
   }
 };
+
+template <size_t N>
+inline auto makeStridesIteratorRange(llvm::ArrayRef<int64_t> shape,
+    std::array<llvm::ArrayRef<int64_t>, N> strides) {
+  return llvm::make_range(
+      StridesIterator<N>(shape, strides), StridesIterator<N>(shape));
+}
 
 template <typename Iterator, typename Arg0,
     typename Action = llvm::function_ref<void(Iterator, const Arg0 *)>>

@@ -206,7 +206,7 @@ using BTypeConstant = std::integral_constant<BType, BTYPE>;
 // If a is a BType runtime value and expr(btype) is an expression that
 // uses btype as a constexpr, e.g. expr(btype) = sizeof(CppType<btype>), then
 //
-//   r = dispatchByBType(a, [&](auto btype) -> void { return expr(btype); })
+//   r = dispatchByBType(a, [&](auto btype) { return expr(btype); })
 //
 // is shorthand for:
 //

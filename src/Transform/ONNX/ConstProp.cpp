@@ -87,14 +87,8 @@ struct ConstPropCounters {
 
 std::unordered_map<std::string, ConstPropCounters> ConstPropCounters::map;
 
-/// A helper function to check whether a variadic value is produced by dense
-/// ONNXConstantOps.
-bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
-  return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
-}
-
 ElementsAttr getConstValueElements(Value constValue) {
-  ONNXConstantOp constOp = getONNXConstantOp(constValue);
+  ONNXConstantOp constOp = cast<ONNXConstantOp>(constValue.getDefiningOp());
   return constOp.getValueAttr().cast<ElementsAttr>();
 }
 
@@ -109,6 +103,24 @@ ONNXConstantOp createReplacingConstantOp(
 // Helper to restrict specialization to non-bool types.
 template <typename T>
 using EnableNotBool = std::enable_if_t<!std::is_same_v<T, bool>>;
+
+/// Checks whether a variadic value is produced by dense ONNXConstantOps.
+bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
+  return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
+}
+
+/// Checks whether a constant tensor's elements are all equal to a given scalar.
+bool isConstOf(Value constValue, double n) {
+  ElementsAttr constElements = getConstValueElements(constValue);
+  Type elemType = constElements.getElementType();
+  assert(!elemType.isInteger(1) && "booleans are not supported");
+  WideNum w = wideZeroDispatchNonBool(elemType, [n](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    constexpr BType TAG = toBType<cpptype>;
+    return WideNum::widen<TAG>(static_cast<cpptype>(n));
+  });
+  return ElementsAttrBuilder::allEqual(constElements, w);
+}
 
 ElementsAttr ConstPropReshapeImpl(PatternRewriter &rewriter,
     Value replacingValue, Value constValue, ArrayRef<int64_t> reshapedShape) {

@@ -10,6 +10,8 @@
 
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
+#include "mlir/Dialect/Traits.h"
+
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
@@ -98,6 +100,72 @@ DenseElementsAttr ElementsAttrBuilder::toDenseElementsAttr(
     return dense;
   // TODO: consider supporting more ElementsAttr types
   llvm_unreachable("unexpected ElementsAttr instance");
+}
+
+/*static*/
+bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
+  auto lhsType = lhs.getType();
+  auto rhsType = rhs.getType();
+  auto elementType = lhsType.getElementType();
+  assert(elementType == rhsType.getElementType() &&
+         "equal() requires identical element types");
+
+  SmallVector<int64_t> combinedShape;
+  if (!OpTrait::util::getBroadcastedShape(
+          lhsType.getShape(), rhsType.getShape(), combinedShape))
+    llvm_unreachable("equal() requires broadcast compatible shapes");
+
+  SmallVector<int64_t, 4> xpLhsStrides;
+  ArrayBuffer<WideNum> lhsNums =
+      getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
+
+  SmallVector<int64_t, 4> xpRhsStrides;
+  ArrayBuffer<WideNum> rhsNums =
+      getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
+
+  auto range =
+      makeStridesIteratorRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides});
+  return dispatchByBType(btypeOfMlirType(elementType), [&](auto btype) {
+    using cpptype = CppType<btype>;
+    return llvm::all_of(range, [&](StridesIterator<2>::value_type v) {
+      constexpr BType TAG = toBType<cpptype>;
+      return lhsNums.get()[v.pos[0]].narrow<TAG>() ==
+             rhsNums.get()[v.pos[1]].narrow<TAG>();
+    });
+  });
+}
+
+/*static*/
+bool ElementsAttrBuilder::allEqual(
+    ElementsAttr lhs, WideNum broadcastedRhsValue) {
+  WideNum n = broadcastedRhsValue;
+  return dispatchByBType(
+      btypeOfMlirType(lhs.getElementType()), [lhs, n](auto btype) {
+        using cpptype = CppType<btype>;
+        auto nEquals = [n](cpptype x) {
+          constexpr BType TAG = toBType<cpptype>;
+          return n.narrow<TAG>() == x;
+        };
+        if (auto disposable = lhs.dyn_cast<DisposableElementsAttr>()) {
+          if (disposable.isTransformedOrCast()) {
+            ArrayBuffer<WideNum> nums = disposable.getBufferAsWideNums();
+            return llvm::all_of(nums.get(), [n](WideNum m) {
+              constexpr BType TAG = toBType<cpptype>;
+              return n.narrow<TAG>() == m.narrow<TAG>();
+            });
+          } else {
+            auto values = castArrayRef<cpptype>(disposable.getBufferBytes());
+            return llvm::all_of(values, nEquals);
+          }
+        }
+        if (lhs.isSplat()) {
+          cpptype x = lhs.getSplatValue<cpptype>();
+          return nEquals(x);
+        } else {
+          auto values = lhs.getValues<cpptype>();
+          return llvm::all_of(values, nEquals);
+        }
+      });
 }
 
 ElementsAttr ElementsAttrBuilder::fromWideNums(
@@ -377,6 +445,7 @@ std::vector<ElementsAttr> ElementsAttrBuilder::split(
 ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     ArrayRef<unsigned> axes, bool keepdims,
     WideNum (*reducer)(WideNum, WideNum)) {
+  assert(!elms.empty());
   if (axes.empty())
     return elms;
 
@@ -391,6 +460,11 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
 
   SmallVector<int64_t, 4> strides;
   ArrayBuffer<WideNum> srcNums = getWideNumsAndStrides(elms, strides);
+
+  // axesShape and axesStrides describe the src elements that reduce together
+  // into one dst element.
+  // reducedShape and reducedStrides describe the mapping from src to dst
+  // for the first src element that reduces to each dst element.
   SmallVector<int64_t, 4> axesShape, reducedShape;
   SmallVector<int64_t, 4> axesStrides, reducedStrides;
   auto it = sortedAxes.begin();
@@ -409,47 +483,29 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     }
   }
 
-  // StridedArrayRef and traverseStrides are used in an unusual way below.
-  // (axesShape, axesStrides) on one hand and (reducedShape, reducedStrides)
-  // on the other hand partition (shape, strides) into two partial mappings
-  // of srcNums to the tensor shape.
-  //
-  // (axesShape, axesStrides) describes all the elements to reduce for each
-  // result element, namely count == ShapedType::getNumElements(axesShape).
-  // The outer traverseStrides "loop" runs count many times, each time
-  // calculating the offset of the next element to reduce.
-  // (Note that offsets be repeated if there are any zeros in axesStrides.)
-  //
-  // The inner traverseStrides loop reduces the next reduce element into the
-  // result for each each element in the resulting reduced tensor (dstNums).
-  StridedArrayRef<WideNum> axesStrided(srcNums.get(), axesStrides);
-  StridedArrayRef<WideNum> reducedStrided(srcNums.get(), reducedStrides);
   ShapedType reducedType = type.clone(reducedShape);
   return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
-    // First copy the 1st element to reduce to each result element in dstNums.
-    WideNum *end = traverseStrides<WideNum *, WideNum>(reducedShape,
-        dstNums.begin(), reducedStrided,
-        [](WideNum *dst, const WideNum *src) { *dst = *src; });
-    assert(end == dstNums.end() && "traverses every dstNums element");
-    int64_t count = traverseStrides<int64_t, WideNum>(
-        axesShape, 0, axesStrided, [&](int64_t counter, const WideNum *iter) {
-          // Skip if counter == 0 as 1st element is already copied to dstNums.
-          if (counter > 0) {
-            ptrdiff_t offset = iter - axesStrided.begin();
-            WideNum *end = traverseStrides<WideNum *, WideNum>(reducedShape,
-                dstNums.begin(), reducedStrided,
-                [&reducer, offset](WideNum *dst, const WideNum *src) {
-                  *dst = reducer(*dst, *(src + offset));
-                });
-            assert(end == dstNums.end() && "traverses every dstNums element");
-          }
-        });
-    assert(count == ShapedType::getNumElements(axesShape) &&
-           "traverses all reduce axes");
+    // Traverse and populate each element d in dstNums.
+    for (StridesIterator<1> reducedIter(reducedShape, {reducedStrides}),
+         reducedEnd(reducedShape);
+         reducedIter != reducedEnd; ++reducedIter) {
+      WideNum &d = dstNums[reducedIter->flattenedIndex];
+      auto srcPos = reducedIter->pos[0];
+      // Traverse all the elements that reduce together into d.
+      // srcNums elements may be repeated if there are zeros in axesStrides.
+      d = srcNums.get()[srcPos];
+      StridesIterator<1> axesIter(axesShape, {axesStrides});
+      StridesIterator<1> axesEnd(axesShape);
+      while (++axesIter != axesEnd) {
+        auto srcOffset = axesIter->pos[0];
+        d = reducer(d, srcNums.get()[srcPos + srcOffset]);
+      }
+    }
   });
 }
 
-auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
+/*static*/
+auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     -> ElementsProperties {
   static Transformer nullTransformer = nullptr;
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>()) {
@@ -475,9 +531,10 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
   llvm_unreachable("unexpected ElementsAttr instance");
 }
 
+/*static*/
 ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
     ElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape,
-    llvm::SmallVectorImpl<int64_t> &expandedStrides) const {
+    llvm::SmallVectorImpl<int64_t> &expandedStrides) {
   if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
     expandedStrides = expandStrides(disposable.getStrides(), expandedShape);
     return disposable.getBufferAsWideNums();
@@ -519,7 +576,6 @@ ElementsAttr ElementsAttrBuilder::fromRawBytes(
   std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
       llvm::WritableMemoryBuffer::getNewUninitMemBuffer(size);
   bytesFiller(writeBuffer->getBuffer());
-  // We trust bytesFiller and skip testRawBytesValidityAndSplatness()
   return createWithDefaultStrides(type, bufferBType, std::move(writeBuffer));
 }
 

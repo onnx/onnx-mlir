@@ -422,7 +422,8 @@ def output_report(history_dir, report_dir, skipped_models, tested_models,
         prev = hist[0]
     except:
         hist = []
-        prev = { 'author':  '',
+        prev = { '_mesg':   '',
+                 'author':  '',
                  'commit':  '',
                  'date':    '',
                  'failed':  { '_models': [], 'dropped': [], 'entered': [] },
@@ -430,9 +431,10 @@ def output_report(history_dir, report_dir, skipped_models, tested_models,
                  'skipped': { '_models': [], 'dropped': [], 'entered': [] },
                  'total':   { '_models': [], 'dropped': [], 'entered': [] } }
 
-    curr = { 'author': '', 'commit': '', 'date': '',
+    curr = { '_mesg': '', 'author': '', 'commit': '', 'date': '',
              'failed': {}, 'passed': {}, 'skipped': {}, 'total': {} }
 
+    curr['_mesg']  = os.getenv('ONNX_MLIR_HEAD_COMMIT_MESSAGE', '')
     curr['author'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_AUTHOR', '')
     curr['commit'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_HASH', '')
     curr['date']   = os.getenv('ONNX_MLIR_HEAD_COMMIT_DATE', '')

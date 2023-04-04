@@ -77,6 +77,9 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value mul(mlir::Value A, mlir::Value B) const;
   mlir::Value mul(mlir::Type resultType, mlir::Value A, mlir::Value B) const;
 
+  // ONNXNoneOp
+  mlir::Value none() const;
+
   // ONNXPadOp
   mlir::Value pad(mlir::Type outputType, mlir::Value input, mlir::Value pads,
       mlir::Value constantValue, std::string mode = "constant") const;
