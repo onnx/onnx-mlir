@@ -424,8 +424,8 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
 ElementsAttr reshapeMatMulIntegerLhsZero(
     ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
   ShapedType zeroPointType = zeroPoint.getType();
-  auto zeroPointShape = zeroPointType.getShape();
-  auto zeroPointRank = zeroPointShape.size();
+  ArrayRef<int64_t> zeroPointShape = zeroPointType.getShape();
+  size_t zeroPointRank = zeroPointShape.size();
   if (zeroPointRank == 0 || (zeroPointRank == 1 && zeroPointShape[0] == 1)) {
     // Scalar case is easy: zeroPoint trivially broadcasts to matrix's shape.
     // Scalars can be represented as singleton tensors with rank 0 or 1.
@@ -434,7 +434,7 @@ ElementsAttr reshapeMatMulIntegerLhsZero(
     int64_t rows = zeroPointShape[0];
     // Per-row zero point is a proper vector we need to broadcast, unless
     // matrix is also a vector so the broadcasts cancel out.
-    auto matrixRank = matrixShape.size();
+    size_t matrixRank = matrixShape.size();
     if (matrixRank == 1) {
       // Broadcast of matrix and zero point vectors cancel out.
       assert(matrixShape == zeroPointShape &&
