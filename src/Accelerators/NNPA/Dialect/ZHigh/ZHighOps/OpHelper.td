@@ -45,8 +45,21 @@ def GetLayout : NativeCodeCall<
 >;
 
 def NoOneIsOfNHWCLayout: Constraint<
-  CPred<"!::onnx_mlir::zhigh::oneIsOfNHWCLayout($0.getType(), $1.getType())">,
+  CPred<"!::onnx_mlir::zhigh::oneIsOfLayout($0.getType(), $1.getType(), "
+        "::onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::NHWC)">,
   "No tensor is of NHWC layout"
+>;
+
+def NoOneIsOf1DLayout: Constraint<
+  CPred<"!::onnx_mlir::zhigh::oneIsOfLayout($0.getType(), $1.getType(), "
+        "::onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::_1D)">,
+  "No tensor is of 1D layout"
+>;
+
+def NoOneIsOf2DSLayout: Constraint<
+  CPred<"!::onnx_mlir::zhigh::oneIsOfLayout($0.getType(), $1.getType(), "
+        "::onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::_2DS)">,
+  "No tensor is of 2DS layout"
 >;
 
 def GetEncodingAttr : NativeCodeCall<

@@ -106,6 +106,9 @@ def CreateMulOfTwoConst :
 def CreateDivOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXDivOp>($_builder, $0, $1, $2)">;
 
+def CreateEqualOfTwoConst :
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXEqualOp>($_builder, $0, $1, $2)">;
+
 def CreateWhereOfThreeConst :
    NativeCodeCall<"ConstPropWhere($_builder, $0, $1, $2, $3)">;
 
@@ -147,6 +150,9 @@ def CreateGatherOfConst:
 
 def CreateReshapeOfConst:
    NativeCodeCall<"ConstPropReshape($_builder, $0, $1)">;
+
+def CreateConstantOfShapeOfConst:
+   NativeCodeCall<"ConstPropConstantOfShape($_builder, $0, $1, $2)">;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
@@ -350,6 +356,16 @@ def DivConstProp : Pat<
     // Division constraints
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
+// Constant Propagation for Equal
+def EqualConstProp : Pat<
+    // From equal(c1, c2).
+    (ONNXEqualOp:$equalOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+                          (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To c1 == c2
+    (CreateEqualOfTwoConst $equalOp, $lhs, $rhs),
+    // constraints
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+
 
 //===----------------------------------------------------------------------===//
 // Patterns for Where.
@@ -530,6 +546,18 @@ def ReshapeofConst :  Pat<
     // To c where c is the reshaped value.
     (CreateReshapeOfConst $resOp, $input),
     [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$shape),
+     (HasStaticShape:$resOp)]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns to enable opportunities with ConstantOfShape operations.
+//===----------------------------------------------------------------------===//
+
+def ConstantOfShapeofConst :  Pat<
+    // From ConstantOfShape (shape, x)
+    (ONNXConstantOfShapeOp:$resOp (ONNXConstantOp:$shape $_, $_, $_, $_, $_, $_, $_, $_), $value),
+    // To c where c is the expanded value.
+    (CreateConstantOfShapeOfConst $resOp, $shape, $value),
+    [(IsFromDenseONNXConstantOp:$shape),
      (HasStaticShape:$resOp)]>;
 
 #endif // ONNX_CONSTPROP

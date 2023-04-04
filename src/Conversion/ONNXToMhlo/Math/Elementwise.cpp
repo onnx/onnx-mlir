@@ -72,6 +72,11 @@ struct MhloDialectOp<ONNXMulOp> {
 };
 
 template <>
+struct MhloDialectOp<ONNXNegOp> {
+  using Op = mhlo::NegOp;
+};
+
+template <>
 struct MhloDialectOp<ONNXPowOp> {
   using Op = mhlo::PowOp;
 };
@@ -79,6 +84,11 @@ struct MhloDialectOp<ONNXPowOp> {
 template <>
 struct MhloDialectOp<ONNXSigmoidOp> {
   using Op = mhlo::LogisticOp;
+};
+
+template <>
+struct MhloDialectOp<ONNXSinOp> {
+  using Op = mhlo::SineOp;
 };
 
 template <>
@@ -321,7 +331,9 @@ void populateLoweringONNXElementwiseOpToMhloPattern(
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXExpOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXLeakyReluOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXLogOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXNegOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSigmoidOp>,
+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSinOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSqrtOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>,
       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXTanhOp>,

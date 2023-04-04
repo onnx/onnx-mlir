@@ -109,13 +109,13 @@ void omTensorListDestroyShallow(OMTensorList *list) {
 }
 
 /* OMTensorList OMTensor array getter */
-OMTensor **omTensorListGetOmtArray(OMTensorList *list) { return list->_omts; }
+OMTensor **omTensorListGetOmtArray(const OMTensorList *list) { return list->_omts; }
 
 /* OMTensorList number of OMTensor getter */
-int64_t omTensorListGetSize(OMTensorList *list) { return list->_size; }
+int64_t omTensorListGetSize(const OMTensorList *list) { return list->_size; }
 
 /* Return OMTensor at specified index in the OMTensorList */
-OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int64_t index) {
+OMTensor *omTensorListGetOmtByIndex(const OMTensorList *rlist, int64_t index) {
   assert(index >= 0);
   assert(index < rlist->_size);
   return rlist->_omts[index];

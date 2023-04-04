@@ -56,9 +56,6 @@ template <typename T1, typename T2>
 bool CategoryMapperLibBuilder<T1, T2>::prepareInputs() {
   constexpr int num = 1;
   OMTensor* list[num];
-  if (!list)
-    return false;
-
   int64_t shape[1] = {static_cast<int64_t>(input.size())};
   list[0] = createOMTensor<T1>(input, shape, 1,
       (std::is_same<T1, int64_t>::value) ? ONNX_TYPE_INT64 : ONNX_TYPE_STRING);
