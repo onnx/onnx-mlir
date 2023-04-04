@@ -162,8 +162,6 @@ int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
 mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
-mlir::ONNXConstantOp createONNXConstantOpWithDenseAttr(
-    mlir::OpBuilder &builder, mlir::Location loc, mlir::Attribute dense);
 mlir::Value createNoneIntegerConstant(
     mlir::PatternRewriter &rewriter, mlir::Location loc);
 mlir::Value createNoneFloatConstant(
