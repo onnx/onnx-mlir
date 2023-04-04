@@ -59,6 +59,13 @@ public:
     return f16;
   }
 
+  // Almost the same as u16 == other.u16, except
+  // * 0 and minus 0 (0x0 and 0x8000) are also equated
+  // * NaN values are not equal to themselves
+  bool operator==(FP16 other) const { return toFloat() == other.toFloat(); }
+
+  bool operator!=(FP16 other) const { return !(*this == other); }
+
 private:
   bitcasttype u16;
 };

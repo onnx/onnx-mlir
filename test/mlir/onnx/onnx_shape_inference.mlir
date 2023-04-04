@@ -43,6 +43,18 @@ func.func @test_default_unary_elementwise_user_shape_3(%arg0 : tensor<?x3x4xf32>
 
 // -----
 
+// COM: Check if unranked shape input can be handled without crashing
+func.func @test_default_unary_elementwise_user_shape_4(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Sigmoid"(%arg0) : (tensor<*xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_default_unary_elementwise_user_shape_4
+  // CHECK: [[RES:%.+]] = "onnx.Sigmoid"(%arg0) : (tensor<*xf32>) -> tensor<*xf32>
+  // CHECK: return [[RES]] : tensor<*xf32>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test the default behavior of argmax when no information for the
 /// permutation of the axes is provided and when a permutation is provided.

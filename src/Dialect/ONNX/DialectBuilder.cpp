@@ -107,8 +107,7 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
   auto aValue = toTensor(A);
   auto bValue = toTensor(B);
   if (canUseGemm)
-    return createOpAndInferShapes<ONNXGemmOp>(Y, aValue, bValue,
-        b().createOrFold<ONNXNoneOp>(loc()),
+    return createOpAndInferShapes<ONNXGemmOp>(Y, aValue, bValue, none(),
         /*alpha=*/b().getF32FloatAttr(1.0), /*beta=*/b().getF32FloatAttr(1.0),
         /*transA=*/
         IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
@@ -146,6 +145,8 @@ Value OnnxBuilder::mul(Type resultType, Value A, Value B) const {
   return createTypedOpAndInferShapes<ONNXMulOp>(
       resultType, toTensor(A), toTensor(B));
 }
+
+Value OnnxBuilder::none() const { return b().create<ONNXNoneOp>(loc()); }
 
 Value OnnxBuilder::pad(
     Value input, Value pads, Value constantValue, std::string mode) const {
