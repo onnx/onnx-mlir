@@ -43,6 +43,18 @@ func.func @test_default_unary_elementwise_user_shape_3(%arg0 : tensor<?x3x4xf32>
 
 // -----
 
+// COM: Check if unranked shape input can be handled without crashing
+func.func @test_default_unary_elementwise_user_shape_4(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Sigmoid"(%arg0) : (tensor<*xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_default_unary_elementwise_user_shape_4
+  // CHECK: [[RES:%.+]] = "onnx.Sigmoid"(%arg0) : (tensor<*xf32>) -> tensor<*xf32>
+  // CHECK: return [[RES]] : tensor<*xf32>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test the default behavior of argmax when no information for the
 /// permutation of the axes is provided and when a permutation is provided.
@@ -521,7 +533,7 @@ func.func @test_conv_transpose_1(%arg0 : tensor<1x64x36x48xf32>, %arg1 : tensor<
 
   // CHECK-LABEL: test_conv_transpose_1
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
-  // CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, [[CST]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [2, 2], output_shape = [72, 96], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x1x72x96xf32>
+  // CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, [[CST]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x1x72x96xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x1x72x96xf32>
 }
 
@@ -534,7 +546,7 @@ func.func @test_conv_transpose_2(%arg0 : tensor<1x64x36x48xf32>, %arg1 : tensor<
 
   // CHECK-LABEL: test_conv_transpose_2
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
-  // CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, [[CST]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 64 : si64, kernel_shape = [2, 2], output_shape = [72, 96], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x64x72x96xf32>
+  // CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, [[CST]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 64 : si64, kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x64x72x96xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x64x72x96xf32>
 }
 
@@ -547,7 +559,7 @@ func.func @test_conv_transpose_3(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<1x2x3
 
 // CHECK-LABEL: test_conv_transpose_3
 // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], output_padding = [1, 1], output_shape = [10, 8], pads = [0, 0, 0, 0], strides = [3, 2]} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x10x8xf32>
+// CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64, output_padding = [1, 1], strides = [3, 2]} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x10x8xf32>
 // CHECK: return [[RES_ATTR]] : tensor<1x2x10x8xf32>
 }
 
@@ -560,7 +572,7 @@ func.func @test_conv_transpose_4(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<1x2x3
 
 // CHECK-LABEL: test_conv_transpose_4
 // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], output_shape = [7, 3], pads = [1, 2, 1, 2], strides = [3, 2]} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x7x3xf32>
+// CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64, pads = [1, 2, 1, 2], strides = [3, 2]} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x7x3xf32>
 // CHECK: return [[RES_ATTR]] : tensor<1x2x7x3xf32>
 }
 
@@ -573,7 +585,7 @@ func.func @test_conv_transpose_pads(%arg0 : tensor<1x64x36x48xf32>, %arg1 : tens
 
   // CHECK-LABEL: test_conv_transpose_pads
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
-  // CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, [[CST]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 64 : si64, kernel_shape = [2, 2], output_shape = [72, 94], pads = [0, 1, 0, 1], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x64x72x94xf32>
+  // CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, [[CST]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 64 : si64, kernel_shape = [2, 2], pads = [0, 1, 0, 1], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x64x72x94xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x64x72x94xf32>
 }
 
@@ -586,7 +598,7 @@ func.func @test_conv_transpose_output_shape(%arg0 : tensor<1x64x36x48xf32>, %arg
 
   // CHECK-LABEL: test_conv_transpose_output_shape
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
-  // CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, [[CST]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 64 : si64, kernel_shape = [2, 2], output_shape = [72, 94], pads = [0, 1, 0, 1], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x64x72x94xf32>
+  // CHECK-NEXT: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, [[CST]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 64 : si64, kernel_shape = [2, 2], output_shape = [72, 94], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x64x72x94xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x64x72x94xf32>
 }
 

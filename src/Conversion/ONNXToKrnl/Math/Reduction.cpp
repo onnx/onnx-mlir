@@ -470,7 +470,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
     Value axesValue = llvm::dyn_cast<ONNXReductionOp>(op).getAxes();
     // Dynamic axes
-    if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
+    if (!isNoneValue(axesValue) && !getONNXConstantOp(axesValue)) {
       dynamicAxes = true;
       // Handle only when keepdims == true
       if (!isKeepdims)
@@ -502,7 +502,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         Value cond = create.math.eq(axesBound0.getValue(), zeroIndex);
         initVal = create.math.select(cond, trueVal, falseVal);
       } else {
-        // When axesDim is known, it can not be 0 due to !isFromNone
+        // When axesDim is known, it can not be 0 due to !isNoneValue
         initVal = falseVal;
       }
       for (auto i = 0; i < inRank; i++) {
@@ -551,7 +551,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
       // Assume it is verified that axes are known. Convert DenseElementsAttr to
       // ArrayAttr.
-      if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
+      if (!isNoneValue(axesValue) && getONNXConstantOp(axesValue)) {
         auto constAxes = getONNXConstantOp(axesValue)
                              .getValueAttr()
                              .dyn_cast_or_null<mlir::DenseElementsAttr>();
