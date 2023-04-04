@@ -95,11 +95,9 @@ ElementsAttr getConstValueElements(Value constValue) {
 }
 
 // Creates ONNXConstantOp with the location and result type from replacingValue.
-ONNXConstantOp createReplacingConstantOp(
+Value createReplacingConstantOp(
     PatternRewriter &rewriter, Value replacingValue, ElementsAttr elements) {
-  return rewriter.create<ONNXConstantOp>(replacingValue.getLoc(),
-      replacingValue.getType(), Attribute(), elements, FloatAttr(), ArrayAttr(),
-      IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+  return OnnxBuilder(rewriter, replacingValue.getLoc()).constant(elements);
 }
 
 // Helper to restrict specialization to non-bool types.
@@ -208,8 +206,7 @@ Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr resultElements = elementsBuilder.combine(lhs, rhs, replacingType,
       elementwiseBinaryOpCombiner<ElementwiseBinaryOp>(operandsElemType));
-  return createReplacingConstantOp(rewriter, replacingValue, resultElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, resultElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -258,8 +255,8 @@ Value ConstPropElementwiseUnary(
   ElementsAttr transposedElements =
       elementsBuilder.transform(constElements, replacingElemType,
           elementwiseUnaryOpFunction<ElementwiseUnaryOp>(replacingElemType));
-  return createReplacingConstantOp(rewriter, replacingValue, transposedElements)
-      .getResult();
+  return createReplacingConstantOp(
+      rewriter, replacingValue, transposedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -285,8 +282,7 @@ Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr resultElements =
       elementsBuilder.where(cond, lhs, rhs, replacingType);
-  return createReplacingConstantOp(rewriter, replacingValue, resultElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, resultElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -382,8 +378,7 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
     }
   }
 
-  return createReplacingConstantOp(rewriter, replacingValue, reduced)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, reduced);
 }
 
 template <typename ReduceOp>
@@ -532,8 +527,7 @@ Value ConstPropMatMulInteger(PatternRewriter &rewriter, Value replacingValue,
   ElementsAttr rhs = getMatMulIntegerMatrixElements(elementsBuilder,
       rhsMatrixValue, rhsZeroPointValue, reshapeMatMulIntegerRhsZero);
   ElementsAttr matMulElements = elementsBuilder.matMul(lhs, rhs);
-  return createReplacingConstantOp(rewriter, replacingValue, matMulElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, matMulElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -554,8 +548,8 @@ Value ConstPropTranspose(
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr transposedElements =
       elementsBuilder.transpose(constElements, perm);
-  return createReplacingConstantOp(rewriter, replacingValue, transposedElements)
-      .getResult();
+  return createReplacingConstantOp(
+      rewriter, replacingValue, transposedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -568,8 +562,7 @@ Value ConstPropUnsqueeze(
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
-  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -582,8 +575,7 @@ Value ConstPropSqueeze(
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
-  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -631,8 +623,7 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     Value replacingValue = splitOp.getResult(i);
     ElementsAttr splitElements = resElements[i];
     resValues.push_back(
-        createReplacingConstantOp(rewriter, replacingValue, splitElements)
-            .getResult());
+        createReplacingConstantOp(rewriter, replacingValue, splitElements));
   }
   rewriter.replaceOp(splitOp, resValues);
   return success();
@@ -767,10 +758,10 @@ public:
         dataElements.getType(), [&](MutableArrayRef<WideNum> dst) {
           ScatterNDImpl(dataElements, indicesElements, updatesElements, dst);
         });
-    ONNXConstantOp constOp = createReplacingConstantOp(
+    Value constOpResult = createReplacingConstantOp(
         rewriter, scatterNdOp.getData(), scatteredElements);
 
-    rewriter.replaceOp(scatterNdOp, constOp.getResult());
+    rewriter.replaceOp(scatterNdOp, constOpResult);
     return success();
   }
 };
@@ -789,8 +780,7 @@ Value ConstPropCast(
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr castElements =
       elementsBuilder.castElementType(constElements, replacingElemType);
-  return createReplacingConstantOp(rewriter, replacingValue, castElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, castElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -839,8 +829,7 @@ Value ConstPropSlice(
       outputType, [&](MutableArrayRef<WideNum> dst) {
         ConstPropSliceImpl(outputType, shapeHelper, inputElements, dst);
       });
-  return createReplacingConstantOp(rewriter, replacingValue, slicedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, slicedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -888,8 +877,7 @@ Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
         ConstPropConcatImpl(outputType, inputElements, axis, dst);
       });
   return createReplacingConstantOp(
-      rewriter, replacingValue, concatenatedElements)
-      .getResult();
+      rewriter, replacingValue, concatenatedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -905,8 +893,7 @@ Value ConstPropExpand(
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr expandedElements =
       elementsBuilder.expand(constElements, expandedShape);
-  return createReplacingConstantOp(rewriter, replacingValue, expandedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, expandedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -960,8 +947,7 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
         ConstPropGatherImpl(
             outputType, inputElements, indicesElements, axis, dst);
       });
-  return createReplacingConstantOp(rewriter, replacingValue, gatheredElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, gatheredElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -974,8 +960,7 @@ Value ConstPropReshape(
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, constValue, reshapedShape);
-  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -997,8 +982,7 @@ Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
   ElementsAttr expandedElements =
       shapeVector.empty() ? elementsBuilder.reshape(constElements, shapeVector)
                           : elementsBuilder.expand(constElements, shapeVector);
-  return createReplacingConstantOp(rewriter, replacingValue, expandedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, expandedElements);
 }
 
 //===----------------------------------------------------------------------===//
