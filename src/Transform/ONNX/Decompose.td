@@ -427,7 +427,6 @@ def ReduceSumSquareV13OpPattern2
               $keepdims, (noop_with_empty_axes)),
           [], (addBenefit 0)>;
 
-// Decomposition for ONNXConvTransposeOp
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
@@ -446,6 +445,8 @@ def ReduceSumSquareV13OpPattern2
 //    attributes.
 // 6. Insert additional pads if needed.
 //    Emit ONNXPadOp in insertAdditionalPadsConvTranspose().
+// TODO: Consider to write C++ code instead of using tablegen because some code
+//       are redundant. (eg. currently shapeHelper is calld multiple times.)
 //===----------------------------------------------------------------------===//
 
 def reverseWeightConvTranspose: NativeCodeCall<
