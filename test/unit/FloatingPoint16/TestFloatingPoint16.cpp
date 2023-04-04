@@ -10,7 +10,9 @@
 
 #include "src/Support/FloatingPoint16.hpp"
 
+#include <cmath>
 #include <iostream>
+#include <limits>
 
 using namespace onnx_mlir;
 
@@ -35,7 +37,7 @@ public:
 
   template <typename FP16>
   int test_fp16_cast(const char *fp16_name) {
-    std::cout << "test_fp_cast " << fp16_name << ":" << std::endl;
+    std::cout << "test_fp16_cast " << fp16_name << ":" << std::endl;
 
     for (float f = 32768.0; f >= 5.96e-8; f /= 2) {
       assert(f == static_cast<float>(FP16(f)));
@@ -52,6 +54,36 @@ public:
 
     return 0;
   }
+
+  template <typename FP16>
+  int test_fp16_equals(const char *fp16_name) {
+    std::cout << "test_fp16_equals " << fp16_name << ":" << std::endl;
+
+    // 0 equals minus 0:
+    auto zero = FP16::fromFloat(0.0);
+    auto minusZero = FP16::fromFloat(-0.0);
+    assert(zero.bitcastToU16() != minusZero.bitcastToU16());
+    assert(zero == minusZero);
+
+    for (uint32_t u = 0; u <= std::numeric_limits<uint16_t>::max(); ++u) {
+      auto uf = FP16::bitcastFromU16(u);
+
+      // NaN is not equal to itself:
+      assert((uf != uf) == std::isnan(uf.toFloat()));
+
+      // bitcast is 1-1 for non-zero numbers:
+      // sample some non-zero numbers and check that they are equal to uf
+      // iff they bitcast to u
+      for (float f32 = 32768.0; f32 >= 5.96e-8; f32 /= 2) {
+        FP16 f16 = FP16::fromFloat(f32);
+        assert(u == f16.bitcastToU16() || uf != f16);
+        FP16 f16neg = FP16::fromFloat(-f32);
+        assert(u == f16neg.bitcastToU16() || uf != f16neg);
+      }
+    }
+
+    return 0;
+  }
 };
 
 } // namespace
@@ -62,6 +94,8 @@ int main(int argc, char *argv[]) {
   failures += test.test_two_values();
   failures += test.test_fp16_cast<float_16>("float_16");
   failures += test.test_fp16_cast<bfloat_16>("bfloat_16");
+  failures += test.test_fp16_equals<float_16>("float_16");
+  failures += test.test_fp16_equals<bfloat_16>("bfloat_16");
   if (failures != 0) {
     std::cerr << failures << " test failures\n";
     return 1;

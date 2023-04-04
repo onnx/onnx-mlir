@@ -183,8 +183,8 @@ class CategoryMapperLibBuilder : public ModelLibBuilder {
 public:
   // CategoryMapper attributes.
   struct CMAttributes {
-    llvm::ArrayRef<int64_t> cat_int64s;
-    llvm::ArrayRef<llvm::StringRef> cat_strings;
+    llvm::SmallVector<int64_t> cat_int64s;
+    llvm::SmallVector<llvm::StringRef> cat_strings;
     int64_t default_int;
     llvm::StringRef default_string;
   };
