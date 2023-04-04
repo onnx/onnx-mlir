@@ -2646,27 +2646,27 @@ func.func @test_range(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tensor<f32>
 // -----
 
 func.func @test_range_float_constant() -> tensor<*xf32> {
-  %start = onnx.Constant dense<[1.0]> : tensor<1xf32>
+  %start = onnx.Constant dense<[2.0]> : tensor<1xf32>
   %limit = onnx.Constant dense<[10.0]> : tensor<1xf32>
   %delta = onnx.Constant dense<[1.0]> : tensor<1xf32>
   %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
   // CHECK-LABEL: test_range_float_constant
-  // CHECK: {{.*}} = "onnx.Range"(%0, %1, %2) : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<9xf32>
+  // CHECK: {{.*}} = "onnx.Range"(%0, %1, %2) : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<8xf32>
 }
 
 // -----
 
 func.func @test_range_int_constant() -> tensor<*xi32> {
-  %start = onnx.Constant dense<[1]> : tensor<1xi32>
+  %start = onnx.Constant dense<[2]> : tensor<1xi32>
   %limit = onnx.Constant dense<[10]> : tensor<1xi32>
   %delta = onnx.Constant dense<[1]> : tensor<1xi32>
   %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<*xi32>
   return %0 : tensor<*xi32>
 
   // CHECK-LABEL: test_range_int_constant
-  // CHECK: {{.*}} = "onnx.Range"(%0, %1, %2) : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<9xi32>
+  // CHECK: {{.*}} = "onnx.Range"(%0, %1, %2) : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<8xi32>
 }
 
 // -----
