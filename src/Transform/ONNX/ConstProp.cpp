@@ -15,6 +15,7 @@
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -107,6 +108,13 @@ using EnableNotBool = std::enable_if_t<!std::is_same_v<T, bool>>;
 /// Checks whether a variadic value is produced by dense ONNXConstantOps.
 bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
   return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
+}
+
+Value ConstZeroTensor(
+    PatternRewriter &rewriter, Location loc, ShapedType type) {
+  return createONNXConstantOpWithDenseAttr(rewriter, loc,
+      DenseElementsAttr::get(
+          type, rewriter.getZeroAttr(type.getElementType())));
 }
 
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
@@ -402,6 +410,129 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
     return ConstPropReduceAxesRange<ReduceOp>(
         rewriter, replacingValue, dataValue, {});
   }
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for matrix multiplication.
+//===----------------------------------------------------------------------===//
+
+// Takes the matrix shape and zero point for the LHS argument to MatMulInteger
+// and returns the zero point if it broadcasts to the matrix shape or else
+// returns the zero point reshaped so it broadcasts to the matrix shape.
+ElementsAttr reshapeMatMulIntegerLhsZero(
+    ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
+  ShapedType zeroPointType = zeroPoint.getType();
+  auto zeroPointShape = zeroPointType.getShape();
+  auto zeroPointRank = zeroPointShape.size();
+  if (zeroPointRank == 0 || (zeroPointRank == 1 && zeroPointShape[0] == 1)) {
+    // Scalar case is easy: zeroPoint trivially broadcasts to matrix's shape.
+    // Scalars can be represented as singleton tensors with rank 0 or 1.
+  } else if (zeroPointRank == 1) {
+    // Vector with zero point scalar per row. Same shape as a matrix column.
+    int64_t rows = zeroPointShape[0];
+    // Per-row zero point is a proper vector we need to broadcast, unless
+    // matrix is also a vector so the broadcasts cancel out.
+    auto matrixRank = matrixShape.size();
+    if (matrixRank == 1) {
+      // Broadcast of matrix and zero point vectors cancel out.
+      assert(matrixShape == zeroPointShape &&
+             "MatMulInteger LHS matrix, zero_point vectors mismatch");
+    } else {
+      assert(matrixRank > 1 && "MatMulInteger LHS matrix cannot be scalar");
+      // When matrix is a proper tensor, reshape by appending zero point axis
+      // with dim size 1 to broadcast to matrix's shape.
+      assert(rows == matrixShape[matrixRank - 2] &&
+             "MatMulInteger LHS matrix, zero_point rows mismatch");
+      return OnnxElementsAttrBuilder(zeroPoint.getContext())
+          .reshape(zeroPoint, {rows, 1});
+    }
+  } else {
+    // Proper tensor is easy: last axis broadcasts to matrix's shape.
+    assert(zeroPointShape.back() == 1 &&
+           "last dim is 1 when LHS zero_point is a proper tensor");
+    assert(zeroPointShape.drop_back() == matrixShape.drop_back() &&
+           "MatMulInteger LHS matrix, zero_point tensors mismatch");
+  }
+  return zeroPoint;
+}
+
+// Rhs zero point scalar / vector / tensor always broadcasts to
+// matrix's shape.
+ElementsAttr reshapeMatMulIntegerRhsZero(
+    ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
+  return zeroPoint;
+}
+
+bool isMatMulIntegerMatrixZero(Value matrixValue, Value zeroPointValue,
+    function_ref<ElementsAttr(ArrayRef<int64_t>, ElementsAttr)> reshapeZero) {
+  ElementsAttr matrix = getConstValueElements(matrixValue);
+  assert(matrix.getElementType().isInteger(8) &&
+         "MatMulInteger input element types must be u8 or i8");
+
+  // An empty matrix is trivially zero.
+  if (matrix.empty())
+    return true;
+
+  // If zeroPointValue is omitted, "zero" means all elements are zero.
+  if (isNoneValue(zeroPointValue)) {
+    WideNum zero = matrix.getElementType().isUnsignedInteger()
+                       ? WideNum::widen<BType::UINT8>(0u)
+                       : WideNum::widen<BType::INT8>(0);
+    return ElementsAttrBuilder::allEqual(matrix, zero);
+  }
+
+  ElementsAttr zeroPoint = getConstValueElements(zeroPointValue);
+  assert(zeroPoint.getElementType() == matrix.getElementType() &&
+         "MatMulInteger matrix, zero_point element types mismatch");
+  assert(!zeroPoint.empty() &&
+         "MatMulInteger zero_point must be non-empty when matrix is");
+
+  ElementsAttr reshapedZeroPoint =
+      reshapeZero(matrix.getType().getShape(), zeroPoint);
+  return ElementsAttrBuilder::equal(matrix, reshapedZeroPoint);
+}
+
+bool isMatMulIntegerLhsZero(Value matrixValue, Value zeroPointValue) {
+  return isMatMulIntegerMatrixZero(
+      matrixValue, zeroPointValue, reshapeMatMulIntegerLhsZero);
+}
+
+bool isMatMulIntegerRhsZero(Value matrixValue, Value zeroPointValue) {
+  return isMatMulIntegerMatrixZero(
+      matrixValue, zeroPointValue, reshapeMatMulIntegerRhsZero);
+}
+
+ElementsAttr getMatMulIntegerMatrixElements(
+    ElementsAttrBuilder &elementsBuilder, Value matrixValue,
+    Value zeroPointValue,
+    function_ref<ElementsAttr(ArrayRef<int64_t>, ElementsAttr)> reshapeZero) {
+  Type I32 = IntegerType::get(matrixValue.getContext(), 32);
+  ElementsAttr matrix8 = getConstValueElements(matrixValue);
+  ElementsAttr matrix32 = elementsBuilder.castElementType(matrix8, I32);
+  if (isNoneValue(zeroPointValue)) {
+    return matrix32;
+  } else {
+    ElementsAttr zeroPoint8 = getConstValueElements(zeroPointValue);
+    ElementsAttr reshapedZeroPoint8 =
+        reshapeZero(matrix8.getType().getShape(), zeroPoint8);
+    ElementsAttr reshapedZeroPoint32 =
+        elementsBuilder.castElementType(reshapedZeroPoint8, I32);
+    return elementsBuilder.combine(matrix32, reshapedZeroPoint32,
+        matrix32.getType(), elementwiseBinaryOpCombiner<ONNXSubOp>(I32));
+  }
+}
+
+Value ConstPropMatMulInteger(PatternRewriter &rewriter, Value replacingValue,
+    Value lhsMatrixValue, Value rhsMatrixValue, Value lhsZeroPointValue,
+    Value rhsZeroPointValue) {
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr lhs = getMatMulIntegerMatrixElements(elementsBuilder,
+      lhsMatrixValue, lhsZeroPointValue, reshapeMatMulIntegerLhsZero);
+  ElementsAttr rhs = getMatMulIntegerMatrixElements(elementsBuilder,
+      rhsMatrixValue, rhsZeroPointValue, reshapeMatMulIntegerRhsZero);
+  ElementsAttr matMulElements = elementsBuilder.matMul(lhs, rhs);
+  return createReplacingConstantOp(rewriter, replacingValue, matMulElements)
+      .getResult();
 }
 
 //===----------------------------------------------------------------------===//
