@@ -380,8 +380,11 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
 
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
-    SmallVectorImpl<IndexExpr> &operandAccessExprs) {
-  if (hasUniBroadcasting && operandIndex == 0) {
+    SmallVectorImpl<IndexExpr> &operandAccessExprs, bool hasNoBroadcast) {
+  // The hasNoBroadcast pattern can be established by shape inference using
+  // DimAnalysis. If that is available, and broadcasting was ruled out, then
+  // more efficient code can be generated.
+  if (hasNoBroadcast || (hasUniBroadcasting && operandIndex == 0)) {
     for (IndexExpr ie : outputAccessExprs)
       operandAccessExprs.emplace_back(ie);
     return success();

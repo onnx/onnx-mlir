@@ -327,7 +327,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
   // Define vector machine.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
-  // Perform dim analysis (TODO: analyze only if has simd?) hi alex
+  // Perform dim analysis (useful for SIMD but also to avoid broadcast
+  // expressions in index access patterns).
   DimAnalysis *dimAnalysis = new DimAnalysis(module);
   dimAnalysis->analyze();
 

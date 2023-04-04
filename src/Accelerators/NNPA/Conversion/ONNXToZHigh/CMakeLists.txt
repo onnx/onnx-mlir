@@ -10,7 +10,6 @@ add_onnx_mlir_library(OMONNXToZHigh
   libzdnn
 
   LINK_LIBS PUBLIC
-  # hi alex OMONNXDimAnalysis
   OMONNXOps
   OMONNXToKrnl
   OMZHighOps
@@ -31,7 +30,6 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   libzdnn
   
   LINK_LIBS PUBLIC
-  # hi alex OMONNXDimAnalysis
   OMONNXOps
   OMONNXToKrnl
   OMZHighOps

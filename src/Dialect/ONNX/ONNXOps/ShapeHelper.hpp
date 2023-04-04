@@ -28,7 +28,7 @@
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
-#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
 #define GET_OP_FWD_DEFINES 1
 #include "src/Dialect/ONNX/ONNXOps.hpp.inc"
@@ -227,7 +227,8 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   //     This is the output of this function. Use it in subsequent load/stores.
   mlir::LogicalResult getAccessExprs(mlir::Value operand, uint64_t i,
       const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
-      llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs);
+      llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs,
+      bool hasNoBroadcast=false);
 
   bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
 

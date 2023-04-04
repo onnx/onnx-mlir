@@ -1572,15 +1572,15 @@ struct ONNXElementwiseBinaryOpLowering
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
-            LogicalResult res = shapeHelper.getAccessExprs(
-                operands[0], 0, outputAccessExprs, lhsAccessExprs);
+            LogicalResult res = shapeHelper.getAccessExprs(operands[0], 0,
+                outputAccessExprs, lhsAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value lhs = createKrnl.loadIE(operands[0], lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
-            res = shapeHelper.getAccessExprs(
-                operands[1], 1, outputAccessExprs, rhsAccessExprs);
+            res = shapeHelper.getAccessExprs(operands[1], 1, outputAccessExprs,
+                rhsAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value rhs = createKrnl.loadIE(operands[1], rhsAccessExprs);
 
@@ -1649,7 +1649,8 @@ struct ONNXElementwiseVariadicOpLowering
     shapeHelper.computeShapeAndAssertOnFailure();
 
     bool isScalar = hasAllScalarValues(operands);
-    if (enableSIMD && !isScalar && shapeHelper.hasNoBroadcast() &&
+    bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
+    if (enableSIMD && !isScalar && hasNoBroadcast &&
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t simdUnroll =
@@ -1690,8 +1691,8 @@ struct ONNXElementwiseVariadicOpLowering
             for (unsigned i = 1; i < numArgs; ++i) {
               // Obtain the next operand.
               SmallVector<IndexExpr, 4> oprdAccessExprs;
-              LogicalResult res = shapeHelper.getAccessExprs(
-                  operands[i], i, outputAccessExprs, oprdAccessExprs);
+              LogicalResult res = shapeHelper.getAccessExprs(operands[i], i,
+                  outputAccessExprs, oprdAccessExprs, hasNoBroadcast);
               assert(succeeded(res) && "Could not compute access indices");
               Value next = createKrnl.loadIE(operands[i], oprdAccessExprs);
               // Fold.
@@ -1759,6 +1760,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
         create(rewriter, loc);
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
+    bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc =
@@ -1780,23 +1782,23 @@ struct ONNXWhereOpLowering : public ConversionPattern {
             SmallVector<IndexExpr, 4> condAccessExprs;
             LogicalResult res =
                 shapeHelper.getAccessExprs(operandAdaptor.getCondition(), 0,
-                    outputAccessExprs, condAccessExprs);
+                    outputAccessExprs, condAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value cond = createKrnl.loadIE(
                 operandAdaptor.getCondition(), condAccessExprs);
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
-            res = shapeHelper.getAccessExprs(
-                operandAdaptor.getX(), 1, outputAccessExprs, lhsAccessExprs);
+            res = shapeHelper.getAccessExprs(operandAdaptor.getX(), 1,
+                outputAccessExprs, lhsAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value lhs =
                 createKrnl.loadIE(operandAdaptor.getX(), lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
-            res = shapeHelper.getAccessExprs(
-                operandAdaptor.getY(), 2, outputAccessExprs, rhsAccessExprs);
+            res = shapeHelper.getAccessExprs(operandAdaptor.getY(), 2,
+                outputAccessExprs, rhsAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value rhs =
                 createKrnl.loadIE(operandAdaptor.getY(), rhsAccessExprs);
