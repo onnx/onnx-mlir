@@ -102,6 +102,9 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Tensor/Unsqueeze.cpp
   ONNXOps/Tensor/Upsample.cpp
 
+  # hi alex
+  ../../Transform/ONNX/ONNXDimAnalysis.cpp
+  
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
   OMONNXIncGen
@@ -115,7 +118,8 @@ add_onnx_mlir_library(OMONNXOps
   LINK_LIBS PUBLIC
   OMMlirDialects
   OMMlirUtilities
-  OMONNXDimAnalysis
+  OMShapeHelperOpInterface
+  # hi alex OMONNXDimAnalysis
   OMONNXElementsAttr
   onnx
   MLIRFuncDialect

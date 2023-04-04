@@ -77,15 +77,16 @@ add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   MLIRTransforms
   )
 
-add_onnx_mlir_library(OMONNXDimAnalysis
-  ONNXDimAnalysis.cpp
-
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  OMONNXRewrite
-  OMShapeInference
-  OMShapeHelperOpInterface
-  MLIRFuncDialect
-  MLIRPass
-  MLIRTransforms
-  )
+# hi alex
+# add_onnx_mlir_library(OMONNXDimAnalysis
+#   ONNXDimAnalysis.cpp
+# 
+#   LINK_LIBS PUBLIC
+#   OMONNXOps
+#   OMONNXRewrite
+#   OMShapeInference
+#   OMShapeHelperOpInterface
+#   MLIRFuncDialect
+#   MLIRPass
+#   MLIRTransforms
+#   )
