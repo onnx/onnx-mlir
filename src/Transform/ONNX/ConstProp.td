@@ -66,8 +66,6 @@ def HasStaticShape: Constraint<CPred<
   "A value has static shape"
 >;
 
-// Creation helpers:
-
 def IsConstOfZeros : Constraint<
   CPred<"isConstOf($_self, 0.0)">,
   "Value is an all-zeros constant tensor">;
@@ -79,6 +77,20 @@ def IsConstOfOnes : Constraint<
 def ValuesHaveSameType : Constraint<
   CPred<"$0.getType() == $1.getType()">,
   "Values have same type">;
+
+def IsMatMulIntegerLhsZero: Constraint<
+    CPred<"isMatMulIntegerLhsZero($0, $1)">,
+    "MatMulInteger lhs matrix is zero for given zero point">;
+
+def IsMatMulIntegerRhsZero: Constraint<
+    CPred<"isMatMulIntegerRhsZero($0, $1)">,
+    "MatMulInteger rhs matrix is zero for given zero point">;
+
+// Creation helpers:
+
+def CreateZeroTensorOfType: NativeCodeCall<
+  "ConstZeroTensor($_builder, $_loc, $0.getType())"
+>;
 
 def CreateAddOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
@@ -124,6 +136,9 @@ def CreateReduceMaxConst :
 
 def CreateReduceMeanConst :
     NativeCodeCall<"ConstPropReduce<mlir::ONNXReduceMeanOp>($_builder, $0, $1, $2)">;
+
+def CreateMatMulIntegerOfConsts :
+    NativeCodeCall<"ConstPropMatMulInteger($_builder, $0, $1, $2, $3, $4)">;
 
 def CreateTransposeOfConst :
    NativeCodeCall<"ConstPropTranspose($_builder, $0, $1)">;
@@ -488,6 +503,43 @@ def ReduceMeanConstProp: Pat<
         $_),
     (CreateReduceMeanConst $reduceMeanOp, $data, $axes),
     [(IsFromDenseONNXConstantOp:$data), (IsFromDenseONNXConstantOpOrNone:$axes)]
+    >;
+
+//===----------------------------------------------------------------------===//
+// Patterns for MatMul.
+//===----------------------------------------------------------------------===//
+
+def MatMulIntegerConstZeroLhs : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      $B,
+      $a_zero_point, $b_zero_point
+    ),
+    (CreateZeroTensorOfType $resOp),
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
+     (IsMatMulIntegerLhsZero $A, $a_zero_point)]
+    >;
+
+def MatMulIntegerConstZeroRhs : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      $A,
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
+      $a_zero_point, $b_zero_point
+    ),
+    (CreateZeroTensorOfType $resOp),
+    [(IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point),
+     (IsMatMulIntegerRhsZero $B, $b_zero_point)]
+    >;
+
+def MatMulIntegerOfConsts : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
+      $a_zero_point, $b_zero_point
+    ),
+    (CreateMatMulIntegerOfConsts $resOp, $A, $B, $a_zero_point, $b_zero_point),
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
+     (IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point)]
     >;
 
 //===----------------------------------------------------------------------===//

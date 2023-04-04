@@ -154,6 +154,9 @@ public:
       llvm::ArrayRef<unsigned> axes, bool keepdims,
       WideNum (*reducer)(WideNum, WideNum));
 
+  // Returns the matrix product like numpy.matmul.
+  mlir::ElementsAttr matMul(mlir::ElementsAttr lhs, mlir::ElementsAttr rhs);
+
 private:
   struct ElementsProperties;
 
