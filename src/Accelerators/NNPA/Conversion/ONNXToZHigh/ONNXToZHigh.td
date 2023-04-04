@@ -588,7 +588,7 @@ class GetLSTMGRUZDNNWeightFromONNXWeight<string opName> : NativeCodeCall<
 
 def GetLSTMGRUReturnAllStepsAttr : NativeCodeCall<
   "$_builder.getIntegerAttr($_builder.getIntegerType(64, true),"
-  "(isFromNone($0) ? 1 : -1))">;
+  "(isNoneValue($0) ? 1 : -1))">;
 
 def GetLSTMGRUGetY :
         NativeCodeCall<"getLSTMGRUGetY($_loc, $_builder, $0, $1)">;
