@@ -1682,8 +1682,8 @@ struct ONNXElementwiseVariadicOpLowering
             // Fold over operands for each of their scalar values.
             // Obtain the first operand.
             SmallVector<IndexExpr, 4> oprdAccessExprs;
-            LogicalResult res = shapeHelper.getAccessExprs(
-                operands[0], 0, outputAccessExprs, oprdAccessExprs);
+            LogicalResult res = shapeHelper.getAccessExprs(operands[0], 0,
+                outputAccessExprs, oprdAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
 
