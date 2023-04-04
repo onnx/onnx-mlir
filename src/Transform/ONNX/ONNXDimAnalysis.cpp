@@ -391,6 +391,17 @@ void DimAnalysis::visitDim(
     return;
   }
 
+  // ExpandOp when shape is from Concat of dims.
+  if (auto expandOp = dyn_cast<ONNXExpandOp>(op)) {
+    if (areDimsFromConcat(expandOp.getShape())) {
+      SmallVector<Value, 4> shapes;
+      getDims(expandOp.getShape(), shapes);
+      DimT newSameDim(shapes[dimIndex], dimIndex);
+      sameDims.insert(newSameDim);
+      return;
+    }
+  }
+
   // MatMulOp
   if (auto matmulOp = dyn_cast<ONNXMatMulOp>(op)) {
     bool success = exploreSameInputDims(dim, op, sameDims);
