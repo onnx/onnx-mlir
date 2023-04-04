@@ -94,7 +94,7 @@ ElementsAttr getConstValueElements(Value constValue) {
   return constOp.getValueAttr().cast<ElementsAttr>();
 }
 
-// Creates ONNXConstantOp with the location and result type from replacingValue.
+// Creates ONNXConstantOp with the location from replacingValue.
 Value createReplacingConstantOp(
     PatternRewriter &rewriter, Value replacingValue, ElementsAttr elements) {
   return OnnxBuilder(rewriter, replacingValue.getLoc()).constant(elements);
