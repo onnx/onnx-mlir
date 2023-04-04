@@ -402,6 +402,8 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    // Current SIMD code only supports floating-point values.
+    bool isFloatType = isa<FloatType>(outputMemRefType.getElementType());
 
     // Insert an allocation and deallocation for the output of this operation.
     Type elementType = outputMemRefType.getElementType();
@@ -415,18 +417,18 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     int aRank = A.getType().cast<MemRefType>().getShape().size();
     int bRank = B.getType().cast<MemRefType>().getShape().size();
     int cRank = alloc.getType().cast<MemRefType>().getShape().size();
-    if (enableTiling && aRank == 2 && bRank == 2) {
+    if (isFloatType && enableTiling && aRank == 2 && bRank == 2) {
       // Optimized Matmul only when 2D and allowed to tile and unroll.
       assert(cRank == 2 && "expected IxK * KxJ = IxJ 2D result");
       replace2x2Matmul2d(
           adaptor, elementType, shapeHelper, alloc, zero, rewriter, loc);
-    } else if (enableTiling && aRank == 2 && bRank > 2) {
+    } else if (isFloatType && enableTiling && aRank == 2 && bRank > 2) {
       // Broadcasting B.
       assert(cRank == bRank && "expected IxK * *xKxJ = *xIxJ result");
       replace2x2Matmul2dBroadcasting(adaptor, elementType, shapeHelper,
           /*broadcasting B*/ true,
           /*same static broadcast*/ false, alloc, zero, rewriter, loc);
-    } else if (enableTiling && aRank > 2 && bRank == 2) {
+    } else if (isFloatType && enableTiling && aRank > 2 && bRank == 2) {
       // Broadcasting A.
       assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
       replace2x2Matmul2dBroadcasting(adaptor, elementType, shapeHelper,
@@ -446,7 +448,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       }
       // While there is technically no broadcasting there, we can use nearly the
       // same logic as in replace2x2Matmul2dBroadcasting. So reuse that code.
-      if (sameStaticBroadcast) {
+      if (isFloatType && sameStaticBroadcast) {
         assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
         replace2x2Matmul2dBroadcasting(adaptor, elementType, shapeHelper,
             /*broadcasting B*/ true,

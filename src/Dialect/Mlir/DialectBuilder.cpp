@@ -664,10 +664,9 @@ Value MathBuilder::cast(Type destType, Value src) const {
   // Int to int conversion.
   if (srcType.isa<IntegerType>() && destType.isa<IntegerType>()) {
     if (srcType.isUnsignedInteger()) {
-      // Unsigned to unsigned conversion. Has to convert to signless first,
-      // and reconvert output to unsigned.
-      assert(destType.isUnsignedInteger() && "no unsigned/signed conversion");
+      // Unsigned to unsigned/signed conversion.
       assert((bitExtend || bitTrunc) && "expected extend or trunc");
+      // Has to convert to signless first, and reconvert output to unsigned.
       Value cast = castToSignless(src, srcWidth);
       Type castType = b().getIntegerType(destWidth);
       if (bitExtend) {
@@ -676,10 +675,16 @@ Value MathBuilder::cast(Type destType, Value src) const {
         // TosaToLinalg use a clipping algo, not sure if needed.
         cast = b().create<arith::TruncIOp>(loc(), castType, cast);
       }
-      return castToUnsigned(cast, destWidth);
+      if (destType.isUnsignedInteger()) {
+        // Unsigned to unsigned conversion.
+        return castToUnsigned(cast, destWidth);
+      } else {
+        // Unsigned to signed conversion.
+        return cast;
+      }
     } else {
+      // Signed to unsigned/signed conversion.
       // Handle signed integer
-      assert(!destType.isUnsignedInteger() && "no signed/unsigned conversion");
       Value dest = src;
       if (bitExtend)
         dest = b().create<arith::ExtSIOp>(loc(), destType, src);
@@ -687,8 +692,12 @@ Value MathBuilder::cast(Type destType, Value src) const {
         // TosaToLinalg use a clipping algo
         dest = b().create<arith::TruncIOp>(loc(), destType, src);
       if (destIsIndex)
-        dest = b().create<arith::IndexCastOp>(loc(), b().getIndexType(), dest);
-      return dest;
+        return b().create<arith::IndexCastOp>(loc(), b().getIndexType(), dest);
+      if (destType.isUnsignedInteger()) {
+        return castToUnsigned(dest, destWidth);
+      } else {
+        return dest;
+      }
     }
   }
 

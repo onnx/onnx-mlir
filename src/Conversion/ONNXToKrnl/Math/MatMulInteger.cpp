@@ -25,6 +25,9 @@ namespace onnx_mlir {
 
 struct ONNXMatMulIntegerOpLowering
     : public OpConversionPattern<ONNXMatMulIntegerOp> {
+public:
+  const bool USE_F32 = false;
+
   ONNXMatMulIntegerOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : OpConversionPattern(typeConverter, ctx) {}
 
@@ -44,26 +47,41 @@ struct ONNXMatMulIntegerOpLowering
     Value bZeroPoint = mmiOp.getBZeroPoint(); // Optional input.
 
     // Common types.
-    ArrayRef<int64_t> aShape = getShape(A.getType());
-    ArrayRef<int64_t> bShape = getShape(B.getType());
-    auto yMemRefType = dyn_cast<MemRefType>(
+    auto resMemRefType = dyn_cast<MemRefType>(
         typeConverter->convertType(mmiOp.getResult().getType()));
-    Type resElementType = yMemRefType.getElementType();
+    Type resElementType = resMemRefType.getElementType();
 
     // Get shape.
     ONNXMatMulIntegerOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    // Allocate output buffers.
-    // Value Y =
-    //    create.mem.alignedAlloc(yMemRefType, shapeHelper.getOutputDims(0));
+    // `vector.fma` does not support integer at this moment, and since output is
+    // i32, so use f32 for computation.
+    Type computeElementType = resElementType;
+    if (USE_F32) {
+      computeElementType = rewriter.getF32Type();
+    }
 
-    Value AInt32 = create.onnx.cast(A, rewriter.getF32Type());
-    Value BInt32 = create.onnx.cast(B, rewriter.getF32Type());
-    Value resInt32 = create.onnx.matmul(
-        RankedTensorType::get(yMemRefType.getShape(), rewriter.getF32Type()),
+    Value AInt32 = create.onnx.cast(A, computeElementType);
+    Value BInt32 = create.onnx.cast(B, computeElementType);
+    if (!isFromNone(aZeroPoint)) {
+      Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, computeElementType);
+      // Fixme: using `sub` is incorrect since K is the broadcasting dim:
+      // [MxK] - [M] = [MxK] - [Mx1]
+      AInt32 = create.onnx.sub(AInt32, aZeroPointInt32);
+    }
+    if (!isFromNone(bZeroPoint)) {
+      // K is the broadcating dim: [KxN] - [N] = [KxN] - [1xN]
+      Value bZeroPointInt32 = create.onnx.cast(bZeroPoint, computeElementType);
+      BInt32 = create.onnx.sub(BInt32, bZeroPointInt32);
+    }
+
+    Value res = create.onnx.matmul(
+        RankedTensorType::get(resMemRefType.getShape(), computeElementType),
         AInt32, BInt32);
-    Value res = create.onnx.cast(resInt32, resElementType);
+    if (USE_F32) {
+      res = create.onnx.cast(res, resElementType);
+    }
 
     rewriter.replaceOp(op, {create.onnx.toMemref(res)});
     return success();
