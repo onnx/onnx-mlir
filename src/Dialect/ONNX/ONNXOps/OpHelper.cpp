@@ -328,7 +328,7 @@ Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
 // The unit constant can  be 1. NoneType, or 2. 1D tensor with 0 length
 // For example, NoneType, tensor<0xf32>
 // Some onnx model uses 0 length tensor for unit constant.
-bool isFromNone(Value v) {
+bool isNoneValue(Value v) {
   if (v.getType().isa<NoneType>())
     return true;
 

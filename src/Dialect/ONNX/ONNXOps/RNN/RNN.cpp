@@ -100,7 +100,7 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
   // Y :: [batch_size, seq_length, num_dir, hidden_size] if batchwiseLayout
   // Y :: [seq_length, num_dir, batch_size, hidden_size] otherwise
   DimsExpr yOutputDims;
-  if (!isFromNone(op->getResult(0))) {
+  if (!isNoneValue(op->getResult(0))) {
     if (batchwiseLayout) {
       yOutputDims = {batchSize, seqLength, numDir, hiddenSize};
     } else {
@@ -112,7 +112,7 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
   // Y_h :: [batch_size, num_dir, hidden_size] if batchwiseLayout
   // Y_h :: [num_dir, batch_size, hidden_size] otherwise
   DimsExpr yHOutputDims;
-  if (!isFromNone(op->getResult(1))) {
+  if (!isNoneValue(op->getResult(1))) {
     if (batchwiseLayout) {
       yHOutputDims = {batchSize, numDir, hiddenSize};
     } else {
@@ -125,7 +125,7 @@ LogicalResult ONNXGenericRNNShapeHelper<OP_TYPE>::customComputeShape(
     // Y_c :: [batch_size, num_dir, hidden_size] if batchwiseLayout
     // Y_c :: [num_dir, batch_size, hidden_size] otherwise
     DimsExpr yCOutputDims;
-    if (!isFromNone(op->getResult(2))) {
+    if (!isNoneValue(op->getResult(2))) {
       if (batchwiseLayout) {
         yCOutputDims = {batchSize, numDir, hiddenSize};
       } else {

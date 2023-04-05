@@ -84,7 +84,8 @@ struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...>
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
 
-/// Check if all operands are scalar values at compile time.
+/// Check if one/all operands are scalar values at compile time.
+bool isScalarValue(mlir::Value value);
 bool hasAllScalarValues(mlir::ValueRange values);
 
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
@@ -186,9 +187,22 @@ mlir::Value getIdentityValue(mlir::ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// emitScalarOpFor
+//===----------------------------------------------------------------------===//
+//
 // This is used in the innermost loop of a KrnlIterateOp to insert computation
 // composed of one or many scalar ops.
 // Use template specialization for each of different ONNX operations.
+//
+// Note that all values passed in scalarOperands are already loaded in memory.
+// *  If they are scalar, then a scalar is loaded. If used in SIMD mode, that
+//    vector was splatted to the right shape.
+// *  If they have a non value, then that non-value is simply passed on.
+// *  If they are a variable with a rank>0, then that the loaded value has been
+//    loaded with the right loop indices in it.
+//
+// So there should be no "loading" of any values inside the emitScalarOpFor
+// functions
 //===----------------------------------------------------------------------===//
 
 template <typename Op>

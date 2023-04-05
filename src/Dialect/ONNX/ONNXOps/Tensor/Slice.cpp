@@ -34,7 +34,7 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
   // Get each of the axes, and save the literal values in axesIntLit.
   SmallVector<int64_t, 4> axesIntLit;
   Value axes = operandAdaptor.getAxes();
-  if (isFromNone(axes)) {
+  if (isNoneValue(axes)) {
     // If `axes` are omitted, they are set to `[0, ..., nDim-1]`."
     for (uint64_t i = 0; i < dataRank; ++i)
       axesIntLit.emplace_back(i);
@@ -165,7 +165,7 @@ LogicalResult ONNXSliceOp::inferShapes(
     const auto tensorType = RankedTensorType::get({startsDim}, elementType);
 
     // If axes is not specified, default to [0, ..., ndim-1]
-    if (isFromNone(this->getOperand(3))) {
+    if (isNoneValue(this->getOperand(3))) {
       SmallVector<int64_t, 1> vals = {};
       for (size_t s = 0; s < (size_t)startsDim; ++s)
         vals.emplace_back(s);

@@ -108,10 +108,18 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   return transposeRes;
 }
 
+bool isScalarValue(Value value) {
+  ShapedType stype = value.getType().dyn_cast<ShapedType>();
+  assert(stype && "expected shaped type");
+  return stype.getRank() == 0;
+}
+
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ValueRange values) {
   for (Value value : values) {
-    if (value.getType().cast<ShapedType>().getRank() != 0)
+    if (isNoneValue(value))
+      continue;
+    if (!isScalarValue(value))
       return false;
   }
   return true;
@@ -600,7 +608,7 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
 
 bool hasNonIdentityLayout(Value val) {
   // None values have no layout... we are safe.
-  if (isFromNone(val))
+  if (isNoneValue(val))
     return false;
   // Expect a memref now.
   MemRefType type = val.getType().dyn_cast<MemRefType>();

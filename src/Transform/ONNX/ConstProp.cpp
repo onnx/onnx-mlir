@@ -388,7 +388,7 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
 template <typename ReduceOp>
 Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
     Value dataValue, Value axesValue) {
-  if (isFromNone(axesValue)) {
+  if (isNoneValue(axesValue)) {
     return ConstPropReduceAxesRange<ReduceOp>(
         rewriter, replacingValue, dataValue, {});
   } else {
@@ -474,7 +474,7 @@ bool isMatMulIntegerMatrixZero(Value matrixValue, Value zeroPointValue,
     return true;
 
   // If zeroPointValue is omitted, "zero" means all elements are zero.
-  if (isFromNone(zeroPointValue)) {
+  if (isNoneValue(zeroPointValue)) {
     WideNum zero = matrix.getElementType().isUnsignedInteger()
                        ? WideNum::widen<BType::UINT8>(0u)
                        : WideNum::widen<BType::INT8>(0);
@@ -509,7 +509,7 @@ ElementsAttr getMatMulIntegerMatrixElements(
   Type I32 = IntegerType::get(matrixValue.getContext(), 32);
   ElementsAttr matrix8 = getConstValueElements(matrixValue);
   ElementsAttr matrix32 = elementsBuilder.castElementType(matrix8, I32);
-  if (isFromNone(zeroPointValue)) {
+  if (isNoneValue(zeroPointValue)) {
     return matrix32;
   } else {
     ElementsAttr zeroPoint8 = getConstValueElements(zeroPointValue);
