@@ -78,6 +78,12 @@ parser.add_argument('--verify',
 parser.add_argument('--verify-all-ops',
                     action='store_true',
                     help="Verify all operation outputs when using onnxruntime")
+parser.add_argument('--verify-with-softmax',
+                    action='store_true',
+                    help="Verify outputs by applying softmax to them")
+parser.add_argument('--verify-every-value',
+                    action='store_true',
+                    help="Verify every value of the outputs using atol and rtol")
 parser.add_argument('--rtol',
                     type=str,
                     default="0.05",
@@ -129,6 +135,9 @@ parser.add_argument('--upper-bound',
                     " uint64, int64, float16, float32, float64")
 
 args = parser.parse_args()
+if (not (args.verify_with_softmax or args.verify_every_value)):
+    print("Choose verification mode: --verify-with-softmax or --verify-every-value or both")
+    exit(0)
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
     raise RuntimeError(
@@ -214,6 +223,10 @@ def ordinal(n):
     if 11 <= (n % 100) <= 13:
         suffix = 'th'
     return str(n) + suffix
+
+
+def softmax(x):
+    return np.exp(x)/sum(np.exp(x))
 
 
 def execute_commands(cmds):
@@ -602,35 +615,45 @@ def main():
                 print("Invalid verify option")
                 exit(1)
 
+            # Verify using softmax first.
+            if (args.verify_with_softmax):
+                for i, name in enumerate(output_names):
+                    print(
+                        "Verifying using softmax for output {}:{}".format(name,
+                                                          list(outs[i].shape)))
+                    np.testing.assert_allclose(softmax(outs[i]), softmax(ref_outs[i]))
+                    print("  correct.\n")
+
             # For each output tensor, compare results.
-            for i, name in enumerate(output_names):
-                print(
-                    "Verifying value of {}:{}".format(name,
-                                                      list(outs[i].shape)),
-                    "using atol={}, rtol={} ...".format(args.atol, args.rtol))
-                total_elements = 0
-                mismatched_elements = 0
-                for index, actual_val in np.ndenumerate(outs[i]):
-                    total_elements += 1
-                    ref_val = ref_outs[i][index]
-                    if (np.issubdtype(outs[i].dtype, np.dtype(bool).type)):
-                        if ref_val == actual_val:
-                            continue
+            if (args.verify_every_value):
+                for i, name in enumerate(output_names):
+                    print(
+                        "Verifying value of {}:{}".format(name,
+                                                          list(outs[i].shape)),
+                        "using atol={}, rtol={} ...".format(args.atol, args.rtol))
+                    total_elements = 0
+                    mismatched_elements = 0
+                    for index, actual_val in np.ndenumerate(outs[i]):
+                        total_elements += 1
+                        ref_val = ref_outs[i][index]
+                        if (np.issubdtype(outs[i].dtype, np.dtype(bool).type)):
+                            if ref_val == actual_val:
+                                continue
+                        else:
+                            # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+                            diff = float(args.atol) + float(args.rtol) * abs(ref_val)
+                            if (abs(actual_val - ref_val) <= diff):
+                                continue
+                        mismatched_elements += 1
+                        print("  at {}".format(index),
+                              "mismatch {} (actual)".format(actual_val),
+                              "vs {} (reference)".format(ref_val))
+                    if mismatched_elements == 0:
+                        print("  correct.\n")
                     else:
-                        # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                        diff = float(args.atol) + float(args.rtol) * abs(ref_val)
-                        if (abs(actual_val - ref_val) <= diff):
-                            continue
-                    mismatched_elements += 1
-                    print("  at {}".format(index),
-                          "mismatch {} (actual)".format(actual_val),
-                          "vs {} (reference)".format(ref_val))
-                if mismatched_elements == 0:
-                    print("  correct.\n".format(args.atol, args.rtol))
-                else:
-                    raise AssertionError(
-                        "  mismatched elements {}/{}.\n".format(
-                            mismatched_elements, total_elements))
+                        raise AssertionError(
+                            "  mismatched elements {}/{}.\n".format(
+                                mismatched_elements, total_elements))
 
 
 if __name__ == '__main__':
