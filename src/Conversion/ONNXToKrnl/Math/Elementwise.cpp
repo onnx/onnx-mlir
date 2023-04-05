@@ -1236,15 +1236,27 @@ int64_t canBeVectorized(
 // SIMD code gen for kernels where data can be fully flattened.
 //===----------------------------------------------------------------------===//
 
-template <typename ElementwiseUnaryOp>
-static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
+/*
+ Take operations that have no broadcasting and do the following:
+ inputs:
+   * non-scalar: get a flattened view to simdize it easily
+   * scalar: will splat
+  output:
+   * allocate with extra padding so that we may write past the logical end
+   * flatten view so that we may simdize it easily.
+ */
+
+template <typename OP_TYPE>
+static LogicalResult getFullyFlattenedSimdCode(
     ConversionPatternRewriter &rewriter, MDBuilder &create,
     ONNXOpShapeHelper *shapeHelper, Operation *op, MemRefType outputMemRefType,
-    ValueRange operands, int64_t alignment, int64_t simdUnroll) {
+    ValueRange operands, int64_t alignment, int64_t simdUnroll,
+    bool isUnaryOp) {
   Type outputElementType = outputMemRefType.getElementType();
+  unsigned numArgs = op->getNumOperands();
 
   if (DEBUG)
-    llvm::errs() << "  SIMD code for binary op " << op->getName() << "\n";
+    llvm::errs() << "  SIMD code for variadic op " << op->getName() << "\n";
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
@@ -1284,6 +1296,7 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
       [&](KrnlBuilder &ck, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
         llvm::SmallVector<Value, 4> loadedVals;
+        // Load all the values
         for (Value flatOper : flatOperands) {
           if (isNoneValue(flatOper)) {
             // None, just pass it on unmodified.
@@ -1304,80 +1317,28 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
             loadedVals.emplace_back(loadedVal);
           }
         }
-        Value loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-            rewriter, create.getLoc(), op, vecElementType, loadedVals);
-        // Store result in the resulting array.
-        create.vec.store(loweredOpResult, flatAlloc, loopInd);
-      });
-  rewriter.replaceOp(op, alloc);
-  return success();
-}
-
-template <typename ElementwiseVariadicOp>
-static LogicalResult getVariadicSimdCodeFullyFlattened(
-    ConversionPatternRewriter &rewriter, MDBuilder &create,
-    ONNXOpShapeHelper *shapeHelper, Operation *op, MemRefType outputMemRefType,
-    ValueRange operands, int64_t alignment, int64_t simdUnroll) {
-  Type outputElementType = outputMemRefType.getElementType();
-  unsigned numArgs = op->getNumOperands();
-
-  if (DEBUG)
-    llvm::errs() << "  SIMD code for variadic op " << op->getName() << "\n";
-
-  // generate SIMD code of VL elements per vector.
-  IndexExprScope allocScope(create.vec, shapeHelper->getScope());
-  int64_t VL =
-      create.vec.getMachineVectorLength(outputElementType) * simdUnroll;
-  // Alloc memory with padding for SIMD.
-  Value alloc = create.mem.alignedAllocWithSimdPadding(
-      outputMemRefType, shapeHelper->getOutputDims(), simdUnroll, alignment);
-  // Create flat inputs.
-  llvm::SmallVector<Value, 4> flatOperands;
-  for (Value oper : operands) {
-    llvm::SmallVector<IndexExpr, 4> operDims;
-    Value operSize;
-    create.krnlIE.getShapeAsSymbols(oper, operDims);
-    Value flatOper = create.mem.reshapeToFlat(oper, operDims, operSize);
-    flatOperands.emplace_back(flatOper);
-  }
-  // Create flat output.
-  Value totOutputSize;
-  Value flatAlloc = create.mem.reshapeToFlat(
-      alloc, shapeHelper->getOutputDims(), totOutputSize);
-  IndexExpr totSize = SymbolIndexExpr(totOutputSize);
-  // Create loop iteration (flattened to one dim) and blocked by mVL.
-  ValueRange loopDef = create.krnl.defineLoops(1);
-  ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
-  SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
-  SmallVector<IndexExpr, 1> ubs(1, totSize);
-  // Create the vector type to operate over.
-  VectorType vecElementType = VectorType::get({VL}, outputElementType);
-  // Iterate only over the blocks.
-  create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, lbs, ubs,
-      [&](KrnlBuilder &ck, ValueRange loopInd) {
-        MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
-        llvm::SmallVector<Value, 4> loadedVals;
-        // Load all the values
-        for (Value flatOper : flatOperands) {
-          MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
-          assert(memRefType && "expected memref");
-          VectorType vecType =
-              VectorType::get({VL}, memRefType.getElementType());
-          Value loadedVal = create.vec.load(vecType, flatOper, loopInd);
-          loadedVals.emplace_back(loadedVal);
+        Value finalResult;
+        if (isUnaryOp) {
+          // For unary op, we through all operands at once as the other ones are
+          // scalars / none values.
+          finalResult = emitScalarOpFor<OP_TYPE>(
+              rewriter, create.getLoc(), op, vecElementType, loadedVals);
+        } else {
+          // For non-unary ops, each op is a flattened array that need to be
+          // processed; process the two first ones, and then "accumulate" one
+          // value at a time. Use the first operand as temporary result.
+          Value accumulated = loadedVals[0];
+          // Iterate over the remaining operands.
+          for (unsigned i = 1; i < numArgs; ++i) {
+            Value next = loadedVals[i];
+            // Fold.
+            accumulated = emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(),
+                op, vecElementType, {accumulated, next});
+          }
+          // Postprocessing (dummy op if none).
+          finalResult = emitPostProcessingFor<OP_TYPE>(
+              rewriter, create.getLoc(), op, vecElementType, accumulated);
         }
-        // Use the first operand as temporary result.
-        Value accumulated = loadedVals[0];
-        // Iterate over the remaining operands.
-        for (unsigned i = 1; i < numArgs; ++i) {
-          Value next = loadedVals[i];
-          // Fold.
-          accumulated = emitScalarOpFor<ElementwiseVariadicOp>(rewriter,
-              create.getLoc(), op, vecElementType, {accumulated, next});
-        }
-        // Postprocessing (dummy op if none).
-        Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
-            rewriter, create.getLoc(), op, vecElementType, accumulated);
         // Store result in the resulting array.
         create.vec.store(finalResult, flatAlloc, loopInd);
       });
@@ -1443,9 +1404,9 @@ struct ONNXElementwiseUnaryOpLowering
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
               shapeHelper, create, memRefType);
       if (simdUnroll > 0)
-        return getUnaryBinarySimdCodeFullyFlattened<ElementwiseUnaryOp>(
-            rewriter, create, &shapeHelper, op, memRefType, operands, alignment,
-            simdUnroll);
+        return getFullyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter, create,
+            &shapeHelper, op, memRefType, operands, alignment, simdUnroll,
+            /*unary*/ true);
     }
     if (DEBUG)
       llvm::errs() << "  scalar execution\n";
@@ -1559,9 +1520,9 @@ struct ONNXElementwiseBinaryOpLowering
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
               shapeHelper, create, outputMemRefType);
       if (simdUnroll > 0)
-        return getUnaryBinarySimdCodeFullyFlattened<ElementwiseBinaryOp>(
-            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
-            alignment, simdUnroll);
+        return getFullyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter, create,
+            &shapeHelper, op, outputMemRefType, operands, alignment, simdUnroll,
+            /*unary*/ false);
     }
     if (DEBUG)
       llvm::errs() << "  scalar execution\n";
@@ -1675,9 +1636,9 @@ struct ONNXElementwiseVariadicOpLowering
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
               shapeHelper, create, outputMemRefType);
       if (simdUnroll > 0)
-        return getVariadicSimdCodeFullyFlattened<ElementwiseVariadicOp>(
-            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
-            alignment, simdUnroll);
+        return getFullyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
+            create, &shapeHelper, op, outputMemRefType, operands, alignment,
+            simdUnroll, /*unary*/ false);
     }
     if (DEBUG)
       llvm::errs() << "  scalar execution\n";
