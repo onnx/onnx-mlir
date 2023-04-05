@@ -1244,7 +1244,7 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
   Type outputElementType = outputMemRefType.getElementType();
 
   if (DEBUG)
-    llvm::errs() << "SIMD code for binary op " << op->getName() << "\n";
+    llvm::errs() << "  SIMD code for binary op " << op->getName() << "\n";
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
@@ -1322,7 +1322,7 @@ static LogicalResult getVariadicSimdCodeFullyFlattened(
   unsigned numArgs = op->getNumOperands();
 
   if (DEBUG)
-    llvm::errs() << "SIMD code for variadic op " << op->getName() << "\n";
+    llvm::errs() << "  SIMD code for variadic op " << op->getName() << "\n";
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
@@ -1543,11 +1543,14 @@ struct ONNXElementwiseBinaryOpLowering
     shapeHelper.computeShapeAndAssertOnFailure();
 
     if (DEBUG)
-      llvm::errs() << "Look at binary elementwise op: " << op->getName() << "\n";
+      llvm::errs() << "Look at binary elementwise op: " << op->getName()
+                   << "\n";
 
     bool isScalar = hasAllScalarValues(operands);
     // Shape helper can determine if there is no static broadcast.
     bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
+    if (DEBUG && !hasNoBroadcast)
+      llvm::errs() << "  SIMD disabled: may have broadcast\n";
 
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && hasNoBroadcast &&
@@ -1657,10 +1660,14 @@ struct ONNXElementwiseVariadicOpLowering
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     if (DEBUG)
-      llvm::errs() << "Look at variadic elementwise op: " << op->getName() << "\n";
+      llvm::errs() << "Look at variadic elementwise op: " << op->getName()
+                   << "\n";
 
     bool isScalar = hasAllScalarValues(operands);
     bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
+    if (DEBUG && !hasNoBroadcast)
+      llvm::errs() << "  SIMD disabled: may have broadcast\n";
+
     if (enableSIMD && !isScalar && hasNoBroadcast &&
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
