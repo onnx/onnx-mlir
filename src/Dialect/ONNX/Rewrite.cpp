@@ -134,10 +134,12 @@ DenseElementsAttr createDenseElementsAttrFromShapeOp(
 }
 
 /// Test if two axis arrays contain the same values or not.
+/// If rank != 0 then negative axes are adjusted by adding rank.
+/// No checking is done for invariants like out of range axes
+/// or duplicate axes.
 bool AreTheSameAxesArrayAttr(
     int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
-  // false if one of the array attributes is null.
-  if (!(lhsAttr) || !(rhsAttr))
+  if (!lhsAttr || !rhsAttr)
     return false;
 
   auto asSet = [rank](ArrayRef<Attribute> array) {
@@ -148,8 +150,6 @@ bool AreTheSameAxesArrayAttr(
     }
     return axes;
   };
-
-  // We don't check for duplicate axes. That invariant is checked elsewhere.
   return asSet(lhsAttr.getValue()) == asSet(rhsAttr.getValue());
 }
 
