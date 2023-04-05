@@ -301,11 +301,6 @@ ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
 }
 
-ONNXConstantOp createONNXConstantOpWithDenseAttr(
-    OpBuilder &builder, Location loc, Attribute dense) {
-  return builder.create<ONNXConstantOp>(loc, Attribute(), dense);
-}
-
 // Use 0xi64 to represent a None for an optional integer input
 Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
   SmallVector<int64_t, 1> dims(1, 0);

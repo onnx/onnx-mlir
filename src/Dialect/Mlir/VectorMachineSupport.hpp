@@ -78,7 +78,10 @@ public:
   static void setGlobalVectorMachineSupport(
       std::string arch, std::string cpu, std::string attr);
   static void clearGlobalVectorMachineSupport();
+  static bool hasSimd();
 
+  // Has simd (check num registers>0). Requires an initialized vector machine
+  // support.
   static const int64_t UNSUPPORTED = 0;
 
   // Number of vector registers available.
