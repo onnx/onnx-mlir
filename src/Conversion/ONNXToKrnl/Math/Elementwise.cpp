@@ -16,7 +16,7 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
-#define DEBUG 0 /* Log which functions are simdized. */
+#define DEBUG 1 /* Log which functions are simdized. */
 
 using namespace mlir;
 
@@ -1200,7 +1200,7 @@ int64_t canBeVectorized(
       analyzeSimdFor<ElementwiseOp>(elementType, vectorizedOpNum, scalarOpNum);
   if (avgSimdWidth < 1.5) {
     if (DEBUG)
-      llvm::errs() << "SIMD disabled: avg simd width  " << avgSimdWidth
+      llvm::errs() << "  SIMD disabled: avg simd width  " << avgSimdWidth
                    << " too small\n";
     return 0;
   }
@@ -1222,12 +1222,12 @@ int64_t canBeVectorized(
       memRefType, shapeHelper.getOutputDims(), staticSize, dynSize);
   if (isStaticSize && staticSize < simdUnroll) {
     if (DEBUG)
-      llvm::errs() << "SIMD disabled: trip count " << staticSize
+      llvm::errs() << "  SIMD disabled: trip count " << staticSize
                    << " too short \n";
     return 0;
   }
   if (DEBUG)
-    llvm::errs() << "SIMD with avg width " << avgSimdWidth << " and unroll "
+    llvm::errs() << "  SIMD with avg width " << avgSimdWidth << " and unroll "
                  << simdUnroll << "\n";
   return simdUnroll;
 }
@@ -1432,6 +1432,8 @@ struct ONNXElementwiseUnaryOpLowering
     MDBuilder create(rewriter, loc);
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
+    if (DEBUG)
+      llvm::errs() << "Look at unary elementwise op: " << op->getName() << "\n";
 
     bool isScalar = hasAllScalarValues(operands);
     // SIMD is enabled for this operation, test if desired and feasible
@@ -1444,6 +1446,8 @@ struct ONNXElementwiseUnaryOpLowering
             rewriter, create, &shapeHelper, op, memRefType, operands, alignment,
             simdUnroll);
     }
+    if (DEBUG)
+      llvm::errs() << "  scalar execution\n";
 
     // Insert an allocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1534,6 +1538,9 @@ struct ONNXElementwiseBinaryOpLowering
         op, operands, &create.krnlIE, nullptr, isUniBroadcasting);
     shapeHelper.computeShapeAndAssertOnFailure();
 
+    if (DEBUG)
+      llvm::errs() << "Look at binary elementwise op: " << op->getName() << "\n";
+
     bool isScalar = hasAllScalarValues(operands);
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && shapeHelper.hasNoBroadcast() &&
@@ -1546,6 +1553,8 @@ struct ONNXElementwiseBinaryOpLowering
             rewriter, create, &shapeHelper, op, outputMemRefType, operands,
             alignment, simdUnroll);
     }
+    if (DEBUG)
+      llvm::errs() << "  scalar execution\n";
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1639,6 +1648,8 @@ struct ONNXElementwiseVariadicOpLowering
     MDBuilder create(rewriter, loc);
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
+    if (DEBUG)
+      llvm::errs() << "Look at variadic elementwise op: " << op->getName() << "\n";
 
     bool isScalar = hasAllScalarValues(operands);
     if (enableSIMD && !isScalar && shapeHelper.hasNoBroadcast() &&
@@ -1652,6 +1663,8 @@ struct ONNXElementwiseVariadicOpLowering
             rewriter, create, &shapeHelper, op, outputMemRefType, operands,
             alignment, simdUnroll);
     }
+    if (DEBUG)
+      llvm::errs() << "  scalar execution\n";
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
