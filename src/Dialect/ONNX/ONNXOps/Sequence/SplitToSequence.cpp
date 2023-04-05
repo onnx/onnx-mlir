@@ -42,7 +42,7 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
     axisIndex += inputRank;
 
   Value splitValue = getSplit();
-  if (isFromNone(splitValue)) {
+  if (isNoneValue(splitValue)) {
     // since split is not specified, check the keepdims attribute
     int64_t keep = getKeepdims();
     // keepdims must be 0 or 1
@@ -108,7 +108,7 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
   dims[axisIndex] = ShapedType::kDynamic;
 
   Value splitValue = getSplit();
-  if (isFromNone(splitValue)) {
+  if (isNoneValue(splitValue)) {
     // since split is not specified, check the keepdims attribute
     int64_t keep = getKeepdims();
     assert(0 <= keep && keep <= 1 && "keepdims out of range");

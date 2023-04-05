@@ -85,7 +85,7 @@ struct ONNXQuantizeLinearOpLowering
 
     // Load y_zero_point.
     Value zeroPoint;
-    if (!isFromNone(YZeroPoint)) {
+    if (!isNoneValue(YZeroPoint)) {
       zeroPoint = create.krnl.load(adaptor.getYZeroPoint());
       zeroPoint = create.math.cast(elementType, zeroPoint);
     } else

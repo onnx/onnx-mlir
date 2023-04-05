@@ -170,7 +170,7 @@ mlir::Value createNoneFloatConstant(
     mlir::PatternRewriter &rewriter, mlir::Location loc);
 
 // Test if the value is from a NoneType or tensor<0 x ELEMENTARY_TYPE>
-bool isFromNone(mlir::Value value);
+bool isNoneValue(mlir::Value value);
 
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.

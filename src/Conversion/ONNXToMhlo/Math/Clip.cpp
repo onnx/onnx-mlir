@@ -48,12 +48,12 @@ struct ONNXClipOpLoweringToMhlo : public ConversionPattern {
     Type elemType = outputShapedType.getElementType();
 
     MathBuilder createMath(rewriter, loc);
-    if (isFromNone(min)) {
+    if (isNoneValue(min)) {
       min = rewriter.create<mhlo::ConstantOp>(
           loc, DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
                    createMath.negativeInfAttr(elemType)));
     }
-    if (isFromNone(max)) {
+    if (isNoneValue(max)) {
       max = rewriter.create<mhlo::ConstantOp>(
           loc, DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
                    createMath.positiveInfAttr(elemType)));
