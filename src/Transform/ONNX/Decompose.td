@@ -52,7 +52,7 @@ def GetNullStringAttr : NativeCodeCall<"StringAttr()">;
 def GetNullArrayAttr :  NativeCodeCall<"ArrayAttr()">;
 
 // Create a unit constant that will be used as none input.
-def CreateNoneConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
+def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
 
 // Create a scalar DenseElementsAttr (rank 0) from a single attribute.
 // E.g return type is tensor<f32> instead of tensor<0xf32> or tensor<1xf32>
@@ -235,16 +235,16 @@ def LogSoftmaxPattern
 // Express Upsample using Resize.
 def UpsamplePattern : Pat<
   (ONNXUpsampleOp $x, $scales, $mode),
-  (ONNXResizeOp $x, (CreateNoneConstant), $scales, (CreateNoneConstant),
+  (ONNXResizeOp $x, (CreateNoneValue), $scales, (CreateNoneValue),
      (GetNullStringAttr), (GetNullFloatAttr), (GetNullIntegerAttr),
      (GetNullFloatAttr), $mode, (GetNullFloatAttr))
 >;
 
 def UpsampleV7Pattern : Pat<
   (ONNXUpsampleV7Op $x, $mode, $scales),
-  (ONNXResizeOp $x, (CreateNoneConstant),
+  (ONNXResizeOp $x, (CreateNoneValue),
      (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scales)),
-     (CreateNoneConstant), (GetNullStringAttr), (GetNullFloatAttr),
+     (CreateNoneValue), (GetNullStringAttr), (GetNullFloatAttr),
      (GetNullIntegerAttr), (GetNullFloatAttr), $mode, (GetNullFloatAttr))
 >;
 
@@ -264,8 +264,8 @@ def PadV11Pattern : Pat<
 
 def ResizeV10Pattern: Pat<
    (ONNXResizeV10Op:$res $x, $scales, $mode),
-   (ONNXResizeOp $x, (CreateNoneConstant),
-        $scales, (CreateNoneConstant),
+   (ONNXResizeOp $x, (CreateNoneValue),
+        $scales, (CreateNoneValue),
        /*coordinate_transformation_mode*/(GetNullStringAttr),
        /*cubic_coeff_a*/(GetNullFloatAttr),
        /*exclude_outside*/(GetNullIntegerAttr),
@@ -313,7 +313,7 @@ def ClipV12Pattern : Pat<
 
 def SplitV11PatternNoAttr : Pat<
   (ONNXSplitV11Op $x, $axis, $split),
-  (ONNXSplitOp $x, (CreateNoneConstant), $axis),
+  (ONNXSplitOp $x, (CreateNoneValue), $axis),
   [(AttributeIsNull:$split)], (addBenefit 1)
 >;
 
@@ -325,7 +325,7 @@ def SplitV11Pattern : Pat<
 
 def SqueezeV11PatternNoAttr : Pat<
   (ONNXSqueezeV11Op $x, $axes),
-  (ONNXSqueezeOp $x, (CreateNoneConstant)),
+  (ONNXSqueezeOp $x, (CreateNoneValue)),
   [(AttributeIsNull:$axes)], (addBenefit 1)
 >;
 
@@ -352,7 +352,7 @@ def ScatterPattern : Pat<
 def ReduceL1V13OpPattern1
     : Pat<(ONNXReduceL1V13Op $oprd, $axes, $keepdims),
           (ONNXReduceL1Op $oprd,
-              (CreateNoneConstant), $keepdims, (noop_with_empty_axes)),
+              (CreateNoneValue), $keepdims, (noop_with_empty_axes)),
           [(AttributeIsNull:$axes)], (addBenefit 1)>;
 
 def ReduceL1V13OpPattern2
@@ -368,7 +368,7 @@ def ReduceL1V13OpPattern2
 def ReduceL2V13OpPattern1
     : Pat<(ONNXReduceL2V13Op $oprd, $axes, $keepdims),
           (ONNXReduceL2Op $oprd,
-              (CreateNoneConstant), $keepdims, (noop_with_empty_axes)),
+              (CreateNoneValue), $keepdims, (noop_with_empty_axes)),
           [(AttributeIsNull:$axes)], (addBenefit 1)>;
 
 def ReduceL2V13OpPattern2
@@ -384,7 +384,7 @@ def ReduceL2V13OpPattern2
 def ReduceLogSumV13OpPattern1
     : Pat<(ONNXReduceLogSumV13Op $oprd, $axes, $keepdims),
           (ONNXReduceLogSumOp $oprd,
-              (CreateNoneConstant), $keepdims, (noop_with_empty_axes)),
+              (CreateNoneValue), $keepdims, (noop_with_empty_axes)),
           [(AttributeIsNull:$axes)], (addBenefit 1)>;
 
 def ReduceLogSumV13OpPattern2
@@ -400,7 +400,7 @@ def ReduceLogSumV13OpPattern2
 def ReduceLogSumExpV13OpPattern1
     : Pat<(ONNXReduceLogSumExpV13Op $oprd, $axes, $keepdims),
           (ONNXReduceLogSumExpOp $oprd,
-              (CreateNoneConstant), $keepdims, (noop_with_empty_axes)),
+              (CreateNoneValue), $keepdims, (noop_with_empty_axes)),
           [(AttributeIsNull:$axes)], (addBenefit 1)>;
 
 def ReduceLogSumExpV13OpPattern2
@@ -416,7 +416,7 @@ def ReduceLogSumExpV13OpPattern2
 def ReduceSumSquareV13OpPattern1
     : Pat<(ONNXReduceSumSquareV13Op $oprd, $axes, $keepdims),
           (ONNXReduceSumSquareOp $oprd,
-              (CreateNoneConstant), $keepdims, (noop_with_empty_axes)),
+              (CreateNoneValue), $keepdims, (noop_with_empty_axes)),
           [(AttributeIsNull:$axes)], (addBenefit 1)>;
 
 def ReduceSumSquareV13OpPattern2

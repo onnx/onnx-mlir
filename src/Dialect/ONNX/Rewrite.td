@@ -134,7 +134,7 @@ class HaveSameDim<int dim>: Constraint<
   "Two tensors have the same specified dimension">;
 
 // Create a unit constant that will be used as none input.
-def CreateNoneConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
+def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
 
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 
@@ -395,7 +395,7 @@ def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
 // We assume that training_mode is not true so output, mask become data, none.
 // output, mask = onnx.Dropout(data) -> output, mask = data, none
 def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $data, $ratio, $training_mode, $seed),
-  [(replaceWithValue $data), (CreateNoneConstant)]>;
+  [(replaceWithValue $data), (CreateNoneValue)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXCastOp
