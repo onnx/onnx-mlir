@@ -96,7 +96,7 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
     createIE->getIntFromArrayAsLiterals(operandAdaptor.getAxesAttr(), axes);
     return customComputeShape(axes, /*noopWithEmptyAxes*/ false);
   } else {
-    if (isFromNone(operandAdaptor.getAxes())) {
+    if (isNoneValue(operandAdaptor.getAxes())) {
       // Default will be used.
     } else if (getONNXConstantOp(operandAdaptor.getAxes())) {
       createIE->getIntFromArrayAsSymbols(operandAdaptor.getAxes(), axes);
@@ -174,7 +174,7 @@ static LogicalResult inferShapeForReductionOps(OP_TYPE &op) {
   if (!hasShapeAndRank(operandAdaptor.getData()))
     return success();
   // Has an interesting axes but not yet shaped, wait for later.
-  if (!isFromNone(operandAdaptor.getAxes()) &&
+  if (!isNoneValue(operandAdaptor.getAxes()) &&
       !hasShapeAndRank(operandAdaptor.getAxes()))
     return success();
 

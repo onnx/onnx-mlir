@@ -328,7 +328,7 @@ Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
 // The unit constant can  be 1. NoneType, or 2. 1D tensor with 0 length
 // For example, NoneType, tensor<0xf32>
 // Some onnx model uses 0 length tensor for unit constant.
-bool isFromNone(Value v) {
+bool isNoneValue(Value v) {
   if (v.getType().isa<NoneType>())
     return true;
 
@@ -600,34 +600,23 @@ DenseElementsAttr createDenseElementsAttrFromSize(
 
 /// Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(Value result) {
-  Operation *op = result.getDefiningOp();
+  ONNXConstantOp constOp =
+      dyn_cast_or_null<ONNXConstantOp>(result.getDefiningOp());
 
   // Must be a constant.
-  if (!isa_and_nonnull<ONNXConstantOp>(op))
+  if (!constOp)
     return false;
 
-  // The value attribute must be an ElementsAttr
-  // (which is either DenseElementsAttr or DenseResourceElementsAttr
-  // or DisposableElementsAttr).
-  if (!(op->getAttrOfType<ElementsAttr>("value")))
-    return false;
-  // The other attributes must be null.
-  if (op->getAttrOfType<Attribute>("sparse_value"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_float"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_floats"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_int"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_ints"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_string"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_strings"))
+  // The value attribute must be an ElementsAttr (which is one of
+  // DenseElementsAttr, DenseResourceElementsAttr, DisposableElementsAttr).
+  if (!isa_and_nonnull<ElementsAttr>(constOp.getValueAttr()))
     return false;
 
-  return true;
+  // No other attribute must be set.
+  return !constOp.getValueFloatAttr() && !constOp.getValueFloatsAttr() &&
+         !constOp.getValueIntAttr() && !constOp.getValueIntsAttr() &&
+         !constOp.getValueStringAttr() && !constOp.getValueStringsAttr() &&
+         !constOp.getSparseValueAttr();
 }
 
 /// Get scalar value when it is a constant.

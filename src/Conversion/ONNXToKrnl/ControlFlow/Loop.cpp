@@ -485,7 +485,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     // Code copied from src/Dialect/ONNX/Rewrite.cpp
 
     // Check whether the condition is optional
-    if (isFromNone(onnxLoopOp.getCond()))
+    if (isNoneValue(onnxLoopOp.getCond()))
       return false;
 
     // Get the loop region.
@@ -537,7 +537,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     Value c0 = create.math.constant(rewriter.getI64Type(), 0);
     Value c1 = create.math.constant(rewriter.getI64Type(), 1);
     Value ubV;
-    if (!isFromNone(loopOp.getM())) {
+    if (!isNoneValue(loopOp.getM())) {
       hasM = true;
       Value mInitial = c0;
       whileInputValues.emplace_back(mInitial);
@@ -546,7 +546,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
       locs.emplace_back(loc);
     }
 
-    if (!isFromNone(loopOp.getCond())) {
+    if (!isNoneValue(loopOp.getCond())) {
       hasCond = true;
       whileInputValues.emplace_back(adaptor.getCond());
       whileInputTypes.emplace_back(adaptor.getCond().getType());
