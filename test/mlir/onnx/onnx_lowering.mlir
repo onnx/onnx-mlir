@@ -2715,7 +2715,7 @@ func.func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor
 // CHECK:                 krnl.iterate([[LOOP_2_]]) with ([[LOOP_2_]] -> [[I_2_:%.+]] = 0 to 1){
 // CHECK:                   [[VAR_14_:%.+]] = krnl.get_induction_var_value([[LOOP_2_]]) : (!krnl.loop) -> index
 // CHECK-DAG:               [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_14_]]{{.}} : memref<1xi64>
-// CHECK-DAG:               [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]]{{.}}[[VAR_14_]]{{.}} : memref<i64>
+// CHECK-DAG:               [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<i64>
 // CHECK:                   [[VAR_17_:%.+]] = arith.addi [[LOAD_RES_MEM_]], [[LOAD_RES_2_MEM_]] : i64
 // CHECK:                   krnl.store [[VAR_17_]], [[RES_3_]]{{.}}[[VAR_14_]]{{.}} : memref<1xi64>
 // CHECK:                 }

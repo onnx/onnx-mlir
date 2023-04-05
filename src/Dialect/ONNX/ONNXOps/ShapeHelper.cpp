@@ -381,6 +381,14 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs, bool hasNoBroadcast) {
+  // Emtpy the access expr, just in case.
+  operandAccessExprs.clear();
+  // There is this case where we have no broadcast per se, but we have mixtures
+  // of 1xTYPE vs TYPE scalars. Handle this case properly here.
+  uint64_t operandRank = operand.getType().cast<ShapedType>().getRank();
+  if (operandRank == 0)
+    return success();
+
   // The hasNoBroadcast pattern can be established by shape inference using
   // DimAnalysis. If that is available, and broadcasting was ruled out, then
   // more efficient code can be generated.
@@ -390,7 +398,6 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     return success();
   }
 
-  uint64_t operandRank = operand.getType().cast<ShapedType>().getRank();
   for (uint64_t i = 0; i < operandRank; ++i) {
     // Shape helper may pretend 1s, thus adjust dimension index accordingly.
     uint64_t dimIndex = outputRank - operandRank + i;

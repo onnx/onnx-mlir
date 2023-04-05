@@ -228,7 +228,7 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   mlir::LogicalResult getAccessExprs(mlir::Value operand, uint64_t i,
       const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
       llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs,
-      bool hasNoBroadcast=false);
+      bool hasNoBroadcast = false);
 
   bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
 
