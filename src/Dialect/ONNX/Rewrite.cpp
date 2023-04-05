@@ -153,6 +153,9 @@ bool AreTheSameAxesArrayAttr(
   return asSet(lhsAttr.getValue()) == asSet(rhsAttr.getValue());
 }
 
+// Same as AreTheSameAxesArrayAttr but takes (result value of)
+// ONNXConstantOp tensors as inputs.
+// Returns false if any of the input Values are not constant results.
 bool AreTheSameAxesConstant(int64_t rank, Value lhs, Value rhs) {
   assert(cast<ShapedType>(lhs.getType()).getElementType().isInteger(64));
   assert(cast<ShapedType>(rhs.getType()).getElementType().isInteger(64));
