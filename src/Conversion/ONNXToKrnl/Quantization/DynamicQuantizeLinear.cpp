@@ -106,13 +106,9 @@ struct ONNXDynamicQuantizeLinearOpLowering
 
     // Compute y_zero_point.
     Value interZeroPoint = create.math.div(create.math.sub(qMin, xMin), scale);
-    Value lessThanMin = create.math.slt(interZeroPoint, qMin);
     // Saturate zero point.
     Value saturateZeroPoint =
-        create.math.select(lessThanMin, qMin, interZeroPoint);
-    Value lessThanMax = create.math.slt(saturateZeroPoint, qMax);
-    saturateZeroPoint =
-        create.math.select(lessThanMax, saturateZeroPoint, qMax);
+        create.onnx.clip(interZeroPoint, qMin, qMax, /*scalarType=*/true);
     // Round zero point.
     Value zeroPoint = create.onnx.round(saturateZeroPoint, /*scalarType=*/true);
     Value zeroPointInt = create.math.cast(quantizedElementType, zeroPoint);
@@ -133,10 +129,8 @@ struct ONNXDynamicQuantizeLinearOpLowering
           // Adjust
           Value adjustX = create.math.add(roundX, zeroPoint);
           // Saturate
-          Value lessThanMin = create.math.slt(adjustX, qMin);
-          Value saturateX = create.math.select(lessThanMin, qMin, adjustX);
-          Value lessThanMax = create.math.slt(saturateX, qMax);
-          saturateX = create.math.select(lessThanMax, saturateX, qMax);
+          Value saturateX =
+              create.onnx.clip(adjustX, qMin, qMax, /*scalarType=*/true);
           Value res = create.math.cast(quantizedElementType, saturateX);
           create.krnl.store(res, Y, loopInd);
         });

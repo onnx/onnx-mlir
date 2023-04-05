@@ -56,9 +56,13 @@ Value OnnxBuilder::ceil(Value input) const {
   return createOpAndInferShapes<ONNXCeilOp>(toTensor(input.getType()), input);
 }
 
-Value OnnxBuilder::clip(Value input, Value min, Value max) const {
-  return createOpAndInferShapes<ONNXClipOp>(
-      toTensor(input.getType()), toTensor(input), toTensor(min), toTensor(max));
+Value OnnxBuilder::clip(
+    Value input, Value min, Value max, bool scalarType) const {
+  if (scalarType)
+    return b().create<ONNXClipOp>(loc(), input.getType(), input, min, max);
+  else
+    return createOpAndInferShapes<ONNXClipOp>(toTensor(input.getType()),
+        toTensor(input), toTensor(min), toTensor(max));
 }
 
 Value OnnxBuilder::concat(
