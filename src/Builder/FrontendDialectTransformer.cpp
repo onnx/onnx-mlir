@@ -1065,9 +1065,7 @@ private:
       if (v.empty()) {
         // Missing (optional) parameter.
         operandOnnxTypes.push_back(unspecifiedType);
-        auto no_value = builder_.create<ONNXNoneOp>(UnknownLoc());
-
-        operands.push_back(no_value);
+        operands.push_back(none());
         operandTypes.push_back(builder_.getNoneType());
         continue;
       }
