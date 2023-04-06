@@ -174,11 +174,10 @@ std::map<std::string, std::string> ONNXEntryPointLowering::typeMap = {
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
     bool enableTiling, bool enableSIMD, bool enableParallel) {
+  // clang-format off
   // Type conversion for function signatures.
-  // Call MLIR FuncOp signature conversion when result type is
-  // a ranked tensor.
-  populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
-      patterns, typeConverter);
+  // Call MLIR FuncOp signature conversion when result type is a ranked tensor.
+  populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(patterns, typeConverter);
   populateCallOpTypeConversionPattern(patterns, typeConverter);
   populateReturnOpTypeConversionPattern(patterns, typeConverter);
 
@@ -189,15 +188,13 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXElementwiseOpPattern(
-      patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
+  populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
   populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXMatMulOpPattern(
-      patterns, typeConverter, ctx, enableTiling);
+  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, enableTiling);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
@@ -205,6 +202,9 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCategoryMapperOpPattern(patterns, typeConverter, ctx);
   // ObjectDetection
   populateLoweringONNXNonMaxSuppressionOpPattern(patterns, typeConverter, ctx);
+  // Quantization
+  populateLoweringONNXDynamicQuantizeLinearOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXQuantizeLinearOpPattern(patterns, typeConverter, ctx);
   // Tensor
   populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
@@ -220,8 +220,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXConcatShapeTransposeOpPattern(
-      patterns, typeConverter, ctx);
+  populateLoweringONNXConcatShapeTransposeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx);
@@ -244,10 +243,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
   populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx);
-
   // Neural network
-  populateLoweringONNXConvOpPattern(
-      patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
   // Recurrent neural network
@@ -264,6 +261,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXEntryPointLowering>(ctx);
   // Additional
   populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
+  // clang-format on
 }
 
 //===----------------------------------------------------------------------===//
