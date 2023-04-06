@@ -1275,6 +1275,58 @@ func.func @test_prelu_broadcast3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf
 
 // -----
 
+// COM: Check PRelu with dynamic dimensions and no broadcasting.
+
+func.func @test_prelu_with_dyn_and_no_broadcast(%arg0: tensor<?x4x5xi32>, %arg1: tensor<?x4x5xi32>) -> tensor<*xi32> {
+  %0 = "onnx.PRelu"(%arg0, %arg0) : (tensor<?x4x5xi32>, tensor<?x4x5xi32>) -> tensor<*xi32>
+  return %0 : tensor<*xi32>
+
+// mlir2FileCheck.py
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 80 + 128)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 20)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0, s1] -> (s1)>
+// CHECK-LABEL:  func.func @test_prelu_with_dyn_and_no_broadcast
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x4x5xi32>, [[PARAM_1_:%.+]]: memref<?x4x5xi32>) -> memref<?x4x5xi32> {
+// CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant dense<0> : vector<32xi32>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK:           [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x4x5xi32>
+// CHECK:           [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
+// CHECK:           [[RES_:%.+]] = memref.alloc([[VAR_0_]]) {{.*}}: memref<?xi8>
+// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x4x5xi32>
+// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x4x5xi32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_0_]]{{.}}
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[VAR_1_]], [[RES_1_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x4x5xi32>, memref<1xindex>) -> memref<?xi32>
+// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x4x5xi32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[VAR_2_]], [[RES_2_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_4_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_2_]]) : (memref<?x4x5xi32>, memref<1xindex>) -> memref<?xi32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[VAR_3_]], [[RES_3_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_6_:%.+]] = memref.reshape [[VAR_view_]]([[RES_3_]]) : (memref<?x4x5xi32>, memref<1xindex>) -> memref<?xi32>
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_2_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
+// CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xi32>, vector<32xi32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_4_MEM_:%.+]] = vector.load [[VAR_reshape_4_]]{{.}}[[VAR_5_]]{{.}} : memref<?xi32>, vector<32xi32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_8_:%.+]] = arith.cmpi slt, [[LOAD_VAR_reshape_MEM_]], [[VAR_cst_]] : vector<32xi32>
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.muli [[LOAD_VAR_reshape_4_MEM_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xi32>
+// CHECK:             [[VAR_10_:%.+]] = arith.select [[VAR_8_]], [[VAR_9_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xi1>, vector<32xi32>
+// CHECK:             vector.store [[VAR_10_]], [[VAR_reshape_6_]]{{.}}[[VAR_5_]]{{.}} : memref<?xi32>, vector<32xi32>
+// CHECK:           }
+// CHECK:           return [[VAR_view_]] : memref<?x4x5xi32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: Check PRelu with unidirectional broadcasting.
 // COM: Tensor slope should be unidirectional broadcastable to input tensor X
 
