@@ -1413,8 +1413,21 @@ struct ONNXElementwiseUnaryOpLowering
     // Just call scalar computation and return the result. This is efficient
     // when elementwise ops are used as activations for ops like LSTM/GRU/RNN.
     if (!X.getType().isa<TensorType>() && !X.getType().isa<MemRefType>()) {
+      SmallVector<Value> args;
+      args.emplace_back(X);
+      // Load the remaining (scalar) values.
+      for (uint64_t i = 1; i < operands.size(); i++) {
+        if (isNoneValue(operands[i])) {
+          args.emplace_back(operands[i]);
+          continue;
+        }
+        assert(!operands[i].getType().isa<TensorType>() &&
+               !operands[i].getType().isa<MemRefType>() &&
+               "unary expected scalar additional values");
+        args.emplace_back(operands[i]);
+      }
       Value res = emitScalarOpFor<ElementwiseUnaryOp>(
-          rewriter, loc, op, X.getType(), {X});
+          rewriter, loc, op, X.getType(), args);
       rewriter.replaceOp(op, res);
       return success();
     }
@@ -1481,8 +1494,17 @@ struct ONNXElementwiseUnaryOpLowering
       Value loadedVal = create.krnl.load(X);
       SmallVector<Value> args;
       args.emplace_back(loadedVal);
-      for (uint64_t i = 1; i < operands.size(); i++)
-        args.emplace_back(operands[i]);
+      // Load the remaining (scalar) values.
+      for (uint64_t i = 1; i < operands.size(); i++) {
+        if (isNoneValue(operands[i])) {
+          args.emplace_back(operands[i]);
+          continue;
+        }
+        assert(isScalarValue(operands[i]) &&
+               "unary expected scalar additional values");
+        Value loadedVal = create.krnl.load(operands[i]);
+        args.emplace_back(loadedVal);
+      }
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
           rewriter, loc, op, elementType, args);
       // Store result in the resulting array.
