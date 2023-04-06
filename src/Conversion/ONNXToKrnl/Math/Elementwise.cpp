@@ -12,11 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #define DEBUG 0 /* Log which functions are simdized. */
+#define DEBUG_TYPE "unaryfuse"
 
 using namespace mlir;
 
@@ -1435,6 +1438,10 @@ static bool findFusibleUnaryOps(Operation *op,
 
     currentProducer = user;
   }
+
+  if (fusibleOps.size() > 0)
+    LLVM_DEBUG(
+        { llvm::dbgs() << "unary op fused: " << fusibleOps.size() << "\n"; });
   return fusibleOps.size() > 0;
 }
 
@@ -1510,8 +1517,8 @@ struct ONNXElementwiseUnaryOpLowering
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
-    Type elementType = memRefType.getElementType();
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    Type elementType = outputMemRefType.getElementType();
 
     // Shape helper.
     MDBuilder create(rewriter, loc);
@@ -1523,21 +1530,36 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, create, memRefType);
+              shapeHelper, create, outputMemRefType);
       if (simdUnroll > 0)
         return getUnaryBinarySimdCodeFullyFlattened<ElementwiseUnaryOp>(
-            rewriter, create, &shapeHelper, op, memRefType, operands, alignment,
-            simdUnroll);
+            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
+            alignment, simdUnroll);
+    }
+
+    // Try to fuse the unary elementwise consumers
+    SmallVector<Operation *, 2> fusibleOps;
+    SmallVector<EmitScalarFunc, 2> fuseEmitFunctions;
+    bool fusibleOpsFound =
+        findFusibleUnaryOps(op, fusibleOps, fuseEmitFunctions);
+    if (fusibleOpsFound) {
+      // After fusion, the only store is for the last Op.
+      // Therefore, the allocation should be the output of the last Op
+      Operation *lastOp = fusibleOps[fusibleOps.size() - 1];
+      outputMemRefType =
+          this->typeConverter->convertType(lastOp->getResults()[0].getType())
+              .template cast<MemRefType>();
     }
 
     // Insert an allocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
-        memRefType, shapeHelper.getOutputDims(), alignment);
+        outputMemRefType, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
-      ValueRange loopDef = create.krnl.defineLoops(memRefType.getRank());
-      SmallVector<IndexExpr, 4> lbs(memRefType.getRank(), LiteralIndexExpr(0));
+      ValueRange loopDef = create.krnl.defineLoops(outputMemRefType.getRank());
+      SmallVector<IndexExpr, 4> lbs(
+          outputMemRefType.getRank(), LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -1549,6 +1571,9 @@ struct ONNXElementwiseUnaryOpLowering
               args.emplace_back(operands[i]);
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
                 rewriter, loc, op, elementType, args);
+            if (fusibleOpsFound)
+              loweredOpResult = emitFuseOps(rewriter, loc, loweredOpResult,
+                  fusibleOps, fuseEmitFunctions);
             // Store result in the resulting array.
             createKrnl.store(loweredOpResult, alloc, loopInd);
           });
@@ -1560,11 +1585,15 @@ struct ONNXElementwiseUnaryOpLowering
         args.emplace_back(operands[i]);
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
           rewriter, loc, op, elementType, args);
+      if (fusibleOpsFound)
+        loweredOpResult = emitFuseOps(
+            rewriter, loc, loweredOpResult, fusibleOps, fuseEmitFunctions);
       // Store result in the resulting array.
       create.krnl.store(loweredOpResult, alloc);
     }
 
-    rewriter.replaceOp(op, alloc);
+    // Replace the last Op with alloc and delete the other Ops
+    replaceFuseOps(rewriter, op, alloc, fusibleOps);
     return success();
   }
 }; // namespace onnx_mlir
@@ -1623,6 +1652,20 @@ struct ONNXElementwiseBinaryOpLowering
             alignment, simdUnroll);
     }
 
+    // Try to fuse the unary elementwise consumers
+    SmallVector<Operation *, 2> fusibleOps;
+    SmallVector<EmitScalarFunc, 2> fuseEmitFunctions;
+    bool fusibleOpsFound =
+        findFusibleUnaryOps(op, fusibleOps, fuseEmitFunctions);
+    if (fusibleOpsFound) {
+      // After fusion, the only store is for the last Op.
+      // Therefore, the allocation should be the output of the last Op
+      Operation *lastOp = fusibleOps[fusibleOps.size() - 1];
+      outputMemRefType =
+          this->typeConverter->convertType(lastOp->getResults()[0].getType())
+              .template cast<MemRefType>();
+    }
+
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
         outputMemRefType, shapeHelper.getOutputDims(), alignment);
@@ -1657,6 +1700,9 @@ struct ONNXElementwiseBinaryOpLowering
             Value result = emitScalarOpFor<ElementwiseBinaryOp>(
                 rewriter, loc, op, outputElementType, {lhs, rhs});
 
+            if (fusibleOpsFound)
+              result = emitFuseOps(
+                  rewriter, loc, result, fusibleOps, fuseEmitFunctions);
             // Store result in the resulting array.
             createKrnl.store(result, alloc, loopInd);
           });
@@ -1668,11 +1714,15 @@ struct ONNXElementwiseBinaryOpLowering
       Value result = emitScalarOpFor<ElementwiseBinaryOp>(
           rewriter, loc, op, outputElementType, {lhs, rhs});
 
+      if (fusibleOpsFound)
+        result =
+            emitFuseOps(rewriter, loc, result, fusibleOps, fuseEmitFunctions);
       // Store result in the resulting array.
       create.krnl.store(result, alloc);
     }
 
-    rewriter.replaceOp(op, alloc);
+    // Replace the last Op with alloc and delete the other Ops
+    replaceFuseOps(rewriter, op, alloc, fusibleOps);
 
     return success();
   }
