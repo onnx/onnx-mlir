@@ -38,6 +38,7 @@
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
@@ -293,7 +294,7 @@ void populateLoweringONNXClipOpPattern(
 void populateLoweringONNXCumSumOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD);
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD);
 void populateLoweringONNXGemmOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
 void populateLoweringONNXHardmaxOpPattern(

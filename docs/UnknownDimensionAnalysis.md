@@ -10,7 +10,7 @@ This also helps generate code for accelerators. If an accelerator does not suppo
 We provide a helper class [DimAnalysis](../src/Transform/ONNX/ONNXDimAnalysis.hpp) to analyze unknown dimensions and to check whether two unknown dimensions are the same or not. Below is an example of using DimAnalysis:
 
 ```C
-#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
 // Run the unknown dimension analysis to help check equality of unknown
 // dimensions at compile time.
