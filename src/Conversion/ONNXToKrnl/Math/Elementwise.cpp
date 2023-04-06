@@ -16,7 +16,7 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
-#define DEBUG 1 /* Log which functions are simdized. */
+#define DEBUG 0 /* Log which functions are simdized. */
 
 using namespace mlir;
 
