@@ -48,8 +48,21 @@ Value OnnxBuilder::cast(Value input, TypeAttr to) const {
   return createTypedOpAndInferShapes<ONNXCastOp>(resultType, input, to);
 }
 
+Value OnnxBuilder::cast(Value input, Type to) const {
+  return cast(input, TypeAttr::get(to));
+}
+
 Value OnnxBuilder::ceil(Value input) const {
   return createOpAndInferShapes<ONNXCeilOp>(toTensor(input.getType()), input);
+}
+
+Value OnnxBuilder::clip(
+    Value input, Value min, Value max, bool scalarType) const {
+  if (scalarType)
+    return b().create<ONNXClipOp>(loc(), input.getType(), input, min, max);
+  else
+    return createOpAndInferShapes<ONNXClipOp>(toTensor(input.getType()),
+        toTensor(input), toTensor(min), toTensor(max));
 }
 
 Value OnnxBuilder::concat(
@@ -163,6 +176,22 @@ Value OnnxBuilder::padZero(Value input, Value pads) const {
   return pad(input, pads, b().create<ONNXNoneOp>(loc()), "constant");
 }
 
+Value OnnxBuilder::reduceMax(Type outputType, Value data, Value axes,
+    bool keepDims, bool noop_with_empty_axes) const {
+  int64_t i_keepDims = keepDims; // 0 if false, 1 if true
+  int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
+  return createTypedOpAndInferShapes<ONNXReduceMaxOp>(toTensor(outputType),
+      toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
+}
+
+Value OnnxBuilder::reduceMin(Type outputType, Value data, Value axes,
+    bool keepDims, bool noop_with_empty_axes) const {
+  int64_t i_keepDims = keepDims; // 0 if false, 1 if true
+  int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
+  return createTypedOpAndInferShapes<ONNXReduceMinOp>(toTensor(outputType),
+      toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
+}
+
 Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
     bool keepDims, bool noop_with_empty_axes) const {
   int64_t i_keepDims = keepDims; // 0 if false, 1 if true
@@ -187,6 +216,14 @@ Value OnnxBuilder::reverseSequence(Type outputType, Value input,
   return createTypedOpAndInferShapes<ONNXReverseSequenceOp>(
       toTensor(outputType), toTensor(input), toTensor(sequenceLens),
       batchAxisAttr, timeAxisAttr);
+}
+
+Value OnnxBuilder::round(Value input, bool scalarType) const {
+  if (scalarType)
+    return b().create<ONNXRoundOp>(loc(), input.getType(), input);
+  else
+    return createOpAndInferShapes<ONNXRoundOp>(
+        toTensor(input.getType()), toTensor(input));
 }
 
 Value OnnxBuilder::shape(Type outputType, Value input) const {
@@ -248,6 +285,9 @@ Value OnnxBuilder::transposeInt64(
 }
 
 Value OnnxBuilder::toTensor(Value input) const {
+  // None input.
+  if (isNoneValue(input))
+    return input;
   if (input.getType().isa<TensorType>())
     return input;
   assert(input.getType().isa<MemRefType>() &&

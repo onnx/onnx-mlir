@@ -74,10 +74,19 @@ parser.add_argument('--save-onnx',
 parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
-                    " inputs/outputs. By default, no verification")
+                    " inputs/outputs. By default, no verification. When being"
+                    " enabled, --verify-with-softmax or --verify-every-value"
+                    " must be used to specify verification mode")
 parser.add_argument('--verify-all-ops',
                     action='store_true',
                     help="Verify all operation outputs when using onnxruntime")
+parser.add_argument('--verify-with-softmax',
+                    action='store_true',
+                    help="Verify the result obtained by applying softmax "
+                    "to the output")
+parser.add_argument('--verify-every-value',
+                    action='store_true',
+                    help="Verify every value of the output using atol and rtol")
 parser.add_argument('--rtol',
                     type=str,
                     default="0.05",
@@ -129,6 +138,13 @@ parser.add_argument('--upper-bound',
                     " uint64, int64, float16, float32, float64")
 
 args = parser.parse_args()
+if (args.verify and not (args.verify_with_softmax or args.verify_every_value)):
+    raise RuntimeError("Choose verification mode: --verify-with-softmax or "
+                       "--verify-every-value or both")
+if (args.verify_with_softmax and (not args.verify)):
+    raise RuntimeError("Must specify --verify to use --verify-with-softmax")
+if (args.verify_every_value and (not args.verify)):
+    raise RuntimeError("Must specify --verify to use --verify-every-value")
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
     raise RuntimeError(
@@ -180,10 +196,10 @@ DEFAULT_LB = {
     'float64': -0.1,
     'float32': -0.1,
     'float16': -0.1,
-    'int64': -0.1,
-    'int32': -0.1,
-    'int16': -0.1,
-    'int8': -0.1,
+    'int64': -10,
+    'int32': -10,
+    'int16': -10,
+    'int8': -10,
     'uint64': 0,
     'uint32': 0,
     'uint16': 0,
@@ -197,10 +213,10 @@ DEFAULT_UB = {
     'float64': 0.1,
     'float32': 0.1,
     'float16': 0.1,
-    'int64': 0.1,
-    'int32': 0.1,
-    'int16': 0.1,
-    'int8': 0.1,
+    'int64': 10,
+    'int32': 10,
+    'int16': 10,
+    'int8': 10,
     'uint64': 10,
     'uint32': 10,
     'uint16': 10,
@@ -214,6 +230,10 @@ def ordinal(n):
     if 11 <= (n % 100) <= 13:
         suffix = 'th'
     return str(n) + suffix
+
+
+def softmax(x):
+    return np.exp(x)/sum(np.exp(x))
 
 
 def execute_commands(cmds):
@@ -602,35 +622,45 @@ def main():
                 print("Invalid verify option")
                 exit(1)
 
-            # For each output tensor, compare results.
-            for i, name in enumerate(output_names):
-                print(
-                    "Verifying value of {}:{}".format(name,
-                                                      list(outs[i].shape)),
-                    "using atol={}, rtol={} ...".format(args.atol, args.rtol))
-                total_elements = 0
-                mismatched_elements = 0
-                for index, actual_val in np.ndenumerate(outs[i]):
-                    total_elements += 1
-                    ref_val = ref_outs[i][index]
-                    if (np.issubdtype(outs[i].dtype, np.dtype(bool).type)):
-                        if ref_val == actual_val:
-                            continue
+            # Verify using softmax first.
+            if (args.verify_with_softmax):
+                for i, name in enumerate(output_names):
+                    print(
+                        "Verifying using softmax for output {}:{}".format(name,
+                                                          list(outs[i].shape)))
+                    np.testing.assert_allclose(softmax(outs[i]), softmax(ref_outs[i]))
+                    print("  correct.\n")
+
+            # For each output tensor, compare every value.
+            if (args.verify_every_value):
+                for i, name in enumerate(output_names):
+                    print(
+                        "Verifying value of {}:{}".format(name,
+                                                          list(outs[i].shape)),
+                        "using atol={}, rtol={} ...".format(args.atol, args.rtol))
+                    total_elements = 0
+                    mismatched_elements = 0
+                    for index, actual_val in np.ndenumerate(outs[i]):
+                        total_elements += 1
+                        ref_val = ref_outs[i][index]
+                        if (np.issubdtype(outs[i].dtype, np.dtype(bool).type)):
+                            if ref_val == actual_val:
+                                continue
+                        else:
+                            # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+                            diff = float(args.atol) + float(args.rtol) * abs(ref_val)
+                            if (abs(actual_val - ref_val) <= diff):
+                                continue
+                        mismatched_elements += 1
+                        print("  at {}".format(index),
+                              "mismatch {} (actual)".format(actual_val),
+                              "vs {} (reference)".format(ref_val))
+                    if mismatched_elements == 0:
+                        print("  correct.\n")
                     else:
-                        # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                        diff = float(args.atol) + float(args.rtol) * abs(ref_val)
-                        if (abs(actual_val - ref_val) <= diff):
-                            continue
-                    mismatched_elements += 1
-                    print("  at {}".format(index),
-                          "mismatch {} (actual)".format(actual_val),
-                          "vs {} (reference)".format(ref_val))
-                if mismatched_elements == 0:
-                    print("  correct.\n".format(args.atol, args.rtol))
-                else:
-                    raise AssertionError(
-                        "  mismatched elements {}/{}.\n".format(
-                            mismatched_elements, total_elements))
+                        raise AssertionError(
+                            "  mismatched elements {}/{}.\n".format(
+                                mismatched_elements, total_elements))
 
 
 if __name__ == '__main__':

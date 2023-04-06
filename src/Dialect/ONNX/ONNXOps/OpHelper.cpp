@@ -392,52 +392,6 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
   return true;
 }
 
-/// Test if two axis arrays contain the same values or not.
-bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
-  // false if one of the array attributes is null.
-  if (!(lhsAttr) || !(rhsAttr))
-    return false;
-
-  SmallVector<int64_t, 4> lhs;
-  for (auto attr : lhsAttr.getValue()) {
-    int64_t axis = attr.cast<IntegerAttr>().getInt();
-    if (axis < 0)
-      axis += rank;
-    lhs.emplace_back(axis);
-  }
-
-  size_t rhsSize = 0;
-  for (auto attr : rhsAttr.getValue()) {
-    int64_t axis = attr.cast<IntegerAttr>().getInt();
-    if (axis < 0)
-      axis += rank;
-    // false if axis is not in the lhs. Early stop.
-    if (!llvm::any_of(lhs, [&](int64_t lhsAxis) { return lhsAxis == axis; }))
-      return false;
-    rhsSize++;
-  }
-
-  // false if having different number of elements.
-  if (lhs.size() != rhsSize)
-    return false;
-
-  return true;
-}
-
-/// Convert ConstantOp to ArrayAttr and test if they have the same values
-bool AreTheSameConstantOpDenseAttr(
-    Builder &builder, int64_t rank, Value lhsOp, Value rhsOp) {
-  ONNXConstantOp lhsConstOp = dyn_cast<ONNXConstantOp>(lhsOp.getDefiningOp());
-  ONNXConstantOp rhsConstOp = dyn_cast<ONNXConstantOp>(rhsOp.getDefiningOp());
-  if (lhsConstOp && rhsConstOp) {
-    auto lhsArrAttr = createArrayAttrFromConstantOp(builder, lhsConstOp);
-    auto rhsArrAttr = createArrayAttrFromConstantOp(builder, rhsConstOp);
-    return AreTheSameAxisArray(rank, lhsArrAttr, rhsArrAttr);
-  } else {
-    return false;
-  }
-}
-
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(Value val) {
   Type valType = val.getType();
@@ -464,14 +418,10 @@ bool hasShapeAndRank(Operation *op) {
 //===----------------------------------------------------------------------===//
 
 // Create an ArrayAttr from a dense ConstantOp
-ArrayAttr createArrayAttrFromConstantOp(Builder &builder, Value constOp) {
-  auto elementsAttr = getElementAttributeFromONNXValue(constOp);
-  assert(elementsAttr && "ConstantOp is not an ElementsAttr");
-  SmallVector<int64_t, 4> intVals;
-  for (auto val : elementsAttr.getValues<IntegerAttr>()) {
-    intVals.emplace_back(val.getInt());
-  }
-  return builder.getI64ArrayAttr(ArrayRef<int64_t>(intVals));
+ArrayAttr createArrayAttrFromConstantOp(ONNXConstantOp constOp) {
+  auto elements = cast<ElementsAttr>(constOp.getValueAttr());
+  SmallVector<Attribute> values(elements.getValues<Attribute>());
+  return ArrayAttr::get(constOp.getContext(), values);
 }
 
 // Create a DenseElementsAttr from a float attribute.
