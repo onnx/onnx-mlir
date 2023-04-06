@@ -74,16 +74,19 @@ parser.add_argument('--save-onnx',
 parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
-                    " inputs/outputs. By default, no verification")
+                    " inputs/outputs. By default, no verification. When being"
+                    " enabled, --verify-with-softmax or --verify-every-value"
+                    " must be used to specify verification mode")
 parser.add_argument('--verify-all-ops',
                     action='store_true',
                     help="Verify all operation outputs when using onnxruntime")
 parser.add_argument('--verify-with-softmax',
                     action='store_true',
-                    help="Verify outputs by applying softmax to them")
+                    help="Verify the result obtained by applying softmax "
+                    "to the output")
 parser.add_argument('--verify-every-value',
                     action='store_true',
-                    help="Verify every value of the outputs using atol and rtol")
+                    help="Verify every value of the output using atol and rtol")
 parser.add_argument('--rtol',
                     type=str,
                     default="0.05",
@@ -135,9 +138,13 @@ parser.add_argument('--upper-bound',
                     " uint64, int64, float16, float32, float64")
 
 args = parser.parse_args()
-if (not (args.verify_with_softmax or args.verify_every_value)):
-    print("Choose verification mode: --verify-with-softmax or --verify-every-value or both")
-    exit(0)
+if (args.verify and not (args.verify_with_softmax or args.verify_every_value)):
+    raise RuntimeError("Choose verification mode: --verify-with-softmax or "
+                       "--verify-every-value or both")
+if (args.verify_with_softmax and (not args.verify)):
+    raise RuntimeError("Must specify --verify to use --verify-with-softmax")
+if (args.verify_every_value and (not args.verify)):
+    raise RuntimeError("Must specify --verify to use --verify-every-value")
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
     raise RuntimeError(
@@ -624,7 +631,7 @@ def main():
                     np.testing.assert_allclose(softmax(outs[i]), softmax(ref_outs[i]))
                     print("  correct.\n")
 
-            # For each output tensor, compare results.
+            # For each output tensor, compare every value.
             if (args.verify_every_value):
                 for i, name in enumerate(output_names):
                     print(
