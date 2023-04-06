@@ -17,8 +17,8 @@
 #pragma once
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 /// A function to check whether an ONNX op is suitable for being lowered to zDNN
 /// or not.

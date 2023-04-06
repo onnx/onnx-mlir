@@ -64,13 +64,13 @@ public:
 
     Value AInt32 = create.onnx.cast(A, computeElementType);
     Value BInt32 = create.onnx.cast(B, computeElementType);
-    if (!isFromNone(aZeroPoint)) {
+    if (!isNoneValue(aZeroPoint)) {
       Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, computeElementType);
       // Fixme: using `sub` is incorrect since K is the broadcasting dim:
       // [MxK] - [M] = [MxK] - [Mx1]
       AInt32 = create.onnx.sub(AInt32, aZeroPointInt32);
     }
-    if (!isFromNone(bZeroPoint)) {
+    if (!isNoneValue(bZeroPoint)) {
       // K is the broadcating dim: [KxN] - [N] = [KxN] - [1xN]
       Value bZeroPointInt32 = create.onnx.cast(bZeroPoint, computeElementType);
       BInt32 = create.onnx.sub(BInt32, bZeroPointInt32);
