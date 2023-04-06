@@ -236,8 +236,7 @@ mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
   llvm::ArrayRef<int64_t> tensorDims(
       initializer.dims().data(), initializer.dims().size());
   if (tensorDims.size() == 1 && tensorDims[0] == 0)
-    return builder.create<mlir::ONNXNoneOp>(
-        loc, builder.getNoneType(), builder.getUnitAttr());
+    return builder.create<mlir::ONNXNoneOp>(loc);
 
   mlir::ElementsAttr elmAttr =
       onnxTensorProtoToElmAttr(builder, externalDataDir, initializer);

@@ -47,6 +47,18 @@ func.func @test_identity_identity(%a0: tensor<10x10xf32>, %a1: tensor<10x10xf32>
 
 // -----
 
+func.func @test_dropout(%arg: tensor<10x10xf32>) -> (tensor<10x10xf32>, none) {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1:2 = "onnx.Dropout"(%arg, %0, %0) : (tensor<10x10xf32>, none, none) -> (tensor<10x10xf32>, none)
+  "func.return"(%1#0, %1#1) : (tensor<10x10xf32>, none) -> ()
+  // CHECK-LABEL: test_dropout
+  // CHECK-NOT: "onnx.Dropout"
+  // CHECK-NEXT: [[NONE:%.+]] = "onnx.NoValue"
+  // CHECK-NEXT: return %arg0, [[NONE]] : tensor<10x10xf32>, none
+}
+
+// -----
+
 //CHECK-LABEL: @test_gemm_add_fusion(%{{.*}}: tensor<128x128xf32>, %{{.*}}: tensor<128x128xf32>, %{{.*}}: tensor<128xf32>) -> tensor<*xf32> {
 func.func @test_gemm_add_fusion(%arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
