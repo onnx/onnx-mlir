@@ -455,7 +455,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Get axes dims
     IndexExprScope mainScope(&rewriter, loc);
     DimsExpr axesDims;
-    create.krnlIE.getShapeAsDims(axesVal, axesDims);
+    if (isNoneValue(axesVal) && !isNoop) {
+      // The default is to reduce over all the dimensions of the input tensor if
+      // 'noop_with_empty_axes' is false
+      for (int64_t i = 0; i < inRank; ++i)
+        axesDims.emplace_back(LiteralIndexExpr(i));
+    } else
+      create.krnlIE.getShapeAsDims(axesVal, axesDims);
 
     // Get type information
     auto memRefOutShape = memRefOutType.getShape();
