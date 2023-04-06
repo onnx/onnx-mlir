@@ -378,17 +378,16 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
 }
 
 // Determine if all but one input is a scalar, in which case the broadcasting is
-// trivial.
+// trivial. TODO: if we see the pattern, could technically accept many
+// non-scalar ones as long as they are all identical.
 bool ONNXBroadcastOpShapeHelper::hasScalarBroadcast() {
   int numScalars = 0;
   int numNonScalars = 0;
   for (DimsExpr dims : inputsDims) {
     bool onlyOnes = true;
-    for (uint64_t r = 0; r < outputRank; ++r) {
-      if (!dims[r].isLiteralAndIdenticalTo(1)) {
+    for (uint64_t r = 0; r < outputRank && onlyOnes; ++r) {
+      if (!dims[r].isLiteralAndIdenticalTo(1))
         onlyOnes = false;
-        break;
-      }
     }
     if (onlyOnes)
       numScalars++;
