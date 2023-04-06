@@ -412,6 +412,17 @@ void IndexExpr::getAffineMapAndOperands(
   getObj().getAffineMapAndOperands(map, operands);
 }
 
+Value IndexExpr::getShape(bool uniqueQuestionMark) const {
+  if (isLiteral()) {
+    int64_t val = getLiteral();
+    assert(val >= 0 && "expected positive shape values only");
+    return val;
+  }
+  if (uniqueQuestionMark)
+    return getQuestionmark();
+  return ShapedType::kDynamic;
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExpr private getter.
 //===----------------------------------------------------------------------===//
@@ -513,19 +524,8 @@ void IndexExpr::debugPrint(
 /*static*/ void IndexExpr::getShape(SmallVectorImpl<IndexExpr> &indexExprList,
     SmallVectorImpl<int64_t> &intDimList, bool uniqueQuestionMark) {
   intDimList.clear();
-  for (IndexExpr &expr : indexExprList) {
-    assert(!expr.isFloat() && "no float expected in shapes");
-    if (expr.isLiteral()) {
-      int64_t val = expr.getLiteral();
-      assert(val >= 0 && "expected positive values only");
-      intDimList.emplace_back(val);
-    } else {
-      if (uniqueQuestionMark)
-        intDimList.emplace_back(expr.getQuestionmark());
-      else
-        intDimList.emplace_back(ShapedType::kDynamic);
-    }
-  }
+  for (IndexExpr &expr : indexExprList)
+    intDimList.emplace_back(expr.getShape(uniqueQuestionMark);
 }
 
 /*static*/ void IndexExpr::getDynSymbols(

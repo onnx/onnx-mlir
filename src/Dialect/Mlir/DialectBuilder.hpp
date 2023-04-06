@@ -285,7 +285,8 @@ struct MemRefBuilder final : DialectBuilder {
   mlir::memref::ReshapeOp reshape(mlir::MemRefType destType,
       mlir::Value valToReshape, mlir::Value destShapeStoredInMem) const;
   mlir::memref::ReshapeOp reshapeToFlat(mlir::Value valToReshape,
-      llvm::SmallVectorImpl<IndexExpr> &nDims, mlir::Value &size1D) const;
+      llvm::SmallVectorImpl<IndexExpr> &nDims, mlir::Value &flattenedSize,
+      int64_t dimsToFlatten) const;
   mlir::memref::ReshapeOp reshapeFromFlat(mlir::Value valToReshape,
       llvm::SmallVectorImpl<IndexExpr> &nDims,
       mlir::MemRefType outputType) const;
