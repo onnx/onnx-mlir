@@ -29,10 +29,10 @@ int64_t getRankFromMemRefType(mlir::LLVM::LLVMStructType memRefTy);
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
 /// Create an OMTensor from a memref.
-void fillOMTensorWithMemRef(mlir::Value &outMemRef, mlir::Value &outOMTensor,
-    int64_t outOwning, mlir::PatternRewriter &rewriter,
-    const mlir::Location &loc, const RuntimeAPIRegistry &apiRegistry,
-    mlir::ModuleOp &module);
+void fillOMTensorWithMemRef(mlir::Value &outMemRef, mlir::Type elemTy,
+    mlir::Value &outOMTensor, int64_t outOwning,
+    mlir::PatternRewriter &rewriter, const mlir::Location &loc,
+    const RuntimeAPIRegistry &apiRegistry, mlir::ModuleOp &module);
 
 /// Return the GlobalOp for the given string, creating one if not found.
 mlir::LLVM::GlobalOp getOrCreateGlobalString(llvm::StringRef str,

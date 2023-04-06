@@ -45,9 +45,14 @@ struct OnnxBuilder : DialectBuilder {
 
   // ONNXCastOp
   mlir::Value cast(mlir::Value input, mlir::TypeAttr to) const;
+  mlir::Value cast(mlir::Value input, mlir::Type to) const;
 
   // ONNXCeilOp
   mlir::Value ceil(mlir::Value input) const;
+
+  // ONNXClipOp
+  mlir::Value clip(mlir::Value input, mlir::Value min, mlir::Value max,
+      bool scalarType = false) const;
 
   // ONNXConcatOp
   mlir::Value concat(
@@ -86,6 +91,16 @@ struct OnnxBuilder : DialectBuilder {
   // Zero padding
   mlir::Value padZero(mlir::Value input, mlir::Value pads) const;
 
+  // ONNXReduceMaxOp
+  mlir::Value reduceMax(mlir::Type outputType, mlir::Value data,
+      mlir::Value axes, bool keepDims = true,
+      bool noop_with_empty_axes = false) const;
+
+  // ONNXReduceMinOp
+  mlir::Value reduceMin(mlir::Type outputType, mlir::Value data,
+      mlir::Value axes, bool keepDims = true,
+      bool noop_with_empty_axes = false) const;
+
   // ONNXReduceSumOp
   mlir::Value reduceSum(mlir::Type outputType, mlir::Value data,
       mlir::Value axes, bool keepDims = true,
@@ -104,6 +119,9 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXReverseSequenceOp
   mlir::Value reverseSequence(mlir::Type outputType, mlir::Value input,
       mlir::Value sequenceLens, int64_t batchAxis, int64_t timeAxis) const;
+
+  // ONNXRoundOp
+  mlir::Value round(mlir::Value input, bool scalarType = false) const;
 
   // ONNXShapeOp
   mlir::Value shape(mlir::Type outputType, mlir::Value input) const;
