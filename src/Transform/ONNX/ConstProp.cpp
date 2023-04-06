@@ -635,16 +635,12 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
+    llvm::Optional<ArrayAttr> optionalAttr;
 
     auto split = splitOp.getSplit();
-    auto builder = mlir::Builder(splitOp.getContext());
-
-    llvm::Optional<ArrayAttr> optionalAttr;
     if (auto splitConstOp = getONNXConstantOp(split)) {
       // Checking value of split parameter.
-      auto splitAttribute =
-          createArrayAttrFromConstantOp(builder, splitConstOp);
-      optionalAttr.emplace(splitAttribute);
+      optionalAttr.emplace(createArrayAttrFromConstantOp(splitConstOp));
     } else if (!split.getType().isa<NoneType>()) {
       llvm_unreachable("dynamic split not yet supported");
     }

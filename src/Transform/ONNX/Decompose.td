@@ -80,10 +80,6 @@ def noop_with_empty_axes
 def IsDenseONNXConstant:
    Constraint<CPred<"::onnx_mlir::isDenseONNXConstant($_self)">, "not a dense constant">;
 
-// Create an ArrayAttr from a dense ConstantOp
-def createArrayAttrFromConstantOp : NativeCodeCall<
-  "::onnx_mlir::createArrayAttrFromConstantOp($_builder, $0)">;
-
 def createSequenceConstructOp : NativeCodeCall<
   "::onnx_mlir::createSequenceConstructOp($_builder, $0, $1)">;
 
