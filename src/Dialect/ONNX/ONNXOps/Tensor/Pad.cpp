@@ -77,7 +77,7 @@ LogicalResult ONNXPadOp::verify() {
   ShapedType dataTy = getData().getType().cast<ShapedType>();
   Type constTy = getConstantValue().getType();
 
-  if (!isFromNone(getConstantValue())) {
+  if (!isNoneValue(getConstantValue())) {
     // Check that the constant has the same element type as the input
     ShapedType shapedConstTy = constTy.cast<ShapedType>();
     if (dataTy.getElementType() != shapedConstTy.getElementType()) {

@@ -305,7 +305,13 @@ def get_test_models():
         #"test_training_dropout_zero_ratio_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
         #"test_training_dropout_zero_ratio_mask_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
-        # DynamicQuantizeLinear
+        # ==OP== DynamicQuantizeLinear
+        "test_dynamicquantizelinear_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_expanded_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_max_adjusted_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_max_adjusted_expanded_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_min_adjusted_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_min_adjusted_expanded_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Einsum
         # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32
@@ -668,7 +674,10 @@ def get_test_models():
 
         # QLinearMatmul
 
-        # QuantizeLinear
+        # ==OP== QuantizeLinear
+        # ==LIM== Do not support per-axis and i8 quantization.
+        # "test_quantizelinear_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_quantizelinear_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Range
         "test_range_float_type_positive_delta_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},

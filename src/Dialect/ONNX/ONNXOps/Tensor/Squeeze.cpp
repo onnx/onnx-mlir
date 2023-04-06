@@ -124,7 +124,7 @@ LogicalResult ONNXSqueezeOpShapeHelper::computeShape() {
   Value axes = operandAdaptor.getAxes();
   SmallVector<IndexExpr, 4> squeezedDims;
   bool squeezeFromShape = false;
-  if (isFromNone(axes))
+  if (isNoneValue(axes))
     squeezeFromShape = true;
   else
     createIE->getIntFromArrayAsSymbols(axes, squeezedDims);
