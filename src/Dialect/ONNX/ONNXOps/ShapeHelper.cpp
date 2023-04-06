@@ -327,13 +327,12 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
   return success();
 }
 
+// Attempt to rule out broadcasting at compile time, using dim analysis when
+// available (i.e. nonnull). Must be called after computeShape.
 bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
-  // Must be called after computeShape.
-
-  bool hasNoBroadcast = true;
-
   // First use static analysis to rule out broadcast. If we cannot rule out
   // broadcasting for any reasons, hasNoBroadcast is set to false.
+  bool hasNoBroadcast = true;
   for (uint64_t r = 0; r < outputRank && hasNoBroadcast; ++r) {
     bool hasOne, hasOtherThanOne;
     hasOne = hasOtherThanOne = false;
@@ -378,13 +377,35 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   return true;
 }
 
+// Determine if all but one input is a scalar, in which case the broadcasting is
+// trivial.
+bool ONNXBroadcastOpShapeHelper::hasScalarBroadcast() {
+  int numScalars = 0;
+  int numNonScalars = 0;
+  for (DimsExpr dims : inputsDims) {
+    bool onlyOnes = true;
+    for (uint64_t r = 0; r < outputRank; ++r) {
+      if (!dims[r].isLiteralAndIdenticalTo(1)) {
+        onlyOnes = false;
+        break;
+      }
+    }
+    if (onlyOnes)
+      numScalars++;
+    else if (++numNonScalars > 1)
+      // Has 2 or more non scalar, we don't have scalar broadcast only.
+      return false;
+  }
+  return numNonScalars <= 1 && numScalars >= 1;
+}
+
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs, bool hasNoBroadcast) {
   // Emtpy the access expr, just in case.
   operandAccessExprs.clear();
-  // There is this case where we have no broadcast per se, but we have mixtures
-  // of 1xTYPE vs TYPE scalars. Handle this case properly here.
+  // There is this case where we have no broadcast per se, but we have
+  // mixtures of 1xTYPE vs TYPE scalars. Handle this case properly here.
   uint64_t operandRank = operand.getType().cast<ShapedType>().getRank();
   if (operandRank == 0)
     return success();
@@ -461,8 +482,8 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     IndexExprScope scope(nullptr, val.getLoc());
     DimsExpr inferredDims;
     for (int64_t d : shape) {
-      // TODO: "-1" may be used if "shape" is coming from e.g. the parameters of
-      // an `onnx.Reshape` op?
+      // TODO: "-1" may be used if "shape" is coming from e.g. the parameters
+      // of an `onnx.Reshape` op?
       if (ShapedType::isDynamic(d) || d == -1)
         inferredDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
       else

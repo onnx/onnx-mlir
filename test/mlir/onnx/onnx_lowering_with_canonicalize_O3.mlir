@@ -3998,3 +3998,81 @@ module {
 // CHECK:         }
 }
 
+// -----
+
+// Should allow SIMD as there is broadcast but second arg is a scalar, so no need for complicated stuff
+func.func private @test_elementwise_op_with_array_and_scalar_values(%arg0 : tensor<4x8x16xf32>, %arg1 : tensor<f32>) -> tensor<*xf32> {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<4x8x16xf32>, tensor<f32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func private @test_elementwise_op_with_array_and_scalar_values
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<4x8x16xf32>, [[PARAM_1_:%.+]]: memref<f32>) -> memref<4x8x16xf32> {
+// CHECK-DAG:       [[CST_512_:%.+]] = arith.constant 512 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<4x8x16xf32>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[CST_512_]], [[RES_1_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<4x8x16xf32>, memref<1xindex>) -> memref<512xf32>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[CST_512_]], [[RES_2_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_2_:%.+]] = memref.reshape [[RES_]]([[RES_]]_1) : (memref<4x8x16xf32>, memref<1xindex>) -> memref<512xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 512){
+// CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<512xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<f32>
+// CHECK:             [[VAR_4_:%.+]] = vector.splat [[LOAD_PARAM_1_MEM_]] : vector<32xf32>
+// CHECK:             [[VAR_5_:%.+]] = arith.addf [[LOAD_VAR_reshape_MEM_]], [[VAR_4_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_5_]], [[VAR_reshape_2_]]{{.}}[[VAR_1_]]{{.}} : memref<512xf32>, vector<32xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<4x8x16xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Should allow SIMD as there is broadcast but second arg is a scalar, so no need for complicated stuff
+
+func.func private @test_elementwise_op_with_array_and_scalar_values_2(%arg0 : tensor<?x?x64xf32>, %arg1 : tensor<f32>) -> tensor<*xf32> {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x?x64xf32>, tensor<f32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func private @test_elementwise_op_with_array_and_scalar_values_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x64xf32>, [[PARAM_1_:%.+]]: memref<f32>) -> memref<?x?x64xf32> {
+// CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x?x64xf32>
+// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_]] : memref<?x?x64xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]], [[VAR_dim_]]_0) {{.*}}: memref<?x?x64xf32>
+// CHECK-DAG:       [[VAR_dim_1_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x?x64xf32>
+// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_]] : memref<?x?x64xf32>
+// CHECK:           [[VAR_0_:%.+]] = arith.muli [[VAR_dim_1_]], [[VAR_dim_2_]] : index
+// CHECK-DAG:       [[VAR_1_:%.+]] = arith.muli [[VAR_0_]], [[CST_64_]] : index
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[VAR_1_]], [[RES_1_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x?x64xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = arith.muli [[VAR_dim_]], [[VAR_dim_]]_0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_3_:%.+]] = arith.muli [[VAR_2_]], [[CST_64_]] : index
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[VAR_3_]], [[RES_2_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_5_:%.+]] = memref.reshape [[RES_]]([[RES_]]_4) : (memref<?x?x64xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[VAR_3_]]){
+// CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<f32>
+// CHECK:             [[VAR_8_:%.+]] = vector.splat [[LOAD_PARAM_1_MEM_]] : vector<32xf32>
+// CHECK:             [[VAR_9_:%.+]] = arith.addf [[LOAD_VAR_reshape_MEM_]], [[VAR_8_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_9_]], [[VAR_reshape_5_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<?x?x64xf32>
+// CHECK:         }
+}
+

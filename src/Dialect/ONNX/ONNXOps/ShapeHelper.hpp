@@ -230,7 +230,10 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
       llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs,
       bool hasNoBroadcast = false);
 
+  // Determine if we can rule out broadcast at compile time.
   bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
+  // Determine if all but one input is a scalar.
+  bool hasScalarBroadcast();
 
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank. Instantiated during ComputeShape.
@@ -672,8 +675,8 @@ struct ONNXResizeOpShapeHelper : public ONNXOpShapeHelper {
   virtual ~ONNXResizeOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Values set by computeShape: scales is a float index expression. It is
-  // directly the `scale` argument when scale is provided by the op. When `size`
-  // is provided, then scale is float(`size`)/float(dim).
+  // directly the `scale` argument when scale is provided by the op. When
+  // `size` is provided, then scale is float(`size`)/float(dim).
   llvm::SmallVector<IndexExpr, 4> scales;
 };
 

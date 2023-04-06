@@ -30,6 +30,7 @@ func.func private @test_elementwise_op_with_scalar_values_1(%arg0 : tensor<f32>)
   // CHECK: return [[RES]] : memref<f32>
 }
 
+
 // -----
 
 func.func private @test_elementwise_op_with_scalar_values_2(%arg0 : tensor<f32>, %arg1 : tensor<f32>) -> tensor<*xf32> {

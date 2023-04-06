@@ -1200,7 +1200,7 @@ int64_t canBeVectorized(
       analyzeSimdFor<ElementwiseOp>(elementType, vectorizedOpNum, scalarOpNum);
   if (avgSimdWidth < 1.5) {
     if (DEBUG)
-      llvm::errs() << "  SIMD disabled: avg simd width  " << avgSimdWidth
+      llvm::errs() << "  simd disabled: avg simd width  " << avgSimdWidth
                    << " too small\n";
     return 0;
   }
@@ -1222,7 +1222,7 @@ int64_t canBeVectorized(
       memRefType, shapeHelper.getOutputDims(), staticSize, dynSize);
   if (isStaticSize && staticSize < simdUnroll) {
     if (DEBUG)
-      llvm::errs() << "  SIMD disabled: trip count " << staticSize
+      llvm::errs() << "  simd disabled: trip count " << staticSize
                    << " too short \n";
     return 0;
   }
@@ -1256,7 +1256,7 @@ static LogicalResult getFullyFlattenedSimdCode(
   unsigned numArgs = op->getNumOperands();
 
   if (DEBUG)
-    llvm::errs() << "  SIMD code for variadic op " << op->getName() << "\n";
+    llvm::errs() << "  SIMD code for elementwise op " << op->getName() << "\n";
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
@@ -1510,11 +1510,14 @@ struct ONNXElementwiseBinaryOpLowering
     bool isScalar = hasAllScalarValues(operands);
     // Shape helper can determine if there is no static broadcast.
     bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
-    if (DEBUG && !hasNoBroadcast)
+    bool hasScalarBroadcast = shapeHelper.hasScalarBroadcast();
+    bool hasNoTensorBroadcast = hasNoBroadcast || hasScalarBroadcast;
+ 
+    if (DEBUG && !hasNoTensorBroadcast)
       llvm::errs() << "  SIMD disabled: may have broadcast\n";
 
     // SIMD is enabled for this operation, test if desired and feasible
-    if (enableSIMD && !isScalar && hasNoBroadcast &&
+    if (enableSIMD && !isScalar && hasNoTensorBroadcast &&
         !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
@@ -1546,14 +1549,14 @@ struct ONNXElementwiseBinaryOpLowering
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
             LogicalResult res = shapeHelper.getAccessExprs(operands[0], 0,
-                outputAccessExprs, lhsAccessExprs, hasNoBroadcast);
+                outputAccessExprs, lhsAccessExprs, hasNoTensorBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value lhs = createKrnl.loadIE(operands[0], lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
             res = shapeHelper.getAccessExprs(operands[1], 1, outputAccessExprs,
-                rhsAccessExprs, hasNoBroadcast);
+                rhsAccessExprs, hasNoTensorBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value rhs = createKrnl.loadIE(operands[1], rhsAccessExprs);
 
@@ -1626,10 +1629,12 @@ struct ONNXElementwiseVariadicOpLowering
 
     bool isScalar = hasAllScalarValues(operands);
     bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
-    if (DEBUG && !hasNoBroadcast)
+      bool hasScalarBroadcast = shapeHelper.hasScalarBroadcast();
+    bool hasNoTensorBroadcast = hasNoBroadcast || hasScalarBroadcast;
+  if (DEBUG && !hasNoTensorBroadcast)
       llvm::errs() << "  SIMD disabled: may have broadcast\n";
 
-    if (enableSIMD && !isScalar && hasNoBroadcast &&
+    if (enableSIMD && !isScalar && hasNoTensorBroadcast &&
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t simdUnroll =
@@ -1664,7 +1669,7 @@ struct ONNXElementwiseVariadicOpLowering
             // Obtain the first operand.
             SmallVector<IndexExpr, 4> oprdAccessExprs;
             LogicalResult res = shapeHelper.getAccessExprs(operands[0], 0,
-                outputAccessExprs, oprdAccessExprs, hasNoBroadcast);
+                outputAccessExprs, oprdAccessExprs, hasNoTensorBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
 
@@ -1673,7 +1678,7 @@ struct ONNXElementwiseVariadicOpLowering
               // Obtain the next operand.
               SmallVector<IndexExpr, 4> oprdAccessExprs;
               LogicalResult res = shapeHelper.getAccessExprs(operands[i], i,
-                  outputAccessExprs, oprdAccessExprs, hasNoBroadcast);
+                  outputAccessExprs, oprdAccessExprs, hasNoTensorBroadcast);
               assert(succeeded(res) && "Could not compute access indices");
               Value next = createKrnl.loadIE(operands[i], oprdAccessExprs);
               // Fold.
