@@ -115,7 +115,9 @@ private:
     }
   }
 
-  Value none() { return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult(); }
+  Value createNoneValue() {
+    return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult();
+  }
 
   // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
   SymbolToOnnxTypeMapping onnx_type_map;
@@ -546,7 +548,7 @@ private:
     // Trailing optional inputs.
     if (!variadicIn)
       for (int i = (int)inputs.size(); i < expectedNumOperands; i++) {
-        inputs.emplace_back(none());
+        inputs.emplace_back(createNoneValue());
       }
 
     std::vector<Type> outputTypes;
@@ -651,7 +653,7 @@ private:
   void getNodeInputs(const onnx::NodeProto &node, std::vector<Value> &inputs) {
     for (const auto &item : node.input()) {
       if (item.empty()) {
-        inputs.emplace_back(none());
+        inputs.emplace_back(createNoneValue());
       } else {
         if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -748,7 +750,7 @@ private:
     for (const auto &item : node.input())
       if (item.empty()) {
         // Optional inputs using empty string will be imported as NoneType.
-        inputs.emplace_back(none());
+        inputs.emplace_back(createNoneValue());
       } else {
         if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -927,8 +929,8 @@ private:
 
     assert(inVals[1] != nullptr && "Slice requires a starts attribute");
     assert(inVals[2] != nullptr && "Slice requires an ends attribute");
-    inVals[3] = inVals[3] == nullptr ? none() : inVals[3];
-    inVals[4] = inVals[4] == nullptr ? none() : inVals[4];
+    inVals[3] = inVals[3] == nullptr ? createNoneValue() : inVals[3];
+    inVals[4] = inVals[4] == nullptr ? createNoneValue() : inVals[4];
 
     int nIn = ONNXSliceOp::getNumberOfOperands();
     int nOut = ONNXSliceOp::getNumberOfResults();
@@ -1065,9 +1067,7 @@ private:
       if (v.empty()) {
         // Missing (optional) parameter.
         operandOnnxTypes.push_back(unspecifiedType);
-        auto no_value = builder_.create<ONNXNoneOp>(UnknownLoc());
-
-        operands.push_back(no_value);
+        operands.push_back(createNoneValue());
         operandTypes.push_back(builder_.getNoneType());
         continue;
       }

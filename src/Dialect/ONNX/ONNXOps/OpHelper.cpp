@@ -301,41 +301,6 @@ ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
 }
 
-// Use 0xi64 to represent a None for an optional integer input
-Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
-  SmallVector<int64_t, 1> dims(1, 0);
-  SmallVector<int64_t> values;
-  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  auto denseAttr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
-  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
-}
-
-// Use 0xf32 to represent a None for an optional float input
-Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
-  SmallVector<int64_t, 1> dims(1, 0);
-  SmallVector<float> values;
-  auto tensorType = RankedTensorType::get(dims, rewriter.getF32Type());
-  auto denseAttr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
-  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
-}
-
-// Returns true if the Value is defined by a unit constant.
-// The unit constant can  be 1. NoneType, or 2. 1D tensor with 0 length
-// For example, NoneType, tensor<0xf32>
-// Some onnx model uses 0 length tensor for unit constant.
-bool isNoneValue(Value v) {
-  if (v.getType().isa<NoneType>())
-    return true;
-
-  if (auto ty = v.getType().dyn_cast<ShapedType>()) {
-    auto shape = ty.getShape();
-    if (shape.size() == 1 && shape[0] == 0)
-      return true;
-  }
-
-  return false;
-}
-
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
