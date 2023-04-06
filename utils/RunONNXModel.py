@@ -74,7 +74,9 @@ parser.add_argument('--save-onnx',
 parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
-                    " inputs/outputs. By default, no verification")
+                    " inputs/outputs. By default, no verification. When being"
+                    " enabled, --verify-with-softmax or --verify-every-value"
+                    " must be used to specify verification mode")
 parser.add_argument('--verify-all-ops',
                     action='store_true',
                     help="Verify all operation outputs when using onnxruntime")

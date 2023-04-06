@@ -47,7 +47,7 @@ optional arguments:
   --print-input               Print out inputs
   --print-output              Print out inference outputs produced by onnx-mlir
   --save-onnx PATH            File path to save the onnx model. Only effective if --verify=onnxruntime
-  --verify {onnxruntime,ref}  Verify the output by using onnxruntime or reference inputs/outputs. By default, no verification
+  --verify {onnxruntime,ref}  Verify the output by using onnxruntime or reference inputs/outputs. By default, no verification. When being enabled, --verify-with-softmax or --verify-every-value must be used to specify verification mode.
   --verify-all-ops            Verify all operation outputs when using onnxruntime
   --verify-with-softmax       Verify the result obtained by applying softmax to the output
   --verify-every-value        Verify every value of the output using atol and rtol
