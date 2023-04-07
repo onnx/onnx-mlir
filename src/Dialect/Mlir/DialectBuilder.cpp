@@ -1051,7 +1051,7 @@ memref::ReshapeOp MemRefBuilder::reshapeToFlat(Value valToReshape,
   // Parse input.
   MemRefType inputType = valToReshape.getType().cast<MemRefType>();
   int64_t inputRank = inputType.getRank();
-  assert(inputRank == dims.size() && "rank mismatch");
+  assert(inputRank == (int64_t)dims.size() && "rank mismatch");
   Type elementType = inputType.getElementType();
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
   // Set/check dimsToFlatten.

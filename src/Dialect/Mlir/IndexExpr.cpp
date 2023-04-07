@@ -412,7 +412,7 @@ void IndexExpr::getAffineMapAndOperands(
   getObj().getAffineMapAndOperands(map, operands);
 }
 
-Value IndexExpr::getShape(bool uniqueQuestionMark) const {
+int64_t IndexExpr::getShape(bool uniqueQuestionMark) const {
   if (isLiteral()) {
     int64_t val = getLiteral();
     assert(val >= 0 && "expected positive shape values only");
@@ -525,7 +525,7 @@ void IndexExpr::debugPrint(
     SmallVectorImpl<int64_t> &intDimList, bool uniqueQuestionMark) {
   intDimList.clear();
   for (IndexExpr &expr : indexExprList)
-    intDimList.emplace_back(expr.getShape(uniqueQuestionMark);
+    intDimList.emplace_back(expr.getShape(uniqueQuestionMark));
 }
 
 /*static*/ void IndexExpr::getDynSymbols(
