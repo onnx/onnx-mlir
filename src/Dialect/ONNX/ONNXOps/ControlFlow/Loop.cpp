@@ -18,14 +18,6 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
-namespace {
-template <typename Range>
-Range take_begin(Range range, size_t N) {
-  assert(range.size() >= N);
-  return llvm::make_range(range.begin(), range.begin() + N);
-}
-} // namespace
-
 //===----------------------------------------------------------------------===//
 // Verifier
 //===----------------------------------------------------------------------===//
@@ -43,6 +35,7 @@ LogicalResult ONNXLoopOp::inferShapes(
 
   auto &loopBody = getRegion();
   // Body inputs: trip count, termination condition, loop carried dependencies.
+  // TODO: Add verifier to check this.
   assert(loopBody.getNumArguments() == 2 + numCarried &&
          "Loop body must take at least 2 inputs.");
 
@@ -104,11 +97,14 @@ LogicalResult ONNXLoopOp::inferShapes(
 // Helper function to obtain subset of op results corresponding to the final
 // value of loop carried dependencies.
 Operation::result_range ONNXLoopOp::v_final() {
-  return take_begin(getVFinalAndScanOutputs(), getVInitial().size());
+  size_t numCarried = getVInitial().size();
+  auto outputs = getVFinalAndScanOutputs();
+  return llvm::make_range(outputs.begin(), outputs.begin() + numCarried);
 }
 
 // Helper function to obtain subset of op results corresponding to the scan
 // outputs.
 Operation::result_range ONNXLoopOp::scan_outputs() {
-  return llvm::drop_begin(getVFinalAndScanOutputs(), getVInitial().size());
+  size_t numCarried = getVInitial().size();
+  return llvm::drop_begin(getVFinalAndScanOutputs(), numCarried);
 }
