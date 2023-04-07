@@ -219,12 +219,6 @@ class OptOf<Type type> :
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
   "onnx_mlir::OnnxBuilder($_builder, $_loc).constant($0)">;
 
-def createNoneIntegerConstant : NativeCodeCall<
-  "onnx_mlir::createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
-
-def createNoneFloatConstant : NativeCodeCall<
-  "onnx_mlir::createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
-
 //===----------------------------------------------------------------------===//
 // ONNX Operations
 //===----------------------------------------------------------------------===//
