@@ -51,7 +51,8 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value ceil(mlir::Value input) const;
 
   // ONNXClipOp
-  mlir::Value clip(mlir::Value input, mlir::Value min, mlir::Value max) const;
+  mlir::Value clip(mlir::Value input, mlir::Value min, mlir::Value max,
+      bool scalarType = false) const;
 
   // ONNXConcatOp
   mlir::Value concat(

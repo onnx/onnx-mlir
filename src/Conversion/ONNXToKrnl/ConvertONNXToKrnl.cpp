@@ -176,8 +176,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
     bool enableTiling, bool enableSIMD, bool enableParallel) {
   // clang-format off
   // Type conversion for function signatures.
-  // Call MLIR FuncOp signature conversion when result type is
-  // a ranked tensor.
+  // Call MLIR FuncOp signature conversion when result type is a ranked tensor.
   populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(patterns, typeConverter);
   populateCallOpTypeConversionPattern(patterns, typeConverter);
   populateReturnOpTypeConversionPattern(patterns, typeConverter);

@@ -119,8 +119,7 @@ Value MathBuilder::add(Value lhs, Value rhs) const {
       Value castLhs = castToSignless(lhs, elemWidth);
       Value castRhs = castToSignless(rhs, elemWidth);
       Value castAdd =
-          b().create<arith::AddUIExtendedOp>(loc(), castLhs, castRhs)
-              .getResult(0);
+          b().create<arith::AddUIExtendedOp>(loc(), castLhs, castRhs).getSum();
       return castToUnsigned(castAdd, elemWidth);
     } else
       return b().create<arith::AddIOp>(loc(), lhs, rhs);
@@ -148,8 +147,7 @@ Value MathBuilder::mul(Value lhs, Value rhs) const {
       Value castLhs = castToSignless(lhs, elemWidth);
       Value castRhs = castToSignless(rhs, elemWidth);
       Value castMul =
-          b().create<arith::MulUIExtendedOp>(loc(), castLhs, castRhs)
-              .getResult(0);
+          b().create<arith::MulUIExtendedOp>(loc(), castLhs, castRhs).getLow();
       return castToUnsigned(castMul, elemWidth);
     } else
       return b().create<arith::MulIOp>(loc(), lhs, rhs);
