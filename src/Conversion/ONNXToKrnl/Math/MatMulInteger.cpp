@@ -58,6 +58,7 @@ public:
     // `vector.fma` does not support integer at this moment, and since output is
     // i32, so use f32 for computation.
     Type computeElementType = resElementType;
+    Type ui32Ty = rewriter.getIntegerType(32, /*isSigned=*/false);
     if (USE_F32) {
       computeElementType = rewriter.getF32Type();
     }
@@ -76,13 +77,16 @@ public:
       BInt32 = create.onnx.sub(BInt32, bZeroPointInt32);
     }
 
+    Value AUInt32 = create.onnx.cast(AInt32, ui32Ty);
+    Value BUInt32 = create.onnx.cast(BInt32, ui32Ty);
     Value res = create.onnx.matmul(
-        RankedTensorType::get(resMemRefType.getShape(), computeElementType),
-        AInt32, BInt32);
+        RankedTensorType::get(resMemRefType.getShape(), ui32Ty), AUInt32,
+        BUInt32);
     if (USE_F32) {
       res = create.onnx.cast(res, resElementType);
+    } else {
+      res = create.onnx.cast(res, resElementType);
     }
-
     rewriter.replaceOp(op, {create.onnx.toMemref(res)});
     return success();
   }

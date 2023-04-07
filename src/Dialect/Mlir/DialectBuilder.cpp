@@ -112,8 +112,19 @@ Value MathBuilder::xori(Value lhs, Value rhs) const {
 
 Value MathBuilder::add(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
-    return b().create<arith::AddIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType())) {
+    Type elemType = elementTypeWithVector(lhs.getType());
+    if (elemType.isUnsignedInteger()) {
+      unsigned elemWidth = elemType.cast<IntegerType>().getWidth();
+      Value castLhs = castToSignless(lhs, elemWidth);
+      Value castRhs = castToSignless(rhs, elemWidth);
+      Value castAdd =
+          b().create<arith::AddUIExtendedOp>(loc(), castLhs, castRhs)
+              .getResult(0);
+      return castToUnsigned(castAdd, elemWidth);
+    } else
+      return b().create<arith::AddIOp>(loc(), lhs, rhs);
+  }
   if (isFloatWithVector(lhs.getType()))
     return b().create<arith::AddFOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
@@ -130,8 +141,19 @@ Value MathBuilder::sub(Value lhs, Value rhs) const {
 
 Value MathBuilder::mul(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
-    return b().create<arith::MulIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType())) {
+    Type elemType = elementTypeWithVector(lhs.getType());
+    if (elemType.isUnsignedInteger()) {
+      unsigned elemWidth = elemType.cast<IntegerType>().getWidth();
+      Value castLhs = castToSignless(lhs, elemWidth);
+      Value castRhs = castToSignless(rhs, elemWidth);
+      Value castMul =
+          b().create<arith::MulUIExtendedOp>(loc(), castLhs, castRhs)
+              .getResult(0);
+      return castToUnsigned(castMul, elemWidth);
+    } else
+      return b().create<arith::MulIOp>(loc(), lhs, rhs);
+  }
   if (isFloatWithVector(lhs.getType()))
     return b().create<arith::MulFOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
@@ -400,11 +422,16 @@ Value MathBuilder::constant(Type type, double val) const {
           constant =
               b().create<arith::ConstantOp>(loc(), b().getBoolAttr(val != 0));
         else {
-          // If unsigned, the integer is still the same, so just create it.
-          // assert(elementType.isSignless() &&
-          //       "arith::ConstantOp requires a signless type.");
-          constant = b().create<arith::ConstantOp>(loc(),
-              b().getIntegerAttr(elementType, APInt(width, (int64_t)val)));
+          // If unsigned, create a signless constant, then cast it to unsigned.
+          if (elementType.isUnsignedInteger()) {
+            Type signlessTy = b().getIntegerType(width);
+            constant = b().create<arith::ConstantOp>(loc(),
+                b().getIntegerAttr(signlessTy, APInt(width, (int64_t)val)));
+            constant = castToUnsigned(constant, width);
+          } else {
+            constant = b().create<arith::ConstantOp>(loc(),
+                b().getIntegerAttr(elementType, APInt(width, (int64_t)val)));
+          }
         }
       })
       .Case<IndexType>([&](Type elementType) {
@@ -692,6 +719,10 @@ Value MathBuilder::cast(Type destType, Value src) const {
   if (srcType.isa<IntegerType>() && destType.isa<IntegerType>()) {
     if (srcType.isUnsignedInteger()) {
       // Unsigned to unsigned/signed conversion.
+      // Same bit width for unsigned to signed conversion.
+      if ((srcElemWidth == destElemWidth) && destType.isSignlessInteger())
+        return castToSignless(src, srcElemWidth);
+      // Different bit width.
       assert((bitExtend || bitTrunc) && "expected extend or trunc");
       // Has to convert to signless first, and reconvert output to unsigned.
       Value cast = castToSignless(src, srcElemWidth);
@@ -712,6 +743,10 @@ Value MathBuilder::cast(Type destType, Value src) const {
     } else {
       // Signed to unsigned/signed conversion.
       // Handle signed integer
+      // Same bit width for signed to unsigned conversion.
+      if ((srcElemWidth == destElemWidth) && destType.isUnsignedInteger())
+        return castToUnsigned(src, srcElemWidth);
+      // Different bit width.
       Value dest = src;
       if (bitExtend)
         dest = b().create<arith::ExtSIOp>(loc(), destType, src);
