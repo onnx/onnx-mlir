@@ -65,12 +65,16 @@ public:
   bool sameShape(mlir::Value tensor1, mlir::Value tensor2) const;
 
   /// Test if dynamic dimensions of two tensors are the same or not.
-  /// Static dimensions are ignores even thought they are different.
-  /// For example: return true for tensor<?x1xf32> and tensor<?x5xf32> if their
+  /// Static vs static dimension is ignored.
+  /// Static vs dynamic dimension is false as usual.
+  /// For example: return true for tensor<?x2xf32> and tensor<?x5xf32> if their
   /// first dimensions are the same.
   bool sameDynShape(mlir::Value tensor1, mlir::Value tensor2) const;
 
   /// Test if `tensor1` is broadcasting to `tensor2` using the last dimension.
+  /// For example: return true for tensor<?x1xf32> and tensor<?x5xf32> if their
+  /// first dimensions are the same.
+  /// Note that: broadcasting direction is important.
   bool broadcastLastDim(mlir::Value tensor1, mlir::Value tensor2) const;
 
   /// Dumps the analysis information.
