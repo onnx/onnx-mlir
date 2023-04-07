@@ -789,6 +789,17 @@ func.func @test_global_lppool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func @test_global_lppool_unranked(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GlobalLpPool"(%arg0) : (tensor<*xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_global_lppool_unranked
+  // CHECK: [[RES:%.+]] = "onnx.GlobalLpPool"(%arg0) {p = 2 : si64} : (tensor<*xf32>) -> tensor<*xf32>
+  // CHECK: return [[RES]] : tensor<*xf32>
+}
+
+// -----
+
 func.func @test_global_maxpool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
