@@ -380,6 +380,8 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
 // Determine if all but one input is a scalar, in which case the broadcasting is
 // trivial.
 bool ONNXBroadcastOpShapeHelper::hasScalarBroadcast(DimAnalysis *dimAnalysis) {
+  // hi alex:
+  return false;
   // Find the inputs that are scalar.
   int scalarNum = 0;
   int nonScalarID = -1;
