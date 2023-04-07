@@ -1432,12 +1432,16 @@ bool enqueueFusedOp(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
 
 bool enqueueFusedOp(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
     SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+
+  // Notice: Though ClipOp is classified as unary element op in this file,
+  // ClipOp requires one required input and two optional input
+
   return enqueueFusedOp<ONNXCastOp, ONNXSinhOp, ONNXCoshOp, ONNXSigmoidOp,
       ONNXHardSigmoidOp, ONNXEluOp, ONNXReluOp, ONNXLeakyReluOp, ONNXPReluOp,
       ONNXSeluOp, ONNXReciprocalOp, ONNXSoftplusOp, ONNXSoftsignOp, ONNXSignOp,
       ONNXMaxOp, ONNXMinOp, ONNXNegOp, ONNXLessOp, ONNXLessOrEqualOp,
       ONNXGreaterOp, ONNXGreaterOrEqualOp, ONNXEqualOp, ONNXNotOp, ONNXModOp,
-      ONNXMeanOp, ONNXRoundOp, ONNXClipOp, ONNXDequantizeLinearOp, ONNXSqrtOp>(
+      ONNXMeanOp, ONNXRoundOp, ONNXDequantizeLinearOp, ONNXSqrtOp>(
       op, fusibleOps, fuseEmitFunctions);
 }
 
