@@ -767,6 +767,17 @@ func.func @test_global_averagepool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf3
 
 // -----
 
+func.func @test_global_averagepool_unranked(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<*xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_global_averagepool_unranked
+  // CHECK: [[RES:%.+]] = "onnx.GlobalAveragePool"(%arg0) : (tensor<*xf32>) -> tensor<*xf32>
+  // CHECK: return [[RES]] : tensor<*xf32>
+}
+
+// -----
+
 func.func @test_global_lppool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.GlobalLpPool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()

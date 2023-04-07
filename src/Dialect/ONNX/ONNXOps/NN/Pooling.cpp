@@ -139,6 +139,9 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 
 LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getX()))
+    return success();
+
   Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXGlobalAveragePoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
