@@ -44,10 +44,14 @@ public:
     Value aZeroPoint = mmiOp.getAZeroPoint(); // Optional input.
     Value bZeroPoint = mmiOp.getBZeroPoint(); // Optional input.
 
-    if (!isNoneValue(aZeroPoint) && !isScalarValue(aZeroPoint)) {
-      return rewriter.notifyMatchFailure(op, [&](Diagnostic &diag) {
-        diag << "Does not support non-scalar for a_zero_pont";
-      });
+    if (!isNoneValue(aZeroPoint)) {
+      ShapedType stype = aZeroPoint.getType().dyn_cast<ShapedType>();
+      if ((stype.getRank() > 1) ||
+          (stype.getRank() == 1 && (stype.getShape()[0] != 1))) {
+        return rewriter.notifyMatchFailure(op, [&](mlir::Diagnostic &diag) {
+          diag << "Does not support non-scalar for a_zero_point";
+        });
+      }
     }
 
     // Common types.
@@ -63,29 +67,38 @@ public:
     Type ui32Ty = rewriter.getIntegerType(32, /*isSigned=*/false);
     assert(resElementType == i32Ty && "Output type is not i32");
 
-    // Use i32 for sub because sub does not support ui32.
-    Value AInt32 = create.onnx.cast(A, i32Ty);
-    Value BInt32 = create.onnx.cast(B, i32Ty);
+    Value AUInt32, BUInt32;
+    // Use i32 for onnx.Sub because onnx.Sub does not support ui32.
+    // It's because `arith` dialect does not have `subui` though it has `addui`
+    // and `mului`.
     if (!isNoneValue(aZeroPoint)) {
+      Value AInt32 = create.onnx.cast(A, i32Ty);
       Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, i32Ty);
       // Note: `sub` is not true if aZeroPoint shape is [M], M != 1,
-      // Because [MxK] - [M] cannot be expressed by `sub`.
-      // We require that zZeroPoint is scalar here (checked at the beginning of
+      // because [MxK] - [M] cannot be expressed by `sub`.
+      // We require that aZeroPoint is scalar here (checked at the beginning of
       // the lowering).
       AInt32 = create.onnx.sub(AInt32, aZeroPointInt32);
-    }
+      AUInt32 = create.onnx.cast(AInt32, ui32Ty);
+    } else
+      AUInt32 = create.onnx.cast(A, ui32Ty);
+
     if (!isNoneValue(bZeroPoint)) {
+      Value BInt32 = create.onnx.cast(B, i32Ty);
       // K is the broadcating dim: [KxN] - [N] = [KxN] - [1xN]
       Value bZeroPointInt32 = create.onnx.cast(bZeroPoint, i32Ty);
       BInt32 = create.onnx.sub(BInt32, bZeroPointInt32);
-    }
+      BUInt32 = create.onnx.cast(BInt32, ui32Ty);
+    } else
+      BUInt32 = create.onnx.cast(B, ui32Ty);
 
-    Value AUInt32 = create.onnx.cast(AInt32, ui32Ty);
-    Value BUInt32 = create.onnx.cast(BInt32, ui32Ty);
+    // Emit MatMul for ui32.
     Value res = create.onnx.matmul(
         RankedTensorType::get(resMemRefType.getShape(), ui32Ty), AUInt32,
         BUInt32);
+    // Output is i32.
     res = create.onnx.cast(res, resElementType);
+
     rewriter.replaceOp(op, {create.onnx.toMemref(res)});
     return success();
   }
