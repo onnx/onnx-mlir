@@ -90,6 +90,9 @@ bool hasConvONNXTensorDataLayout(const mlir::Type type);
 // Return true if the type has a layout, and that layout is not STANDARD.
 bool hasCustomONNXTensorDataLayout(const mlir::Type type);
 
+/// Return true if two tensors or memrefs have the same rank.
+bool sameRank(mlir::Value tensorOrMemref1, mlir::Value tensorOrMemref2);
+
 //===----------------------------------------------------------------------===//
 // Identity map
 

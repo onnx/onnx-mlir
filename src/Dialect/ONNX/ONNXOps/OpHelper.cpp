@@ -122,6 +122,16 @@ bool hasCustomONNXTensorDataLayout(const Type type) {
          ONNXTensorEncodingAttr::DataLayout::STANDARD;
 }
 
+bool sameRank(Value tensorOrMemref1, Value tensorOrMemref2) {
+  auto type1 = dyn_cast_or_null<ShapedType>(tensorOrMemref1.getType());
+  auto type2 = dyn_cast_or_null<ShapedType>(tensorOrMemref2.getType());
+  if (!type1 || !type2)
+    return false;
+  if (!type1.hasRank() || !type2.hasRank())
+    return false;
+  return (type1.getRank() == type2.getRank());
+}
+
 // Add a tensor encoding to a rank & shaped type. Otherwise, return an unranked
 // type as it is.
 Type convertTensorTypeToTensorTypeWithEncoding(

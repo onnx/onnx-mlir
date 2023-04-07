@@ -366,8 +366,8 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   // In some cases, we can have more inputDims than operands (custom broadcast
   // operators, e.g. ONNXExtendOp). Dismiss such cases as we need here the
   // values of each of the inputs.
-  int64_t inputNum = inputsDims.size();
-  if ((int64_t)operands.size() != inputNum)
+  int64_t inputNum = operands.size();
+  if ((int64_t)inputsDims.size() != inputNum)
     return false;
   // Check if we can prove that each operand has the same shape.
   for (int i = 1; i < inputNum; ++i)
@@ -378,24 +378,60 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
 }
 
 // Determine if all but one input is a scalar, in which case the broadcasting is
-// trivial. TODO: if we see the pattern, could technically accept many
-// non-scalar ones as long as they are all identical.
-bool ONNXBroadcastOpShapeHelper::hasScalarBroadcast() {
-  int numScalars = 0;
-  int numNonScalars = 0;
-  for (DimsExpr dims : inputsDims) {
-    bool onlyOnes = true;
-    for (uint64_t r = 0; r < outputRank && onlyOnes; ++r) {
-      if (!dims[r].isLiteralAndIdenticalTo(1))
-        onlyOnes = false;
+// trivial.
+bool ONNXBroadcastOpShapeHelper::hasScalarBroadcast(DimAnalysis *dimAnalysis) {
+  // Find the inputs that are scalar.
+  int scalarNum = 0;
+  int nonScalarID = -1;
+  int dimNum = inputsDims.size();
+  llvm::SmallVector<int, 4> scalarInput(dimNum, true);
+  for (int d = 0; d < dimNum; ++d) {
+    for (uint64_t r = 0; r < outputRank; ++r) {
+      if (!inputsDims[d][r].isLiteralAndIdenticalTo(1)) {
+        scalarInput[d] = false;
+        nonScalarID = d;
+        break;
+      }
     }
-    if (onlyOnes)
-      numScalars++;
-    else if (++numNonScalars > 1)
-      // Has 2 or more non scalar, we don't have scalar broadcast only.
-      return false;
+    if (scalarInput[d])
+      scalarNum++;
   }
-  return numNonScalars <= 1 && numScalars >= 1;
+  if (scalarNum == 0 || scalarNum == dimNum) {
+    // No scalars/all scalars. There is no scalar broadcast.
+    return false;
+  }
+  assert(nonScalarID != -1 && "expected one non-scalar input");
+
+  // Now find out if all the non-scalar inputs are identical. If there is
+  // only one non-scalar input, we are fine by definition.
+  if (dimNum - scalarNum == 1)
+    return true;
+  // To use dim analysis, it must be defined and we must have an operand for
+  // each dim.
+  bool canUseDimAnalysis = dimAnalysis && (int)operands.size() == dimNum;
+  int rank = inputsDims[nonScalarID].size();
+  for (int d = 0; d < dimNum; ++d) {
+    if (scalarInput[d] || d == nonScalarID)
+      // Scalar or self, nothing to test.
+      continue;
+    if (canUseDimAnalysis &&
+        !dimAnalysis->sameShape(operands[nonScalarID], operands[d])) {
+      // Cannot have 2 non-scalar that are different.
+      return false;
+    } else {
+      // Cannot use analysis, just ensure that both have the same static values.
+      assert((int)inputsDims[d].size() == rank && "must have the same rank");
+      for (int r = 0; r < rank; ++r) {
+        if (!inputsDims[nonScalarID][r].isLiteral() ||
+            !inputsDims[d][r].isLiteral() ||
+            inputsDims[nonScalarID][r].getLiteral() !=
+                inputsDims[d][r].getLiteral())
+          return false;
+      }
+    }
+  }
+  // Checked all non-scalar inputs and they are all identical.
+  return true;
 }
 
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
