@@ -480,8 +480,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
       for (int64_t i = 0; i < aRank - 2; ++i) {
         sameBatchDims &= (aShape[i] == bShape[i]);
         if (sameBatchDims && ShapedType::isDynamic(aShape[i]))
-          sameBatchDims =
-              dimAnalysis.sameUnknownDim(op.getA(), i, op.getB(), i);
+          sameBatchDims = dimAnalysis.sameDynDim(op.getA(), i, op.getB(), i);
       }
       return !sameBatchDims;
     }
