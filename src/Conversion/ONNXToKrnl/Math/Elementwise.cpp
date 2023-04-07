@@ -1532,7 +1532,7 @@ struct ONNXElementwiseBinaryOpLowering
     bool isScalar = hasAllScalarValues(operands);
     // Shape helper can determine if there is no static broadcast.
     bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
-    bool hasScalarBroadcast = shapeHelper.hasScalarBroadcast();
+    bool hasScalarBroadcast = shapeHelper.hasScalarBroadcast(dimAnalysis);
     bool hasNoTensorBroadcast = hasNoBroadcast || hasScalarBroadcast;
 
     if (DEBUG && !hasNoTensorBroadcast)
@@ -1651,7 +1651,7 @@ struct ONNXElementwiseVariadicOpLowering
 
     bool isScalar = hasAllScalarValues(operands);
     bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
-    bool hasScalarBroadcast = shapeHelper.hasScalarBroadcast();
+    bool hasScalarBroadcast = shapeHelper.hasScalarBroadcast(dimAnalysis);
     bool hasNoTensorBroadcast = hasNoBroadcast || hasScalarBroadcast;
     if (DEBUG && !hasNoTensorBroadcast)
       llvm::errs() << "  SIMD disabled: may have broadcast\n";

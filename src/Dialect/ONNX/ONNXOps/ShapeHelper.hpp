@@ -233,7 +233,7 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // Determine if we can rule out broadcast at compile time.
   bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
   // Determine if all but one input is a scalar.
-  bool hasScalarBroadcast();
+  bool hasScalarBroadcast(DimAnalysis *dimAnalysis = nullptr);
 
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank. Instantiated during ComputeShape.
