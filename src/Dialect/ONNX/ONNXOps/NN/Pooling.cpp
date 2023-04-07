@@ -167,6 +167,9 @@ LogicalResult ONNXGlobalLpPoolOp::inferShapes(
 
 LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getX()))
+    return success();
+
   Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXGlobalMaxPoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
