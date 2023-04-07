@@ -26,8 +26,6 @@ namespace onnx_mlir {
 struct ONNXMatMulIntegerOpLowering
     : public OpConversionPattern<ONNXMatMulIntegerOp> {
 public:
-  const bool USE_F32 = false;
-
   ONNXMatMulIntegerOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : OpConversionPattern(typeConverter, ctx) {}
 
@@ -46,6 +44,12 @@ public:
     Value aZeroPoint = mmiOp.getAZeroPoint(); // Optional input.
     Value bZeroPoint = mmiOp.getBZeroPoint(); // Optional input.
 
+    if (!isNoneValue(aZeroPoint) && !isScalarValue(aZeroPoint)) {
+      return rewriter.notifyMatchFailure(op, [&](Diagnostic &diag) {
+        diag << "Does not support non-scalar for a_zero_pont";
+      });
+    }
+
     // Common types.
     auto resMemRefType = dyn_cast<MemRefType>(
         typeConverter->convertType(mmiOp.getResult().getType()));
@@ -55,25 +59,24 @@ public:
     ONNXMatMulIntegerOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    // `vector.fma` does not support integer at this moment, and since output is
-    // i32, so use f32 for computation.
-    Type computeElementType = resElementType;
+    Type i32Ty = rewriter.getIntegerType(32);
     Type ui32Ty = rewriter.getIntegerType(32, /*isSigned=*/false);
-    if (USE_F32) {
-      computeElementType = rewriter.getF32Type();
-    }
+    assert(resElementType == i32Ty && "Output type is not i32");
 
-    Value AInt32 = create.onnx.cast(A, computeElementType);
-    Value BInt32 = create.onnx.cast(B, computeElementType);
+    // Use i32 for sub because sub does not support ui32.
+    Value AInt32 = create.onnx.cast(A, i32Ty);
+    Value BInt32 = create.onnx.cast(B, i32Ty);
     if (!isNoneValue(aZeroPoint)) {
-      Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, computeElementType);
-      // Fixme: using `sub` is incorrect since K is the broadcasting dim:
-      // [MxK] - [M] = [MxK] - [Mx1]
+      Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, i32Ty);
+      // Note: `sub` is not true if aZeroPoint shape is [M], M != 1,
+      // Because [MxK] - [M] cannot be expressed by `sub`.
+      // We require that zZeroPoint is scalar here (checked at the beginning of
+      // the lowering).
       AInt32 = create.onnx.sub(AInt32, aZeroPointInt32);
     }
     if (!isNoneValue(bZeroPoint)) {
       // K is the broadcating dim: [KxN] - [N] = [KxN] - [1xN]
-      Value bZeroPointInt32 = create.onnx.cast(bZeroPoint, computeElementType);
+      Value bZeroPointInt32 = create.onnx.cast(bZeroPoint, i32Ty);
       BInt32 = create.onnx.sub(BInt32, bZeroPointInt32);
     }
 
@@ -82,11 +85,7 @@ public:
     Value res = create.onnx.matmul(
         RankedTensorType::get(resMemRefType.getShape(), ui32Ty), AUInt32,
         BUInt32);
-    if (USE_F32) {
-      res = create.onnx.cast(res, resElementType);
-    } else {
-      res = create.onnx.cast(res, resElementType);
-    }
+    res = create.onnx.cast(res, resElementType);
     rewriter.replaceOp(op, {create.onnx.toMemref(res)});
     return success();
   }
