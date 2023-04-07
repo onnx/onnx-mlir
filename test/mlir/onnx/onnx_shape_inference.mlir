@@ -2508,6 +2508,30 @@ func.func @test_loop_simple_one_scan_main_graph(%arg0: tensor<i64>, %arg1: tenso
 
 // -----
 
+func.func @test_loop_simple_one_scan_unranked_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<*xi64>) ->(tensor<*xi64>, tensor<*xi64>) {
+  %0:2 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
+  ^bb0(%body_arg0: tensor<*xi64>, %body_arg1: tensor<*xi1>, %body_arg2: tensor<*xi64>):
+    %body_0 = "onnx.Identity"(%body_arg1) : (tensor<*xi1>) -> tensor<*xi1>
+    %body_1 = "onnx.Add"(%body_arg2, %body_arg0) : (tensor<*xi64>, tensor<*xi64>) -> tensor<*xi64>
+    %body_2 = "onnx.Identity"(%body_1) : (tensor<*xi64>) -> tensor<*xi64>
+    onnx.Return %body_0, %body_1, %body_2 : tensor<*xi1>, tensor<*xi64>, tensor<*xi64>
+  }) : (tensor<i64>, tensor<i1>, tensor<*xi64>) -> (tensor<*xi64>, tensor<*xi64>)
+  return %0#0, %0#1 : tensor<*xi64>, tensor<*xi64>
+  // CHECK-LABEL:       func @test_loop_simple_one_scan_unranked_main_graph
+  // CHECK-SAME:     ([[TRIP_COUNT:%.+]]: tensor<i64>, [[COND:%.+]]: tensor<i1>, [[Y_INIT:%.+]]: tensor<*xi64>) -> (tensor<*xi64>, tensor<*xi64>) {
+  // CHECK:           [[LOOP_OUT:%.+]]:2 = "onnx.Loop"([[TRIP_COUNT]], [[COND]], [[Y_INIT]]) ({
+  // CHECK:           ^bb0([[I:%.+]]: tensor<i64>, [[BODY_COND:%.+]]: tensor<i1>, [[Y_PREV:%.+]]: tensor<*xi64>):
+  // CHECK:             [[COND_NEXT:%.+]] = "onnx.Identity"([[BODY_COND]]) : (tensor<i1>) -> tensor<i1>
+  // CHECK:             [[Y_CURR:%.+]] = "onnx.Add"([[Y_PREV]], [[I]]) : (tensor<*xi64>, tensor<i64>) -> tensor<*xi64>
+  // CHECK:             [[Y_CURR_SCAN:%.+]] = "onnx.Identity"([[Y_CURR]]) : (tensor<*xi64>) -> tensor<*xi64>
+  // CHECK:             onnx.Return [[COND_NEXT]], [[Y_CURR]], [[Y_CURR_SCAN]] : tensor<i1>, tensor<*xi64>, tensor<*xi64>
+  // CHECK:           }) : (tensor<i64>, tensor<i1>, tensor<*xi64>) -> (tensor<*xi64>, tensor<*xi64>)
+  // CHECK:           return [[LOOP_OUT]]#0, [[LOOP_OUT]]#1 : tensor<*xi64>, tensor<*xi64>
+  // CHECK:         }
+}
+
+// -----
+
 func.func @test_loop_multi_scan_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>, %arg3: tensor<1xf32>) -> (tensor<*xi64>, tensor<*xf32>, tensor<*xi64>, tensor<*xf32>) {
   %0:4 = "onnx.Loop"(%arg0, %arg1, %arg2, %arg3) ({
   ^bb0(%body_arg0: tensor<*xi64>, %body_arg1: tensor<*xi1>, %body_arg2: tensor<*xi64>, %body_arg3: tensor<*xf32>):
