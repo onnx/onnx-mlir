@@ -987,14 +987,14 @@ Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
 WideNum getScalarNum(Value constValue) {
   ElementsAttr elements = getConstValueElements(constValue);
   Type elementType = elements.getElementType();
-  assert(elementType.isIntOrFloat());
   if (isa<FloatType>(elementType)) {
     APFloat f = *elements.value_begin<APFloat>();
     return WideNum::fromAPFloat(f);
-  } else {
+  } else if (auto itype = dyn_cast<IntegerType>(elementType)) {
     APInt i = *elements.value_begin<APInt>();
-    bool isSigned = !elementType.isUnsignedInteger();
-    return WideNum::fromAPInt(i, isSigned);
+    return WideNum::fromAPInt(i, !itype.isUnsigned());
+  } else {
+    llvm_unreachable("Only integer and float types are supported");
   }
 }
 
