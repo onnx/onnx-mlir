@@ -37,7 +37,7 @@ LogicalResult ONNXLoopOp::inferShapes(
   // Body inputs: trip count, termination condition, loop carried dependencies.
   // TODO: Add verifier to check this.
   assert(loopBody.getNumArguments() == 2 + numCarried &&
-         "Loop body must take at least 2 inputs.");
+         "LoopOp inputs count must match body operands count");
 
   // We proceed to set types for loop body function inputs.
   // Set type for iteration number (trip count):
@@ -58,7 +58,8 @@ LogicalResult ONNXLoopOp::inferShapes(
   // shape inference to obtain body output types.
   doShapeInference(loopBody);
   Operation *terminator = loopBody.back().getTerminator();
-  assert(terminator->getNumOperands() == 1 + getVFinalAndScanOutputs().size());
+  assert(terminator->getNumOperands() == 1 + getVFinalAndScanOutputs().size() &&
+         "LoopOp outputs count must match body results count");
   // Skip the termination condition.
   auto bodyOuputTys = llvm::drop_begin(terminator->getOperandTypes(), 1);
 

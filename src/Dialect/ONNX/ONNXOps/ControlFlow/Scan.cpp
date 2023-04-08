@@ -57,7 +57,8 @@ LogicalResult ONNXScanOp::inferShapes(
   unsigned numStateVariables = getNumStateVariables(this);
 
   auto &body = getRegion();
-  assert(body.getNumArguments() == getInitialStateAndScanInputs().size());
+  assert(body.getNumArguments() == getInitialStateAndScanInputs().size() &&
+         "ScanOp inputs count must match body operands count");
   auto bodyInputs = body.getArguments();
 
   // We proceed to set types for scan body state variables inputs to have
@@ -82,7 +83,8 @@ LogicalResult ONNXScanOp::inferShapes(
   // shape inference to obtain body output types.
   doShapeInference(body);
   Operation *terminator = body.back().getTerminator();
-  assert(terminator->getNumOperands() == getFinalStateAndScanOutputs().size());
+  assert(terminator->getNumOperands() == getFinalStateAndScanOutputs().size() &&
+         "ScanOp outputs count must match body results count");
   auto bodyOuputTys = terminator->getOperandTypes();
 
   // Set state variable ScanOp output types (and shapes) to the types
