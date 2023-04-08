@@ -14,6 +14,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
 #include "mlir/IR/BuiltinAttributes.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include <algorithm>
 
@@ -24,11 +25,11 @@ namespace onnx_mlir {
 WideNum getElementsSplatWideNum(ElementsAttr elms) {
   if (auto disposable = elms.dyn_cast<DisposableElementsAttr>())
     return disposable.getSplatValue<WideNum>();
-  BType btype = btypeOfMlirType(elms.getElementType());
-  if (isFloatBType(btype))
-    return WideNum::fromAPFloat(btype, elms.getSplatValue<APFloat>());
-  if (isIntBType(btype))
-    return WideNum::fromAPInt(btype, elms.getSplatValue<APInt>());
+  Type elementType = elms.getElementType();
+  if (isa<FloatType>(elementType))
+    return WideNum::fromAPFloat(elms.getSplatValue<APFloat>());
+  if (auto itype = dyn_cast<IntegerType>(elementType))
+    return WideNum::fromAPInt(elms.getSplatValue<APInt>(), !itype.isUnsigned());
   llvm_unreachable("WideNum only supports integer and float types");
 }
 
@@ -38,15 +39,14 @@ void readDenseElementsWideNums(
   if (elms.isSplat())
     return std::fill(dst.begin(), dst.end(), getElementsSplatWideNum(elms));
   // TODO: Implement the following in a more efficient way.
-  BType btype = btypeOfMlirType(elms.getElementType());
-  if (isFloatBType(btype)) {
-    auto range = elms.getValues<APFloat>();
-    std::transform(range.begin(), range.end(), dst.begin(),
-        [btype](APFloat f) { return WideNum::fromAPFloat(btype, f); });
-  } else if (isIntBType(btype)) {
-    auto range = elms.getValues<APInt>();
-    std::transform(range.begin(), range.end(), dst.begin(),
-        [btype](APInt i) { return WideNum::fromAPInt(btype, i); });
+  Type elementType = elms.getElementType();
+  if (isa<FloatType>(elementType)) {
+    llvm::transform(elms.getValues<APFloat>(), dst.begin(),
+        [](APFloat f) { return WideNum::fromAPFloat(f); });
+  } else if (auto itype = dyn_cast<IntegerType>(elementType)) {
+    bool isSigned = !itype.isUnsigned();
+    llvm::transform(elms.getValues<APInt>(), dst.begin(),
+        [isSigned](APInt i) { return WideNum::fromAPInt(i, isSigned); });
   } else {
     llvm_unreachable("WideNum only supports integer and float types");
   }
