@@ -34,7 +34,7 @@ Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator dst,
     ++dst;
     for (auto axis = shape.size();;) {
       if (axis == 0) {
-        return dst; // Index rolled around.
+        return dst; // index rolled around
       }
       --axis;
       uint64_t dim = shape[axis];
@@ -42,6 +42,8 @@ Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator dst,
       pos1 += src1.strides[axis];
       if (++(index[axis]) < dim)
         break;
+      // axis overflowed: rewind the axis and carry over to axis-1 by doing
+      // the next iteration of the loop
       pos0 -= dim * src0.strides[axis];
       pos1 -= dim * src1.strides[axis];
       index[axis] = 0;
