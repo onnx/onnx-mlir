@@ -121,6 +121,24 @@ struct StridedArrayRef : public llvm::ArrayRef<T> {
       : Base(array), strides(strides) {}
 };
 
+// Used as value_type in StridesRange and StridesIterator in the context of a
+// shape of the given rank (the length of the 'index' vector) and N strides
+// which are not represented in StridesIndexPos itself.
+//
+// 'flattenedIndex' and 'index' are two representations of an index into a
+// tensor of the given rank.
+// 'pos' is an array of flattened indexes into strided arrays.
+template <size_t N>
+struct StridesIndexPos {
+  // Non-zero flattenedIndex is only used to construct end iterators
+  // with meaningless index and pos.
+  StridesIndexPos(unsigned rank, uint64_t flattenedIndex = 0)
+      : flattenedIndex(flattenedIndex), index(rank, 0), pos{} {}
+  uint64_t flattenedIndex;
+  llvm::SmallVector<uint64_t, 6> index;
+  std::array<size_t, N> pos;
+};
+
 // Suppose strided arrays {{array1,strides1},...,{arrayN,stridesN}} all
 // represent the same shape, then
 // it = StridesIterator<N>(shape, {strides1,...,stridesN}) iterates over the
@@ -149,13 +167,7 @@ struct StridedArrayRef : public llvm::ArrayRef<T> {
 template <size_t N>
 class StridesIterator {
 public:
-  struct value_type {
-    value_type(unsigned rank, uint64_t flattenedIndex = 0)
-        : pos{}, flattenedIndex(flattenedIndex), index(rank, 0) {}
-    std::array<size_t, N> pos;
-    uint64_t flattenedIndex;
-    llvm::SmallVector<uint64_t, 6> index;
-  };
+  using value_type = StridesIndexPos<N>;
   using difference_type = int64_t;
   using pointer = const value_type *;
   using reference = const value_type &;
@@ -204,8 +216,9 @@ public:
   inline StridesIterator &operator++() {
     ++(value.flattenedIndex);
     for (auto axis = shape.size();;) {
-      if (axis == 0)
-        break;
+      if (axis == 0) {
+        break; // index rolled around
+      }
       --axis;
       uint64_t dim = shape[axis];
       for (unsigned i = 0; i < N; ++i)
@@ -237,14 +250,16 @@ public:
 //   template <typename T, typename StridedArray = StridedArrayRef<T>>
 //   bool equal(ArrayRef<int64_t> shape, StridedArray lhs, StridedArray rhs) {
 //     return llvm::all_of(StridesRange<2>(shape, {lhs.strides, rhs.strides}),
-//       [](const auto &ipos) { return src0[ipos.pos[0]]==src1[ipos.pos[1]]; });
+//         [](const auto &idxpos) {
+//           return src0[idxpos.pos[0]] == src1[idxpos.pos[1]];
+//         });
 //   }
 //
 template <size_t N>
 class StridesRange {
 public:
   using iterator = StridesIterator<N>;
-  using value_type = typename iterator::value_type;
+  using value_type = StridesIndexPos<N>;
 
 private:
   const llvm::ArrayRef<int64_t> shape;
