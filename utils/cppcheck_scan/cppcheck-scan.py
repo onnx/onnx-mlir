@@ -5,6 +5,7 @@
 # This script invokes cppcheck to scan cpp files.
 
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +21,8 @@ LOG_FILE = BUILD_DIR + 'cppcheck_log.xml'
 RESULTS_FILE = BUILD_DIR + 'cppcheck_results.xml'
 SUPPRESSIONS_TXT = 'cppcheck_suppressions.txt'
 SUPPRESSIONS_FILE = CPPCHECK_SCAN_DIR + SUPPRESSIONS_TXT
+
+NPROC = os.getenv('NPROC', '4')
 
 def main():
     logging.basicConfig(
@@ -48,8 +51,8 @@ def main():
     cppscan_string = 'cppcheck ' \
             + SUPPRESSIONS \
             + EXCLUDES \
-            + ' --project=' \
-            + PROJECT_FILE \
+            + ' -j' + NPROC \
+            + ' --project=' + PROJECT_FILE \
             + ' --xml' \
             + ' 1>' + LOG_FILE \
             + ' 2>' + RESULTS_FILE
