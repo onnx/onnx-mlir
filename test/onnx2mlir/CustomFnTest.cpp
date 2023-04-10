@@ -90,7 +90,7 @@ int check(ModelProto &model) {
   mlir::PassManager pm(
       module.get()->getName(), mlir::OpPassManager::Nesting::Implicit);
   pm.addPass(onnx_mlir::createShapeInferencePass(true));
-  mlir::applyPassManagerCLOptions(pm);
+  (void)mlir::applyPassManagerCLOptions(pm);
   if (mlir::failed(pm.run(*module))) {
     module->dump();
     std::cerr << "Error applying shape inference!\n";
