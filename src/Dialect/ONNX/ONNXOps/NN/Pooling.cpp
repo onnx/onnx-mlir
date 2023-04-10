@@ -139,6 +139,9 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 
 LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getX()))
+    return success();
+
   Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXGlobalAveragePoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
@@ -150,6 +153,9 @@ LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
 
 LogicalResult ONNXGlobalLpPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getX()))
+    return success();
+
   Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXGlobalLpPoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
@@ -161,6 +167,9 @@ LogicalResult ONNXGlobalLpPoolOp::inferShapes(
 
 LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getX()))
+    return success();
+
   Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXGlobalMaxPoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
