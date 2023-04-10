@@ -112,7 +112,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **LpNormalization** | |unsupported | |
 | **LpPool** | |unsupported | |
 | **MatMul** |13 | | |
-| **MatMulInteger** |10 |Do not support non-scalar for a_zero_point. | |
+| **MatMulInteger** |10 | | |
 | **Max** |13 |No support for short floats and unsigned int. | |
 | **MaxPool** |12 |Does not support argmax and short ints. Support single output only. | |
 | **MaxRoiPool** | |unsupported | |

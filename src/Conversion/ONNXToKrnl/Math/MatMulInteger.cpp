@@ -55,17 +55,10 @@ public:
     ONNXMatMulIntegerOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    Type i32Ty = rewriter.getIntegerType(32);
-    Type ui32Ty = rewriter.getIntegerType(32, /*isSigned=*/false);
-    assert(resElementType == i32Ty && "Output type is not i32");
-
-    Value AUInt32, BUInt32;
-    // Use i32 for onnx.Sub because onnx.Sub does not support ui32.
-    // It's because `arith` dialect does not have `subui` though it has `addui`
-    // and `mului`.
+    // Prepare input A.
+    Value AInt32 = create.onnx.cast(A, resElementType);
     if (!isNoneValue(aZeroPoint)) {
-      Value AInt32 = create.onnx.cast(A, i32Ty);
-      Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, i32Ty);
+      Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, resElementType);
       int64_t aRank = aType.getRank();
       int64_t aZeroPointRank = aZeroPointType.getRank();
       // If broadcasting, e.g. A is [MxK], zeroPoint is [M], M != 1.
@@ -76,31 +69,25 @@ public:
           ((aZeroPointRank > 1) && (aZeroPointRank = aRank - 1))) {
         SmallVector<int64_t, 4> unsqueezeShape(aZeroPointType.getShape());
         unsqueezeShape.emplace_back(1);
-        aZeroPointInt32 =
-            create.onnx.unsqueeze(RankedTensorType::get(unsqueezeShape, i32Ty),
-                aZeroPointInt32, create.onnx.constantInt64({aZeroPointRank}));
+        aZeroPointInt32 = create.onnx.unsqueeze(
+            RankedTensorType::get(unsqueezeShape, resElementType),
+            aZeroPointInt32, create.onnx.constantInt64({aZeroPointRank}));
       }
       AInt32 = create.onnx.sub(AInt32, aZeroPointInt32);
-      AUInt32 = create.onnx.cast(AInt32, ui32Ty);
-    } else
-      AUInt32 = create.onnx.cast(A, ui32Ty);
+    }
 
+    // Prepare input B.
+    Value BInt32 = create.onnx.cast(B, resElementType);
     if (!isNoneValue(bZeroPoint)) {
-      Value BInt32 = create.onnx.cast(B, i32Ty);
       // K is the broadcating dim: [KxN] - [N] = [KxN] - [1xN]
-      Value bZeroPointInt32 = create.onnx.cast(bZeroPoint, i32Ty);
+      Value bZeroPointInt32 = create.onnx.cast(bZeroPoint, resElementType);
       BInt32 = create.onnx.sub(BInt32, bZeroPointInt32);
-      BUInt32 = create.onnx.cast(BInt32, ui32Ty);
-    } else
-      BUInt32 = create.onnx.cast(B, ui32Ty);
+    }
 
-    // Emit MatMul for ui32.
+    // Emit MatMul.
     Value res = create.onnx.matmul(
-        RankedTensorType::get(resMemRefType.getShape(), ui32Ty), AUInt32,
-        BUInt32);
-    // Output is i32.
-    res = create.onnx.cast(res, resElementType);
-
+        RankedTensorType::get(resMemRefType.getShape(), resElementType), AInt32,
+        BInt32);
     rewriter.replaceOp(op, {create.onnx.toMemref(res)});
     return success();
   }

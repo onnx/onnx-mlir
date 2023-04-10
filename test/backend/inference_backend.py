@@ -511,7 +511,6 @@ def get_test_models():
         "test_matmul_4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== MatMulInteger
-        # ==LIM== Do not support non-scalar for a_zero_point.
         "test_matmulinteger_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Max
