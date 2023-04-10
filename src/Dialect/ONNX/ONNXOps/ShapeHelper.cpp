@@ -473,8 +473,16 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
       }
     }
     if (allOtherInputDimsAreOne) {
+      // Our dim may be [*, dim, *] where all the others are [*, 1, *];
+      // Regardless of the value of dim (constant, `?`) we can use the loop
+      // index variable without reservation as if dim is 1, then its 0 by def,
+      // and if dim>1, then its 0...dim-1 without issue.
       operandAccessExprs.emplace_back(outputAccessExprs[dimIndex]);
     } else {
+      // If dim is a compile time constant, then the test below will resolve at
+      // compile time. If dim is dynamic (i.e. only known at runtime), then we
+      // will issue code for the compare and select and the right value will be
+      // used at runtime.
       operandAccessExprs.emplace_back(
           IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
     }
