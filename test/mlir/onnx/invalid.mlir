@@ -610,3 +610,35 @@ func.func @test_prelu_verifier_1(%arg0: tensor<f32>, %arg1: tensor<1x2x3x4xf32>)
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
 }
+
+// -----
+
+func.func @test_matmulinteger_wrong_a(%arg0: tensor<5x16x32xui8>, %arg1: tensor<5x32x64xui8>, %arg2: tensor<16xui8>, %arg3: tensor<1xui8>) -> tensor<5x16x64xi32> {
+  // expected-error @+1 {{onnx.MatMulInteger: operand '<block argument> of type 'tensor<5x16x32xui8>' at index: 0' has rank 3, rank should be 2}}
+  %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<5x16x32xui8>, tensor<5x32x64xui8>, tensor<16xui8>, tensor<1xui8>) -> tensor<5x16x64xi32>
+  return %0 : tensor<5x16x64xi32>
+}
+
+// -----
+
+func.func @test_matmulinteger_wrong_azeropoint(%arg0: tensor<5x16x32xui8>, %arg1: tensor<5x32x64xui8>, %arg2: tensor<5x16xui8>, %arg3: tensor<1xui8>) -> tensor<5x16x64xi32> {
+  // expected-error @+1 {{onnx.MatMulInteger: 'A' has rank 3, 'aZeroPoint' has rank 2. The two inputs must have the same rank}}
+  %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<5x16x32xui8>, tensor<5x32x64xui8>, tensor<5x16xui8>, tensor<1xui8>) -> tensor<5x16x64xi32>
+  return %0 : tensor<5x16x64xi32>
+}
+
+// -----
+
+func.func @test_matmulinteger_wrong_broadcast_last_dim(%arg0: tensor<5x16x32xui8>, %arg1: tensor<5x32x64xui8>, %arg2: tensor<5x16x2xui8>, %arg3: tensor<1xui8>) -> tensor<5x16x64xi32> {
+  // expected-error @+1 {{onnx.MatMulInteger: operand '<block argument> of type 'tensor<5x16x2xui8>' at index: 2' has dimension at index 2 with value 2, value should be 1}}
+  %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<5x16x32xui8>, tensor<5x32x64xui8>, tensor<5x16x2xui8>, tensor<1xui8>) -> tensor<5x16x64xi32>
+  return %0 : tensor<5x16x64xi32>
+}
+
+// -----
+
+func.func @test_matmulinteger_wrong_broadcast(%arg0: tensor<5x16x32xui8>, %arg1: tensor<5x32x64xui8>, %arg2: tensor<5x1x1xui8>, %arg3: tensor<1xui8>) -> tensor<5x16x64xi32> {
+  // expected-error @+1 {{onnx.MatMulInteger: 'A' dimension at index 1 has value 16, 'aZeroPoint' dimension at index 1 has value 1. The two dimensions must have the same value}}
+  %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<5x16x32xui8>, tensor<5x32x64xui8>, tensor<5x1x1xui8>, tensor<1xui8>) -> tensor<5x16x64xi32>
+  return %0 : tensor<5x16x64xi32>
+}

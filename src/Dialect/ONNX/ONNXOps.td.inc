@@ -4129,6 +4129,7 @@ def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXMaxOp:ONNX_Op<"Max",
