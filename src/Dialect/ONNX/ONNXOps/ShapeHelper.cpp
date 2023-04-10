@@ -436,7 +436,7 @@ bool ONNXBroadcastOpShapeHelper::hasScalarBroadcast(DimAnalysis *dimAnalysis) {
 
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
-    SmallVectorImpl<IndexExpr> &operandAccessExprs, bool hasNoBroadcast) {
+    SmallVectorImpl<IndexExpr> &operandAccessExprs, bool ruledOutBroadcast) {
   // Emtpy the access expr, just in case.
   operandAccessExprs.clear();
   // There is this case where we have no broadcast per se, but we have
@@ -445,10 +445,10 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
   if (operandRank == 0)
     return success();
 
-  // The hasNoBroadcast pattern can be established by shape inference using
+  // The ruledOutBroadcast pattern can be established by shape inference using
   // DimAnalysis. If that is available, and broadcasting was ruled out, then
   // more efficient code can be generated.
-  if (hasNoBroadcast || (hasUniBroadcasting && operandIndex == 0)) {
+  if (ruledOutBroadcast || (hasUniBroadcasting && operandIndex == 0)) {
     for (IndexExpr ie : outputAccessExprs)
       operandAccessExprs.emplace_back(ie);
     return success();

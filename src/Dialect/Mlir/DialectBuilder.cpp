@@ -1045,6 +1045,7 @@ memref::ReshapeOp MemRefBuilder::reshape(
 // Flatten the innermost dimsToFlatten of the value valToReshape. Return in
 // flattenSize the cumulative size of the flattened dimensions. If flattenSize
 // is -1, flatten them all. Expect to flatten at least 1 dim (which is a noop).
+// Output rank is Rank(input) - dimsToFlatten + 1.
 memref::ReshapeOp MemRefBuilder::reshapeToFlat(Value valToReshape,
     llvm::SmallVectorImpl<IndexExpr> &dims, Value &flattenedSize,
     int64_t dimsToFlatten) const {

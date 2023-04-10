@@ -221,18 +221,24 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // Used in a loop to access the operand.
   // Parameters:
   //   - operand: operand to access.
-  //   - operandIndex: index of the operand in 'this->inputsDims'.
+  //   - i: index of the operand in Index Expr Dims 'this->inputsDims'.
   //   - loopAccessExprs: IndexExprs for the loop's IVs.
   //   - operandAccessExprs: access indices to access the operand.
   //     This is the output of this function. Use it in subsequent load/stores.
+  //   - ruledOutBroadcast: determined using shape analysis that there is no
+  //     broadcasting here.
   mlir::LogicalResult getAccessExprs(mlir::Value operand, uint64_t i,
       const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
       llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs,
-      bool hasNoBroadcast = false);
+      bool ruledOutBroadcast = false);
 
-  // Determine if we can rule out broadcast at compile time.
+  // Determine if broadcast can be ruled out at compile time. Use DimAnalysis
+  // when available.
   bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
-  // Determine if all but one input is a scalar.
+  // Determine if the only broadcast present is from scalars. I.e. with the
+  // exception of scalars (which will be trivially broadcasted), broadcast can
+  // be ruled out among all of the non-scalar operands. Use DimAnalysis when
+  // available.
   bool hasScalarBroadcast(DimAnalysis *dimAnalysis = nullptr);
 
   // A vector of input shapes where dimensions are padded with 1 if necessary,
