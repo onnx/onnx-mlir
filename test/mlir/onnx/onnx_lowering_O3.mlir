@@ -3947,7 +3947,7 @@ func.func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor
 
 func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>) -> (tensor<?x?xf32>) {
   %0 = "onnx.Loop"(%arg0, %arg1) ({
-  ^bb0(%arg3: tensor<i64>, %arg4: tensor<i1>, %arg5: tensor<?xf32>):
+  ^bb0(%arg3: tensor<i64>, %arg4: tensor<i1>):
     %7 = "onnx.Add"(%arg2, %arg2) : (tensor<?xf32>, tensor<?xf32>) -> (tensor<?xf32>)
     onnx.Return %arg4,  %7 : tensor<i1>, tensor<?xf32>
   }) : (tensor<i64>, tensor<i1>) -> tensor<?x?xf32>
