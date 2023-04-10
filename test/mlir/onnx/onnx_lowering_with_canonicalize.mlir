@@ -4293,3 +4293,121 @@ func.func @test_matmulinteger(%arg0: tensor<16x32xui8>, %arg1: tensor<32x64xui8>
 // CHECK:           return [[RES_10_]] : memref<16x64xi32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<32x64xui8>, %arg2: tensor<16xui8>, %arg3: tensor<1xui8>) -> tensor<16x64xi32> {
+  %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<16x32xui8>, tensor<32x64xui8>, tensor<16xui8>, tensor<1xui8>) -> tensor<16x64xi32>
+  return %0 : tensor<16x64xi32>
+
+// CHECK-LABEL:  func.func @test_matmulinteger_per_row_a
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<16x32xui8>, [[PARAM_1_:%.+]]: memref<32x64xui8>, [[PARAM_2_:%.+]]: memref<16xui8>, [[PARAM_3_:%.+]]: memref<1xui8>) -> memref<16x64xi32> {
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i32
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<16x32xi32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 16, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 32){
+// CHECK:             [[VAR_11_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_11_]]#0, [[VAR_11_]]#1] : memref<16x32xui8>
+// CHECK:             [[VAR_13_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_0_MEM_]] : ui8 to i8
+// CHECK:             [[VAR_14_:%.+]] = arith.extui [[VAR_13_]] : i8 to i32
+// CHECK:             krnl.store [[VAR_14_]], [[RES_]]{{.}}[[VAR_11_]]#0, [[VAR_11_]]#1] : memref<16x32xi32>
+// CHECK:           }
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<16xi32>
+// CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 16){
+// CHECK:             [[VAR_11_1_:%.+]] = krnl.get_induction_var_value([[LOOP_1_]]) : (!krnl.loop) -> index
+// CHECK:             [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[VAR_11_1_]]{{.}} : memref<16xui8>
+// CHECK:             [[VAR_13_1_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_0_MEM_1_]] : ui8 to i8
+// CHECK:             [[VAR_14_1_:%.+]] = arith.extui [[VAR_13_1_]] : i8 to i32
+// CHECK:             krnl.store [[VAR_14_1_]], [[RES_1_]]{{.}}[[VAR_11_1_]]{{.}} : memref<16xi32>
+// CHECK:           }
+// CHECK-DAG:       [[VAR_reinterpret_cast_:%.+]] = memref.reinterpret_cast [[RES_1_]] to offset: [0], sizes: [16, 1], strides: [1, 1] : memref<16xi32> to memref<16x1xi32>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<16x32xi32>
+// CHECK-DAG:       [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_3_:%.+]] = 0 to 16, [[LOOP_2_]]#1 -> [[I_4_:%.+]] = 0 to 32){
+// CHECK:             [[VAR_11_2_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_11_2_]]#0, [[VAR_11_2_]]#1] : memref<16x32xi32>
+// CHECK-DAG:         [[VAR_13_1_:%.+]] = krnl.load [[VAR_reinterpret_cast_]]{{.}}[[VAR_11_2_]]#0, [[CST_0_1_]]{{.}} : memref<16x1xi32>
+// CHECK:             [[VAR_14_2_:%.+]] = arith.subi [[LOAD_PARAM_0_MEM_1_]], [[VAR_13_1_]] : i32
+// CHECK:             krnl.store [[VAR_14_2_]], [[RES_2_]]{{.}}[[VAR_11_2_]]#0, [[VAR_11_2_]]#1] : memref<16x32xi32>
+// CHECK:           }
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<16x32xui32>
+// CHECK-DAG:       [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_5_:%.+]] = 0 to 16, [[LOOP_3_]]#1 -> [[I_6_:%.+]] = 0 to 32){
+// CHECK:             [[VAR_11_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_1_1_:%.+]] = krnl.load [[RES_2_]]{{.}}[[VAR_11_3_]]#0, [[VAR_11_3_]]#1] : memref<16x32xi32>
+// CHECK:             [[VAR_13_2_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_0_MEM_1_1_]] : i32 to ui32
+// CHECK:             krnl.store [[VAR_13_2_]], [[RES_3_]]{{.}}[[VAR_11_3_]]#0, [[VAR_11_3_]]#1] : memref<16x32xui32>
+// CHECK:           }
+// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<32x64xi32>
+// CHECK-DAG:       [[LOOP_4_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_4_]]#0, [[LOOP_4_]]#1) with ([[LOOP_4_]]#0 -> [[I_7_:%.+]] = 0 to 32, [[LOOP_4_]]#1 -> [[I_8_:%.+]] = 0 to 64){
+// CHECK:             [[VAR_11_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_4_]]#0, [[LOOP_4_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_1_1_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_11_4_]]#0, [[VAR_11_4_]]#1] : memref<32x64xui8>
+// CHECK:             [[VAR_13_3_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_0_MEM_1_1_]] : ui8 to i8
+// CHECK:             [[VAR_14_3_:%.+]] = arith.extui [[VAR_13_3_]] : i8 to i32
+// CHECK:             krnl.store [[VAR_14_3_]], [[RES_4_]]{{.}}[[VAR_11_4_]]#0, [[VAR_11_4_]]#1] : memref<32x64xi32>
+// CHECK:           }
+// CHECK-DAG:       [[RES_5_:%.+]] = memref.alloc() {{.*}}: memref<1xi32>
+// CHECK-DAG:       [[LOOP_5_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_5_]]) with ([[LOOP_5_]] -> [[I_9_:%.+]] = 0 to 1){
+// CHECK:             [[VAR_11_5_:%.+]] = krnl.get_induction_var_value([[LOOP_5_]]) : (!krnl.loop) -> index
+// CHECK:             [[LOAD_PARAM_0_MEM_1_1_1_:%.+]] = krnl.load [[PARAM_3_]]{{.}}[[VAR_11_5_]]{{.}} : memref<1xui8>
+// CHECK:             [[VAR_13_4_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_0_MEM_1_1_1_]] : ui8 to i8
+// CHECK:             [[VAR_14_4_:%.+]] = arith.extui [[VAR_13_4_]] : i8 to i32
+// CHECK:             krnl.store [[VAR_14_4_]], [[RES_5_]]{{.}}[[VAR_11_5_]]{{.}} : memref<1xi32>
+// CHECK:           }
+// CHECK-DAG:       [[RES_6_:%.+]] = memref.alloc() {{.*}}: memref<32x64xi32>
+// CHECK-DAG:       [[LOOP_6_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_6_]]#0, [[LOOP_6_]]#1) with ([[LOOP_6_]]#0 -> [[I_10_:%.+]] = 0 to 32, [[LOOP_6_]]#1 -> [[I_11_:%.+]] = 0 to 64){
+// CHECK:             [[VAR_11_6_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_6_]]#0, [[LOOP_6_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_1_1_1_:%.+]] = krnl.load [[RES_4_]]{{.}}[[VAR_11_6_]]#0, [[VAR_11_6_]]#1] : memref<32x64xi32>
+// CHECK-DAG:         [[VAR_13_4_:%.+]] = krnl.load [[RES_5_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xi32>
+// CHECK:             [[VAR_14_5_:%.+]] = arith.subi [[LOAD_PARAM_0_MEM_1_1_1_]], [[VAR_13_4_]] : i32
+// CHECK:             krnl.store [[VAR_14_5_]], [[RES_6_]]{{.}}[[VAR_11_6_]]#0, [[VAR_11_6_]]#1] : memref<32x64xi32>
+// CHECK:           }
+// CHECK-DAG:       [[RES_7_:%.+]] = memref.alloc() {{.*}}: memref<32x64xui32>
+// CHECK-DAG:       [[LOOP_7_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_7_]]#0, [[LOOP_7_]]#1) with ([[LOOP_7_]]#0 -> [[I_12_:%.+]] = 0 to 32, [[LOOP_7_]]#1 -> [[I_13_:%.+]] = 0 to 64){
+// CHECK:             [[VAR_11_7_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_7_]]#0, [[LOOP_7_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_1_1_1_1_:%.+]] = krnl.load [[RES_6_]]{{.}}[[VAR_11_7_]]#0, [[VAR_11_7_]]#1] : memref<32x64xi32>
+// CHECK:             [[VAR_13_5_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_PARAM_0_MEM_1_1_1_1_]] : i32 to ui32
+// CHECK:             krnl.store [[VAR_13_5_]], [[RES_7_]]{{.}}[[VAR_11_7_]]#0, [[VAR_11_7_]]#1] : memref<32x64xui32>
+// CHECK:           }
+// CHECK-DAG:       [[RES_8_:%.+]] = memref.alloc() {{.*}}: memref<16x64xui32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = builtin.unrealized_conversion_cast [[CST_0_]] : i32 to ui32
+// CHECK-DAG:       [[LOOP_8_:%.+]]:3 = krnl.define_loops 3
+// CHECK-DAG:       [[RES_9_:%.+]] = memref.alloca() : memref<ui32>
+// CHECK:           krnl.iterate([[LOOP_8_]]#0, [[LOOP_8_]]#1) with ([[LOOP_8_]]#0 -> [[I_14_:%.+]] = 0 to 16, [[LOOP_8_]]#1 -> [[I_15_:%.+]] = 0 to 64, [[LOOP_8_]]#2 -> [[I_16_:%.+]] = 0 to 32){
+// CHECK:             [[VAR_11_8_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_8_]]#0, [[LOOP_8_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             krnl.store [[VAR_8_]], [[RES_9_]][] : memref<ui32>
+// CHECK:             krnl.iterate([[LOOP_8_]]#2) with (){
+// CHECK:               [[VAR_13_6_:%.+]] = krnl.get_induction_var_value([[LOOP_8_]]#2) : (!krnl.loop) -> index
+// CHECK-DAG:           [[VAR_14_5_:%.+]] = krnl.load [[RES_3_]]{{.}}[[VAR_11_8_]]#0, [[VAR_13_6_]]{{.}} : memref<16x32xui32>
+// CHECK-DAG:           [[LOAD_RES_7_MEM_:%.+]] = krnl.load [[RES_7_]]{{.}}[[VAR_13_6_]], [[VAR_11_8_]]#1] : memref<32x64xui32>
+// CHECK-DAG:           [[LOAD_RES_9_MEM_:%.+]] = krnl.load [[RES_9_]][] : memref<ui32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_17_:%.+]] = builtin.unrealized_conversion_cast [[VAR_14_5_]] : ui32 to i32
+// CHECK-DAG:           [[VAR_18_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_RES_7_MEM_]] : ui32 to i32
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:           [[VAR_19_:%.+]] = arith.muli [[VAR_17_]], [[VAR_18_]] : i32
+// CHECK-DAG:           [[VAR_20_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_RES_9_MEM_]] : ui32 to i32
+// CHECK:               [[VAR_21_:%.+]] = arith.addi [[VAR_20_]], [[VAR_19_]] : i32
+// CHECK:               [[VAR_22_:%.+]] = builtin.unrealized_conversion_cast [[VAR_21_]] : i32 to ui32
+// CHECK:               krnl.store [[VAR_22_]], [[RES_9_]][] : memref<ui32>
+// CHECK:             }
+// CHECK:             [[LOAD_RES_9_MEM_1_:%.+]] = krnl.load [[RES_9_]][] : memref<ui32>
+// CHECK:             krnl.store [[LOAD_RES_9_MEM_1_]], [[RES_8_]]{{.}}[[VAR_11_8_]]#0, [[VAR_11_8_]]#1] : memref<16x64xui32>
+// CHECK:           }
+// CHECK-DAG:       [[RES_10_:%.+]] = memref.alloc() {{.*}}: memref<16x64xi32>
+// CHECK-DAG:       [[LOOP_9_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_9_]]#0, [[LOOP_9_]]#1) with ([[LOOP_9_]]#0 -> [[I_17_:%.+]] = 0 to 16, [[LOOP_9_]]#1 -> [[I_18_:%.+]] = 0 to 64){
+// CHECK:             [[VAR_11_9_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_9_]]#0, [[LOOP_9_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_RES_9_MEM_1_:%.+]] = krnl.load [[RES_8_]]{{.}}[[VAR_11_9_]]#0, [[VAR_11_9_]]#1] : memref<16x64xui32>
+// CHECK:             [[VAR_13_7_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_RES_9_MEM_1_]] : ui32 to i32
+// CHECK:             krnl.store [[VAR_13_7_]], [[RES_10_]]{{.}}[[VAR_11_9_]]#0, [[VAR_11_9_]]#1] : memref<16x64xi32>
+// CHECK:           }
+// CHECK:           return [[RES_10_]] : memref<16x64xi32>
+// CHECK:         }
+}

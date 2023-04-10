@@ -44,17 +44,9 @@ public:
     Value aZeroPoint = mmiOp.getAZeroPoint(); // Optional input.
     Value bZeroPoint = mmiOp.getBZeroPoint(); // Optional input.
 
-    if (!isNoneValue(aZeroPoint)) {
-      ShapedType stype = aZeroPoint.getType().dyn_cast<ShapedType>();
-      if ((stype.getRank() > 1) ||
-          (stype.getRank() == 1 && (stype.getShape()[0] != 1))) {
-        return rewriter.notifyMatchFailure(op, [&](mlir::Diagnostic &diag) {
-          diag << "Does not support non-scalar for a_zero_point";
-        });
-      }
-    }
-
     // Common types.
+    auto aType = A.getType().dyn_cast<ShapedType>();
+    auto aZeroPointType = aZeroPoint.getType().dyn_cast<ShapedType>();
     auto resMemRefType = dyn_cast<MemRefType>(
         typeConverter->convertType(mmiOp.getResult().getType()));
     Type resElementType = resMemRefType.getElementType();
@@ -74,10 +66,20 @@ public:
     if (!isNoneValue(aZeroPoint)) {
       Value AInt32 = create.onnx.cast(A, i32Ty);
       Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, i32Ty);
-      // Note: `sub` is not true if aZeroPoint shape is [M], M != 1,
-      // because [MxK] - [M] cannot be expressed by `sub`.
-      // We require that aZeroPoint is scalar here (checked at the beginning of
-      // the lowering).
+      int64_t aRank = aType.getRank();
+      int64_t aZeroPointRank = aZeroPointType.getRank();
+      // If broadcasting, e.g. A is [MxK], zeroPoint is [M], M != 1.
+      // Unsqueeze zeroPoint to [Mx1] to make shapes compatible.
+      // There is no need to handle scalar zeroPoint (e.g. tensor<dtype> or
+      // tensor<1xdtype>), which is always true for broadcasting.
+      if (((aZeroPointRank == 1) && (aZeroPointType.getShape()[0] != 1)) ||
+          ((aZeroPointRank > 1) && (aZeroPointRank = aRank - 1))) {
+        SmallVector<int64_t, 4> unsqueezeShape(aZeroPointType.getShape());
+        unsqueezeShape.emplace_back(1);
+        aZeroPointInt32 =
+            create.onnx.unsqueeze(RankedTensorType::get(unsqueezeShape, i32Ty),
+                aZeroPointInt32, create.onnx.constantInt64({aZeroPointRank}));
+      }
       AInt32 = create.onnx.sub(AInt32, aZeroPointInt32);
       AUInt32 = create.onnx.cast(AInt32, ui32Ty);
     } else
