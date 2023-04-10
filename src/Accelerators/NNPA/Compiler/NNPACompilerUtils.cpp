@@ -40,7 +40,6 @@
 
 #define DEBUG_TYPE "NNPACompilerUtils"
 
-using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
