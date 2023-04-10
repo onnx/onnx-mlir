@@ -996,15 +996,15 @@ func.func @test_rnn_infer_hidden_size_from_W(%arg0: tensor<4x3x2xf32>, %arg1: te
 
 // -----
 
-func.func @test_rnn_no_results(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>) -> () {
+func.func @test_rnn_no_results(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>) -> (none) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, none) -> (none, none)
-  return
+  return %Y_h : none
 
   // CHECK-LABEL: test_rnn_no_results
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK-NEXT: %{{.*}}, [[RES:%.+]] = "onnx.RNN"(%arg0, %arg1, %arg2, [[CST]], [[CST]], [[CST]]) {activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x3x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, none) -> (none, none)
-  // CHECK: return
+  // CHECK-NEXT: return [[RES]]
 }
 
 // -----
@@ -1022,15 +1022,15 @@ func.func @test_rnn_missing_first_result(%arg0: tensor<4x3x2xf32>, %arg1: tensor
 
 // -----
 
-func.func @test_rnn_missing_trailing_result(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>) -> () {
+func.func @test_rnn_missing_trailing_result(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>) -> (none) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, none) -> (tensor<*xf32>, none)
-  return
+  return %Y_h : none
 
   // CHECK-LABEL: test_rnn_missing_trailing_result
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK-NEXT: %{{.*}}, [[RES:%.+]] = "onnx.RNN"(%arg0, %arg1, %arg2, [[CST]], [[CST]], [[CST]]) {activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 3 : si64, layout = 0 : si64} : (tensor<4x3x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, none) -> (tensor<4x1x3x3xf32>, none)
-  // CHECK: return
+  // CHECK: return [[RES]]
 }
 
 // -----
@@ -1100,15 +1100,15 @@ func.func @test_gru_infer_hidden_size_from_W(%arg0: tensor<4x3x2xf32>, %arg1: te
 
 // -----
 
-func.func @test_gru_no_results(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2xf32>, %arg2: tensor<1x9x3xf32>) -> () {
+func.func @test_gru_no_results(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2xf32>, %arg2: tensor<1x9x3xf32>) -> (none) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x9x2xf32>, tensor<1x9x3xf32>, none, none, none) -> (none, none)
-  return
+  return %Y_h : none
 
   // CHECK-LABEL: test_gru_no_results
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK-NEXT: %{{.*}}, [[RES:%.+]] = "onnx.GRU"(%arg0, %arg1, %arg2, [[CST]], [[CST]], [[CST]]) {direction = "forward", hidden_size = 3 : si64, layout = 0 : si64, linear_before_reset = 0 : si64} : (tensor<4x3x2xf32>, tensor<1x9x2xf32>, tensor<1x9x3xf32>, none, none, none) -> (none, none)
-  // CHECK: return
+  // CHECK: return [[RES]]
 }
 
 // -----
@@ -1126,15 +1126,15 @@ func.func @test_gru_missing_first_result(%arg0: tensor<4x3x2xf32>, %arg1: tensor
 
 // -----
 
-func.func @test_gru_missing_trailing_result(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2xf32>, %arg2: tensor<1x9x3xf32>) -> () {
+func.func @test_gru_missing_trailing_result(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2xf32>, %arg2: tensor<1x9x3xf32>) -> (none) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x9x2xf32>, tensor<1x9x3xf32>, none, none, none) -> (tensor<*xf32>, none)
-  return
+  return %Y_h : none
 
   // CHECK-LABEL: test_gru_missing_trailing_result
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK-NEXT: %{{.*}}, [[RES:%.+]] = "onnx.GRU"(%arg0, %arg1, %arg2, [[CST]], [[CST]], [[CST]]) {direction = "forward", hidden_size = 3 : si64, layout = 0 : si64, linear_before_reset = 0 : si64} : (tensor<4x3x2xf32>, tensor<1x9x2xf32>, tensor<1x9x3xf32>, none, none, none) -> (tensor<4x1x3x3xf32>, none)
-  // CHECK: return
+  // CHECK: return [[RES]]
 }
 
 // -----
@@ -1204,15 +1204,15 @@ func.func @test_lstm_infer_hidden_size_from_W(%arg0: tensor<4x3x2xf32>, %arg1: t
 
 // -----
 
-func.func @test_lstm_no_results(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> () {
+func.func @test_lstm_no_results(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> (none) {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, none, none)
-  return
+  return %Y_h : none
 
   // CHECK-LABEL: test_lstm_no_results
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK-NEXT: %{{.*}}, [[RES:%.+]], %{{.*}} = "onnx.LSTM"(%arg0, %arg1, %arg2, [[CST]], [[CST]], [[CST]], [[CST]], [[CST]]) {direction = "forward", hidden_size = 3 : si64, input_forget = 0 : si64, layout = 0 : si64} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, none, none)
-  // CHECK: return
+  // CHECK: return [[RES]]
 }
 
 // -----
@@ -2646,27 +2646,27 @@ func.func @test_range(%arg0: tensor<f32>, %arg1: tensor<f32>, %arg2: tensor<f32>
 // -----
 
 func.func @test_range_float_constant() -> tensor<*xf32> {
-  %start = onnx.Constant dense<[1.0]> : tensor<1xf32>
+  %start = onnx.Constant dense<[2.0]> : tensor<1xf32>
   %limit = onnx.Constant dense<[10.0]> : tensor<1xf32>
   %delta = onnx.Constant dense<[1.0]> : tensor<1xf32>
   %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
   // CHECK-LABEL: test_range_float_constant
-  // CHECK: {{.*}} = "onnx.Range"(%0, %1, %2) : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<9xf32>
+  // CHECK: {{.*}} = "onnx.Range"(%0, %1, %2) : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<8xf32>
 }
 
 // -----
 
 func.func @test_range_int_constant() -> tensor<*xi32> {
-  %start = onnx.Constant dense<[1]> : tensor<1xi32>
+  %start = onnx.Constant dense<[2]> : tensor<1xi32>
   %limit = onnx.Constant dense<[10]> : tensor<1xi32>
   %delta = onnx.Constant dense<[1]> : tensor<1xi32>
   %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<*xi32>
   return %0 : tensor<*xi32>
 
   // CHECK-LABEL: test_range_int_constant
-  // CHECK: {{.*}} = "onnx.Range"(%0, %1, %2) : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<9xi32>
+  // CHECK: {{.*}} = "onnx.Range"(%0, %1, %2) : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<8xi32>
 }
 
 // -----
@@ -3440,17 +3440,17 @@ func.func @test_if_1(%arg0: tensor<i1>) -> (tensor<*xf32>, tensor<*xi16>, tensor
 
 // CHECK-LABEL:  func @test_if_1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<i1>) -> (tensor<2xf32>, tensor<?xi16>, tensor<*xui8>) {
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[2.000000e+00, 1.000000e+00]> : tensor<2xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[1, 2]> : tensor<2xi16>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<1> : tensor<2x3xui8>
+// CHECK-DAG:       [[VAR_1_1_:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>
+// CHECK-DAG:       [[VAR_2_1_:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xi16>
+// CHECK-DAG:       [[VAR_3_1_:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xui8>
 // CHECK-DAG:       [[VAR_0_:%.+]]:3 = "onnx.If"([[PARAM_0_]]) ({
-// CHECK-DAG:         [[VAR_1_:%.+]] = onnx.Constant dense<[2.000000e+00, 1.000000e+00]> : tensor<2xf32>
-// CHECK-DAG:         [[VAR_2_:%.+]] = onnx.Constant dense<[1, 2]> : tensor<2xi16>
-// CHECK-DAG:         [[VAR_3_:%.+]] = onnx.Constant dense<1> : tensor<2x3xui8>
-// CHECK:             onnx.Return [[VAR_1_]], [[VAR_2_]], [[VAR_3_]] : tensor<2xf32>, tensor<2xi16>, tensor<2x3xui8>
-// CHECK:           }, {
-// CHECK-DAG:         [[VAR_1_1_:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>
-// CHECK-DAG:         [[VAR_2_1_:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xi16>
-// CHECK-DAG:         [[VAR_3_1_:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xui8>
-// CHECK:             onnx.Return [[VAR_1_1_]], [[VAR_2_1_]], [[VAR_3_1_]] : tensor<2xf32>, tensor<3xi16>, tensor<3xui8>
-// CHECK:           }) : (tensor<i1>) -> (tensor<2xf32>, tensor<?xi16>, tensor<*xui8>)
+// CHECK-DAG:         onnx.Return [[VAR_1_]], [[VAR_2_]], [[VAR_3_]] : tensor<2xf32>, tensor<2xi16>, tensor<2x3xui8>
+// CHECK-DAG:       }, {
+// CHECK-DAG:         onnx.Return [[VAR_1_1_]], [[VAR_2_1_]], [[VAR_3_1_]] : tensor<2xf32>, tensor<3xi16>, tensor<3xui8>
+// CHECK-DAG:       }) : (tensor<i1>) -> (tensor<2xf32>, tensor<?xi16>, tensor<*xui8>)
 // CHECK:           return [[VAR_0_]]#0, [[VAR_0_]]#1, [[VAR_0_]]#2 : tensor<2xf32>, tensor<?xi16>, tensor<*xui8>
 }
 
