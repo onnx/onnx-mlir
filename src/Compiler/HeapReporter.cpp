@@ -33,6 +33,7 @@ void splitToSet(StringRef commaSeparated, llvm::StringSet<> &set) {
     set.insert(s.trim());
 }
 
+#if defined(__APPLE__)
 void logMessage(StringRef logFilename, StringRef msg,
     llvm::sys::fs::OpenFlags extraFlags = llvm::sys::fs::OF_None) {
   std::error_code EC;
@@ -44,6 +45,7 @@ void logMessage(StringRef logFilename, StringRef msg,
   }
   os << msg;
 }
+#endif
 } // namespace
 
 HeapReporter::HeapReporter(

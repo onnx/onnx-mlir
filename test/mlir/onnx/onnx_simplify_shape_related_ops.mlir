@@ -74,9 +74,9 @@ func.func @test_pass_dims_through_cast(%arg0: tensor<?x256xi64>) -> (tensor<2xf3
 
 // CHECK-LABEL:  func.func @test_pass_dims_through_cast
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x256xi64>) -> tensor<2xf32> {
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<2.560000e+02> : tensor<1xf32>
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Cast"([[VAR_0_]]) {to = f32} : (tensor<1xi64>) -> tensor<1xf32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<2.560000e+02> : tensor<1xf32>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xf32>, tensor<1xf32>) -> tensor<2xf32>
 // CHECK:           return [[VAR_3_]] : tensor<2xf32>
 // CHECK:         }
@@ -103,7 +103,7 @@ func.func @test_pass_dims_through_concat(%arg0: tensor<?x256xi64>) -> (tensor<4x
 
 // -----
 
-func.func @test_pass_dims_through_cast(%arg0: tensor<?x?x200xf32>) -> tensor<2xi64> {
+func.func @test_pass_dims_through_cast_2(%arg0: tensor<?x?x200xf32>) -> tensor<2xi64> {
   %0 = onnx.Constant dense<[0, 1]> : tensor<2xi64>
   %1 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
   %2 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
@@ -113,7 +113,7 @@ func.func @test_pass_dims_through_cast(%arg0: tensor<?x?x200xf32>) -> tensor<2xi
   return %5 : tensor<2xi64>
 
 // mlir2FileCheck.py
-// CHECK-LABEL:  func.func @test_pass_dims_through_cast
+// CHECK-LABEL:  func.func @test_pass_dims_through_cast_2
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x200xf32>) -> tensor<2xi64> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
@@ -179,7 +179,7 @@ func.func @test_update_constantofshape_output_shape(%arg0: tensor<?x256xi64>, %a
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<256> : tensor<1xi64>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.ConstantOfShape"([[VAR_3_]]) {value = dense<1> : tensor<1xi64>} : (tensor<3xi64>) -> tensor<?x1x256xi64>
+// CHECK:           [[VAR_4_:%.+]] = onnx.ConstantOfShape([[VAR_3_]]) {value = dense<1> : tensor<1xi64>} : (tensor<3xi64>) -> tensor<?x1x256xi64>
 // CHECK:           return [[VAR_4_]] : tensor<?x1x256xi64>
 // CHECK:         }
 }

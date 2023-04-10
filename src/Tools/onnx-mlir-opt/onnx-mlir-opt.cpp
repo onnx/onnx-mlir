@@ -33,7 +33,9 @@
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitMLIRPasses.hpp"
 #include "src/InitOMPasses.hpp"
@@ -188,11 +190,21 @@ int main(int argc, char **argv) {
     return failed(LogicalResult::failure());
   }
 
+  auto passManagerSetupFn = [&](PassManager &pm) {
+    mlir::MLIRContext *ctx = pm.getContext();
+    pm.addInstrumentation(std::make_unique<DisposableGarbageCollector>(ctx));
+    auto errorHandler = [ctx](const Twine &msg) {
+      emitError(UnknownLoc::get(ctx)) << msg;
+      return failure();
+    };
+    return passPipeline.addToPipeline(pm, errorHandler);
+  };
   // TODO(imaihal): Change preloadDialectsInContext to false.
-  if (failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,
-          registry, split_input_file, verify_diagnostics, verify_passes,
-          allowUnregisteredDialects, /*preloadDialectsInContext*/ true,
-          /*emitBytecode*/ false, /*implicitModule*/ true)))
+  if (failed(
+          mlir::MlirOptMain(output->os(), std::move(file), passManagerSetupFn,
+              registry, split_input_file, verify_diagnostics, verify_passes,
+              allowUnregisteredDialects, /*preloadDialectsInContext*/ true,
+              /*emitBytecode*/ false, /*explicitModule*/ false)))
     return mlir::asMainReturnCode(failure());
 
   output->keep();

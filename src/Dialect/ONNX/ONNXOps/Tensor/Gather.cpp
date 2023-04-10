@@ -4,7 +4,7 @@
 
 //===------------------ Gather.cpp - ONNX Operations ----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -30,11 +30,11 @@ LogicalResult ONNXGatherOpShapeHelper::computeShape() {
   ONNXGatherOpAdaptor operandAdaptor(operands);
   ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);
   DimsExpr dataDims, indicesDims;
-  createIE->getShapeAsDims(operandAdaptor.data(), dataDims);
-  createIE->getShapeAsDims(operandAdaptor.indices(), indicesDims);
+  createIE->getShapeAsDims(operandAdaptor.getData(), dataDims);
+  createIE->getShapeAsDims(operandAdaptor.getIndices(), indicesDims);
 
   int64_t dataRank = dataDims.size();
-  int64_t axisIndex = gatherOp.axis();
+  int64_t axisIndex = gatherOp.getAxis();
   assert(axisIndex >= -dataRank && axisIndex < dataRank && "Invalid axisIndex");
   // Negative value means counting dimensions from the back.
   axisIndex = (axisIndex < 0) ? axisIndex + dataRank : axisIndex;
@@ -64,14 +64,13 @@ LogicalResult ONNXGatherOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGatherOp::verify() {
   ONNXGatherOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
-  auto dataType = operandAdaptor.data().getType().cast<RankedTensorType>();
+  auto dataType = operandAdaptor.getData().getType().cast<RankedTensorType>();
   ArrayRef<int64_t> dataShape = dataType.getShape();
   int64_t dataRank = dataShape.size();
-  int64_t axisValue = axis();
+  int64_t axisValue = getAxis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(data).
   if (axisValue < -dataRank || axisValue >= dataRank)
@@ -88,11 +87,10 @@ LogicalResult ONNXGatherOp::verify() {
 
 LogicalResult ONNXGatherOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (llvm::any_of(this->getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
+  if (!hasShapeAndRank(getOperation()))
     return success();
 
-  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = getData().getType().cast<ShapedType>().getElementType();
   ONNXGatherOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

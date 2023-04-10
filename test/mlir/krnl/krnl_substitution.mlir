@@ -28,7 +28,6 @@ func.func @test_kernel_substitution() {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (d0, d1)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> (d0 + 8)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0) -> (d0 + 6)>
 // CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<(d0) -> (d0 + 5)>

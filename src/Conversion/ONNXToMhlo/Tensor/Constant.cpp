@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
 using namespace mlir;
 
@@ -29,11 +30,12 @@ struct ONNXConstantOpLoweringToMhlo : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXConstantOp constantOp = cast<ONNXConstantOp>(op);
 
-    if (constantOp.sparse_value().has_value())
+    if (constantOp.getSparseValue().has_value())
       return constantOp.emitWarning("Only support dense values at this time");
-    assert(constantOp.value().has_value() && "Value is not set");
-    Value result =
-        rewriter.create<mhlo::ConstantOp>(loc, constantOp.value().value());
+    assert(constantOp.getValue().has_value() && "Value is not set");
+    auto attr = constantOp.getValue().value();
+    Value result = rewriter.create<mhlo::ConstantOp>(
+        loc, ElementsAttrBuilder::toDenseElementsAttr(attr));
     rewriter.replaceOp(op, result);
     return success();
   }

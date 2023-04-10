@@ -5,7 +5,7 @@
 //===---------------IndexExprDetail.hpp - Index expression details---------===
 ////
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -34,9 +34,12 @@ namespace onnx_mlir {
 // IndexExprImpl constructors, initializers
 //===----------------------------------------------------------------------===//
 
+// Default constructor initialize everything to a default value. Remains
+// undefined (namely most methods will fails).
 IndexExprImpl::IndexExprImpl()
-    : defined(false), literal(false), kind(IndexExprKind::NonAffine), intLit(0),
-      affineExpr(nullptr), value(nullptr) {
+    : defined(false), literal(false), isFloat(false),
+      kind(IndexExprKind::NonAffine), intLit(0), affineExpr(nullptr),
+      value(nullptr) {
   // Set scope from thread private global.
   scope = IndexExprScope::getCurrentScopePtr();
   assert(scope && "expected IndexExpr Scope to be defined");
@@ -45,21 +48,23 @@ IndexExprImpl::IndexExprImpl()
 }
 
 void IndexExprImpl::initAsUndefined() {
-  init(/*isDefined*/ false, /*literal*/ false, IndexExprKind::NonAffine, 0,
-      AffineExpr(nullptr), Value(nullptr));
+  init(/*isDefined*/ false, /*literal*/ false, /*isLitFloat*/ false,
+      IndexExprKind::NonAffine, 0, AffineExpr(nullptr), Value(nullptr));
 }
 
-void IndexExprImpl::initAsQuestionmark() {
+void IndexExprImpl::initAsQuestionmark(bool isFloatFlag) {
   // Question mark has value of -1 by default.
-  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark, -1,
-      AffineExpr(nullptr), Value(nullptr));
+  init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ isFloatFlag,
+      IndexExprKind::Questionmark, ShapedType::kDynamic, AffineExpr(nullptr),
+      Value(nullptr));
 }
 
-void IndexExprImpl::initAsQuestionmark(int64_t const val) {
-  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark, val,
-      AffineExpr(nullptr), Value(nullptr));
+void IndexExprImpl::initAsQuestionmark(int64_t const val, bool isFloatFlag) {
+  init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ isFloatFlag,
+      IndexExprKind::Questionmark, val, AffineExpr(nullptr), Value(nullptr));
 }
 
+// Used for runtime dims; integer by default.
 void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   // Each question mark is assigned a unique integer that is obtained
   // by hashing the tensor/memref value and the target dimension index.
@@ -68,15 +73,31 @@ void IndexExprImpl::initAsQuestionmark(Value tensorOrMemref, int64_t index) {
   // processes or executions.
   llvm::hash_code questionValue = llvm::hash_combine(
       mlir::hash_value(tensorOrMemref), llvm::hash_value(index));
-  init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Questionmark,
+  init(/*isDefined*/ true, /*literal*/ false,
+      /*isLitFloat, as this is for shapes*/ false, IndexExprKind::Questionmark,
       questionValue, AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
   assert((kind != IndexExprKind::Questionmark) &&
          "literals are either affine or predicate");
-  init(/*isDefined*/ true, /*literal*/ true, kind, val, AffineExpr(nullptr),
-      Value(nullptr));
+  init(/*isDefined*/ true, /*literal*/ true, /*isLitFloat*/ false, kind, val,
+      AffineExpr(nullptr), Value(nullptr));
+}
+
+void IndexExprImpl::initAsLiteral(double const val, const IndexExprKind kind) {
+  assert((kind != IndexExprKind::Questionmark) &&
+         "literals are not question marks");
+  // Use union to get the bit pattern of the double into an int without changes.
+  union {
+    int64_t ival;
+    double fval;
+  } intOrFloatVal;
+  // Define using float value.
+  intOrFloatVal.fval = val;
+  // Use using int value, so that we don't have to create two init functions.
+  init(/*isDefined*/ true, /*literal*/ true, /*isLitFloat*/ true, kind,
+      intOrFloatVal.ival, AffineExpr(nullptr), Value(nullptr));
 }
 
 static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
@@ -87,7 +108,7 @@ static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
     return true;
   }
   // Since ConstantIndexOp is a subclass of ConstantOp, not sure if this one is
-  // useful.
+  // needed.
   if (auto constantOp = value.getDefiningOp<arith::ConstantIndexOp>()) {
     if (constantOp.getType().isa<IndexType>())
       intLit = constantOp.value();
@@ -96,14 +117,36 @@ static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
   return false;
 }
 
-void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
-  if (newKind == IndexExprKind::Questionmark) {
-    initAsQuestionmark();
-    return;
+static bool getFloatLiteralFromValue(Value value, double &floatLit) {
+  // From lib/Dialect/LinAlg/Transform/Promotion.cpp
+  if (auto constantOp = value.getDefiningOp<arith::ConstantOp>()) {
+    if (constantOp.getType().isa<FloatType>())
+      floatLit = constantOp.getValue().cast<FloatAttr>().getValueAsDouble();
+    return true;
   }
+  // Since ConstantFloatOp is a subclass of ConstantOp, not sure if this one is
+  // needed.
+  if (auto constantOp = value.getDefiningOp<arith::ConstantFloatOp>()) {
+    if (constantOp.getType().isa<FloatType>())
+      floatLit = constantOp.value().convertToDouble();
+    return true;
+  }
+  return false;
+}
+
+void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
   // Val should exist, because we come here only when passing an actual val, but
   // we might consider checking.
   assert(val != nullptr && "expected a defined value");
+  // Check that the value is of the right type.
+  auto type = val.getType();
+  bool valIsFloat = (type.isa<FloatType>());
+  // Questionmark
+  if (newKind == IndexExprKind::Questionmark) {
+    initAsQuestionmark(valIsFloat);
+    return;
+  }
+
   // Do we have a literal integer, if we do, handle it now.
   int64_t valIntLit = 0;
   if (getIntegerLiteralFromValue(val, valIntLit)) {
@@ -112,13 +155,17 @@ void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
     initAsLiteral(valIntLit, newKind);
     return;
   }
-  // We have a value that is not a literal.
-  if (scope->isShapeInferencePass()) {
-    initAsQuestionmark();
+  double valFloatLit = 0.0;
+  if (getFloatLiteralFromValue(val, valFloatLit)) {
+    // We have an float constant.
+    initAsLiteral(valFloatLit, newKind);
     return;
   }
-  // Check that the value is of the right type.
-  auto type = val.getType();
+  // We have a value that is not a literal.
+  if (scope->isShapeInferencePass()) {
+    initAsQuestionmark(valIsFloat);
+    return;
+  }
   Value newVal = val;
   if (type.isa<IntegerType>()) {
     if (newKind != IndexExprKind::Predicate) {
@@ -134,13 +181,20 @@ void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
       newVal = scope->getRewriter().create<arith::IndexCastOp>(
           scope->getLoc(), scope->getRewriter().getI1Type(), newVal);
     }
+  } else if (type.isa<FloatType>()) {
+    assert(newKind != IndexExprKind::Predicate && "float cannot be predicate");
+    // Assume its a single precision float.
+    unsigned width = type.cast<FloatType>().getWidth();
+    assert(width == 32 && "Index expression only support f32 at this time");
   } else {
     llvm_unreachable("unsupported element type");
   }
   // Now record the value. Affine Expr will be created on demand by
   // getAffineExpr.
-  init(/*isDefined*/ true, /*literal*/ false, newKind, 0, AffineExpr(nullptr),
-      newVal);
+  // Note: init will determine if newVal's type is int or float and thus set the
+  // isFloat flag to the right value.
+  init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ false, newKind, 0,
+      AffineExpr(nullptr), newVal);
 }
 
 void IndexExprImpl::initAsAffineExpr(AffineExpr const val) {
@@ -151,21 +205,31 @@ void IndexExprImpl::initAsAffineExpr(AffineExpr const val) {
   if (constAffineExpr) {
     initAsLiteral(constAffineExpr.getValue(), IndexExprKind::Affine);
   } else {
-    init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Affine, 0,
-        AffineExpr(val), Value(nullptr));
+    init(/*isDefined*/ true, /*literal*/ false, /*isLitFloat*/ false,
+        IndexExprKind::Affine, 0, AffineExpr(val), Value(nullptr));
   }
 }
 
-void IndexExprImpl::init(bool newIsDefined, bool newIsIntLit,
-    IndexExprKind newKind, int64_t const newIntLit,
+void IndexExprImpl::init(bool newIsDefined, bool newIsIntLit, bool isFloatLit,
+    IndexExprKind newKind, int64_t const newIntOrFloatLit,
     AffineExpr const newAffineExpr, Value const newValue) {
   defined = newIsDefined;
   literal = newIsIntLit;
   kind = newKind;
-  intLit = newIntLit;
+  intLit = newIntOrFloatLit;
+  isFloat = isFloatLit;
   affineExpr = newAffineExpr;
   value = newValue;
-  if (value == nullptr && !isShapeInferencePass()) {
+  if (value != nullptr) {
+    // We have a value initialized index expr. Determine if we have an integer
+    // or float expression.
+    if (value.getType().isa<FloatType>()) {
+      // Assume its a single precision float.
+      unsigned width = value.getType().cast<FloatType>().getWidth();
+      assert(width == 32 && "Index expression only support f32 at this time");
+      isFloat = true;
+    }
+  } else if (!isShapeInferencePass()) {
     // Eagerly create values.
     getValue();
   }
@@ -174,8 +238,8 @@ void IndexExprImpl::init(bool newIsDefined, bool newIsIntLit,
 void IndexExprImpl::copy(IndexExprImpl const *other) {
   assert(scope && "all index expr must have a defined scope");
   // Preserve this scope, copy the remaining attributes from other.
-  init(other->defined, other->literal, other->kind, other->intLit,
-      other->affineExpr, other->value);
+  init(other->defined, other->literal, other->isFloat, other->kind,
+      other->intLit, other->affineExpr, other->value);
 }
 
 //===----------------------------------------------------------------------===//
@@ -218,7 +282,14 @@ bool IndexExprImpl::isPredType() const {
   return kind == IndexExprKind::Predicate;
 }
 
-bool IndexExprImpl::isIndexType() const { return !isPredType(); }
+bool IndexExprImpl::isFloatType() const {
+  assert(isDefined() && "index expression must be defined");
+  return isFloat;
+}
+
+bool IndexExprImpl::isIndexType() const {
+  return !isPredType() && !isFloatType();
+}
 
 bool IndexExprImpl::isShapeInferencePass() const {
   assert(hasScope());
@@ -260,11 +331,19 @@ IndexExprKind IndexExprImpl::getKind() const { return kind; }
 
 int64_t IndexExprImpl::getLiteral() const {
   assert(isLiteral() && "expected a literal index expression");
+  assert(!isFloatType() && "expected integer literal");
   return intLit;
+}
+
+double IndexExprImpl::getFloatLiteral() const {
+  assert(isLiteral() && "expected a literal index expression");
+  assert(isFloatType() && "expected float literal");
+  return floatLit;
 }
 
 int64_t IndexExprImpl::getQuestionmark() const {
   assert(isQuestionmark() && "expected a question mark index expression");
+  // Question mark ID is valid for integer or float values, no need for asserts.
   return intLit;
 }
 
@@ -275,6 +354,7 @@ int64_t IndexExprImpl::getQuestionmark() const {
 AffineExpr IndexExprImpl::getAffineExpr() {
   assert(!isShapeInferencePass() && "cannot get affine during shape inference");
   assert(!isPredType() && "no affine support for predicate type");
+  assert(!isFloatType() && "affine expression not available for float type");
   if (hasAffineExpr()) {
     // Already computed it, use it.
     return affineExpr;
@@ -308,10 +388,11 @@ AffineExpr IndexExprImpl::getAffineExpr() {
 
 void IndexExprImpl::getAffineMapAndOperands(
     AffineMap &map, SmallVectorImpl<Value> &operands) {
-  // Init.
-  operands.clear();
   assert(isDefined() && !isQuestionmark() && !isPredType() &&
          "expected lit/affine/non-affine index expr");
+  assert(!isFloatType() && "affine expression not available for float");
+  // Init.
+  operands.clear();
   // Handle literal cases.
   if (isLiteral()) {
     map = getRewriter().getConstantAffineMap(intLit);
@@ -362,9 +443,16 @@ Value IndexExprImpl::getValue() {
     // Create a literal constant. Literal pred type should be used directly to
     // eliminate the comparison, so we don't intend to support them here.
     if (isPredType()) {
+      assert(!isFloatType() && "predicate literal not available for float");
       bool boolValue = (intLit != 0);
       value = getRewriter().create<arith::ConstantOp>(getLoc(),
           getRewriter().getI1Type(), getRewriter().getBoolAttr(boolValue));
+    } else if (isFloatType()) {
+      // Treat float types as f32 as this is what we currently have in the ONNX
+      // specs involving float and index calculations.
+      float fval = floatLit;
+      value = getRewriter().create<arith::ConstantFloatOp>(
+          getLoc(), llvm::APFloat(fval), getRewriter().getF32Type());
     } else {
       value = getRewriter().create<arith::ConstantIndexOp>(getLoc(), intLit);
     }
@@ -372,6 +460,7 @@ Value IndexExprImpl::getValue() {
     // Has an affine expression: need to build a map, and then perform an
     // affine.apply.
     assert(!isPredType() && "no affine support for predicate type");
+    assert(!isFloatType() && "no affine support for float type");
     int dimNum = getScope().getNumDims();
     int symNum = getScope().getNumSymbols();
     AffineMap map = AffineMap::get(
@@ -381,10 +470,44 @@ Value IndexExprImpl::getValue() {
     SmallVector<Value, 4> list;
     getScope().getDimAndSymbolList(list);
     value = getRewriter().create<AffineApplyOp>(getLoc(), map, list);
+  } else if (isQuestionmark()) {
+    // There are cases where shape inference cannot determine the size even at
+    // runtime before running some specialized computations. For example,
+    // compress need to scan the vector of condition at runtime to determine the
+    // actual number of output values. Thus we are ok with letting QuestionMarks
+    // flow in such situations.
+    // Note that this index expression / shape will have to be updated in some
+    // ways before allocating an array based on this shape. This will be the
+    // responsibility of the lowering pass.
+    return nullptr;
   } else {
     llvm_unreachable("bad path");
   }
   return value;
+}
+
+//===----------------------------------------------------------------------===//
+// IndexExprExpr setters.
+//===----------------------------------------------------------------------===//
+
+void IndexExprImpl::setLiteral(int64_t val) {
+  assert(isLiteral() && "set literal allowed only for literal index expr ");
+  assert(!isFloatType() && "cannot set int value for float index expr");
+  intLit = val;
+}
+
+void IndexExprImpl::setLiteral(double val) {
+  assert(isLiteral() && "set literal allowed only for literal index expr ");
+  assert(isFloatType() && "cannot set float value for int index expr");
+  floatLit = val;
+}
+
+void IndexExprImpl::setLiteral(const IndexExprImpl &obj) {
+  assert(isLiteral() && "set literal allowed only for literal index expr ");
+  if (isFloatType())
+    setLiteral(obj.getFloatLiteral());
+  else
+    setLiteral(obj.getLiteral());
 }
 
 } // namespace onnx_mlir

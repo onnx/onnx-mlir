@@ -24,7 +24,15 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  populateLoweringONNXGemmOpToTOSAPattern(target, patterns, typeConverter, ctx);
   populateLoweringONNXSoftmaxOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
+  populateLoweringONNXConvOpToTOSAPattern(target, patterns, typeConverter, ctx);
+  // NN
+  populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
+  // Tensor
+  populateLoweringONNXConstOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
 }
 
@@ -56,18 +64,19 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // conversion failures. Quantized types are not supported right now.
   TypeConverter typeConverter;
   typeConverter.addConversion([](Type type) -> Optional<Type> {
-    if (isTOSASignedInt(type) || isTOSAFloat(type))
+    if (isTOSASignedInt(type) || isTOSAFloat(type) || type.isa<NoneType>())
       return type;
-    return llvm::None;
+    return std::nullopt;
   });
   typeConverter.addConversion([&](TensorType type) -> Optional<Type> {
     if (typeConverter.isLegal(type.getElementType()))
       return type;
-    return llvm::None;
+    return std::nullopt;
   });
 
   // Define legal dialects and operations
-  target.addLegalDialect<tosa::TosaDialect, func::FuncDialect>();
+  target.addLegalDialect<tosa::TosaDialect, func::FuncDialect,
+      mlir::arith::ArithDialect>();
 
   // Define patterns
   populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context);

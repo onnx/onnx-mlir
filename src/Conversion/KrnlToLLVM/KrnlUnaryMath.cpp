@@ -124,9 +124,31 @@ struct MathFunctionName<KrnlAtanhOp> {
 };
 
 template <>
+struct MathFunctionName<KrnlIsInfOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+#if (__APPLE__)
+      return "__isinff";
+#else
+      return "isinff";
+#endif
+    if (type.isF64())
+      return "isinf";
+    llvm_unreachable("Unsupported type for isinf");
+  }
+};
+
+template <>
 struct MathFunctionName<KrnlIsNaNOp> {
   static std::string functionName(mlir::Type type) {
-    if (type.isF32() || type.isF64())
+
+    if (type.isF32())
+#if (__APPLE__)
+      return "__isnanf";
+#else
+      return "isnanf";
+#endif
+    if (type.isF64())
       return "isnan";
     llvm_unreachable("Unsupported type for isnan");
   }
@@ -147,22 +169,34 @@ public:
 
     // get the LLVM type for the function args and result
     mlir::Type inType = op->getOperand(0).getType();
-    mlir::Type llvmType;
-    if (inType.isF32())
-      llvmType = FloatType::getF32(context);
+    mlir::Type outType = op->getResultTypes().front();
+    mlir::Type llvmInType, llvmOutType;
+    if (inType.isF16())
+      llvmInType = FloatType::getF16(context);
+    else if (inType.isF32())
+      llvmInType = FloatType::getF32(context);
     else if (inType.isF64())
-      llvmType = FloatType::getF64(context);
+      llvmInType = FloatType::getF64(context);
+    else if (inType.isBF16())
+      llvmInType = FloatType::getBF16(context);
+    if (outType.isInteger(1))
+      llvmOutType = IntegerType::get(context, 1);
+    else if (outType.isF32())
+      llvmOutType = FloatType::getF32(context);
+    else if (outType.isF64())
+      llvmOutType = FloatType::getF64(context);
 
     // Insert and/or get reference to elementary math function declaration.
     assert(
         inType.isIntOrFloat() && "Type for math function must be int or float");
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto mathFunctionRef = getOrInsertUnaryMathFunction(rewriter, parentModule,
-        MathFunctionName<KrnlScalarMathOp>().functionName(inType), llvmType);
+        MathFunctionName<KrnlScalarMathOp>().functionName(inType), llvmInType,
+        llvmOutType);
 
     // Emit function call.
     auto funcCall = rewriter.create<func::CallOp>(
-        loc, mathFunctionRef, llvmType, ArrayRef<Value>({operands[0]}));
+        loc, mathFunctionRef, llvmOutType, ArrayRef<Value>({operands[0]}));
     rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();
   }
@@ -173,16 +207,31 @@ private:
   // declare float <mathFuncName>(float)
   //
   FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
-      ModuleOp module, std::string mathFuncName, mlir::Type llvmType) const {
-    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
-    return create.llvm.getOrInsertSymbolRef(
-        module, StringRef(mathFuncName), llvmType, {llvmType});
+      ModuleOp module, std::string mathFuncName, mlir::Type llvmInType,
+      mlir::Type llvmOutType) const {
+    auto *context = module.getContext();
+    if (module.lookupSymbol<LLVM::LLVMFuncOp>(mathFuncName))
+      return SymbolRefAttr::get(context, mathFuncName);
+
+    // Create function declaration.
+    // auto llvmF32Ty = FloatType::get(context);
+    auto llvmFnType = LLVM::LLVMFunctionType::get(
+        llvmOutType, ArrayRef<mlir::Type>({llvmInType}));
+
+    // Insert the unary math function into the body of the parent module.
+    PatternRewriter::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+    rewriter.create<LLVM::LLVMFuncOp>(
+        module.getLoc(), mathFuncName, llvmFnType);
+    return SymbolRefAttr::get(context, mathFuncName);
   }
 };
 
 void populateLoweringKrnlUnaryMathOpPattern(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(typeConverter, ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlIsInfOp>>(typeConverter, ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlIsNaNOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAcosOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAcoshOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAsinOp>>(typeConverter, ctx);

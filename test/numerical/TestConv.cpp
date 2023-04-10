@@ -95,6 +95,7 @@ int main(int argc, char *argv[]) {
   // Set global settings.
   stride = dilation = 1;
   isDynamic = 0;
+
   // Some 1x1 conv in inception.
   assert(isOMConvTheSameAsNaiveImplFor(
              1, 64, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&

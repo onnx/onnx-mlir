@@ -68,6 +68,20 @@ const static float omDefaultRangeBound = 1.0;
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
   The compileAndLoad function can also process compiler options, which will
   remain in effect until changed again.
+
+  ===========================================================================
+  Advice for debugging models. If you have a model that fails.
+
+  1 Isolate the failing model by changing the TestXXX.cpp to only generate that
+    one.
+  2 Execute the test while setting this env: TEST_ARGS="--preserveMLIR"
+    Debug/bin/TestXXX .
+  3 Then you should have a TestXXX_main_graph.input.mlir in the current
+    directory.
+  4 You should now be able to call "onnx-mlir -O3 -mlir-print-ir-after-all
+    TestXXX_main_graph.input.mlir" with a older good compiler and the newer
+    failing compiler, and hopefully find out where the issue might be.
+
 */
 
 class ModelLibBuilder {
@@ -169,8 +183,8 @@ class CategoryMapperLibBuilder : public ModelLibBuilder {
 public:
   // CategoryMapper attributes.
   struct CMAttributes {
-    llvm::ArrayRef<int64_t> cat_int64s;
-    llvm::ArrayRef<llvm::StringRef> cat_strings;
+    llvm::SmallVector<int64_t> cat_int64s;
+    llvm::SmallVector<llvm::StringRef> cat_strings;
     int64_t default_int;
     llvm::StringRef default_string;
   };
@@ -450,6 +464,24 @@ private:
   int D;
   llvm::SmallVector<int64_t, 3> xShape, hShape;
   OMTensor *wOmt, *rOmt, *bOmt;
+};
+
+// 2D elementwise with no broadcast
+class Elementwise2DLibBuilder : public ModelLibBuilder {
+public:
+  Elementwise2DLibBuilder(const std::string &modelName,
+      const std::string &onnxOpName, const int I, const int J);
+  bool build() final;
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Data that defines model.
+  std::string onnxOpName;
+  const int I, J;
+  const int inputNum;
 };
 
 } // namespace test

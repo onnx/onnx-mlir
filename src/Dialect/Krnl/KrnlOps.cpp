@@ -4,7 +4,7 @@
 
 //===---------------------- KrnlOps.cpp - Krnl Operations -----------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -90,7 +90,7 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   SmallVector<Value, 4> allInputs;
   allInputs.emplace_back(resultVal);
   for (auto operand : operands) {
-    if (!isFromNone(operand))
+    if (!isNoneValue(operand))
       allInputs.emplace_back(operand);
   }
 
@@ -123,11 +123,11 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
 void KrnlCallOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  for (auto parameter : parameters()) {
+  for (auto parameter : getParameters()) {
     effects.emplace_back(MemoryEffects::Read::get(), parameter,
         SideEffects::DefaultResource::get());
   }
-  effects.emplace_back(MemoryEffects::Write::get(), result(),
+  effects.emplace_back(MemoryEffects::Write::get(), getResult(),
       SideEffects::DefaultResource::get());
 }
 
@@ -276,11 +276,11 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
   printer << ") with (";
 
   // In the event where body region has been lowered, do not print body.
-  if (bodyRegion().empty()) {
+  if (getBodyRegion().empty()) {
     printer << ")";
     return;
   }
-  auto inductionVars = bodyRegion().begin()->getArguments();
+  auto inductionVars = getBodyRegion().begin()->getArguments();
   auto boundItr =
       (*this)
           ->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
@@ -304,7 +304,7 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
   }
 
   printer << ")";
-  printer.printRegion(bodyRegion(), /*printEntryBlockArgs=*/false,
+  printer.printRegion(getBodyRegion(), /*printEntryBlockArgs=*/false,
       /*printBlockTerminators=*/false);
 }
 
@@ -470,7 +470,7 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   return success();
 }
 
-Region &KrnlIterateOp::getLoopBody() { return bodyRegion(); }
+Region &KrnlIterateOp::getLoopBody() { return getBodyRegion(); }
 
 LogicalResult KrnlIterateOp::verify() {
   // TODO: Verify number of induction variable bounds matches the number of
@@ -663,14 +663,14 @@ static LogicalResult foldMemRefCast(Operation *op) {
   return success(folded);
 }
 
-OpFoldResult KrnlVectorTypeCastOp::fold(ArrayRef<Attribute> operands) {
+OpFoldResult KrnlVectorTypeCastOp::fold(FoldAdaptor adaptor) {
   if (OpFoldResult folded = OpFoldResult())
     return folded;
   return succeeded(foldMemRefCast(*this)) ? getResult() : Value();
 }
 
 MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
-  return loopsMutable();
+  return getLoopsMutable();
 }
 
 //===----------------------------------------------------------------------===//
@@ -685,7 +685,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
     Value kOdsGlobalUB, ArrayRef<int64_t> odsComputeTileSize,
     ArrayRef<int64_t> aOdsTileSize, ArrayRef<int64_t> bOdsTileSize,
     ArrayRef<int64_t> cOdsTileSize, bool odsSimdize, bool odsUnroll,
-    bool odsOvercompute) {
+    bool odsOverCompute) {
   // Massage types.
   ValueRange loopRange(odsLoops);
   ArrayAttr computeTileSizeAttr =
@@ -698,7 +698,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
       loopRange, iOdsComputeStart, jOdsComputeStart, kOdsComputeStart,
       iOdsGlobalUB, jOdsGlobalUB, kOdsGlobalUB, computeTileSizeAttr,
       aTileSizeAttr, bTileSizeAttr, cTileSizeAttr, odsSimdize, odsUnroll,
-      odsOvercompute);
+      odsOverCompute);
 }
 
 void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
@@ -706,7 +706,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
     Value odsB, ValueRange bOdsStart, Value odsC, ValueRange cOdsStart,
     ValueRange odsLoops, Value iOdsComputeStart, Value jOdsComputeStart,
     Value kOdsComputeStart, Value iOdsGlobalUB, Value jOdsGlobalUB,
-    Value kOdsGlobalUB, bool odsSimdize, bool odsUnroll, bool odsOvercompute) {
+    Value kOdsGlobalUB, bool odsSimdize, bool odsUnroll, bool odsOverCompute) {
   // Massage types.
   ValueRange loopRange(odsLoops);
   ArrayRef<int64_t> empty;
@@ -714,55 +714,55 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
   build(odsBuilder, odsState, odsA, aOdsStart, odsB, bOdsStart, odsC, cOdsStart,
       loopRange, iOdsComputeStart, jOdsComputeStart, kOdsComputeStart,
       iOdsGlobalUB, jOdsGlobalUB, kOdsGlobalUB, empty, empty, empty, empty,
-      odsSimdize, odsUnroll, odsOvercompute);
+      odsSimdize, odsUnroll, odsOverCompute);
 }
 
 LogicalResult KrnlMatMulOp::verify() {
   KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(*this);
   uint64_t aRank =
-      operandAdaptor.A().getType().cast<MemRefType>().getShape().size();
+      operandAdaptor.getA().getType().cast<MemRefType>().getShape().size();
   uint64_t bRank =
-      operandAdaptor.B().getType().cast<MemRefType>().getShape().size();
+      operandAdaptor.getB().getType().cast<MemRefType>().getShape().size();
   uint64_t cRank =
-      operandAdaptor.C().getType().cast<MemRefType>().getShape().size();
+      operandAdaptor.getC().getType().cast<MemRefType>().getShape().size();
   if (!(aRank >= 2 && bRank >= 2 && cRank >= 2))
     return emitOpError("currently only support ranks >=2");
-  if (operandAdaptor.aGlobalIndexMemStart().size() != aRank)
+  if (operandAdaptor.getAGlobalIndexMemStart().size() != aRank)
     return emitOpError(
         "aGlobalIndexMemStart should have same rank as memref A");
-  if (operandAdaptor.bGlobalIndexMemStart().size() != bRank)
+  if (operandAdaptor.getBGlobalIndexMemStart().size() != bRank)
     return emitOpError(
         "bGlobalIndexMemStart should have same rank as memref A");
-  if (operandAdaptor.cGlobalIndexMemStart().size() != cRank)
+  if (operandAdaptor.getCGlobalIndexMemStart().size() != cRank)
     return emitOpError(
         "cGlobalIndexMemStart should have same rank as memref A");
-  if (operandAdaptor.loops().size() != 3)
+  if (operandAdaptor.getLoops().size() != 3)
     return emitOpError("loops rank should be 3 (i,j,k)");
 
-  if (operandAdaptor.computeTileSize().has_value()) {
-    ArrayAttr computeAttr = operandAdaptor.computeTileSize().value();
+  if (operandAdaptor.getComputeTileSize().has_value()) {
+    ArrayAttr computeAttr = operandAdaptor.getComputeTileSize().value();
     if (!(computeAttr.size() == 0 || computeAttr.size() == 3))
       return emitOpError("computeTileSize rank should be 0 or 3");
   }
-  if (operandAdaptor.aTileSize().has_value()) {
-    ArrayAttr aTileAttr = operandAdaptor.aTileSize().value();
+  if (operandAdaptor.getATileSize().has_value()) {
+    ArrayAttr aTileAttr = operandAdaptor.getATileSize().value();
     if (!(aTileAttr.size() == 0 || aTileAttr.size() == 2))
       return emitOpError("aTileSize rank should be 0 or 2");
   }
-  if (operandAdaptor.bTileSize().has_value()) {
-    ArrayAttr bTileAttr = operandAdaptor.bTileSize().value();
+  if (operandAdaptor.getBTileSize().has_value()) {
+    ArrayAttr bTileAttr = operandAdaptor.getBTileSize().value();
     if (!(bTileAttr.size() == 0 || bTileAttr.size() == 2))
       return emitOpError("bTileSize rank should be 0 or 2");
   }
-  if (operandAdaptor.cTileSize().has_value()) {
-    ArrayAttr cTileAttr = operandAdaptor.cTileSize().value();
+  if (operandAdaptor.getCTileSize().has_value()) {
+    ArrayAttr cTileAttr = operandAdaptor.getCTileSize().value();
     if (!(cTileAttr.size() == 0 || cTileAttr.size() == 2))
       return emitOpError("cTileSize rank should be 0 or 2");
   }
   return success();
 }
 
-MutableOperandRange KrnlMatMulOp::getLoopRefs() { return loopsMutable(); }
+MutableOperandRange KrnlMatMulOp::getLoopRefs() { return getLoopsMutable(); }
 
 //===----------------------------------------------------------------------===//
 // KrnlCopyToBufferOp
@@ -794,26 +794,26 @@ LogicalResult KrnlCopyToBufferOp::verify() {
   KrnlCopyToBufferOpAdaptor opAdaptor = KrnlCopyToBufferOpAdaptor(*this);
   IndexExprBuilderForAnalysis createIE(getLoc());
   SmallVector<IndexExpr, 4> buff, source;
-  int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.buffer());
-  int64_t srcRank = createIE.getShapedTypeRank(opAdaptor.source());
-  int64_t startRank = opAdaptor.starts().size();
-  if (!createIE.isLiteralShape(opAdaptor.buffer()))
+  int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.getBuffer());
+  int64_t srcRank = createIE.getShapedTypeRank(opAdaptor.getSource());
+  int64_t startRank = opAdaptor.getStarts().size();
+  if (!createIE.isLiteralShape(opAdaptor.getBuffer()))
     return emitOpError("buffer expect constant dimensions");
   if (srcRank < bufferRank)
     return emitOpError("Rank of memref cannot be smaller than buffer");
   if (startRank != srcRank)
     return emitOpError("Rank of starts and memrefs must be identical");
-  if (opAdaptor.tileSize()) {
-    int64_t tRank = opAdaptor.tileSize().value().size();
+  if (opAdaptor.getTileSize()) {
+    int64_t tRank = opAdaptor.getTileSize().value().size();
     if (!(tRank == 0 || tRank == bufferRank))
       return emitOpError("Rank of tileSize must be identical to buffer");
   }
-  if (opAdaptor.padToNext()) {
-    int64_t padRank = opAdaptor.padToNext().value().size();
+  if (opAdaptor.getPadToNext()) {
+    int64_t padRank = opAdaptor.getPadToNext().value().size();
     if (!(padRank == 0 || padRank == bufferRank))
       return emitOpError("Rank of padToNext must be identical to buffer");
   }
-  if (opAdaptor.transpose()) {
+  if (opAdaptor.getTranspose()) {
     if (bufferRank < 2)
       return emitOpError(
           "To transpose buffer, its rank must be greater than 1");
@@ -848,18 +848,18 @@ void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
 LogicalResult KrnlCopyFromBufferOp::verify() {
   KrnlCopyFromBufferOpAdaptor opAdaptor = KrnlCopyFromBufferOpAdaptor(*this);
   IndexExprBuilderForAnalysis createIE(getLoc());
-  int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.buffer());
+  int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.getBuffer());
   int64_t destRank =
-      opAdaptor.dest().getType().cast<MemRefType>().getShape().size();
-  int64_t startRank = opAdaptor.starts().size();
-  if (!createIE.isLiteralShape(opAdaptor.buffer()))
+      opAdaptor.getDest().getType().cast<MemRefType>().getShape().size();
+  int64_t startRank = opAdaptor.getStarts().size();
+  if (!createIE.isLiteralShape(opAdaptor.getBuffer()))
     return emitOpError("buffer expect constant dimensions");
   if (destRank < bufferRank)
     return emitOpError("Rank of memref cannot be smaller than buffer");
   if (startRank != destRank)
     return emitOpError("Rank of starts and memrefs must be identical");
-  if (opAdaptor.tileSize()) {
-    int64_t tRank = opAdaptor.tileSize().value().size();
+  if (opAdaptor.getTileSize()) {
+    int64_t tRank = opAdaptor.getTileSize().value().size();
     if (!(tRank == 0 || tRank == bufferRank))
       return emitOpError("Rank of tileSize must be identical to buffer");
   }
@@ -869,11 +869,11 @@ LogicalResult KrnlCopyFromBufferOp::verify() {
 void KrnlSeqExtractOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  effects.emplace_back(
-      MemoryEffects::Read::get(), seq(), SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Write::get(), output(),
+  effects.emplace_back(MemoryEffects::Read::get(), getSeq(),
       SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Allocate::get(), output(),
+  effects.emplace_back(MemoryEffects::Write::get(), getOutput(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Allocate::get(), getOutput(),
       SideEffects::DefaultResource::get());
 }
 
@@ -892,13 +892,13 @@ Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
 void KrnlSeqAllocOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  for (auto v : length()) {
+  for (auto v : getLength()) {
     effects.emplace_back(
         MemoryEffects::Read::get(), v, SideEffects::DefaultResource::get());
   }
-  effects.emplace_back(MemoryEffects::Write::get(), output(),
+  effects.emplace_back(MemoryEffects::Write::get(), getOutput(),
       SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Allocate::get(), output(),
+  effects.emplace_back(MemoryEffects::Allocate::get(), getOutput(),
       SideEffects::DefaultResource::get());
 }
 

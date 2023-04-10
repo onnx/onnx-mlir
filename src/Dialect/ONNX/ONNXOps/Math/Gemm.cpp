@@ -32,10 +32,10 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape() {
   // Get info.
   ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
   ONNXGemmOpAdaptor operandAdaptor(operands);
-  Value A = operandAdaptor.A();
-  Value B = operandAdaptor.B();
-  Value C = operandAdaptor.C();
-  hasBias = !C.getType().isa<NoneType>();
+  Value A = operandAdaptor.getA();
+  Value B = operandAdaptor.getB();
+  Value C = operandAdaptor.getC();
+  hasBias = !isNoneValue(C);
 
   // Test ranks.
   if (A.getType().cast<ShapedType>().getShape().size() != 2)
@@ -49,13 +49,13 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape() {
       return op->emitError("Gemm with C should be a 1D or 2D tensor");
   }
   // Scan dimensions of A with/without transpose.
-  if (gemmOp.transA() == 0) {
+  if (gemmOp.getTransA() == 0) {
     aDims = {createIE->getShapeAsDim(A, 0), createIE->getShapeAsDim(A, 1)};
   } else {
     aDims = {createIE->getShapeAsDim(A, 1), createIE->getShapeAsDim(A, 0)};
   }
   // Scan dimensions of B with/without transpose.
-  if (gemmOp.transB() == 0) {
+  if (gemmOp.getTransB() == 0) {
     bDims = {createIE->getShapeAsDim(B, 0), createIE->getShapeAsDim(B, 1)};
   } else {
     bDims = {createIE->getShapeAsDim(B, 1), createIE->getShapeAsDim(B, 0)};
@@ -117,15 +117,13 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGemmOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  bool hasBias = !C().getType().isa<NoneType>();
+  bool hasBias = !isNoneValue(getC());
   // Cannot infer shape if no shape exists.
-  if (!A().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>() ||
-      (hasBias && !C().getType().isa<RankedTensorType>()))
+  if (!hasShapeAndRank(getA()) || !hasShapeAndRank(getB()) ||
+      (hasBias && !hasShapeAndRank(getC())))
     return success();
 
-  Type elementType = A().getType().cast<ShapedType>().getElementType();
-
+  Type elementType = getA().getType().cast<ShapedType>().getElementType();
   ONNXGemmOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

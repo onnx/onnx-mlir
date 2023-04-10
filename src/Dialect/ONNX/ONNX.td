@@ -23,6 +23,7 @@ include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/IR/PatternBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "src/Interface/ShapeHelperOpInterface.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
@@ -37,9 +38,9 @@ def ONNX_Dialect : Dialect {
   let summary = "A high-level dialect for the ONNX specification";
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
-  let useDefaultAttributePrinterParser = 1;
-  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
+  let useDefaultAttributePrinterParser = 0;
   let dependentDialects = ["func::FuncDialect"];
+  let hasConstantMaterializer = 1;
   let extraClassDeclaration = [{
   private:
     // Register the builtin Attributes.
@@ -47,6 +48,10 @@ def ONNX_Dialect : Dialect {
     // Register the builtin Types.
     void registerTypes();
   public:
+    ::mlir::Attribute parseAttribute(::mlir::DialectAsmParser &parser,
+                                     ::mlir::Type type) const override;
+    void printAttribute(::mlir::Attribute attr,
+                        ::mlir::DialectAsmPrinter &printer) const override;
   }];
 }
 
@@ -212,13 +217,7 @@ class OptOf<Type type> :
                 "$_self.cast<OptType>().getElementType()", "OptType">;
 
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
-  "onnx_mlir::createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
-
-def createNoneIntegerConstant : NativeCodeCall<
-  "onnx_mlir::createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
-
-def createNoneFloatConstant : NativeCodeCall<
-  "onnx_mlir::createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
+  "onnx_mlir::OnnxBuilder($_builder, $_loc).constant($0)">;
 
 //===----------------------------------------------------------------------===//
 // ONNX Operations

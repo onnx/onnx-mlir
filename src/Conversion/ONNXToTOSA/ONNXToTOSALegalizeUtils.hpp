@@ -30,6 +30,10 @@
 namespace onnx_mlir {
 namespace tosa {
 
+// Create a RankedTensorType with shape and all elements being 1
+mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
+    mlir::Type elementType, mlir::Attribute encoding = {});
+
 // Creates a TOSA operation and performs shape inference on the individual
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>

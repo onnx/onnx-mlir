@@ -35,12 +35,12 @@ struct ONNXBatchNormalizationInferenceModeOpLoweringToMhlo
         operands, op->getAttrDictionary());
     Location loc = op->getLoc();
 
-    Value operand = operandAdaptor.X();
-    Value scale = operandAdaptor.scale();
-    Value bias = operandAdaptor.B();
-    Value mean = operandAdaptor.mean();
-    Value variance = operandAdaptor.var();
-    llvm::APFloat eps = operandAdaptor.epsilon();
+    Value operand = operandAdaptor.getX();
+    Value scale = operandAdaptor.getScale();
+    Value bias = operandAdaptor.getB();
+    Value mean = operandAdaptor.getMean();
+    Value variance = operandAdaptor.getVar();
+    llvm::APFloat eps = operandAdaptor.getEpsilon();
 
     Value result = rewriter.create<mhlo::BatchNormInferenceOp>(loc,
         op->getResultTypes(), operand, scale, bias, mean, variance, eps, 1);

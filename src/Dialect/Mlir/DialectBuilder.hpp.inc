@@ -1,6 +1,6 @@
 //===---- DialectBuilder.hpp.inc - Helper functions for MLIR dialects -----===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -184,4 +184,10 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::appendToBlock(
   } else
     b().setInsertionPoint(&block->back());
   builderFn(block->getArguments());
+}
+
+template <class LOAD_OP, class STORE_OP>
+mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::apply(
+  mlir::AffineMap map, mlir::ValueRange operands) const {
+  return b().template create<mlir::AffineApplyOp>(loc(), map, operands);
 }

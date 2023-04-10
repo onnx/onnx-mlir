@@ -2,9 +2,15 @@
 
 add_onnx_mlir_library(OMONNXToTOSA
   ConvertONNXToTOSA.cpp
+  DialectBuilder.cpp
+  ONNXToTOSALegalizeUtils.cpp
 
   Math/Elementwise.cpp
+  Math/Gemm.cpp
   Math/Softmax.cpp
+  Math/Conv2D.cpp
+  NN/MaxPoolSingleOut.cpp
+  Tensor/Constant.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps

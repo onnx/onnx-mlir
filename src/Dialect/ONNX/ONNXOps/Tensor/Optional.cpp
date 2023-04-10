@@ -23,7 +23,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOptionalOp::verify() {
-  if (type().has_value() != input().getType().isa<NoneType>())
+  if (getType().has_value() != isNoneValue(getInput()))
     return emitError(
         "Optional should have either type attribute or input value");
   return success();
@@ -32,12 +32,10 @@ LogicalResult ONNXOptionalOp::verify() {
 LogicalResult ONNXOptionalOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Type ty;
-  if (auto typeAttr = type()) {
+  if (auto typeAttr = getType()) {
     ty = typeAttr.value();
   } else {
-    ty = input().getType();
-    // checked in verify()
-    assert(!ty.isa<NoneType>() && "type attribute or input value needed");
+    ty = getInput().getType();
   }
   getResult().setType(OptType::get(ty));
   return success();
@@ -48,14 +46,14 @@ LogicalResult ONNXOptionalOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOptionalGetElementOp::verify() {
-  if (!input().getType().isa<OptType>())
+  if (!getInput().getType().isa<OptType>())
     return emitError("OptionalGetElement input should have optional type");
   return success();
 }
 
 LogicalResult ONNXOptionalGetElementOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  Type elementType = input().getType().cast<OptType>().getElementType();
+  Type elementType = getInput().getType().cast<OptType>().getElementType();
   getResult().setType(elementType);
   return success();
 }
@@ -65,7 +63,7 @@ LogicalResult ONNXOptionalGetElementOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOptionalHasElementOp::verify() {
-  if (!input().getType().isa<OptType>())
+  if (!getInput().getType().isa<OptType>())
     return emitError("OptionalHasElement input should have optional type");
   return success();
 }
@@ -74,6 +72,6 @@ LogicalResult ONNXOptionalHasElementOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Builder builder(getContext());
   Type scalarBoolType = RankedTensorType::get({}, builder.getI1Type());
-  getResult().setType(scalarBoolType);
+  getResult().setType(cast<TensorType>(scalarBoolType));
   return success();
 }

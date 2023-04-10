@@ -33,16 +33,17 @@ public:
 
   // Basic initialization calls.
   void initAsUndefined();
-  // Initialize a question mark with the default value of -1.
-  void initAsQuestionmark();
+  // Initialize a question mark with the default value of ShapedType::kDynamic.
+  void initAsQuestionmark(bool isFloat);
   // Initialize a question mark with a given value.
-  void initAsQuestionmark(int64_t const val);
+  void initAsQuestionmark(int64_t const val, bool isFloat);
   // Initialize a question mark for an unknown dimension in a Tensor/Memref.
   // This initialization is needed for symbolic shape analysis where each
   // question mark is assigned to a unique value hashed from the given
   // tensorOrMemref and dimension index.
   void initAsQuestionmark(mlir::Value tensorOrMemref, int64_t index);
   void initAsLiteral(int64_t const value, IndexExprKind const kind);
+  void initAsLiteral(double const value, IndexExprKind const kind);
   void initAsKind(mlir::Value const value, IndexExprKind const kind);
   void initAsAffineExpr(mlir::AffineExpr const value);
   // Transformational initialization calls.
@@ -61,48 +62,63 @@ public:
   bool isDim() const;
   bool isPredType() const;
   bool isIndexType() const;
+  bool isFloatType() const;
 
   bool hasScope() const;
   bool isInCurrentScope() const;
   bool hasAffineExpr() const;
   bool hasValue() const;
 
-  // Getters
+  // Getters.
   IndexExprScope &getScope() const;
   IndexExprScope *getScopePtr() const;
   mlir::OpBuilder &getRewriter() const { return getScope().getRewriter(); }
   mlir::Location getLoc() const { return getScope().getLoc(); }
   IndexExprKind getKind() const;
   int64_t getLiteral() const;
+  double getFloatLiteral() const;
   int64_t getQuestionmark() const;
   mlir::AffineExpr getAffineExpr();
   void getAffineMapAndOperands(
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands);
   mlir::Value getValue();
 
+  // Setters.
+  void setLiteral(int64_t val);
+  void setLiteral(double val);
+  void setLiteral(const IndexExprImpl &obj);
+
+private:
+  // Init for internal use only.
+  void init(bool isDefined, bool isIntLit, bool isFloatLit, IndexExprKind type,
+      int64_t const newIntOrFloatLit, mlir::AffineExpr const affineExpr,
+      mlir::Value const value);
+
   // Data.
   IndexExprScope *scope;
   // Defined implies having a valid intLit, affineExpr, or value expression.
   bool defined;
   // Literal implies having a valid intLit; may also have an affineExpr or
-  // value.
+  // value. Literal is true for integer and float values.
   bool literal;
+  // Represent a float value. Valid only for affine (literal) or non-affine
+  // kinds. Question mark kinds are not typed at this time.
+  bool isFloat;
   // Type of IndexExpr. Literal are by default affine.
   IndexExprKind kind;
-  // Integer value, valid when "literal" or "question mark" is true. Negative
-  // value in case of question mark.
-  int64_t intLit;
+  // Integer/float value for "literal" kind and ID for "question mark" kind.
+  union {
+    // Integer value of the literal for "literal" kinds for which "isFloat" is
+    // false. Question mark ID for "question mark" kids. ID is always negative.
+    int64_t intLit;
+    // Float value, valid for "literal" kinds for which "isFloat" is true.
+    double floatLit;
+  };
   // Affine expression, may be defined for literal, symbols, dims, or affine
-  // expr.
+  // expr. Not available for float values.
   mlir::AffineExpr affineExpr;
   // Value expression, may be defined whenever the IndexExpr is defined.
   mlir::Value value;
-
-private:
-  // Init for internal use only.
-  void init(bool isDefined, bool isIntLit, IndexExprKind type,
-      int64_t const intLit, mlir::AffineExpr const affineExpr,
-      mlir::Value const value);
 };
 
 } // namespace onnx_mlir

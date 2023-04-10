@@ -30,11 +30,11 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape() {
   ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
   ONNXConcatOpAdaptor operandAdaptor(operands);
   unsigned numInputs = op->getNumOperands();
-  Value firstInput = operandAdaptor.inputs().front();
+  Value firstInput = operandAdaptor.getInputs().front();
   ArrayRef<int64_t> commonShape =
       firstInput.getType().cast<ShapedType>().getShape();
   int64_t commonRank = commonShape.size();
-  int64_t axisIndex = concatOp.axis();
+  int64_t axisIndex = concatOp.getAxis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
   assert(-commonRank <= axisIndex && axisIndex < commonRank &&
@@ -57,7 +57,7 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape() {
 
   // Handle the rest of input
   for (unsigned i = 1; i < numInputs; ++i) {
-    Value currInput = operandAdaptor.inputs()[i];
+    Value currInput = operandAdaptor.getInputs()[i];
     for (unsigned dim = 0; dim < commonRank; dim++) {
       if (dim == axisIndex) {
         IndexExpr currentSize = createIE->getShapeAsDim(currInput, axisIndex);
@@ -86,15 +86,14 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape() {
 LogicalResult ONNXConcatOp::verify() {
   // Cannot verify semantics if the operands do not have a known shape yet.
   ONNXConcatOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   auto commonType =
       operandAdaptor.getOperands().front().getType().cast<ShapedType>();
   ArrayRef<int64_t> commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
-  int64_t axisIndex = axis();
+  int64_t axisIndex = getAxis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
   if (axisIndex < -commonRank || axisIndex >= commonRank)
@@ -139,16 +138,13 @@ LogicalResult ONNXConcatOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // The check of constraints is kept
   // However, current check handles dynamic dim only for the concat dim
-  int inputNum = getNumOperands();
-  for (int i = 0; i < inputNum; ++i) {
-    if (!getOperand(i).getType().isa<RankedTensorType>())
-      return success();
-  }
+  if (!hasShapeAndRank(getOperation()))
+    return success();
   // Checking value of axis parameter.
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   auto commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
-  int64_t axisIndex = axis();
+  int64_t axisIndex = getAxis();
   // Negative axis means values are counted from the opposite side.
   if (axisIndex < 0) {
     axisIndex = commonRank + axisIndex;
@@ -156,7 +152,7 @@ LogicalResult ONNXConcatOp::inferShapes(
     // TOFIX: attribute modification should be into canonicalization
     // I did not move the code into ShapeHelper
     auto builder = Builder(getContext());
-    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+    setAxisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 

@@ -134,22 +134,28 @@ struct IndexExprBuilder : DialectBuilder {
   // Get a symbol/dim index expression defined by `value`.
   IndexExpr getIntAsSymbol(mlir::Value value);
   IndexExpr getIntAsDim(mlir::Value value);
+  IndexExpr getFloatAsNonAffine(mlir::Value value);
   // Get a symbol/dim index expression from the array defined by `array` at
   // position `i`. When out of bound, return an undefined index expressions.
   IndexExpr getIntFromArrayAsSymbol(mlir::Value array, uint64_t i);
   IndexExpr getIntFromArrayAsDim(mlir::Value array, uint64_t i);
-  // Same as above; `outOfBoundVal` literal index expression is returned when
-  // out of bound.
+  IndexExpr getFloatFromArrayAsNonAffine(mlir::Value array, uint64_t i);
+  // Same as above; `outOfBoundVal` literal index expression is returned
+  // when out of bound.
   IndexExpr getIntFromArrayAsSymbol(
       mlir::Value array, uint64_t i, int64_t outOfBoundVal);
   IndexExpr getIntFromArrayAsDim(
       mlir::Value array, uint64_t i, int64_t outOfBoundVal);
+  IndexExpr getFloatFromArrayAsNonAffine(
+      mlir::Value array, uint64_t i, double outOfBoundVal);
   // Same as above, but get a list of up to len values. A length of -1 returns
   // the whole list. Assert when `len` exceed the array bounds.
   void getIntFromArrayAsSymbols(
       mlir::Value intArrayVal, IndexExprList &list, int64_t len = -1);
   void getIntFromArrayAsDims(
       mlir::Value intArrayVal, IndexExprList &list, int64_t len = -1);
+  void getFloatFromArrayAsNonAffine(
+      mlir::Value floatArrayVal, IndexExprList &list, int64_t len = -1);
 
   //===--------------------------------------------------------------------===//
   // Get info from tensor/memref shape. Return literal index expressions when a
@@ -163,7 +169,7 @@ struct IndexExprBuilder : DialectBuilder {
   bool isLiteralShape(mlir::Value tensorOrMemrefValue, uint64_t i);
   // Return true if the entire shape is known at compile time.
   bool isLiteralShape(mlir::Value tensorOrMemrefValue);
-  // Get the raw shape (as integer, -1 when runtime value).
+  // Get the raw shape (as integer, ShapedType::kDynamic when runtime value).
   int64_t getShape(mlir::Value tensorOrMemrefValue, uint64_t i);
 
   // Get an index expression from tensor/memref shape.
@@ -179,9 +185,9 @@ protected:
   //===--------------------------------------------------------------------===//
   // Subclasses must define these pure virtual functions.
 
-  // Locate a dense element attribute associated with the defining op given by
+  // Locate an elements attribute associated with the defining op given by
   // value. Return nullptr if none exists.
-  virtual mlir::DenseElementsAttr getConst(mlir::Value value) = 0;
+  virtual mlir::ElementsAttr getConst(mlir::Value value) = 0;
   // Locate/generate a value that represents a value given by the op defining
   // arrayVal at position i in the array. Return nullptr if cannot
   // locate/generate the value.
@@ -194,7 +200,8 @@ protected:
 
 private:
   // Returns a SymbolIndexExpr/DimIndexExpr when makeSymbol is true/false.
-  IndexExpr getIntFromArray(mlir::Value array, uint64_t i, bool makeSymbol);
+  IndexExpr getValFromArray(
+      mlir::Value array, uint64_t i, bool makeSymbol, bool isFloat);
 };
 
 } // namespace onnx_mlir

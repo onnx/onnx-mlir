@@ -35,7 +35,7 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
 
 // Check an ONNXConstantOp is using dense attribute or not.
 def IsFromDenseONNXConstantOp:
-    Constraint<CPred<"isFromDenseONNXConstantOp($_self)">,
+    Constraint<CPred<"isDenseONNXConstant($_self)">,
   "Value is produced by a dense ONNXConstantOp">;
 
 // Constant propagation for stickify

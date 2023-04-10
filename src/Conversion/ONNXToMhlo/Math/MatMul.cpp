@@ -24,7 +24,7 @@ namespace onnx_mlir {
 namespace {
 
 int64_t getLiteralValue(const IndexExpr &idx) {
-  return idx.isLiteral() ? idx.getLiteral() : ShapedType::kDynamicSize;
+  return idx.isLiteral() ? idx.getLiteral() : ShapedType::kDynamic;
 }
 
 struct ONNXMatMulOpLoweringToMhlo : public ConversionPattern {
@@ -44,7 +44,7 @@ struct ONNXMatMulOpLoweringToMhlo : public ConversionPattern {
     ShapedType outputShapedType = outputType.cast<ShapedType>();
     Type elementType = outputShapedType.getElementType();
 
-    Value A(operandAdaptor.A()), B(operandAdaptor.B());
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB());
     auto aRank = A.getType().cast<ShapedType>().getShape().size();
     auto bRank = B.getType().cast<ShapedType>().getShape().size();
     // Size all the arrays to padded length.
@@ -110,8 +110,8 @@ struct ONNXMatMulOpLoweringToMhlo : public ConversionPattern {
               {paddedRank - 1 - oneDPadA}, {paddedRank - 2}),
           nullptr);
     else {
-      dotProduct = rewriter.create<mhlo::DotOp>(
-          loc, broadcastedA, broadcastedB, nullptr);
+      dotProduct = rewriter.create<mhlo::DotOp>(loc,
+          op->getResultTypes().front(), broadcastedA, broadcastedB, nullptr);
     }
     rewriter.replaceOp(op, dotProduct);
     return success();

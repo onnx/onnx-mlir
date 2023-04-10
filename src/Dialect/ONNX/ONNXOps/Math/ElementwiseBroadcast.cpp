@@ -4,7 +4,7 @@
 
 //===------------------ ElementwiseBroadcast.cpp - ONNX Operations --------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -29,7 +29,7 @@ namespace {
 
 static LogicalResult verifyShapeForBroadcastingOps(
     Operation *op, Type elementType = nullptr) {
-  if (!operandsOfOpHaveShapesAndRanks(op))
+  if (!hasShapeAndRank(op))
     return success();
 
   auto resultTy = op->getOperand(0).getType().template cast<ShapedType>();
@@ -47,18 +47,14 @@ template <class OP_TYPE>
 static LogicalResult inferShapeForBroadcastingOps(
     OP_TYPE &op, Type elementType = nullptr) {
   typename OP_TYPE::Adaptor operandAdaptor(op);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // cannot infer when the operands shape is not yet known.
+  if (!hasShapeAndRank(op.getOperation()))
+    return success();
 
-  auto resultTy = op.getOperand(0).getType().template cast<ShapedType>();
-  for (unsigned i = 1; i < op->getNumOperands(); ++i) {
-    auto nextTy = op.getOperand(i).getType().template cast<ShapedType>();
-    resultTy = getBroadcastedType(resultTy, nextTy, elementType);
-  }
-
-  updateType(op.getResult(), getShape(resultTy), resultTy.getElementType());
-  return success();
+  if (!elementType)
+    elementType =
+        op.getOperand(0).getType().template cast<ShapedType>().getElementType();
+  ONNXBroadcastOpShapeHelper shapeHelper(op.getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 } // namespace
@@ -270,14 +266,14 @@ LogicalResult ONNXMinOp::inferShapes(
 
 LogicalResult ONNXModOp::verify() {
   Type elementType;
-  if (A().getType().isa<ShapedType>())
-    elementType = A().getType().cast<ShapedType>().getElementType();
+  if (getA().getType().isa<ShapedType>())
+    elementType = getA().getType().cast<ShapedType>().getElementType();
   else
     return emitOpError("Input type must be TensorType or MemRefType");
 
   // Verify that when the input type is floating point, then `fmod` attribute
   // must be set to 1.
-  if (elementType.isa<FloatType>() && (fmod() != 1))
+  if (elementType.isa<FloatType>() && (getFmod() != 1))
     return emitOpError("fmod must be 1 when the input type is floating point");
 
   return success();
@@ -319,8 +315,8 @@ LogicalResult ONNXOrOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPowOp::verify() {
-  ShapedType lhsTy = X().getType().cast<ShapedType>();
-  ShapedType rhsTy = Y().getType().cast<ShapedType>();
+  ShapedType lhsTy = getX().getType().cast<ShapedType>();
+  ShapedType rhsTy = getY().getType().cast<ShapedType>();
   Type rhsETy = rhsTy.getElementType();
   Type lhsETy = lhsTy.getElementType();
   if (rhsETy != lhsETy)
@@ -333,6 +329,36 @@ LogicalResult ONNXPowOp::verify() {
 LogicalResult ONNXPowOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXPowOp>(*this);
+}
+
+//===----------------------------------------------------------------------===//
+// PRelu
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXPReluOp::verify() {
+  if (!hasShapeAndRank(getX()))
+    return success();
+  if (!hasShapeAndRank(getSlope()))
+    return success();
+
+  ArrayRef<int64_t> xShape = getX().getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> slopeShape =
+      getSlope().getType().cast<ShapedType>().getShape();
+  // PRelu supports unidirectional broadcasting, that is slope should be
+  // unidirectional broadcast to input X.
+  if (slopeShape.size() > xShape.size())
+    return emitError("Slope tensor has a wrong shape");
+  return success();
+}
+
+LogicalResult ONNXPReluOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getOperation()))
+    return success();
+
+  Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  ONNXPReluOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -366,13 +392,13 @@ LogicalResult ONNXSumOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXWhereOp::verify() {
-  Type resultElementType = X().getType().cast<ShapedType>().getElementType();
+  Type resultElementType = getX().getType().cast<ShapedType>().getElementType();
   return verifyShapeForBroadcastingOps(getOperation(), resultElementType);
 }
 
 LogicalResult ONNXWhereOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  Type resultElementType = X().getType().cast<ShapedType>().getElementType();
+  Type resultElementType = getX().getType().cast<ShapedType>().getElementType();
   return inferShapeForBroadcastingOps<ONNXWhereOp>(*this, resultElementType);
 }
 

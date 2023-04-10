@@ -33,7 +33,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 using namespace mlir;
 
@@ -115,6 +114,8 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(
     ConversionPatternRewriter &rewriter, Location loc, int64_t outputRank);
 
 // `Math` directory methods:
+void populateLoweringONNXClipOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXElementwiseOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXGemmOpToMhloPattern(
@@ -125,6 +126,8 @@ void populateLoweringONNXReductionOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 // `NN` directory methods:
 void populateLoweringONNXConvOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXConvTransposeOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXNormalizationOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);

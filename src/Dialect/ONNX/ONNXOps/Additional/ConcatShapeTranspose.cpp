@@ -53,11 +53,11 @@ LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
   ONNXConcatShapeTransposeOp concatOp =
       llvm::cast<ONNXConcatShapeTransposeOp>(op);
   unsigned numInputs = concatOp.getNumOperands();
-  Value firstInput = operandAdaptor.inputs().front();
+  Value firstInput = operandAdaptor.getInputs().front();
   ArrayRef<int64_t> commonShape =
       firstInput.getType().cast<ShapedType>().getShape();
   int64_t commonRank = commonShape.size();
-  int64_t axisIndex = concatOp.axis();
+  int64_t axisIndex = concatOp.getAxis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(inputs).
   assert(-commonRank <= axisIndex && axisIndex < commonRank &&
@@ -80,7 +80,7 @@ LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
 
   // Handle the rest of input
   for (unsigned i = 1; i < numInputs; ++i) {
-    Value currInput = operandAdaptor.inputs()[i];
+    Value currInput = operandAdaptor.getInputs()[i];
     for (unsigned dim = 0; dim < commonRank; dim++) {
       if (dim == axisIndex) {
         IndexExpr currentSize = createIE->getShapeAsDim(currInput, axisIndex);
@@ -98,15 +98,15 @@ LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
   outputConcatDims[axisIndex] = cumulativeAxisSize;
 
   // Compute dims for ShapeOp
-  Value data = operandAdaptor.inputs()[0];
+  Value data = operandAdaptor.getInputs()[0];
   int64_t rank = createIE->getShapedTypeRank(data);
 
   // Compute the normalized start/end. Negative value means counting
   // dimensions from the back.
-  int64_t start = concatOp.start();
+  int64_t start = concatOp.getStart();
   int64_t end = rank;
-  if (concatOp.end().has_value()) {
-    end = concatOp.end().value();
+  if (concatOp.getEnd().has_value()) {
+    end = concatOp.getEnd().value();
   }
   start = normalizeClampedPerSpec(start, rank);
   end = normalizeClampedPerSpec(end, rank);
@@ -117,7 +117,7 @@ LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
 
   // For the transpose
   DimsExpr outputTransposeDims(commonRank);
-  ArrayAttr permAttr = concatOp.permAttr();
+  ArrayAttr permAttr = concatOp.getPermAttr();
   if (!permAttr) {
     // Generate reverse order for default transpose operation.
     SmallVector<int64_t, 4> defaultVals;
@@ -126,8 +126,8 @@ LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
       defaultVals.emplace_back(i);
     // Set default attribute.
     ArrayRef<int64_t> defaultRefs(defaultVals);
-    concatOp.permAttr(builder.getI64ArrayAttr(defaultRefs));
-    permAttr = concatOp.permAttr();
+    concatOp.setPermAttr(builder.getI64ArrayAttr(defaultRefs));
+    permAttr = concatOp.getPermAttr();
   }
 
   for (int64_t i = 0; i < commonRank; i++) {
@@ -151,13 +151,9 @@ LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
 
 LogicalResult ONNXConcatShapeTransposeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-
   // If any input is not ranked tensor, do nothing.
-  int inputNum = getNumOperands();
-  for (int i = 0; i < inputNum; ++i) {
-    if (!getOperand(i).getType().isa<RankedTensorType>())
-      return success();
-  }
+  if (!hasShapeAndRank(getOperation()))
+    return success();
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   Type intType = IntegerType::get(getContext(), 64).cast<Type>();
   SmallVector<Type> elementTypes = {intType, commonType.getElementType()};

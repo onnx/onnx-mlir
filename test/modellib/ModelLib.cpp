@@ -4,7 +4,7 @@
 
 //===========-- ModelLib.cpp - Helper function for building models -==========//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -178,8 +178,7 @@ ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
   auto bufferPtr = omTensorGetDataPtr(omt);
   float *arrayPtr = reinterpret_cast<float *>(bufferPtr);
   auto array = std::vector<float>(arrayPtr, arrayPtr + numElems);
-  auto denseAttr =
-      DenseElementsAttr::get(resultType, llvm::makeArrayRef(array));
+  auto denseAttr = DenseElementsAttr::get(resultType, llvm::ArrayRef(array));
   return builder.create<ONNXConstantOp>(loc, resultType, Attribute(), denseAttr,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
       ArrayAttr());
@@ -209,7 +208,7 @@ void ModelLibBuilder::printIndices(
 void ModelLibBuilder::printTensor(
     const OMTensor *t, std::vector<int64_t> &indices, bool isLast) const {
   int64_t rank = omTensorGetRank(t);
-  int64_t *shape = omTensorGetShape(t);
+  const int64_t *shape = omTensorGetShape(t);
   int64_t currSize = indices.size();
   // Utility to print tabs.
   auto printTab = [](int currSize) {
@@ -254,7 +253,7 @@ void ModelLibBuilder::printTensor(
 void ModelLibBuilder::printTensor(
     const std::string varName, const OMTensor *t, bool asNumpy) const {
   int64_t rank = omTensorGetRank(t);
-  int64_t *shape = omTensorGetShape(t);
+  const int64_t *shape = omTensorGetShape(t);
   std::vector<int64_t> shapeVect(shape, shape + rank);
   // Print message as comment and add rank and shape.
   printf("# ");

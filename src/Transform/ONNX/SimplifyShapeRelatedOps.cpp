@@ -73,17 +73,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-/// Get all dimensions in I64 (-1 for unknown) that are stored by the value.
+/// Get all dimensions in I64 (ShapedType::kDynamic for unknown) that are stored
+/// by the value.
 void getDimsInt64(Value val, SmallVectorImpl<int64_t> &result) {
   SmallVector<Value, 4> dims;
   getDims(val, dims);
   for (Value v : dims) {
     if (auto constOp = dyn_cast<ONNXConstantOp>(v.getDefiningOp())) {
-      auto valueAttr = constOp.valueAttr().cast<DenseElementsAttr>();
+      auto valueAttr = constOp.getValueAttr().cast<ElementsAttr>();
       int64_t dim = valueAttr.getSplatValue<int64_t>();
       result.emplace_back(dim);
     } else {
-      result.emplace_back(-1);
+      result.emplace_back(ShapedType::kDynamic);
     }
   }
 }
@@ -166,8 +167,8 @@ public:
       ONNXShapeOp shapeOp, PatternRewriter &rewriter) const override {
     // Get basic op info.
     Location loc = shapeOp.getLoc();
-    Value data = shapeOp.data();
-    Type outputType = shapeOp.shape().getType();
+    Value data = shapeOp.getData();
+    Type outputType = shapeOp.getShape().getType();
 
     // Match: Input is ranked.
     if (!onnx_mlir::isRankedShapedType(data.getType()))
@@ -214,9 +215,9 @@ public:
       ONNXCastOp castOp, PatternRewriter &rewriter) const override {
     // Get basic op info.
     Location loc = castOp.getLoc();
-    Value input = castOp.input();
-    TypeAttr toType = castOp.toAttr();
-    Type outputType = castOp.output().getType();
+    Value input = castOp.getInput();
+    TypeAttr toType = castOp.getToAttr();
+    Type outputType = castOp.getOutput().getType();
 
     // Match
     if (!areDimsFromConcat(input))
@@ -245,10 +246,10 @@ public:
       ONNXGatherOp gatherOp, PatternRewriter &rewriter) const override {
     // Get basic op info.
     Location loc = gatherOp.getLoc();
-    Value input = gatherOp.data();
-    Value indices = gatherOp.indices();
-    int64_t axis = gatherOp.axis();
-    Type outputType = gatherOp.output().getType();
+    Value input = gatherOp.getData();
+    Value indices = gatherOp.getIndices();
+    int64_t axis = gatherOp.getAxis();
+    Type outputType = gatherOp.getOutput().getType();
 
     // Match
     // Gather on axis 0.
@@ -261,8 +262,7 @@ public:
     // Indices are constants.
     if (!definedBy<ONNXConstantOp>(indices))
       return failure();
-    DenseElementsAttr indicesAttr =
-        getDenseElementAttributeFromONNXValue(indices);
+    ElementsAttr indicesAttr = getElementAttributeFromONNXValue(indices);
     if (!indicesAttr)
       return failure();
 
@@ -301,11 +301,11 @@ public:
       ONNXSliceOp sliceOp, PatternRewriter &rewriter) const override {
     // Get basic op info.
     Location loc = sliceOp.getLoc();
-    Value input = sliceOp.data();
-    Value starts = sliceOp.starts();
-    Value ends = sliceOp.ends();
-    Value steps = sliceOp.steps();
-    Type outputType = sliceOp.output().getType();
+    Value input = sliceOp.getData();
+    Value starts = sliceOp.getStarts();
+    Value ends = sliceOp.getEnds();
+    Value steps = sliceOp.getSteps();
+    Type outputType = sliceOp.getOutput().getType();
 
     // Match
     // Input is defined by Concat of dims, so it has rank of 1.
@@ -381,8 +381,8 @@ public:
       ONNXConcatOp concatOp, PatternRewriter &rewriter) const override {
     // Get basic op info.
     Location loc = concatOp.getLoc();
-    ValueRange inputs = concatOp.inputs();
-    Type outputType = concatOp.concat_result().getType();
+    ValueRange inputs = concatOp.getInputs();
+    Type outputType = concatOp.getConcatResult().getType();
 
     // Match: inputs are dimensions but not all of them are of rank 1.
     if (!llvm::all_of(inputs, [](Value v) { return areDims(v); }))
@@ -416,9 +416,9 @@ public:
   LogicalResult matchAndRewrite(
       ONNXReshapeOp reshapeOp, PatternRewriter &rewriter) const override {
     // Get basic op info.
-    Value shape = reshapeOp.shape();
-    Value output = reshapeOp.reshaped();
-    int64_t allowZero = reshapeOp.allowzero();
+    Value shape = reshapeOp.getShape();
+    Value output = reshapeOp.getReshaped();
+    int64_t allowZero = reshapeOp.getAllowzero();
 
     // Match
     // Does not support allowzero.
@@ -451,8 +451,8 @@ public:
   LogicalResult matchAndRewrite(
       ONNXConstantOfShapeOp cosOp, PatternRewriter &rewriter) const override {
     // Get basic op info.
-    Value input = cosOp.input();
-    Value output = cosOp.output();
+    Value input = cosOp.getInput();
+    Value output = cosOp.getOutput();
 
     // Match: Input is defined by Concat of dims.
     if (!areDimsFromConcat(input))
@@ -485,10 +485,14 @@ struct SimplifyShapeRelatedOpsPass
     return "Perform ONNX to ONNX optimizations for shape-related operations";
   }
 
+  SimplifyShapeRelatedOpsPass(bool report) : report(report) {}
+
   void runOnOperation() final;
 
 private:
   void topDownShapeSimplification(MLIRContext *context, ModuleOp moduleOp);
+
+  bool report;
 };
 
 void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
@@ -538,7 +542,7 @@ void SimplifyShapeRelatedOpsPass::runOnOperation() {
   for (unsigned i = 0; i < 3; ++i) {
     topDownShapeSimplification(context, moduleOp);
     OpPassManager pm("builtin.module");
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass(report));
     pm.addPass(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
     if (failed(runPipeline(pm, moduleOp)))
@@ -553,8 +557,8 @@ namespace onnx_mlir {
 /*!
  * Create a SimplifyShapeRelatedOps pass.
  */
-std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass() {
-  return std::make_unique<SimplifyShapeRelatedOpsPass>();
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(bool report) {
+  return std::make_unique<SimplifyShapeRelatedOpsPass>(report);
 }
 
 } // namespace onnx_mlir

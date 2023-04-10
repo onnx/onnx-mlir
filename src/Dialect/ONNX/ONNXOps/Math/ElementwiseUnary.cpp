@@ -4,7 +4,7 @@
 
 //===------------------ ElementwiseUnary.cpp - ONNX Operations ------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -32,6 +32,8 @@ namespace onnx_mlir {
 /// Handle shape inference for unary element-wise operators.
 LogicalResult inferShapeForUnaryOps(Operation *op) {
   Value input = op->getOperand(0);
+  if (!hasShapeAndRank(input))
+    return success();
   RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
   return inferShapeForUnaryOps(
       op, inputType.getElementType(), inputType.getEncoding());
@@ -41,6 +43,8 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
 /// type.
 LogicalResult inferShapeForUnaryOps(Operation *op, Type elementType) {
   Value input = op->getOperand(0);
+  if (!hasShapeAndRank(input))
+    return success();
   RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
   return inferShapeForUnaryOps(op, elementType, inputType.getEncoding());
 }
@@ -137,22 +141,12 @@ LogicalResult ONNXBitwiseNotOp::inferShapes(
 
 LogicalResult ONNXCastOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  ShapedType inputType = input().getType().dyn_cast<RankedTensorType>();
-  if (!inputType) {
+  if (!hasShapeAndRank(getInput()))
     return success();
-  }
 
-  auto getOutputType = [&inputType](Type elementType) -> Type {
-    if (inputType.hasRank()) {
-      return RankedTensorType::get(inputType.getShape(), elementType);
-    }
-    return UnrankedTensorType::get(elementType);
-  };
-
-  Type targetType = (*this)->getAttr("to").cast<::TypeAttr>().getValue();
-  OpBuilder builder(getContext());
-  getResult().setType(getOutputType(targetType));
-  return success();
+  Type elementType = (*this)->getAttr("to").cast<::TypeAttr>().getValue();
+  ONNXCastOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -161,26 +155,12 @@ LogicalResult ONNXCastOp::inferShapes(
 
 LogicalResult ONNXCastLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  ShapedType inputType = input().getType().dyn_cast<RankedTensorType>();
-  if (!inputType) {
+  if (!hasShapeAndRank(getInput()))
     return success();
-  }
 
-  TensorType targetType = target_type().getType().dyn_cast<TensorType>();
-  if (!inputType) {
-    return success();
-  }
-  auto targetElementType = targetType.getElementType();
-
-  auto getOutputType = [&inputType](Type elementType) -> Type {
-    if (inputType.hasRank()) {
-      return RankedTensorType::get(inputType.getShape(), elementType);
-    }
-    return UnrankedTensorType::get(elementType);
-  };
-
-  getResult().setType(getOutputType(targetElementType));
-  return success();
+  Type elementType = getElementType(getTargetType().getType());
+  ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -197,6 +177,15 @@ LogicalResult ONNXCeilOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCeluOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// Clip
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXClipOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
@@ -315,12 +304,12 @@ LogicalResult ONNXLogOp::inferShapes(
 
 LogicalResult ONNXLogSoftmaxOp::verify() {
   ONNXLogSoftmaxOpAdaptor operandAdaptor(*this);
-  if (!hasShapeAndRank(operandAdaptor.input()))
+  if (!hasShapeAndRank(operandAdaptor.getInput()))
     return success(); // Won't be able to do any checking at this stage.
 
   int64_t inputRank =
-      operandAdaptor.input().getType().cast<ShapedType>().getRank();
-  int64_t axisIndex = axis();
+      operandAdaptor.getInput().getType().cast<ShapedType>().getRank();
+  int64_t axisIndex = getAxis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(input).
   if (axisIndex < -inputRank || axisIndex >= inputRank)
@@ -373,52 +362,6 @@ LogicalResult ONNXNotOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// PRelu
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXPReluOp::verify() {
-  if (!hasShapeAndRank(X())) {
-    return success();
-  }
-  if (!hasShapeAndRank(slope())) {
-    return success();
-  }
-  ArrayRef<int64_t> xShape = X().getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> slopeShape =
-      slope().getType().cast<ShapedType>().getShape();
-  // PRelu supports unidirectional broadcasting, that is slope should be
-  // unidirectional broadcast to input X.
-  if (slopeShape.size() > xShape.size())
-    return emitError("Slope tensor has a wrong shape");
-  return success();
-}
-
-LogicalResult ONNXPReluOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  ONNXPReluOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success();
-
-  auto xShape = X().getType().cast<ShapedType>().getShape();
-  auto slopeShape = slope().getType().cast<ShapedType>().getShape();
-
-  // To do unidirectional broadcasting, we first apply bidirectional
-  // broadcasting. Then, fine-tune by getting constant dimensions from X.
-  SmallVector<int64_t, 4> shape;
-  // Bidirectional broadcasting rules.
-  getBroadcastedShape(xShape, slopeShape, shape);
-  // Fine-tune.
-  for (unsigned int i = 0; i < shape.size(); ++i)
-    if (!ShapedType::isDynamic(xShape[i]))
-      shape[i] = xShape[i];
-
-  getResult().setType(RankedTensorType::get(
-      shape, X().getType().cast<ShapedType>().getElementType()));
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // ReciprocalOp
 //===----------------------------------------------------------------------===//
 
@@ -451,11 +394,11 @@ LogicalResult ONNXRoundOp::inferShapes(
 
 LogicalResult ONNXScalerOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(X()))
+  if (!hasShapeAndRank(getX()))
     return success();
 
   ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
-  RankedTensorType xType = X().getType().dyn_cast<RankedTensorType>();
+  RankedTensorType xType = getX().getType().dyn_cast<RankedTensorType>();
   return shapeHelper.computeShapeAndUpdateType(
       FloatType::getF32(getContext()), xType.getEncoding());
 }

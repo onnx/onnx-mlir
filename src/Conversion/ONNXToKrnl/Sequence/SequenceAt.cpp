@@ -19,25 +19,27 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXSequenceAtOpLowering : public ConversionPattern {
+struct ONNXSequenceAtOpLowering : public OpConversionPattern<ONNXSequenceAtOp> {
   ONNXSequenceAtOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXSequenceAtOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXSequenceAtOp seqOp,
+      ONNXSequenceAtOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ONNXSequenceAtOpAdaptor operandAdaptor(operands);
+    Operation *op = seqOp.getOperation();
+    Location loc = ONNXLoc<ONNXSequenceAtOp>(op);
+    Value input_sequence = adaptor.getInputSequence();
+
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
-    Value input_sequence = operandAdaptor.input_sequence();
     Type outputMemRefType =
         input_sequence.getType().cast<MemRefType>().getElementType();
+
     auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
     IndexExpr positionIE =
-        SymbolIndexExpr(create.krnl.load(operandAdaptor.position()));
+        SymbolIndexExpr(create.krnl.load(adaptor.getPosition()));
     // Handle the negative position
     IndexExpr condIE = positionIE < 0;
     IndexExpr fixedPosition = positionIE + boundIE;

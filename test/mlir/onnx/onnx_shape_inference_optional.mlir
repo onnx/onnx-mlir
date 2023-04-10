@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference %s | FileCheck %s
 
+// -----
+
 // CHECK-LABEL: func.func @check_opt_identity(%arg0: !onnx.Opt<tensor<2xf32>>) -> !onnx.Opt<tensor<2xf32>> {
 func.func @check_opt_identity(%arg0: !onnx.Opt<tensor<2xf32>>) -> !onnx.Opt<tensor<*xf32>> {
   %0 = "onnx.Identity"(%arg0) : (!onnx.Opt<tensor<2xf32>>) -> !onnx.Opt<tensor<*xf32>>
@@ -8,6 +10,8 @@ func.func @check_opt_identity(%arg0: !onnx.Opt<tensor<2xf32>>) -> !onnx.Opt<tens
   // CHECK-NEXT: return [[VAR_0_]] : !onnx.Opt<tensor<2xf32>>
 }
 
+// -----
+
 // CHECK-LABEL: func.func @check_optional(%arg0: tensor<2xf32>) -> !onnx.Opt<tensor<2xf32>> {
 func.func @check_optional(%arg0: tensor<2xf32>) -> !onnx.Opt<tensor<*xf32>> {
   %0 = "onnx.Optional"(%arg0) : (tensor<2xf32>) -> !onnx.Opt<tensor<*xf32>>
@@ -15,6 +19,8 @@ func.func @check_optional(%arg0: tensor<2xf32>) -> !onnx.Opt<tensor<*xf32>> {
   // CHECK-NEXT: [[VAR_0_:%.+]] = "onnx.Optional"(%arg0) : (tensor<2xf32>) -> !onnx.Opt<tensor<2xf32>>
   // CHECK-NEXT: return [[VAR_0_]] : !onnx.Opt<tensor<2xf32>>
 }
+
+// -----
 
 // CHECK-LABEL: func.func @check_optional_none() -> !onnx.Opt<tensor<2xf32>> {
 func.func @check_optional_none() -> !onnx.Opt<tensor<*xf32>> {
@@ -26,6 +32,8 @@ func.func @check_optional_none() -> !onnx.Opt<tensor<*xf32>> {
   // CHECK-NEXT: return [[VAR_1_]] : !onnx.Opt<tensor<2xf32>>
 }
 
+// -----
+
 // CHECK-LABEL: func.func @check_optionalgetelement(%arg0: !onnx.Opt<tensor<2xf32>>) -> tensor<2xf32> {
 func.func @check_optionalgetelement(%arg0: !onnx.Opt<tensor<2xf32>>) -> tensor<*xf32> {
   %0 = "onnx.OptionalGetElement"(%arg0) : (!onnx.Opt<tensor<2xf32>>) -> tensor<*xf32>
@@ -33,6 +41,8 @@ func.func @check_optionalgetelement(%arg0: !onnx.Opt<tensor<2xf32>>) -> tensor<*
   // CHECK-NEXT: [[VAR_0_:%.+]] = "onnx.OptionalGetElement"(%arg0) : (!onnx.Opt<tensor<2xf32>>) -> tensor<2xf32>
   // CHECK-NEXT: return [[VAR_0_]] : tensor<2xf32>
 }
+
+// -----
 
 // CHECK-LABEL: func.func @check_optionalhaselement(%arg0: !onnx.Opt<tensor<*xf32>>) -> tensor<i1> {
 func.func @check_optionalhaselement(%arg0: !onnx.Opt<tensor<*xf32>>) -> tensor<*xi1> {

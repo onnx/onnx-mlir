@@ -4,7 +4,7 @@
 
 //===------- ONNXOpsHelper.hpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -38,6 +38,7 @@
 #include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/Diagnostic.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -88,6 +89,9 @@ bool hasConvONNXTensorDataLayout(const mlir::Type type);
 
 // Return true if the type has a layout, and that layout is not STANDARD.
 bool hasCustomONNXTensorDataLayout(const mlir::Type type);
+
+/// Return true if two tensors or memrefs have the same rank.
+bool sameRank(mlir::Value tensorOrMemref1, mlir::Value tensorOrMemref2);
 
 //===----------------------------------------------------------------------===//
 // Identity map
@@ -158,18 +162,17 @@ size_t ArrayAttrSize(llvm::Optional<mlir::ArrayAttr> a);
 int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
 
-mlir::DenseElementsAttr getDenseElementAttributeFromONNXValue(
-    mlir::Value value);
+mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
-mlir::Value createONNXConstantOpWithDenseAttr(
-    mlir::OpBuilder &builder, mlir::Location loc, mlir::Attribute dense);
-mlir::Value createNoneIntegerConstant(
-    mlir::PatternRewriter &rewriter, mlir::Location loc);
-mlir::Value createNoneFloatConstant(
-    mlir::PatternRewriter &rewriter, mlir::Location loc);
 
-bool isFromNone(mlir::Value value);
+// Test if the value is none. Since none is a unit value it never makes a
+// difference whether it's a constant (the result of ONNXNoneOp) or the
+// optional result of some other op (e.g. ONNXDropoutOp mask result).
+// Note: It's ok to inline the isa<NoneType> test and not call this function.
+inline bool isNoneValue(mlir::Value value) {
+  return llvm::isa<mlir::NoneType>(value.getType());
+}
 
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
@@ -183,20 +186,12 @@ mlir::ArrayAttr CombinedTransposePattern(mlir::PatternRewriter &rewriter,
 /// Identity patterns are {0, 1, 2, ... , rank -1}.
 bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
 
-/// Test if two axis arrays contain the same values or not.
-bool AreTheSameAxisArray(
-    int64_t rank, mlir::ArrayAttr lhsAttr, mlir::ArrayAttr rhsAttr);
-
 /// Test if the value has the specified constant shape
 bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
 
-/// Test if two constant ops contain the same values or not.
-bool AreTheSameConstantOpDenseAttr(
-    mlir::Builder &builder, int64_t rank, mlir::Value lhsOp, mlir::Value rhsOp);
-
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(mlir::Value val);
-bool operandsOfOpHaveShapesAndRanks(mlir::Operation *op);
+bool hasShapeAndRank(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
@@ -206,10 +201,6 @@ bool operandsOfOpHaveShapesAndRanks(mlir::Operation *op);
 mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::FloatAttr attr);
-
-/// Create a DenseElementsAttr from a raw buffer.
-mlir::DenseElementsAttr createDenseElementsAttrFromRawBuffer(
-    mlir::Type resType, char *buf);
 
 mlir::Value normalizeConstantOp(
     mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
@@ -224,15 +215,14 @@ mlir::DenseElementsAttr createDenseElementsAttrFromSize(
     mlir::PatternRewriter &rewriter, mlir::Value value);
 
 // Create an ArrayAttr from a dense ConstantOp
-mlir::ArrayAttr createArrayAttrFromConstantOp(
-    mlir::Builder &builder, mlir::Value constOp);
+mlir::ArrayAttr createArrayAttrFromConstantOp(mlir::ONNXConstantOp constOp);
 
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
 
 // Get scalar value when it is a constant.
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(mlir::DenseElementsAttr &denseAttr, mlir::Type type);
+RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
 
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp, mlir::Type type);

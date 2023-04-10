@@ -4,7 +4,7 @@
 
 //===------ KrnlGetRefOp.cpp - Lower KrnlGetRefOp -------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -50,7 +50,7 @@ public:
       return failure();
 
     KrnlVectorTypeCastOp::Adaptor transformed(operands);
-    MemRefDescriptor srcMemRefDesc(transformed.source());
+    MemRefDescriptor srcMemRefDesc(transformed.getSource());
 
     Type targetStructType =
         typeConverter->convertType(krnlVectorTypeCastOp.getType());
@@ -82,7 +82,7 @@ public:
       return failure();
 
     // Unhandled dynamic offset.
-    if (offset == MemRefType::getDynamicStrideOrOffset())
+    if (offset == ShapedType::kDynamic)
       return failure();
 
     memRefDescriptor.setOffset(
@@ -132,7 +132,7 @@ public:
     SmallVector<Value, 4> strideValues(nStrides, nullptr);
     for (auto indexedStride : llvm::enumerate(llvm::reverse(strides))) {
       int64_t index = nStrides - 1 - indexedStride.index();
-      if (strides[index] == MemRefType::getDynamicStrideOrOffset())
+      if (strides[index] == ShapedType::kDynamic)
         // Identity layout map is enforced in the match function, so we compute:
         //   `runningStride *= sizes[index + 1]`.
         runningStride = runningStride ? rewriter.create<LLVM::MulOp>(loc,

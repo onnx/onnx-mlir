@@ -4,7 +4,7 @@
 
 //====------ ONNXToTOSACommon.hpp - ONNX dialects to TOSA lowering --------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -26,7 +26,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Transform/ONNX/ConstPropHelper.hpp"
 
 //===----------------------------------------------------------------------===//
 // Functions to add lowering patterns for frontend operations.
@@ -63,6 +62,17 @@ using TOSAOp = typename TOSADialectOp<Op>::Op;
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXGemmOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSoftmaxOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXConvOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+// `NN` directory methods:
+void populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
+    mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &,
+    mlir::MLIRContext *);
+// `Tensor` directory methods:
+void populateLoweringONNXConstOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 } // namespace onnx_mlir

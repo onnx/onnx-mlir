@@ -27,7 +27,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXCategoryMapperOpShapeHelper::computeShape() {
   ONNXCategoryMapperOpAdaptor operandAdaptor(operands);
-  return computeShapeFromOperand(operandAdaptor.X());
+  return setOutputDimsFromOperand(operandAdaptor.getX());
 }
 
 } // namespace onnx_mlir
@@ -40,28 +40,30 @@ LogicalResult ONNXCategoryMapperOp::verify() {
   ONNXCategoryMapperOpAdaptor operandAdaptor(*this);
 
   // Check input.
-  const Value X = operandAdaptor.X();
+  const Value X = operandAdaptor.getX();
   if (!hasShapeAndRank(X)) {
     // Won't be able to do any checking at this stage.
     return success();
   }
 
   ShapedType inputType = X.getType().cast<ShapedType>();
+  if ((inputType.getRank() != 1) && (inputType.getRank() != 2))
+    return emitOpError("input rank must be one or two");
   Type elementType = inputType.getElementType();
   if (!elementType.isInteger(64) && !elementType.isa<ONNXStringType>())
     return emitOpError("input must be a tensor of int64 or string");
 
   // Check attributes.
-  if (!cats_int64s())
+  if (!getCatsInt64s())
     return emitOpError("cats_int64 attribute must be present");
-  if (!cats_strings())
+  if (!getCatsStrings())
     return emitOpError("cats_strings attribute must be present");
-  if (ArrayAttrSize(cats_int64s()) != ArrayAttrSize(cats_strings()))
+  if (ArrayAttrSize(getCatsInt64s()) != ArrayAttrSize(getCatsStrings()))
     return emitOpError("cats_int64 and cats_strings should have the same size");
 
-  if (elementType.isInteger(64) && !default_stringAttr())
+  if (elementType.isInteger(64) && !getDefaultStringAttr())
     return emitOpError("'default_string' attribute is missing.");
-  if (elementType.isa<ONNXStringType>() && !default_int64Attr())
+  if (elementType.isa<ONNXStringType>() && !getDefaultInt64Attr())
     return emitOpError("'default_int64' attribute is missing.");
 
   return success();
@@ -74,10 +76,10 @@ LogicalResult ONNXCategoryMapperOp::verify() {
 LogicalResult ONNXCategoryMapperOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(getX()))
     return success();
 
-  Type inputElementType = X().getType().cast<ShapedType>().getElementType();
+  Type inputElementType = getX().getType().cast<ShapedType>().getElementType();
   assert((inputElementType.isInteger(64) ||
              inputElementType.isa<ONNXStringType>()) &&
          "Input tensor must have int64 or string element type.");

@@ -51,10 +51,10 @@ public:
     Type i8Type = IntegerType::get(ctx, 8);
     Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
     Value str1Ptr = rewriter.create<LLVM::IntToPtrOp>(
-        loc, i8PtrType, operandAdaptor.str1());
+        loc, i8PtrType, operandAdaptor.getStr1());
     Value str2Ptr = rewriter.create<LLVM::IntToPtrOp>(
-        loc, i8PtrType, operandAdaptor.str2());
-    Value length = operandAdaptor.len();
+        loc, i8PtrType, operandAdaptor.getStr2());
+    Value length = operandAdaptor.getLen();
 
     // Strncmp call.
     Type i32Type = IntegerType::get(ctx, 32);

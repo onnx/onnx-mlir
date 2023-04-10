@@ -49,13 +49,13 @@ static int64_t normalizeClampedPerSpec(int64_t axis, int64_t rank) {
 LogicalResult ONNXShapeOpShapeHelper::computeShape() {
   ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
   ONNXShapeOpAdaptor operandAdaptor(operands);
-  Value data = operandAdaptor.data();
+  Value data = operandAdaptor.getData();
 
   // Compute and store start/end in ONNXShapeOpShapeHelper object.
   int64_t rank = createIE->getShapedTypeRank(data);
-  start = shapeOp.start();
+  start = shapeOp.getStart();
   start = normalizeClampedPerSpec(start, rank);
-  end = shapeOp.end().has_value() ? shapeOp.end().value() : rank;
+  end = shapeOp.getEnd().has_value() ? shapeOp.getEnd().value() : rank;
   end = normalizeClampedPerSpec(end, rank);
   if (start > end)
     return op->emitError("Start must not be greater than end");
@@ -70,7 +70,7 @@ void ONNXShapeOpShapeHelper::computeSelectedDataShape(
     DimsExpr &selectedDataShape) {
   assert(start != -1 && end != -1 && "must compute shape first");
   ONNXShapeOpAdaptor operandAdaptor(operands);
-  Value data = operandAdaptor.data();
+  Value data = operandAdaptor.getData();
 
   selectedDataShape.clear();
   for (int64_t i = start; i < end; ++i)
@@ -81,16 +81,16 @@ void ONNXShapeOpShapeHelper::computeSelectedDataShape(
     ONNXShapeOp shapeOp, int64_t &startVal, int64_t &endVal) {
   // Get rank of data operand.
   ONNXShapeOpAdaptor operandAdaptor(shapeOp);
-  Value data = operandAdaptor.data();
+  Value data = operandAdaptor.getData();
   ShapedType shapedType = data.getType().dyn_cast_or_null<ShapedType>();
   assert(shapedType && shapedType.hasRank() && "need shaped type with rank");
   int64_t rank = shapedType.getRank();
   // Compute the normalized start/end. Negative value means counting
   // dimensions from the back.
-  startVal = operandAdaptor.start();
+  startVal = operandAdaptor.getStart();
   startVal = normalizeClampedPerSpec(startVal, rank);
-  endVal =
-      operandAdaptor.end().has_value() ? operandAdaptor.end().value() : rank;
+  endVal = operandAdaptor.getEnd().has_value() ? operandAdaptor.getEnd().value()
+                                               : rank;
   endVal = normalizeClampedPerSpec(endVal, rank);
 }
 
@@ -101,7 +101,7 @@ void ONNXShapeOpShapeHelper::computeSelectedDataShape(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXShapeOp::verify() {
-  if (!data().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(getData()))
     return success();
   int64_t start, end;
   ONNXShapeOpShapeHelper::getStartEndValues(*this, start, end);
@@ -117,7 +117,7 @@ LogicalResult ONNXShapeOp::verify() {
 LogicalResult ONNXShapeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!data().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(getData()))
     return success();
 
   // Output is an 1D int64 tensor containing the shape of the input tensor.

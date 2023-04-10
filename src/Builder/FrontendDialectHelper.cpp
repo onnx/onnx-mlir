@@ -19,8 +19,13 @@
 #include "llvm/Support/SwapByteOrder.h"
 
 #include "src/Builder/FrontendDialectHelper.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/FloatingPoint16.hpp"
+
+// TODO: put everything in namespace onnx_mlir, and be using namespace mlir
 
 namespace {
 
@@ -33,8 +38,9 @@ size_t parseOffsetOrLength(const std::string &value) {
 }
 
 // Reads external data from file location specified in tensor proto.
+// The data is little endian encoded.
 // See https://github.com/onnx/onnx/blob/main/docs/ExternalData.md
-std::unique_ptr<llvm::MemoryBuffer> readExternalData(
+std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
     const std::string &externalDataDir, const onnx::TensorProto &tp) {
   std::string location;
   uint64_t offset = 0;
@@ -114,43 +120,15 @@ struct TransformValueToONNXData<uint64_t> {
   }
 };
 
-// Converts to the cpp type 'To' that correspond's to the tensor element type
-// (bool, int8, float_16, uint32, etc) from the the proto data field type
-// which may be a wider type (int32, uint64). In most cases the conversion is
-// just standard C implicit conversion. The exception is float_16 and bfloat_16
-// which must be bit-wise converted from uint16_t.
-template <typename To, typename From>
-To deserializeDatum(const From &from) {
-  if constexpr (onnx_mlir::isFP16Type<To>)
-    return To::bitcastFromU16(from);
-  else
-    return from;
-}
-
-// When the protobuf repeated field has type T,
-// access the data directly via ArrayRef.
-template <typename T, typename Repeated>
-std::enable_if_t<std::is_same_v<T, typename Repeated::value_type>,
-    mlir::DenseElementsAttr>
-createDenseElmAttrFromProtoData(
-    mlir::ShapedType tensorType, const Repeated &data) {
-  return mlir::DenseElementsAttr::get(
-      tensorType, llvm::makeArrayRef(data.data(), data.size()));
-}
-
-// When the protobuf repeated field has a type different from T,
-// copy the data into correctly typed SmallVector because
-// DenseElementsAttr needs argument type of the correct bitwidth.
-template <typename T, typename Repeated>
-std::enable_if_t<!std::is_same_v<T, typename Repeated::value_type>,
-    mlir::DenseElementsAttr>
-createDenseElmAttrFromProtoData(
-    mlir::ShapedType tensorType, const Repeated &data) {
-  llvm::SmallVector<T> copy;
-  copy.resize_for_overwrite(data.size());
-  std::transform(data.begin(), data.end(), copy.data(),
-      deserializeDatum<T, typename Repeated::value_type>);
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(copy));
+template <typename T, typename Range, typename Transformation>
+mlir::ElementsAttr createElmAttrFromArray(mlir::RankedTensorType tensorType,
+    const Range &array, const Transformation &transformation) {
+  mlir::MLIRContext *ctx = tensorType.getContext();
+  assert(tensorType.getElementType() == onnx_mlir::toMlirType<T>(ctx));
+  return onnx_mlir::OnnxElementsAttrBuilder(ctx).fromArray<T>(
+      tensorType, [array, &transformation](llvm::MutableArrayRef<T> copy) {
+        std::transform(array.begin(), array.end(), copy.data(), transformation);
+      });
 }
 
 // Perform byte swap if system endianness is BE.
@@ -171,47 +149,82 @@ T swappedBytes(T x) {
     return llvm::sys::getSwappedBytes(x);
 }
 
-// Returns DenseElementsAttr with tp's data.
 template <typename T>
-mlir::DenseElementsAttr createDenseElmAttr(mlir::ShapedType tensorType,
-    const onnx::TensorProto &tp, const std::string &externalDataDir) {
-  std::unique_ptr<llvm::MemoryBuffer> externalData =
-      (tp.has_data_location() &&
-          tp.data_location() == onnx::TensorProto::EXTERNAL)
-          ? readExternalData(externalDataDir, tp)
-          : nullptr;
-  if (externalData || tp.has_raw_data()) {
-    llvm::StringRef buffer = externalData ? externalData->getBuffer()
-                                          : llvm::StringRef(tp.raw_data());
-    size_t size = buffer.size() / sizeof(T);
-    llvm::ArrayRef<T> array(reinterpret_cast<T const *>(buffer.data()), size);
-    if (shouldSwapLEBytes<T>) {
-      llvm::SmallVector<T> copy;
-      copy.resize_for_overwrite(size);
-      std::transform(array.begin(), array.end(), copy.data(), swappedBytes<T>);
-      return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(copy));
-    } else {
-      return mlir::DenseElementsAttr::get(tensorType, array);
-    }
+mlir::ElementsAttr createElementsAttrFromMemoryBuffer_LE(
+    mlir::RankedTensorType tensorType,
+    std::unique_ptr<llvm::MemoryBuffer> membuf) {
+  mlir::MLIRContext *ctx = tensorType.getContext();
+  assert(tensorType.getElementType() == onnx_mlir::toMlirType<T>(ctx));
+  if (shouldSwapLEBytes<T>) {
+    llvm::ArrayRef<T> array = onnx_mlir::asArrayRef<T>(membuf->getBuffer());
+    return createElmAttrFromArray<T>(tensorType, array, swappedBytes<T>);
   } else {
-    // Not raw, no need to take care of endianness.
-    const auto &data = TransformValueToONNXData<T>::data(tp);
-    return createDenseElmAttrFromProtoData<T>(tensorType, data);
+    return onnx_mlir::OnnxElementsAttrBuilder(ctx).fromMemoryBuffer(
+        tensorType, std::move(membuf));
   }
 }
 
-mlir::DenseElementsAttr createDenseStringElmAttr(
-    mlir::ShapedType tensorType, const onnx::TensorProto &tp) {
+template <typename T>
+mlir::ElementsAttr createElmAttrFromRawBytes_LE(
+    mlir::RankedTensorType tensorType, llvm::ArrayRef<char> bytes) {
+  llvm::ArrayRef<T> array = onnx_mlir::castArrayRef<T>(bytes);
+  return createElmAttrFromArray<T>(tensorType, array,
+      [](T x) { return shouldSwapLEBytes<T> ? swappedBytes<T>(x) : x; });
+}
+
+// Converts to the cpp type 'To' that correspond's to the tensor element type
+// (bool, int8, float_16, uint32, etc) from the the proto data field type
+// which may be a wider type (int32, uint64). In most cases the conversion is
+// just standard C implicit conversion. The exception is float_16 and bfloat_16
+// which must be bit-wise converted from uint16_t.
+template <typename To, typename From>
+To deserializeDatum(const From &from) {
+  if constexpr (onnx_mlir::isFP16Type<To>)
+    return To::bitcastFromU16(from);
+  else
+    return from;
+}
+
+template <typename T, typename U>
+mlir::ElementsAttr createElmAttrFromProtoData(mlir::RankedTensorType tensorType,
+    const google::protobuf::RepeatedField<U> &data) {
+  // "Deserialize" the data to the correct bitwidth.
+  return createElmAttrFromArray<T>(tensorType, data, deserializeDatum<T, U>);
+}
+
+// Returns ElementsAttr with tp's data.
+template <typename T>
+mlir::ElementsAttr createElmAttr(mlir::RankedTensorType tensorType,
+    const onnx::TensorProto &tp, const std::string &externalDataDir) {
+  if (tp.has_data_location() &&
+      tp.data_location() == onnx::TensorProto::EXTERNAL) {
+    return createElementsAttrFromMemoryBuffer_LE<T>(
+        tensorType, readExternalData_LE(externalDataDir, tp));
+  }
+  if (tp.has_raw_data()) {
+    return createElmAttrFromRawBytes_LE<T>(
+        tensorType, onnx_mlir::asArrayRef(tp.raw_data()));
+  }
+  // Not raw, no need to take care of endianness.
+  const auto &data = TransformValueToONNXData<T>::data(tp);
+  return createElmAttrFromProtoData<T>(tensorType, data);
+}
+
+mlir::ElementsAttr createStringElmAttr(
+    mlir::RankedTensorType tensorType, const onnx::TensorProto &tp) {
   // The string type is different from other data types in that it cannot be
-  // raw or external data and it needs to be converted to StringRef
-  // (or StringAttr) to construct a DenseElementsAttr.
+  // raw or external data, it cannot be represented as a DisposableElementsAttr,
+  // and it needs to be converted to StringRef (or StringAttr) to construct a
+  // DenseElementsAttr.
   assert(!(tp.has_data_location() &&
              tp.data_location() == onnx::TensorProto::EXTERNAL) &&
          "string TensorProto cannot be external data");
   assert(!tp.has_raw_data() && "string TensorProto cannot be raw data");
-  return createDenseElmAttrFromProtoData<llvm::StringRef>(
-      tensorType, tp.string_data());
+  auto data = tp.string_data();
+  llvm::SmallVector<llvm::StringRef> copy(data.begin(), data.end());
+  return mlir::DenseElementsAttr::get(tensorType, llvm::ArrayRef(copy));
 }
+
 } // namespace
 
 namespace onnx_mlir {
@@ -223,54 +236,29 @@ mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
   llvm::ArrayRef<int64_t> tensorDims(
       initializer.dims().data(), initializer.dims().size());
   if (tensorDims.size() == 1 && tensorDims[0] == 0)
-    return builder.create<mlir::ONNXNoneOp>(
-        loc, builder.getNoneType(), builder.getUnitAttr());
+    return builder.create<mlir::ONNXNoneOp>(loc);
 
-  mlir::DenseElementsAttr denseElmAttr =
-      onnxTensorProtoToDenseElmAttr(builder, externalDataDir, initializer);
-  return builder.create<mlir::ONNXConstantOp>(loc, nullptr, denseElmAttr);
+  mlir::ElementsAttr elmAttr =
+      onnxTensorProtoToElmAttr(builder, externalDataDir, initializer);
+  return builder.create<mlir::ONNXConstantOp>(loc, nullptr, elmAttr);
 }
 
-mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(mlir::OpBuilder &builder,
+mlir::ElementsAttr onnxTensorProtoToElmAttr(mlir::OpBuilder &builder,
     const std::string &externalDataDir, const onnx::TensorProto &tp) {
   // Tensor dimensions.
   llvm::ArrayRef<int64_t> tensorDims(tp.dims().data(), tp.dims().size());
-  mlir::Type elmType = convertONNXTypeToMLIRType(
-      builder, (onnx::TensorProto_DataType)tp.data_type());
-  auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-  switch (tp.data_type()) {
-  case (onnx::TensorProto::FLOAT16):
-    return createDenseElmAttr<float_16>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::BFLOAT16):
-    return createDenseElmAttr<bfloat_16>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::FLOAT):
-    return createDenseElmAttr<float>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::DOUBLE):
-    return createDenseElmAttr<double>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::INT8):
-    return createDenseElmAttr<int8_t>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::UINT8):
-    return createDenseElmAttr<uint8_t>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::INT16):
-    return createDenseElmAttr<int16_t>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::UINT16):
-    return createDenseElmAttr<uint16_t>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::INT32):
-    return createDenseElmAttr<int32_t>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::UINT32):
-    return createDenseElmAttr<uint32_t>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::INT64):
-    return createDenseElmAttr<int64_t>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::UINT64):
-    return createDenseElmAttr<uint64_t>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::BOOL):
-    return createDenseElmAttr<bool>(tensorType, tp, externalDataDir);
-  case (onnx::TensorProto::STRING):
-    return createDenseStringElmAttr(tensorType, tp);
-  default:
-    llvm_unreachable(
-        "Failed to import ONNX TensorProto due to unsupported data types.");
+  if (tp.data_type() == onnx::TensorProto::STRING) {
+    mlir::Type elmType = mlir::ONNXStringType::get(builder.getContext());
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    return createStringElmAttr(tensorType, tp);
   }
+  BType btype = btypeOfOnnxDataType(tp.data_type());
+  mlir::Type elmType = mlirTypeOfBType(btype, builder.getContext());
+  auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+  return dispatchByBType(btype, [&](auto btype) {
+    using cpptype = CppType<btype>;
+    return createElmAttr<cpptype>(tensorType, tp, externalDataDir);
+  });
 }
 
 } // namespace onnx_mlir

@@ -40,8 +40,9 @@ public:
     KrnlPrintTensorOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
-    StringRef msg = printTensorOp.msg();
-    Value input = operandAdaptor.input();
+    StringRef msg = printTensorOp.getMsg();
+    Value input = operandAdaptor.getInput();
+    Value originalInput = printTensorOp.getInput();
     assert(input.getType().isa<LLVM::LLVMStructType>() &&
            "expecting LLVMStructType");
 
@@ -57,8 +58,9 @@ public:
     Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
-    krnl::fillOMTensorWithMemRef(input, omTensor, false /*outOwning*/, rewriter,
-        loc, apiRegistry, module);
+    Type elemTy = originalInput.getType().cast<MemRefType>().getElementType();
+    krnl::fillOMTensorWithMemRef(input, elemTy, omTensor, false /*outOwning*/,
+        rewriter, loc, apiRegistry, module);
     LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(msg, loc, rewriter,
         module, static_cast<LLVMTypeConverter *>(getTypeConverter()));
     Value strPtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);

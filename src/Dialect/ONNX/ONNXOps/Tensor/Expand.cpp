@@ -30,8 +30,8 @@ namespace onnx_mlir {
 LogicalResult ONNXExpandOpShapeHelper::computeShape() {
   // Get info about input operands.
   ONNXExpandOpAdaptor operandAdaptor(operands);
-  Value input = operandAdaptor.input();
-  Value shape = operandAdaptor.shape();
+  Value input = operandAdaptor.getInput();
+  Value shape = operandAdaptor.getShape();
 
   Operation *shapeDefOp = shape.getDefiningOp();
   ShapedType shapeType = shape.getType().dyn_cast_or_null<ShapedType>();
@@ -41,7 +41,7 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape() {
     return op->emitError("expected size of shape parameter to be defined");
 
   if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
-    assert(shapeOp.data().getType().isa<ShapedType>() && "expected");
+    assert(shapeOp.getData().getType().isa<ShapedType>() && "expected");
     // Consider a first case where the expand.shape is produced by a shape op.
     // Infer its shape and use it as the requested shape.
     // Compute the output of the shape operation. We have to use its shape
@@ -85,7 +85,7 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape() {
 LogicalResult ONNXExpandOp::verify() {
   ONNXExpandOpAdaptor operandAdaptor = ONNXExpandOpAdaptor(*this);
   // Get operands.
-  auto shape = operandAdaptor.shape();
+  auto shape = operandAdaptor.getShape();
   // Check input.
   auto shapeType = shape.getType().dyn_cast_or_null<ShapedType>();
   if (shapeType && shapeType.hasRank()) {
@@ -101,12 +101,10 @@ LogicalResult ONNXExpandOp::verify() {
 
 LogicalResult ONNXExpandOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!input().getType().isa<RankedTensorType>())
-    return success();
-  if (!shape().getType().isa<RankedTensorType>())
+  if (!hasShapeAndRank(getInput()) || !hasShapeAndRank(getShape()))
     return success();
 
-  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXExpandOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

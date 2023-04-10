@@ -50,7 +50,8 @@ int64_t getRank(Type ty) {
 }
 
 /// Get the number of elements.
-int64_t getNumberOfElements(Type ty) {
+int64_t getNumberOfElements(ShapedType ty) {
+  assert(ty.hasStaticShape() && "Has unknown dimensions");
   ArrayRef<int64_t> shape = getShape(ty);
   return ShapedType::getNumElements(shape);
 }
@@ -70,9 +71,9 @@ int64_t getEltSizeInBytes(Type ty) {
 }
 
 /// Get the size of a tensor from its ranked type in bytes.
-int64_t getSizeInBytes(Type ty) {
+int64_t getSizeInBytes(ShapedType ty) {
   ArrayRef<int64_t> shape = getShape(ty);
-  assert(ty.cast<ShapedType>().hasStaticShape() && "Has unknown dimensions");
+  assert(ty.hasStaticShape() && "Has unknown dimensions");
   return ShapedType::getNumElements(shape) * getEltSizeInBytes(ty);
 }
 
@@ -83,6 +84,11 @@ bool sameEncodingAttr(Type t1, Type t2) {
       return rtp1.getEncoding() == rtp2.getEncoding();
     }
   return false;
+}
+
+/// Get the byte width of an int or float type.
+unsigned getIntOrFloatByteWidth(Type ty) {
+  return llvm::divideCeil(ty.getIntOrFloatBitWidth(), 8);
 }
 
 } // namespace onnx_mlir

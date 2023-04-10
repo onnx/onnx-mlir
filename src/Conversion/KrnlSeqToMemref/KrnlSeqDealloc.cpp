@@ -45,7 +45,7 @@ public:
     Location loc = op->getLoc();
     MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
 
-    auto input_sequence = operandAdaptor.input_sequence();
+    auto input_sequence = operandAdaptor.getInputSequence();
     auto dimSize = create.mem.dim(input_sequence, 0);
     rewriter.create<scf::ForOp>(loc, create.math.constantIndex(0), dimSize,
         create.math.constantIndex(1), ValueRange(),
@@ -54,7 +54,7 @@ public:
           MultiDialectBuilder<MathBuilder, MemRefBuilder> create(
               bodyBuilder, bodyLoc);
           auto element = bodyBuilder.create<memref::LoadOp>(
-              bodyLoc, operandAdaptor.input_sequence(), forInduction);
+              bodyLoc, operandAdaptor.getInputSequence(), forInduction);
           create.mem.dealloc(element);
           bodyBuilder.create<scf::YieldOp>(bodyLoc);
         });

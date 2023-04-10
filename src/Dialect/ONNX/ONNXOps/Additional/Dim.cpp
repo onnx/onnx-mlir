@@ -19,16 +19,30 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Support
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXDimOpShapeHelper::computeShape() {
+  // Dim returns tensor<1xi64>
+  return setOutputDimsFromLiterals({1});
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDimOp::verify() {
   // Input data must be ranked.
-  if (!hasShapeAndRank(this->data()))
+  if (!hasShapeAndRank(this->getData()))
     return failure();
   // Axis must be in [0, rank -1].
-  int64_t axis = this->axis();
-  return failure((axis < 0) || (axis >= getRank(this->data().getType())));
+  int64_t axis = this->getAxis();
+  return failure((axis < 0) || (axis >= getRank(this->getData().getType())));
 }
 
 //===----------------------------------------------------------------------===//
@@ -37,7 +51,15 @@ LogicalResult ONNXDimOp::verify() {
 
 LogicalResult ONNXDimOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  OpBuilder b(getContext());
-  getResult().setType(RankedTensorType::get({1}, b.getI64Type()));
-  return success();
+  Type elementType = IntegerType::get(getContext(), 64);
+  ONNXDimOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXDimOp>;
+} // namespace onnx_mlir

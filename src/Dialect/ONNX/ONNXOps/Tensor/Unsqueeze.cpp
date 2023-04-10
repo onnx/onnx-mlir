@@ -32,7 +32,7 @@ LogicalResult ONNXCommonUnsqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &unsqueezedDims) {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr outputDims;
-  Value data = operandAdaptor.data();
+  Value data = operandAdaptor.getData();
   int64_t dataRank = createIE->getShapedTypeRank(data);
 
   // Init state.
@@ -84,19 +84,19 @@ void ONNXUnsqueezeOpShapeHelper::saveAxes() {
   // should never encounter a "saveAxles" situation during lowering.
 
   ONNXUnsqueezeOp unsqueezeOp = llvm::cast<ONNXUnsqueezeOp>(op);
-  SaveOnnxConstInOp(op, unsqueezeOp.axesMutable(), unsqueezedAxes);
+  SaveOnnxConstInOp(op, unsqueezeOp.getAxesMutable(), unsqueezedAxes);
 }
 
 template <>
 void ONNXUnsqueezeV11OpShapeHelper::saveAxes() {
   SaveOnnxAttrInOp<ONNXUnsqueezeV11Op>(op, unsqueezedAxes,
-      [](ONNXUnsqueezeV11Op op, ArrayAttr attr) { op.axesAttr(attr); });
+      [](ONNXUnsqueezeV11Op op, ArrayAttr attr) { op.setAxesAttr(attr); });
 }
 
 template <>
 LogicalResult ONNXUnsqueezeOpShapeHelper::computeShape() {
   ONNXUnsqueezeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-  Value axes = operandAdaptor.axes();
+  Value axes = operandAdaptor.getAxes();
   SmallVector<IndexExpr, 4> unsqueezedDims;
   createIE->getIntFromArrayAsSymbols(axes, unsqueezedDims);
   return customComputeShape(unsqueezedDims);
@@ -105,7 +105,7 @@ LogicalResult ONNXUnsqueezeOpShapeHelper::computeShape() {
 template <>
 LogicalResult ONNXUnsqueezeV11OpShapeHelper::computeShape() {
   ONNXUnsqueezeV11OpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-  auto axesAttr = operandAdaptor.axesAttr();
+  auto axesAttr = operandAdaptor.getAxesAttr();
   assert(axesAttr && "expected axes attribute");
   SmallVector<IndexExpr, 4> unsqueezedDims;
   createIE->getIntFromArrayAsLiterals(axesAttr, unsqueezedDims);
@@ -124,7 +124,7 @@ LogicalResult ONNXUnsqueezeV11OpShapeHelper::computeShape() {
 
 LogicalResult ONNXUnsqueezeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto dataType = data().getType().dyn_cast<RankedTensorType>();
+  auto dataType = getData().getType().dyn_cast<RankedTensorType>();
   if (!dataType)
     return success();
 
@@ -135,7 +135,7 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
 
 LogicalResult ONNXUnsqueezeV11Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto dataType = data().getType().dyn_cast<RankedTensorType>();
+  auto dataType = getData().getType().dyn_cast<RankedTensorType>();
   if (!dataType)
     return success();
 

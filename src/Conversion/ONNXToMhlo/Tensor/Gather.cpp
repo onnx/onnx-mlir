@@ -43,9 +43,9 @@ struct ONNXGatherOpLoweringToMhlo : public ConversionPattern {
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
 
     // Operands and attributes.
-    Value data = operandAdaptor.data();
-    Value indices = operandAdaptor.indices();
-    int64_t axisLit = gatherOp.axis();
+    Value data = operandAdaptor.getData();
+    Value indices = operandAdaptor.getIndices();
+    int64_t axisLit = gatherOp.getAxis();
 
     ShapedType inputType = data.getType().cast<ShapedType>();
     int64_t dataRank = inputType.getRank();

@@ -36,10 +36,10 @@ namespace onnx_mlir {
 // stride=dilation=1, pad=0.
 bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
   // Get type, shape, and rank info for X and W inputs.
-  Value X = convOp.X();
-  Value W = convOp.W();
-  Value B = convOp.B();
-  bool hasBias = !isFromNone(B);
+  Value X = convOp.getX();
+  Value W = convOp.getW();
+  Value B = convOp.getB();
+  bool hasBias = !isNoneValue(B);
   if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
     return false;
   if (hasBias && !hasShapeAndRank(B))
@@ -55,7 +55,7 @@ bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
   int spatialRank = rank - 2;
   int spatialIndex = 2;
   // Eliminate conv ops with groups > 1.
-  int G = convOp.group();
+  int G = convOp.getGroup();
   if (G != 1)
     return false;
   // Eliminating conv with spacial dims of the kernel that are not 1.
@@ -63,27 +63,27 @@ bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
     if (wShape[i] != 1)
       return false;
   // Eliminate conv op with dilations>1.
-  auto dilations = convOp.dilations();
+  auto dilations = convOp.getDilations();
   if (dilations.has_value()) {
     for (int i = 0; i < spatialRank; ++i)
       if (ArrayAttrIntVal(dilations, i) != 1)
         return false;
   }
   // ELiminate conv ops with strides>1.
-  auto strides = convOp.strides();
+  auto strides = convOp.getStrides();
   if (strides.has_value()) {
     for (int i = 0; i < spatialRank; ++i)
       if (ArrayAttrIntVal(strides, i) != 1)
         return false;
   }
   // Eliminate conv ops with any padding.
-  auto autoPad = convOp.auto_pad();
+  auto autoPad = convOp.getAutoPad();
   if (autoPad == "NOTSET") {
     // Explicitly given padding, check that it is all zero. Don't have to
     // worry about the other cases (SAME_UPPER/LOWER, VALID), as with 1x1
     // kernel of stride/dilation of 1, there is never any padding for the
     // (deprecated) automatic padding options.
-    auto pads = convOp.pads();
+    auto pads = convOp.getPads();
     if (pads.has_value()) {
       for (int i = 0; i < 2 * spatialRank; ++i) // 2x for before/after.
         if (ArrayAttrIntVal(pads, i) != 0)
@@ -141,10 +141,10 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
       fprintf(
           stderr, "ConvOps match&rewrite: go for the actual conv 1x1 opt.\n");
     // All conditions satisfied, get info.
-    Value X = convOp.X();
-    Value W = convOp.W();
-    Value B = convOp.B();
-    bool hasBias = !onnx_mlir::isFromNone(B);
+    Value X = convOp.getX();
+    Value W = convOp.getW();
+    Value B = convOp.getB();
+    bool hasBias = !onnx_mlir::isNoneValue(B);
     ShapedType xType = X.getType().cast<ShapedType>();
     ShapedType wType = W.getType().cast<ShapedType>();
     Type elementType = xType.getElementType();
@@ -153,8 +153,8 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     int64_t rank = xShape.size();
     int64_t spatialRank = rank - 2;
     // Get dimensions.
-    int batchSize = xShape[0];
-    int Cout = wShape[0];
+    int64_t batchSize = xShape[0];
+    int64_t Cout = wShape[0];
     // Start transforming.
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
         rewriter, loc);
@@ -168,8 +168,8 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
         create.onnx.reshapeToNDim(W, 2, /*collapseMostSignificant*/ false);
     // Perform the matrix multiplication on WW * XX. Leave last dim runtime so
     // that its actual H*W size can be generated during shape inference.
-    RankedTensorType MMOutputType =
-        RankedTensorType::get({batchSize, Cout, -1}, elementType);
+    RankedTensorType MMOutputType = RankedTensorType::get(
+        {batchSize, Cout, ShapedType::kDynamic}, elementType);
     Value MM = create.onnx.matmul(MMOutputType, WW, XX, /*gemm*/ false);
     if (hasBias) {
       // Reshape BB from <CO> to <1, CO, 1> for broadcast.
@@ -200,7 +200,8 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     for (int i = 0; i < rank; ++i)
       outputDims.emplace_back(xShape[i]);
     outputDims[1] = Cout;
-    Value res = create.onnx.reshape(convOp.Y().getType(), MM, outputShapeVals);
+    Value res =
+        create.onnx.reshape(convOp.getY().getType(), MM, outputShapeVals);
     // Replace op and declare success.
     rewriter.replaceOp(convOp, res);
     return success();
@@ -248,12 +249,12 @@ void ConvOptONNXToONNXPass::runOnOperation() {
     bool canBeAMatmul = onnx_mlir::ExpressONNXConvOpAsMatmul(op);
     // Conv op has optimized layout
     bool hasOptLayout =
-        onnx_mlir::hasConvONNXTensorDataLayout(op.X().getType());
+        onnx_mlir::hasConvONNXTensorDataLayout(op.getX().getType());
     if (DEBUG)
       fprintf(stderr,
           "ConvOps match&rewrite: went for the data simd layout opt.\n");
     if (hasOptLayout)
-      assert(onnx_mlir::hasConvONNXTensorDataLayout(op.W().getType()) &&
+      assert(onnx_mlir::hasConvONNXTensorDataLayout(op.getW().getType()) &&
              "custom layout for both X and W");
     bool canBeOptimized =
         canBeAMatmul || (enableSimdDataLayoutOpt && !hasOptLayout);

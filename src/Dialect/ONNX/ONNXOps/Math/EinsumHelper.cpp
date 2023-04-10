@@ -192,8 +192,8 @@ Subscripts extractSubscripts(StringRef parameterEquation, int64_t rank) {
 // . all input types must be shaped types with rank
 FailureOr<Signature> inferSignature(
     ONNXEinsumOpAdaptor operandAdaptor, ErrorFn emitErrorFn) {
-  StringRef equation = operandAdaptor.equation();
-  ValueRange inputs = operandAdaptor.Inputs();
+  StringRef equation = operandAdaptor.getEquation();
+  ValueRange inputs = operandAdaptor.getInputs();
   assert(llvm::all_of(inputs.getTypes(), isRankedShapedType) &&
          "precondition checked in verify()");
   StringRef equationOutput, commaSeparatedInputs;
@@ -307,7 +307,7 @@ FailureOr<Signature> inferSignature(
     if (iter != broadcast.end()) {
       d = iter->second;
     } else if (dynamicSubscripts.find(s) != dynamicSubscripts.end()) {
-      d = ShapedType::kDynamicSize;
+      d = ShapedType::kDynamic;
     } else {
       d = 1;
     }

@@ -5,12 +5,12 @@ add_onnx_mlir_library(OMONNXToKrnl
   ConvertONNXToKrnl.cpp
   ONNXToKrnlCommon.cpp
   PerfectHash.cpp
+  Additional/ShapeTransform.cpp
   ControlFlow/If.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
   ConvertONNXToKrnl.cpp
   ML/CategoryMapper.cpp
-  Math/Clip.cpp
   Math/CumSum.cpp
   Math/Elementwise.cpp
   Math/Gemm.cpp
@@ -26,6 +26,8 @@ add_onnx_mlir_library(OMONNXToKrnl
   NN/Normalization.cpp
   NN/Pooling.cpp
   ObjectDetection/NonMaxSuppression.cpp
+  Quantization/DynamicQuantizeLinear.cpp
+  Quantization/QuantizeLinear.cpp
   RNN/GRU.cpp
   RNN/LSTM.cpp
   RNN/RNN.cpp
@@ -73,7 +75,7 @@ add_onnx_mlir_library(OMONNXToKrnl
 
   LINK_LIBS PUBLIC
   OMAccelerator
-  OMConstPropHelper
+  OMCompilerOptions
   OMONNXOps
   OMSupport
   MLIRFuncDialect

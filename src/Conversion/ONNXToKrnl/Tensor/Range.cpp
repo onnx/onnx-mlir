@@ -4,7 +4,7 @@
 
 //===------------------- Range.cpp - Lowering Range Op --------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,15 +19,14 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXRangeOpLowering : public ConversionPattern {
+struct ONNXRangeOpLowering : public OpConversionPattern<ONNXRangeOp> {
   ONNXRangeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXRangeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXRangeOp rangeOp, ONNXRangeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXRangeOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = rangeOp.getOperation();
+    Location loc = ONNXLoc<ONNXRangeOp>(op);
 
     // Create an index expression scope.
     // Scope for krnl ops
@@ -36,9 +35,9 @@ struct ONNXRangeOpLowering : public ConversionPattern {
         create(rewriter, loc);
     IndexExprScope ieScope(create.krnl);
 
-    Value start = operandAdaptor.start();
-    Value limit = operandAdaptor.limit();
-    Value delta = operandAdaptor.delta();
+    Value start = adaptor.getStart();
+    Value limit = adaptor.getLimit();
+    Value delta = adaptor.getDelta();
 
     auto startShape = start.getType().cast<MemRefType>().getShape();
     auto limitShape = limit.getType().cast<MemRefType>().getShape();
@@ -71,9 +70,8 @@ struct ONNXRangeOpLowering : public ConversionPattern {
                (deltaShape.size() == 1 && deltaShape[0] == 1)) &&
            "delta shape must be 0 or if 1, size must be 1");
 
-    bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = create.mem.alignedAlloc(memRefType);
     else {
       Value loadedLimit = (limitShape.size() == 0)
                               ? create.krnl.load(limit)
@@ -83,6 +81,7 @@ struct ONNXRangeOpLowering : public ConversionPattern {
              "limit shape must be 0 or if 1, size must be 1");
 
       Value numberOfElements;
+      // TODO: many of the ops below exists in the create.math
       TypeSwitch<Type>(elementType)
           .Case<Float16Type>([&](Type) {
             llvm_unreachable("Float 16 type not supported for Range op.");

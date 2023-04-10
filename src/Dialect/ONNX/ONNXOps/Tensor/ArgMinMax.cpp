@@ -29,9 +29,9 @@ LogicalResult ONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
   // Get info about input data operand.
   OP_TYPE argOp = llvm::cast<OP_TYPE>(op);
   typename OP_TYPE::Adaptor operandAdaptor(operands);
-  Value data = operandAdaptor.data();
+  Value data = operandAdaptor.getData();
   int64_t dataRank = data.getType().cast<ShapedType>().getRank();
-  int64_t axisValue = argOp.axis();
+  int64_t axisValue = argOp.getAxis();
 
   // axis attribute must be in the range [-r,r-1], where r = rank(data).
   assert(-dataRank <= axisValue && axisValue < dataRank && "axis out of range");
@@ -40,13 +40,13 @@ LogicalResult ONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
   if (axisValue < 0) {
     axisValue = dataRank + axisValue;
     auto builder = Builder(op->getContext());
-    argOp.axisAttr(
+    argOp.setAxisAttr(
         IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
             APInt(64, /*value=*/axisValue, /*isSigned=*/true)));
   }
 
   // The keepdims is a required attribute and should have default value of 1.
-  int64_t keepdims = argOp.keepdims();
+  int64_t keepdims = argOp.getKeepdims();
   bool isKeepdims = (keepdims == 1);
 
   // Compute outputDims
@@ -74,12 +74,11 @@ LogicalResult ONNXArgMinMaxOpShapeHelper<OP_TYPE>::computeShape() {
 
 LogicalResult ONNXArgMaxOp::verify() {
   ONNXArgMaxOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
-  int64_t rank = data().getType().cast<ShapedType>().getRank();
-  int64_t axisIndex = axis();
+  int64_t rank = getData().getType().cast<ShapedType>().getRank();
+  int64_t axisIndex = getAxis();
 
   // axis value must be in the range [-rank, rank-1].
   if (axisIndex < -rank || axisIndex >= rank)
@@ -92,7 +91,7 @@ LogicalResult ONNXArgMaxOp::verify() {
 
 LogicalResult ONNXArgMaxOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(data()))
+  if (!hasShapeAndRank(getData()))
     return success();
 
   // ONNX spec specifies the reduced type as an int64
@@ -107,12 +106,11 @@ LogicalResult ONNXArgMaxOp::inferShapes(
 
 LogicalResult ONNXArgMinOp::verify() {
   ONNXArgMinOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
-  int64_t rank = data().getType().cast<ShapedType>().getRank();
-  int64_t axisIndex = axis();
+  int64_t rank = getData().getType().cast<ShapedType>().getRank();
+  int64_t axisIndex = getAxis();
 
   // axis value must be in the range [-rank, rank-1].
   if (axisIndex < -rank || axisIndex >= rank)
@@ -125,7 +123,7 @@ LogicalResult ONNXArgMinOp::verify() {
 
 LogicalResult ONNXArgMinOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(data()))
+  if (!hasShapeAndRank(getData()))
     return success();
 
   // ONNX spec specifies the reduced type as an int64

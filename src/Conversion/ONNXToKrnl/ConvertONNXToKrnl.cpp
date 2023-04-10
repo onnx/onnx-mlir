@@ -4,7 +4,7 @@
 
 //====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering -------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -15,10 +15,13 @@
 
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
-#include "src/Compiler/CompilerOptions.hpp"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Builder/ModelInputShaper.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
 using namespace mlir;
 
@@ -51,10 +54,10 @@ public:
         rewriter.getI32IntegerAttr(entryPointFunc.getResultTypes().size());
     std::string sig =
         getSignature(entryPointFunc.getFunctionType(), entryPointOp);
-    StringAttr sigAtrr = rewriter.getStringAttr(sig);
+    StringAttr sigAttr = rewriter.getStringAttr(sig);
 
     rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(
-        op, funcRefAttr, numInputsAttr, numOutputsAttr, sigAtrr);
+        op, funcRefAttr, numInputsAttr, numOutputsAttr, sigAttr);
     return success();
   }
 
@@ -84,7 +87,10 @@ private:
           if (tensorTy.hasRank()) {
             int64_t rank = tensorTy.getRank();
             for (int j = 0; j < rank; j++) {
-              dstream << comma << tensorTy.getDimSize(j);
+              int64_t dimSize = tensorTy.getDimSize(j);
+              if (dimSize == ShapedType::kDynamic)
+                dimSize = ModelInputShaper::kUserDynamic;
+              dstream << comma << dimSize;
               comma = std::string(" , ");
             }
           } else {
@@ -166,13 +172,12 @@ std::map<std::string, std::string> ONNXEntryPointLowering::typeMap = {
     {std::string(" ui8 "), std::string(" \"ui8\" ")}};
 
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling,
-    bool enableParallel) {
+    TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
+    bool enableTiling, bool enableSIMD, bool enableParallel) {
+  // clang-format off
   // Type conversion for function signatures.
-  // Call MLIR FuncOp signature conversion when result type is
-  // a ranked tensor.
-  populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
-      patterns, typeConverter);
+  // Call MLIR FuncOp signature conversion when result type is a ranked tensor.
+  populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(patterns, typeConverter);
   populateCallOpTypeConversionPattern(patterns, typeConverter);
   populateReturnOpTypeConversionPattern(patterns, typeConverter);
 
@@ -182,16 +187,14 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXLoopOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
-  populateLoweringONNXClipOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
   populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXMatMulOpPattern(
-      patterns, typeConverter, ctx, enableTiling);
+  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, enableTiling);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
@@ -199,6 +202,9 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCategoryMapperOpPattern(patterns, typeConverter, ctx);
   // ObjectDetection
   populateLoweringONNXNonMaxSuppressionOpPattern(patterns, typeConverter, ctx);
+  // Quantization
+  populateLoweringONNXDynamicQuantizeLinearOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXQuantizeLinearOpPattern(patterns, typeConverter, ctx);
   // Tensor
   populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
@@ -214,8 +220,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXConcatShapeTransposeOpPattern(
-      patterns, typeConverter, ctx);
+  populateLoweringONNXConcatShapeTransposeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx);
@@ -238,10 +243,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
   populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx);
-
   // Neural network
-  populateLoweringONNXConvOpPattern(
-      patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
   // Recurrent neural network
@@ -256,6 +259,9 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXSequenceLengthOpPattern(patterns, typeConverter, ctx);
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(ctx);
+  // Additional
+  populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
+  // clang-format on
 }
 
 //===----------------------------------------------------------------------===//
@@ -280,17 +286,13 @@ struct FrontendToKrnlLoweringPass
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
   FrontendToKrnlLoweringPass(
-      bool emitDealloc, bool enableTiling, bool enableParallel) {
+      bool enableTiling, bool enableSIMD, bool enableParallel) {
     // Below, need explicit assignment to enable implicit conversion of bool to
     // Option<bool>.
-    this->emitDealloc = emitDealloc;
     this->enableTiling = enableTiling;
+    this->enableSIMD = enableSIMD;
     this->enableParallel = enableParallel;
   }
-  FrontendToKrnlLoweringPass(int optLevel, bool enableParallel)
-      : FrontendToKrnlLoweringPass(
-            /*emitDealloc=*/false, /*enableTiling=*/optLevel >= 3,
-            enableParallel) {}
 
   void runOnOperation() final;
 
@@ -310,21 +312,23 @@ public:
       llvm::cl::desc(
           "Emit intermediate IR rather than lowering to the krnl dialect."),
       llvm::cl::init(false)};
-  Option<bool> emitDealloc{*this, "emit-dealloc",
-      llvm::cl::desc("Emit dealloc for allocated memrefs or not."),
-      llvm::cl::init(false)};
   Option<bool> enableTiling{*this, "enable-tiling",
       llvm::cl::desc("Enable loop tiling and unrolling optimizations"),
       llvm::cl::init(false)};
+  Option<bool> enableSIMD{*this, "enable-simd",
+      llvm::cl::desc("Enable SIMD code gen"), llvm::cl::init(false)};
   Option<bool> enableParallel{*this, "enable-parallel",
       llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
 };
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
-
-  // Set up whether emitting dealloc for allocated memrefs or not.
-  ONNXToKrnl_gEmitDealloc = emitDealloc;
+  // Define vector machine.
+  VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
+  // Perform dim analysis (useful for SIMD but also to avoid broadcast
+  // expressions in index access patterns).
+  DimAnalysis *dimAnalysis = new DimAnalysis(module);
+  dimAnalysis->analyze();
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -334,7 +338,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // this lowering.
   target.addLegalDialect<KrnlDialect, AffineDialect, arith::ArithDialect,
       func::FuncDialect, linalg::LinalgDialect, math::MathDialect,
-      memref::MemRefDialect, shape::ShapeDialect, scf::SCFDialect>();
+      vector::VectorDialect, memref::MemRefDialect, shape::ShapeDialect,
+      scf::SCFDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
@@ -349,13 +354,19 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addIllegalOp<mlir::memref::LoadOp>();
   target.addIllegalOp<mlir::AffineLoadOp>();
   target.addIllegalOp<mlir::memref::StoreOp>();
-  target.addIllegalOp<mlir::AffineStoreOp>();
+  // Memref builder can use affine stores, it would be awkward for it to
+  // generate Krnl stores as mem builder is part of MLIR. Thus the affine
+  // stores should not be illegal here. Since affine loads are still illegal,
+  // the regular krnl lowering will most likely trigger errors if non krnl mem
+  // ops where generally used.
+  //
+  // target.addIllegalOp<mlir::AffineStoreOp>();
 
-  // If `emitDealloc` is turned off, make sure we don't have buffer deallocation
-  // at this level. Will use MLIR buffer-deallocation for this purpose instead.
-  // However, since the SequenceErase needs to emit memref dealloc, the previous
-  // the following statement is commented out (Chentong)
-  // if (!emitDealloc) target.addIllegalOp<mlir::memref::DeallocOp>();
+  // Option`emitDealloc` is deprecated and turned off, make sure we don't have
+  // buffer deallocation at this level. Will use MLIR buffer-deallocation for
+  // this purpose instead. However, since the SequenceErase needs to emit memref
+  // dealloc, the previous the following statement is commented out (Chentong)
+  target.addIllegalOp<mlir::memref::DeallocOp>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
@@ -405,8 +416,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   });
 
   // Define patterns.
-  populateONNXToKrnlConversionPattern(
-      patterns, krnlTypeConverter, &getContext(), enableTiling, enableParallel);
+  populateONNXToKrnlConversionPattern(patterns, krnlTypeConverter,
+      &getContext(), dimAnalysis, enableTiling, enableSIMD, enableParallel);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -418,20 +429,18 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
   }
+  VectorMachineSupport::clearGlobalVectorMachineSupport();
+  delete dimAnalysis;
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
 
-std::unique_ptr<Pass> createLowerToKrnlPass(int optLevel, bool enableParallel) {
-  return std::make_unique<FrontendToKrnlLoweringPass>(optLevel, enableParallel);
-}
-
 std::unique_ptr<Pass> createLowerToKrnlPass(
-    bool emitDealloc, bool enableTiling, bool enableParallel) {
+    bool enableTiling, bool enableSIMD, bool enableParallel) {
   return std::make_unique<FrontendToKrnlLoweringPass>(
-      emitDealloc, enableTiling, enableParallel);
+      enableTiling, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir

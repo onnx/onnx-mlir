@@ -4,7 +4,7 @@
 
 //===---------- Passes.hpp - ONNX-MLIR Passes Definition ------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,13 +14,22 @@
 
 #pragma once
 
+#include "llvm/ADT/StringRef.h"
+
 #include <memory>
+#include <string>
 
 namespace mlir {
+class MLIRContext;
 class Pass;
-}
+} // namespace mlir
 
 namespace onnx_mlir {
+
+class DisposablePool;
+
+/// Pass for removing DisposableElementsAttr attributes.
+std::unique_ptr<mlir::Pass> createScrubDisposablePass(bool closeAfter = true);
 
 /// Pass for ONNX graph level optimization
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
@@ -37,7 +46,7 @@ std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createShapeInferencePass(
     bool analyzeAllFunctions = false);
 
-std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
+std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass(bool report = false);
 
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();
@@ -49,9 +58,10 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 
 /// Pass for simplifying shape-related ONNX operations.
-std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
+    bool report = false);
 
-/// Pass for analysing unknown dimension in ONNX operations.
+/// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
 
 /// Pass for verifying Onnx ops before lowering to Krnl
@@ -60,9 +70,7 @@ std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
-    int optLevel, bool enableParallel);
-std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
-    bool emitDealloc, bool enableTiling, bool enableParallel);
+    bool enableTiling, bool enableSIMD, bool enableParallel);
 
 #ifdef ONNX_MLIR_ENABLE_MHLO
 /// Add pass for lowering to Mhlo IR.

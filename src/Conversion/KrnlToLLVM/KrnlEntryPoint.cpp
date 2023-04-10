@@ -4,7 +4,7 @@
 
 //===------ KrnlEntryPoint.cpp - Lower KrnlEntryPointOp -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,8 +19,8 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/Support/JSON.h"
+#include "llvm/TargetParser/Triple.h"
 
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
@@ -47,17 +47,24 @@ public:
   SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps;
   SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps;
   SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps;
+  std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes;
+  std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes;
   bool verifyInputTensors;
 
   KrnlEntryPointOpLowering(TypeConverter typeConverter, MLIRContext *ctx,
       ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
       SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
       SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors)
+      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+      std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+      std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
+      bool verifyInputTensors)
       : OpRewritePattern<KrnlEntryPointOp>(ctx),
         outputOMTensorOwnerships(outputOMTensorOwnerships),
         singleEntryPoint(singleEntryPoint), entryGlobalOps(entryGlobalOps),
         inSigGlobalOps(inSigGlobalOps), outSigGlobalOps(outSigGlobalOps),
+        inputMemRefTypes(inputMemRefTypes),
+        outputMemRefTypes(outputMemRefTypes),
         verifyInputTensors(verifyInputTensors) {}
 
   LogicalResult matchAndRewrite(
@@ -99,6 +106,15 @@ public:
     // signature-related functions later.
     recordEntryPointSignatures(module, dynEntryPointName, op, entryGlobalOps,
         inSigGlobalOps, outSigGlobalOps);
+
+    // When input and output MemRefs are lowered to LLVM Struct, there is
+    // no information about signed/unsigned integers anymore. In other words,
+    // integers are signless at the time of lowering this operation. To set data
+    // type for OMTensor correctly, we have to obtain element types from
+    // original MemRefTypes.
+    SmallVector<Type, 4> elemOutputTypes;
+    for (MemRefType ty : outputMemRefTypes[staticEntryPointFuncName.str()])
+      elemOutputTypes.emplace_back(ty.getElementType());
 
     // Start lowering the op.
     rewriter.eraseOp(op);
@@ -236,16 +252,9 @@ public:
 
     Value numOutput =
         create.llvm.constant(int64Ty, (int64_t)outMemRefList.size());
-
-    auto mallocSym = getOrInsertMalloc(rewriter, module);
-    // TODO(tjingrant): get pointer size from data layout.
-    size_t kPtrSize = 8;
-    Value outputOmtPtrsArraySizeInByte = create.llvm.constant(
-        int64Ty, (int64_t)(outMemRefList.size() * kPtrSize));
-    Value outOmtPtrsArr = create.llvm.call(
-        LLVM::LLVMPointerType::get(IntegerType::get(module.getContext(), 8)),
-        mallocSym, ArrayRef<Value>(outputOmtPtrsArraySizeInByte));
-    outOmtPtrsArr = create.llvm.bitcastI8PtrPtr(outOmtPtrsArr);
+    // Assume that OMTensor pointer size is 8
+    Value outOmtPtrsArr = create.llvm._alloca(
+        LLVM::LLVMPointerType::get(opaquePtrTy), numOutput, /*alignment=*/0);
 
     for (unsigned int i = 0; i < outMemRefList.size(); i++) {
       // Get the i-th memref returned, convert to a dynamic memref and store it
@@ -263,8 +272,8 @@ public:
       bool outOwning = outputOMTensorOwnerships[i];
       LLVM_DEBUG(llvm::dbgs() << "Output OMTensor " << i
                               << " with owning = " << outOwning << "\n");
-      krnl::fillOMTensorWithMemRef(
-          memRef, outOMTensor, outOwning, rewriter, loc, apiRegistry, module);
+      krnl::fillOMTensorWithMemRef(memRef, elemOutputTypes[i], outOMTensor,
+          outOwning, rewriter, loc, apiRegistry, module);
 
       Value idxVal = create.llvm.constant(int64Ty, (int64_t)i);
 
@@ -277,7 +286,7 @@ public:
 
     // Create wrapped output.
     Value wrappedOutput = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
+        RuntimeAPI::API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput});
 
     // Return wrapped output.
     create.llvm._return(wrappedOutput);
@@ -349,19 +358,6 @@ private:
     }
 
     create.llvm.store(memRef, ptrToMemRef);
-  }
-
-  FlatSymbolRefAttr getOrInsertMalloc(
-      PatternRewriter &rewriter, ModuleOp module) const {
-    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
-    // Insert the malloc/aligned_alloc declaration if it is not already present.
-    LLVMTypeConverter converter(rewriter.getContext());
-    SmallVector<Type, 2> callArgTypes = {converter.getIndexType()};
-    // aligned_alloc(size_t alignment, size_t size)
-    Type voidPtrType = LLVM::LLVMPointerType::get(
-        IntegerType::get(&converter.getContext(), 8));
-    return create.llvm.getOrInsertSymbolRef(
-        module, StringRef("malloc"), voidPtrType, callArgTypes);
   }
 
   FlatSymbolRefAttr getOrInsertOMInitAccel(
@@ -479,7 +475,7 @@ private:
         assert(JSONDimValue && "failed to get value");
         int64_t dim = JSONDimValue.value();
         // Verify.
-        if (ShapedType::isDynamic(dim)) {
+        if (ShapedType::isDynamic(dim) || dim == -1) {
           // In case that the reference dimension size is unknown, verify that
           // the actual dimension size is a non-negative value.
           create.llvm.ifThenElse(/*cond=*/
@@ -591,10 +587,16 @@ void populateLoweringKrnlEntryPointOpPattern(TypeConverter &typeConverter,
     ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &inputMemRefTypes,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &outputMemRefTypes,
+    bool verifyInputTensors) {
   patterns.insert<KrnlEntryPointOpLowering>(typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
+      inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
+      verifyInputTensors);
 }
 
 } // namespace krnl

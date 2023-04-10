@@ -4,7 +4,7 @@
 
 //===------------------ GatherND.cpp - ONNX Operations --------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,16 +27,16 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXGatherNDOpShapeHelper::computeShape() {
   ONNXGatherNDOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-  Value data = operandAdaptor.data();
-  Value indices = operandAdaptor.indices();
+  Value data = operandAdaptor.getData();
+  Value indices = operandAdaptor.getIndices();
   DimsExpr dataDims, indicesDims;
   createIE->getShapeAsDims(data, dataDims);
   createIE->getShapeAsDims(indices, indicesDims);
 
   int64_t dataRank = dataDims.size();
   int64_t indicesRank = indicesDims.size();
-  // int64_t b = op->batch_dims();
-  int64_t b = operandAdaptor.batch_dims();
+  // int64_t b = op->getBatchDims();
+  int64_t b = operandAdaptor.getBatchDims();
 
   assert(indices.getType().isa<ShapedType>() && "Expecting a shaped type");
   auto indicesType = indices.getType().cast<ShapedType>();
@@ -86,18 +86,17 @@ LogicalResult ONNXGatherNDOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGatherNDOp::verify() {
   ONNXGatherNDOpAdaptor operandAdaptor(*this);
-  if (llvm::any_of(operandAdaptor.getOperands(),
-          [](const Value &op) { return !hasShapeAndRank(op); }))
-    return success(); // Won't be able to do any checking at this stage.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
 
   // Get operands and attributes.
-  Value data = operandAdaptor.data();
-  Value indices = operandAdaptor.indices();
+  Value data = operandAdaptor.getData();
+  Value indices = operandAdaptor.getIndices();
   auto dataType = data.getType().cast<ShapedType>();
   auto indicesType = indices.getType().cast<ShapedType>();
   int64_t dataRank = dataType.getRank();
   int64_t indicesRank = indicesType.getRank();
-  int64_t b = batch_dims();
+  int64_t b = getBatchDims();
 
   // 'data' and 'indices' must have rank strictly greater than zero.
   if (dataRank < 1)
@@ -142,8 +141,7 @@ LogicalResult ONNXGatherNDOp::verify() {
 
   // All values in 'indices' are expected to satisfy the inequality:
   //   -data.shape[b + i] <= indices[...,i] <= (data.shape[b + i]-1)].
-  if (DenseElementsAttr valueAttribute =
-          getDenseElementAttributeFromONNXValue(indices)) {
+  if (ElementsAttr valueAttribute = getElementAttributeFromONNXValue(indices)) {
     int flatIndex = 0;
     for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
       int64_t indexValue = value.getInt();
@@ -171,8 +169,7 @@ LogicalResult ONNXGatherNDOp::verify() {
 LogicalResult ONNXGatherNDOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the shape of the output if the inputs shape is not yet known.
-  if (llvm::any_of(
-          this->getOperands(), [](Value op) { return !hasShapeAndRank(op); }))
+  if (!hasShapeAndRank(getOperation()))
     return success();
 
   // The output rank is given by:
@@ -180,12 +177,12 @@ LogicalResult ONNXGatherNDOp::inferShapes(
   // Therefore 'indices.shape[-1]' must be known in order to compute the output
   // shape.
   ArrayRef<int64_t> indicesShape =
-      indices().getType().cast<ShapedType>().getShape();
+      getIndices().getType().cast<ShapedType>().getShape();
   int64_t indicesRank = indicesShape.size();
-  if (indicesShape[indicesRank - 1] < 0)
-    return success(); // cannot infer the oputput shape yet.
+  if (indicesShape[indicesRank - 1] == ShapedType::kDynamic)
+    return success(); // cannot infer the output shape yet.
 
-  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = getData().getType().cast<ShapedType>().getElementType();
   ONNXGatherNDOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

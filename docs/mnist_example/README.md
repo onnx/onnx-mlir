@@ -1,15 +1,14 @@
-Table of Contents
-=================
+# Table of Contents
 
-   * [Train Model in PyTorch, Compile using ONNX-MLIR](#train-model-in-pytorch-compile-using-onnx-mlir)
-      * [Training the Model](#training-the-model)
-      * [Environment Variables Setup](#environment-variables-setup)
-      * [Compile Model](#compile-model)
-      * [Write a C Driver Code](#write-a-C-driver-code)
-         * [Inference Entry Point](#inference-entry-point)
-         * [Feeding Inputs and Retrieving Results](#feeding-inputs-and-retrieving-results)
-      * [Write a Python Driver Code](#write-a-Python-driver-code)
-      * [Write a Java Driver Code](#write-a-java-driver-code)
+- [Train Model in PyTorch, Compile using ONNX-MLIR](#train-model-in-pytorch-compile-using-onnx-mlir)
+  - [Training the Model](#training-the-model)
+  - [Environment Variables Setup](#environment-variables-setup)
+  - [Compile Model](#compile-model)
+  - [Write a C Driver Code](#write-a-C-driver-code)
+    - [Inference Entry Point](#inference-entry-point)
+    - [Feeding Inputs and Retrieving Results](#feeding-inputs-and-retrieving-results)
+  - [Write a Python Driver Code](#write-a-Python-driver-code)
+  - [Write a Java Driver Code](#write-a-java-driver-code)
 
 # Train Model in PyTorch, Compile using ONNX-MLIR
 
@@ -21,6 +20,7 @@ An already trained [mnist.onnx](mnist.onnx) model is provided for your convenien
 
 If you want to train the model yourself, make sure that dependent python packages specified in `requirements.txt` are installed.
 Run the training script using the following command:
+
 ```bash
 ./gen_mnist_onnx.py --epochs=1 --batch-size=128 --export-onnx --save-model
 ```
@@ -30,6 +30,7 @@ The flag `--export-onnx` will export the trained model to an ONNX protobuf objec
 The flag `--save-model` will save a snapshot of the trained model.
 
 The model is a simple neural network defined as such:
+
 ```python
 class Net(nn.Module):
     def __init__(self):
@@ -49,6 +50,7 @@ class Net(nn.Module):
 
 After training is complete, an onnx model named `mnist.onnx` should appear.
 If you are interested in knowing how to export a pytorch model, here's the relevant code snippet:
+
 ```python
   model = Net()
 #...
@@ -97,6 +99,7 @@ You may also simply execute `chmod +x update_env.sh` and `./update_env.sh` for t
 ## Compile Model
 
 To compile the model into a shared library that can be used with C/C++ and Python drivers, we invoke `onnx-mlir` with the `-EmitLib` option (it can be omitted since it's the default):
+
 ```bash
 onnx-mlir -O3 [-EmitLib] mnist.onnx
 ```
@@ -104,6 +107,7 @@ onnx-mlir -O3 [-EmitLib] mnist.onnx
 A `mnist.so` should appear, which corresponds to the compiled model object file. An example to compile the model via Python interface is also provided. You could also run `python3 mnist-compile.py` and you will see a `mnist.so` appears as well.
 
 To compile the model into a jar archive that can be used with Java drivers, we invoke `onnx-mlir` with the `-EmitJNI` option:
+
 ```bash
 onnx-mlir -O3 -EmitJNI mnist.onnx
 ```
@@ -125,7 +129,7 @@ A multi-threaded experiment from command line written in Python is provided.
 import datetime
 import os
 import threading
- 
+
 def execCmd(cmd):
     try:
         print("command " + cmd + " starts at " + str(datetime.datetime.now()))
@@ -133,14 +137,14 @@ def execCmd(cmd):
         print("command " + cmd + " is finished at " + str(datetime.datetime.now()))
     except:
         print("command " + cmd + " meets errors")
- 
+
 if __name__ == '__main__':
 
 #define 2 different commands
     cmds = ['onnx-mlir -O3 mnist.onnx -o mnist03','onnx-mlir -O1 mnist.onnx -o mnist01']
 
     threads = []
-    
+
     print("program starts at " + str(datetime.datetime.now()))
 
 #run the commands
@@ -160,13 +164,14 @@ You can execute `python3 multi-threading-test.py` under the current directory to
 
 ## Write a C Driver Code
 
- Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir), with the C interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
+Documentation of the APIs are found [here](https://onnx.ai/onnx-mlir), with the C interface for Tensor [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensor_h/_o_m_tensor_8h.html) and TensorList [here](https://onnx.ai/onnx-mlir/doxygen_html/OMTensorList_h/_o_m_tensor_list_8h.html).
 
 To invoke the compiled model, we need to know the entry point signature with which to call into the model inference function, and based on it, engineer a C++ driver that feeds test data into this inference function and retrieve the prediction results.
 
 ### Inference Entry Point
 
 The signature of the model inference function for all models is:
+
 ```cpp
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
 ```
@@ -191,12 +196,18 @@ static float img_data[] = {...};
 int main() {
   // Create an input tensor list of 1 tensor.
   int inputNum = 1;
-  OMTensor **inputTensors = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
+  OMTensor *inputTensors[inputNum];
   // The first input is of tensor<1x1x28x28xf32>.
   int64_t rank = 4;
   int64_t shape[] = {1, 1, 28, 28};
-  OMTensor *tensor = omTensorCreate(img_data, shape, rank, ONNX_TYPE_FLOAT);
-  // Create a tensor list.
+
+  // Create a tensor using omTensorCreateWithOwnership (returns a pointer to the OMTensor).
+  // When the parameter, owning is set to "true", the OMTensor will free the data
+  // pointer (img_data) upon destruction. If owning is set to false, the data pointer will
+  // not be freed upon destruction.
+  OMTensor *tensor = omTensorCreateWithOwnership(img_data, shape, rank, ONNX_TYPE_FLOAT, /*owning=*/true);
+
+  // Create a tensor list using omTensorListCreate (returns a pointer to the OMTensorList).
   inputTensors[0] = tensor;
   OMTensorList *tensorListIn = omTensorListCreate(inputTensors, inputNum);
 
@@ -217,6 +228,12 @@ int main() {
       prob = prediction[i];
     }
   }
+  // The OMTensorListDestroy will free all tensors in the OMTensorList
+  // upon destruction. It is important to note, that every tensor will
+  // be destroyed. To free the OMTensorList data structure but leave the
+  // tensors as is, use OMTensorListDestroyShallow instead.
+  omTensorListDestroy(tensorListOut);
+  omTensorListDestroy(tensorListIn);
 
   printf("The digit is %d\n", digit);
   return 0;
@@ -224,13 +241,14 @@ int main() {
 ```
 
 Now, putting everything together, we invoke g++ to compile and link together the driver code, C runtime API and the compiled model inference function:
+
 ```bash
 g++ --std=c++11 -O3 mnist.cpp ./mnist.so -o mnist -I $ONNX_MLIR_INCLUDE
 ```
 
 Now run it by calling `./mnist`! It outputs the following for the image in the test:
 
-``` shell
+```shell
 prediction[0] = 1.000000
 prediction[1] = 0.000000
 prediction[2] = 0.000000
@@ -252,14 +270,14 @@ You will find most of the details of the Python driver interface described [here
 
 First, we include the necessary Python runtime library. The library path can be set by using the PYTHONPATH or simply creating a soft link in the current directory to the Python shared library (typically: `build/Debug/lib/PyRuntime.cpython-<target>.so`).
 
-``` Python
+```Python
 import numpy as np
 from PyRuntime import OMExecutionSession
 ```
 
 The runtime use an `OMExecutionSession` object to hold a specific model and entry point. On this object, we can perform in inference using the `run(input)` call where `input` is a list of numpy arrays. The signature of the input and output model can be extracted using, respectively, the `input_signature()` and `output_signature()` formatted as JSON strings. The code is shown below.
 
-``` Python
+```Python
 #Load the model mnist.so compiled with onnx-mlir.
 model = 'mnist.so'
 session = OMExecutionSession(model)
@@ -274,14 +292,18 @@ input = np.full((1, 1, 28, 28), 1, np.dtype(np.float32))
 #are an vector of numpy arrays.
 outputs = session.run([input])
 ```
+
 The outputs can then be analyzed by inspecting the values inside the `output` list of numpy arrays.
 
 The full code is available [here](mnist.py). It finds that `0` is the most likely digit for the given input. The command is:
-``` shell
+
+```shell
 ./mnist.py
 ```
+
 and produces an output similar to the following (you may see slightly different prediction numbers if you train the model yourself):
-``` shell
+
+```shell
 input signature in json [    { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" }
 ]
 output signature in json [   { "type" : "f32" , "dims" : [1 , 10] , "name" : "prediction" }
@@ -349,16 +371,19 @@ public
 The full code is [here](Mnist.java).
 
 To compile the driver:
+
 ```
 javac -cp mnist.jar Mnist.java
 ```
 
 To run the driver:
+
 ```
 java -cp .:mnist.jar Mnist
 ```
 
 It should produce an output similar to the following:
+
 ```
 prediction[0] = 0.9999999
 prediction[1] = 6.470239E-17

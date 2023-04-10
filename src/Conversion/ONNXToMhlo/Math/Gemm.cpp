@@ -39,19 +39,21 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
       ONNXGemmOpAdaptor &operandAdaptor, Type elemType,
       ONNXGemmOpShapeHelper &shapeHelper, ConversionPatternRewriter &rewriter,
       Location loc) const {
-    float alphaLit = gemmOp.alpha().convertToFloat();
-    float betaLit = gemmOp.beta().convertToFloat();
-    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
+    float alphaLit = gemmOp.getAlpha().convertToFloat();
+    float betaLit = gemmOp.getBeta().convertToFloat();
+    Value A(operandAdaptor.getA()), B(operandAdaptor.getB()),
+        C(operandAdaptor.getC());
     Value transA = A;
     Value transB = B;
-    if (gemmOp.transA() == 1)
+    if (gemmOp.getTransA() == 1)
       transA = rewriter.create<mhlo::TransposeOp>(
           loc, A, rewriter.getI64VectorAttr({1, 0}));
-    if (gemmOp.transB() == 1)
+    if (gemmOp.getTransB() == 1)
       transB = rewriter.create<mhlo::TransposeOp>(
           loc, B, rewriter.getI64VectorAttr({1, 0}));
     ShapedType resultType = gemmOp.getType().dyn_cast_or_null<ShapedType>();
-    Value dot = rewriter.create<mhlo::DotOp>(loc, transA, transB, nullptr);
+    Value dot = rewriter.create<mhlo::DotOp>(
+        loc, gemmOp.getType(), transA, transB, nullptr);
     bool hasBias = shapeHelper.hasBias;
 
     // alpha * dot
@@ -111,7 +113,7 @@ struct ONNXGemmOpLoweringToMhlo : public ConversionPattern {
           broadcastedC = C;
         if (!closeTo(betaLit, 1.0f)) {
           Value betaVal = rewriter.create<mhlo::ConstantOp>(
-              loc, rewriter.getFloatAttr(elemType, gemmOp.beta()));
+              loc, rewriter.getFloatAttr(elemType, gemmOp.getBeta()));
           Value broadcastedBeta =
               rewriter.create<mhlo::DynamicBroadcastInDimOp>(loc, resultType,
                   betaVal, shape, rewriter.getI64TensorAttr({}));

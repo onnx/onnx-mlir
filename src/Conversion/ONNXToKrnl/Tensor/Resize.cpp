@@ -4,7 +4,7 @@
 
 //===---------------- Resize.cpp - Lowering Resize Op ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,22 +19,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXResizeOpLowering : public ConversionPattern {
+struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
   ONNXResizeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXResizeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXResizeOp resizeOp,
+      ONNXResizeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    Location loc = op->getLoc();
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-    ONNXResizeOp resizeOp = llvm::cast<ONNXResizeOp>(op);
-    ONNXResizeOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.X();
-    Value scales = operandAdaptor.scales();
-    Value sizes = operandAdaptor.sizes();
+    Operation *op = resizeOp.getOperation();
+    Location loc = ONNXLoc<ONNXResizeOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    Value data = adaptor.getX();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -44,99 +40,32 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     int64_t rank = memRefType.getShape().size();
 
     // Check implementation constraints
-    if (resizeOp.mode() == "nearest" &&
-        (resizeOp.coordinate_transformation_mode() != "asymmetric" &&
-            resizeOp.coordinate_transformation_mode() != "half_pixel"))
+    if (resizeOp.getMode() == "nearest" &&
+        (resizeOp.getCoordinateTransformationMode() != "asymmetric" &&
+            resizeOp.getCoordinateTransformationMode() != "half_pixel"))
       return emitError(loc, "not implemented yet");
 
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
-    SmallVector<Value, 4> scaleValues;
-    bool fromScale = !isFromNone(resizeOp.scales());
-    IndexExprScope outerloopContex(&rewriter, loc);
-    DimsExpr outputDims(rank);
-    if (fromScale) {
-      // Get the scales
-      // SymbolIndexExpr was tried but got runtime error
-      // Attribute::cast() const [with U = mlir::IntegerAttr]
-      // The reason seems to be that IntegerAttr is assumed
-      //
-      DenseElementsAttr scalesAttrs =
-          getDenseElementAttributeFromONNXValue(resizeOp.scales());
-      SmallVector<float, 4> scalesConstant;
-      if (scalesAttrs) {
-        for (auto scaleAttr : scalesAttrs.getValues<FloatAttr>()) {
-          Value scaleConstant = create.math.constant(
-              rewriter.getF32Type(), scaleAttr.getValueAsDouble());
-          scaleValues.emplace_back(scaleConstant);
-        }
-      } else {
-        for (decltype(rank) i = 0; i < rank; i++) {
-          Value indexValue = create.math.constantIndex(i);
-          Value scaleVal = create.krnl.load(scales, indexValue);
-          scaleValues.emplace_back(scaleVal);
-        }
-      }
-    } else {
-      for (decltype(rank) i = 0; i < rank; i++) {
-        Value indexValue = create.math.constantIndex(i);
-        Value resizedVal = create.krnl.load(sizes, indexValue);
-        Value resizedFVal = rewriter.create<arith::SIToFPOp>(
-            loc, rewriter.getF32Type(), resizedVal);
-        Value inputDim = create.krnlIE.getShapeAsDim(data, i).getValue();
-        Value inputDimFloat = create.math.cast(rewriter.getF32Type(), inputDim);
-        Value scaleVal = create.math.div(resizedFVal, inputDimFloat);
-        scaleValues.emplace_back(scaleVal);
-      }
-    }
 
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else if (fromScale) {
-      for (decltype(rank) i = 0; i < rank; i++) {
-        if (!memRefType.isDynamicDim(i)) {
-          outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
-        } else {
-          Value inputDim = create.krnlIE.getShapeAsDim(data, i).getValue();
-          Value inputDimFloat =
-              create.math.cast(rewriter.getF32Type(), inputDim);
-          Value outputDimFloat = create.math.mul(inputDimFloat, scaleValues[i]);
-          Value outDim = create.math.castToIndex(outputDimFloat);
-          SymbolIndexExpr outDimIE(outDim);
-          outputDims[i] = SymbolIndexExpr(outDimIE);
-        }
-      }
-      alloc = insertAllocAndDeallocSimple(
-          rewriter, op, memRefType, loc, outputDims, insertDealloc);
-    } else {
-      // Output is determined by sizes()
-      for (decltype(rank) i = 0; i < rank; i++) {
-        if (!memRefType.isDynamicDim(i)) {
-          outputDims[i] = LiteralIndexExpr(memRefType.getShape()[i]);
-        } else {
-          Value indexValue = create.math.constantIndex(i);
-          Value resizedVal = create.krnl.load(sizes, indexValue);
-          Value outDim = create.math.castToIndex(resizedVal);
-          SymbolIndexExpr outDimIE(outDim);
-          outputDims[i] = SymbolIndexExpr(outDimIE);
-        }
-      }
-      alloc = insertAllocAndDeallocSimple(
-          rewriter, op, memRefType, loc, outputDims, insertDealloc);
-    }
+    // Shape helper: compute output dims and scales.
+    ONNXResizeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
     // Call external function when the mode is not "nearest"
     // Create KrnlCallOp and replace the du chain
-    // One of inputs, scales() and size(), has to be None.
+    // One of inputs, getScales() and size(), has to be None.
     // For now, None input is picked out by KrnlCall builder,
     // and different function will be called accordingly.
     // Another issue is the attributes with default value.
     // Currently, it is assumed that all the optional attributes have
-    // the default value and does appear in the Attribute dictionry.
+    // the default value and does appear in the Attribute dictionary.
     // ToFix: Handle attributes for general case
-    if (resizeOp.mode() != "nearest") {
-      if (!isFromNone(resizeOp.scales())) {
+    if (resizeOp.getMode() != "nearest") {
+      if (!isNoneValue(resizeOp.getScales())) {
         rewriter.create<KrnlCallOp>(
             loc, "Resize_Scales", alloc, op, operands, true);
       } else {
@@ -147,6 +76,9 @@ struct ONNXResizeOpLowering : public ConversionPattern {
       return success();
     }
     // It is much more efficient to generate codes directly if possible
+
+    SmallVector<Value, 4> scaleValues;
+    IndexExpr::getValues(shapeHelper.scales, scaleValues);
 
     // Constants used in the loop body
     Value zero = create.math.constant(rewriter.getIntegerType(64), 0);
@@ -170,9 +102,9 @@ struct ONNXResizeOpLowering : public ConversionPattern {
                 create.math.cast(rewriter.getF32Type(), outIndexInteger);
 
             // Handle coordinate transformation
-            if (resizeOp.coordinate_transformation_mode() == "asymmetric") {
+            if (resizeOp.getCoordinateTransformationMode() == "asymmetric") {
               inIndexFloat = create.math.div(outIndexFloat, scaleValues[i]);
-            } else if (resizeOp.coordinate_transformation_mode() ==
+            } else if (resizeOp.getCoordinateTransformationMode() ==
                        "half_pixel") {
               // If coordinate_transformation_mode is "half_pixel",
               // x_original = (x_resized + 0.5) / scale - 0.5,
@@ -185,23 +117,23 @@ struct ONNXResizeOpLowering : public ConversionPattern {
             }
 
             // Handle nearest_mode
-            if (resizeOp.nearest_mode() == "round_prefer_floor") {
+            if (resizeOp.getNearestMode() == "round_prefer_floor") {
               // round_prefer_floor will round 2.5 to 2, not 3
               Value deltaConstant =
                   create.math.constant(rewriter.getF32Type(), 0.499999);
               inIndexFloat = create.math.add(inIndexFloat, deltaConstant);
-            } else if (resizeOp.nearest_mode() == "round_prefer_ceil") {
+            } else if (resizeOp.getNearestMode() == "round_prefer_ceil") {
               Value deltaConstant =
                   create.math.constant(rewriter.getF32Type(), 0.5);
               inIndexFloat = create.math.add(inIndexFloat, deltaConstant);
-            } else if (resizeOp.nearest_mode() == "floor") {
+            } else if (resizeOp.getNearestMode() == "floor") {
               // Not supported by create.math
               inIndexFloat = rewriter.create<math::FloorOp>(loc, inIndexFloat);
-            } else if (resizeOp.nearest_mode() == "ceil") {
+            } else if (resizeOp.getNearestMode() == "ceil") {
               // Not supported by create.math
               inIndexFloat = rewriter.create<math::CeilOp>(loc, inIndexFloat);
             } else {
-              llvm_unreachable("Unexpected nearest_mode() for ResizeOp");
+              llvm_unreachable("Unexpected getNearestMode() for ResizeOp");
             }
 
             // FPToSIOp is round-to-zero, same as floor for positive

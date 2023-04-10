@@ -24,23 +24,44 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-template <>
 LogicalResult ONNXResizeOpShapeHelper::computeShape() {
   ONNXResizeOpAdaptor operandAdaptor(operands);
-  Value input = operandAdaptor.X();
-  uint64_t rank = createIE->getShapedTypeRank(input);
-  DimsExpr outputDims;
+  uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.getX());
+  DimsExpr inputDims, outputDims;
+  createIE->getShapeAsDims(operandAdaptor.getX(), inputDims);
+  bool scalesFromNone = isNoneValue(operandAdaptor.getScales());
 
-  bool scalesFromNone = isFromNone(operandAdaptor.scales());
   if (!scalesFromNone) {
-    createIE->getShapeAsDims(input, outputDims);
-    DimsExpr scales;
-    createIE->getIntFromArrayAsSymbols(operandAdaptor.scales(), scales);
-    for (uint64_t i = 0; i < rank; ++i)
-      outputDims[i] = outputDims[i] * scales[i];
+    // Read and save scales as float.
+    createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getScales(), scales);
+    if (inputDims.size() != scales.size())
+      return op->emitError("expected scales to have the same rank as input");
+    // Compute output dims = int(floor(float(input dims) * scales)).
+    for (uint64_t i = 0; i < rank; ++i) {
+      // Special case for scale == 1.0 as converts are then needed.
+      if (scales[i].isLiteralAndIdenticalTo(1.0)) {
+        outputDims.emplace_back(inputDims[i]);
+      } else {
+        IndexExpr floatInputDim = inputDims[i].convertToFloat();
+        IndexExpr floatProduct = floatInputDim * scales[i];
+        // Formula has a floor, but convert of positive number already rounds
+        // toward zero, so skip the floor.
+        outputDims.emplace_back(floatProduct.convertToIndex());
+      }
+    }
   } else {
-    createIE->getIntFromArrayAsSymbols(operandAdaptor.sizes(), outputDims);
+    // Output size is defined by input `sizes`.
+    createIE->getIntFromArrayAsSymbols(operandAdaptor.getSizes(), outputDims);
+    if (inputDims.size() != outputDims.size())
+      return op->emitError("expected scales to have the same rank as input");
+    // Compute scales as float(output dims) / float(input dims).
+    for (uint64_t i = 0; i < rank; ++i) {
+      IndexExpr floatInputDim = inputDims[i].convertToFloat();
+      IndexExpr floatOutputDim = outputDims[i].convertToFloat();
+      scales.emplace_back(floatOutputDim / floatInputDim);
+    }
   }
+  // Save output dims
   setOutputDims(outputDims);
   return success();
 }
@@ -52,18 +73,19 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXResizeOp::verify() {
-  if (!X().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(getX())) {
     return success();
   }
 
-  bool scalesFromNone = isFromNone(scales());
-  bool sizesFromNone = isFromNone(sizes());
+  bool scalesFromNone = isNoneValue(getScales());
+  bool sizesFromNone = isNoneValue(getSizes());
   if (scalesFromNone == sizesFromNone) {
     if (scalesFromNone)
       return emitError("scales() and sizes() can not be both None");
     else
-      return emitError("scales() and sizes() can not be both defined");
+      return emitError("scales() and getSizes() can not be both defined");
   }
+  // Should test the sizes of scales or size to be the same as the rank of X.
   return success();
 }
 
@@ -73,18 +95,10 @@ LogicalResult ONNXResizeOp::verify() {
 
 LogicalResult ONNXResizeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!X().getType().isa<RankedTensorType>()) {
+  if (!hasShapeAndRank(getX()))
     return success();
-  }
-  Type elementType = X().getType().cast<RankedTensorType>().getElementType();
+
+  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
   ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
-
-//===----------------------------------------------------------------------===//
-// Template instantiation
-//===----------------------------------------------------------------------===//
-
-namespace onnx_mlir {
-template struct ONNXNonSpecificOpShapeHelper<ONNXResizeOp>;
-} // namespace onnx_mlir

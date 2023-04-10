@@ -49,17 +49,18 @@ public:
         getOrInsertRandomNormal(rewriter, parentModule, inType);
 
     // First operand.
-    Type outputType = operandAdaptor.output()
+    Type outputType = operandAdaptor.getOutput()
                           .getType()
                           .cast<LLVM::LLVMStructType>()
                           .getBody()[1];
     Value alignedOutput =
-        create.llvm.extractValue(outputType, operandAdaptor.output(), {1});
+        create.llvm.extractValue(outputType, operandAdaptor.getOutput(), {1});
 
     // Memcpy call
     create.llvm.call({}, randomNormalFuncRef,
-        {alignedOutput, operandAdaptor.numberOfValues(), operandAdaptor.mean(),
-            operandAdaptor.scale(), operandAdaptor.seed()});
+        {alignedOutput, operandAdaptor.getNumberOfValues(),
+            operandAdaptor.getMean(), operandAdaptor.getScale(),
+            operandAdaptor.getSeed()});
 
     rewriter.eraseOp(op);
     return success();

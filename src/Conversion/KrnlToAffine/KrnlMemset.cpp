@@ -36,10 +36,10 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     // Get info from operands.
     auto memsetOp = cast<KrnlMemsetOp>(op);
-    bool delayed = memsetOp.delayed();
+    bool delayed = memsetOp.getDelayed();
     KrnlMemsetOpAdaptor operandAdaptor(memsetOp);
-    Value destMemRef(operandAdaptor.dest());
-    Value destVal(operandAdaptor.value());
+    Value destMemRef(operandAdaptor.getDest());
+    Value destVal(operandAdaptor.getValue());
     Location loc = memsetOp.getLoc();
 
     // If delayed but the input memref has not normalized yet, do nothing.

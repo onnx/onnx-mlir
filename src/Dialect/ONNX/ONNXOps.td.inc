@@ -5,7 +5,7 @@
 //********************************************************
 
 def ONNXAbsOp:ONNX_Op<"Abs",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Abs operation";
   let description = [{
   Absolute takes one input data (Tensor<T>) and produces one output data
@@ -35,10 +35,18 @@ def ONNXAbsOp:ONNX_Op<"Abs",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAbsOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXAcosOp:ONNX_Op<"Acos",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Acos operation";
   let description = [{
   Calculates the arccosine (inverse of cosine) of the given input tensor, element-wise.
@@ -56,10 +64,18 @@ def ONNXAcosOp:ONNX_Op<"Acos",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAcosOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXAcoshOp:ONNX_Op<"Acosh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Acosh operation";
   let description = [{
   Calculates the hyperbolic arccosine of the given input tensor element-wise.
@@ -77,10 +93,18 @@ def ONNXAcoshOp:ONNX_Op<"Acosh",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAcoshOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXAddOp:ONNX_Op<"Add",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Add operation";
   let description = [{
@@ -124,11 +148,19 @@ def ONNXAddOp:ONNX_Op<"Add",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAddOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
 def ONNXAndOp:ONNX_Op<"And",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX And operation";
   let description = [{
   Returns the tensor resulted from performing the `and` logical operation
@@ -167,14 +199,22 @@ def ONNXAndOp:ONNX_Op<"And",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {0};
+        return {9};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAndOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
       }
     }];
     let hasVerifier = 1;
 }
 
 def ONNXArgMaxOp:ONNX_Op<"ArgMax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ArgMax operation";
   let description = [{
   Computes the indices of the max elements of the input tensor's element along the
@@ -198,14 +238,22 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {4};
+      return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXArgMaxOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
 }
 
 def ONNXArgMinOp:ONNX_Op<"ArgMin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ArgMin operation";
   let description = [{
   Computes the indices of the min elements of the input tensor's element along the
@@ -229,14 +277,22 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {4};
+      return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXArgMinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
 }
 
 def ONNXAsinOp:ONNX_Op<"Asin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Asin operation";
   let description = [{
   Calculates the arcsine (inverse of sine) of the given input tensor, element-wise.
@@ -254,10 +310,18 @@ def ONNXAsinOp:ONNX_Op<"Asin",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAsinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXAsinhOp:ONNX_Op<"Asinh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Asinh operation";
   let description = [{
   Calculates the hyperbolic arcsine of the given input tensor element-wise.
@@ -275,10 +339,18 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAsinhOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXAtanOp:ONNX_Op<"Atan",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Atan operation";
   let description = [{
   Calculates the arctangent (inverse of tangent) of the given input tensor, element-wise.
@@ -296,10 +368,18 @@ def ONNXAtanOp:ONNX_Op<"Atan",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAtanOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXAtanhOp:ONNX_Op<"Atanh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Atanh operation";
   let description = [{
   Calculates the hyperbolic arctangent of the given input tensor element-wise.
@@ -317,10 +397,18 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAtanhOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX AveragePool operation";
   let description = [{
   AveragePool consumes an input tensor X and applies average pooling across
@@ -372,11 +460,19 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAveragePoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BatchNormalization operation";
   let description = [{
   Carries out batch normalization as described in the paper
@@ -443,10 +539,18 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
       return {20,23,23};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBatchNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Bernoulli operation";
   let description = [{
   Draws binary random numbers (0 or 1) from a Bernoulli distribution. The input tensor should be a tensor
@@ -471,10 +575,18 @@ def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBernoulliOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXBitShiftOp:ONNX_Op<"BitShift",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BitShift operation";
   let description = [{
   Bitwise shift operator performs element-wise operation. For each input element, if the
@@ -505,11 +617,19 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBitShiftOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXBitwiseAndOp:ONNX_Op<"BitwiseAnd",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BitwiseAnd operation";
   let description = [{
   Returns the tensor resulting from performing the bitwise `and` operation
@@ -531,11 +651,19 @@ def ONNXBitwiseAndOp:ONNX_Op<"BitwiseAnd",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBitwiseAndOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXBitwiseNotOp:ONNX_Op<"BitwiseNot",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BitwiseNot operation";
   let description = [{
   Returns the bitwise not of the input tensor element-wise.
@@ -553,10 +681,18 @@ def ONNXBitwiseNotOp:ONNX_Op<"BitwiseNot",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBitwiseNotOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXBitwiseOrOp:ONNX_Op<"BitwiseOr",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BitwiseOr operation";
   let description = [{
   Returns the tensor resulting from performing the bitwise `or` operation
@@ -578,11 +714,19 @@ def ONNXBitwiseOrOp:ONNX_Op<"BitwiseOr",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBitwiseOrOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXBitwiseXorOp:ONNX_Op<"BitwiseXor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BitwiseXor operation";
   let description = [{
   Returns the tensor resulting from performing the bitwise `xor` operation
@@ -604,11 +748,19 @@ def ONNXBitwiseXorOp:ONNX_Op<"BitwiseXor",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBitwiseXorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXBlackmanWindowOp:ONNX_Op<"BlackmanWindow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BlackmanWindow operation";
   let description = [{
   Generates a Blackman window as described in the paper https://ieeexplore.ieee.org/document/1455106.
@@ -628,10 +780,18 @@ def ONNXBlackmanWindowOp:ONNX_Op<"BlackmanWindow",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBlackmanWindowOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCastOp:ONNX_Op<"Cast",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Cast operation";
   let description = [{
@@ -686,8 +846,16 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      resultTypes.push_back(mlir::UnrankedTensorType::get(to()));
+      resultTypes.push_back(mlir::UnrankedTensorType::get(getTo()));
       return resultTypes;
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCastOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
    let builders = [
@@ -699,7 +867,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
 }
 
 def ONNXCastLikeOp:ONNX_Op<"CastLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX CastLike operation";
   let description = [{
   The operator casts the elements of a given input tensor (the first input) to
@@ -720,10 +888,18 @@ def ONNXCastLikeOp:ONNX_Op<"CastLike",
       return {21};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCastLikeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCeilOp:ONNX_Op<"Ceil",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Ceil operation";
   let description = [{
   Ceil takes one input data (Tensor<T>) and produces one output data
@@ -743,10 +919,18 @@ def ONNXCeilOp:ONNX_Op<"Ceil",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCeilOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCeluOp:ONNX_Op<"Celu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Celu operation";
   let description = [{
   Continuously Differentiable Exponential Linear Units:
@@ -768,13 +952,21 @@ def ONNXCeluOp:ONNX_Op<"Celu",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {7};
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCeluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXCenterCropPadOp:ONNX_Op<"CenterCropPad",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX CenterCropPad operation";
   let description = [{
   Center crop or pad an input to given dimensions.
@@ -801,10 +993,18 @@ def ONNXCenterCropPadOp:ONNX_Op<"CenterCropPad",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCenterCropPadOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXClipOp:ONNX_Op<"Clip",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -826,10 +1026,18 @@ def ONNXClipOp:ONNX_Op<"Clip",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXClipOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXClipV12Op:ONNX_Op<"ClipV12",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -851,10 +1059,18 @@ def ONNXClipV12Op:ONNX_Op<"ClipV12",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXClipV12OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXClipV11Op:ONNX_Op<"ClipV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -876,10 +1092,18 @@ def ONNXClipV11Op:ONNX_Op<"ClipV11",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXClipV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXClipV6Op:ONNX_Op<"ClipV6",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -901,10 +1125,18 @@ def ONNXClipV6Op:ONNX_Op<"ClipV6",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXClipV6OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCol2ImOp:ONNX_Op<"Col2Im",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Col2Im operation";
   let description = [{
   The operator rearranges column blocks back into a multidimensional image
@@ -936,10 +1168,18 @@ def ONNXCol2ImOp:ONNX_Op<"Col2Im",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCol2ImOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCompressOp:ONNX_Op<"Compress",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Compress operation";
   let description = [{
   Selects slices from an input tensor along a given axis where condition evaluates to True for each axis index.
@@ -962,11 +1202,19 @@ def ONNXCompressOp:ONNX_Op<"Compress",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCompressOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXConcatOp:ONNX_Op<"Concat",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Concat operation";
   let description = [{
   Concatenate a list of tensors into a single tensor. All input tensors must have the same shape, except for the dimension size of the axis to concatenate on.
@@ -985,11 +1233,19 @@ def ONNXConcatOp:ONNX_Op<"Concat",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConcatOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ConcatFromSequence operation";
   let description = [{
   Concatenate a sequence of tensors into a single tensor.
@@ -1012,11 +1268,19 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConcatFromSequenceOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [Pure, ConstantLike, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let hasCustomAssemblyFormat = 1;
   let hasCanonicalizer = 1;
   let summary = "ONNX Constant operation";
@@ -1045,12 +1309,20 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      if (auto attr = valueAttr()) {
+      if (auto attr = getValueAttr()) {
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
-      } else if (auto attr = sparse_valueAttr()) {
+      } else if (auto attr = getSparseValueAttr()) {
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
       }
       return resultTypes;
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConstantOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let builders = [
@@ -1066,10 +1338,12 @@ def ONNXConstantOp:ONNX_Op<"Constant",
    }
   }]>
   ];
+  let hasFolder = 1;
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  let hasCustomAssemblyFormat = 1;
   let summary = "ONNX ConstantOfShape operation";
   let description = [{
   Generate a tensor with given value and shape.
@@ -1089,7 +1363,7 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      if (auto attr = valueAttr()) {
+      if (auto attr = getValueAttr()) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
           attr.cast<TypedAttr>().getType().cast<ShapedType>().getElementType()));
       } else {
@@ -1099,11 +1373,19 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
       return resultTypes;
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConstantOfShapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXConvOp:ONNX_Op<"Conv",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Conv operation";
   let description = [{
   The convolution operator consumes an input tensor and a filter, and
@@ -1119,22 +1401,40 @@ def ONNXConvOp:ONNX_Op<"Conv",
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 3;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
-  let hasVerifier = 1;
+  let builders = [
+    OpBuilder<(ins "Value":$X, "Value":$W, "Value":$B, "StringAttr":$auto_pad, "ArrayAttr":$dilations, "IntegerAttr":$group, "ArrayAttr":$kernel_shape, "ArrayAttr":$pads, "ArrayAttr":$strides), [{
+      auto resultType = UnrankedTensorType::get(X.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, X, W, B, auto_pad, dilations, group, kernel_shape, pads, strides);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 3;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConvOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+    let hasVerifier = 1;
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ConvInteger operation";
   let description = [{
   The integer convolution operator consumes an input tensor, its zero-point, a filter, and its zero-point,
@@ -1159,13 +1459,21 @@ def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {3};
+      return {6};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConvIntegerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ConvTranspose operation";
   let description = [{
   The convolution transpose operator consumes an input tensor and a filter,
@@ -1206,10 +1514,19 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConvTransposeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
 }
 
 def ONNXCosOp:ONNX_Op<"Cos",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Cos operation";
   let description = [{
   Calculates the cosine of the given input tensor, element-wise.
@@ -1227,10 +1544,18 @@ def ONNXCosOp:ONNX_Op<"Cos",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCosOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCoshOp:ONNX_Op<"Cosh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Cosh operation";
   let description = [{
   Calculates the hyperbolic cosine of the given input tensor element-wise.
@@ -1248,10 +1573,18 @@ def ONNXCoshOp:ONNX_Op<"Cosh",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCoshOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCumSumOp:ONNX_Op<"CumSum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX CumSum operation";
   let description = [{
   Performs cumulative sum of the input elements along the given axis.
@@ -1291,10 +1624,18 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCumSumOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXDFTOp:ONNX_Op<"DFT",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX DFT operation";
   let description = [{
   Computes the discrete Fourier transform of input.
@@ -1316,10 +1657,18 @@ def ONNXDFTOp:ONNX_Op<"DFT",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDFTOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX DepthToSpace operation";
   let description = [{
@@ -1366,11 +1715,19 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDepthToSpaceOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX DequantizeLinear operation";
   let description = [{
   The linear dequantization operator. It consumes a quantized tensor, a scale, and a zero point to compute the full precision tensor.
@@ -1392,14 +1749,22 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {7};
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDequantizeLinearOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
 }
 
 def ONNXDetOp:ONNX_Op<"Det",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Det operation";
   let description = [{
   Det calculates determinant of a square matrix or batches of square matrices.
@@ -1421,10 +1786,18 @@ def ONNXDetOp:ONNX_Op<"Det",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDetOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXDivOp:ONNX_Op<"Div",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Div operation";
   let description = [{
   Performs element-wise binary division (with Numpy-style broadcasting support).
@@ -1467,11 +1840,19 @@ def ONNXDivOp:ONNX_Op<"Div",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDivOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Dropout operation";
   let description = [{
@@ -1502,13 +1883,21 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {20,0};
+      return {20,9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDropoutOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX DynamicQuantizeLinear operation";
   let description = [{
   A Function to fuse calculation for Scale, Zero Point and FP32->8Bit convertion of FP32 Input data.
@@ -1546,13 +1935,21 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
       return 3;
     }
     static std::vector<int> getTypeMap() {
-      return {1,7,1};
+      return {2,1,2};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDynamicQuantizeLinearOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXEinsumOp:ONNX_Op<"Einsum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Einsum operation";
   let description = [{
   An einsum of the form ```term1, term2 -> output-term``` produces an output tensor using the following equation
@@ -1593,11 +1990,19 @@ def ONNXEinsumOp:ONNX_Op<"Einsum",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXEinsumOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXEluOp:ONNX_Op<"Elu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Elu operation";
   let description = [{
   Elu takes one input data (Tensor<T>) and produces one output data
@@ -1619,10 +2024,18 @@ def ONNXEluOp:ONNX_Op<"Elu",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXEluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXEqualOp:ONNX_Op<"Equal",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Equal operation";
   let description = [{
   Returns the tensor resulted from performing the `equal` logical operation
@@ -1663,14 +2076,22 @@ def ONNXEqualOp:ONNX_Op<"Equal",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {0};
+        return {9};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXEqualOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
       }
     }];
     let hasVerifier = 1;
 }
 
 def ONNXErfOp:ONNX_Op<"Erf",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Erf operation";
   let description = [{
   Computes the error function of the given input tensor element-wise.
@@ -1688,10 +2109,18 @@ def ONNXErfOp:ONNX_Op<"Erf",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXErfOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXExpOp:ONNX_Op<"Exp",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Exp operation";
   let description = [{
   Calculates the exponential of the given input tensor, element-wise.
@@ -1719,10 +2148,18 @@ def ONNXExpOp:ONNX_Op<"Exp",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXExpOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXExpandOp:ONNX_Op<"Expand",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Expand operation";
   let description = [{
   Broadcast the input tensor following the given shape and the broadcast rule.
@@ -1748,11 +2185,19 @@ def ONNXExpandOp:ONNX_Op<"Expand",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXExpandOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX EyeLike operation";
   let description = [{
   Generate a 2D tensor (matrix) with ones on the diagonal and zeros everywhere else. Only 2D
@@ -1778,10 +2223,18 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXEyeLikeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXFlattenOp:ONNX_Op<"Flatten",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Flatten operation";
   let description = [{
   Flattens the input tensor into a 2D matrix. If input tensor has shape
@@ -1802,11 +2255,19 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXFlattenOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXFloorOp:ONNX_Op<"Floor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Floor operation";
   let description = [{
   Floor takes one input data (Tensor<T>) and produces one output data
@@ -1826,10 +2287,18 @@ def ONNXFloorOp:ONNX_Op<"Floor",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXFloorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXGRUOp:ONNX_Op<"GRU",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX GRU operation";
   let description = [{
@@ -1934,10 +2403,18 @@ def ONNXGRUOp:ONNX_Op<"GRU",
       return {20,20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGRUOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXGatherOp:ONNX_Op<"Gather",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Gather operation";
   let description = [{
   Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather
@@ -2011,11 +2488,19 @@ def ONNXGatherOp:ONNX_Op<"Gather",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGatherOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GatherElements operation";
   let description = [{
   GatherElements takes two inputs `data` and `indices` of the same rank r >= 1
@@ -2085,11 +2570,19 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGatherElementsOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXGatherNDOp:ONNX_Op<"GatherND",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GatherND operation";
   let description = [{
   Given `data` tensor of rank `r` >= 1, `indices` tensor of rank `q` >= 1, and `batch_dims` integer `b`, this operator gathers
@@ -2199,11 +2692,19 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGatherNDOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Gemm operation";
   let description = [{
   General Matrix multiplication:
@@ -2239,10 +2740,18 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGemmOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX GlobalAveragePool operation";
   let description = [{
@@ -2263,10 +2772,18 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGlobalAveragePoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GlobalLpPool operation";
   let description = [{
   GlobalLpPool consumes an input tensor X and applies lp pool pooling across
@@ -2287,10 +2804,18 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGlobalLpPoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX GlobalMaxPool operation";
   let description = [{
@@ -2311,10 +2836,18 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGlobalMaxPoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXGreaterOp:ONNX_Op<"Greater",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Greater operation";
   let description = [{
   Returns the tensor resulted from performing the `greater` logical operation
@@ -2355,14 +2888,22 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {0};
+        return {9};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGreaterOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
       }
     }];
     let hasVerifier = 1;
 }
 
 def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GreaterOrEqual operation";
   let description = [{
   Returns the tensor resulted from performing the `greater_equal` logical operation
@@ -2381,14 +2922,22 @@ def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {0};
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGreaterOrEqualOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
 }
 
 def ONNXGridSampleOp:ONNX_Op<"GridSample",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GridSample operation";
   let description = [{
   Given an input `X` and a flow-field `grid`, computes the output `Y` using `X` values and pixel locations from `grid`.
@@ -2422,10 +2971,18 @@ def ONNXGridSampleOp:ONNX_Op<"GridSample",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGridSampleOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GroupNormalization operation";
   let description = [{
   A GroupNormalization function. Carries out group normalization as described in 
@@ -2461,10 +3018,18 @@ def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGroupNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX HammingWindow operation";
   let description = [{
   Generates a Hamming window as described in the paper https://ieeexplore.ieee.org/document/1455106.
@@ -2484,10 +3049,18 @@ def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXHammingWindowOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXHannWindowOp:ONNX_Op<"HannWindow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX HannWindow operation";
   let description = [{
   Generates a Hann window as described in the paper https://ieeexplore.ieee.org/document/1455106.
@@ -2507,10 +3080,18 @@ def ONNXHannWindowOp:ONNX_Op<"HannWindow",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXHannWindowOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX HardSigmoid operation";
   let description = [{
   HardSigmoid takes one input data (Tensor<T>) and produces one output data
@@ -2532,10 +3113,18 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXHardSigmoidOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXHardSwishOp:ONNX_Op<"HardSwish",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX HardSwish operation";
   let description = [{
   HardSwish takes one input data (Tensor<T>) and produces one output data (Tensor<T>) where
@@ -2555,10 +3144,18 @@ def ONNXHardSwishOp:ONNX_Op<"HardSwish",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXHardSwishOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXHardmaxOp:ONNX_Op<"Hardmax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Hardmax operation";
   let description = [{
   The operator computes the hardmax values for the given input:
@@ -2583,11 +3180,19 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXHardmaxOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXIdentityOp:ONNX_Op<"Identity",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Identity operation";
   let description = [{
@@ -2616,10 +3221,18 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXIdentityOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXIfOp:ONNX_Op<"If",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX If operation";
   let description = [{
   If conditional
@@ -2644,11 +3257,19 @@ def ONNXIfOp:ONNX_Op<"If",
     llvm_unreachable("region with the specified name does not exist");
   }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXIfOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX InstanceNormalization operation";
   let description = [{
   Carries out instance normalization as described in the paper
@@ -2674,11 +3295,19 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXInstanceNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXIsInfOp:ONNX_Op<"IsInf",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX IsInf operation";
   let description = [{
   Map infinity to true and other values to false.
@@ -2695,13 +3324,21 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {0};
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXIsInfOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXIsNaNOp:ONNX_Op<"IsNaN",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX IsNaN operation";
   let description = [{
   Returns which elements of the input are NaN.
@@ -2716,13 +3353,21 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {0};
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXIsNaNOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXLRNOp:ONNX_Op<"LRN",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LRN operation";
   let description = [{
   Local Response Normalization proposed in the [AlexNet paper](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf).
@@ -2753,10 +3398,18 @@ def ONNXLRNOp:ONNX_Op<"LRN",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLRNOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLSTMOp:ONNX_Op<"LSTM",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX LSTM operation";
   let description = [{
@@ -2872,10 +3525,18 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
       return {20,20,20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLSTMOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LayerNormalization operation";
   let description = [{
   This is layer normalization defined in ONNX as function.
@@ -2935,13 +3596,21 @@ def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
       return 3;
     }
     static std::vector<int> getTypeMap() {
-      return {20,-1,-1};
+      return {20,1,1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLayerNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LeakyRelu operation";
   let description = [{
   LeakyRelu takes input data (Tensor<T>) and an argument alpha, and produces one
@@ -2965,10 +3634,18 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLeakyReluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLessOp:ONNX_Op<"Less",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Less operation";
   let description = [{
@@ -3010,14 +3687,22 @@ def ONNXLessOp:ONNX_Op<"Less",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {0};
+        return {9};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLessOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
       }
     }];
     let hasVerifier = 1;
 }
 
 def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LessOrEqual operation";
   let description = [{
   Returns the tensor resulted from performing the `less_equal` logical operation
@@ -3036,14 +3721,22 @@ def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {0};
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLessOrEqualOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
 }
 
 def ONNXLogOp:ONNX_Op<"Log",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Log operation";
   let description = [{
   Calculates the natural log of the given input tensor, element-wise.
@@ -3061,10 +3754,18 @@ def ONNXLogOp:ONNX_Op<"Log",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLogOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LogSoftmax operation";
   let description = [{
   The operator computes the log of softmax values for the given input:
@@ -3089,11 +3790,19 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLogSoftmaxOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Loop operation";
   let description = [{
@@ -3256,10 +3965,18 @@ def ONNXLoopOp:ONNX_Op<"Loop",
     llvm_unreachable("region with the specified name does not exist");
   }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLoopOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LpNormalization operation";
   let description = [{
   Given a matrix, apply Lp-normalization along the provided axis.
@@ -3279,20 +3996,52 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLpNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLpPoolOp:ONNX_Op<"LpPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LpPool operation";
   let description = [{
   LpPool consumes an input tensor X and applies Lp pooling across
    the tensor according to kernel sizes, stride sizes, and pad lengths.
    Lp pooling consisting of computing the Lp norm on all values of a subset
    of the input tensor according to the kernel size and downsampling the
-   data into the output tensor Y for further processing.
+   data into the output tensor Y for further processing. The output spatial shape will be following:
+   ```
+   output_spatial_shape[i] = floor((input_spatial_shape[i] + pad_shape[i] - {kernelSpatialShape}) / strides_spatial_shape[i] + 1)
+   ```
+   or
+   ```
+   output_spatial_shape[i] = ceil((input_spatial_shape[i] + pad_shape[i] - {kernelSpatialShape}) / strides_spatial_shape[i] + 1)
+   ```
+   if ceil_mode is enabled
+  
+   ```
+   * pad_shape[i] is sum of pads along axis i
+   ```
+  
+   `auto_pad` is a DEPRECATED attribute. If you are using them currently, the output spatial shape will be following:
+   ```
+   VALID: output_spatial_shape[i] = ceil((input_spatial_shape[i] - {kernelSpatialShape} + 1) / strides_spatial_shape[i])
+   SAME_UPPER or SAME_LOWER: output_spatial_shape[i] = ceil(input_spatial_shape[i] / strides_spatial_shape[i])
+   ```
+   And pad shape will be following if `SAME_UPPER` or `SAME_LOWER`:
+   ```
+   pad_shape[i] = (output_spatial_shape[i] - 1) * strides_spatial_shape[i] + {kernelSpatialShape} - input_spatial_shape[i]
+   ```
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
+    DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
+    OptionalAttr<I64ArrayAttr>:$dilations,
     I64ArrayAttr:$kernel_shape,
     DefaultValuedAttr<SI64Attr, "2">:$p,
     OptionalAttr<I64ArrayAttr>:$pads,
@@ -3309,10 +4058,18 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLpPoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMatMulOp:ONNX_Op<"MatMul",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MatMul operation";
   let description = [{
   Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html
@@ -3331,10 +4088,18 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMatMulOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MatMulInteger operation";
   let description = [{
   Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html.
@@ -3353,13 +4118,21 @@ def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {3};
+      return {6};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMatMulIntegerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXMaxOp:ONNX_Op<"Max",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Max operation";
   let description = [{
   Element-wise max of each of the input tensors (with Numpy-style broadcasting support).
@@ -3379,11 +4152,19 @@ def ONNXMaxOp:ONNX_Op<"Max",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMaxOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MaxPool operation";
   let description = [{
   MaxPool consumes an input tensor X and applies max pooling across
@@ -3434,13 +4215,21 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {20,4};
+      return {20,7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMaxPoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MaxRoiPool operation";
   let description = [{
   ROI max pool consumes an input tensor X and region of interests (RoIs) to
@@ -3463,10 +4252,18 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMaxRoiPoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MaxUnpool operation";
   let description = [{
   MaxUnpool essentially computes the partial inverse of the MaxPool op.
@@ -3506,10 +4303,18 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMaxUnpoolOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMeanOp:ONNX_Op<"Mean",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Mean operation";
   let description = [{
   Element-wise mean of each of the input tensors (with Numpy-style broadcasting support).
@@ -3529,11 +4334,19 @@ def ONNXMeanOp:ONNX_Op<"Mean",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMeanOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MeanVarianceNormalization operation";
   let description = [{
   A MeanVarianceNormalization Function: Perform mean variance normalization
@@ -3553,10 +4366,18 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMeanVarianceNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMelWeightMatrixOp:ONNX_Op<"MelWeightMatrix",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MelWeightMatrix operation";
   let description = [{
   Generate a MelWeightMatrix that can be used to re-weight a Tensor containing a linearly sampled frequency spectra (from DFT or STFT) into num_mel_bins frequency information based on the [lower_edge_hertz, upper_edge_hertz] range on the mel scale.
@@ -3586,10 +4407,18 @@ def ONNXMelWeightMatrixOp:ONNX_Op<"MelWeightMatrix",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMelWeightMatrixOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMinOp:ONNX_Op<"Min",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Min operation";
   let description = [{
   Element-wise min of each of the input tensors (with Numpy-style broadcasting support).
@@ -3609,11 +4438,19 @@ def ONNXMinOp:ONNX_Op<"Min",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXMishOp:ONNX_Op<"Mish",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Mish operation";
   let description = [{
   Mish: A Self Regularized Non-Monotonic Neural Activation Function.
@@ -3637,10 +4474,18 @@ def ONNXMishOp:ONNX_Op<"Mish",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMishOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXModOp:ONNX_Op<"Mod",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Mod operation";
   let description = [{
   Performs element-wise binary modulus (with Numpy-style broadcasting support).
@@ -3672,11 +4517,19 @@ def ONNXModOp:ONNX_Op<"Mod",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXModOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXMulOp:ONNX_Op<"Mul",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Mul operation";
   let description = [{
@@ -3720,11 +4573,19 @@ def ONNXMulOp:ONNX_Op<"Mul",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMulOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
 def ONNXMultinomialOp:ONNX_Op<"Multinomial",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Multinomial operation";
   let description = [{
   Generate a tensor of samples from a multinomial distribution according to the probabilities
@@ -3746,10 +4607,18 @@ def ONNXMultinomialOp:ONNX_Op<"Multinomial",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMultinomialOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXNegOp:ONNX_Op<"Neg",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Neg operation";
   let description = [{
   Neg takes one input data (Tensor<T>) and produces one output data
@@ -3779,10 +4648,18 @@ def ONNXNegOp:ONNX_Op<"Neg",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNegOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXNegativeLogLikelihoodLossOp:ONNX_Op<"NegativeLogLikelihoodLoss",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX NegativeLogLikelihoodLoss operation";
   let description = [{
   A NegativeLogLikelihoodLoss operator computes (weighted) negative log likelihood loss.
@@ -3889,10 +4766,18 @@ def ONNXNegativeLogLikelihoodLossOp:ONNX_Op<"NegativeLogLikelihoodLoss",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNegativeLogLikelihoodLossOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX NonMaxSuppression operation";
   let description = [{
   Filter out boxes that have high intersection-over-union (IOU) overlap with previously selected boxes.
@@ -3918,14 +4803,22 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {4};
+      return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNonMaxSuppressionOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
 }
 
 def ONNXNonZeroOp:ONNX_Op<"NonZero",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX NonZero operation";
   let description = [{
   Returns the indices of the elements that are non-zero
@@ -3944,13 +4837,21 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {4};
+      return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNonZeroOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXNotOp:ONNX_Op<"Not",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Not operation";
   let description = [{
   Returns the negation of the input tensor element-wise.
@@ -3965,13 +4866,21 @@ def ONNXNotOp:ONNX_Op<"Not",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {0};
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNotOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXOneHotOp:ONNX_Op<"OneHot",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX OneHot operation";
   let description = [{
   Produces a one-hot tensor based on inputs.
@@ -4010,11 +4919,19 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
       return {22};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOneHotOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXOptionalOp:ONNX_Op<"Optional",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Optional operation";
   let description = [{
   Constructs an optional-type value containing either an empty optional of a certain type specified by the attribute,
@@ -4034,11 +4951,19 @@ def ONNXOptionalOp:ONNX_Op<"Optional",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOptionalOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXOptionalGetElementOp:ONNX_Op<"OptionalGetElement",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX OptionalGetElement operation";
   let description = [{
   If the input is a tensor or sequence type, it returns the input.
@@ -4058,11 +4983,19 @@ def ONNXOptionalGetElementOp:ONNX_Op<"OptionalGetElement",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOptionalGetElementOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX OptionalHasElement operation";
   let description = [{
   Returns true if (1) the input is an optional-type and contains an element,
@@ -4079,14 +5012,22 @@ def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {0};
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOptionalHasElementOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
 }
 
 def ONNXOrOp:ONNX_Op<"Or",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Or operation";
   let description = [{
   Returns the tensor resulted from performing the `or` logical operation
@@ -4125,14 +5066,22 @@ def ONNXOrOp:ONNX_Op<"Or",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {0};
+        return {9};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOrOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
       }
     }];
     let hasVerifier = 1;
 }
 
 def ONNXPReluOp:ONNX_Op<"PRelu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX PRelu operation";
   let description = [{
   PRelu takes input data (Tensor<T>) and slope tensor as input, and produces one
@@ -4157,11 +5106,19 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPReluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXPadOp:ONNX_Op<"Pad",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Pad operation";
   let description = [{
   Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
@@ -4266,11 +5223,19 @@ def ONNXPadOp:ONNX_Op<"Pad",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPadOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
 def ONNXPadV11Op:ONNX_Op<"PadV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Pad operation";
   let description = [{
   Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
@@ -4365,10 +5330,18 @@ def ONNXPadV11Op:ONNX_Op<"PadV11",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPadV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXPadV2Op:ONNX_Op<"PadV2",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Pad operation";
   let description = [{
   Given `data` tensor, pads, mode, and value.
@@ -4404,10 +5377,18 @@ def ONNXPadV2Op:ONNX_Op<"PadV2",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPadV2OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXPowOp:ONNX_Op<"Pow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Pow operation";
   let description = [{
   Pow takes input data (Tensor<T>) and exponent Tensor, and
@@ -4449,11 +5430,19 @@ def ONNXPowOp:ONNX_Op<"Pow",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPowOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
 def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX QLinearConv operation";
   let description = [{
   The convolution operator consumes a quantized input tensor, its scale and zero point,
@@ -4488,13 +5477,21 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {1};
+      return {27};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXQLinearConvOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX QLinearMatMul operation";
   let description = [{
   Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html.
@@ -4526,13 +5523,21 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {1};
+      return {27};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXQLinearMatMulOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX QuantizeLinear operation";
   let description = [{
   The linear quantization operator. It consumes a high precision tensor, a scale, and a zero point to compute the low precision / quantized tensor.
@@ -4554,13 +5559,21 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {1};
+      return {22};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXQuantizeLinearOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXRNNOp:ONNX_Op<"RNN",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX RNN operation";
   let description = [{
@@ -4652,10 +5665,18 @@ def ONNXRNNOp:ONNX_Op<"RNN",
       return {20,20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRNNOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX RandomNormal operation";
   let description = [{
   Generate a tensor with random values drawn from a normal distribution. The shape
@@ -4684,14 +5705,14 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      if (auto attr = dtypeAttr()) {
-      if (dtype() == 0) {
+      if (auto attr = getDtypeAttr()) {
+      if (getDtype() == 0) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
             FloatType::getF16(getContext())));
-      } else if (dtype() == 1) {
+      } else if (getDtype() == 1) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
             FloatType::getF32(getContext())));
-      } else if (dtype() == 2) {
+      } else if (getDtype() == 2) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
             FloatType::getF64(getContext())));
       } else {
@@ -4704,10 +5725,18 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
       return resultTypes;
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRandomNormalOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RandomNormalLike operation";
   let description = [{
   Generate a tensor with random values drawn from a normal distribution.
@@ -4735,11 +5764,19 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRandomNormalLikeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RandomUniform operation";
   let description = [{
   Generate a tensor with random values drawn from a uniform distribution. The shape
@@ -4766,10 +5803,18 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRandomUniformOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RandomUniformLike operation";
   let description = [{
   Generate a tensor with random values drawn from a uniform distribution.
@@ -4797,10 +5842,18 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRandomUniformLikeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXRangeOp:ONNX_Op<"Range",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Range operation";
   let description = [{
   Generate a tensor containing a sequence of numbers that begin at `start` and extends by increments of `delta`
@@ -4844,11 +5897,19 @@ def ONNXRangeOp:ONNX_Op<"Range",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRangeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Reciprocal operation";
   let description = [{
   Reciprocal takes one input data (Tensor<T>) and produces one output data
@@ -4868,10 +5929,55 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReciprocalOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceL1 operation";
+  let description = [{
+  Computes the L1 norm of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceL1OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceL1V13Op:ONNX_Op<"ReduceL1V13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceL1 operation";
   let description = [{
   Computes the L1 norm of the input tensor's element along the provided axes. The resulting
@@ -4896,10 +6002,55 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceL1V13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceL2 operation";
+  let description = [{
+  Computes the L2 norm of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceL2OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceL2V13Op:ONNX_Op<"ReduceL2V13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceL2 operation";
   let description = [{
   Computes the L2 norm of the input tensor's element along the provided axes. The resulting
@@ -4924,10 +6075,65 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceL2V13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceLogSum operation";
+  let description = [{
+  Computes the log sum of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let builders = [
+    OpBuilder<(ins "Value":$data, "Value":$axes, "IntegerAttr":$keepdims, "IntegerAttr":$noop_with_empty_axes), [{
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes, keepdims, noop_with_empty_axes);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+}
+
+def ONNXReduceLogSumV13Op:ONNX_Op<"ReduceLogSumV13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceLogSum operation";
   let description = [{
   Computes the log sum of the input tensor's element along the provided axes. The resulting
@@ -4941,31 +6147,66 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
-  let builders = [
-    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
-      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
-      build($_builder, $_state, resultType, data, axes, keepdims);
-    }]>,
-    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
-      build($_builder, $_state, {resultType}, operands, attributes);
-    }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumV13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceLogSumExp operation";
+  let description = [{
+  Computes the log sum exponent of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumExpOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceLogSumExpV13Op:ONNX_Op<"ReduceLogSumExpV13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceLogSumExp operation";
   let description = [{
   Computes the log sum exponent of the input tensor's element along the provided axes. The resulting
@@ -4990,10 +6231,65 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumExpV13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceMax operation";
+  let description = [{
+  Computes the max of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$reduced);
+  let builders = [
+    OpBuilder<(ins "Value":$data, "Value":$axes, "IntegerAttr":$keepdims, "IntegerAttr":$noop_with_empty_axes), [{
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes, keepdims, noop_with_empty_axes);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+}
+
+def ONNXReduceMaxV13Op:ONNX_Op<"ReduceMaxV13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMax operation";
   let description = [{
   Computes the max of the input tensor's element along the provided axes. The resulting
@@ -5028,10 +6324,55 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxV13OpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceMean operation";
+  let description = [{
+  Computes the mean of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMeanOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceMeanV13Op:ONNX_Op<"ReduceMeanV13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMean operation";
   let description = [{
   Computes the mean of the input tensor's element along the provided axes. The resulting
@@ -5056,10 +6397,55 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMeanV13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceMin operation";
+  let description = [{
+  Computes the min of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceMinV13Op:ONNX_Op<"ReduceMinV13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMin operation";
   let description = [{
   Computes the min of the input tensor's element along the provided axes. The resulting
@@ -5084,10 +6470,55 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMinV13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceProd operation";
+  let description = [{
+  Computes the product of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceProdOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceProdV13Op:ONNX_Op<"ReduceProdV13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceProd operation";
   let description = [{
   Computes the product of the input tensor's element along the provided axes. The resulting
@@ -5112,10 +6543,18 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceProdV13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceSum operation";
   let description = [{
   Computes the sum of the input tensor's element along the provided axes. The resulting
@@ -5151,10 +6590,18 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceSum operation";
   let description = [{
   Computes the sum of the input tensor's element along the provided axes. The resulting
@@ -5189,10 +6636,65 @@ def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumV11OpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceSumSquare operation";
+  let description = [{
+  Computes the sum square of the input tensor's element along the provided axes. The resulting
+  tensor has the same rank as the input if keepdims equals 1. If keepdims equals 0, then
+  the resulting tensor has the reduced dimension pruned.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+  False instead of True.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
+  let builders = [
+    OpBuilder<(ins "Value":$data, "Value":$axes, "IntegerAttr":$keepdims, "IntegerAttr":$noop_with_empty_axes), [{
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes, keepdims, noop_with_empty_axes);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumSquareOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+}
+
+def ONNXReduceSumSquareV13Op:ONNX_Op<"ReduceSumSquareV13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceSumSquare operation";
   let description = [{
   Computes the sum square of the input tensor's element along the provided axes. The resulting
@@ -5206,31 +6708,29 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
-  let builders = [
-    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
-      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
-      build($_builder, $_state, resultType, data, axes, keepdims);
-    }]>,
-    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
-      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
-      build($_builder, $_state, {resultType}, operands, attributes);
-    }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumSquareV13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReluOp:ONNX_Op<"Relu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Relu operation";
   let description = [{
   Relu takes one input data (Tensor<T>) and produces one output data
@@ -5250,10 +6750,18 @@ def ONNXReluOp:ONNX_Op<"Relu",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReshapeOp:ONNX_Op<"Reshape",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Reshape operation";
   let description = [{
@@ -5286,10 +6794,18 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReshapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXResizeOp:ONNX_Op<"Resize",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
@@ -5318,11 +6834,19 @@ def ONNXResizeOp:ONNX_Op<"Resize",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXResizeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXResizeV11Op:ONNX_Op<"ResizeV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
@@ -5351,10 +6875,18 @@ def ONNXResizeV11Op:ONNX_Op<"ResizeV11",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXResizeV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXResizeV10Op:ONNX_Op<"ResizeV10",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor.
@@ -5376,10 +6908,18 @@ def ONNXResizeV10Op:ONNX_Op<"ResizeV10",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXResizeV10OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReverseSequence operation";
   let description = [{
   Reverse batch of sequences having different lengths specified by `sequence_lens`.
@@ -5432,11 +6972,19 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReverseSequenceOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RoiAlign operation";
   let description = [{
   Region of Interest (RoI) align operation described in the
@@ -5472,11 +7020,19 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRoiAlignOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Round operation";
   let description = [{
   Round takes one input Tensor and rounds the values, element-wise, meaning
@@ -5506,10 +7062,18 @@ def ONNXRoundOp:ONNX_Op<"Round",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRoundOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSTFTOp:ONNX_Op<"STFT",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX STFT operation";
   let description = [{
   Computes the Short-time Fourier Transform of the signal.
@@ -5531,10 +7095,18 @@ def ONNXSTFTOp:ONNX_Op<"STFT",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSTFTOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXScanOp:ONNX_Op<"Scan",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX Scan operation";
   let description = [{
   Scan can be used to iterate over one or more scan_input tensors,
@@ -5678,7 +7250,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
       return {20};
     }
 
-    mlir::Operation::operand_range v_initial();
+    mlir::Operation::operand_range getVInitial();
     mlir::Operation::result_range v_final();
     mlir::Operation::operand_range scan_inputs();
     mlir::Operation::result_range scan_outputs();
@@ -5687,10 +7259,18 @@ def ONNXScanOp:ONNX_Op<"Scan",
     llvm_unreachable("region with the specified name does not exist");
   }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXScanOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXScatterOp:ONNX_Op<"Scatter",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Scatter operation";
   let description = [{
   This operator is deprecated. Please use ScatterElements, which provides the same functionality.
@@ -5763,10 +7343,18 @@ def ONNXScatterOp:ONNX_Op<"Scatter",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXScatterOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ScatterElements operation";
   let description = [{
   ScatterElements takes three inputs `data`, `updates`, and `indices` of the same
@@ -5850,11 +7438,19 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXScatterElementsOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXScatterNDOp:ONNX_Op<"ScatterND",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ScatterND operation";
   let description = [{
   ScatterND takes three inputs `data` tensor of rank r >= 1, `indices` tensor of rank q >= 1,
@@ -5945,11 +7541,19 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXScatterNDOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXSeluOp:ONNX_Op<"Selu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Selu operation";
   let description = [{
   Selu takes one input data (Tensor<T>) and produces one output data
@@ -5972,10 +7576,18 @@ def ONNXSeluOp:ONNX_Op<"Selu",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSeluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceAt operation";
   let description = [{
   Outputs a tensor copy from the tensor at 'position' in 'input_sequence'.
@@ -5996,10 +7608,18 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceAtOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceConstruct operation";
   let description = [{
   Construct a tensor sequence containing 'inputs' tensors.
@@ -6018,10 +7638,18 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceConstructOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceEmpty operation";
   let description = [{
   Construct an empty tensor sequence, with given data type.
@@ -6039,11 +7667,19 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceEmptyOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceErase operation";
   let description = [{
   Outputs a tensor sequence that removes the tensor at 'position' from 'input_sequence'.
@@ -6065,10 +7701,18 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceEraseOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceInsert operation";
   let description = [{
   Outputs a tensor sequence that inserts 'tensor' into 'input_sequence' at 'position'.
@@ -6092,11 +7736,19 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceInsertOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceLength operation";
   let description = [{
   Produces a scalar(tensor of empty shape) containing the number of tensors in 'input_sequence'.
@@ -6111,13 +7763,21 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {4};
+      return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceLengthOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX SequenceMap operation";
   let description = [{
   Applies a sub-graph to each sample in the input sequence(s).
@@ -6154,10 +7814,18 @@ def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
     llvm_unreachable("region with the specified name does not exist");
   }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSequenceMapOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXShapeOp:ONNX_Op<"Shape",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Shape operation";
   let description = [{
@@ -6203,14 +7871,22 @@ def ONNXShapeOp:ONNX_Op<"Shape",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {4};
+      return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXShapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
 }
 
 def ONNXShrinkOp:ONNX_Op<"Shrink",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Shrink operation";
   let description = [{
   Shrink takes one input data (Tensor<numeric>) and produces one Tensor output,
@@ -6233,10 +7909,18 @@ def ONNXShrinkOp:ONNX_Op<"Shrink",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXShrinkOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sigmoid operation";
   let description = [{
   Sigmoid takes one input data (Tensor<T>) and produces one output data
@@ -6256,10 +7940,18 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSigmoidOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSignOp:ONNX_Op<"Sign",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sign operation";
   let description = [{
   Calculate the sign of the given input tensor element-wise.
@@ -6278,10 +7970,18 @@ def ONNXSignOp:ONNX_Op<"Sign",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSignOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSinOp:ONNX_Op<"Sin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sin operation";
   let description = [{
   Calculates the sine of the given input tensor, element-wise.
@@ -6299,10 +7999,18 @@ def ONNXSinOp:ONNX_Op<"Sin",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSinhOp:ONNX_Op<"Sinh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sinh operation";
   let description = [{
   Calculates the hyperbolic sine of the given input tensor element-wise.
@@ -6320,10 +8028,18 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSinhOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSizeOp:ONNX_Op<"Size",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Size operation";
   let description = [{
@@ -6339,13 +8055,21 @@ def ONNXSizeOp:ONNX_Op<"Size",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {4};
+      return {7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSizeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXSliceOp:ONNX_Op<"Slice",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Slice operation";
   let description = [{
   Produces a slice of the input tensor along multiple axes. Similar to numpy:
@@ -6421,10 +8145,18 @@ def ONNXSliceOp:ONNX_Op<"Slice",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSliceOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSoftmaxOp:ONNX_Op<"Softmax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Softmax operation";
   let description = [{
   The operator computes the normalized exponential values for the given input:
@@ -6459,10 +8191,18 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftmaxOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Softmax operation";
   let description = [{
@@ -6495,10 +8235,18 @@ def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftmaxV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSoftmaxCrossEntropyLossOp:ONNX_Op<"SoftmaxCrossEntropyLoss",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SoftmaxCrossEntropyLoss operation";
   let description = [{
   Loss function that measures the softmax cross entropy
@@ -6551,10 +8299,18 @@ def ONNXSoftmaxCrossEntropyLossOp:ONNX_Op<"SoftmaxCrossEntropyLoss",
       return {20,20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftmaxCrossEntropyLossOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Softplus operation";
   let description = [{
   Softplus takes one input data (Tensor<T>) and produces one output data
@@ -6574,10 +8330,18 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftplusOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSoftsignOp:ONNX_Op<"Softsign",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Softsign operation";
   let description = [{
   Calculates the softsign (x/(1+|x|)) of the given input tensor element-wise.
@@ -6595,10 +8359,18 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftsignOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX SpaceToDepth operation";
   let description = [{
@@ -6620,11 +8392,19 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSpaceToDepthOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXSplitOp:ONNX_Op<"Split",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Split operation";
   let description = [{
   Split a tensor into a list of tensors, along the specified
@@ -6656,11 +8436,19 @@ def ONNXSplitOp:ONNX_Op<"Split",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSplitOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
 def ONNXSplitV11Op:ONNX_Op<"SplitV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Split operation";
   let description = [{
   Split a tensor into a list of tensors, along the specified
@@ -6682,10 +8470,18 @@ def ONNXSplitV11Op:ONNX_Op<"SplitV11",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSplitV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SplitToSequence operation";
   let description = [{
   Split a tensor into a sequence of tensors, along the specified
@@ -6715,11 +8511,19 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSplitToSequenceOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXSqrtOp:ONNX_Op<"Sqrt",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sqrt operation";
   let description = [{
   Square root takes one input data (Tensor<T>) and produces one output data
@@ -6749,10 +8553,18 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqrtOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Squeeze operation";
   let description = [{
@@ -6764,21 +8576,40 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
     AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$squeezed);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 2;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<(ins "Value":$data, "Value":$axes), [{
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqueezeOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+    let hasFolder = 1;
 }
 
 def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Squeeze operation";
   let description = [{
@@ -6811,10 +8642,19 @@ def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqueezeV11OpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+    let hasFolder = 1;
 }
 
 def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX StringNormalizer operation";
   let description = [{
   StringNormalization performs string operations for basic cleaning.
@@ -6841,13 +8681,21 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {11};
+      return {8};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXStringNormalizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXSubOp:ONNX_Op<"Sub",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sub operation";
   let description = [{
   Performs element-wise binary subtraction (with Numpy-style broadcasting support).
@@ -6890,11 +8738,19 @@ def ONNXSubOp:ONNX_Op<"Sub",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSubOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
     let hasVerifier = 1;
 }
 
 def ONNXSumOp:ONNX_Op<"Sum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sum operation";
   let description = [{
   Element-wise sum of each of the input tensors (with Numpy-style broadcasting support).
@@ -6914,11 +8770,19 @@ def ONNXSumOp:ONNX_Op<"Sum",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSumOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXTanOp:ONNX_Op<"Tan",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Tan operation";
   let description = [{
   Calculates the tangent of the given input tensor, element-wise.
@@ -6936,10 +8800,18 @@ def ONNXTanOp:ONNX_Op<"Tan",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTanOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXTanhOp:ONNX_Op<"Tanh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Tanh operation";
   let description = [{
   Calculates the hyperbolic tangent of the given input tensor element-wise.
@@ -6957,10 +8829,18 @@ def ONNXTanhOp:ONNX_Op<"Tanh",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTanhOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TfIdfVectorizer operation";
   let description = [{
   This transform extracts n-grams from the input sequence and save them as a vector. Input can
@@ -7010,13 +8890,21 @@ def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {7};
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTfIdfVectorizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ThresholdedRelu operation";
   let description = [{
   ThresholdedRelu takes one input data (Tensor<T>) and produces one output data
@@ -7037,10 +8925,18 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXThresholdedReluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXTileOp:ONNX_Op<"Tile",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Tile operation";
   let description = [{
   Constructs a tensor by tiling a given tensor.
@@ -7061,10 +8957,18 @@ def ONNXTileOp:ONNX_Op<"Tile",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTileOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXTopKOp:ONNX_Op<"TopK",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TopK operation";
   let description = [{
   Retrieve the top-K largest or smallest elements along a specified axis. Given an input tensor of
@@ -7097,14 +9001,22 @@ def ONNXTopKOp:ONNX_Op<"TopK",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {20,4};
+      return {20,7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTopKOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
 }
 
 def ONNXTransposeOp:ONNX_Op<"Transpose",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Transpose operation";
   let description = [{
@@ -7126,10 +9038,18 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTransposeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXTriluOp:ONNX_Op<"Trilu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Trilu operation";
   let description = [{
   Given a 2-D matrix or batches of 2-D matrices, returns the upper or lower triangular part of the tensor(s).
@@ -7160,10 +9080,18 @@ def ONNXTriluOp:ONNX_Op<"Trilu",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTriluOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXUniqueOp:ONNX_Op<"Unique",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Unique operation";
   let description = [{
   Find the unique elements of a tensor. When an optional attribute 'axis' is provided, unique subtensors sliced along the 'axis' are returned.
@@ -7257,14 +9185,22 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
       return 4;
     }
     static std::vector<int> getTypeMap() {
-      return {20,4,4,4};
+      return {20,7,7,7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUniqueOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Unsqueeze operation";
   let description = [{
@@ -7295,10 +9231,18 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUnsqueezeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXUnsqueezeV11Op:ONNX_Op<"UnsqueezeV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Unsqueeze operation";
   let description = [{
@@ -7339,10 +9283,18 @@ def ONNXUnsqueezeV11Op:ONNX_Op<"UnsqueezeV11",
         return {20};
       }
     }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUnsqueezeV11OpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXUpsampleOp:ONNX_Op<"Upsample",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Upsample operation";
   let description = [{
   Upsample the input tensor.
@@ -7364,11 +9316,19 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUpsampleOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXUpsampleV7Op:ONNX_Op<"UpsampleV7",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Upsample operation";
   let description = [{
   Upsample the input tensor.
@@ -7390,10 +9350,18 @@ def ONNXUpsampleV7Op:ONNX_Op<"UpsampleV7",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUpsampleV7OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXWhereOp:ONNX_Op<"Where",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Where operation";
   let description = [{
   Return elements, either from X or Y, depending on condition.
@@ -7421,11 +9389,19 @@ def ONNXWhereOp:ONNX_Op<"Where",
       return {21};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXWhereOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXXorOp:ONNX_Op<"Xor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Xor operation";
   let description = [{
   Returns the tensor resulted from performing the `xor` logical operation
@@ -7464,14 +9440,22 @@ def ONNXXorOp:ONNX_Op<"Xor",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {0};
+        return {9};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXXorOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
       }
     }];
     let hasVerifier = 1;
 }
 
 def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ArrayFeatureExtractor operation";
   let description = [{
   Select elements of the input tensor based on the indices passed.<br>
@@ -7491,10 +9475,18 @@ def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXArrayFeatureExtractorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXBinarizerOp:ONNX_Op<"Binarizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Binarizer operation";
   let description = [{
   Maps the values of the input tensor to either 0 or 1, element-wise, based on the outcome of a comparison against a threshold value.
@@ -7513,10 +9505,18 @@ def ONNXBinarizerOp:ONNX_Op<"Binarizer",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXBinarizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCastMapOp:ONNX_Op<"CastMap",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX CastMap operation";
   let description = [{
   Converts a map to a tensor.<br>The map key must be an int64 and the values will be ordered
@@ -7539,10 +9539,18 @@ def ONNXCastMapOp:ONNX_Op<"CastMap",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCastMapOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX CategoryMapper operation";
   let description = [{
   Converts strings to integers and vice versa.<br>
@@ -7571,11 +9579,19 @@ def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCategoryMapperOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
   let hasVerifier = 1;
 }
 
 def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX DictVectorizer operation";
   let description = [{
   Uses an index mapping to convert a dictionary to an array.<br>
@@ -7606,10 +9622,18 @@ def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDictVectorizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX FeatureVectorizer operation";
   let description = [{
   Concatenates input tensors into one continuous output.<br>
@@ -7628,13 +9652,21 @@ def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {7};
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXFeatureVectorizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXImputerOp:ONNX_Op<"Imputer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Imputer operation";
   let description = [{
   Replaces inputs that equal one value with another, leaving all other elements alone.<br>
@@ -7663,10 +9695,18 @@ def ONNXImputerOp:ONNX_Op<"Imputer",
       return {20};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXImputerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LabelEncoder operation";
   let description = [{
   Maps each element in the input tensor to another value.<br>
@@ -7709,10 +9749,18 @@ def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLabelEncoderOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LinearClassifier operation";
   let description = [{
   Linear classifier
@@ -7734,13 +9782,21 @@ def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {-1,7};
+      return {-1,1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLinearClassifierOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LinearRegressor operation";
   let description = [{
   Generalized linear regression evaluation.<br>
@@ -7764,13 +9820,21 @@ def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {7};
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLinearRegressorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXNormalizerOp:ONNX_Op<"Normalizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Normalizer operation";
   let description = [{
   Normalize the input.  There are three normalization modes, which have the corresponding formulas,
@@ -7795,13 +9859,21 @@ def ONNXNormalizerOp:ONNX_Op<"Normalizer",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {7};
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNormalizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX OneHotEncoder operation";
   let description = [{
   Replace each input element with an array of ones and zeros, where a single
@@ -7826,14 +9898,22 @@ def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {7};
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOneHotEncoderOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
   let hasVerifier = 1;
 }
 
 def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SVMClassifier operation";
   let description = [{
   Support Vector Machine classifier
@@ -7860,13 +9940,21 @@ def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {-1,7};
+      return {-1,1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSVMClassifierOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SVMRegressor operation";
   let description = [{
   Support Vector Machine regression prediction and one-class SVM anomaly detection.
@@ -7889,13 +9977,21 @@ def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {7};
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSVMRegressorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXScalerOp:ONNX_Op<"Scaler",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Scaler operation";
   let description = [{
   Rescale input data, for example to standardize features by removing the mean and scaling to unit variance.
@@ -7912,13 +10008,21 @@ def ONNXScalerOp:ONNX_Op<"Scaler",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {7};
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXScalerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TreeEnsembleClassifier operation";
   let description = [{
   Tree Ensemble classifier.  Returns the top class for each of N inputs.<br>
@@ -7959,13 +10063,21 @@ def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {-1,7};
+      return {-1,1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTreeEnsembleClassifierOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TreeEnsembleRegressor operation";
   let description = [{
   Tree Ensemble regressor.  Returns the regressed values for each input in N.<br>
@@ -8006,13 +10118,21 @@ def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {7};
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTreeEnsembleRegressorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXZipMapOp:ONNX_Op<"ZipMap",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ZipMap operation";
   let description = [{
   Creates a map from the input and the attributes.<br>
@@ -8032,13 +10152,21 @@ def ONNXZipMapOp:ONNX_Op<"ZipMap",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {-1};
+      return {1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXZipMapOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }
 
 def ONNXAdagradOp:ONNX_Op<"Adagrad",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Adagrad operation";
   let description = [{
   Compute one iteration of ADAGRAD, a stochastic gradient based optimization
@@ -8110,10 +10238,18 @@ def ONNXAdagradOp:ONNX_Op<"Adagrad",
       return {22};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAdagradOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXAdamOp:ONNX_Op<"Adam",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Adam operation";
   let description = [{
   Compute one iteration of Adam, a stochastic gradient based optimization
@@ -8198,10 +10334,18 @@ def ONNXAdamOp:ONNX_Op<"Adam",
       return {22};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAdamOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXGradientOp:ONNX_Op<"Gradient",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Gradient operation";
   let description = [{
   Gradient operator computes the partial derivatives of a specific tensor w.r.t.
@@ -8344,10 +10488,18 @@ def ONNXGradientOp:ONNX_Op<"Gradient",
       return {-1};
     }
   }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGradientOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXMomentumOp:ONNX_Op<"Momentum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Momentum operation";
   let description = [{
   Compute one iteration of stochastic gradient update with momentum.
@@ -8428,6 +10580,14 @@ def ONNXMomentumOp:ONNX_Op<"Momentum",
     }
     static std::vector<int> getTypeMap() {
       return {22};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMomentumOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
     }
   }];
 }

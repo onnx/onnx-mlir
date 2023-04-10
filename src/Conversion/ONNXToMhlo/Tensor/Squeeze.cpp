@@ -33,8 +33,8 @@ struct ONNXSqueezeOpLoweringToMhlo : public ConversionPattern {
     ONNXSqueezeOpAdaptor operandAdaptor(operands);
     ONNXSqueezeOp squeezeOp = llvm::cast<ONNXSqueezeOp>(op);
     Location loc = op->getLoc();
-    Value data = squeezeOp.data();
-    Value axes = squeezeOp.axes();
+    Value data = squeezeOp.getData();
+    Value axes = squeezeOp.getAxes();
     assert(isRankedShapedType(data.getType()) &&
            "data must be ranked Shaped Type");
     ShapedType dataType = data.getType().cast<ShapedType>();
@@ -46,8 +46,7 @@ struct ONNXSqueezeOpLoweringToMhlo : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     SmallVector<int64_t, 4> axesList;
-    if (DenseElementsAttr axesAttr =
-            getDenseElementAttributeFromONNXValue(axes)) {
+    if (ElementsAttr axesAttr = getElementAttributeFromONNXValue(axes)) {
       for (IntegerAttr value : axesAttr.getValues<IntegerAttr>()) {
         int64_t axis = value.cast<IntegerAttr>().getInt();
         if (axis < 0)

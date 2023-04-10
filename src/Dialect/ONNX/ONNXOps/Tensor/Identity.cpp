@@ -19,12 +19,21 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
-// Verify
+// Support
 //===----------------------------------------------------------------------===//
 
-// TODO:
-//   Verify that matrix sizes are valid for multiplication and addition.
-//   Take into account the dimensionality of the matrix.
+namespace onnx_mlir {
+
+template <>
+LogicalResult ONNXIdentityOpShapeHelper::computeShape() {
+  ONNXIdentityOpAdaptor operandAdaptor(operands);
+  return setOutputDimsFromOperand(operandAdaptor.getInput());
+}
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
+// Verify
+//===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
 // Shape Inference
@@ -32,6 +41,20 @@ using namespace onnx_mlir;
 
 LogicalResult ONNXIdentityOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
+  if (!hasShapeAndRank(getInput()))
+    return success();
+
+  // Since identity set the output to the same as the input, don't use the shape
+  // helper infrastructure here, especially because we may have to deal with Opt
+  // or Seq types.
+  getResult().setType(getInput().getType());
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// Template instantiation
+//===----------------------------------------------------------------------===//
+
+namespace onnx_mlir {
+template struct ONNXNonSpecificOpShapeHelper<ONNXIdentityOp>;
+} // namespace onnx_mlir
