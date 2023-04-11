@@ -73,6 +73,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
         // Default to 0 if constant_value is not specified.
         cValue = create.math.constant(resElementType, 0);
       } else {
+        // If constant_value is of type memref<1x*>, create an index to access in the map creating from the variable
         auto cst = llvm::dyn_cast<MemRefType>(constantValue.getType());
         if(cst && cst.getRank() == 1) {
           auto zeroIndex = create.math.constantIndex(0);
