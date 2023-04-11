@@ -619,6 +619,22 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
   });
 }
 
+ElementsAttr ElementsAttrBuilder::range(
+    ShapedType resultType, WideNum start, WideNum delta) {
+  return fromWideNums(resultType, [&](MutableArrayRef<WideNum> dstNums) {
+    wideZeroDispatchNonBool(resultType.getElementType(), [&](auto wideZero) {
+      using cpptype = decltype(wideZero);
+      constexpr BType TAG = toBType<cpptype>;
+      // Traverse and populate each element d in dstNums.
+      cpptype x = start.narrow<TAG>();
+      for (auto &d : dstNums) {
+        d = WideNum::widen<TAG>(x);
+        x += delta.narrow<TAG>();
+      }
+    });
+  });
+}
+
 /*static*/
 auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     -> ElementsProperties {
