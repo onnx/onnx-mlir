@@ -2308,7 +2308,8 @@ func.func @round(%arg0: tensor<15xf32>) -> tensor<*xf32> {
 // -----
 
 func.func @pad_constant_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2: tensor<f32>) -> tensor<*xf32> {
-  %0 = "onnx.Pad"(%arg0, %arg1, %arg2) {mode = "constant"} : (tensor<1x3x4x5xf32>, tensor<8xi64>, tensor<f32>) -> tensor<*xf32>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Pad"(%arg0, %arg1, %arg2, %cst) {mode = "constant"} : (tensor<1x3x4x5xf32>, tensor<8xi64>, tensor<f32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
 //  use arg names: ['data', 'pad', 'constant_value']
@@ -2371,7 +2372,8 @@ func.func @pad_constant_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %
 // -----
 
 func.func @pad_edge_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2: tensor<f32>) -> tensor<*xf32> {
-  %0 = "onnx.Pad"(%arg0, %arg1, %arg2) {mode = "edge"} : (tensor<1x3x4x5xf32>, tensor<8xi64>, tensor<f32>) -> tensor<*xf32>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Pad"(%arg0, %arg1, %arg2, %cst) {mode = "edge"} : (tensor<1x3x4x5xf32>, tensor<8xi64>, tensor<f32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
 // mlir2FileCheck.py -a'["data","pad","constant_value"]'
@@ -2451,7 +2453,8 @@ func.func @pad_edge_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2
 // -----
 
 func.func @pad_reflect_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2: tensor<f32>) -> tensor<*xf32> {
-  %0 = "onnx.Pad"(%arg0, %arg1, %arg2) {mode = "reflect"} : (tensor<1x3x4x5xf32>, tensor<8xi64>, tensor<f32>) -> tensor<*xf32>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Pad"(%arg0, %arg1, %arg2, %cst) {mode = "reflect"} : (tensor<1x3x4x5xf32>, tensor<8xi64>, tensor<f32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
 // mlir2FileCheck.py -a'["data","pad","constant_value"]'
@@ -2534,9 +2537,10 @@ func.func @pad_reflect_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %a
 // -----
 
 func.func @pad_constant_mode_constant_pads(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
   %0 = onnx.Constant dense<[0, 3, 2, 1]> : tensor<4xi64>
   %1 = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
-  %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<16x16xf32>, tensor<4xi64>, tensor<1xf32>) -> tensor<18x20xf32>
+  %2 = "onnx.Pad"(%arg0, %0, %1, %cst) {mode = "constant"} : (tensor<16x16xf32>, tensor<4xi64>, tensor<1xf32>, none) -> tensor<18x20xf32>
   return %2 : tensor<18x20xf32>
 
 // mlir2FileCheck.py -a'["data"]'
