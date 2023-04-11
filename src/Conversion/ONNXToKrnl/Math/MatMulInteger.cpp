@@ -65,8 +65,7 @@ public:
       // Unsqueeze zeroPoint to [Mx1] to make shapes compatible.
       // There is no need to handle scalar zeroPoint (e.g. tensor<dtype> or
       // tensor<1xdtype>), which is always true for broadcasting.
-      if (((aZeroPointRank == 1) && (aZeroPointType.getShape()[0] != 1)) ||
-          ((aZeroPointRank > 1) && (aZeroPointRank = aRank - 1))) {
+      if ((aZeroPointRank == 1) && (aZeroPointType.getShape()[0] != 1)) {
         SmallVector<int64_t, 4> unsqueezeShape(aZeroPointType.getShape());
         unsqueezeShape.emplace_back(1);
         aZeroPointInt32 = create.onnx.unsqueeze(

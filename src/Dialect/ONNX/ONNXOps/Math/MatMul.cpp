@@ -200,8 +200,8 @@ LogicalResult ONNXMatMulIntegerOp::verify() {
   Value A = operandAdaptor.getA();
   Value aZeroPoint = this->getAZeroPoint();
   if (!isNoneValue(aZeroPoint)) {
-    auto aType = dyn_cast<ShapedType>(A.getType());
-    auto aZeroPointType = dyn_cast<ShapedType>(aZeroPoint.getType());
+    ShapedType aType = A.getType();
+    ShapedType aZeroPointType = aZeroPoint.getType();
     uint64_t aRank = aType.getRank();
     uint64_t aZeroPointRank = aZeroPointType.getRank();
     ArrayRef<int64_t> aShape = aType.getShape();
@@ -227,8 +227,7 @@ LogicalResult ONNXMatMulIntegerOp::verify() {
         }
       }
       uint64_t lastAxis = aRank - 1;
-      if (!aType.isDynamicDim(lastAxis) &&
-          !aZeroPointType.isDynamicDim(lastAxis) &&
+      if (!aZeroPointType.isDynamicDim(lastAxis) &&
           (aZeroPointShape[lastAxis] != 1)) {
         return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
             *this->getOperation(), aZeroPoint, lastAxis,
@@ -237,7 +236,7 @@ LogicalResult ONNXMatMulIntegerOp::verify() {
     }
   }
 
-  // If BZeroPoint is [N], B must be [K, N]
+  // If BZeroPoint is [N] (N != 1), B must be [K, N]
   // If BZeroPoint rank is > 1, B must have the same rank, e.g.
   // - [D1, D2, ..., DN, 1, N] if A is [D1, D2, ..., DN, K, N]
   Value B = operandAdaptor.getB();
@@ -250,8 +249,9 @@ LogicalResult ONNXMatMulIntegerOp::verify() {
     ArrayRef<int64_t> bShape = bType.getShape();
     ArrayRef<int64_t> bZeroPointShape = bZeroPointType.getShape();
 
-    // If BZeroPoint is [N], B must be [K, N]
-    if ((bZeroPointRank == 1) && (bRank != 2))
+    // If BZeroPoint is [N] (N != 1), B must be [K, N]
+    if ((bZeroPointRank == 1) && (!bZeroPointType.isDynamicDim(0)) &&
+        (bZeroPointShape[0] != 1) && (bRank != 2))
       return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
           *this->getOperation(), B, bRank, "2");
     // If BZeroPoint rank is > 1, B must have the same rank, e.g.
@@ -261,8 +261,9 @@ LogicalResult ONNXMatMulIntegerOp::verify() {
         return onnx_mlir::Diagnostic::emitInputsMustHaveSameRankError(
             *this->getOperation(), "B", bRank, "bZeroPoint", bZeroPointRank);
       // Broadcasting at the K dimension.
+      uint64_t kAxis = bRank - 2;
       for (uint64_t i = 0; i < bRank; ++i) {
-        if (i == bRank - 2)
+        if (i == kAxis)
           continue;
         if (!bType.isDynamicDim(i) && !bZeroPointType.isDynamicDim(i) &&
             (bShape[i] != bZeroPointShape[i])) {
@@ -271,8 +272,7 @@ LogicalResult ONNXMatMulIntegerOp::verify() {
               bZeroPointShape[i]);
         }
       }
-      uint64_t kAxis = bRank - 1;
-      if (!bType.isDynamicDim(kAxis) && !bZeroPointType.isDynamicDim(kAxis) &&
+      if (!bZeroPointType.isDynamicDim(kAxis) &&
           (bZeroPointShape[kAxis] != 1)) {
         return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
             *this->getOperation(), bZeroPoint, kAxis, bZeroPointShape[kAxis],
