@@ -51,7 +51,7 @@ public:
 
     // axes is mandatory for tosa
     llvm::SmallVector<int64_t, 4> axesVec;
-    if (isFromNone(axesValue) && !noOpIfAxesEmpty) {
+    if (isNoneValue(axesValue) && !noOpIfAxesEmpty) {
       // if not present all axes are reduced
       const int64_t numberOfAxes = input.getType().cast<ShapedType>().getRank();
       llvm::SmallVector<int64_t> allDims(numberOfAxes);
