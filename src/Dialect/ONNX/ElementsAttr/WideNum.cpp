@@ -44,18 +44,16 @@ APInt WideNum::toAPInt(BType tag) const {
 }
 
 /*static*/
-WideNum WideNum::fromAPFloat(BType tag, APFloat x) {
-  assert(isFloatBType(tag) && "BType must be an integer");
+WideNum WideNum::fromAPFloat(APFloat x) {
   return WideNum(x.convertToDouble()); // .dbl
 }
 
 /*static*/
-WideNum WideNum::fromAPInt(BType tag, APInt x) {
-  if (isSignedIntBType(tag))
+WideNum WideNum::fromAPInt(APInt x, bool isSigned) {
+  if (isSigned)
     return WideNum(x.getSExtValue()); // .i64
-  if (isUnsignedIntBType(tag))
+  else
     return WideNum(x.getZExtValue()); // .u64
-  llvm_unreachable("BType must be an integer");
 }
 
 } // namespace onnx_mlir

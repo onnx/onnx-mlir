@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch cpu --input ../test/backend/inference_backend.py --path . --notes --unsupported -->
+<!--- python3 documentOps.py --arch cpu --input ../test/backend/inference_backend.py --path . --notes --unsupported -->
 
 # Supported ONNX Operation for Target *cpu*.
 
@@ -62,7 +62,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **DictVectorizer** | |unsupported | |
 | **Div** |14 |No support for short integers. | |
 | **Dropout** |13 |Does not support masked and training. | |
-| **DynamicQuantizeLinear** | |unsupported | |
+| **DynamicQuantizeLinear** |11 | | |
 | **Einsum** |12 |Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. | |
 | **Elu** |6 | | |
 | **Equal** |13 | | |
@@ -139,11 +139,11 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **OptionalHasElement** | |unsupported | |
 | **Or** |7 | | |
 | **PRelu** |16 | | |
-| **Pad** |13, 11, 2 | | |
+| **Pad** |18, 13, 11, 2 |axes input not supported. | |
 | **Pow** |15 |No support for power with integer types. | |
 | **QLinearConv** | |unsupported | |
 | **QLinearMatMul** | |unsupported | |
-| **QuantizeLinear** | |unsupported | |
+| **QuantizeLinear** |13 |Do not support per-axis and i8 quantization. | |
 | **RNN** |14 | | |
 | **RandomNormal** | |unsupported | |
 | **RandomNormalLike** | |unsupported | |
