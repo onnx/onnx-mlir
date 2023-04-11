@@ -228,9 +228,9 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   //   - ruledOutBroadcast: determined using shape analysis that there is no
   //     broadcasting here.
   mlir::LogicalResult getAccessExprs(mlir::Value operand, uint64_t i,
-      const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
+      const llvm::SmallVectorImpl<IndexExpr> &loopAccessExprs,
       llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs,
-      bool ruledOutBroadcast = false);
+      int flattenedInnerDims = 0, bool ruledOutBroadcast = false);
 
   // Determine if broadcast can be ruled out at compile time. Use DimAnalysis
   // when available.

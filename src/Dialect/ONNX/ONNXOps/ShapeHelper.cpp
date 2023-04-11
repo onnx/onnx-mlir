@@ -378,7 +378,7 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
 }
 
 // Determine if all but one input is a scalar, in which case the broadcasting is
-// trivial.
+// trivial. For example: (4x16xf32 and 1xf32), (?x?xf32 and 1xf32).
 bool ONNXBroadcastOpShapeHelper::hasScalarBroadcast(DimAnalysis *dimAnalysis) {
   // Find the inputs that are scalar.
   int scalarNum = 0;
@@ -434,9 +434,104 @@ bool ONNXBroadcastOpShapeHelper::hasScalarBroadcast(DimAnalysis *dimAnalysis) {
   return true;
 }
 
+bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
+    DimAnalysis *dimAnalysis, int64_t &innerDimNum,
+    int64_t &innerDimLiteralSize, IndexExpr innerDimDynamicSize) {
+
+  int64_t dimNum = inputsDims.size();
+  bool canUseDimAnalysis = dimAnalysis && (int64_t)operands.size() == dimNum;
+  bool hasScalarBroadcast = false;
+  innerDimLiteralSize = 1;
+  innerDimDynamicSize = LiteralIndexExpr(1);
+  llvm::SmallBitVector<4> isScalar(dimNum, true);
+  llvm::SmallBitVector<4> isScalarUpToNow(dimNum, true);
+  // Walk through the rank from innermost to outermost;
+  for (r = outputRank - 1; r >= 0; --r) {
+    // Detect scalars and non-scalars at this rank.
+    int64_t nonScalarID = -1;
+    int64_t scalarNum = 0;
+    int64_t scalarUpToNowNum = 0;
+    for (d = 0; d < dimNum; ++d) {
+      isScalar[d] = dims[d][r].isLiteralAndIdentical(1);
+      if (isScalar[d])
+        scalarNum++;
+      else
+        nonScalarID = d;
+      isScalarUpToNow[d] = isScalar[d] & isScalarUpToNow[d];
+      if (isScalarUpToNow[d])
+        scalarUpToNowNum++;
+    }
+    int64_t nonScalarNum = dimNum - scalarNum;
+    // See if we have a conflicts among the non scalars.
+    if (nonScalarNum >= 2) {
+      // Has 2 or more non scalar, make sure they are compatible
+      bool possibleNonScalarBroadcast = false;
+      for (d = 0; d < dimNum; ++d) {
+        // Consider only dims d that are not scalar; check identity with
+        // nonScalarID (so also skip compare with self).
+        if (isScalar[d] || d == nonScalarID)
+          continue;
+        // Compare nonScalarID with d
+        if (dims[nonScalarID][r].isLiteral() && dims[d][r].isLiteral()) {
+          // Both literal, do a literal check.
+          if (dims[nonScalarID][r].getLiteral() == dims[d][r].getLiteral())
+            // same dims, we are fine.
+            continue;
+          // Has hard broadcast; this dim is no good
+          possibleNonScalarBroadcast = true;
+          break;
+        }
+        if (canUseDimAnalysis &&
+            dimAnalysis.sameDim(operands[nonScalarID], r, operands[d], r))
+          // Analysis demonstrated them to be the same, we are fine.
+          continue;
+        // Analysis could not prove operands's r dim to be identical.
+        possibleNonScalarBroadcast = true;
+        break;
+      }
+      if (possibleNonScalarBroadcast) {
+        // Had 2+ non scalar dims that are incompatible, e.g. (2, ?) or (?, ?).
+        // Abort at this dim; previous is fine.
+        innerDimNum = outputRank - (r + 1);
+        return innerDimNum > 0;
+      }
+    }
+    // Now here, we are guaranteed that if there are non-scalars, they must be
+    // the same. So if we have 1+ non scalar, and 1+ scalar, then we know we
+    // have a scalar broadcast here.
+    if (nonScalarNum > 0 && scalarNum > 0) {
+      hasScalarBroadcast = true;
+    }
+    // If we have a scalar broadcast situation, all of the currently seen 1s
+    // must be from scalars, that is there must have 1s from the inner dimension
+    // up to the current dimension d.
+    if (hasScalarBroadcast && scalarNum != scalarUpToNowNum) {
+      // Abort as we have something like this (1x4x1, 1x1x1 2x4x1), namely where
+      // the first dim has a broadcast that is not for a scalar.
+      innerDimNum = outputRank - (r + 1);
+      return innerDimNum > 0;
+    }
+    // This dim is fine for manageable broadcasting. Account for the cumulative
+    // size of the inner dimensions.
+    if (nonScalarNum > 0) {
+      // If all scalar, then dim is 1, and there is nothing to do. Otherwise
+      // accumulate in literal or dynamic sizes.
+      if (dims[nonScalarID][r].isLiteral()) {
+        innerDimLiteralSize *= dims[nonScalarID][r].getLiteral();
+      } else {
+        innerDimDynamicSize = innerDimDynamicSize * dims[nonScalarID][r];
+      }
+    }
+  }
+  // Came up to here, we are able to collapse them all.
+  innerDimNum = outputRank;
+  return innerDimNum > 0;
+}
+
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
-    uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
-    SmallVectorImpl<IndexExpr> &operandAccessExprs, bool ruledOutBroadcast) {
+    uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &loopAccessExprs,
+    SmallVectorImpl<IndexExpr> &operandAccessExprs, int flattenedInnerDims,
+    bool ruledOutBroadcast) {
   // Emtpy the access expr, just in case.
   operandAccessExprs.clear();
   // There is this case where we have no broadcast per se, but we have
@@ -449,7 +544,7 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
   // DimAnalysis. If that is available, and broadcasting was ruled out, then
   // more efficient code can be generated.
   if (ruledOutBroadcast || (hasUniBroadcasting && operandIndex == 0)) {
-    for (IndexExpr ie : outputAccessExprs)
+    for (IndexExpr ie : loopAccessExprs)
       operandAccessExprs.emplace_back(ie);
     return success();
   }
@@ -477,14 +572,14 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
       // Regardless of the value of dim (constant, `?`) we can use the loop
       // index variable without reservation as if dim is 1, then its 0 by def,
       // and if dim>1, then its 0...dim-1 without issue.
-      operandAccessExprs.emplace_back(outputAccessExprs[dimIndex]);
+      operandAccessExprs.emplace_back(loopAccessExprs[dimIndex]);
     } else {
       // If dim is a compile time constant, then the test below will resolve at
       // compile time. If dim is dynamic (i.e. only known at runtime), then we
       // will issue code for the compare and select and the right value will be
       // used at runtime.
       operandAccessExprs.emplace_back(
-          IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
+          IndexExpr::select(dim > 1, loopAccessExprs[dimIndex], 0));
     }
   }
   return success();
