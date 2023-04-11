@@ -59,7 +59,6 @@ public:
     Value AInt32 = create.onnx.cast(A, resElementType);
     if (!isNoneValue(aZeroPoint)) {
       Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, resElementType);
-      int64_t aRank = aType.getRank();
       int64_t aZeroPointRank = aZeroPointType.getRank();
       // If broadcasting, e.g. A is [MxK], zeroPoint is [M], M != 1.
       // Unsqueeze zeroPoint to [Mx1] to make shapes compatible.
