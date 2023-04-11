@@ -156,7 +156,7 @@ op_dialect_version_map_["ReduceSum"] = {13, 11};
 op_dialect_version_map_["ReduceSumSquare"] = {18, 13};
 op_dialect_version_map_["Relu"] = {14};
 op_dialect_version_map_["Reshape"] = {14};
-op_dialect_version_map_["Resize"] = {13, 11, 10};
+op_dialect_version_map_["Resize"] = {18, 13, 11, 10};
 op_dialect_version_map_["ReverseSequence"] = {10};
 op_dialect_version_map_["RoiAlign"] = {16};
 op_dialect_version_map_["Round"] = {11};
@@ -516,6 +516,8 @@ import_handler_map_["Reshape"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReshapeOp>;
 import_handler_map_["Resize"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXResizeOp>;
+import_handler_map_["ResizeV13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXResizeV13Op>;
 import_handler_map_["ResizeV11"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXResizeV11Op>;
 import_handler_map_["ResizeV10"] = 
