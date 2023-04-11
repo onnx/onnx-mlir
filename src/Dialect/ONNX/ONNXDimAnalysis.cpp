@@ -239,7 +239,6 @@ bool DimAnalysis::broadcastLastDim(Value tensor1, Value tensor2) const {
   if (!sameRank(tensor1, tensor2))
     return false;
   ArrayRef<int64_t> shape1 = tensor1.getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> shape2 = tensor2.getType().cast<ShapedType>().getShape();
   unsigned rank = shape1.size();
   // The last dimension of tensor1 must be 1, so that tensor1 is broadcasting
   // to tensor2.
