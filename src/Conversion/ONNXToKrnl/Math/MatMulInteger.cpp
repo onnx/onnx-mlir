@@ -45,11 +45,11 @@ public:
     Value bZeroPoint = mmiOp.getBZeroPoint(); // Optional input.
 
     // Common types.
-    auto aType = A.getType().dyn_cast<ShapedType>();
-    auto aZeroPointType = aZeroPoint.getType().dyn_cast<ShapedType>();
     auto resMemRefType = dyn_cast<MemRefType>(
         typeConverter->convertType(mmiOp.getResult().getType()));
     Type resElementType = resMemRefType.getElementType();
+    assert(resMemRefType.getElementType() == rewriter.getI32Type() &&
+           "Output element type must be i32");
 
     // Get shape.
     ONNXMatMulIntegerOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -58,8 +58,9 @@ public:
     // Prepare input A.
     Value AInt32 = create.onnx.cast(A, resElementType);
     if (!isNoneValue(aZeroPoint)) {
-      Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, resElementType);
+      ShapedType aZeroPointType = aZeroPoint.getType();
       int64_t aZeroPointRank = aZeroPointType.getRank();
+      Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, resElementType);
       // If broadcasting, e.g. A is [MxK], zeroPoint is [M], M != 1.
       // Unsqueeze zeroPoint to [Mx1] to make shapes compatible.
       // There is no need to handle scalar zeroPoint (e.g. tensor<dtype> or
