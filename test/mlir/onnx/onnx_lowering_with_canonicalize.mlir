@@ -5,6 +5,28 @@
 
 // -----
 
+// COM: Check if the lowering correctly detects broadcasting if a shape starts with all 1s.
+func.func @add_1_1(%arg0 : tensor<1x1x5xf32>, %arg1: tensor<5xf32>) -> tensor<1x1x5xf32> {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<1x1x5xf32>, tensor<5xf32>) -> tensor<1x1x5xf32>
+  return %0 : tensor<1x1x5xf32>
+
+// CHECK-LABEL:  func.func @add_1_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x1x5xf32>, [[PARAM_1_:%.+]]: memref<5xf32>) -> memref<1x1x5xf32> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x5xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
+// CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<1x1x5xf32>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#2] : memref<5xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.addf [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<1x1x5xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<1x1x5xf32>
+// CHECK:         }
+}
+
+// -----
+
 // Focus on accumulated offset for the store op in each loop
 func.func @test_concat_5(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?x3x32xf32>, %arg2 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = -2 : si64} : (tensor<?x?x?xf32>, tensor<?x3x32xf32>, tensor<?x?x?xf32>)  -> tensor<*xf32>

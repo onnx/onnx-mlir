@@ -235,6 +235,8 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank. Instantiated during ComputeShape.
   llvm::SmallVector<DimsExpr, 4> inputsDims;
+  // A vector of original input shapes.
+  llvm::SmallVector<DimsExpr, 4> originalInputsDims;
   // A vector of IndexExprs representing the output shape (same rank as
   // outputDims). Instantiated  during computeShape.
   uint64_t outputRank;

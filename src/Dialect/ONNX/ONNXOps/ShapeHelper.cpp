@@ -250,18 +250,29 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
     uint64_t r = createIE->getShapedTypeRank(initialOperands[i]);
     // Prepend 1s.
     DimsExpr dims(outputRank - r, one);
+    // Original dims without prepending 1s.
+    DimsExpr origDims;
     // Get from the input.
-    for (uint64_t k = 0; k < r; ++k)
-      dims.emplace_back(createIE->getShapeAsDim(initialOperands[i], k));
+    for (uint64_t k = 0; k < r; ++k) {
+      IndexExpr dim = createIE->getShapeAsDim(initialOperands[i], k);
+      dims.emplace_back(dim);
+      origDims.emplace_back(dim);
+    }
     inputsDims.emplace_back(dims);
+    originalInputsDims.emplace_back(origDims);
   }
 
   // Handle the additional operand here.
   if (additionalOperRank > 0) {
     DimsExpr dims(outputRank - additionalOperRank, one);
-    for (uint64_t k = 0; k < additionalOperRank; ++k)
-      dims.emplace_back((*additionalOperand)[k]);
+    DimsExpr origDims;
+    for (uint64_t k = 0; k < additionalOperRank; ++k) {
+      IndexExpr dim = (*additionalOperand)[k];
+      dims.emplace_back(dim);
+      origDims.emplace_back(dim);
+    }
     inputsDims.emplace_back(dims);
+    originalInputsDims.emplace_back(origDims);
     numOfInputs++;
   }
 
@@ -337,7 +348,12 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   for (uint64_t r = 0; r < outputRank && hasNoBroadcast; ++r) {
     bool hasOne, hasOtherThanOne;
     hasOne = hasOtherThanOne = false;
-    for (DimsExpr dims : inputsDims) {
+    for (DimsExpr dims : originalInputsDims) {
+      if (outputRank != dims.size()) {
+        // Different rank, it's broadcasting for sure.
+        hasNoBroadcast = false;
+        break;
+      }
       if (!dims[r].isLiteral()) {
         // Has dynamic values.. possible broadcast, assume the worst.
         hasNoBroadcast = false;
