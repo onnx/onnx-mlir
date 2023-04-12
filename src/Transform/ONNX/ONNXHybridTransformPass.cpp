@@ -93,9 +93,13 @@ struct ONNXHybridTransformPass
   }
 
   LogicalResult initialize(MLIRContext *context) override {
+    // Bump up the pattern benefit of the shape inference patterns to run them
+    // before the canonicalization patterns, because some canonicalization
+    // patterns work best after shapes are inferred.
+    PatternBenefit highPriority(10000);
     RewritePatternSet cumulativePatterns(context);
-    cumulativePatterns.insert<InferShapesPattern>(context);
-    cumulativePatterns.insert<ReturnShapesPattern>(context);
+    cumulativePatterns.insert<InferShapesPattern>(context, highPriority);
+    cumulativePatterns.insert<ReturnShapesPattern>(context, highPriority);
 
     if (!shapeInferenceOnly) {
       // canonicalization (copied from mlir/lib/Transforms/Canonicalizer.cpp)
