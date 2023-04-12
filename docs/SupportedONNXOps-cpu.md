@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch cpu --input ../test/backend/inference_backend.py --path . --notes --unsupported -->
+<!--- python3 documentOps.py --arch cpu --input ../test/backend/inference_backend.py --path . --notes --unsupported -->
 
 # Supported ONNX Operation for Target *cpu*.
 
@@ -139,7 +139,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **OptionalHasElement** | |unsupported | |
 | **Or** |7 | | |
 | **PRelu** |16 | | |
-| **Pad** |13, 11, 2 | | |
+| **Pad** |18, 13, 11, 2 |axes input not supported. | |
 | **Pow** |15 |No support for power with integer types. | |
 | **QLinearConv** | |unsupported | |
 | **QLinearMatMul** | |unsupported | |
