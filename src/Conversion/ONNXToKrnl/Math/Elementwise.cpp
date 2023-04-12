@@ -1190,8 +1190,9 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 
 // Return SIMD unroll; no simd -> return 0;
 template <typename ShapeHelperType, typename ElementwiseOp>
-int64_t canBeVectorized(
-    ShapeHelperType &shapeHelper, MDBuilder &create, MemRefType memRefType) {
+int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
+    MemRefType memRefType, int64_t flattenedInnerDimNum,
+    int64_t flattenedInnerDimLiteralSize) {
   int64_t simdUnroll = 0;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
@@ -1210,7 +1211,7 @@ int64_t canBeVectorized(
 
   int64_t vrNum = vms->VectorRegisterNum();
   if (vectorizedOpNum >= vrNum / 2)
-    simdUnroll = 1;
+    simdUnroll = 1; // TODO, it would appear to be beneficial to always have 2.
   else if (vectorizedOpNum >= vrNum / 4)
     simdUnroll = 4;
   else
@@ -1225,6 +1226,35 @@ int64_t canBeVectorized(
       llvm::errs() << "  simd disabled: trip count " << staticSize
                    << " too short \n";
     return 0;
+  }
+  if (flattenedInnerDimNum > 0 &&
+      flattenedInnerDimNum < (int64_t)memRefType.getRank()) {
+    // We have a partially flattened operator. Since we do only full simd, make
+    // sure the static size is a multiple of the VL.
+    // Get the VL of the store (output's element type).
+    int64_t VL = vms->getVectorLength(elementType);
+    if (flattenedInnerDimLiteralSize % VL != 0) {
+      if (DEBUG)
+        llvm::errs() << "  simd disabled: partial flattened dims "
+                     << flattenedInnerDimNum << " with size "
+                     << flattenedInnerDimLiteralSize << " is not 0 mod VL "
+                     << VL << "\n";
+      return 0;
+    }
+    // See if we can get a unroll factor.
+    bool gotOne = false;
+    for (int64_t u = simdUnroll; u > 0; --u) {
+      if (flattenedInnerDimLiteralSize % (u * VL) == 0) {
+        llvm::errs() << "  partial flattened dims " << flattenedInnerDimNum
+                     << " with size " << flattenedInnerDimLiteralSize
+                     << " works with VL " << VL << " and unroll " << u << "\n";
+        simdUnroll = u;
+        gotOne = true;
+        break;
+      }
+    }
+    assert(gotOne && "expected at least 1 *VL to work");
+    return 0; // hi alex: not supported yet.
   }
   if (DEBUG)
     llvm::errs() << "  SIMD with avg width " << avgSimdWidth << " and unroll "
@@ -1416,7 +1446,7 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, create, memRefType);
+              shapeHelper, create, memRefType, memRefType.getRank(), 1);
       if (simdUnroll > 0)
         return getFullyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter, create,
             &shapeHelper, op, memRefType, operands, alignment, simdUnroll,
@@ -1536,22 +1566,41 @@ struct ONNXElementwiseBinaryOpLowering
     // Shape helper can determine if there is no static broadcast.
     bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
     bool hasScalarBroadcast = shapeHelper.hasScalarBroadcast(dimAnalysis);
+    int64_t innerDimNum, innerDimLiteralSize;
+    IndexExpr innerDimDynamicSize;
+    bool hasManageableBroadcast =
+        shapeHelper.hasManageableBroadcastForInnerDims(
+            innerDimNum, innerDimLiteralSize, innerDimDynamicSize);
     bool hasNoTensorBroadcast = hasNoBroadcast || hasScalarBroadcast;
+    bool hasGoodBroadcast =
+        hasNoBroadcast || hasScalarBroadcast || hasManageableBroadcast;
+    // sanity
+    if (hasScalarBroadcast)
+      assert(hasManageableBroadcast &&
+             innerDimNum == (int64_t)shapeHelper.outputRank &&
+             "wrong assumptions about has scalar broadcast");
     if (DEBUG) {
       if (hasNoTensorBroadcast) {
         llvm::errs() << "  simd possible: ";
-        llvm::errs() << "hasNoBroadcast(" << hasScalarBroadcast << "), ";
+        llvm::errs() << "hasNoBroadcast(" << hasNoBroadcast << "), ";
         llvm::errs() << "hasScalarBroadcast(" << hasScalarBroadcast << ")\n";
       } else
         llvm::errs() << "  simd disabled: may have broadcast\n";
+      if (hasManageableBroadcast)
+        llvm::errs() << "  manageable broadcast: inner dims " << innerDimNum
+                     << " of lit size " << innerDimLiteralSize << "\n";
+      else
+        llvm::errs() << "  unmanageable broadcast: inner dims " << innerDimNum
+                     << "\n";
     }
 
     // SIMD is enabled for this operation, test if desired and feasible
-    if (enableSIMD && !isScalar && hasNoTensorBroadcast &&
+    if (enableSIMD && !isScalar && hasGoodBroadcast &&
         !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
-              shapeHelper, create, outputMemRefType);
+              shapeHelper, create, outputMemRefType, innerDimNum,
+              innerDimLiteralSize);
       if (simdUnroll > 0)
         return getFullyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter, create,
             &shapeHelper, op, outputMemRefType, operands, alignment, simdUnroll,
@@ -1578,16 +1627,16 @@ struct ONNXElementwiseBinaryOpLowering
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
-            LogicalResult res =
-                shapeHelper.getAccessExprs(operands[0], 0, outputAccessExprs,
-                    lhsAccessExprs, /*flattened dims*/ 0, hasNoTensorBroadcast);
+            LogicalResult res = shapeHelper.getAccessExprs(operands[0], 0,
+                outputAccessExprs, lhsAccessExprs, /*flattened dims*/ false,
+                hasNoTensorBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value lhs = createKrnl.loadIE(operands[0], lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
             res = shapeHelper.getAccessExprs(operands[1], 1, outputAccessExprs,
-                rhsAccessExprs, /*flattened dims*/ 0, hasNoTensorBroadcast);
+                rhsAccessExprs, /*flattened dims*/ false, hasNoTensorBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value rhs = createKrnl.loadIE(operands[1], rhsAccessExprs);
 
@@ -1663,22 +1712,42 @@ struct ONNXElementwiseVariadicOpLowering
     bool isScalar = hasAllScalarValues(operands);
     bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
     bool hasScalarBroadcast = shapeHelper.hasScalarBroadcast(dimAnalysis);
+    int64_t innerDimNum, innerDimLiteralSize;
+    IndexExpr innerDimDynamicSize;
+    bool hasManageableBroadcast =
+        shapeHelper.hasManageableBroadcastForInnerDims(
+            innerDimNum, innerDimLiteralSize, innerDimDynamicSize);
     bool hasNoTensorBroadcast = hasNoBroadcast || hasScalarBroadcast;
+    bool hasGoodBroadcast =
+        hasNoBroadcast || hasScalarBroadcast || hasManageableBroadcast;
+    // sanity
+    if (hasScalarBroadcast)
+      assert(hasManageableBroadcast &&
+             innerDimNum == (int64_t)shapeHelper.outputRank &&
+             "wrong assumptions about has scalar broadcast");
+
     if (DEBUG) {
       if (hasNoTensorBroadcast) {
         llvm::errs() << "  simd possible: ";
-        llvm::errs() << "hasNoBroadcast(" << hasScalarBroadcast << "), ";
+        llvm::errs() << "hasNoBroadcast(" << hasNoBroadcast << "), ";
         llvm::errs() << "hasScalarBroadcast(" << hasScalarBroadcast << ")\n";
       } else
         llvm::errs() << "  simd disabled: may have broadcast\n";
+      if (hasManageableBroadcast)
+        llvm::errs() << "  manageable broadcast: inner dims " << innerDimNum
+                     << " of lit size " << innerDimLiteralSize << "\n";
+      else
+        llvm::errs() << "  unmanageable broadcast: inner dims " << innerDimNum
+                     << "\n";
     }
 
-    if (enableSIMD && !isScalar && hasNoTensorBroadcast &&
+    if (enableSIMD && !isScalar && hasGoodBroadcast &&
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
-              shapeHelper, create, outputMemRefType);
+              shapeHelper, create, outputMemRefType, innerDimNum,
+              innerDimLiteralSize);
       if (simdUnroll > 0)
         return getFullyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
@@ -1708,7 +1777,7 @@ struct ONNXElementwiseVariadicOpLowering
             // Obtain the first operand.
             SmallVector<IndexExpr, 4> oprdAccessExprs;
             LogicalResult res = shapeHelper.getAccessExprs(operands[0], 0,
-                outputAccessExprs, oprdAccessExprs, /*flattened dims*/ 0,
+                outputAccessExprs, oprdAccessExprs, /*flattened dims*/ false,
                 hasNoTensorBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
@@ -1718,7 +1787,7 @@ struct ONNXElementwiseVariadicOpLowering
               // Obtain the next operand.
               SmallVector<IndexExpr, 4> oprdAccessExprs;
               LogicalResult res = shapeHelper.getAccessExprs(operands[i], i,
-                  outputAccessExprs, oprdAccessExprs, /*flattened dims*/ 0,
+                  outputAccessExprs, oprdAccessExprs, /*flattened dims*/ false,
                   hasNoTensorBroadcast);
               assert(succeeded(res) && "Could not compute access indices");
               Value next = createKrnl.loadIE(operands[i], oprdAccessExprs);
@@ -1809,7 +1878,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
             SmallVector<IndexExpr, 4> condAccessExprs;
             LogicalResult res = shapeHelper.getAccessExprs(
                 operandAdaptor.getCondition(), 0, outputAccessExprs,
-                condAccessExprs, /*flattened dims*/ 0, hasNoBroadcast);
+                condAccessExprs, /*flattened dims*/ false, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value cond = createKrnl.loadIE(
                 operandAdaptor.getCondition(), condAccessExprs);
@@ -1817,7 +1886,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
             res = shapeHelper.getAccessExprs(operandAdaptor.getX(), 1,
-                outputAccessExprs, lhsAccessExprs, /*flattened dims*/ 0,
+                outputAccessExprs, lhsAccessExprs, /*flattened dims*/ false,
                 hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value lhs =
@@ -1826,7 +1895,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
             res = shapeHelper.getAccessExprs(operandAdaptor.getY(), 2,
-                outputAccessExprs, rhsAccessExprs, /*flattened dims*/ 0,
+                outputAccessExprs, rhsAccessExprs, /*flattened dims*/ false,
                 hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value rhs =

@@ -173,8 +173,8 @@ bool DimAnalysis::sameDim(
   ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
   if (!tensor1Type.hasRank() || !tensor2Type.hasRank())
     return false;
-  assert(dimAxis1 < tensor1Type.getRank() && "out of bound axis 1");
-  assert(dimAxis2 < tensor2Type.getRank() && "out of bound axis 2");
+  assert(dimAxis1 < (uint64_t)tensor1Type.getRank() && "out of bound axis 1");
+  assert(dimAxis2 < (uint64_t)tensor2Type.getRank() && "out of bound axis 2");
   int64_t dim1 = tensor1Type.getShape()[dimAxis1];
   int64_t dim2 = tensor2Type.getShape()[dimAxis2];
   // Both dims are static.

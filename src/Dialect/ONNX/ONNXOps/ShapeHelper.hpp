@@ -225,12 +225,14 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   //   - loopAccessExprs: IndexExprs for the loop's IVs.
   //   - operandAccessExprs: access indices to access the operand.
   //     This is the output of this function. Use it in subsequent load/stores.
+  //   - flattenedInnerDims: whether the innermost dimension corresponds to a
+  //   collapsed/flattened loop index or not.
   //   - ruledOutBroadcast: determined using shape analysis that there is no
   //     broadcasting here.
-  mlir::LogicalResult getAccessExprs(mlir::Value operand, uint64_t i,
+  mlir::LogicalResult getAccessExprs(mlir::Value operand, int64_t i,
       const llvm::SmallVectorImpl<IndexExpr> &loopAccessExprs,
       llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs,
-      int flattenedInnerDims = 0, bool ruledOutBroadcast = false);
+      bool flattenedInnerDims = false, bool ruledOutBroadcast = false);
 
   // Determine if broadcast can be ruled out at compile time. Use DimAnalysis
   // when available.
@@ -240,6 +242,30 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // be ruled out among all of the non-scalar operands. Use DimAnalysis when
   // available.
   bool hasScalarBroadcast(DimAnalysis *dimAnalysis = nullptr);
+
+  // Determine from the inner dim onward which dimensions have manageable
+  // broadcasting. Inner dims count from the leftmost dim to the rightmost dim
+  // starting at 1. Manageable broadcasting is defined as either (1) no
+  // broadcasting at all, or (2) broadcasting from a known scalar to a
+  // non-scalar. Scalar is defined at a given inner dim d as having a shape with
+  // '1' from dim d all the way to the innermost rank (dim rank -1).
+  //
+  // Scalar: (4, 2, 1, 1) is scalar at inner dim 1, and 2, but not 3 or 4.
+  //
+  // Manageable broadcast (MB):
+  //  - (?1, 1, 4, 1) and (10, 1, 4, 1) have MB at inner dim 1, 2, 3, not 4,
+  //    unless dynamic analysis can show ?1 to be equal to 10 (unlikely).
+  //  - (?1, 1, ?2, 1) and (10, 1, ?3, 1) have MB at inner dim 1, and at 2 & 3
+  //    if dynamic analysis can show ?2 and ?3 to be the same.
+  //  - (1, 4, 1) and (2, 4, 1) have MB at inner dim 1 and 2, but not 3 as the
+  //    there is broadcasting (1 vs 2) at inner dim 3... but the first operand
+  //    is not a scalar at inner dim 3.
+  //  - (1, 1, 1) and (2, 4, 1) have MB at inner dim 1, 2, and 3 as there is
+  //    broadcast at inner dim 2 and 3, and the first operand is a scalar at
+  //    inner dim 1, 2, and 3.
+  bool hasManageableBroadcastForInnerDims(int64_t &innerDimNum,
+      int64_t &innerDimLiteralSize, IndexExpr &innerDimDynamicSize,
+      DimAnalysis *dimAnalysis = nullptr);
 
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank. Instantiated during ComputeShape.
