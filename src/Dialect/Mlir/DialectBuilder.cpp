@@ -1046,7 +1046,7 @@ memref::ReshapeOp MemRefBuilder::reshape(
 // flattenSize the cumulative size of the flattened dimensions. If flattenSize
 // is -1, flatten them all. Expect to flatten at least 1 dim (which is a noop).
 // Output rank is Rank(input) - dimsToFlatten + 1.
-memref::ReshapeOp MemRefBuilder::reshapeToFlat(Value valToReshape,
+Value MemRefBuilder::reshapeToFlat(Value valToReshape,
     llvm::SmallVectorImpl<IndexExpr> &dims, Value &flattenedSize,
     int64_t dimsToFlatten) const {
   // Parse input.
@@ -1071,6 +1071,11 @@ memref::ReshapeOp MemRefBuilder::reshapeToFlat(Value valToReshape,
   // flattenedSize is an output value corresponding to the total number of
   // elements that were flattened.
   flattenedSize = numOfFlattenedElements.getValue();
+  if (dimsToFlatten == 1 && false)
+    // Flattening of the last dim is really no flattening at all. Return
+    // original value before doing the actual reshaping, which is unnecessary.
+    // Waited until here as we need to return a valid flattenedSize,
+    return valToReshape;
   // Shape for reshaping from N-D to M-D saved into memory.
   int64_t outputRank = (inputRank - dimsToFlatten) + 1;
   Type indexType = b().getIndexType();

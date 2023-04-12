@@ -12,11 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
-#define DEBUG 1 /* Log which functions are simdized. */
+#define DEBUG_TYPE "convert-onnx-to-krnl-simd"
 
 using namespace mlir;
 
@@ -1200,9 +1202,8 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
   double avgSimdWidth =
       analyzeSimdFor<ElementwiseOp>(elementType, vectorizedOpNum, scalarOpNum);
   if (avgSimdWidth < 1.5) {
-    if (DEBUG)
-      llvm::errs() << "  simd disabled: avg simd width  " << avgSimdWidth
-                   << " too small\n";
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: avg simd width  "
+                            << avgSimdWidth << " too small\n");
     return 0;
   }
   // Determine empirical unroll factor.
@@ -1222,9 +1223,8 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
   bool isStaticSize = create.mem.getStaticAndDynamicMemSize(
       memRefType, shapeHelper.getOutputDims(), staticSize, dynSize);
   if (isStaticSize && staticSize < simdUnroll) {
-    if (DEBUG)
-      llvm::errs() << "  simd disabled: trip count " << staticSize
-                   << " too short \n";
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
+                            << " too short \n");
     return 0;
   }
   if (flattenedInnerDimNum > 0 &&
@@ -1234,31 +1234,29 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     // Get the VL of the store (output's element type).
     int64_t VL = vms->getVectorLength(elementType);
     if (flattenedInnerDimLiteralSize % VL != 0) {
-      if (DEBUG)
-        llvm::errs() << "  simd disabled: partial flattened dims "
-                     << flattenedInnerDimNum << " with size "
-                     << flattenedInnerDimLiteralSize << " is not 0 mod VL "
-                     << VL << "\n";
+      LLVM_DEBUG(llvm::dbgs() << "  simd disabled: partial flattened dims "
+                              << flattenedInnerDimNum << " with size "
+                              << flattenedInnerDimLiteralSize
+                              << " is not 0 mod VL " << VL << "\n");
       return 0;
     }
     // See if we can get a unroll factor.
     bool gotOne = false;
     for (int64_t u = simdUnroll; u > 0; --u) {
       if (flattenedInnerDimLiteralSize % (u * VL) == 0) {
-        llvm::errs() << "  partial flattened dims " << flattenedInnerDimNum
-                     << " with size " << flattenedInnerDimLiteralSize
-                     << " works with VL " << VL << " and unroll " << u << "\n";
+        LLVM_DEBUG(llvm::dbgs()
+                   << "  partial flattened dims " << flattenedInnerDimNum
+                   << " with size " << flattenedInnerDimLiteralSize
+                   << " works with VL " << VL << " and unroll " << u << "\n");
         simdUnroll = u;
         gotOne = true;
         break;
       }
     }
     assert(gotOne && "expected at least 1 *VL to work");
-    return 0; // hi alex: not supported yet.
   }
-  if (DEBUG)
-    llvm::errs() << "  SIMD with avg width " << avgSimdWidth << " and unroll "
-                 << simdUnroll << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "  SIMD with avg width " << avgSimdWidth
+                          << " and unroll " << simdUnroll << "\n");
   return simdUnroll;
 }
 
@@ -1285,8 +1283,8 @@ static LogicalResult getFullyFlattenedSimdCode(
   Type outputElementType = outputMemRefType.getElementType();
   unsigned numArgs = op->getNumOperands();
 
-  if (DEBUG)
-    llvm::errs() << "  SIMD code for elementwise op " << op->getName() << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "  SIMD code for elementwise op " << op->getName()
+                          << "\n");
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
@@ -1344,6 +1342,132 @@ static LogicalResult getFullyFlattenedSimdCode(
             loadedVals.emplace_back(splatValue);
           } else {
             Value loadedVal = create.vec.load(vecType, flatOper, loopInd);
+            loadedVals.emplace_back(loadedVal);
+          }
+        }
+        Value finalResult;
+        if (isUnaryOp) {
+          // For unary op, we through all operands at once as the other ones are
+          // scalars / none values.
+          finalResult = emitScalarOpFor<OP_TYPE>(
+              rewriter, create.getLoc(), op, vecElementType, loadedVals);
+        } else {
+          // For non-unary ops, each op is a flattened array that need to be
+          // processed; process the two first ones, and then "accumulate" one
+          // value at a time. Use the first operand as temporary result.
+          Value accumulated = loadedVals[0];
+          // Iterate over the remaining operands.
+          for (unsigned i = 1; i < numArgs; ++i) {
+            Value next = loadedVals[i];
+            // Fold.
+            accumulated = emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(),
+                op, vecElementType, {accumulated, next});
+          }
+          // Postprocessing (dummy op if none).
+          finalResult = emitPostProcessingFor<OP_TYPE>(
+              rewriter, create.getLoc(), op, vecElementType, accumulated);
+        }
+        // Store result in the resulting array.
+        create.vec.store(finalResult, flatAlloc, loopInd);
+      });
+  rewriter.replaceOp(op, alloc);
+  return success();
+}
+
+template <typename OP_TYPE>
+static LogicalResult getPartiallyFlattenedSimdCode(
+    ConversionPatternRewriter &rewriter, MDBuilder &create,
+    ONNXBroadcastOpShapeHelper *shapeHelper, Operation *op,
+    MemRefType outputMemRefType, ValueRange operands, int64_t alignment,
+    int64_t simdUnroll, int64_t innerDimNum, bool ruledOutBroadcast,
+    bool isUnaryOp) {
+  Type outputElementType = outputMemRefType.getElementType();
+  unsigned numArgs = op->getNumOperands();
+
+  LLVM_DEBUG(llvm::dbgs() << "  partial SIMD code for elementwise op "
+                          << op->getName() << " flattening " << innerDimNum
+                          << " inner dims\n");
+
+  // generate SIMD code of VL elements per vector.
+  IndexExprScope allocScope(create.vec, shapeHelper->getScope());
+  int64_t VL =
+      create.vec.getMachineVectorLength(outputElementType) * simdUnroll;
+  // Alloc memory with padding for SIMD.
+  Value alloc = create.mem.alignedAlloc(
+      outputMemRefType, shapeHelper->getOutputDims(), alignment);
+  // Create flat inputs in the last innerDinNum dims.
+  llvm::SmallVector<Value, 4> flatOperands;
+  for (Value oper : operands) {
+    if (isNoneValue(oper) || isScalarValue(oper)) {
+      // If its a none / scalar, it is not meant to be flattened.
+      flatOperands.emplace_back(oper);
+      continue;
+    }
+    llvm::SmallVector<IndexExpr, 4> operDims;
+    Value operSize;
+    create.krnlIE.getShapeAsSymbols(oper, operDims);
+    Value flatOper =
+        create.mem.reshapeToFlat(oper, operDims, operSize, innerDimNum);
+    flatOperands.emplace_back(flatOper);
+  }
+  // Create flat output.
+  Value flattenedOutputSize;
+  DimsExpr outputDims = shapeHelper->getOutputDims();
+  Value flatAlloc = create.mem.reshapeToFlat(
+      alloc, outputDims, flattenedOutputSize, innerDimNum);
+  IndexExpr flattenedSize = SymbolIndexExpr(flattenedOutputSize);
+  // Create loop iteration (flattened to output dim - inner dim + 1) with inner
+  // one and blocked by mVL.
+  int64_t rank = outputDims.size() - innerDimNum + 1;
+  LLVM_DEBUG(
+      llvm::dbgs() << "SIMD partial flatten with loop rank " << rank << "\n");
+  int64_t flattenedDim = rank - 1;
+  ValueRange loopDef = create.krnl.defineLoops(rank);
+  ValueRange blockedLoopDef = create.krnl.block(loopDef[flattenedDim], VL);
+  SmallVector<Value, 4> optimizedLoopDef;
+  SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+  SmallVector<IndexExpr, 4> ubs;
+  for (int64_t r = 0; r < rank - 1; ++r) {
+    optimizedLoopDef.emplace_back(loopDef[r]);
+    ubs.emplace_back(outputDims[r]);
+  }
+  optimizedLoopDef.emplace_back(blockedLoopDef[0]);
+  ubs.emplace_back(flattenedSize);
+  // Create the vector type to operate over.
+  VectorType vecElementType = VectorType::get({VL}, outputElementType);
+  // Iterate only over the blocks.
+  create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, ubs,
+      [&](KrnlBuilder &ck, ValueRange loopInd) {
+        MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+        SmallVector<IndexExpr, 4> outputAccessExprs;
+        getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
+
+        llvm::SmallVector<Value, 4> loadedVals;
+        // Load all the values
+        for (int64_t i = 0; i < (int64_t)flatOperands.size(); ++i) {
+          Value flatOper = flatOperands[i];
+          if (isNoneValue(flatOper)) {
+            // None, just pass it on unmodified.
+            loadedVals.emplace_back(flatOper);
+            continue;
+          }
+          MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
+          assert(memRefType && "expected memref");
+          VectorType vecType =
+              VectorType::get({VL}, memRefType.getElementType());
+          if (isScalarValue(flatOper)) {
+            // If its a scalar, do a scalar load and splat.
+            Value loadedVal = create.krnl.load(flatOper);
+            Value splatValue = create.vec.splat(vecType, loadedVal);
+            loadedVals.emplace_back(splatValue);
+          } else {
+            llvm::SmallVector<IndexExpr, 4> loadAccessFct;
+            LogicalResult res =
+                shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
+                    loadAccessFct, /*flattened*/ true, ruledOutBroadcast);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value loadedVal =
+                create.vec.loadIE(vecType, flatOper, loadAccessFct, {});
             loadedVals.emplace_back(loadedVal);
           }
         }
@@ -1437,10 +1561,10 @@ struct ONNXElementwiseUnaryOpLowering
     MDBuilder create(rewriter, loc);
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
-    if (DEBUG) {
-      llvm::errs() << "Look at unary elementwise op: " << op->getName() << "\n";
+    LLVM_DEBUG({
+      llvm::dbgs() << "Look at unary elementwise op: " << op->getName() << "\n";
       op->dump();
-    }
+    });
     bool isScalar = hasAllScalarValues(operands);
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
@@ -1452,8 +1576,7 @@ struct ONNXElementwiseUnaryOpLowering
             &shapeHelper, op, memRefType, operands, alignment, simdUnroll,
             /*unary*/ true);
     }
-    if (DEBUG)
-      llvm::errs() << "  scalar execution\n";
+    LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
     // Insert an allocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1556,11 +1679,11 @@ struct ONNXElementwiseBinaryOpLowering
         op, operands, &create.krnlIE, nullptr, isUniBroadcasting);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    if (DEBUG) {
-      llvm::errs() << "Look at binary elementwise op: " << op->getName()
+    LLVM_DEBUG({
+      llvm::dbgs() << "Look at binary elementwise op: " << op->getName()
                    << "\n";
       op->dump();
-    }
+    });
 
     bool isScalar = hasAllScalarValues(operands);
     // Shape helper can determine if there is no static broadcast.
@@ -1570,7 +1693,7 @@ struct ONNXElementwiseBinaryOpLowering
     IndexExpr innerDimDynamicSize;
     bool hasManageableBroadcast =
         shapeHelper.hasManageableBroadcastForInnerDims(
-            innerDimNum, innerDimLiteralSize, innerDimDynamicSize);
+            innerDimNum, innerDimLiteralSize, innerDimDynamicSize, dimAnalysis);
     bool hasNoTensorBroadcast = hasNoBroadcast || hasScalarBroadcast;
     bool hasGoodBroadcast =
         hasNoBroadcast || hasScalarBroadcast || hasManageableBroadcast;
@@ -1579,20 +1702,20 @@ struct ONNXElementwiseBinaryOpLowering
       assert(hasManageableBroadcast &&
              innerDimNum == (int64_t)shapeHelper.outputRank &&
              "wrong assumptions about has scalar broadcast");
-    if (DEBUG) {
+    LLVM_DEBUG({
       if (hasNoTensorBroadcast) {
-        llvm::errs() << "  simd possible: ";
-        llvm::errs() << "hasNoBroadcast(" << hasNoBroadcast << "), ";
-        llvm::errs() << "hasScalarBroadcast(" << hasScalarBroadcast << ")\n";
+        llvm::dbgs() << "  simd possible: ";
+        llvm::dbgs() << "hasNoBroadcast(" << hasNoBroadcast << "), ";
+        llvm::dbgs() << "hasScalarBroadcast(" << hasScalarBroadcast << ")\n";
       } else
-        llvm::errs() << "  simd disabled: may have broadcast\n";
+        llvm::dbgs() << "  simd disabled: may have broadcast\n";
       if (hasManageableBroadcast)
-        llvm::errs() << "  manageable broadcast: inner dims " << innerDimNum
+        llvm::dbgs() << "  manageable broadcast: inner dims " << innerDimNum
                      << " of lit size " << innerDimLiteralSize << "\n";
       else
-        llvm::errs() << "  unmanageable broadcast: inner dims " << innerDimNum
+        llvm::dbgs() << "  unmanageable broadcast: inner dims " << innerDimNum
                      << "\n";
-    }
+    });
 
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && hasGoodBroadcast &&
@@ -1601,13 +1724,19 @@ struct ONNXElementwiseBinaryOpLowering
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
               shapeHelper, create, outputMemRefType, innerDimNum,
               innerDimLiteralSize);
-      if (simdUnroll > 0)
-        return getFullyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter, create,
-            &shapeHelper, op, outputMemRefType, operands, alignment, simdUnroll,
-            /*unary*/ false);
+      if (simdUnroll > 0) {
+        if (hasManageableBroadcast && !hasNoTensorBroadcast)
+          return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
+              create, &shapeHelper, op, outputMemRefType, operands, alignment,
+              simdUnroll, innerDimNum, hasNoBroadcast, /*unary*/ false);
+        else
+          return getFullyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
+              create, &shapeHelper, op, outputMemRefType, operands, alignment,
+              simdUnroll,
+              /*unary*/ false);
+      }
     }
-    if (DEBUG)
-      llvm::errs() << "  scalar execution\n";
+    LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1703,11 +1832,11 @@ struct ONNXElementwiseVariadicOpLowering
     MDBuilder create(rewriter, loc);
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
-    if (DEBUG) {
-      llvm::errs() << "Look at variadic elementwise op: " << op->getName()
+    LLVM_DEBUG({
+      llvm::dbgs() << "Look at variadic elementwise op: " << op->getName()
                    << "\n";
       op->dump();
-    }
+    });
 
     bool isScalar = hasAllScalarValues(operands);
     bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
@@ -1716,7 +1845,7 @@ struct ONNXElementwiseVariadicOpLowering
     IndexExpr innerDimDynamicSize;
     bool hasManageableBroadcast =
         shapeHelper.hasManageableBroadcastForInnerDims(
-            innerDimNum, innerDimLiteralSize, innerDimDynamicSize);
+            innerDimNum, innerDimLiteralSize, innerDimDynamicSize, dimAnalysis);
     bool hasNoTensorBroadcast = hasNoBroadcast || hasScalarBroadcast;
     bool hasGoodBroadcast =
         hasNoBroadcast || hasScalarBroadcast || hasManageableBroadcast;
@@ -1726,20 +1855,20 @@ struct ONNXElementwiseVariadicOpLowering
              innerDimNum == (int64_t)shapeHelper.outputRank &&
              "wrong assumptions about has scalar broadcast");
 
-    if (DEBUG) {
+    LLVM_DEBUG({
       if (hasNoTensorBroadcast) {
-        llvm::errs() << "  simd possible: ";
-        llvm::errs() << "hasNoBroadcast(" << hasNoBroadcast << "), ";
-        llvm::errs() << "hasScalarBroadcast(" << hasScalarBroadcast << ")\n";
+        llvm::dbgs() << "  simd possible: ";
+        llvm::dbgs() << "hasNoBroadcast(" << hasNoBroadcast << "), ";
+        llvm::dbgs() << "hasScalarBroadcast(" << hasScalarBroadcast << ")\n";
       } else
-        llvm::errs() << "  simd disabled: may have broadcast\n";
+        llvm::dbgs() << "  simd disabled: may have broadcast\n";
       if (hasManageableBroadcast)
-        llvm::errs() << "  manageable broadcast: inner dims " << innerDimNum
+        llvm::dbgs() << "  manageable broadcast: inner dims " << innerDimNum
                      << " of lit size " << innerDimLiteralSize << "\n";
       else
-        llvm::errs() << "  unmanageable broadcast: inner dims " << innerDimNum
+        llvm::dbgs() << "  unmanageable broadcast: inner dims " << innerDimNum
                      << "\n";
-    }
+    });
 
     if (enableSIMD && !isScalar && hasGoodBroadcast &&
         !hasNonIdentityLayout(operands)) {
@@ -1748,13 +1877,18 @@ struct ONNXElementwiseVariadicOpLowering
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
               shapeHelper, create, outputMemRefType, innerDimNum,
               innerDimLiteralSize);
-      if (simdUnroll > 0)
-        return getFullyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
-            create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            simdUnroll, /*unary*/ false);
+      if (simdUnroll > 0) {
+        if (hasManageableBroadcast && !hasNoTensorBroadcast)
+          return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
+              create, &shapeHelper, op, outputMemRefType, operands, alignment,
+              simdUnroll, innerDimNum, hasNoBroadcast, /*unary*/ false);
+        else
+          return getFullyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
+              create, &shapeHelper, op, outputMemRefType, operands, alignment,
+              simdUnroll, /*unary*/ false);
+      }
     }
-    if (DEBUG)
-      llvm::errs() << "  scalar execution\n";
+    LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(

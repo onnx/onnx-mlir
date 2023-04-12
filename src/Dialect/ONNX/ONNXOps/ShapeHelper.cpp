@@ -442,13 +442,15 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
 
   int64_t dimNum = inputsDims.size();
   bool canUseDimAnalysis = dimAnalysis && (int64_t)operands.size() == dimNum;
+  // fprintf(stderr, "hi alex: can use dim analysis %d\n",
+  // (int)canUseDimAnalysis);
   innerDimLiteralSize = 1;
   innerDimDynamicSize = LiteralIndexExpr(1);
   llvm::SmallBitVector isScalar(dimNum, true);
   llvm::SmallBitVector isScalarUpToNow(dimNum, true);
   // Walk through the rank from innermost to outermost;
   for (int64_t r = outputRank - 1; r >= 0; --r) {
-    // fprintf(stderr, "hi alex: iter %d\n", (int) r);
+    // fprintf(stderr, "hi alex: iter %d\n", (int)r);
     // Detect scalars and non-scalars at this rank.
     int64_t nonScalarID = -1;
     int64_t scalarNum = 0;
@@ -487,10 +489,13 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
           break;
         }
         if (canUseDimAnalysis &&
-            dimAnalysis->sameDim(operands[nonScalarID], r, operands[d], r))
+            dimAnalysis->sameDim(operands[nonScalarID], r, operands[d], r)) {
           // Analysis demonstrated them to be the same, we are fine.
+          // fprintf(stderr, "hi alex: dyn analysis say its fine\n");
           continue;
+        }
         // Analysis could not prove operands's r dim to be identical.
+        // fprintf(stderr, "hi alex: dyn analysis say its ambiguous\n");
         possibleNonScalarBroadcast = true;
         break;
       }
@@ -549,6 +554,9 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
   // flattened memref dimensions. Check that there.
   assert(operandRank <= loopDepth &&
          "operand cannot have more dims that the number of surrounding loops.");
+  if (!flattenedInnerDims)
+    assert(loopDepth == (int64_t)outputRank &&
+           "without flattening, expect one loop iter variable per output rank");
   // Emtpy the access expr, just in case.
   operandAccessExprs.clear();
   // There is this case where we have no broadcast per se, but we have
@@ -564,7 +572,9 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
 
   for (int64_t r = 0; r < operandRank; ++r) {
     // Shape helper may pretend 1s, thus adjust dimension index accordingly.
-    int64_t dimIndex = outputRank - operandRank + r;
+    // Take loopDepth instead of outputRank as loopDepth reflect the (possible)
+    // flattening of the loops.
+    int64_t dimIndex = loopDepth - operandRank + r;
     SymbolIndexExpr dim(inputsDims[operandIndex][dimIndex]);
 
     // Compute access index based on broadcasting rules.

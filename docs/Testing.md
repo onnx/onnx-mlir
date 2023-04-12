@@ -344,6 +344,8 @@ The standard way to add tracing code in the LLVM and MLIR projects is to use the
 
 To insert a single "printout" under debug control, the following template can be used.
 ```C++
+#include "llvm/Support/Debug.h"
+
 #define DEBUG_TYPE "my_opt_name_here"
 ...
 LLVM_DEBUG(llvm::dbgs() << "debug msg here" <<  obj_to_print << "\n");
