@@ -442,7 +442,8 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
 
   int64_t dimNum = inputsDims.size();
   bool canUseDimAnalysis = dimAnalysis && (int64_t)operands.size() == dimNum;
-  // fprintf(stderr, "hi alex: can use dim analysis %d\n", (int)canUseDimAnalysis);
+  // fprintf(stderr, "hi alex: can use dim analysis %d\n",
+  // (int)canUseDimAnalysis);
   innerDimLiteralSize = 1;
   innerDimDynamicSize = LiteralIndexExpr(1);
   llvm::SmallBitVector isScalar(dimNum, true);
