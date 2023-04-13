@@ -4180,3 +4180,56 @@ func.func @test_quantize_linear(%arg0: tensor<6xf32>, %arg1: tensor<f32>, %arg2:
 // CHECK:           return [[RES_]] : memref<6xui8>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_erf(%arg0: tensor<?x10xf32>) -> (tensor<*xf32>) attributes {} {
+  %0 = "onnx.Erf"(%arg0): (tensor<?x10xf32>) -> (tensor<*xf32>)
+  return %0 : tensor<*xf32>
+// mlir2FileCheck.py
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-LABEL:  func.func @test_erf
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
+// CHECK-DAG:       [[CST_0_dot_327591091_:%.+]] = arith.constant 0.327591091 : f32
+// CHECK-DAG:       [[CST_1_dot_06140542_:%.+]] = arith.constant 1.06140542 : f32
+// CHECK-DAG:       [[CST_minus_1_dot_45315206_:%.+]] = arith.constant -1.45315206 : f32
+// CHECK-DAG:       [[CST_1_dot_42141378_:%.+]] = arith.constant 1.42141378 : f32
+// CHECK-DAG:       [[CST_minus_0_dot_284496725_:%.+]] = arith.constant -0.284496725 : f32
+// CHECK-DAG:       [[CST_0_dot_254829586_:%.+]] = arith.constant 0.254829586 : f32
+// CHECK-DAG:       [[CST_minus_1_dot_000000_:%.+]] = arith.constant -1.000000e+00 : f32
+// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK:           [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x10xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK-DAG:       [[VAR_dim_8_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_8_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
+// CHECK:             [[VAR_3_:%.+]] = math.absf [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             [[VAR_4_:%.+]] = arith.mulf [[VAR_3_]], [[CST_0_dot_327591091_]] : f32
+// CHECK:             [[VAR_5_:%.+]] = arith.addf [[VAR_4_]], [[CST_1_dot_000000_]] : f32
+// CHECK:             [[VAR_6_:%.+]] = arith.divf [[CST_1_dot_000000_]], [[VAR_5_]] : f32
+// CHECK:             [[VAR_7_:%.+]] = arith.mulf [[VAR_6_]], [[CST_1_dot_06140542_]] : f32
+// CHECK:             [[VAR_8_:%.+]] = arith.addf [[VAR_7_]], [[CST_minus_1_dot_45315206_]] : f32
+// CHECK:             [[VAR_9_:%.+]] = arith.mulf [[VAR_8_]], [[VAR_6_]] : f32
+// CHECK:             [[VAR_10_:%.+]] = arith.addf [[VAR_9_]], [[CST_1_dot_42141378_]] : f32
+// CHECK:             [[VAR_11_:%.+]] = arith.mulf [[VAR_10_]], [[VAR_6_]] : f32
+// CHECK:             [[VAR_12_:%.+]] = arith.addf [[VAR_11_]], [[CST_minus_0_dot_284496725_]] : f32
+// CHECK:             [[VAR_13_:%.+]] = arith.mulf [[VAR_12_]], [[VAR_6_]] : f32
+// CHECK:             [[VAR_14_:%.+]] = arith.addf [[VAR_13_]], [[CST_0_dot_254829586_]] : f32
+// CHECK-DAG:         [[VAR_15_:%.+]] = arith.mulf [[VAR_14_]], [[VAR_6_]] : f32
+// CHECK-DAG:         [[VAR_16_:%.+]] = arith.mulf [[VAR_3_]], [[CST_minus_1_dot_000000_]] : f32
+// CHECK:             [[VAR_17_:%.+]] = arith.mulf [[VAR_16_]], [[VAR_3_]] : f32
+// CHECK:             [[VAR_18_:%.+]] = math.exp [[VAR_17_]] : f32
+// CHECK:             [[VAR_19_:%.+]] = arith.mulf [[VAR_15_]], [[VAR_18_]] : f32
+// CHECK-DAG:         [[VAR_20_:%.+]] = arith.subf [[CST_1_dot_000000_]], [[VAR_19_]] : f32
+// CHECK-DAG:         [[VAR_21_:%.+]] = arith.cmpf ogt, [[LOAD_PARAM_0_MEM_]], [[CST_0_dot_000000_]] : f32
+// CHECK:             [[VAR_22_:%.+]] = arith.mulf [[VAR_20_]], [[CST_minus_1_dot_000000_]] : f32
+// CHECK:             [[VAR_23_:%.+]] = arith.select [[VAR_21_]], [[VAR_20_]], [[VAR_22_]] : f32
+// CHECK:             krnl.store [[VAR_23_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<?x10xf32>
+// CHECK:         }
+}
