@@ -795,8 +795,11 @@ Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
   //   a4 = -1.453152027
   //   a5 =  1.061405429
   //   p  =  0.3275911
+  //   a1_smallx = 1.1283791671
   //
   //   absx = abs(x)
+  //   if absx < 0.001:
+  //     return a1_smallx * x
   //   t = 1.0 / (1.0 + p * absx)
   //   y = 1.0 -
   //       (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
@@ -816,6 +819,7 @@ Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
   Value a4 = create.math.constant(elementType, -1.453152027);
   Value a5 = create.math.constant(elementType, 1.061405429);
   Value p = create.math.constant(elementType, 0.3275911);
+  Value a1_smallx = create.math.constant(elementType, 1.1283791671);
   Value absx = create.math.abs(operand);
   Value t =
       create.math.div(one, create.math.add(one, create.math.mul(p, absx)));
@@ -843,7 +847,12 @@ Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
                create.math.exp(
                    create.math.mul(create.math.mul(minusone, absx), absx))));
   Value sign = create.math.gt(operand, zero);
-  return create.math.select(sign, y, create.math.mul(y, minusone));
+  Value ans = create.math.select(sign, y, create.math.mul(y, minusone));
+  Value ans_smallx = create.math.mul(a1_smallx, operand);
+  // if abs(x) < 0.001, return ans_smallx otherwise return ans
+  Value epsilon = create.math.constant(elementType, 0.001);
+  Value is_smallx = create.math.lt(absx, epsilon);
+  return create.math.select(is_smallx, ans_smallx, ans);
 }
 
 //===----------------------------------------------------------------------===//
