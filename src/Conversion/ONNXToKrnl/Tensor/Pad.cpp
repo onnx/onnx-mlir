@@ -73,14 +73,19 @@ struct ONNXPadOpLowering : public ConversionPattern {
         // Default to 0 if constant_value is not specified.
         cValue = create.math.constant(resElementType, 0);
       } else {
-        // If constant_value is of type memref<1x*>, create an index to access in the map creating from the variable
-        auto cst = llvm::dyn_cast<MemRefType>(constantValue.getType());
-        if(cst && cst.getRank() == 1) {
-          auto zeroIndex = create.math.constantIndex(0);
-          cValue = create.krnl.load(constantValue, {zeroIndex});
+        SmallVector<Value, 1> loadIndices;
+        MemRefType constantValueType =
+            constantValue.getType().dyn_cast<MemRefType>();
+        if (constantValueType.getElementType().isF32() &&
+            constantValueType.getRank() == 1) {
+          // If the constant_value type is 1xf32 do krnl.load with an index of
+          // 0 to avoid an assertion failure in AffineLoadOp::build(). This is
+          // a work around for an incorrect ResNet50 model. The issue this
+          // fixes is issue number 1844.
+          Value idx = create.math.constantIndex(0);
+          loadIndices = {idx};
         }
-        else
-          cValue = create.krnl.load(constantValue, {});
+        cValue = create.krnl.load(constantValue, loadIndices);
       }
 
       // Initialize the result to the constant value.
