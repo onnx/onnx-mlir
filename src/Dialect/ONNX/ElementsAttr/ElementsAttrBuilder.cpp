@@ -16,6 +16,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #include <numeric>
@@ -128,8 +129,8 @@ bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
     using cpptype = CppType<btype>;
     return llvm::all_of(range, [&](StridesIndexPos<2> idxpos) {
       constexpr BType TAG = toBType<cpptype>;
-      return lhsNums.get()[idxpos.pos[0]].narrow<TAG>() ==
-             rhsNums.get()[idxpos.pos[1]].narrow<TAG>();
+      return lhsNums.get()[idxpos[0]].narrow<TAG>() ==
+             rhsNums.get()[idxpos[1]].narrow<TAG>();
     });
   });
 }
@@ -200,16 +201,22 @@ ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
   SmallVector<int64_t, 4> xpLhsStrides;
   ArrayBuffer<WideNum> lhsNums =
       getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
-  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
 
   SmallVector<int64_t, 4> xpRhsStrides;
   ArrayBuffer<WideNum> rhsNums =
       getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
-  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
 
   return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
-    mapStrides<WideNum, WideNum, WideNum>(
-        combinedShape, dstNums, stridedLhs, stridedRhs, combiner);
+    // dstNums, lhsNums, rhsNums are accessed via raw pointers dst, lhs/rhsSrc
+    // because otherwise the ArrayRef range checks slow down the inner loop.
+    WideNum *dst = dstNums.data();
+    const WideNum *lhsSrc = lhsNums.get().data();
+    const WideNum *rhsSrc = rhsNums.get().data();
+    for (auto &idxpos :
+        StridesRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides})) {
+      dst[idxpos.flattenedIndex] =
+          combiner(lhsSrc[idxpos[0]], rhsSrc[idxpos[1]]);
+    }
   });
 }
 
@@ -241,24 +248,26 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
   SmallVector<int64_t, 4> xpLhsStrides;
   ArrayBuffer<WideNum> lhsNums =
       getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
-  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
 
   SmallVector<int64_t, 4> xpRhsStrides;
   ArrayBuffer<WideNum> rhsNums =
       getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
-  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
 
   return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
     // Copy cond into dstNums with broadcast.
     restrideArray<WideNum>(
         combinedShape, xpCondStrides, condNums.get(), dstNums);
 
-    WideNum *end = traverseStrides<WideNum *, WideNum, WideNum>(combinedShape,
-        dstNums.begin(), stridedLhs, stridedRhs,
-        [](WideNum *res, const WideNum *x, const WideNum *y) {
-          *res = res->u64 ? *x : *y;
-        });
-    assert(end == dstNums.end() && "traverses every dstNums element");
+    // dstNums, lhsNums, rhsNums are accessed via raw pointers dst, lhs/rhsSrc
+    // because otherwise the ArrayRef range checks slow down the inner loop.
+    WideNum *dst = dstNums.data();
+    const WideNum *lhsSrc = lhsNums.get().data();
+    const WideNum *rhsSrc = rhsNums.get().data();
+    for (auto &idxpos :
+        StridesRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides})) {
+      WideNum &res = dst[idxpos.flattenedIndex];
+      res = res.u64 ? lhsSrc[idxpos[0]] : rhsSrc[idxpos[1]];
+    }
   });
 }
 
@@ -487,7 +496,7 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     // Traverse and populate each element d in dstNums.
     for (auto &idxpos : StridesRange<1>(reducedShape, {reducedStrides})) {
       WideNum &d = dstNums[idxpos.flattenedIndex];
-      auto srcPos = idxpos.pos[0];
+      auto srcPos = idxpos[0];
       // Traverse all the elements that reduce together into d.
       // srcNums elements may be repeated if there are zeros in axesStrides.
       StridesRange<1> axesRange(axesShape, {axesStrides});
@@ -603,8 +612,8 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
         // Traverse all the elements that reduce together into d.
         // srcNums elements may be repeated if there are zeros in axesStrides.
         cpptype accumulator = 0;
-        auto lhsPos = idxpos.pos[0];
-        auto rhsPos = idxpos.pos[1];
+        auto lhsPos = idxpos[0];
+        auto rhsPos = idxpos[1];
         for (int64_t i = 0; i < K; ++i) {
           accumulator += lhsNums.get()[lhsPos].narrow<TAG>() *
                          rhsNums.get()[rhsPos].narrow<TAG>();

@@ -14,17 +14,17 @@
 // array should be broadcast to populate the tensor. In the extreme, the
 // linear array can be a "splat" singleton broadcast to every tensor element.
 //
-// getStridesPosition(indices, strides) maps tensor indices to the position
-// in the linear array by computing the dot product of indices and strides.
+// getStridesPosition(index, strides) maps a multidimensional tensor index to
+// the linear array position given by the dot product of index and strides.
 //
 // A linear array and strides can represent a tensor with a given shape if
 // getStridesPosition() maps the tensor indices onto the array positions,
-// which happens when the last tensor indices map to the last array position:
+// which happens when the last tensor index map to the last array position:
 //
-//   getStridesPosition([shape[0]-1,...,shape[rank-1]-1], strides)
+//   getStridesPosition({[shape[0]-1,...,shape[rank-1]-1]}, strides)
 //   == array.size() - 1
 //
-// when shape is non-empty.
+// provided shape is non-empty.
 //
 // Given a strided tensor (represented by a linear array and strides) it can
 // always be transposed by just transposing the strides and can always be
@@ -37,22 +37,18 @@
 #pragma once
 
 #include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
-#include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallVector.h"
-
-#include <array>
 
 namespace onnx_mlir {
 
 // Returns the position in the linear array described by the strides
-// which correpond to the given indices.
+// which correpond to the given index.
 size_t getStridesPosition(
-    llvm::ArrayRef<int64_t> indices, llvm::ArrayRef<int64_t> strides);
+    llvm::ArrayRef<uint64_t> index, llvm::ArrayRef<int64_t> strides);
 
 // The data is splat (singleton) if strides are all zero.
 inline bool areStridesSplat(llvm::ArrayRef<int64_t> strides) {
@@ -90,8 +86,8 @@ llvm::SmallVector<int64_t, 4> untransposeDims(
     llvm::ArrayRef<int64_t> dims, llvm::ArrayRef<uint64_t> perm);
 
 // NOTE: this function is expensive, try to avoid calling it
-llvm::SmallVector<int64_t, 4> unflattenIndex(
-    llvm::ArrayRef<int64_t> shape, int64_t flatIndex);
+llvm::SmallVector<uint64_t, 4> unflattenIndex(
+    llvm::ArrayRef<int64_t> shape, uint64_t flatIndex);
 
 // Unpacks src into row-major order in dstData.
 void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
@@ -108,197 +104,5 @@ void restrideArray(llvm::ArrayRef<int64_t> shape,
   return restrideArray(sizeof(T), shape, srcStrides, castArrayRef<char>(src),
       castMutableArrayRef<char>(dst));
 }
-
-// A linear array together with strides.
-// Derives behavior including iterators from ArrayRef<T>.
-// Tensor indices can be mapped to array positions with getStridesPosition().
-template <typename T>
-struct StridedArrayRef : public llvm::ArrayRef<T> {
-  using Base = llvm::ArrayRef<T>;
-
-  llvm::ArrayRef<int64_t> strides;
-  StridedArrayRef(llvm::ArrayRef<T> array, llvm::ArrayRef<int64_t> strides)
-      : Base(array), strides(strides) {}
-};
-
-// Used as value_type in StridesRange and StridesIterator in the context of a
-// shape of the given rank (the length of the 'index' vector) and N strides
-// which are not represented in StridesIndexPos itself.
-//
-// 'flattenedIndex' and 'index' are two representations of an index into a
-// tensor of the given rank.
-// 'pos' is an array of flattened indexes into strided arrays.
-template <size_t N>
-struct StridesIndexPos {
-  // Non-zero flattenedIndex is only used to construct end iterators
-  // with meaningless index and pos.
-  StridesIndexPos(unsigned rank, uint64_t flattenedIndex = 0)
-      : flattenedIndex(flattenedIndex), index(rank, 0), pos{} {}
-  uint64_t flattenedIndex;
-  llvm::SmallVector<uint64_t, 6> index;
-  std::array<size_t, N> pos;
-};
-
-// Suppose strided arrays {{array1,strides1},...,{arrayN,stridesN}} all
-// represent the same shape, then
-// it = StridesIterator<N>(shape, {strides1,...,stridesN}) iterates over the
-// shape's elements in row-major order, with it->index describing the shape's
-// corresponding multidimensional index, it->flattenedIndex the row-major order
-// flattened linear index, and it->pos is an array of positions pos1,...,posN
-// in array1,...,arrayN that represent the index. i.e.,
-// it->pos1 == getStridesPosition(it->index, strides1) etc.
-//
-// For example, this can be used to compare the contents of two strided arrays
-// with the same shape:
-//
-//   template <typename T, typename StridedArray = StridedArrayRef<T>>
-//   bool equal(ArrayRef<int64_t> shape, StridedArray lhs, StridedArray rhs) {
-//     StridesIterator<2> begin(shape, {lhs.strides, rhs.strides}), end(shape);
-//     return std::all_of(begin, end,
-//       [](const auto &ipos) { return src0[ipos.pos[0]]==src1[ipos.pos[1]]; });
-//   }
-//
-// Note: The iteration example above works when shape is empty because
-//       begin == end and the iterator is never derefenced or incremented.
-//       If the shape is empty then the iterator shouldn't be dereferenced or
-//       incremented because the internal state will not make sense.
-//
-// It is best to access StridesIterator through the StridesRange wrapper below.
-template <size_t N>
-class StridesIterator {
-public:
-  using value_type = StridesIndexPos<N>;
-  using difference_type = int64_t;
-  using pointer = const value_type *;
-  using reference = const value_type &;
-  using iterator_category = std::forward_iterator_tag;
-
-private:
-  const llvm::ArrayRef<int64_t> shape;
-  const std::array<llvm::ArrayRef<int64_t>, N> strides;
-  value_type value;
-
-public:
-  // Begin iterator.
-  StridesIterator(llvm::ArrayRef<int64_t> shape,
-      std::array<llvm::ArrayRef<int64_t>, N> strides)
-      : shape(shape), strides(strides), value(shape.size()) {
-    assert(!mlir::ShapedType::isDynamicShape(shape) && "shape must be static");
-    for (unsigned i = 0; i < N; ++i)
-      assert(shape.size() == strides[i].size() && "shape, strides mismatch");
-  }
-
-  // End iterator: ends after the given number of iterations.
-  StridesIterator(size_t iterations) : value{0, iterations} {}
-
-  // End iterator: ends after one traversal of shape.
-  StridesIterator(llvm::ArrayRef<int64_t> shape)
-      : StridesIterator(mlir::ShapedType::getNumElements(shape)) {}
-
-  // These declarations are redundant, the compiler generates this constructor
-  // and operator automatically, but included to flag that StridesIterator can
-  // be copied, which is used in the implementation of operator++(int) below.
-  StridesIterator(const StridesIterator &) = default;
-  StridesIterator &operator=(const StridesIterator &) = default;
-
-  bool operator==(const StridesIterator &other) const {
-    return value.flattenedIndex == other.value.flattenedIndex;
-  }
-
-  bool operator!=(const StridesIterator &other) const {
-    return value.flattenedIndex != other.value.flattenedIndex;
-  }
-
-  reference operator*() const { return value; }
-
-  pointer operator->() const { return &value; }
-
-  inline StridesIterator &operator++() {
-    ++(value.flattenedIndex);
-    for (auto axis = shape.size();;) {
-      if (axis == 0) {
-        break; // index rolled around
-      }
-      --axis;
-      uint64_t dim = shape[axis];
-      for (unsigned i = 0; i < N; ++i)
-        value.pos[i] += strides[i][axis];
-      if (++(value.index[axis]) < dim)
-        break;
-      // axis overflowed: rewind the axis and carry over to axis-1 by doing
-      // the next iteration of the loop
-      for (unsigned i = 0; i < N; ++i)
-        value.pos[i] -= dim * strides[i][axis];
-      value.index[axis] = 0;
-    }
-    return *this;
-  }
-
-  StridesIterator operator++(int) {
-    StridesIterator copy = *this;
-    ++*this;
-    return copy;
-  }
-};
-
-// Almost the same as llvm::make_range(iteator(shape, strides), iterator(shape))
-// where iterator = StridesIterator<N>, but a little more concise and efficient
-// to use.
-//
-// For example, content comparison of two strided arrays with the same shape:
-//
-//   template <typename T, typename StridedArray = StridedArrayRef<T>>
-//   bool equal(ArrayRef<int64_t> shape, StridedArray lhs, StridedArray rhs) {
-//     return llvm::all_of(StridesRange<2>(shape, {lhs.strides, rhs.strides}),
-//         [](const auto &idxpos) {
-//           return src0[idxpos.pos[0]] == src1[idxpos.pos[1]];
-//         });
-//   }
-//
-template <size_t N>
-class StridesRange {
-public:
-  using iterator = StridesIterator<N>;
-  using value_type = StridesIndexPos<N>;
-
-private:
-  const llvm::ArrayRef<int64_t> shape;
-  const std::array<llvm::ArrayRef<int64_t>, N> strides;
-  const size_t numElements;
-
-public:
-  StridesRange(llvm::ArrayRef<int64_t> shape,
-      std::array<llvm::ArrayRef<int64_t>, N> strides)
-      : shape(shape), strides(strides),
-        numElements(mlir::ShapedType::getNumElements(shape)) {}
-  iterator begin() const { return iterator(shape, strides); }
-  iterator end() const { return iterator(numElements); }
-  size_t size() const { return numElements; }
-  bool empty() const { return size() == 0; }
-};
-
-template <typename Iterator, typename Arg0,
-    typename Action = llvm::function_ref<void(Iterator, const Arg0 *)>>
-Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator dst,
-    StridedArrayRef<Arg0> src0, Action &&act);
-
-template <typename Iterator, typename Arg0, typename Arg1,
-    typename Action =
-        llvm::function_ref<void(Iterator, const Arg0 *, const Arg1 *)>>
-Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator dst,
-    StridedArrayRef<Arg0> src0, StridedArrayRef<Arg1> src1, Action &&act);
-
-template <typename Res, typename Arg0,
-    typename Action = llvm::function_ref<Res(Arg0)>>
-void mapStrides(llvm::ArrayRef<int64_t> shape, llvm::MutableArrayRef<Res> dst,
-    StridedArrayRef<Arg0> src0, Action &&act);
-
-template <typename Res, typename Arg0, typename Arg1,
-    typename Action = llvm::function_ref<Res(Arg0, Arg1)>>
-void mapStrides(llvm::ArrayRef<int64_t> shape, llvm::MutableArrayRef<Res> dst,
-    StridedArrayRef<Arg0> src0, StridedArrayRef<Arg1> src1, Action &&act);
-
-// Include template implementations.
-#include "Strides.hpp.inc"
 
 } // namespace onnx_mlir
