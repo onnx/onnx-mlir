@@ -442,21 +442,24 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
 
   int64_t dimNum = inputsDims.size();
   bool canUseDimAnalysis = dimAnalysis && (int64_t)operands.size() == dimNum;
-  // fprintf(stderr, "hi alex: can use dim analysis %d\n",
-  // (int)canUseDimAnalysis);
+  // fprintf(stderr, "hi alex: can use dim analysis %d\n", (int)canUseDimAnalysis);
   innerDimLiteralSize = 1;
   innerDimDynamicSize = LiteralIndexExpr(1);
   llvm::SmallBitVector isScalar(dimNum, true);
   llvm::SmallBitVector isScalarUpToNow(dimNum, true);
-  // Walk through the rank from innermost to outermost;
-  for (int64_t r = outputRank - 1; r >= 0; --r) {
+  // Walk through the rank from innermost to outermost, using neg values.
+  int64_t outputRankInt = outputRank;
+  for (int64_t r = -1; r >= -outputRankInt; --r) {
     // fprintf(stderr, "hi alex: iter %d\n", (int)r);
     // Detect scalars and non-scalars at this rank.
+    int64_t rr =
+        r + outputRankInt; // Use for inputDims, they are padded to outputRank.
+    // fprintf(stderr, "hi alex: iter r %d, rr %d\n", (int)r, (int)rr);
     int64_t nonScalarID = -1;
     int64_t scalarNum = 0;
     int64_t scalarUpToNowNum = 0;
     for (int64_t d = 0; d < dimNum; ++d) {
-      isScalar[d] = inputsDims[d][r].isLiteralAndIdenticalTo(1);
+      isScalar[d] = inputsDims[d][rr].isLiteralAndIdenticalTo(1);
       if (isScalar[d])
         scalarNum++;
       else
@@ -477,11 +480,11 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
         if (isScalar[d] || d == nonScalarID)
           continue;
         // Compare nonScalarID with d
-        if (inputsDims[nonScalarID][r].isLiteral() &&
-            inputsDims[d][r].isLiteral()) {
+        if (inputsDims[nonScalarID][rr].isLiteral() &&
+            inputsDims[d][rr].isLiteral()) {
           // Both literal, do a literal check.
-          if (inputsDims[nonScalarID][r].getLiteral() ==
-              inputsDims[d][r].getLiteral())
+          if (inputsDims[nonScalarID][rr].getLiteral() ==
+              inputsDims[d][rr].getLiteral())
             // same dims, we are fine.
             continue;
           // Has hard broadcast; this dim is no good
@@ -489,6 +492,8 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
           break;
         }
         if (canUseDimAnalysis &&
+            /* use negative index convention here as operands may have fewer
+               than outputRank dimensions */
             dimAnalysis->sameDim(operands[nonScalarID], r, operands[d], r)) {
           // Analysis demonstrated them to be the same, we are fine.
           // fprintf(stderr, "hi alex: dyn analysis say its fine\n");
@@ -503,7 +508,7 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
         // fprintf(stderr, "hi alex: possibleNonScalarBroadcast\n");
         // Had 2+ non scalar dims that are incompatible, e.g. (2, ?) or (?, ?).
         // Abort at this dim; previous is fine.
-        innerDimNum = outputRank - (r + 1);
+        innerDimNum = -(r + 1);
         return innerDimNum > 0;
       }
     }
@@ -522,7 +527,7 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
       // Abort as we have something like this (1x4x1, 1x1x1 2x4x1), namely where
       // the first dim has a broadcast that is not for a scalar.
       // fprintf(stderr, "hi alex: scalarNum != scalarUpToNowNum\n");
-      innerDimNum = outputRank - (r + 1);
+      innerDimNum = -(r + 1);
       return innerDimNum > 0;
     }
     // This dim is fine for manageable broadcasting. Account for the cumulative
@@ -530,15 +535,15 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
     if (nonScalarNum > 0) {
       // If all scalar, then dim is 1, and there is nothing to do. Otherwise
       // accumulate in literal or dynamic sizes.
-      if (inputsDims[nonScalarID][r].isLiteral()) {
-        innerDimLiteralSize *= inputsDims[nonScalarID][r].getLiteral();
+      if (inputsDims[nonScalarID][rr].isLiteral()) {
+        innerDimLiteralSize *= inputsDims[nonScalarID][rr].getLiteral();
       } else {
-        innerDimDynamicSize = innerDimDynamicSize * inputsDims[nonScalarID][r];
+        innerDimDynamicSize = innerDimDynamicSize * inputsDims[nonScalarID][rr];
       }
     }
   }
   // Came up to here, we are able to collapse them all.
-  innerDimNum = outputRank;
+  innerDimNum = outputRankInt;
   return innerDimNum > 0;
 }
 
