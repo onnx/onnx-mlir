@@ -198,7 +198,6 @@ deprecated_models = {
 }
 
 int8_models = {
-    "bertsquad-12-int8",
     "bvlcalexnet-12-int8",
     "caffenet-12-int8",
     "densenet-12-int8",
