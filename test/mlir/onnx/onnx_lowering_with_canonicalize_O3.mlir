@@ -4224,7 +4224,7 @@ func.func @test_erf(%arg0: tensor<?x10xf32>) -> (tensor<*xf32>) {
 // CHECK:             [[VAR_17_:%.+]] = arith.addf [[VAR_16_]], [[VAR_cst_6_]] : vector<4xf32>
 // CHECK-DAG:         [[VAR_18_:%.+]] = arith.mulf [[VAR_17_]], [[VAR_9_]] : vector<4xf32>
 // CHECK-DAG:         [[VAR_19_:%.+]] = arith.mulf [[VAR_6_]], [[VAR_cst_7_]] : vector<4xf32>
-// CHECK:             [[VAR_20_:%.+]] = arith.mulf [[VAR_19_]], [[VAR_6_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_20_:%.+]] = arith.mulf [[VAR_19_]], [[VAR_6_]] : vector<4xf32>
 // CHECK:             [[VAR_21_:%.+]] = math.exp [[VAR_20_]] : vector<4xf32>
 // CHECK:             [[VAR_22_:%.+]] = arith.mulf [[VAR_18_]], [[VAR_21_]] : vector<4xf32>
 // CHECK-DAG:         [[VAR_23_:%.+]] = arith.subf [[VAR_cst_8_]], [[VAR_22_]] : vector<4xf32>
