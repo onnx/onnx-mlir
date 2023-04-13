@@ -778,7 +778,7 @@ double analyzeSimdFor<ONNXErfOp>(Type t, int64_t &von, int64_t &son) {
       {GenericOps::ArithmeticGop, GenericOps::CompareGop, GenericOps::DivGop,
           GenericOps::MulGop, GenericOps::SelectGop, GenericOps::AbsGop,
           GenericOps::ExpGop},
-      {6, 1, 1, 10, 1, 1, 1}, t, von, son);
+      {6, 2, 1, 11, 2, 1, 1}, t, von, son);
 }
 
 template <>
