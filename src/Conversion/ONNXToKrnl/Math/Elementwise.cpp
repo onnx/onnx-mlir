@@ -776,8 +776,8 @@ template <>
 double analyzeSimdFor<ONNXErfOp>(Type t, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::ArithmeticGop, GenericOps::CompareGop, GenericOps::DivGop,
-       GenericOps::MulGop, GenericOps::SelectGop, GenericOps::AbsGop,
-       GenericOps::ExpGop},
+          GenericOps::MulGop, GenericOps::SelectGop, GenericOps::AbsGop,
+          GenericOps::ExpGop},
       {6, 1, 1, 10, 1, 1, 1}, t, von, son);
 }
 
@@ -799,14 +799,15 @@ Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
   //   absx = abs(x)
   //   t = 1.0 / (1.0 + p * absx)
   //   y = 1.0 -
-  //       (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-absx*absx)
+  //       (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
+  //       exp(-absx*absx)
   //   return -y if x < 0.0 else y
   // }
   // ```
   CheckIfCustomScalarOpIsSupported<ONNXErfOp>(elementType);
   Value operand = scalarOperands[0];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  Value zero = create.math.constant(elementType, 1);
+  Value zero = create.math.constant(elementType, 0);
   Value one = create.math.constant(elementType, 1);
   Value minusone = create.math.constant(elementType, -1);
   Value a1 = create.math.constant(elementType, 0.254829592);
@@ -816,34 +817,31 @@ Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
   Value a5 = create.math.constant(elementType, 1.061405429);
   Value p = create.math.constant(elementType, 0.3275911);
   Value absx = create.math.abs(operand);
-  Value t = create.math.div(
-      one, create.math.add(one, create.math.mul(p, absx)));
+  Value t =
+      create.math.div(one, create.math.add(one, create.math.mul(p, absx)));
   //   y = 1.0 -
-  //       (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-absx*absx)
-  Value y =
-    create.math.sub(
-      one,
-      create.math.mul(
-        create.math.mul(
-          create.math.add(
-            create.math.mul(
-              create.math.add(
-                create.math.mul(
-                  create.math.add(
-                    create.math.mul(
-                      create.math.add(
-                        create.math.mul(a5, t),
-                        a4),
-                      t),
-                    a3),
-                  t),
-                a2),
-              t),
-            a1),
-          t),
-        create.math.exp(create.math.mul(create.math.mul(minusone, absx), absx))
-      )
-    );
+  //       (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
+  //       exp(-absx*absx)
+  Value y = create.math.sub(
+      one, create.math.mul(
+               create.math.mul(
+                   create.math.add(
+                       create.math.mul(
+                           create.math.add(
+                               create.math.mul(
+                                   create.math.add(
+                                       create.math.mul(
+                                           create.math.add(
+                                               create.math.mul(a5, t), a4),
+                                           t),
+                                       a3),
+                                   t),
+                               a2),
+                           t),
+                       a1),
+                   t),
+               create.math.exp(
+                   create.math.mul(create.math.mul(minusone, absx), absx))));
   Value sign = create.math.gt(operand, zero);
   return create.math.select(sign, y, create.math.mul(y, minusone));
 }

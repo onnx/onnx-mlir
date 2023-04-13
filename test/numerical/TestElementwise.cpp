@@ -93,5 +93,15 @@ int main(int argc, char *argv[]) {
   if (!success)
     return 1;
 
+  printf("RapidCheck test Erf case generation.\n");
+  success = rc::check("Gemm implementation correctness", [&]() {
+    const int maxRange = 128;
+    const int I = *rc::gen::inRange(1, maxRange);
+    const int J = *rc::gen::inRange(1, maxRange);
+    RC_ASSERT(isOMElementwiseTheSameAsNaiveImplFor("ONNXErfOp", I, J));
+  });
+  if (!success)
+    return 1;
+
   return 0;
 }
