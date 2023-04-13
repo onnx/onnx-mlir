@@ -775,8 +775,10 @@ struct ScalarOp<ONNXErfOp> {
 template <>
 double analyzeSimdFor<ONNXErfOp>(Type t, int64_t &von, int64_t &son) {
   return simdAnalysis(
-      {GenericOps::ArithmeticGop, GenericOps::ExpGop, GenericOps::DivGop},
-      {2, 2, 1}, t, von, son);
+      {GenericOps::ArithmeticGop, GenericOps::CompareGop, GenericOps::DivGop,
+       GenericOps::MulGop, GenericOps::SelectGop, GenericOps::AbsGop,
+       GenericOps::ExpGop},
+      {6, 1, 1, 10, 1, 1, 1}, t, von, son);
 }
 
 template <>
