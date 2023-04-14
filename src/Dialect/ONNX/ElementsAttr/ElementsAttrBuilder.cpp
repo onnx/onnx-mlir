@@ -16,6 +16,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #include <numeric>
@@ -123,14 +124,13 @@ bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
   ArrayBuffer<WideNum> rhsNums =
       getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
 
-  auto range =
-      makeStridesIteratorRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides});
+  StridesRange<2> range(combinedShape, {xpLhsStrides, xpRhsStrides});
   return dispatchByBType(btypeOfMlirType(elementType), [&](auto btype) {
     using cpptype = CppType<btype>;
-    return llvm::all_of(range, [&](StridesIterator<2>::value_type v) {
+    return llvm::all_of(range, [&](StridesIndexPos<2> idxpos) {
       constexpr BType TAG = toBType<cpptype>;
-      return lhsNums.get()[v.pos[0]].narrow<TAG>() ==
-             rhsNums.get()[v.pos[1]].narrow<TAG>();
+      return lhsNums.get()[idxpos[0]].narrow<TAG>() ==
+             rhsNums.get()[idxpos[1]].narrow<TAG>();
     });
   });
 }
@@ -201,16 +201,22 @@ ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
   SmallVector<int64_t, 4> xpLhsStrides;
   ArrayBuffer<WideNum> lhsNums =
       getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
-  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
 
   SmallVector<int64_t, 4> xpRhsStrides;
   ArrayBuffer<WideNum> rhsNums =
       getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
-  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
 
   return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
-    mapStrides<WideNum, WideNum, WideNum>(
-        combinedShape, dstNums, stridedLhs, stridedRhs, combiner);
+    // dstNums, lhsNums, rhsNums are accessed via raw pointers dst, lhs/rhsSrc
+    // because otherwise the ArrayRef range checks slow down the inner loop.
+    WideNum *dst = dstNums.data();
+    const WideNum *lhsSrc = lhsNums.get().data();
+    const WideNum *rhsSrc = rhsNums.get().data();
+    for (auto &idxpos :
+        StridesRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides})) {
+      dst[idxpos.flattenedIndex] =
+          combiner(lhsSrc[idxpos[0]], rhsSrc[idxpos[1]]);
+    }
   });
 }
 
@@ -242,24 +248,26 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
   SmallVector<int64_t, 4> xpLhsStrides;
   ArrayBuffer<WideNum> lhsNums =
       getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
-  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
 
   SmallVector<int64_t, 4> xpRhsStrides;
   ArrayBuffer<WideNum> rhsNums =
       getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
-  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
 
   return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
     // Copy cond into dstNums with broadcast.
     restrideArray<WideNum>(
         combinedShape, xpCondStrides, condNums.get(), dstNums);
 
-    WideNum *end = traverseStrides<WideNum *, WideNum, WideNum>(combinedShape,
-        dstNums.begin(), stridedLhs, stridedRhs,
-        [](WideNum *res, const WideNum *x, const WideNum *y) {
-          *res = res->u64 ? *x : *y;
-        });
-    assert(end == dstNums.end() && "traverses every dstNums element");
+    // dstNums, lhsNums, rhsNums are accessed via raw pointers dst, lhs/rhsSrc
+    // because otherwise the ArrayRef range checks slow down the inner loop.
+    WideNum *dst = dstNums.data();
+    const WideNum *lhsSrc = lhsNums.get().data();
+    const WideNum *rhsSrc = rhsNums.get().data();
+    for (auto &idxpos :
+        StridesRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides})) {
+      WideNum &res = dst[idxpos.flattenedIndex];
+      res = res.u64 ? lhsSrc[idxpos[0]] : rhsSrc[idxpos[1]];
+    }
   });
 }
 
@@ -486,16 +494,16 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   ShapedType reducedType = type.clone(reducedShape);
   return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
     // Traverse and populate each element d in dstNums.
-    for (StridesIterator<1> reducedIter(reducedShape, {reducedStrides}),
-         reducedEnd(reducedShape);
-         reducedIter != reducedEnd; ++reducedIter) {
-      WideNum &d = dstNums[reducedIter->flattenedIndex];
-      auto srcPos = reducedIter->pos[0];
+    for (auto &idxpos : StridesRange<1>(reducedShape, {reducedStrides})) {
+      WideNum &d = dstNums[idxpos.flattenedIndex];
+      auto srcPos = idxpos[0];
       // Traverse all the elements that reduce together into d.
       // srcNums elements may be repeated if there are zeros in axesStrides.
+      StridesRange<1> axesRange(axesShape, {axesStrides});
+      auto axesIter = axesRange.begin();
+      auto axesEnd = axesRange.end();
+      assert(axesIter->pos[0] == 0 && "initial src offset must be zero");
       d = srcNums.get()[srcPos];
-      StridesIterator<1> axesIter(axesShape, {axesStrides});
-      StridesIterator<1> axesEnd(axesShape);
       while (++axesIter != axesEnd) {
         auto srcOffset = axesIter->pos[0];
         d = reducer(d, srcNums.get()[srcPos + srcOffset]);
@@ -540,7 +548,8 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
   // the cases where lhs or rhs is a vector (has rank 1), it is used to
   // drive the iteration in the outer loop.
   //
-  // lhsReducedStrides/rhsReducedStrides are LHS/RHS strides for the outer loop.
+  // lhsRedStrides/rhsRedStrides are LHS/RHS strides for the outer loop
+  // ("Red" is short for "Reduced").
   //
   // matMulAxisLhsStride/matMulAxisRhsStride are the inner loop strides.
 
@@ -559,33 +568,33 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
   if (lhsRank != 1)
     xpLhsShape.push_back(M);
   xpLhsShape.push_back(K);
-  SmallVector<int64_t> lhsReducedStrides;
+  SmallVector<int64_t> lhsRedStrides;
   ArrayBuffer<WideNum> lhsNums =
-      getWideNumsAndExpandedStrides(lhs, xpLhsShape, lhsReducedStrides);
+      getWideNumsAndExpandedStrides(lhs, xpLhsShape, lhsRedStrides);
   if (lhsRank == 1)
-    lhsReducedStrides.insert(lhsReducedStrides.end() - 1, 0);
-  assert(lhsReducedStrides.size() == matMulRank);
+    lhsRedStrides.insert(lhsRedStrides.end() - 1, 0);
+  assert(lhsRedStrides.size() == matMulRank);
   // Record the LHS stride on the MatMul reduction axis and then clear it in
   // the strides so it is ignored during the outer reduction loop below.
   // (The MatMul reduction axis stride is used in the inner reduction loop.)
-  int64_t matMulAxisLhsStride = lhsReducedStrides[matMulRank - 1];
-  lhsReducedStrides[matMulRank - 1] = 0;
+  int64_t matMulAxisLhsStride = lhsRedStrides[matMulRank - 1];
+  lhsRedStrides[matMulRank - 1] = 0;
 
   SmallVector<int64_t> xpRhsShape = combinedBatchShape;
   xpRhsShape.push_back(K);
   if (rhsRank != 1)
     xpRhsShape.push_back(N);
-  SmallVector<int64_t> rhsReducedStrides;
+  SmallVector<int64_t> rhsRedStrides;
   ArrayBuffer<WideNum> rhsNums =
-      getWideNumsAndExpandedStrides(rhs, xpRhsShape, rhsReducedStrides);
+      getWideNumsAndExpandedStrides(rhs, xpRhsShape, rhsRedStrides);
   if (rhsRank == 1)
-    rhsReducedStrides.push_back(0);
-  assert(rhsReducedStrides.size() == matMulRank);
+    rhsRedStrides.push_back(0);
+  assert(rhsRedStrides.size() == matMulRank);
   // Record the RHS stride on the MatMul reduction axis and then clear it in
   // the strides so it is ignored during the outer reduction loop below.
   // (The MatMul reduction axis stride is used in the inner reduction loop.)
-  int64_t matMulAxisRhsStride = rhsReducedStrides[matMulRank - 2];
-  rhsReducedStrides[matMulRank - 2] = 0;
+  int64_t matMulAxisRhsStride = rhsRedStrides[matMulRank - 2];
+  rhsRedStrides[matMulRank - 2] = 0;
 
   SmallVector<int64_t> resultShape = combinedBatchShape;
   if (lhsRank != 1)
@@ -598,22 +607,20 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
       using cpptype = decltype(wideZero);
       constexpr BType TAG = toBType<cpptype>;
       // Traverse and populate each element d in dstNums.
-      for (StridesIterator<2>
-               iter(matMulShape, {lhsReducedStrides, rhsReducedStrides}),
-           end(matMulShape);
-           iter != end; ++iter) {
+      for (auto &idxpos :
+          StridesRange<2>(matMulShape, {lhsRedStrides, rhsRedStrides})) {
         // Traverse all the elements that reduce together into d.
         // srcNums elements may be repeated if there are zeros in axesStrides.
         cpptype accumulator = 0;
-        auto lhsPos = iter->pos[0];
-        auto rhsPos = iter->pos[1];
+        auto lhsPos = idxpos[0];
+        auto rhsPos = idxpos[1];
         for (int64_t i = 0; i < K; ++i) {
           accumulator += lhsNums.get()[lhsPos].narrow<TAG>() *
                          rhsNums.get()[rhsPos].narrow<TAG>();
           lhsPos += matMulAxisLhsStride;
           rhsPos += matMulAxisRhsStride;
         }
-        dstNums[iter->flattenedIndex] = WideNum::widen<TAG>(accumulator);
+        dstNums[idxpos.flattenedIndex] = WideNum::widen<TAG>(accumulator);
       }
     });
   });

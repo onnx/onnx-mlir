@@ -22,7 +22,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
-#include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -799,9 +799,8 @@ void ConstPropSliceImpl(ShapedType outputType,
     start += shapeHelper.starts[axis].getLiteral() * inputStrides[axis];
     steps[axis] = shapeHelper.steps[axis].getLiteral() * inputStrides[axis];
   }
-  for (StridesIterator<1> it(outputShape, {steps}), end(outputShape); it != end;
-       ++it)
-    outputData[it->flattenedIndex] = *(start + it->pos[0]);
+  for (auto &idxpos : StridesRange<1>(outputShape, {steps}))
+    outputData[idxpos.flattenedIndex] = *(start + idxpos[0]);
 }
 
 Value ConstPropSlice(
