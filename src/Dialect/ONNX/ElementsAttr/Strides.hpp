@@ -47,7 +47,11 @@ namespace onnx_mlir {
 
 // Returns the position in the linear array described by the strides
 // which correpond to the given index.
-size_t getStridesPosition(
+//
+// Note that the uint64_t type and the name 'index' for the multidimensional
+// index, as well as the name 'flattenedIndex' in unflattenIndex() below, are
+// borrowed from the mlir::ElementsAttr attribute interface methods.
+uint64_t getStridesPosition(
     llvm::ArrayRef<uint64_t> index, llvm::ArrayRef<int64_t> strides);
 
 // The data is splat (singleton) if strides are all zero.
@@ -87,7 +91,7 @@ llvm::SmallVector<int64_t, 4> untransposeDims(
 
 // NOTE: this function is expensive, try to avoid calling it
 llvm::SmallVector<uint64_t, 4> unflattenIndex(
-    llvm::ArrayRef<int64_t> shape, uint64_t flatIndex);
+    llvm::ArrayRef<int64_t> shape, uint64_t flattenedIndex);
 
 // Unpacks src into row-major order in dstData.
 void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,

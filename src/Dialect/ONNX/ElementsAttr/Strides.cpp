@@ -17,11 +17,12 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-size_t getStridesPosition(ArrayRef<uint64_t> index, ArrayRef<int64_t> strides) {
+uint64_t getStridesPosition(
+    ArrayRef<uint64_t> index, ArrayRef<int64_t> strides) {
   // Assert is commented out because this function is "on the fast path" called
   // for every element when iterating over DisposableElementsAttr values.
   // assert(index.size() == strides.size());
-  size_t pos = 0;
+  uint64_t pos = 0;
   for (size_t axis = 0; axis < index.size(); ++axis)
     pos += index[axis] * strides[axis];
   return pos;
@@ -159,7 +160,7 @@ SmallVector<int64_t, 4> untransposeDims(
 }
 
 SmallVector<uint64_t, 4> unflattenIndex(
-    ArrayRef<int64_t> shape, uint64_t flatIndex) {
+    ArrayRef<int64_t> shape, uint64_t flattenedIndex) {
   SmallVector<uint64_t, 4> index;
   size_t rank = shape.size();
   if (rank > 0) {
@@ -167,12 +168,12 @@ SmallVector<uint64_t, 4> unflattenIndex(
     for (size_t axis = rank - 1; axis >= 1; --axis) {
       assert(shape[axis] > 0 && "cannot unflatten shape with zeros");
       uint64_t dimSize = shape[axis];
-      uint64_t rem = flatIndex % dimSize;
-      flatIndex /= dimSize;
+      uint64_t rem = flattenedIndex % dimSize;
+      flattenedIndex /= dimSize;
       index[axis] = rem;
     }
-    assert(static_cast<int64_t>(flatIndex) < shape[0]);
-    index[0] = flatIndex;
+    assert(static_cast<int64_t>(flattenedIndex) < shape[0]);
+    index[0] = flattenedIndex;
   }
   return index;
 }
