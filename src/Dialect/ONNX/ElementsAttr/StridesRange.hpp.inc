@@ -7,7 +7,7 @@
 template <size_t N>
 inline auto StridesIterator<N>::operator++() -> StridesIterator<N> & {
   ++(value.flattenedIndex);
-  for (auto axis = shape.size();;) {
+  for (size_t axis = shape.size();;) {
     if (axis == 0) {
       break; // index rolled around
     }
@@ -39,7 +39,7 @@ inline auto StridesIterator<2>::operator++() -> StridesIterator<2> & {
   size_t pos1 = value.pos[1];
   const int64_t *strides0 = strides[0].data();
   const int64_t *strides1 = strides[1].data();
-  for (auto axis = shape.size();;) {
+  for (size_t axis = shape.size();;) {
     if (axis == 0) {
       break; // index rolled around
     }
