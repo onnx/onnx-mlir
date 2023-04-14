@@ -1,10 +1,13 @@
-// RUN: onnx-mlir-opt -O3 --mtriple=s390x-ibm-loz --mcpu=z16 --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --mtriple=s390x-ibm-loz --mcpu=z16 --shape-inference --constprop-onnx --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
 // use --mtriple=s390x-ibm-loz --mcpu=z16 to enable SIMD as we now need a machine
 // can also use -march=x86-64 instead.
 
 // Adding canonicalize is important here as this is the only way to check the values of the map,
 // which are otherwise before the function, and thus are hard to test.
+
+// Constant propagation has no effect on most tests, except it hoists constants
+// out of if and else branches in test_if_sign which affects lowering.
 
 // -----
 
@@ -197,11 +200,7 @@ func.func @test_if_sign(%arg0: tensor<f32>) -> tensor<i32> {
 // CHECK-DAG:         [[VAR_8_:%.+]] = arith.cmpf ogt, [[LOAD_PARAM_0_MEM_1_]], [[LOAD_VAR_0_MEM_1_]] : f32
 // CHECK-DAG:         krnl.store [[VAR_8_]], [[RES_1_]][] : memref<i1>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<i1>
-// CHECK-DAG:         [[VAR_10_:%.+]] = scf.if [[LOAD_RES_1_MEM_]] -> (memref<i32>) {
-// CHECK-DAG:           scf.yield [[CONSTANT_2_]] : memref<i32>
-// CHECK-DAG:         } else {
-// CHECK-DAG:           scf.yield [[CONSTANT_1_]] : memref<i32>
-// CHECK-DAG:         }
+// CHECK:             [[VAR_10_:%.+]] = arith.select [[LOAD_RES_1_MEM_]], [[CONSTANT_2_]], [[CONSTANT_1_]] : memref<i32>
 // CHECK:             scf.yield [[VAR_10_]] : memref<i32>
 // CHECK:           }
 // CHECK:           return [[VAR_5_]] : memref<i32>
