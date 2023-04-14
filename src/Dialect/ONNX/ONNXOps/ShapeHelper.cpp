@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/BitVector.h"
+#include "llvm/Support/Debug.h"
 
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -437,115 +438,174 @@ bool ONNXBroadcastOpShapeHelper::hasScalarBroadcast(DimAnalysis *dimAnalysis) {
 }
 
 bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
-    int64_t &innerDimNum, int64_t &innerDimLiteralSize,
-    IndexExpr &innerDimDynamicSize, DimAnalysis *dimAnalysis) {
+    int64_t &collapsedInnermostLoops, int64_t &collapsedLiteralSize,
+    IndexExpr &collapsedDynamicSize, DimAnalysis *dimAnalysis) {
 
   int64_t dimNum = inputsDims.size();
   bool canUseDimAnalysis = dimAnalysis && (int64_t)operands.size() == dimNum;
-  // fprintf(stderr, "hi alex: can use dim analysis %d\n",
-  // (int)canUseDimAnalysis);
-  innerDimLiteralSize = 1;
-  innerDimDynamicSize = LiteralIndexExpr(1);
+  LLVM_DEBUG(llvm::dbgs() << "has manageable broadcast with"
+                          << (canUseDimAnalysis ? "" : "out")
+                          << " dim analysis\n");
+  // Keep track of cumulative inner dim sizes.
+  collapsedLiteralSize = 1;
+  collapsedDynamicSize = LiteralIndexExpr(1);
+  // Keep track of ones, scalar, and broadcast per input.
+  llvm::SmallBitVector isOne(dimNum, true);
   llvm::SmallBitVector isScalar(dimNum, true);
-  llvm::SmallBitVector isScalarUpToNow(dimNum, true);
+  llvm::SmallBitVector hasBroadcast(dimNum, false);
+
   // Walk through the rank from innermost to outermost, using neg values.
   int64_t outputRankInt = outputRank;
+  collapsedInnermostLoops = 0;
   for (int64_t r = -1; r >= -outputRankInt; --r) {
-    // fprintf(stderr, "hi alex: iter %d\n", (int)r);
-    // Detect scalars and non-scalars at this rank.
+    // Analyze if we have manageable broadcast at rank r.
     int64_t rr =
         r + outputRankInt; // Use for inputDims, they are padded to outputRank.
-    // fprintf(stderr, "hi alex: iter r %d, rr %d\n", (int)r, (int)rr);
-    int64_t nonScalarID = -1;
-    int64_t scalarNum = 0;
-    int64_t scalarUpToNowNum = 0;
+    LLVM_DEBUG(llvm::dbgs() << "iter r " << r << ", rr " << rr << "\n");
+
+    // 1) Iterate through all the inputs and survey which inputs have 1s at
+    // rank r and which inputs continue to be fully scalar. If we detect an
+    // input that was broadcasted and that just stopped being a scalar, then
+    // this is a broadcast that cannot be managed.
+    int64_t nonScalarID = -1; // Id of one non-scalar; -1 if none.
+    int64_t numOfOnes = 0;
     for (int64_t d = 0; d < dimNum; ++d) {
-      isScalar[d] = inputsDims[d][rr].isLiteralAndIdenticalTo(1);
-      if (isScalar[d])
-        scalarNum++;
-      else
-        nonScalarID = d;
-      isScalarUpToNow[d] = isScalar[d] & isScalarUpToNow[d];
-      if (isScalarUpToNow[d])
-        scalarUpToNowNum++;
+      // Test if this input d has a 1 at position rr.
+      isOne[d] = inputsDims[d][rr].isLiteralAndIdenticalTo(1);
+      if (isOne[d]) {
+        numOfOnes++;
+      } else {
+        LLVM_DEBUG({
+          if (isScalar[d])
+            llvm::dbgs() << "  lost scalar: " << d << "\n";
+        });
+        isScalar[d] = false;
+        nonScalarID = d; // Keep the id of one non-scalar input.
+      }
+      // Test if we lost a scalar that was being broadcasted.
+      if (!isScalar[d] && hasBroadcast[d]) {
+        // We lost a scalar that was being broadcasted. We cannot let that
+        // happen, thus we stop with the previous iteration of r.
+        // Case 4x1 and 4x3: first was broadcast at r==-1, not scalar at
+        // r==-2.
+        LLVM_DEBUG(llvm::dbgs()
+                   << "  lost scalar with broadcast: " << d << "; abort\n");
+        // hi alex collapsedInnermostLoops = -(r + 1);
+        return collapsedInnermostLoops > 0;
+      }
     }
-    int64_t nonScalarNum = dimNum - scalarNum;
-    // See if we have a conflicts among the non scalars.
+
+    // 2) When we only have 1s, there is no broadcast in this iteration r, and
+    // we don't have to update the sizes as this r dim's contribution is *1,
+    // just skip. Catches 1x3 and 1x1: first was broadcast at r==-1, no
+    // broadcast at r==-2 as they are all 1s.
+    //
+    // In addition, we don't update collapsedInnermostLoops to this iter, as
+    // we don't want to collapse leading dims that have only ones.
+    // Case: 1x1x4x8 and 1x1x4x8. We can collapse r==-1 and r==-2, but there is
+    // no need to collapse the 1 dimensions... it brings no advantages. So by
+    // skipping the updating of collapsedInnermostLoops here, we will omit
+    // these leading ones.
+    if (numOfOnes == dimNum) {
+      LLVM_DEBUG(llvm::dbgs() << "  all ones, done\n");
+      continue;
+    }
+
+    // 3) If we have 2 or more non scalars, test that they are compatible.
+    int64_t nonScalarNum = dimNum - numOfOnes;
+    assert(nonScalarNum > 0 && "eliminated the all one scenario");
+    assert(nonScalarID != -1 && "eliminated the all one scenario");
     if (nonScalarNum >= 2) {
-      // fprintf(stderr, "hi alex: non scalar>2\n");
-      // Has 2 or more non scalar, make sure they are compatible
-      bool possibleNonScalarBroadcast = false;
+      LLVM_DEBUG(llvm::dbgs() << "  check non-scalar compatibility\n");
+      // For all non scalars...
       for (int64_t d = 0; d < dimNum; ++d) {
-        // Consider only dims d that are not scalar; check identity with
-        // nonScalarID (so also skip compare with self).
-        if (isScalar[d] || d == nonScalarID)
+        // Consider only dims d that are not scalar, and skip d == nonScalarID.
+        if (isOne[d] || d == nonScalarID)
           continue;
         // Compare nonScalarID with d
         if (inputsDims[nonScalarID][rr].isLiteral() &&
             inputsDims[d][rr].isLiteral()) {
           // Both literal, do a literal check.
           if (inputsDims[nonScalarID][rr].getLiteral() ==
-              inputsDims[d][rr].getLiteral())
-            // same dims, we are fine.
+              inputsDims[d][rr].getLiteral()) {
+            // Same literal dims, nonScalarID and d are compatible.
+            // Continue to the next non-scalar.
+            LLVM_DEBUG(llvm::dbgs() << "    literal compatibility "
+                                    << nonScalarID << " & " << d << "\n");
             continue;
-          // Has hard broadcast; this dim is no good
-          possibleNonScalarBroadcast = true;
-          break;
+          }
+          // Different literal dims, nonScalarID and d are NOT compatible.
+          // Abort at this rank r; thus stops at previous iteration of r.
+          LLVM_DEBUG(llvm::dbgs() << "    literal incompatibility "
+                                  << nonScalarID << " & " << d << "; abort\n");
+          // hi alex collapsedInnermostLoops = -(r + 1);
+          return collapsedInnermostLoops > 0;
         }
+        // We could not determine compatibility with literals, try deducing info
+        // with dim analysis, if available.
         if (canUseDimAnalysis &&
-            /* use negative index convention here as operands may have fewer
+            /* Use negative index convention here as operands may have fewer
                than outputRank dimensions */
             dimAnalysis->sameDim(operands[nonScalarID], r, operands[d], r)) {
           // Analysis demonstrated them to be the same, we are fine.
-          // fprintf(stderr, "hi alex: dyn analysis say its fine\n");
+          // Continue to the next non-scalar input.
+          LLVM_DEBUG(llvm::dbgs() << "    dyn compatibility " << nonScalarID
+                                  << " & " << d << "\n");
           continue;
         }
-        // Analysis could not prove operands's r dim to be identical.
-        // fprintf(stderr, "hi alex: dyn analysis say its ambiguous\n");
-        possibleNonScalarBroadcast = true;
-        break;
-      }
-      if (possibleNonScalarBroadcast) {
-        // fprintf(stderr, "hi alex: possibleNonScalarBroadcast\n");
-        // Had 2+ non scalar dims that are incompatible, e.g. (2, ?) or (?, ?).
-        // Abort at this dim; previous is fine.
-        innerDimNum = -(r + 1);
-        return innerDimNum > 0;
-      }
-    }
-    // Now here, we are guaranteed that if there are non-scalars, they must be
-    // the same. So if we have 1+ non scalar, and 1+ scalar, then we know we
-    // have a scalar broadcast here.
-    bool hasScalarBroadcast = false;
-    if (nonScalarNum > 0 && scalarNum > 0) {
-      // fprintf(stderr, "hi alex: hasScalarBroadcast\n");
-      hasScalarBroadcast = true;
-    }
-    // If we have a scalar broadcast situation, all of the currently seen 1s
-    // must be from scalars, that is there must have 1s from the inner dimension
-    // up to the current dimension d.
-    if (hasScalarBroadcast && scalarNum != scalarUpToNowNum) {
-      // Abort as we have something like this (1x4x1, 1x1x1 2x4x1), namely where
-      // the first dim has a broadcast that is not for a scalar.
-      // fprintf(stderr, "hi alex: scalarNum != scalarUpToNowNum\n");
-      innerDimNum = -(r + 1);
-      return innerDimNum > 0;
-    }
-    // This dim is fine for manageable broadcasting. Account for the cumulative
-    // size of the inner dimensions.
-    if (nonScalarNum > 0) {
-      // If all scalar, then dim is 1, and there is nothing to do. Otherwise
-      // accumulate in literal or dynamic sizes.
-      if (inputsDims[nonScalarID][rr].isLiteral()) {
-        innerDimLiteralSize *= inputsDims[nonScalarID][rr].getLiteral();
-      } else {
-        innerDimDynamicSize = innerDimDynamicSize * inputsDims[nonScalarID][rr];
+        // Analysis could not prove operands's r dims to be identical.
+        // Abort at this rank r; thus stops at previous iteration of r.
+        LLVM_DEBUG(llvm::dbgs() << "    dyn incompatibility " << nonScalarID
+                                << " & " << d << "; abort\n");
+
+        // hi alex collapsedInnermostLoops = -(r + 1);
+        return collapsedInnermostLoops > 0;
+      } // End for all non-scalars,
+    }   // End testing non-scalar compatibility.
+
+    // 4) Since we have at least one non-scalar,
+    //   4.1) all the scalar inputs are now marked as having a broadcast.
+    //   4.2) any inputs with a one that is not a scalar has a new broadcast,
+    //        which is not allowed as only scalars can be broadcast to be
+    //        manageable.
+    for (int64_t d = 0; d < dimNum; ++d) {
+      if (isScalar[d]) {
+        // Case 1x1 and 2x1; the first is broadcast at r==-2 since it is a
+        // scalar and there is one or more non-scalars.
+        LLVM_DEBUG(llvm::dbgs() << "  broadcast for " << d << "\n");
+        hasBroadcast[d] = true;
+      } else if (isOne[d]) { // Is one but is not a scalar.
+        // Case 1x4x1, 2x4x1, and 1x1x1: no broadcast at r==-1, broadcast at
+        // r==-2 for last entry, no broadcast for the others. At r==-3,
+        // continued broadcast for last entry, but first entry has new broadcast
+        // to size 2 (i.e. isOne[0] is true, and isScalar[0] is false). We
+        // cannot manage this. Abort at this rank r; thus stops at previous
+        // iteration of r.
+        LLVM_DEBUG(llvm::dbgs() << "  one and no scalar" << d << "; abort\n");
+        // hi alex collapsedInnermostLoops = -(r + 1);
+        return collapsedInnermostLoops > 0;
       }
     }
-  }
+
+    // 5) This dim is fine for manageable broadcasting. Account for the
+    // cumulative size of the inner dimensions.
+    // If all scalar, then dim is 1, and there is nothing to do. Otherwise
+    // accumulate in literal or dynamic sizes.
+    if (inputsDims[nonScalarID][rr].isLiteral()) {
+      collapsedLiteralSize *= inputsDims[nonScalarID][rr].getLiteral();
+    } else {
+      collapsedDynamicSize = collapsedDynamicSize * inputsDims[nonScalarID][rr];
+    }
+    collapsedInnermostLoops = -r;
+    LLVM_DEBUG(llvm::dbgs()
+               << "  SUCCESS at collapsing " << collapsedInnermostLoops
+               << " inner loops with cumulative static size of "
+               << collapsedLiteralSize << "\n\n");
+  } // For rank r.
+
   // Came up to here, we are able to collapse them all.
-  innerDimNum = outputRankInt;
-  return innerDimNum > 0;
+  // hi alex collapsedInnermostLoops = outputRankInt;
+  return collapsedInnermostLoops > 0;
 }
 
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
@@ -556,13 +616,15 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
   int64_t loopDepth = loopAccessExprs.size();
   int64_t inputSize = inputsDims.size();
   int64_t operandRank = operand.getType().cast<ShapedType>().getRank();
-  // Note: if the loops were flattened, all of the operands must also have
-  // flattened memref dimensions. Check that there.
-  assert(operandRank <= loopDepth &&
-         "operand cannot have more dims that the number of surrounding loops.");
-  if (!flattenedInnerDims)
+  // Flattened? no more than one loop per dim in output (aka output rank).
+  // Not flattened? one loop per dim in output (aka output rank).
+  if (flattenedInnerDims)
+    assert(loopDepth <= (int64_t)outputRank &&
+           "without flattening, expect one loop iter variable per output rank");
+  else
     assert(loopDepth == (int64_t)outputRank &&
            "without flattening, expect one loop iter variable per output rank");
+
   // Emtpy the access expr, just in case.
   operandAccessExprs.clear();
   // There is this case where we have no broadcast per se, but we have
@@ -578,27 +640,27 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
 
   for (int64_t r = 0; r < operandRank; ++r) {
     // Shape helper may pretend 1s, thus adjust dimension index accordingly.
-    // Take loopDepth instead of outputRank as loopDepth reflect the (possible)
-    // flattening of the loops.
+    // Take loopDepth instead of outputRank as loopDepth reflect the
+    // (possible) flattening of the loops.
     int64_t dimIndex = loopDepth - operandRank + r;
-    SymbolIndexExpr dim(inputsDims[operandIndex][dimIndex]);
+    SymbolIndexExpr operandDim(inputsDims[operandIndex][dimIndex]);
 
     bool guaranteedBroadcasting = false;
     if (noBroadcasting) {
       // Broadcasting is already ruled out, no need for further analysis
     } else {
-      // If it turns out that all of the other input operands (and for this dim
-      // index) have values 1, then we know we can use the loop variable index
-      // without worry as either (1) it also has a dim of 1 (and thus the loop
-      // variable index is 0) or (2) it has a dim of X (compile or runtime) and
-      // this will be a broadcasted dimensions (and thus the loop variable index
-      // can also safely be used).
+      // If it turns out that all of the other input operands (and for this
+      // dim index) have values 1, then we know we can use the loop variable
+      // index without worry as either (1) it also has a dim of 1 (and thus
+      // the loop variable index is 0) or (2) it has a dim of X (compile or
+      // runtime) and this will be a broadcasted dimensions (and thus the loop
+      // variable index can also safely be used).
       bool allOtherInputDimsAreOne = true;
       for (int64_t i = 0; i < inputSize; ++i) {
         if (i == operandIndex)
           continue;
-        IndexExpr dim = inputsDims[i][dimIndex];
-        if (!dim.isLiteralAndIdenticalTo(1)) {
+        IndexExpr otherInputDim = inputsDims[i][dimIndex];
+        if (!otherInputDim.isLiteralAndIdenticalTo(1)) {
           allOtherInputDimsAreOne = false;
           break;
         }
@@ -607,7 +669,10 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     }
 
     // Compute access index based on broadcasting rules.
-    if (noBroadcasting || guaranteedBroadcasting) {
+    if (operandDim.isLiteralAndIdenticalTo(1)) {
+      // Dim of size 1: access is always 0.
+      operandAccessExprs.emplace_back(LiteralIndexExpr(0));
+    } else if (noBroadcasting || guaranteedBroadcasting) {
       // No broadcasting or guaranteed broadcasting -> just use the index.
       //
       // guaranteedBroadcasting -> use loop index without worries.
@@ -619,17 +684,15 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     } else if (flattenedInnerDims && r == operandRank - 1) {
       // Flattened dims: we only have manageable broadcast; either scalar
       // (access is 0) or non-broadcast (access is loop index).
-      if (dim.isLiteralAndIdenticalTo(1))
-        operandAccessExprs.emplace_back(LiteralIndexExpr(0));
-      else
-        operandAccessExprs.emplace_back(loopAccessExprs[dimIndex]);
+      assert(!operandDim.isLiteralAndIdenticalTo(1) && "treated before");
+      operandAccessExprs.emplace_back(loopAccessExprs[dimIndex]);
     } else {
       // If dim is a compile time constant, then the test below will resolve
       // at compile time. If dim is dynamic (i.e. only known at runtime), then
       // we will issue code for the compare and select and the right value
       // will be used at runtime.
       operandAccessExprs.emplace_back(
-          IndexExpr::select(dim > 1, loopAccessExprs[dimIndex], 0));
+          IndexExpr::select(operandDim > 1, loopAccessExprs[dimIndex], 0));
     }
   }
   return success();
