@@ -17,6 +17,7 @@
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
+#include "llvm/ADT/SmallSet.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -130,6 +131,40 @@ DenseElementsAttr createDenseElementsAttrFromShapeOp(
   ONNXShapeOpShapeHelper::getStartEndValues(shapeOp, start, end);
   return createDenseElementsAttrFromShape(
       rewriter, shapeOp.getData(), start, end);
+}
+
+/// Test if two axis arrays contain the same values or not.
+/// If rank != 0 then negative axes are adjusted by adding rank.
+/// No checking is done for invariants like out of range axes
+/// or duplicate axes.
+bool AreTheSameAxesArrayAttr(
+    int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
+  if (!lhsAttr || !rhsAttr)
+    return false;
+
+  auto asSet = [rank](ArrayRef<Attribute> array) {
+    llvm::SmallSet<int64_t, 6> axes;
+    for (auto attr : array) {
+      int64_t axis = attr.cast<IntegerAttr>().getInt();
+      axes.insert(axis < 0 ? axis + rank : axis);
+    }
+    return axes;
+  };
+  return asSet(lhsAttr.getValue()) == asSet(rhsAttr.getValue());
+}
+
+// Same as AreTheSameAxesArrayAttr but takes (result value of)
+// ONNXConstantOp tensors as inputs.
+// Returns false if any of the input Values are not constant results.
+bool AreTheSameAxesConstant(int64_t rank, Value lhs, Value rhs) {
+  assert(cast<ShapedType>(lhs.getType()).getElementType().isInteger(64));
+  assert(cast<ShapedType>(rhs.getType()).getElementType().isInteger(64));
+  auto lhsConstOp = dyn_cast_or_null<ONNXConstantOp>(lhs.getDefiningOp());
+  auto rhsConstOp = dyn_cast_or_null<ONNXConstantOp>(rhs.getDefiningOp());
+  return lhsConstOp && rhsConstOp &&
+         AreTheSameAxesArrayAttr(rank,
+             createArrayAttrFromConstantOp(lhsConstOp),
+             createArrayAttrFromConstantOp(rhsConstOp));
 }
 
 } // namespace onnx_mlir

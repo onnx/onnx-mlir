@@ -198,7 +198,6 @@ deprecated_models = {
 }
 
 int8_models = {
-    "bertsquad-12-int8",
     "bvlcalexnet-12-int8",
     "caffenet-12-int8",
     "densenet-12-int8",
@@ -336,6 +335,7 @@ def check_model(model_path, model_name, compile_args, report_dir):
         options = [compile_options]
         if has_data_sets:
             options += ['--verify=ref']
+            options += ['--verify-every-value']
             options += ['--load-ref={}'.format(data_set)]
         if model_name in RunONNXModel_additional_options:
             options += RunONNXModel_additional_options[model_name]

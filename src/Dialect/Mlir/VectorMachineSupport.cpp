@@ -55,6 +55,9 @@ namespace onnx_mlir {
   globalVectorMachineSupport = nullptr;
 }
 
+/*static*/ bool VectorMachineSupport::hasSimd() {
+  return getGlobalVectorMachineSupport()->VectorRegisterNum() > 0;
+}
 // =============================================================================
 // Methods shared among all VectorMachineSupport classes and subclasses
 

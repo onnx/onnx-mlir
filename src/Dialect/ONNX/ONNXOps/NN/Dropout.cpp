@@ -34,7 +34,7 @@ LogicalResult ONNXDropoutOpShapeHelper::computeShape() {
   createIE->getShapeAsDims(operandAdaptor.getData(), outputDims);
   setOutputDims(outputDims, 0);
   // Optional Mask has also the same size as data. If none, size is empty.
-  if (isFromNone(dropout.getMask()))
+  if (isNoneValue(dropout.getMask()))
     outputDims.clear();
   setOutputDims(outputDims, 1);
   return success();

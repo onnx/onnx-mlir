@@ -40,6 +40,8 @@ func.func @tiling() {
   return
 }
 
+// -----
+
 func.func @tiling3d() {
   %ii, %jj, %kk = krnl.define_loops 3
   // Blocking each loop by a factor of 4.
@@ -56,9 +58,9 @@ func.func @tiling3d() {
   // CHECK-NEXT:  affine.for [[I_BLOCK_IV:%.+]] = 0 to 1024 step 4 {
   // CHECK-NEXT:    affine.for [[J_BLOCK_IV:%.+]] = 0 to 2048 step 4 {
   // CHECK-NEXT:      affine.for [[K_BLOCK_IV:%.+]] = 0 to 4096 step 4 {
-  // CHECK-NEXT:        affine.for [[I_INNER_IV:%.+]] = #map([[I_BLOCK_IV]]) to #map2([[I_BLOCK_IV]]) {
-  // CHECK-NEXT:          affine.for [[J_INNER_IV:%.+]] = #map([[J_BLOCK_IV]]) to #map2([[J_BLOCK_IV]]) {
-  // CHECK-NEXT:            affine.for [[K_INNER_IV:%.+]] = #map([[K_BLOCK_IV]]) to #map2([[K_BLOCK_IV]]) {
+  // CHECK-NEXT:        affine.for [[I_INNER_IV:%.+]] = #map([[I_BLOCK_IV]]) to #map{{.*}}([[I_BLOCK_IV]]) {
+  // CHECK-NEXT:          affine.for [[J_INNER_IV:%.+]] = #map([[J_BLOCK_IV]]) to #map{{.*}}([[J_BLOCK_IV]]) {
+  // CHECK-NEXT:            affine.for [[K_INNER_IV:%.+]] = #map([[K_BLOCK_IV]]) to #map{{.*}}([[K_BLOCK_IV]]) {
   // CHECK-NEXT:            }
   // CHECK-NEXT:          }
   // CHECK-NEXT:        }

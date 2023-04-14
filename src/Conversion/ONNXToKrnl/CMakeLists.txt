@@ -17,6 +17,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/Hardmax.cpp
   Math/LRN.cpp
   Math/MatMul.cpp
+  Math/MatMulInteger.cpp
   Math/RandomNormal.cpp
   Math/RandomNormalLike.cpp
   Math/Reduction.cpp
@@ -26,6 +27,8 @@ add_onnx_mlir_library(OMONNXToKrnl
   NN/Normalization.cpp
   NN/Pooling.cpp
   ObjectDetection/NonMaxSuppression.cpp
+  Quantization/DynamicQuantizeLinear.cpp
+  Quantization/QuantizeLinear.cpp
   RNN/GRU.cpp
   RNN/LSTM.cpp
   RNN/RNN.cpp

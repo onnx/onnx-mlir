@@ -154,6 +154,13 @@ public:
       llvm::ArrayRef<unsigned> axes, bool keepdims,
       WideNum (*reducer)(WideNum, WideNum));
 
+  // Returns the matrix product like numpy.matmul.
+  mlir::ElementsAttr matMul(mlir::ElementsAttr lhs, mlir::ElementsAttr rhs);
+
+  // Returns tensor of given type and shape with [start + i * delta ...]
+  // for i in [0, type.getNumElements()) in row-major order.
+  mlir::ElementsAttr range(mlir::ShapedType, WideNum start, WideNum delta);
+
 private:
   struct ElementsProperties;
 

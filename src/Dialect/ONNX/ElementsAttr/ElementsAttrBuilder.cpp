@@ -504,6 +504,137 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   });
 }
 
+ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
+  ShapedType lhsType = lhs.getType();
+  ShapedType rhsType = rhs.getType();
+  Type elementType = lhsType.getElementType();
+  assert(elementType == rhsType.getElementType() &&
+         "matMul() requires identical element types");
+  assert(!elementType.isInteger(1) && "matMul() elements must be numbers");
+
+  ArrayRef<int64_t> lhsShape = lhsType.getShape();
+  size_t lhsRank = lhsShape.size();
+
+  ArrayRef<int64_t> rhsShape = rhsType.getShape();
+  size_t rhsRank = rhsShape.size();
+
+  assert(lhsRank >= 1);
+  assert(rhsRank >= 1);
+  // If lhs is 1-D with dim size K then it's treated as a 1xK matrix,
+  // otherwise we refer to the last two dimension sizes of lhs as MxK.
+  // If rhs is 1-D with dim size K then it's treated as a Kx1 matrix
+  // otherwise we refer to the last two dimension sizes of rhs as KxN.
+  int64_t M = lhsRank == 1 ? 1 : lhsShape[lhsRank - 2];
+  int64_t N = rhsRank == 1 ? 1 : rhsShape[rhsRank - 1];
+  int64_t K = lhsShape[lhsRank - 1];
+  assert(K == rhsShape[rhsRank == 1 ? 0 : (rhsRank - 2)]);
+
+  // MatMul is similar to Reduce, because a MatMul is the same as broadcasts
+  // followed by element wise multiplication and then ReduceSum on the
+  // reduction axis. The implementation is is similar to Reduce:
+  // An outer loop runs over the elements of the result tensor and, for
+  // each result element, the dot product of a LHS row and a RHS column is
+  // computed in an inner loop.
+  //
+  // matMulShape is the result shape before the M or N axes are collapsed in
+  // the cases where lhs or rhs is a vector (has rank 1), it is used to
+  // drive the iteration in the outer loop.
+  //
+  // lhsReducedStrides/rhsReducedStrides are LHS/RHS strides for the outer loop.
+  //
+  // matMulAxisLhsStride/matMulAxisRhsStride are the inner loop strides.
+
+  ArrayRef<int64_t> lhsBatchShape = lhsShape.drop_back(lhsRank == 1 ? 1 : 2);
+  ArrayRef<int64_t> rhsBatchShape = rhsShape.drop_back(rhsRank == 1 ? 1 : 2);
+  SmallVector<int64_t> combinedBatchShape;
+  if (!OpTrait::util::getBroadcastedShape(
+          lhsBatchShape, rhsBatchShape, combinedBatchShape))
+    llvm_unreachable("matMul() requires broadcast compatible batch shapes");
+  SmallVector<int64_t> matMulShape = combinedBatchShape;
+  matMulShape.push_back(M);
+  matMulShape.push_back(N);
+  size_t matMulRank = matMulShape.size();
+
+  SmallVector<int64_t> xpLhsShape = combinedBatchShape;
+  if (lhsRank != 1)
+    xpLhsShape.push_back(M);
+  xpLhsShape.push_back(K);
+  SmallVector<int64_t> lhsReducedStrides;
+  ArrayBuffer<WideNum> lhsNums =
+      getWideNumsAndExpandedStrides(lhs, xpLhsShape, lhsReducedStrides);
+  if (lhsRank == 1)
+    lhsReducedStrides.insert(lhsReducedStrides.end() - 1, 0);
+  assert(lhsReducedStrides.size() == matMulRank);
+  // Record the LHS stride on the MatMul reduction axis and then clear it in
+  // the strides so it is ignored during the outer reduction loop below.
+  // (The MatMul reduction axis stride is used in the inner reduction loop.)
+  int64_t matMulAxisLhsStride = lhsReducedStrides[matMulRank - 1];
+  lhsReducedStrides[matMulRank - 1] = 0;
+
+  SmallVector<int64_t> xpRhsShape = combinedBatchShape;
+  xpRhsShape.push_back(K);
+  if (rhsRank != 1)
+    xpRhsShape.push_back(N);
+  SmallVector<int64_t> rhsReducedStrides;
+  ArrayBuffer<WideNum> rhsNums =
+      getWideNumsAndExpandedStrides(rhs, xpRhsShape, rhsReducedStrides);
+  if (rhsRank == 1)
+    rhsReducedStrides.push_back(0);
+  assert(rhsReducedStrides.size() == matMulRank);
+  // Record the RHS stride on the MatMul reduction axis and then clear it in
+  // the strides so it is ignored during the outer reduction loop below.
+  // (The MatMul reduction axis stride is used in the inner reduction loop.)
+  int64_t matMulAxisRhsStride = rhsReducedStrides[matMulRank - 2];
+  rhsReducedStrides[matMulRank - 2] = 0;
+
+  SmallVector<int64_t> resultShape = combinedBatchShape;
+  if (lhsRank != 1)
+    resultShape.push_back(M);
+  if (rhsRank != 1)
+    resultShape.push_back(N);
+  ShapedType resultType = lhsType.clone(resultShape);
+  return fromWideNums(resultType, [&](MutableArrayRef<WideNum> dstNums) {
+    wideZeroDispatchNonBool(elementType, [&](auto wideZero) {
+      using cpptype = decltype(wideZero);
+      constexpr BType TAG = toBType<cpptype>;
+      // Traverse and populate each element d in dstNums.
+      for (StridesIterator<2>
+               iter(matMulShape, {lhsReducedStrides, rhsReducedStrides}),
+           end(matMulShape);
+           iter != end; ++iter) {
+        // Traverse all the elements that reduce together into d.
+        // srcNums elements may be repeated if there are zeros in axesStrides.
+        cpptype accumulator = 0;
+        auto lhsPos = iter->pos[0];
+        auto rhsPos = iter->pos[1];
+        for (int64_t i = 0; i < K; ++i) {
+          accumulator += lhsNums.get()[lhsPos].narrow<TAG>() *
+                         rhsNums.get()[rhsPos].narrow<TAG>();
+          lhsPos += matMulAxisLhsStride;
+          rhsPos += matMulAxisRhsStride;
+        }
+        dstNums[iter->flattenedIndex] = WideNum::widen<TAG>(accumulator);
+      }
+    });
+  });
+}
+
+ElementsAttr ElementsAttrBuilder::range(
+    ShapedType resultType, WideNum start, WideNum delta) {
+  return fromWideNums(resultType, [&](MutableArrayRef<WideNum> dstNums) {
+    wideZeroDispatchNonBool(resultType.getElementType(), [&](auto wideZero) {
+      using cpptype = decltype(wideZero);
+      constexpr BType TAG = toBType<cpptype>;
+      // Traverse and populate each element d in dstNums.
+      cpptype x = start.narrow<TAG>();
+      for (auto &d : dstNums) {
+        d = WideNum::widen<TAG>(x);
+        x += delta.narrow<TAG>();
+      }
+    });
+  });
+}
+
 /*static*/
 auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     -> ElementsProperties {

@@ -121,7 +121,7 @@ int64_t mlirTypeToOnnxType(Type elemType) {
   return onnx_mlir::mlirTypeToOnnxType(elemType);
 }
 
-void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
+void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
     int64_t outOwning, PatternRewriter &rewriter, const Location &loc,
     const RuntimeAPIRegistry &apiRegistry, ModuleOp &module) {
   MLIRContext *context = module.getContext();
@@ -145,9 +145,6 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
   // Set ownership, allocated and aligned pointer.
   RuntimeAPI::callApi(rewriter, loc, apiRegistry, RuntimeAPI::API::SET_DATA,
       {outOMTensor, owning, outMemRefAllocatedPtr, outMemRefAlignedPtr});
-
-  Type elemTy =
-      outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
 
   int64_t onnxTy = krnl::mlirTypeToOnnxType(elemTy);
   Value onnxTyVal = create.llvm.constant(int64Ty, onnxTy);

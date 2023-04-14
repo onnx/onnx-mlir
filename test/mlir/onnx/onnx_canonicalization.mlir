@@ -47,6 +47,18 @@ func.func @test_identity_identity(%a0: tensor<10x10xf32>, %a1: tensor<10x10xf32>
 
 // -----
 
+func.func @test_dropout(%arg: tensor<10x10xf32>) -> (tensor<10x10xf32>, none) {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1:2 = "onnx.Dropout"(%arg, %0, %0) : (tensor<10x10xf32>, none, none) -> (tensor<10x10xf32>, none)
+  "func.return"(%1#0, %1#1) : (tensor<10x10xf32>, none) -> ()
+  // CHECK-LABEL: test_dropout
+  // CHECK-NOT: "onnx.Dropout"
+  // CHECK-NEXT: [[NONE:%.+]] = "onnx.NoValue"
+  // CHECK-NEXT: return %arg0, [[NONE]] : tensor<10x10xf32>, none
+}
+
+// -----
+
 //CHECK-LABEL: @test_gemm_add_fusion(%{{.*}}: tensor<128x128xf32>, %{{.*}}: tensor<128x128xf32>, %{{.*}}: tensor<128xf32>) -> tensor<*xf32> {
 func.func @test_gemm_add_fusion(%arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
@@ -687,7 +699,53 @@ func.func @test_fuse_add_conv(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[-0.161539719, -0.433835655, 0.091641359, -0.0168522168, -0.0650264397, -0.131737873, 0.0204175506, -0.121110231]> : tensor<8xf32>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<1x8x28x28xf32>
 // CHECK:           return [[VAR_1_]] : tensor<1x8x28x28xf32>
+}
 
+// -----
+
+func.func @test_fuse_add_conv_bias(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>, %arg2 : tensor<8xf32>) -> tensor<1x8x28x28xf32> {
+    %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Convolution28", strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<1x8x28x28xf32>
+    %1 = onnx.Constant dense<[[[-0.161539719]], [[-0.433835655]], [[0.091641359]], [[-0.0168522168]], [[-0.0650264397]], [[-0.131737873]], [[0.0204175506]], [[-0.121110231]]]> : tensor<8x1x1xf32>
+    %2 = "onnx.Add"(%0, %1) : (tensor<1x8x28x28xf32>, tensor<8x1x1xf32>) -> tensor<1x8x28x28xf32>
+    return %2 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_bias
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x28x28xf32>, [[PARAM_1_:%.+]]: tensor<8x1x5x5xf32>, [[PARAM_2_:%.+]]: tensor<8xf32>) -> tensor<1x8x28x28xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[-0.161539719, -0.433835655, 0.091641359, -0.0168522168, -0.0650264397, -0.131737873, 0.0204175506, -0.121110231]> : tensor<8xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_2_]], [[VAR_0_]]) : (tensor<8xf32>, tensor<8xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[VAR_1_]]) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<*xf32>) -> tensor<1x8x28x28xf32>
+// CHECK:           return [[VAR_2_]] : tensor<1x8x28x28xf32>
+}
+
+// -----
+
+func.func @test_fuse_add_conv_unranked(%arg0 : tensor<*xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<*xf32> {
+    %cst = "onnx.NoValue"() {value} : () -> none
+    %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Convolution28", strides = [1, 1]} : (tensor<*xf32>, tensor<8x1x5x5xf32>, none) -> tensor<*xf32>
+    %1 = onnx.Constant dense<[[[-0.161539719]], [[-0.433835655]], [[0.091641359]], [[-0.0168522168]], [[-0.0650264397]], [[-0.131737873]], [[0.0204175506]], [[-0.121110231]]]> : tensor<8x1x1xf32>
+    %2 = "onnx.Add"(%0, %1) : (tensor<*xf32>, tensor<8x1x1xf32>) -> tensor<*xf32>
+    return %2 : tensor<*xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_unranked
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<8x1x5x5xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[{{\[}}[-0.161539719]{{\], \[}}[-0.433835655]{{\], \[}}[0.091641359]{{\], \[}}[-0.0168522168]{{\], \[}}[-0.0650264397]{{\], \[}}[-0.131737873]{{\], \[}}[0.0204175506]{{\], \[}}[-0.121110231]{{\]}}]> : tensor<8x1x1xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[VAR_1_]]) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Convolution28", strides = [1, 1]} : (tensor<*xf32>, tensor<8x1x5x5xf32>, none) -> tensor<*xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[VAR_2_]], [[VAR_0_]]) : (tensor<*xf32>, tensor<8x1x1xf32>) -> tensor<*xf32>
+// CHECK:           return [[VAR_3_]] : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_fuse_add_conv_bias_unranked(%arg0 : tensor<*xf32>, %arg1 : tensor<8x1x5x5xf32>, %arg2 : tensor<8xf32>) -> tensor<*xf32> {
+    %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Convolution28", strides = [1, 1]} : (tensor<*xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<*xf32>
+    %1 = onnx.Constant dense<[[[-0.161539719]], [[-0.433835655]], [[0.091641359]], [[-0.0168522168]], [[-0.0650264397]], [[-0.131737873]], [[0.0204175506]], [[-0.121110231]]]> : tensor<8x1x1xf32>
+    %2 = "onnx.Add"(%0, %1) : (tensor<*xf32>, tensor<8x1x1xf32>) -> tensor<*xf32>
+    return %2 : tensor<*xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_bias_unranked
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<8x1x5x5xf32>, [[PARAM_2_:%.+]]: tensor<8xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[{{\[}}[-0.161539719]{{\], \[}}[-0.433835655]{{\], \[}}[0.091641359]{{\], \[}}[-0.0168522168]{{\], \[}}[-0.0650264397]{{\], \[}}[-0.131737873]{{\], \[}}[0.0204175506]{{\], \[}}[-0.121110231]{{\]}}]> : tensor<8x1x1xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], onnx_node_name = "Convolution28", strides = [1, 1]} : (tensor<*xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Add"([[VAR_1_]], [[VAR_0_]]) : (tensor<*xf32>, tensor<8x1x1xf32>) -> tensor<*xf32>
+// CHECK:           return [[VAR_2_]] : tensor<*xf32>
 }
 
 // -----

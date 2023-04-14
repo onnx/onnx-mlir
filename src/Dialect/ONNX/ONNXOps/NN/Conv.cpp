@@ -14,6 +14,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -474,6 +475,7 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
       }
     }
   }
+
   // Save the final result.
   setOutputDims(outputDims);
 
@@ -500,7 +502,7 @@ LogicalResult ONNXConvOp::verify() {
   auto X = operandAdaptor.getX();
   auto W = operandAdaptor.getW();
   auto B = operandAdaptor.getB();
-  bool hasBias = !isFromNone(B);
+  bool hasBias = !isNoneValue(B);
   int64_t g = getGroup();
   if (g < 1)
     return emitOpError("group must be strictly positive");
@@ -583,12 +585,12 @@ LogicalResult ONNXConvOp::inferShapes(
   // B: (M) Optional
 
   // Cannot infer shape if no shape exists.
-  bool hasBias = !isFromNone(getB());
+  bool hasBias = !isNoneValue(getB());
   if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getW()) ||
       (hasBias && !hasShapeAndRank(getB())))
     return success();
 
-  Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  Type elementType = getElementType(getX().getType());
   ONNXConvOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -652,78 +654,6 @@ LogicalResult ONNXConvTransposeOp::verify() {
   return success();
 }
 
-static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
-    ArrayRef<int64_t> xShape, Optional<ArrayAttr> kernelShape,
-    Optional<ArrayAttr> padsOpt, Optional<ArrayAttr> stridesOpt,
-    Optional<ArrayAttr> outputPadsOpt,
-    Optional<ArrayAttr> dilationsOpt = std::nullopt, bool ceilMode = false) {
-  auto xRank = xShape.size();
-  auto spatialRank = ArrayAttrSize(kernelShape);
-  auto spatialOffset = xRank - spatialRank;
-
-  int64_t dilationVal = 1;
-  int64_t outputPadsVal = 0;
-  // output_shape[i] = stride[i] * (input_size[i] - 1) + output_padding[i] +
-  // ((kernel_shape[i] - 1) * dilations[i] + 1) - pads[start_i] - pads[end_i]
-  for (unsigned int i = 0; i < spatialRank; ++i) {
-    auto inputSize = xShape[spatialOffset + i];
-    auto sumOfPads =
-        ArrayAttrIntVal(padsOpt, i) + ArrayAttrIntVal(padsOpt, spatialRank + i);
-    auto kernelSize = ArrayAttrIntVal(kernelShape, i);
-    if (dilationsOpt.has_value())
-      dilationVal = ArrayAttrIntVal(dilationsOpt, i);
-    auto strideVal = ArrayAttrIntVal(stridesOpt, i);
-    if (outputPadsOpt.has_value())
-      outputPadsVal = ArrayAttrIntVal(outputPadsOpt, i);
-    // Number of useful values: input plus pad - effective size of kernel (see
-    // processConvTypeParams comments to see how this value is derived).
-    int64_t res = strideVal * (inputSize - 1) + outputPadsVal +
-                  ((kernelSize - 1) * dilationVal + 1) - sumOfPads;
-    outputDims.emplace_back(res);
-  }
-}
-
-static void insertConvTransposePads(SmallVectorImpl<int64_t> &inferredPads,
-    llvm::StringRef autoPad, ArrayRef<int64_t> xShape,
-    Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> padsOpt,
-    Optional<ArrayAttr> stridesOpt, Optional<ArrayAttr> outputPadsOpt,
-    Optional<ArrayAttr> outputShapeOpt,
-    Optional<ArrayAttr> dilationsOpt = std::nullopt, bool ceilMode = false) {
-  auto xRank = xShape.size();
-  auto spatialRank = ArrayAttrSize(kernelShape);
-  auto spatialOffset = xRank - spatialRank;
-
-  int64_t dilationVal = 1;
-  int64_t outputPadsVal = 0;
-  // total_padding[i] = stride[i] * (input_size[i] - 1) + output_padding[i] +
-  // ((kernel_shape[i] - 1) * dilations[i] + 1) - output_shape[i]
-  // If (auto_pads == SAME_UPPER): pads[start_i] = total_padding[i]/2;
-  // pads[end_i] = total_padding[i] - (total_padding[i]/2)
-  // Else: pads[start_i] = total_padding[i] - (total_padding[i]/2);
-  // pads[end_i] = (total_padding[i]/2)
-  inferredPads.resize(spatialRank * 2);
-  for (unsigned int i = 0; i < spatialRank; ++i) {
-    auto inputSize = xShape[spatialOffset + i];
-    auto outputSize = ArrayAttrIntVal(outputShapeOpt, i);
-    auto kernelSize = ArrayAttrIntVal(kernelShape, i);
-    if (dilationsOpt.has_value())
-      dilationVal = ArrayAttrIntVal(dilationsOpt, i);
-    auto strideVal = ArrayAttrIntVal(stridesOpt, i);
-    if (outputPadsOpt.has_value())
-      outputPadsVal = ArrayAttrIntVal(outputPadsOpt, i);
-    int64_t totalPadding = strideVal * (inputSize - 1) + outputPadsVal +
-                           ((kernelSize - 1) * dilationVal + 1) - outputSize;
-    totalPadding = (totalPadding >= 0) ? totalPadding : 0;
-    int64_t beginPad = totalPadding / 2;
-    int64_t endPad = totalPadding - beginPad;
-    if (autoPad != "SAME_UPPER") {
-      std::swap(beginPad, endPad);
-    }
-    inferredPads[i] = beginPad;
-    inferredPads[spatialRank + i] = endPad;
-  }
-}
-
 // For this operation, we define the attributes once in the original Conv
 // operation class. There is no need to redefine the attribute names for the
 // other classes based on Conv.
@@ -741,138 +671,14 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   // W: (C x M/group x k1 x k2 x ... x kn)
   // B: (M) Optional
 
-  bool hasBias = !isFromNone(getB());
-
   // Cannot infer shape if no shape exists.
+  bool hasBias = !isNoneValue(getB());
   if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getW()) ||
-      (hasBias && !hasShapeAndRank(getB()))) {
+      (hasBias && !hasShapeAndRank(getB())))
     return success();
-  }
-
-  auto xTy = getX().getType().cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
-  auto weightTy = getW().getType().cast<RankedTensorType>();
-  auto weightShape = weightTy.getShape();
-  auto builder = Builder(this->getContext());
-
-  // Lowest supported convolution is a one dimensional convolution.
-  if (xShape.size() < 3) {
-    return emitError("Data input shape must be at least (NxCxD1)");
-  }
-
-  // Check that shape of weight and data have same length.
-  if (xShape.size() != weightShape.size()) {
-    return emitError("Weight size not compatible with data size");
-  }
-
-  // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvTransposeOp::getGroup();
-
-  // Check if the attribute actually exists. If it does not then add it.
-  if (!getGroupAttr())
-    setGroupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, group, /*isSigned=*/true)));
-
-  int64_t inChannels = weightShape[0];
-  int64_t outChannels = weightShape[1] * group;
-
-  // Check that the X.shape[1] == W.shape[0] == C && X.shape[1] % group == 0
-  // condition holds.
-  if (!ShapedType::isDynamic(xShape[1]) && !ShapedType::isDynamic(inChannels) &&
-      xShape[1] != inChannels && xShape[1] % group != 0) {
-    return emitOpError("Channel dimension mismatch")
-           << xTy << " " << weightTy << " " << group;
-  }
-
-  // Check the size of bias.
-  if (hasBias) {
-    auto bTx = getB().getType().cast<RankedTensorType>();
-    auto bShape = bTx.getShape();
-    if (bShape.size() != 1) {
-      return emitError("bias should be one dimensional");
-    }
-    if (bShape[0] != outChannels) {
-      return emitError(
-          "bias should have same dimensions as number of output channels");
-    }
-  }
-
-  // Note: the value of the group attribute only impacts the way the
-  // computation is carried out and not the actual output size.
-
-  // Number of spatial dimensions.
-  auto spatialOffset = 2;
-  int32_t spatialRank = xShape.size() - spatialOffset;
-
-  // Use kernel_shape attribute if present otherwise use size from weight
-  // argument.
-  auto kernelShape = getKernelShape();
-  if (kernelShape.has_value()) {
-    if ((int32_t)ArrayAttrSize(kernelShape) != spatialRank) {
-      return emitError(
-          "kernel_shape length incompatible with spatial dimensions");
-    }
-    // Have the right number of values, check them.
-    for (int i = 0; i < spatialRank; ++i)
-      if (ArrayAttrIntVal(kernelShape, i) < 1) {
-        return emitError("bad kernel_shape value");
-      }
-  }
-  // Save original autoPad attribute here because it is updated in
-  // 'processConvTypeParams()'.
-  StringRef autoPad = getAutoPad();
-  // Process strides, dilations, kernel_shape and pads.
-  LogicalResult res =
-      processConvTypeParams<ONNXConvTransposeOp>(this, getX(), getW());
-  assert(succeeded(res));
-  kernelShape = getKernelShape();
-
-  auto dilationsOpt = getDilations();
-  auto stridesOpt = getStrides();
-  auto padsOpt = getPads();
-  auto outputPads = getOutputPadding();
-
-  if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
-    SmallVector<int64_t, 2> outputShapeVec;
-    for (int i = 0; i < spatialRank; ++i) {
-      outputShapeVec.emplace_back(
-          xShape[spatialOffset + i] * ArrayAttrIntVal(stridesOpt, i));
-    }
-    setOutputShapeAttr(builder.getI64ArrayAttr(llvm::ArrayRef(outputShapeVec)));
-  }
-
-  if (getOutputShape().has_value()) {
-    SmallVector<int64_t, 4> inferredPads;
-    // Determine padding values based on output shape. `pads` and
-    // `output_padding` are ignored.
-    auto outputShape = getOutputShape();
-    insertConvTransposePads(inferredPads, autoPad, xShape, kernelShape, padsOpt,
-        stridesOpt, outputPads, outputShape, dilationsOpt);
-    setPadsAttr(builder.getI64ArrayAttr(inferredPads));
-  } else {
-    llvm::SmallVector<int64_t, 4> outputShapeSpatial;
-    insertConvTransposeSpatialDim(outputShapeSpatial, xShape, kernelShape,
-        padsOpt, stridesOpt, outputPads, dilationsOpt);
-    setOutputShapeAttr(builder.getI64ArrayAttr(outputShapeSpatial));
-  }
-  auto outputShape = getOutputShape(); // spatial dimensions
-
-  llvm::SmallVector<int64_t, 4> outputShapeFinal;
-  // First two output dimensions consist of the number of batches and the
-  // number of kernels being applied.
-  // Insert batch size.
-  outputShapeFinal.emplace_back(xShape[0]);
-  // Insert number of filters being applied (number of output channels *
-  // groups).
-  outputShapeFinal.emplace_back(outChannels);
-  // Insert spatial dims.
-  for (int32_t i = 0; i < spatialRank; ++i) {
-    outputShapeFinal.emplace_back(ArrayAttrIntVal(outputShape, i));
-  }
-  getResult().setType(
-      RankedTensorType::get(outputShapeFinal, xTy.getElementType()));
-
-  return success();
+  Type elementType = getElementType(getX().getType());
+  ONNXConvTransposeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -890,12 +696,12 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   // B: (M) Optional
 
   // Cannot infer shape if no shape exists.
-  bool hasBias = !isFromNone(getB());
+  bool hasBias = !isNoneValue(getB());
   if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getW()) ||
       (hasBias && !hasShapeAndRank(getB())))
     return success();
 
-  Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  Type elementType = getElementType(getX().getType());
   ONNXQLinearConvOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -908,7 +714,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   // W: (M x C/group x k1 x k2 x ... x kn)
   // B: (M) Optional
 
-  bool hasBias = !isFromNone(B());
+  bool hasBias = !isNoneValue(B());
 
   // Cannot infer shape if no shape exists.
   if (!getX().getType().isa<RankedTensorType>() ||

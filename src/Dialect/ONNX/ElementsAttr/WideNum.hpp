@@ -41,13 +41,22 @@ union WideNum {
   int64_t i64;  // Signed ints up to bitwidth 64.
   uint64_t u64; // Unsigned ints up to bitwidth 64, including bool.
 
+  // Converts dbl to an APFloat with the floating point semantics
+  // corresponding to tag.
+  // Precondition: tag must be a floating point type.
   llvm::APFloat toAPFloat(BType tag) const;
 
-  static WideNum fromAPFloat(BType tag, llvm::APFloat x);
+  // Returns WideNum with dbl set to the value of x.
+  static WideNum fromAPFloat(llvm::APFloat x);
 
+  // Converts i64 or u64, corresponding to the sign of tag, to an APInt with
+  // bitwidth and sign corresponding to tag.
+  // Precondition: tag must be a (signed or unsigned) integer type.
   llvm::APInt toAPInt(BType tag) const;
 
-  static WideNum fromAPInt(BType tag, llvm::APInt x);
+  // Returns WideNum with i64 or u64, corresponding to isSigned, set to the
+  // value of x.
+  static WideNum fromAPInt(llvm::APInt x, bool isSigned);
 
   template <typename T>
   constexpr T to(BType tag) const {

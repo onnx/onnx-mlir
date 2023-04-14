@@ -85,7 +85,7 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
 
   // Assume it is verified that axes are known. Convert DenseElementsAttr to
   // ArrayAttr.
-  if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
+  if (!isNoneValue(axesValue) && getONNXConstantOp(axesValue)) {
     mlir::ElementsAttr constAxes = getONNXConstantOp(axesValue)
                                        .getValueAttr()
                                        .dyn_cast_or_null<mlir::ElementsAttr>();
@@ -93,7 +93,7 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
       definedAxes.push_back(element.getInt());
     return definedAxes;
   }
-  if (isFromNone(axesValue))
+  if (isNoneValue(axesValue))
     return definedAxes;
   // Dynamic axes
   RankedTensorType inputType =

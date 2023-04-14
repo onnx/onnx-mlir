@@ -66,8 +66,6 @@ def HasStaticShape: Constraint<CPred<
   "A value has static shape"
 >;
 
-// Creation helpers:
-
 def IsConstOfZeros : Constraint<
   CPred<"isConstOf($_self, 0.0)">,
   "Value is an all-zeros constant tensor">;
@@ -79,6 +77,20 @@ def IsConstOfOnes : Constraint<
 def ValuesHaveSameType : Constraint<
   CPred<"$0.getType() == $1.getType()">,
   "Values have same type">;
+
+def IsMatMulIntegerLhsZero: Constraint<
+    CPred<"isMatMulIntegerLhsZero($0, $1)">,
+    "MatMulInteger lhs matrix is zero for given zero point">;
+
+def IsMatMulIntegerRhsZero: Constraint<
+    CPred<"isMatMulIntegerRhsZero($0, $1)">,
+    "MatMulInteger rhs matrix is zero for given zero point">;
+
+// Creation helpers:
+
+def CreateZeroTensorOfType: NativeCodeCall<
+  "ConstZeroTensor($_builder, $_loc, $0.getType())"
+>;
 
 def CreateAddOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
@@ -125,6 +137,9 @@ def CreateReduceMaxConst :
 def CreateReduceMeanConst :
     NativeCodeCall<"ConstPropReduce<mlir::ONNXReduceMeanOp>($_builder, $0, $1, $2)">;
 
+def CreateMatMulIntegerOfConsts :
+    NativeCodeCall<"ConstPropMatMulInteger($_builder, $0, $1, $2, $3, $4)">;
+
 def CreateTransposeOfConst :
    NativeCodeCall<"ConstPropTranspose($_builder, $0, $1)">;
 
@@ -151,6 +166,9 @@ def CreateReshapeOfConst:
 
 def CreateConstantOfShapeOfConst:
    NativeCodeCall<"ConstPropConstantOfShape($_builder, $0, $1, $2)">;
+
+def CreateRangeOfThreeConst :
+   NativeCodeCall<"ConstPropRange($_builder, $0, $1, $2, $3)">;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
@@ -491,6 +509,43 @@ def ReduceMeanConstProp: Pat<
     >;
 
 //===----------------------------------------------------------------------===//
+// Patterns for MatMul.
+//===----------------------------------------------------------------------===//
+
+def MatMulIntegerConstZeroLhs : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      $B,
+      $a_zero_point, $b_zero_point
+    ),
+    (CreateZeroTensorOfType $resOp),
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
+     (IsMatMulIntegerLhsZero $A, $a_zero_point)]
+    >;
+
+def MatMulIntegerConstZeroRhs : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      $A,
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
+      $a_zero_point, $b_zero_point
+    ),
+    (CreateZeroTensorOfType $resOp),
+    [(IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point),
+     (IsMatMulIntegerRhsZero $B, $b_zero_point)]
+    >;
+
+def MatMulIntegerOfConsts : Pat<
+    (ONNXMatMulIntegerOp:$resOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
+      $a_zero_point, $b_zero_point
+    ),
+    (CreateMatMulIntegerOfConsts $resOp, $A, $B, $a_zero_point, $b_zero_point),
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
+     (IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point)]
+    >;
+
+//===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Transpose operations.
 //===----------------------------------------------------------------------===//
 
@@ -612,5 +667,21 @@ def ConstantOfShapeofConst :  Pat<
     (CreateConstantOfShapeOfConst $resOp, $shape, $value),
     [(IsFromDenseONNXConstantOp:$shape),
      (HasStaticShape:$resOp)]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns for Range.
+//===----------------------------------------------------------------------===//
+
+// Constant Propagation for Range if shape inference has calculated the length.
+def RangeConstProp : Pat<
+    // From range(c0, c1, c2).
+    (ONNXRangeOp:$rangeOp (ONNXConstantOp:$start $_, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$limit $_, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$delta $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To [c0, c0 + c2, c0 + c2 * 2, ...] assuming shape inference calculated
+    // dim size max(ceil((c1 - c0) / c2), 0).
+    (CreateRangeOfThreeConst $rangeOp, $start, $limit, $delta),
+    [(IsFromDenseONNXConstantOp:$start), (IsFromDenseONNXConstantOp:$limit),
+     (IsFromDenseONNXConstantOp:$delta), (HasStaticShape:$rangeOp)]>;
 
 #endif // ONNX_CONSTPROP
