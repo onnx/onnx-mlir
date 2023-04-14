@@ -789,21 +789,21 @@ Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
   // https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/.
   // ```
   // def erf(x):
+  //   a1_smallx = 1.1283791671
+  //   if abs(x) < 0.001:
+  //     return a1_smallx * x
+  //
   //   a1 =  0.254829592
   //   a2 = -0.284496736
   //   a3 =  1.421413741
   //   a4 = -1.453152027
   //   a5 =  1.061405429
   //   p  =  0.3275911
-  //   a1_smallx = 1.1283791671
   //
-  //   absx = abs(x)
-  //   if absx < 0.001:
-  //     return a1_smallx * x
-  //   t = 1.0 / (1.0 + p * absx)
+  //   t = 1.0 / (1.0 + p * abs(x))
   //   y = 1.0 -
   //       (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
-  //       exp(-absx*absx)
+  //       exp(-abs(x)*abs(x))
   //   return -y if x < 0.0 else y
   // }
   // ```
