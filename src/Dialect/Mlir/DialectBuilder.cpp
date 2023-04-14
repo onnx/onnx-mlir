@@ -1071,7 +1071,7 @@ Value MemRefBuilder::reshapeToFlat(Value valToReshape,
   // flattenedSize is an output value corresponding to the total number of
   // elements that were flattened.
   flattenedSize = numOfFlattenedElements.getValue();
-  if (dimsToFlatten == 1 && false)
+  if (dimsToFlatten == 1)
     // Flattening of the last dim is really no flattening at all. Return
     // original value before doing the actual reshaping, which is unnecessary.
     // Waited until here as we need to return a valid flattenedSize,

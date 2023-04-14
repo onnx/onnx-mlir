@@ -583,24 +583,34 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     int64_t dimIndex = loopDepth - operandRank + r;
     SymbolIndexExpr dim(inputsDims[operandIndex][dimIndex]);
 
-    // Compute access index based on broadcasting rules.
-    // If all other operand dims are 1, just use the output access index.
-    // Otherwise, emit a select op.
-    bool allOtherInputDimsAreOne = true;
-    for (int64_t i = 0; i < inputSize; ++i) {
-      if (i == operandIndex)
-        continue;
-      IndexExpr dim = inputsDims[i][dimIndex];
-      if (!dim.isLiteralAndIdenticalTo(1)) {
-        allOtherInputDimsAreOne = false;
-        break;
+    bool guaranteedBroadcasting = false;
+    if (noBroadcasting) {
+      // Broadcasting is already ruled out, no need for further analysis
+    } else {
+      // If it turns out that all of the other input operands (and for this dim
+      // index) have values 1, then we know we can use the loop variable index
+      // without worry as either (1) it also has a dim of 1 (and thus the loop
+      // variable index is 0) or (2) it has a dim of X (compile or runtime) and
+      // this will be a broadcasted dimensions (and thus the loop variable index
+      // can also safely be used).
+      bool allOtherInputDimsAreOne = true;
+      for (int64_t i = 0; i < inputSize; ++i) {
+        if (i == operandIndex)
+          continue;
+        IndexExpr dim = inputsDims[i][dimIndex];
+        if (!dim.isLiteralAndIdenticalTo(1)) {
+          allOtherInputDimsAreOne = false;
+          break;
+        }
       }
+      guaranteedBroadcasting = allOtherInputDimsAreOne;
     }
 
-    if (noBroadcasting || allOtherInputDimsAreOne) {
-      // no Broadcasting -> no worries, just use the index.
+    // Compute access index based on broadcasting rules.
+    if (noBroadcasting || guaranteedBroadcasting) {
+      // No broadcasting or guaranteed broadcasting -> just use the index.
       //
-      // allOtherInputDimsAreOne -> use loop index without worries.
+      // guaranteedBroadcasting -> use loop index without worries.
       // Our dim may be [*, dim, *] where all the others are [*, 1, *];
       // Regardless of the value of dim (constant, `?`) we can use the loop
       // index variable without reservation as if dim is 1, then its 0 by def,
