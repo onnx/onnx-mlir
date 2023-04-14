@@ -425,7 +425,13 @@ private:
             Value iVal = create.math.constantIndex(i);
             Value va = create.vec.loadIE(vecType, A, aStart, {iVal, k});
             Value vTmpProd = create.vec.load(vecType, TmpProd, {iVal});
-            Value vres = create.vec.fma(va, vb, vTmpProd);
+            Value vres;
+            if (isa<FloatType>(elementType)) {
+              vres = create.vec.fma(va, vb, vTmpProd);
+            } else {
+              vres = create.math.mul(va, vb);
+              vres = create.math.add(vres, vTmpProd);
+            }
             create.vec.store(vres, TmpProd, {iVal});
           }
         });
@@ -505,7 +511,13 @@ private:
                 Value vb = create.vec.loadIE(vecType, B, bStart, {k, iZero});
                 // TTmpC() = vector_fma(va, vb, TTmpC());
                 Value tmpVal = createAffine.load(TmpC, tmpCAccess);
-                Value res = create.vec.fma(va, vb, tmpVal);
+                Value res;
+                if (isa<FloatType>(elementType)) {
+                  res = create.vec.fma(va, vb, tmpVal);
+                } else {
+                  res = create.math.mul(va, vb);
+                  res = create.math.add(res, tmpVal);
+                }
                 createAffine.store(res, TmpC, tmpCAccess);
               });
           // Store temp result into C(i)

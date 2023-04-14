@@ -167,6 +167,9 @@ def CreateReshapeOfConst:
 def CreateConstantOfShapeOfConst:
    NativeCodeCall<"ConstPropConstantOfShape($_builder, $0, $1, $2)">;
 
+def CreateRangeOfThreeConst :
+   NativeCodeCall<"ConstPropRange($_builder, $0, $1, $2, $3)">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
@@ -664,5 +667,21 @@ def ConstantOfShapeofConst :  Pat<
     (CreateConstantOfShapeOfConst $resOp, $shape, $value),
     [(IsFromDenseONNXConstantOp:$shape),
      (HasStaticShape:$resOp)]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns for Range.
+//===----------------------------------------------------------------------===//
+
+// Constant Propagation for Range if shape inference has calculated the length.
+def RangeConstProp : Pat<
+    // From range(c0, c1, c2).
+    (ONNXRangeOp:$rangeOp (ONNXConstantOp:$start $_, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$limit $_, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$delta $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To [c0, c0 + c2, c0 + c2 * 2, ...] assuming shape inference calculated
+    // dim size max(ceil((c1 - c0) / c2), 0).
+    (CreateRangeOfThreeConst $rangeOp, $start, $limit, $delta),
+    [(IsFromDenseONNXConstantOp:$start), (IsFromDenseONNXConstantOp:$limit),
+     (IsFromDenseONNXConstantOp:$delta), (HasStaticShape:$rangeOp)]>;
 
 #endif // ONNX_CONSTPROP

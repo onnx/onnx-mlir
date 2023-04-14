@@ -248,7 +248,8 @@ func.func @test_padv2(%arg0: tensor<1x3x224x224xf32>) -> tensor<*xf32> {
     // CHECK-LABEL: test_padv2
     // CHECK: [[PAD:%.+]] = onnx.Constant dense<[0, 0, 4, 4, 0, 0, 4, 4]> : tensor<8xi64>
     // CHECK: [[CONSTANT_VALUE:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
-    // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[PAD]], [[CONSTANT_VALUE]]) {mode = "reflect"} : (tensor<1x3x224x224xf32>, tensor<8xi64>, tensor<1xf32>) -> tensor<*xf32>
+    // CHECK: [[NONE:%.+]] = "onnx.NoValue"() {value} : () -> none
+    // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[PAD]], [[CONSTANT_VALUE]], [[NONE]]) {mode = "reflect"} : (tensor<1x3x224x224xf32>, tensor<8xi64>, tensor<1xf32>, none) -> tensor<*xf32>
     // CHECK: return [[RES]] : tensor<*xf32>
 }
 

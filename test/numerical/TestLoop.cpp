@@ -110,26 +110,26 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
       omTensorCreateEmpty(nullptr, 0, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
   omTensorGetElem<int64_t>(tripCountTensor.get(), {}) = tripCount;
-  inputs.emplace_back(move(tripCountTensor));
+  inputs.emplace_back(std::move(tripCountTensor));
 
   auto condTensor = OMTensorUniquePtr(
       omTensorCreateEmpty(nullptr, 0, OM_DATA_TYPE::ONNX_TYPE_BOOL),
       omTensorDestroy);
   omTensorGetElem<bool>(condTensor.get(), {}) = true;
-  inputs.emplace_back(move(condTensor));
+  inputs.emplace_back(std::move(condTensor));
 
   int64_t yInitShape[1] = {1};
   auto yInitTensor = OMTensorUniquePtr(
       omTensorCreateEmpty(&yInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
   omTensorGetElem<int64_t>(yInitTensor.get(), {0}) = yInit;
-  inputs.emplace_back(move(yInitTensor));
+  inputs.emplace_back(std::move(yInitTensor));
 
   onnx_mlir::ExecutionSession sess(
       onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
   std::vector<onnx_mlir::OMTensorUniquePtr> outputs;
   try {
-    outputs = sess.run(move(inputs));
+    outputs = sess.run(std::move(inputs));
   } catch (const std::runtime_error &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;
