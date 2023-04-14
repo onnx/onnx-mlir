@@ -155,21 +155,21 @@ func.func @test_sequence_insert(%arg0: tensor<?x4x5xf32>, %arg1:tensor<3x4x5xf32
 
 // Check nested if lowering (function computes scalar Sign).
 func.func @test_if_sign(%arg0: tensor<f32>) -> tensor<i32> {
+  %zero = onnx.Constant {value = dense<0> : tensor<i32>} : tensor<i32>
+  %plus = onnx.Constant {value = dense<1> : tensor<i32>} : tensor<i32>
+  %minus = onnx.Constant {value = dense<-1> : tensor<i32>} : tensor<i32>
   %0 = onnx.Constant {value = dense<0.0> : tensor<f32>} : tensor<f32>
   %1 = "onnx.Less"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
   %2 = "onnx.If"(%1) ({
-    %3 = onnx.Constant {value = dense<-1> : tensor<i32>} : tensor<i32>
-    onnx.Return %3 : tensor<i32>
+    onnx.Return %minus : tensor<i32>
   }, {
-    %4 = "onnx.Greater"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
-    %5 = "onnx.If"(%4) ({
-      %6 = onnx.Constant {value = dense<1> : tensor<i32>} : tensor<i32>
-      onnx.Return %6 : tensor<i32>
+    %3 = "onnx.Greater"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
+    %4 = "onnx.If"(%3) ({
+      onnx.Return %plus : tensor<i32>
     }, {
-      %7 = onnx.Constant {value = dense<0> : tensor<i32>} : tensor<i32>
-      onnx.Return %7 : tensor<i32>
+      onnx.Return %zero : tensor<i32>
     }) : (tensor<i1>) -> tensor<i32>
-    onnx.Return %5 : tensor<i32>
+    onnx.Return %4 : tensor<i32>
   }) : (tensor<i1>) -> tensor<i32>
   return %2 : tensor<i32>
 // mlir2FileCheck.py
@@ -194,11 +194,7 @@ func.func @test_if_sign(%arg0: tensor<f32>) -> tensor<i32> {
 // CHECK-DAG:         [[VAR_8_:%.+]] = arith.cmpf ogt, [[LOAD_PARAM_0_MEM_1_]], [[LOAD_VAR_0_MEM_1_]] : f32
 // CHECK-DAG:         krnl.store [[VAR_8_]], [[RES_1_]][] : memref<i1>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<i1>
-// CHECK-DAG:         [[VAR_10_:%.+]] = scf.if [[LOAD_RES_1_MEM_]] -> (memref<i32>) {
-// CHECK-DAG:           scf.yield [[CONSTANT_2_]] : memref<i32>
-// CHECK-DAG:         } else {
-// CHECK-DAG:           scf.yield [[CONSTANT_1_]] : memref<i32>
-// CHECK-DAG:         }
+// CHECK:             [[VAR_10_:%.+]] = arith.select [[LOAD_RES_1_MEM_]], [[CONSTANT_2_]], [[CONSTANT_1_]] : memref<i32>
 // CHECK:             scf.yield [[VAR_10_]] : memref<i32>
 // CHECK:           }
 // CHECK:           return [[VAR_5_]] : memref<i32>
