@@ -33,8 +33,6 @@ func.func @transpose_on_ztensor(%arg0: tensor<3x5xf32>) -> tensor<5x3xf32> {
 // CHECK:         }
 }
 
-// -----
-
 // Transpose will be done directly on stickified data, so no need to unstickify.
 func.func @transpose_on_ztensor_unknown_dims(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
   %0 = "onnx.Relu" (%arg0) : (tensor<?x?xf32>) -> tensor<?x?xf32>

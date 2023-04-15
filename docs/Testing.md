@@ -382,6 +382,8 @@ We provide a Python script [RunONNXModelZoo.py](../utils/RunONNXModelZoo.py) to 
 ```bash
 $ git clone https://github.com/onnx/models
 $ cd models
-$ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ /onnx-mlir/utils/RunONNXModelZoo.py -m mnist-8 -compile-args="-O3"
+$ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ /onnx-mlir/utils/RunONNXModelZoo.py -m mnist-8 -c "-O3"
 ```
-Run the script with `-h` to see all the options.
+Run the script with `-h` to see all the options. In addition to the `-m` to specify a model and `-c` to specify the compile options, useful options are the `-k` to leave the onnx model in the current directory as a `.tgz` file, and the `-l debug` to print lots of debugging info.
+
+If you are unsure of the available models, you can always fire a `find . -name "*.onnx" -print` command to find them.
