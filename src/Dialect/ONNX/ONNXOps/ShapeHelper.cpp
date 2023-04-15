@@ -490,7 +490,6 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
         // r==-2.
         LLVM_DEBUG(llvm::dbgs()
                    << "  lost scalar with broadcast: " << d << "; abort\n");
-        // hi alex collapsedInnermostLoops = -(r + 1);
         return collapsedInnermostLoops > 0;
       }
     }
@@ -538,7 +537,6 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
           // Abort at this rank r; thus stops at previous iteration of r.
           LLVM_DEBUG(llvm::dbgs() << "    literal incompatibility "
                                   << nonScalarID << " & " << d << "; abort\n");
-          // hi alex collapsedInnermostLoops = -(r + 1);
           return collapsedInnermostLoops > 0;
         }
         // We could not determine compatibility with literals, try deducing info
@@ -557,8 +555,6 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
         // Abort at this rank r; thus stops at previous iteration of r.
         LLVM_DEBUG(llvm::dbgs() << "    dyn incompatibility " << nonScalarID
                                 << " & " << d << "; abort\n");
-
-        // hi alex collapsedInnermostLoops = -(r + 1);
         return collapsedInnermostLoops > 0;
       } // End for all non-scalars,
     }   // End testing non-scalar compatibility.
@@ -582,7 +578,6 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
         // cannot manage this. Abort at this rank r; thus stops at previous
         // iteration of r.
         LLVM_DEBUG(llvm::dbgs() << "  one and no scalar" << d << "; abort\n");
-        // hi alex collapsedInnermostLoops = -(r + 1);
         return collapsedInnermostLoops > 0;
       }
     }
@@ -604,7 +599,6 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
   } // For rank r.
 
   // Came up to here, we are able to collapse them all.
-  // hi alex collapsedInnermostLoops = outputRankInt;
   return collapsedInnermostLoops > 0;
 }
 
