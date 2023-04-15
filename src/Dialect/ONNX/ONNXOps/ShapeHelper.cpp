@@ -380,63 +380,6 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   return true;
 }
 
-// Determine if all but one input is a scalar, in which case the broadcasting is
-// trivial. For example: (4x16xf32 and 1xf32), (?x?xf32 and 1xf32).
-bool ONNXBroadcastOpShapeHelper::hasScalarBroadcast(DimAnalysis *dimAnalysis) {
-  // Find the inputs that are scalar.
-  int scalarNum = 0;
-  int nonScalarID = -1;
-  int dimNum = inputsDims.size();
-  llvm::SmallVector<int, 4> scalarInput(dimNum, true);
-  for (int d = 0; d < dimNum; ++d) {
-    for (uint64_t r = 0; r < outputRank; ++r) {
-      if (!inputsDims[d][r].isLiteralAndIdenticalTo(1)) {
-        scalarInput[d] = false;
-        nonScalarID = d;
-        break;
-      }
-    }
-    if (scalarInput[d])
-      scalarNum++;
-  }
-  if (scalarNum == 0 || scalarNum == dimNum) {
-    // No scalars/all scalars. There is no scalar broadcast.
-    return false;
-  }
-  assert(nonScalarID != -1 && "expected one non-scalar input");
-
-  // Now find out if all the non-scalar inputs are identical. If there is
-  // only one non-scalar input, we are fine by definition.
-  if (dimNum - scalarNum == 1)
-    return true;
-  // To use dim analysis, it must be defined and we must have an operand for
-  // each dim.
-  bool canUseDimAnalysis = dimAnalysis && (int)operands.size() == dimNum;
-  int rank = inputsDims[nonScalarID].size();
-  for (int d = 0; d < dimNum; ++d) {
-    if (scalarInput[d] || d == nonScalarID)
-      // Scalar or self, nothing to test.
-      continue;
-    if (canUseDimAnalysis &&
-        !dimAnalysis->sameShape(operands[nonScalarID], operands[d])) {
-      // Cannot have 2 non-scalar that are different.
-      return false;
-    } else {
-      // Cannot use analysis, just ensure that both have the same static values.
-      assert((int)inputsDims[d].size() == rank && "must have the same rank");
-      for (int r = 0; r < rank; ++r) {
-        if (!inputsDims[nonScalarID][r].isLiteral() ||
-            !inputsDims[d][r].isLiteral() ||
-            inputsDims[nonScalarID][r].getLiteral() !=
-                inputsDims[d][r].getLiteral())
-          return false;
-      }
-    }
-  }
-  // Checked all non-scalar inputs and they are all identical.
-  return true;
-}
-
 bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
     int64_t &collapsedInnermostLoops, int64_t &collapsedLiteralSize,
     IndexExpr &collapsedDynamicSize, DimAnalysis *dimAnalysis) {

@@ -237,35 +237,49 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // Determine if broadcast can be ruled out at compile time. Use DimAnalysis
   // when available.
   bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
-  // Determine if the only broadcast present is from scalars. I.e. with the
-  // exception of scalars (which will be trivially broadcasted), broadcast can
-  // be ruled out among all of the non-scalar operands. Use DimAnalysis when
-  // available.
-  bool hasScalarBroadcast(DimAnalysis *dimAnalysis = nullptr);
 
-  // Determine from the inner dim onward which dimensions have manageable
-  // broadcasting. Inner dims count from the leftmost dim to the rightmost dim
-  // starting at 1. Manageable broadcasting is defined as either (1) no
-  // broadcasting at all, or (2) broadcasting from a known scalar to a
-  // non-scalar. Scalar is defined at a given inner dim d as having a shape with
-  // '1' from dim d all the way to the innermost rank (dim rank -1).
+  // Determine of the broadcast operation has manageable broadcast (MB), and if
+  // so, at which level/rank. We first attempt to see if the innermost dimension
+  // has MB, and if it does, we then attempt to test at the next innermost
+  // level... until we fail or we run out of dimensions.
   //
-  // Scalar: (4, 2, 1, 1) is scalar at inner dim 1, and 2, but not 3 or 4.
+  // Manageable broadcast (MB) is either that:
+  //   1) we have no broadcast up to that level, or
+  //   2) we have scalars up to that level being broadcasted.
   //
-  // Manageable broadcast (MB):
-  //  - (?1, 1, 4, 1) and (10, 1, 4, 1) have MB at inner dim 1, 2, 3, not 4,
+  // The function return true if there is some MB, and then
+  // * collapsedInnermostLoops: indicates how many inner loops are involved in
+  //   the MB. They are named "collapsed" as in the SIMD code execution, we may
+  //   collapse these dimensions in a single long iteration. For example,
+  //   `0x?x4x5` and `0x?x4x5` have a collapsedInnermostLoops==2 (if the two `?`
+  //   cannot be shown as equals). This means that we may implement operations
+  //   on these inputs as `?x20` and `?x20` respectively.
+  // * collapsedLiteralSize: cumulative static size of the collapsed inner
+  //   loops.
+  // * collapsedDynamicSize: cumulative dynamic size of the collapsed inner
+  //   loops.
+  //
+  // Below are examples of Manageable Broadcast (MB) at a given
+  // collapsedInnermostLoops (CIL) level.
+  //
+  // What is a scalar: `4x2x1x1 is scalar at CIL==1 and 2, but not 3 and 4.
+  //
+  //  - (?1, 1, 4, 1) and (10, 1, 4, 1) have MB at CIL 1, 2, 3, not 4,
   //    unless dynamic analysis can show ?1 to be equal to 10 (unlikely).
-  //  - (?1, 1, ?2, 1) and (10, 1, ?3, 1) have MB at inner dim 1, and at 2 & 3
+  //  - (?1, 1, ?2, 1) and (10, 1, ?3, 1) have MB at CIL 1 and at 2
   //    if dynamic analysis can show ?2 and ?3 to be the same.
-  //  - (1, 4, 1) and (2, 4, 1) have MB at inner dim 1 and 2, but not 3 as the
-  //    there is broadcasting (1 vs 2) at inner dim 3... but the first operand
-  //    is not a scalar at inner dim 3.
-  //  - (1, 1, 1) and (2, 4, 1) have MB at inner dim 1, 2, and 3 as there is
+  //  - (1, 4, 1) and (2, 4, 1) have MB at CIL 1 and 2, but not 3 as
+  //    there is broadcasting (1 vs 2) at CIL 3... but the first
+  //    operand is not a scalar at CIL 3.
+  //  - (1, 1, 1) and (2, 4, 1) have MB at CIL 1, 2, and 3 as there is
   //    broadcast at inner dim 2 and 3, and the first operand is a scalar at
-  //    inner dim 1, 2, and 3.
-  bool hasManageableBroadcastForInnerDims(int64_t &innerDimNum,
-      int64_t &innerDimLiteralSize, IndexExpr &innerDimDynamicSize,
-      DimAnalysis *dimAnalysis = nullptr);
+  //    CIL 1, 2, and 3.
+  // - (1,3) and (1, 1) have MB at CIL 1; technically, CIL 2 is also a MB but
+  //    there is nothing to be gained by collapsing dimensions where all
+  //    inputs have dimensions of 1. We thus do not include them in our CILs.
+  bool hasManageableBroadcastForInnerDims(int64_t &collapsedInnermostLoops,
+      int64_t &collapsedLiteralSize, IndexExpr &collapsedDynamicSize,
+      DimAnalysis *dimAnalysis);
 
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank. Instantiated during ComputeShape.

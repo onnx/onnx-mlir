@@ -3166,14 +3166,13 @@ func.func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor
 // CHECK-DAG:             [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:             [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:             [[CST_1_3_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:             [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:             [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xi64>
 // CHECK-DAG:             [[LOOP_2_:%.+]] = krnl.define_loops 1
 // CHECK-DAG:             [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:             [[CST_1_5_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK:                 krnl.iterate([[LOOP_2_]]) with ([[LOOP_2_]] -> [[I_2_:%.+]] = 0 to 1){
 // CHECK-DAG:               [[VAR_14_:%.+]] = krnl.get_induction_var_value([[LOOP_2_]]) : (!krnl.loop) -> index
-// CHECK-DAG:               [[CST_1_6_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:               [[CST_1_5_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:               [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:               [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xi64>
@@ -3189,7 +3188,7 @@ func.func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor
 // CHECK:                 krnl.store [[LOAD_VAR_10_MEM_]], [[RES_1_]][] : memref<i1>
 // CHECK-DAG:             [[LOOP_3_:%.+]] = krnl.define_loops 1
 // CHECK-DAG:             [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:             [[CST_1_7_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[CST_1_6_:%.+]] = arith.constant 1 : index
 // CHECK:                 krnl.iterate([[LOOP_3_]]) with ([[LOOP_3_]] -> [[I_3_:%.+]] = 0 to 1){
 // CHECK:                   [[VAR_14_1_:%.+]] = krnl.get_induction_var_value([[LOOP_3_]]) : (!krnl.loop) -> index
 // CHECK:                   [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[VAR_11_]]{{.}}[[VAR_14_1_]]{{.}} : memref<1xi64>
