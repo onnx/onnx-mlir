@@ -1472,7 +1472,7 @@ public:
   // A successor op (user) is fusible if it's the only user and an unary
   // elementwise Op. The Op and its EmitScalarOpFor<T> are recorded into
   // the vector.
-  bool findFusibleOps() {
+  void findFusibleOps() {
     Operation *currentProducer = op_;
     while (currentProducer->hasOneUse()) {
       // Check the users is an unary elementwise op
@@ -1491,7 +1491,6 @@ public:
       LLVM_DEBUG({
         llvm::dbgs() << "unary op fused: " << fusibleOps_.size() << "\n";
       });
-    return fusibleOps_.size() > 0;
   }
 
   // After fusion, the only store is for the last Op.
