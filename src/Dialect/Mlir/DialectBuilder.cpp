@@ -26,6 +26,9 @@
 
 // Please do not add dependences on ONNX or KRNL dialects.
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
+
+#include <algorithm>
 
 #define DEBUG_TYPE "dialect_builder"
 
@@ -53,6 +56,13 @@ namespace onnx_mlir {
   if (vectorType)
     return vectorType.getElementType();
   return elementOrVectorType;
+}
+
+/* static */ Type MathBuilder::getTypeWithVector(
+    VectorType vectorType, Type elementType) {
+  if (vectorType)
+    return VectorType::get(vectorType.getShape(), elementType);
+  return elementType;
 }
 
 /* static */ bool MathBuilder::isIntegerWithVector(Type elementOrVectorType) {
@@ -542,87 +552,107 @@ Value MathBuilder::createArithCmp(
 // cast remove the sign of integer types for successful processing, to the
 // best of my understanding.
 Value MathBuilder::castToSignless(Value val, int64_t width) const {
-  assert(val.getType().isa<IntegerType>() &&
-         !val.getType().isSignlessInteger() && "Expecting signed integer type");
+  Type valType = val.getType();
+  VectorType vecType = valType.dyn_cast<VectorType>();
+  Type valElemType = elementTypeWithVector(valType);
+  assert(valElemType.isa<IntegerType>() && !valElemType.isSignlessInteger() &&
+         "Expecting signed integer type");
+  Type destType = getTypeWithVector(vecType, b().getIntegerType(width));
   return b()
-      .create<UnrealizedConversionCastOp>(loc(), b().getIntegerType(width), val)
+      .create<UnrealizedConversionCastOp>(loc(), destType, val)
       .getResult(0);
 }
 
 Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
-  assert(val.getType().isa<IntegerType>() && "Expecting integer type");
+  Type valType = val.getType();
+  VectorType vecType = valType.dyn_cast<VectorType>();
+  Type valElemType = elementTypeWithVector(valType);
+  assert(valElemType.isa<IntegerType>() && "Expecting integer type");
+  Type destType =
+      getTypeWithVector(vecType, b().getIntegerType(width, false /*signed*/));
   return b()
-      .create<UnrealizedConversionCastOp>(
-          loc(), b().getIntegerType(width, false /*signed*/), val)
+      .create<UnrealizedConversionCastOp>(loc(), destType, val)
       .getResult(0);
 }
 
 // Methods inspired from MLIR TosaToLinalg CastOp.
 Value MathBuilder::cast(Type destType, Value src) const {
-  // Get source type and check if we need a cast at all.
+  // Get element type and vector types (if any, i.e. possibly nullptr).
   Type srcType = src.getType();
+  VectorType srcVecType = srcType.dyn_cast<VectorType>();
+  VectorType destVecType = destType.dyn_cast<VectorType>();
+  Type srcElemType = elementTypeWithVector(srcType);
+  Type destElemType = elementTypeWithVector(destType);
+  // Make sure we don't mix vector and scalars.
+  assert(((srcVecType && destVecType) || (!srcVecType && !destVecType)) &&
+         "expect both to be scalars or vectors");
+  // Check if we even need a cast.
   if (srcType == destType)
     return src;
 
   // Process index types first.
-  if (srcType.isa<IndexType>()) {
-    // If our source is an index type, first convert it into a signless int of
+  if (srcElemType.isa<IndexType>()) {
+    // If the source is an index type, first convert it into a signless int of
     // size 64.
-    srcType = b().getIntegerType(64);
+    srcElemType = b().getIntegerType(64);
+    srcType = getTypeWithVector(srcVecType, srcElemType);
     src = b().create<arith::IndexCastOp>(loc(), srcType, src);
   }
   bool destIsIndex = false;
-  if (destType.isa<IndexType>()) {
-    // If our dest is an index type, pretend for now that we want it to be
-    // converted to.
-    destType = b().getIntegerType(64);
+  Type savedDestType = destType; // Used when destIsIndex is true.
+  if (destElemType.isa<IndexType>()) {
+    // If the dest is an index type, pretend for now that we want it to be
+    // converted to signless int of size 64.
+    destElemType = b().getIntegerType(64);
+    destType = getTypeWithVector(destVecType, destElemType);
     destIsIndex = true;
   }
 
   // Only support Integer or Float type at this stage. Index were transformed
   // to signless int.
   // TODO: add support for shaped tensor (MemRef, Vector, Tensor?) if needed.
-  assert((srcType.isa<IntegerType>() || srcType.isa<FloatType>()) &&
+  assert((srcElemType.isa<IntegerType>() || srcElemType.isa<FloatType>()) &&
          "support only float or int");
-  assert((destType.isa<IntegerType>() || destType.isa<FloatType>()) &&
+  assert((destElemType.isa<IntegerType>() || destElemType.isa<FloatType>()) &&
          "support only float or int");
   // Get source and dest type width.
-  int64_t srcWidth = srcType.getIntOrFloatBitWidth();
-  int64_t destWidth = destType.getIntOrFloatBitWidth();
-  bool bitExtend = srcWidth < destWidth;
-  bool bitTrunc = srcWidth > destWidth;
+  int64_t srcElemWidth = srcElemType.getIntOrFloatBitWidth();
+  int64_t destElemWidth = destElemType.getIntOrFloatBitWidth();
+  bool bitExtend = srcElemWidth < destElemWidth;
+  bool bitTrunc = srcElemWidth > destElemWidth;
 
   LLVM_DEBUG(llvm::dbgs() << "srcType: " << srcType << "\n";
              llvm::dbgs() << "destType: " << destType << "\n";);
 
   // Handle boolean first because they need special handling.
   // Boolean to int/float conversions. Boolean are unsigned.
-  if (srcType.isInteger(1)) {
-    if (destType.isa<FloatType>()) {
+  if (srcElemType.isInteger(1)) {
+    if (destElemType.isa<FloatType>()) {
       return b().create<arith::UIToFPOp>(loc(), destType, src);
     } else {
       Value dest = b().create<arith::ExtUIOp>(loc(), destType, src);
       if (destIsIndex)
-        dest = b().create<arith::IndexCastOp>(loc(), b().getIndexType(), dest);
+        dest = b().create<arith::IndexCastOp>(loc(), savedDestType, dest);
       return dest;
     }
   }
 
   // Int/Float to booleans, just compare value to be unequal zero.
-  if (destType.isInteger(1)) {
+  if (destElemType.isInteger(1)) {
     Type constantType = srcType;
-    if (srcType.isa<IntegerType>() && !srcType.isSignlessInteger()) {
+    if (srcElemType.isa<IntegerType>() && !srcElemType.isSignlessInteger()) {
       // An integer constant must be signless.
-      unsigned srcWidth = srcType.cast<IntegerType>().getWidth();
-      constantType = IntegerType::get(srcType.getContext(), srcWidth);
-      src = castToSignless(src, srcWidth);
+      unsigned srcElemWidth = srcElemType.cast<IntegerType>().getWidth();
+      constantType = getTypeWithVector(
+          srcVecType, IntegerType::get(srcElemType.getContext(), srcElemWidth));
+      src = castToSignless(src, srcElemWidth);
     }
     Value zero = constant(constantType, 0);
     return neq(src, zero);
   }
 
   // Float to float conversions.
-  if (srcType.isa<FloatType>() && destType.isa<FloatType>()) {
+  if (srcElemType.isa<FloatType>() && destElemType.isa<FloatType>()) {
     assert((bitExtend || bitTrunc) && "expected extend or trunc");
     if (bitExtend)
       return b().create<arith::ExtFOp>(loc(), destType, src);
@@ -631,25 +661,26 @@ Value MathBuilder::cast(Type destType, Value src) const {
   }
 
   // Float to int conversions.
-  if (srcType.isa<FloatType>() && destType.isa<IntegerType>()) {
+  if (srcElemType.isa<FloatType>() && destElemType.isa<IntegerType>()) {
     // TosaToLinalg in MLIR uses a fancier algorithm that clamps values to
     // min/max signed/unsigned integer values.
     if (destType.isUnsignedInteger()) {
-      Value cast = castToSignless(src, srcWidth);
-      return b().create<arith::FPToUIOp>(loc(), destType, cast);
+      Type castType = b().getIntegerType(destElemWidth);
+      Value cast = b().create<arith::FPToUIOp>(loc(), castType, src);
+      return castToUnsigned(cast, destElemWidth);
     } else {
       // Handle signed int.
       Value dest = b().create<arith::FPToSIOp>(loc(), destType, src);
       if (destIsIndex)
-        dest = b().create<arith::IndexCastOp>(loc(), b().getIndexType(), dest);
+        dest = b().create<arith::IndexCastOp>(loc(), savedDestType, dest);
       return dest;
     }
   }
 
   // Int to float conversion.
-  if (srcType.isa<IntegerType>() && destType.isa<FloatType>()) {
-    if (srcType.isUnsignedInteger()) {
-      Value cast = castToSignless(src, srcWidth);
+  if (srcElemType.isa<IntegerType>() && destElemType.isa<FloatType>()) {
+    if (srcElemType.isUnsignedInteger()) {
+      Value cast = castToSignless(src, srcElemWidth);
       return b().create<arith::UIToFPOp>(loc(), destType, cast);
     } else {
       // Handle signed int.
@@ -658,24 +689,27 @@ Value MathBuilder::cast(Type destType, Value src) const {
   }
 
   // Int to int conversion.
-  if (srcType.isa<IntegerType>() && destType.isa<IntegerType>()) {
-    if (srcType.isUnsignedInteger()) {
+  if (srcElemType.isa<IntegerType>() && destElemType.isa<IntegerType>()) {
+    if (srcElemType.isUnsignedInteger()) {
       // Unsigned to unsigned conversion. Has to convert to signless first,
       // and reconvert output to unsigned.
-      assert(destType.isUnsignedInteger() && "no unsigned/signed conversion");
+      assert(
+          destElemType.isUnsignedInteger() && "no unsigned/signed conversion");
       assert((bitExtend || bitTrunc) && "expected extend or trunc");
-      Value cast = castToSignless(src, srcWidth);
-      Type castType = b().getIntegerType(destWidth);
+      Value cast = castToSignless(src, srcElemWidth);
+      Type castType =
+          getTypeWithVector(destVecType, b().getIntegerType(destElemWidth));
       if (bitExtend) {
         cast = b().create<arith::ExtUIOp>(loc(), castType, cast);
       } else {
         // TosaToLinalg use a clipping algo, not sure if needed.
         cast = b().create<arith::TruncIOp>(loc(), castType, cast);
       }
-      return castToUnsigned(cast, destWidth);
+      return castToUnsigned(cast, destElemWidth);
     } else {
       // Handle signed integer
-      assert(!destType.isUnsignedInteger() && "no signed/unsigned conversion");
+      assert(
+          !destElemType.isUnsignedInteger() && "no signed/unsigned conversion");
       Value dest = src;
       if (bitExtend)
         dest = b().create<arith::ExtSIOp>(loc(), destType, src);
@@ -683,7 +717,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
         // TosaToLinalg use a clipping algo
         dest = b().create<arith::TruncIOp>(loc(), destType, src);
       if (destIsIndex)
-        dest = b().create<arith::IndexCastOp>(loc(), b().getIndexType(), dest);
+        dest = b().create<arith::IndexCastOp>(loc(), savedDestType, dest);
       return dest;
     }
   }
@@ -853,6 +887,41 @@ memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
 }
 
 //===----------------------------------------------------------------------===//
+// Info about memory size.
+
+// Compute static and dynamic size of memref. Return true if has static size.
+bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
+    ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize) const {
+  Type elementType = type.getElementType();
+  assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
+  ArrayRef<int64_t> shape = type.getShape();
+  staticSize = 1;                // Multiplication of static sizes.
+  dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
+  bool staticShape = (dynSymbols.size() == 0);
+  int64_t rank = type.getRank();
+  int64_t iDim = 0;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (shape[i] == ShapedType::kDynamic) {
+      assert(!staticShape && "expected static shape");
+      assert(iDim < (int64_t)dynSymbols.size() && "not enough dynamic symbols");
+      dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
+    } else {
+      // Has constant shape.
+      staticSize *= shape[i];
+    }
+  }
+  return staticShape;
+}
+
+bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
+    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
+    IndexExpr &dynSize) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(type, dims, dynSymbols);
+  return getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
+}
+
+//===----------------------------------------------------------------------===//
 // Alloc functions with alignment and padding for SIMD
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(
@@ -868,22 +937,10 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
   assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
   assert(simdUnroll >= 1 && "expected positive simd unroll factor");
   // Compute total size of memref (in unit of element type).
-  ArrayRef<int64_t> shape = type.getShape();
-  int64_t staticSize = 1;                  // Multiplication of static sizes.
-  IndexExpr dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
-  bool staticShape = (dynSymbols.size() == 0);
-  int64_t rank = type.getRank();
-  int64_t iDim = 0;
-  for (int64_t i = 0; i < rank; ++i) {
-    if (shape[i] == ShapedType::kDynamic) {
-      assert(!staticShape && "expected static shape");
-      assert(iDim < (int64_t)dynSymbols.size() && "not enough dynamic symbols");
-      dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
-    } else {
-      // Has constant shape.
-      staticSize *= shape[i];
-    }
-  }
+  int64_t staticSize;
+  IndexExpr dynSize;
+  bool staticShape =
+      getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
   // Get vector length for this element type, multiplied by the unroll factor.
   MultiDialectBuilder<VectorBuilder> create(*this);
   int64_t VL = create.vec.getMachineVectorLength(elementType) * simdUnroll;
@@ -1198,14 +1255,10 @@ void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }
 //===----------------------------------------------------------------------===//
 
 int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
-  unsigned typeBitSize = elementType.getIntOrFloatBitWidth();
-  unsigned simdBitSize;
-  // TODO: use march and mcpu to determine the right size, right now assume
-  // 4*32=128 bits.
-  simdBitSize = 128;
-  assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
-         "bad machine vector length");
-  return (simdBitSize / typeBitSize);
+  VectorMachineSupport *vms =
+      VectorMachineSupport::getGlobalVectorMachineSupport();
+  // Even if unsupported, we can always compute one result per vector.
+  return std::max((int64_t)1, vms->getVectorLength(elementType));
 }
 
 int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) const {

@@ -49,200 +49,263 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
   }
 }
 
+// =============================================================================
+// Template for SIMD analysis
+
+// Helper for function that support SIMD.
+static double simdAnalysis(ArrayRef<GenericOps> Gops, ArrayRef<int64_t> GopsNum,
+    Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
+  VectorMachineSupport *vms =
+      VectorMachineSupport::getGlobalVectorMachineSupport();
+  return vms->getAvgVectorLength(
+      Gops, GopsNum, elementType, vectorizedOpNum, scalarOpNum);
+}
+
+// Default template for ops that do not support SIMD. For the ones that support
+// SIMD, we must create an `analyzeSimdFor` template that returns the right
+// values.
+
+static double noSimd(int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
+  vectorizedOpNum = 0;
+  scalarOpNum = 1;
+  return 1.0;
+}
+
+template <typename Op>
+double analyzeSimdFor(
+    Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
+  return noSimd(vectorizedOpNum, scalarOpNum);
+}
+
+// =============================================================================
+// Scalar ops handling
+
 template <>
 struct ScalarOp<ONNXTanhOp> {
   using FOp = math::TanhOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXTanhOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::TrigHyperbolicGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXAddOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXAddOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXAbsOp> {
   using FOp = math::AbsFOp;
   using IOp = math::AbsIOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXAbsOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::AbsGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXMulOp> {
   using FOp = arith::MulFOp;
   using IOp = arith::MulIOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXMulOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::MulGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXDivOp> {
   using FOp = arith::DivFOp;
   using IOp = arith::DivSIOp;
-  using SimdEnabled = NoSimdScalarOp; // Disabled for now because of GPT2 error.
 };
+template <>
+double analyzeSimdFor<ONNXDivOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::DivGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXSubOp> {
   using FOp = arith::SubFOp;
   using IOp = arith::SubIOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXSubOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXAndOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::AndIOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXOrOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::OrIOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXXorOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::XOrIOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXExpOp> {
   using FOp = math::ExpOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXExpOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::ExpGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXSumOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXSumOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXCosOp> {
   using FOp = math::CosOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXCosOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::TrigGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXLogOp> {
   using FOp = math::LogOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXLogOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::LogGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXSqrtOp> {
   using FOp = math::SqrtOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXSqrtOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::SqrtGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXAtanOp> {
   using FOp = KrnlAtanOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXCeilOp> {
   using FOp = math::CeilOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXCeilOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::CeilGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXFloorOp> {
   using FOp = math::FloorOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXFloorOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::FloorGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXSinOp> {
   using FOp = math::SinOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXSinOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::TrigGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXPowOp> {
   using FOp = math::PowFOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+template <>
+double analyzeSimdFor<ONNXPowOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::PowGop}, {1}, t, von, son);
+}
 
 template <>
 struct ScalarOp<ONNXErfOp> {
   using FOp = KrnlErfOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXIsInfOp> {
   using FOp = KrnlIsInfOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXIsNaNOp> {
   using FOp = KrnlIsNaNOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAcosOp> {
   using FOp = KrnlAcosOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAcoshOp> {
   using FOp = KrnlAcoshOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAsinOp> {
   using FOp = KrnlAsinOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAsinhOp> {
   using FOp = KrnlAsinhOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAtanhOp> {
   using FOp = KrnlAtanhOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 //===----------------------------------------------------------------------===//
@@ -252,7 +315,6 @@ template <>
 struct ScalarOp<ONNXCastOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp; // TODO: can it be simdized?
 };
 
 template <>
@@ -272,8 +334,14 @@ template <>
 struct ScalarOp<ONNXSinhOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXSinhOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::ArithmeticGop, GenericOps::ExpGop, GenericOps::DivGop},
+      {2, 2, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXSinhOp>(ConversionPatternRewriter &rewriter,
@@ -299,8 +367,14 @@ template <>
 struct ScalarOp<ONNXCoshOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXCoshOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::ArithmeticGop, GenericOps::ExpGop, GenericOps::DivGop},
+      {2, 2, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
@@ -326,8 +400,14 @@ template <>
 struct ScalarOp<ONNXSigmoidOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXSigmoidOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::ArithmeticGop, GenericOps::ExpGop, GenericOps::DivGop},
+      {2, 1, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXSigmoidOp>(ConversionPatternRewriter &rewriter,
@@ -352,8 +432,14 @@ template <>
 struct ScalarOp<ONNXHardSigmoidOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXHardSigmoidOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
+                          GenericOps::CompareGop, GenericOps::SelectGop},
+      {1, 1, 2, 2}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXHardSigmoidOp>(ConversionPatternRewriter &rewriter,
@@ -391,8 +477,15 @@ template <>
 struct ScalarOp<ONNXEluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXEluOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::ArithmeticGop, GenericOps::MulGop, GenericOps::CompareGop,
+          GenericOps::SelectGop, GenericOps::ExpGop},
+      {1, 1, 1, 1, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXEluOp>(ConversionPatternRewriter &rewriter,
@@ -421,8 +514,13 @@ template <>
 struct ScalarOp<ONNXReluOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXReluOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::CompareGop, GenericOps::SelectGop}, {1, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
@@ -443,8 +541,14 @@ template <>
 struct ScalarOp<ONNXLeakyReluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXLeakyReluOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::CompareGop, GenericOps::SelectGop, GenericOps::MulGop},
+      {1, 1, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
@@ -471,8 +575,14 @@ template <>
 struct ScalarOp<ONNXPReluOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXPReluOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::CompareGop, GenericOps::SelectGop, GenericOps::MulGop},
+      {1, 1, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXPReluOp>(ConversionPatternRewriter &rewriter,
@@ -496,8 +606,15 @@ template <>
 struct ScalarOp<ONNXSeluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXSeluOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::CompareGop, GenericOps::SelectGop, GenericOps::MulGop,
+          GenericOps::ArithmeticGop, GenericOps::ExpGop},
+      {1, 1, 2, 1, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXSeluOp>(ConversionPatternRewriter &rewriter,
@@ -530,8 +647,12 @@ template <>
 struct ScalarOp<ONNXReciprocalOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXReciprocalOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::DivGop}, {1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXReciprocalOp>(ConversionPatternRewriter &rewriter,
@@ -552,14 +673,20 @@ template <>
 struct ScalarOp<ONNXSoftplusOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXSoftplusOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::ExpGop, GenericOps::ArithmeticGop, GenericOps::LogGop},
+      {1, 1, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXSoftplusOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  // ONNXSoftplusOp(%X) = LogOp(AddFOp(ExpOp(%X), ConstantOp 1))
+  // ONNXSoftplusOp(%X) = LoGop(AddFOp(ExpOp(%X), ConstantOp 1))
   CheckIfCustomScalarOpIsSupported<ONNXSoftplusOp>(elementType);
   Value operand = scalarOperands[0];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
@@ -576,8 +703,14 @@ template <>
 struct ScalarOp<ONNXSoftsignOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXSoftsignOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::AbsGop, GenericOps::ArithmeticGop, GenericOps::DivGop},
+      {1, 1, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXSoftsignOp>(ConversionPatternRewriter &rewriter,
@@ -600,8 +733,13 @@ template <>
 struct ScalarOp<ONNXSignOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXSignOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::CompareGop, GenericOps::SelectGop}, {2, 2}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
@@ -638,8 +776,13 @@ template <>
 struct ScalarOp<ONNXMaxOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXMaxOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::CompareGop, GenericOps::SelectGop}, {1, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXMaxOp>(ConversionPatternRewriter &rewriter,
@@ -664,8 +807,13 @@ template <>
 struct ScalarOp<ONNXMinOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXMinOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::CompareGop, GenericOps::SelectGop}, {1, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXMinOp>(ConversionPatternRewriter &rewriter,
@@ -690,8 +838,12 @@ template <>
 struct ScalarOp<ONNXNegOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXNegOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
@@ -710,7 +862,6 @@ template <>
 struct ScalarOp<ONNXLessOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
@@ -731,7 +882,6 @@ template <>
 struct ScalarOp<ONNXLessOrEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
@@ -752,7 +902,6 @@ template <>
 struct ScalarOp<ONNXGreaterOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
@@ -773,7 +922,6 @@ template <>
 struct ScalarOp<ONNXGreaterOrEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
@@ -794,7 +942,6 @@ template <>
 struct ScalarOp<ONNXEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <>
@@ -815,7 +962,6 @@ template <>
 struct ScalarOp<ONNXNotOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp; // issue with bit data representation
 };
 
 template <>
@@ -836,8 +982,13 @@ template <>
 struct ScalarOp<ONNXModOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXModOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::RemGop, GenericOps::CopySignGop}, {1, 1}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
@@ -877,8 +1028,13 @@ template <>
 struct ScalarOp<ONNXMeanOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXMeanOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::ArithmeticGop, GenericOps::DivGop}, {1, 1}, t, von, son);
+}
 
 template <>
 Value emitPostProcessingFor<ONNXMeanOp>(ConversionPatternRewriter &rewriter,
@@ -896,8 +1052,15 @@ template <>
 struct ScalarOp<ONNXRoundOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = SimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXRoundOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::ArithmeticGop, GenericOps::MulGop, GenericOps::CompareGop,
+          GenericOps::SelectGop, GenericOps::FloorGop},
+      {4, 2, 3, 3, 2}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
@@ -951,9 +1114,14 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 template <>
 struct ScalarOp<ONNXClipOp> {
   using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
+  using IOp = CustomScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXClipOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::CompareGop, GenericOps::SelectGop}, {2, 2}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
@@ -963,15 +1131,13 @@ Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
   Value res = scalarOperands[0];
   Value min = scalarOperands[1];
   Value max = scalarOperands[2];
-  if (!isFromNone(min)) {
-    Value loadedMin = create.krnl.load(min, {});         // load min
-    Value lessThanMin = create.math.slt(res, loadedMin); // (input[i,j,k]<min)
-    res = create.math.select(lessThanMin, loadedMin, res);
+  if (!isNoneValue(min)) {
+    Value lessThanMin = create.math.slt(res, min); // (input[i,j,k]<min)
+    res = create.math.select(lessThanMin, min, res);
   }
-  if (!isFromNone(max)) {
-    Value loadedMax = create.krnl.load(max, {});         // load max
-    Value lessThanMax = create.math.slt(res, loadedMax); // (input[i,j,k]>max)
-    res = create.math.select(lessThanMax, res, loadedMax);
+  if (!isNoneValue(max)) {
+    Value lessThanMax = create.math.slt(res, max); // (input[i,j,k]>max)
+    res = create.math.select(lessThanMax, res, max);
   }
   return res;
 }
@@ -983,8 +1149,18 @@ template <>
 struct ScalarOp<ONNXDequantizeLinearOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = CustomScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
+
+template <>
+double analyzeSimdFor<ONNXDequantizeLinearOp>(
+    Type t, int64_t &von, int64_t &son) {
+  // Right now, MLIR vector:splat does not support unsigned int types.
+  // Thus we must disable SIMD here for now.
+  return noSimd(von, son);
+  // return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
+  //                        GenericOps::ConversionGop},
+  //    {1, 1, 2}, t, von, son);
+}
 
 template <>
 Value emitScalarOpFor<ONNXDequantizeLinearOp>(
@@ -995,20 +1171,9 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
   // x and x_zero_point can be of type i8, ui8, int32.
   // y is of type f32.
   Value XInt = scalarOperands[0];
-  Value XScale = scalarOperands[1];
-  Value XZeroPoint = scalarOperands[2];
+  Value scaleFloat = scalarOperands[1];
+  Value zeroPointInt = scalarOperands[2];
 
-  Type xscaleTy = XScale.getType();
-  Type xzeroPointTy = XZeroPoint.getType();
-
-  // Only support scalar scale and zero_point.
-  assert((isRankedShapedType(xscaleTy) && getRank(xscaleTy) == 0) &&
-         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
-  assert((isRankedShapedType(xzeroPointTy) && getRank(xzeroPointTy) == 0) &&
-         "[ONNXDequantizeLinearOp] Only support per-tensor dequantization");
-
-  Value scaleFloat = create.krnl.load(XScale);
-  Value zeroPointInt = create.krnl.load(XZeroPoint);
   Value zeroPointFloat = create.math.cast(elementType, zeroPointInt);
   Value xFloat = create.math.cast(elementType, XInt);
   Value sub = create.math.sub(xFloat, zeroPointFloat);
@@ -1022,6 +1187,54 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
 
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MemRefBuilder, VectorBuilder>;
+
+// Return SIMD unroll; no simd -> return 0;
+template <typename ShapeHelperType, typename ElementwiseOp>
+int64_t canBeVectorized(
+    ShapeHelperType &shapeHelper, MDBuilder &create, MemRefType memRefType) {
+  int64_t simdUnroll = 0;
+  // SIMD is enabled for this operation, test if profitable.
+  Type elementType = memRefType.getElementType();
+  int64_t vectorizedOpNum, scalarOpNum;
+  double avgSimdWidth =
+      analyzeSimdFor<ElementwiseOp>(elementType, vectorizedOpNum, scalarOpNum);
+  if (avgSimdWidth < 1.5) {
+    if (DEBUG)
+      llvm::errs() << "SIMD disabled: avg simd width  " << avgSimdWidth
+                   << " too small\n";
+    return 0;
+  }
+  // Determine empirical unroll factor.
+  VectorMachineSupport *vms =
+      VectorMachineSupport::getGlobalVectorMachineSupport();
+
+  int64_t vrNum = vms->VectorRegisterNum();
+  if (vectorizedOpNum >= vrNum / 2)
+    simdUnroll = 1;
+  else if (vectorizedOpNum >= vrNum / 4)
+    simdUnroll = 4;
+  else
+    simdUnroll = 8;
+  // Test if there is enough work.
+  int64_t staticSize;
+  IndexExpr dynSize;
+  bool isStaticSize = create.mem.getStaticAndDynamicMemSize(
+      memRefType, shapeHelper.getOutputDims(), staticSize, dynSize);
+  if (isStaticSize && staticSize < simdUnroll) {
+    if (DEBUG)
+      llvm::errs() << "SIMD disabled: trip count " << staticSize
+                   << " too short \n";
+    return 0;
+  }
+  if (DEBUG)
+    llvm::errs() << "SIMD with avg width " << avgSimdWidth << " and unroll "
+                 << simdUnroll << "\n";
+  return simdUnroll;
+}
+
+//===----------------------------------------------------------------------===//
+// SIMD code gen for kernels where data can be fully flattened.
+//===----------------------------------------------------------------------===//
 
 template <typename ElementwiseUnaryOp>
 static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
@@ -1043,6 +1256,11 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
   // Create flat inputs.
   llvm::SmallVector<Value, 4> flatOperands;
   for (Value oper : operands) {
+    if (isNoneValue(oper) || isScalarValue(oper)) {
+      // If its a none / scalar, it is not meant to be flattened.
+      flatOperands.emplace_back(oper);
+      continue;
+    }
     llvm::SmallVector<IndexExpr, 4> operDims;
     Value operSize;
     create.krnlIE.getShapeAsSymbols(oper, operDims);
@@ -1067,12 +1285,24 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
         MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
         llvm::SmallVector<Value, 4> loadedVals;
         for (Value flatOper : flatOperands) {
+          if (isNoneValue(flatOper)) {
+            // None, just pass it on unmodified.
+            loadedVals.emplace_back(flatOper);
+            continue;
+          }
           MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
           assert(memRefType && "expected memref");
           VectorType vecType =
               VectorType::get({VL}, memRefType.getElementType());
-          Value loadedVal = create.vec.load(vecType, flatOper, loopInd);
-          loadedVals.emplace_back(loadedVal);
+          if (isScalarValue(flatOper)) {
+            // If its a scalar, do a scalar load and splat.
+            Value loadedVal = create.krnl.load(flatOper);
+            Value splatValue = create.vec.splat(vecType, loadedVal);
+            loadedVals.emplace_back(splatValue);
+          } else {
+            Value loadedVal = create.vec.load(vecType, flatOper, loopInd);
+            loadedVals.emplace_back(loadedVal);
+          }
         }
         Value loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
             rewriter, create.getLoc(), op, vecElementType, loadedVals);
@@ -1163,12 +1393,13 @@ template <typename ElementwiseUnaryOp>
 struct ONNXElementwiseUnaryOpLowering
     : public OpConversionPattern<ElementwiseUnaryOp> {
   using OpAdaptor = typename ElementwiseUnaryOp::Adaptor;
+  DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
 
-  ONNXElementwiseUnaryOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
+  ONNXElementwiseUnaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      DimAnalysis *dimAnalysis, bool enableSIMD)
       : OpConversionPattern<ElementwiseUnaryOp>(typeConverter, ctx),
-        enableSIMD(enableSIMD) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {}
 
   LogicalResult matchAndRewrite(ElementwiseUnaryOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -1178,12 +1409,25 @@ struct ONNXElementwiseUnaryOpLowering
     Location loc = ONNXLoc<ElementwiseUnaryOp>(op);
     Value X = operands[0];
 
-    // If type is scalar or vector, there is no need to allocate a buffer. Just
-    // call scalar computation and return the result. This is efficient when
-    // elementwise ops are used as activations for ops like LSTM/GRU/RNN.
+    // If type is scalar or vector, there is no need to allocate a buffer.
+    // Just call scalar computation and return the result. This is efficient
+    // when elementwise ops are used as activations for ops like LSTM/GRU/RNN.
     if (!X.getType().isa<TensorType>() && !X.getType().isa<MemRefType>()) {
+      SmallVector<Value> args;
+      args.emplace_back(X);
+      // Load the remaining (scalar) values.
+      for (uint64_t i = 1; i < operands.size(); i++) {
+        if (isNoneValue(operands[i])) {
+          args.emplace_back(operands[i]);
+          continue;
+        }
+        assert(!operands[i].getType().isa<TensorType>() &&
+               !operands[i].getType().isa<MemRefType>() &&
+               "unary expected scalar additional values");
+        args.emplace_back(operands[i]);
+      }
       Value res = emitScalarOpFor<ElementwiseUnaryOp>(
-          rewriter, loc, op, X.getType(), {X});
+          rewriter, loc, op, X.getType(), args);
       rewriter.replaceOp(op, res);
       return success();
     }
@@ -1203,15 +1447,16 @@ struct ONNXElementwiseUnaryOpLowering
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    bool scalar = hasAllScalarValues(operands);
-    if constexpr (SimdizableOp<ElementwiseUnaryOp>::value) {
-      // SIMD is enabled for this operation, test if desired and feasible
-      if (enableSIMD && !scalar && !hasNonIdentityLayout(operands)) {
-        int64_t simdUnroll = 1;
+    bool isScalar = hasAllScalarValues(operands);
+    // SIMD is enabled for this operation, test if desired and feasible
+    if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
+      int64_t simdUnroll =
+          canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
+              shapeHelper, create, memRefType);
+      if (simdUnroll > 0)
         return getUnaryBinarySimdCodeFullyFlattened<ElementwiseUnaryOp>(
             rewriter, create, &shapeHelper, op, memRefType, operands, alignment,
             simdUnroll);
-      }
     }
 
     // Insert an allocation for the result of this operation.
@@ -1219,18 +1464,27 @@ struct ONNXElementwiseUnaryOpLowering
         memRefType, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
-    if (!scalar) {
+    if (!isScalar) {
       ValueRange loopDef = create.krnl.defineLoops(memRefType.getRank());
       SmallVector<IndexExpr, 4> lbs(memRefType.getRank(), LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-            Value loadedVal = createKrnl.load(X, loopInd);
             SmallVector<Value> args;
+            Value loadedVal = createKrnl.load(X, loopInd);
             args.emplace_back(loadedVal);
-            for (uint64_t i = 1; i < operands.size(); i++)
-              args.emplace_back(operands[i]);
+            // Load the remaining (scalar) values.
+            for (uint64_t i = 1; i < operands.size(); i++) {
+              if (isNoneValue(operands[i])) {
+                args.emplace_back(operands[i]);
+                continue;
+              }
+              assert(isScalarValue(operands[i]) &&
+                     "unary expected scalar additional values");
+              Value loadedVal = create.krnl.load(operands[i]);
+              args.emplace_back(loadedVal);
+            }
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
                 rewriter, loc, op, elementType, args);
             // Store result in the resulting array.
@@ -1240,8 +1494,17 @@ struct ONNXElementwiseUnaryOpLowering
       Value loadedVal = create.krnl.load(X);
       SmallVector<Value> args;
       args.emplace_back(loadedVal);
-      for (uint64_t i = 1; i < operands.size(); i++)
-        args.emplace_back(operands[i]);
+      // Load the remaining (scalar) values.
+      for (uint64_t i = 1; i < operands.size(); i++) {
+        if (isNoneValue(operands[i])) {
+          args.emplace_back(operands[i]);
+          continue;
+        }
+        assert(isScalarValue(operands[i]) &&
+               "unary expected scalar additional values");
+        Value loadedVal = create.krnl.load(operands[i]);
+        args.emplace_back(loadedVal);
+      }
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
           rewriter, loc, op, elementType, args);
       // Store result in the resulting array.
@@ -1251,7 +1514,7 @@ struct ONNXElementwiseUnaryOpLowering
     rewriter.replaceOp(op, alloc);
     return success();
   }
-};
+}; // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // Element-wise binary ops lowering to Krnl dialect.
@@ -1263,13 +1526,16 @@ template <typename ElementwiseBinaryOp>
 struct ONNXElementwiseBinaryOpLowering
     : public OpConversionPattern<ElementwiseBinaryOp> {
   using OpAdaptor = typename ElementwiseBinaryOp::Adaptor;
+  DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
   bool isUniBroadcasting = false;
 
   ONNXElementwiseBinaryOpLowering(TypeConverter &typeConverter,
-      MLIRContext *ctx, bool enableSIMD, bool isUniBroadcasting = false)
+      MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD,
+      bool isUniBroadcasting = false)
       : OpConversionPattern<ElementwiseBinaryOp>(typeConverter, ctx),
-        enableSIMD(enableSIMD), isUniBroadcasting(isUniBroadcasting) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
+        isUniBroadcasting(isUniBroadcasting) {}
 
   LogicalResult matchAndRewrite(ElementwiseBinaryOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -1294,16 +1560,20 @@ struct ONNXElementwiseBinaryOpLowering
         op, operands, &create.krnlIE, nullptr, isUniBroadcasting);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    bool scalar = hasAllScalarValues(operands);
-    if constexpr (SimdizableOp<ElementwiseBinaryOp>::value) {
-      // SIMD is enabled for this operation, test if desired and feasible
-      if (enableSIMD && !scalar && !hasNonIdentityLayout(operands) &&
-          shapeHelper.hasNoBroadcast()) {
-        int64_t simdUnroll = 1;
+    bool isScalar = hasAllScalarValues(operands);
+    // Shape helper can determine if there is no static broadcast.
+    bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
+
+    // SIMD is enabled for this operation, test if desired and feasible
+    if (enableSIMD && !isScalar && hasNoBroadcast &&
+        !hasNonIdentityLayout(operands)) {
+      int64_t simdUnroll =
+          canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
+              shapeHelper, create, outputMemRefType);
+      if (simdUnroll > 0)
         return getUnaryBinarySimdCodeFullyFlattened<ElementwiseBinaryOp>(
             rewriter, create, &shapeHelper, op, outputMemRefType, operands,
             alignment, simdUnroll);
-      }
     }
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -1311,7 +1581,7 @@ struct ONNXElementwiseBinaryOpLowering
         outputMemRefType, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
-    if (!scalar) {
+    if (!isScalar) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
       SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
@@ -1324,15 +1594,15 @@ struct ONNXElementwiseBinaryOpLowering
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
-            LogicalResult res = shapeHelper.getAccessExprs(
-                operands[0], 0, outputAccessExprs, lhsAccessExprs);
+            LogicalResult res = shapeHelper.getAccessExprs(operands[0], 0,
+                outputAccessExprs, lhsAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value lhs = createKrnl.loadIE(operands[0], lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
-            res = shapeHelper.getAccessExprs(
-                operands[1], 1, outputAccessExprs, rhsAccessExprs);
+            res = shapeHelper.getAccessExprs(operands[1], 1, outputAccessExprs,
+                rhsAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value rhs = createKrnl.loadIE(operands[1], rhsAccessExprs);
 
@@ -1359,7 +1629,7 @@ struct ONNXElementwiseBinaryOpLowering
 
     return success();
   }
-};
+}; // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // Element-wise variadic ops lowering to Krnl dialect.
@@ -1369,12 +1639,13 @@ template <typename ElementwiseVariadicOp>
 struct ONNXElementwiseVariadicOpLowering
     : public OpConversionPattern<ElementwiseVariadicOp> {
   using OpAdaptor = typename ElementwiseVariadicOp::Adaptor;
+  DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
 
-  ONNXElementwiseVariadicOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
+  ONNXElementwiseVariadicOpLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD)
       : OpConversionPattern<ElementwiseVariadicOp>(typeConverter, ctx),
-        enableSIMD(enableSIMD) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {}
 
   LogicalResult matchAndRewrite(ElementwiseVariadicOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -1399,16 +1670,18 @@ struct ONNXElementwiseVariadicOpLowering
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    bool scalar = hasAllScalarValues(operands);
-    if constexpr (SimdizableOp<ElementwiseVariadicOp>::value) {
+    bool isScalar = hasAllScalarValues(operands);
+    bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
+    if (enableSIMD && !isScalar && hasNoBroadcast &&
+        !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
-      if (enableSIMD && !scalar && !hasNonIdentityLayout(operands) &&
-          shapeHelper.hasNoBroadcast()) {
-        int64_t simdUnroll = 1;
+      int64_t simdUnroll =
+          canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
+              shapeHelper, create, outputMemRefType);
+      if (simdUnroll > 0)
         return getVariadicSimdCodeFullyFlattened<ElementwiseVariadicOp>(
             rewriter, create, &shapeHelper, op, outputMemRefType, operands,
             alignment, simdUnroll);
-      }
     }
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -1416,7 +1689,7 @@ struct ONNXElementwiseVariadicOpLowering
         outputMemRefType, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
-    if (!hasAllScalarValues(operands)) {
+    if (!isScalar) {
       ValueRange loopDef = create.krnl.defineLoops(outputRank);
       SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
@@ -1431,8 +1704,8 @@ struct ONNXElementwiseVariadicOpLowering
             // Fold over operands for each of their scalar values.
             // Obtain the first operand.
             SmallVector<IndexExpr, 4> oprdAccessExprs;
-            LogicalResult res = shapeHelper.getAccessExprs(
-                operands[0], 0, outputAccessExprs, oprdAccessExprs);
+            LogicalResult res = shapeHelper.getAccessExprs(operands[0], 0,
+                outputAccessExprs, oprdAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
 
@@ -1440,8 +1713,8 @@ struct ONNXElementwiseVariadicOpLowering
             for (unsigned i = 1; i < numArgs; ++i) {
               // Obtain the next operand.
               SmallVector<IndexExpr, 4> oprdAccessExprs;
-              LogicalResult res = shapeHelper.getAccessExprs(
-                  operands[i], i, outputAccessExprs, oprdAccessExprs);
+              LogicalResult res = shapeHelper.getAccessExprs(operands[i], i,
+                  outputAccessExprs, oprdAccessExprs, hasNoBroadcast);
               assert(succeeded(res) && "Could not compute access indices");
               Value next = createKrnl.loadIE(operands[i], oprdAccessExprs);
               // Fold.
@@ -1474,20 +1747,21 @@ struct ONNXElementwiseVariadicOpLowering
     rewriter.replaceOp(op, alloc);
     return success();
   }
-};
+}; // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
 // where op lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 
 struct ONNXWhereOpLowering : public ConversionPattern {
+  DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
 
-  ONNXWhereOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
+  ONNXWhereOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      DimAnalysis *dimAnalysis, bool enableSIMD)
       : ConversionPattern(
             typeConverter, ONNXWhereOp::getOperationName(), 1, ctx),
-        enableSIMD(enableSIMD) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -1508,6 +1782,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
         create(rewriter, loc);
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
+    bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc =
@@ -1529,23 +1804,23 @@ struct ONNXWhereOpLowering : public ConversionPattern {
             SmallVector<IndexExpr, 4> condAccessExprs;
             LogicalResult res =
                 shapeHelper.getAccessExprs(operandAdaptor.getCondition(), 0,
-                    outputAccessExprs, condAccessExprs);
+                    outputAccessExprs, condAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value cond = createKrnl.loadIE(
                 operandAdaptor.getCondition(), condAccessExprs);
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
-            res = shapeHelper.getAccessExprs(
-                operandAdaptor.getX(), 1, outputAccessExprs, lhsAccessExprs);
+            res = shapeHelper.getAccessExprs(operandAdaptor.getX(), 1,
+                outputAccessExprs, lhsAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value lhs =
                 createKrnl.loadIE(operandAdaptor.getX(), lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
-            res = shapeHelper.getAccessExprs(
-                operandAdaptor.getY(), 2, outputAccessExprs, rhsAccessExprs);
+            res = shapeHelper.getAccessExprs(operandAdaptor.getY(), 2,
+                outputAccessExprs, rhsAccessExprs, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value rhs =
                 createKrnl.loadIE(operandAdaptor.getY(), rhsAccessExprs);
@@ -1581,7 +1856,8 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 };
 
 void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD) {
+    TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
+    bool enableSIMD) {
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
@@ -1637,9 +1913,9 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>, ONNXWhereOpLowering,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(
-      typeConverter, ctx, enableSIMD);
+      typeConverter, ctx, dimAnalysis, enableSIMD);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
-      typeConverter, ctx, enableSIMD, /*isUniBroadcasting=*/true);
+      typeConverter, ctx, dimAnalysis, enableSIMD, /*isUniBroadcasting=*/true);
 }
 
 } // namespace onnx_mlir

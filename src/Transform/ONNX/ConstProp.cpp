@@ -15,10 +15,12 @@
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
@@ -87,28 +89,45 @@ struct ConstPropCounters {
 
 std::unordered_map<std::string, ConstPropCounters> ConstPropCounters::map;
 
-/// A helper function to check whether a variadic value is produced by dense
-/// ONNXConstantOps.
-bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
-  return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
-}
-
 ElementsAttr getConstValueElements(Value constValue) {
-  ONNXConstantOp constOp = getONNXConstantOp(constValue);
+  ONNXConstantOp constOp = cast<ONNXConstantOp>(constValue.getDefiningOp());
   return constOp.getValueAttr().cast<ElementsAttr>();
 }
 
-// Creates ONNXConstantOp with the location and result type from replacingValue.
-ONNXConstantOp createReplacingConstantOp(
+// Creates ONNXConstantOp with the location from replacingValue.
+Value createReplacingConstantOp(
     PatternRewriter &rewriter, Value replacingValue, ElementsAttr elements) {
-  return rewriter.create<ONNXConstantOp>(replacingValue.getLoc(),
-      replacingValue.getType(), Attribute(), elements, FloatAttr(), ArrayAttr(),
-      IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+  return OnnxBuilder(rewriter, replacingValue.getLoc()).constant(elements);
 }
 
 // Helper to restrict specialization to non-bool types.
 template <typename T>
 using EnableNotBool = std::enable_if_t<!std::is_same_v<T, bool>>;
+
+/// Checks whether a variadic value is produced by dense ONNXConstantOps.
+bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
+  return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
+}
+
+Value ConstZeroTensor(
+    PatternRewriter &rewriter, Location loc, ShapedType type) {
+  return OnnxBuilder(rewriter, loc)
+      .constant(DenseElementsAttr::get(
+          type, rewriter.getZeroAttr(type.getElementType())));
+}
+
+/// Checks whether a constant tensor's elements are all equal to a given scalar.
+bool isConstOf(Value constValue, double n) {
+  ElementsAttr constElements = getConstValueElements(constValue);
+  Type elemType = constElements.getElementType();
+  assert(!elemType.isInteger(1) && "booleans are not supported");
+  WideNum w = wideZeroDispatchNonBool(elemType, [n](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    constexpr BType TAG = toBType<cpptype>;
+    return WideNum::widen<TAG>(static_cast<cpptype>(n));
+  });
+  return ElementsAttrBuilder::allEqual(constElements, w);
+}
 
 ElementsAttr ConstPropReshapeImpl(PatternRewriter &rewriter,
     Value replacingValue, Value constValue, ArrayRef<int64_t> reshapedShape) {
@@ -187,8 +206,7 @@ Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr resultElements = elementsBuilder.combine(lhs, rhs, replacingType,
       elementwiseBinaryOpCombiner<ElementwiseBinaryOp>(operandsElemType));
-  return createReplacingConstantOp(rewriter, replacingValue, resultElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, resultElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -237,8 +255,8 @@ Value ConstPropElementwiseUnary(
   ElementsAttr transposedElements =
       elementsBuilder.transform(constElements, replacingElemType,
           elementwiseUnaryOpFunction<ElementwiseUnaryOp>(replacingElemType));
-  return createReplacingConstantOp(rewriter, replacingValue, transposedElements)
-      .getResult();
+  return createReplacingConstantOp(
+      rewriter, replacingValue, transposedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -264,8 +282,7 @@ Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr resultElements =
       elementsBuilder.where(cond, lhs, rhs, replacingType);
-  return createReplacingConstantOp(rewriter, replacingValue, resultElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, resultElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -361,14 +378,13 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
     }
   }
 
-  return createReplacingConstantOp(rewriter, replacingValue, reduced)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, reduced);
 }
 
 template <typename ReduceOp>
 Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
     Value dataValue, Value axesValue) {
-  if (isFromNone(axesValue)) {
+  if (isNoneValue(axesValue)) {
     return ConstPropReduceAxesRange<ReduceOp>(
         rewriter, replacingValue, dataValue, {});
   } else {
@@ -393,6 +409,128 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for matrix multiplication.
+//===----------------------------------------------------------------------===//
+
+// Takes the matrix shape and zero point for the LHS argument to MatMulInteger
+// and returns the zero point if it broadcasts to the matrix shape or else
+// returns the zero point reshaped so it broadcasts to the matrix shape.
+ElementsAttr reshapeMatMulIntegerLhsZero(
+    ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
+  ShapedType zeroPointType = zeroPoint.getType();
+  ArrayRef<int64_t> zeroPointShape = zeroPointType.getShape();
+  size_t zeroPointRank = zeroPointShape.size();
+  if (zeroPointRank == 0 || (zeroPointRank == 1 && zeroPointShape[0] == 1)) {
+    // Scalar case is easy: zeroPoint trivially broadcasts to matrix's shape.
+    // Scalars can be represented as singleton tensors with rank 0 or 1.
+  } else if (zeroPointRank == 1) {
+    // Vector with zero point scalar per row. Same shape as a matrix column.
+    int64_t rows = zeroPointShape[0];
+    // Per-row zero point is a proper vector we need to broadcast, unless
+    // matrix is also a vector so the broadcasts cancel out.
+    size_t matrixRank = matrixShape.size();
+    if (matrixRank == 1) {
+      // Broadcast of matrix and zero point vectors cancel out.
+      assert(matrixShape == zeroPointShape &&
+             "MatMulInteger LHS matrix, zero_point vectors mismatch");
+    } else {
+      assert(matrixRank > 1 && "MatMulInteger LHS matrix cannot be scalar");
+      // When matrix is a proper tensor, reshape by appending zero point axis
+      // with dim size 1 to broadcast to matrix's shape.
+      assert(rows == matrixShape[matrixRank - 2] &&
+             "MatMulInteger LHS matrix, zero_point rows mismatch");
+      return OnnxElementsAttrBuilder(zeroPoint.getContext())
+          .reshape(zeroPoint, {rows, 1});
+    }
+  } else {
+    // Proper tensor is easy: last axis broadcasts to matrix's shape.
+    assert(zeroPointShape.back() == 1 &&
+           "last dim is 1 when LHS zero_point is a proper tensor");
+    assert(zeroPointShape.drop_back() == matrixShape.drop_back() &&
+           "MatMulInteger LHS matrix, zero_point tensors mismatch");
+  }
+  return zeroPoint;
+}
+
+// Rhs zero point scalar / vector / tensor always broadcasts to
+// matrix's shape.
+ElementsAttr reshapeMatMulIntegerRhsZero(
+    ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
+  return zeroPoint;
+}
+
+bool isMatMulIntegerMatrixZero(Value matrixValue, Value zeroPointValue,
+    function_ref<ElementsAttr(ArrayRef<int64_t>, ElementsAttr)> reshapeZero) {
+  ElementsAttr matrix = getConstValueElements(matrixValue);
+  assert(matrix.getElementType().isInteger(8) &&
+         "MatMulInteger input element types must be u8 or i8");
+
+  // An empty matrix is trivially zero.
+  if (matrix.empty())
+    return true;
+
+  // If zeroPointValue is omitted, "zero" means all elements are zero.
+  if (isNoneValue(zeroPointValue)) {
+    WideNum zero = matrix.getElementType().isUnsignedInteger()
+                       ? WideNum::widen<BType::UINT8>(0u)
+                       : WideNum::widen<BType::INT8>(0);
+    return ElementsAttrBuilder::allEqual(matrix, zero);
+  }
+
+  ElementsAttr zeroPoint = getConstValueElements(zeroPointValue);
+  assert(zeroPoint.getElementType() == matrix.getElementType() &&
+         "MatMulInteger matrix, zero_point element types mismatch");
+  assert(!zeroPoint.empty() &&
+         "MatMulInteger zero_point must be non-empty when matrix is");
+
+  ElementsAttr reshapedZeroPoint =
+      reshapeZero(matrix.getType().getShape(), zeroPoint);
+  return ElementsAttrBuilder::equal(matrix, reshapedZeroPoint);
+}
+
+bool isMatMulIntegerLhsZero(Value matrixValue, Value zeroPointValue) {
+  return isMatMulIntegerMatrixZero(
+      matrixValue, zeroPointValue, reshapeMatMulIntegerLhsZero);
+}
+
+bool isMatMulIntegerRhsZero(Value matrixValue, Value zeroPointValue) {
+  return isMatMulIntegerMatrixZero(
+      matrixValue, zeroPointValue, reshapeMatMulIntegerRhsZero);
+}
+
+ElementsAttr getMatMulIntegerMatrixElements(
+    ElementsAttrBuilder &elementsBuilder, Value matrixValue,
+    Value zeroPointValue,
+    function_ref<ElementsAttr(ArrayRef<int64_t>, ElementsAttr)> reshapeZero) {
+  Type I32 = IntegerType::get(matrixValue.getContext(), 32);
+  ElementsAttr matrix8 = getConstValueElements(matrixValue);
+  ElementsAttr matrix32 = elementsBuilder.castElementType(matrix8, I32);
+  if (isNoneValue(zeroPointValue)) {
+    return matrix32;
+  } else {
+    ElementsAttr zeroPoint8 = getConstValueElements(zeroPointValue);
+    ElementsAttr reshapedZeroPoint8 =
+        reshapeZero(matrix8.getType().getShape(), zeroPoint8);
+    ElementsAttr reshapedZeroPoint32 =
+        elementsBuilder.castElementType(reshapedZeroPoint8, I32);
+    return elementsBuilder.combine(matrix32, reshapedZeroPoint32,
+        matrix32.getType(), elementwiseBinaryOpCombiner<ONNXSubOp>(I32));
+  }
+}
+
+Value ConstPropMatMulInteger(PatternRewriter &rewriter, Value replacingValue,
+    Value lhsMatrixValue, Value rhsMatrixValue, Value lhsZeroPointValue,
+    Value rhsZeroPointValue) {
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr lhs = getMatMulIntegerMatrixElements(elementsBuilder,
+      lhsMatrixValue, lhsZeroPointValue, reshapeMatMulIntegerLhsZero);
+  ElementsAttr rhs = getMatMulIntegerMatrixElements(elementsBuilder,
+      rhsMatrixValue, rhsZeroPointValue, reshapeMatMulIntegerRhsZero);
+  ElementsAttr matMulElements = elementsBuilder.matMul(lhs, rhs);
+  return createReplacingConstantOp(rewriter, replacingValue, matMulElements);
+}
+
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for transpose.
 //===----------------------------------------------------------------------===//
 
@@ -410,8 +548,8 @@ Value ConstPropTranspose(
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr transposedElements =
       elementsBuilder.transpose(constElements, perm);
-  return createReplacingConstantOp(rewriter, replacingValue, transposedElements)
-      .getResult();
+  return createReplacingConstantOp(
+      rewriter, replacingValue, transposedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -424,8 +562,7 @@ Value ConstPropUnsqueeze(
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
-  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -438,8 +575,7 @@ Value ConstPropSqueeze(
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
-  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -487,8 +623,7 @@ LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
     Value replacingValue = splitOp.getResult(i);
     ElementsAttr splitElements = resElements[i];
     resValues.push_back(
-        createReplacingConstantOp(rewriter, replacingValue, splitElements)
-            .getResult());
+        createReplacingConstantOp(rewriter, replacingValue, splitElements));
   }
   rewriter.replaceOp(splitOp, resValues);
   return success();
@@ -500,16 +635,12 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
+    llvm::Optional<ArrayAttr> optionalAttr;
 
     auto split = splitOp.getSplit();
-    auto builder = mlir::Builder(splitOp.getContext());
-
-    llvm::Optional<ArrayAttr> optionalAttr;
     if (auto splitConstOp = getONNXConstantOp(split)) {
       // Checking value of split parameter.
-      auto splitAttribute =
-          createArrayAttrFromConstantOp(builder, splitConstOp);
-      optionalAttr.emplace(splitAttribute);
+      optionalAttr.emplace(createArrayAttrFromConstantOp(splitConstOp));
     } else if (!split.getType().isa<NoneType>()) {
       llvm_unreachable("dynamic split not yet supported");
     }
@@ -623,10 +754,10 @@ public:
         dataElements.getType(), [&](MutableArrayRef<WideNum> dst) {
           ScatterNDImpl(dataElements, indicesElements, updatesElements, dst);
         });
-    ONNXConstantOp constOp = createReplacingConstantOp(
+    Value constOpResult = createReplacingConstantOp(
         rewriter, scatterNdOp.getData(), scatteredElements);
 
-    rewriter.replaceOp(scatterNdOp, constOp.getResult());
+    rewriter.replaceOp(scatterNdOp, constOpResult);
     return success();
   }
 };
@@ -645,8 +776,7 @@ Value ConstPropCast(
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr castElements =
       elementsBuilder.castElementType(constElements, replacingElemType);
-  return createReplacingConstantOp(rewriter, replacingValue, castElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, castElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -695,8 +825,7 @@ Value ConstPropSlice(
       outputType, [&](MutableArrayRef<WideNum> dst) {
         ConstPropSliceImpl(outputType, shapeHelper, inputElements, dst);
       });
-  return createReplacingConstantOp(rewriter, replacingValue, slicedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, slicedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -744,8 +873,7 @@ Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
         ConstPropConcatImpl(outputType, inputElements, axis, dst);
       });
   return createReplacingConstantOp(
-      rewriter, replacingValue, concatenatedElements)
-      .getResult();
+      rewriter, replacingValue, concatenatedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -761,8 +889,7 @@ Value ConstPropExpand(
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr expandedElements =
       elementsBuilder.expand(constElements, expandedShape);
-  return createReplacingConstantOp(rewriter, replacingValue, expandedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, expandedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -816,8 +943,7 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
         ConstPropGatherImpl(
             outputType, inputElements, indicesElements, axis, dst);
       });
-  return createReplacingConstantOp(rewriter, replacingValue, gatheredElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, gatheredElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -830,8 +956,7 @@ Value ConstPropReshape(
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, constValue, reshapedShape);
-  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, reshapedElements);
 }
 
 //===----------------------------------------------------------------------===//
@@ -853,8 +978,7 @@ Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
   ElementsAttr expandedElements =
       shapeVector.empty() ? elementsBuilder.reshape(constElements, shapeVector)
                           : elementsBuilder.expand(constElements, shapeVector);
-  return createReplacingConstantOp(rewriter, replacingValue, expandedElements)
-      .getResult();
+  return createReplacingConstantOp(rewriter, replacingValue, expandedElements);
 }
 
 //===----------------------------------------------------------------------===//

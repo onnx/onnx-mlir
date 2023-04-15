@@ -65,7 +65,7 @@ struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
     // the default value and does appear in the Attribute dictionary.
     // ToFix: Handle attributes for general case
     if (resizeOp.getMode() != "nearest") {
-      if (!isFromNone(resizeOp.getScales())) {
+      if (!isNoneValue(resizeOp.getScales())) {
         rewriter.create<KrnlCallOp>(
             loc, "Resize_Scales", alloc, op, operands, true);
       } else {

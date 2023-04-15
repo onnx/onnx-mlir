@@ -133,7 +133,8 @@ class HaveSameDim<int dim>: Constraint<
         "$1.getType().cast<RankedTensorType>().getShape()[" # dim # "])">,
   "Two tensors have the same specified dimension">;
 
-def GetUnitAttr: NativeCodeCall<"$_builder.getUnitAttr()">;
+// Create a unit constant that will be used as none input.
+def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
 
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 
@@ -172,12 +173,6 @@ def IsStaticShapeTensor:
       "$_self.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
     "hasStaticShape">;
 
-def AreTheSameAxisArray: Constraint<
-    CPred<"onnx_mlir::AreTheSameAxisArray("
-          "(onnx_mlir::hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
-          "$1, $2)">,
-    "Two axis arrays are the same">;
-
 def HasSpecifiedConstantShape: Constraint<
     CPred<"onnx_mlir::HasSpecifiedConstantShape($0, $1)">,
           "Has the specified constant shape">;
@@ -195,11 +190,17 @@ def IsFromONNXConstantOpWithDenseElementsAttr: Constraint<
          CPred<" onnx_mlir::getONNXConstantOp($_self).getValueAttr().isa<DenseElementsAttr>() ">
         ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr">;
 
-def AreTheSameConstantOpDenseAttr: Constraint<
-    CPred<"onnx_mlir::AreTheSameConstantOpDenseAttr($_builder,"
+def AreTheSameAxesConstant: Constraint<
+    CPred<"onnx_mlir::AreTheSameAxesConstant("
           "(onnx_mlir::hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
           "$1, $2)">,
-    "Two ConstantOps have the same dense attribute values">;
+    "Two values are constants with the same axis values">;
+
+def AreTheSameAxesArrayAttr: Constraint<
+    CPred<"onnx_mlir::AreTheSameAxesArrayAttr("
+          "(onnx_mlir::hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+          "$1, $2)">,
+    "Two axis arrays are the same">;
 
 class AllDimsFromAxisToEndAre<int axis, int val>: Constraint<
     CPred<"llvm::all_of("
@@ -387,11 +388,14 @@ def FuseMulConvNullBiasPattern: Pat<
 def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
                                      (replaceWithValue $arg)>;
 
-// y, mask = onnx.Dropout(x) -> y, mask = x, none
-def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $arg1, $arg2, $ratio),
-  [(replaceWithValue $arg), (ONNXConstantOp (GetNullAttr), (GetUnitAttr), 
-   (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), 
-   (GetNullAttr))]>;
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXDropoutOp
+//===----------------------------------------------------------------------===//
+
+// We assume that training_mode is not true so output, mask become data, none.
+// output, mask = onnx.Dropout(data) -> output, mask = data, none
+def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $data, $ratio, $training_mode, $seed),
+  [(replaceWithValue $data), (CreateNoneValue)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXCastOp
@@ -604,8 +608,7 @@ def RemoveSqueezeUnsqueezePattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameConstantOpDenseAttr $val, $u_axes, $s_axes),
-   (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
+  [(AreTheSameAxesConstant $val, $u_axes, $s_axes)]>;
 
 /// Combine squeeze and unsqueeze.
 /// Squeeze {axes = [a, b, c]} (Unsqueeze {axes = [a, b, c]} (%X)) = %X
@@ -615,7 +618,7 @@ def RemoveSqueezeV11UnsqueezeV11Pattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
+  [(AreTheSameAxesArrayAttr $val, $u_axes, $s_axes)]>;
 
 /// Combine squeeze, cast and unsqueeze.
 /// Squeeze {axes = [a, b, c]} (Cast (Unsqueeze {axes = [a, b, c]} (%X))) = Cast %X
@@ -625,8 +628,7 @@ def RemoveSqueezeCastUnsqueezePattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (ONNXCastOp $val, $castTo),
   // Check that both ops use the same `axes`.
-  [(AreTheSameConstantOpDenseAttr $val, $u_axes, $s_axes),
-   (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
+  [(AreTheSameAxesConstant $val, $u_axes, $s_axes)]>;
 
 /// Combine squeeze, cast and unsqueeze.
 /// Squeeze {axes = [a, b, c]} (Cast (Unsqueeze {axes = [a, b, c]} (%X))) = Cast %X
@@ -636,7 +638,7 @@ def RemoveSqueezeV11CastUnsqueezeV11Pattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (ONNXCastOp $val, $castTo),
   // Check that both ops use the same `axes`.
-  [(AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
+  [(AreTheSameAxesArrayAttr $val, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXUnsqueezeOp
@@ -650,8 +652,7 @@ def RemoveUnsqueezeSqueezePattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameConstantOpDenseAttr $res, $u_axes, $s_axes),
-   (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
+  [(AreTheSameAxesConstant $res, $u_axes, $s_axes)]>;
 
 /// Combine unsqueeze and squeeze.
 /// Unsqueeze {axes = [a, b, c]} (Squeeze {axes = [a, b, c]} (%X)) = %X
@@ -661,7 +662,7 @@ def RemoveUnsqueezeV11SqueezeV11Pattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
+  [(AreTheSameAxesArrayAttr $res, $u_axes, $s_axes)]>;
 
 /// Combine unsqueeze, cast, and squeeze.
 /// Unsqueeze {axes = [a, b, c]} (Cast (Squeeze {axes = [a, b, c]} (%X))) = Cast %X
@@ -671,8 +672,7 @@ def RemoveUnsqueezeCastSqueezePattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (ONNXCastOp $val, $castTo),
   // Check that both ops use the same `axes`.
-  [(AreTheSameConstantOpDenseAttr $res, $u_axes, $s_axes),
-   (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
+  [(AreTheSameAxesConstant $res, $u_axes, $s_axes)]>;
 
 /// Combine unsqueeze, cast, and squeeze.
 /// Unsqueeze {axes = [a, b, c]} (Cast (Squeeze {axes = [a, b, c]} (%X))) = Cast %X
@@ -682,7 +682,7 @@ def RemoveUnsqueezeV11CastSqueezeV11Pattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (ONNXCastOp $val, $castTo),
   // Check that both ops use the same `axes`.
-  [(AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
+  [(AreTheSameAxesArrayAttr $res, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXBatchNormOp

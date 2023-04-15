@@ -240,11 +240,11 @@ def get_test_models():
         # ConvInteger
 
         # ==OP== ConvTranspose
-        # ==LIM== `SAME_UPPER` and `SAME_LOWER` in `auto_pad` attribute not supported. Unknown dimension in spatial dimensions (such as H and W) not supported.
-        # TODO: Support unsupported cases. Fix shape inference for auto_pad and unknown dimensions. Also fix rewriting for unknown dimensions
+        # ==LIM== Unknown dimension in spatial dimensions (such as H and W) not supported.
+        # TODO: Support unknown dimensions in spatial dimensions
         "test_convtranspose_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
         "test_convtranspose_3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
-        # "test_convtranspose_autopad_same_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{1}},
+        "test_convtranspose_autopad_same_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
         "test_convtranspose_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
         "test_convtranspose_dilations_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
         "test_convtranspose_kernel_shape_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{0,1},1:{0,1}}, CONSTANT_INPUT:{1}},
@@ -305,7 +305,13 @@ def get_test_models():
         #"test_training_dropout_zero_ratio_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
         #"test_training_dropout_zero_ratio_mask_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
 
-        # DynamicQuantizeLinear
+        # ==OP== DynamicQuantizeLinear
+        "test_dynamicquantizelinear_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_expanded_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_max_adjusted_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_max_adjusted_expanded_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_min_adjusted_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_dynamicquantizelinear_min_adjusted_expanded_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Einsum
         # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32
@@ -448,6 +454,8 @@ def get_test_models():
 
         # ==OP== IsNaN
         "test_isnan_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+
+        #"test_layer_normalization_2d_axis0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== LeakyRelu
         "test_leakyrelu_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -666,7 +674,10 @@ def get_test_models():
 
         # QLinearMatmul
 
-        # QuantizeLinear
+        # ==OP== QuantizeLinear
+        # ==LIM== Do not support per-axis and i8 quantization.
+        # "test_quantizelinear_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_quantizelinear_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Range
         "test_range_float_type_positive_delta_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -719,7 +730,7 @@ def get_test_models():
         "test_reduce_l2_negative_axes_keep_dims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== ReduceMax
-        ## ==LIM== do_not_keep_dim not supported.
+        # ==LIM== do_not_keep_dim not supported.
         #"test_reduce_max_default_axes_keepdim_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         #"test_reduce_max_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         #"test_reduce_max_do_not_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},

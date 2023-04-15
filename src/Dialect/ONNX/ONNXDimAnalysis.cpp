@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file implements an analysis on unknown dimensions in ONNX ops.
+// This file implements an analysis on dynamic dimensions in ONNX ops.
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,12 +21,12 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
-#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 #define DEBUG_TYPE "dim_analysis"
 
@@ -58,8 +58,8 @@ bool areOverlapping(const onnx_mlir::DimAnalysis::DimSetT &lhs,
   return false;
 }
 
-/// Given a QuestionMarkIndexExpr representing an unknown dimension, find the
-/// same unknown dimensions in the inputs.
+/// Given a QuestionMarkIndexExpr representing a dynamic dimension, find the
+/// same dynamic dimensions in the inputs.
 static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
     mlir::Operation *op, mlir::ValueRange operands,
     onnx_mlir::DimAnalysis::DimSetT &sameDims) {
@@ -69,9 +69,9 @@ static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
   // Cannot process if the question mark is not a specific one.
   if (!qmOuputIE.specificQuestionmark())
     return;
-  // Find the same unknown dimension in the inputs.
+  // Find the same dynamic dimension in the inputs.
   for (Value v : operands) {
-    if (onnx_mlir::isFromNone(v))
+    if (onnx_mlir::isNoneValue(v))
       continue;
     int64_t rank = onnx_mlir::getRank(v.getType());
     onnx_mlir::DimsExpr vDims;
@@ -83,8 +83,8 @@ static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
   }
 }
 
-/// Given an unknown dimension, find the same unknown dimensions in the inputs.
-/// This function uses ShapeHelper to explore the same unknown dimensions.
+/// Given a dynamic dimension, find the same dynamic dimensions in the inputs.
+/// This function uses ShapeHelper to explore the same dynamic dimensions.
 /// Use this function for operations that use adaptor to compute shape.
 bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
@@ -116,7 +116,7 @@ bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
     }
   }
 
-  // Find the unknown input dimensions that were transferred to the unknown
+  // Find the dynamic input dimensions that were transferred to the dynamic
   // output dimension.
   uint64_t dimIndex = dim.second;
   onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
@@ -132,11 +132,11 @@ namespace onnx_mlir {
 
 DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
   for (Value val : vals)
-    if (!isFromNone(val))
+    if (!isNoneValue(val))
       build(val);
 
-  LLVM_DEBUG(llvm::dbgs() << "The number of unknown dims in the IR: "
-                          << numOfUnknownDims << "\n");
+  LLVM_DEBUG(llvm::dbgs() << "The number of dynamic dims in the IR: "
+                          << numOfDynamicDims << "\n");
 }
 
 DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
@@ -144,27 +144,50 @@ DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
     for (Value output : op->getResults())
       build(output);
   });
-  LLVM_DEBUG(llvm::dbgs() << "The number of unknown dims in the IR: "
-                          << numOfUnknownDims << "\n");
+  LLVM_DEBUG(llvm::dbgs() << "The number of dynamic dims in the IR: "
+                          << numOfDynamicDims << "\n");
 }
 
 void DimAnalysis::build(Value val) {
   if (auto tensorType = val.getType().dyn_cast<RankedTensorType>()) {
     for (unsigned i = 0; i < tensorType.getRank(); ++i) {
-      // Only care about unknown dimensions.
+      // Only care about dynamic dimensions.
       if (tensorType.isDynamicDim(i)) {
         DimT ti(val, i);
         DimSetT dimSet;
         dimSet.insert(ti);
         dimSetMap[setCounter++] = dimSet;
-        numOfUnknownDims++;
+        numOfDynamicDims++;
       }
     }
   }
 }
 
-bool DimAnalysis::sameUnknownDim(mlir::Value tensor1, uint64_t dimAxis1,
-    mlir::Value tensor2, uint64_t dimAxis2) const {
+bool DimAnalysis::sameDim(
+    Value tensor1, uint64_t dimAxis1, Value tensor2, uint64_t dimAxis2) const {
+  // Same tensor, same axis.
+  if ((tensor1 == tensor2) && (dimAxis1 == dimAxis2))
+    return true;
+
+  ShapedType tensor1Type = tensor1.getType().cast<ShapedType>();
+  ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
+  if (!tensor1Type.hasRank() || !tensor2Type.hasRank())
+    return false;
+  int64_t dim1 = tensor1Type.getShape()[dimAxis1];
+  int64_t dim2 = tensor2Type.getShape()[dimAxis2];
+  // Both dims are static.
+  if (!ShapedType::isDynamic(dim1) && !ShapedType::isDynamic(dim2))
+    return (dim1 == dim2);
+  // One is static, other is dynamic.
+  if (dim1 != dim2)
+    return false;
+  // Both are dynamic.
+  return sameDynDim(tensor1, dimAxis1, tensor2, dimAxis2);
+}
+
+bool DimAnalysis::sameDynDim(
+    Value tensor1, uint64_t dimAxis1, Value tensor2, uint64_t dimAxis2) const {
+  // Same tensor, same axis.
   if ((tensor1 == tensor2) && (dimAxis1 == dimAxis2))
     return true;
 
@@ -180,35 +203,57 @@ bool DimAnalysis::sameUnknownDim(mlir::Value tensor1, uint64_t dimAxis1,
 }
 
 bool DimAnalysis::sameShape(Value tensor1, Value tensor2) const {
-  ShapedType tensor1Type = tensor1.getType().cast<ShapedType>();
-  ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
-  if (!tensor1Type.hasRank() || !tensor2Type.hasRank())
+  if (!sameRank(tensor1, tensor2))
     return false;
-  // Different rank, return false.
-  if (tensor1Type.getRank() != tensor2Type.getRank())
-    return false;
-  // Both tensors have static dimensions.
-  if (tensor1Type.hasStaticShape() && tensor2Type.hasStaticShape())
-    return (tensor1Type.getShape() == tensor2Type.getShape());
-  // There are unknown dimensions, use DimAnalysis to check equality.
-  for (unsigned i = 0; i < tensor1Type.getRank(); ++i) {
-    int64_t dim1 = tensor1Type.getShape()[i];
-    int64_t dim2 = tensor2Type.getShape()[i];
-    if (dim1 != dim2)
+  unsigned rank = tensor1.getType().cast<ShapedType>().getRank();
+  // Check each dimension.
+  for (unsigned i = 0; i < rank; ++i) {
+    if (!sameDim(tensor1, i, tensor2, i))
       return false;
-    // Same dimensions but can be unknown (ShapedType::kDynamic).
-    if (ShapedType::isDynamic(dim1)) {
-      // Two unknown dimensions are NOT the same at compile time.
-      if (!sameUnknownDim(tensor1, i, tensor2, i))
-        return false;
-    }
+  }
+  return true;
+}
+
+bool DimAnalysis::sameDynShape(Value tensor1, Value tensor2) const {
+  if (!sameRank(tensor1, tensor2))
+    return false;
+  ArrayRef<int64_t> shape1 = tensor1.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> shape2 = tensor2.getType().cast<ShapedType>().getShape();
+  // Check each dimension.
+  for (unsigned i = 0; i < shape1.size(); ++i) {
+    int64_t dim1 = shape1[i];
+    int64_t dim2 = shape2[i];
+    // Both dims are static, ignore this case. Only care about dynamic dims.
+    if (!ShapedType::isDynamic(dim1) && !ShapedType::isDynamic(dim2))
+      continue;
+    // At least one is dynamic.
+    if (!sameDim(tensor1, i, tensor2, i))
+      return false;
+  }
+  return true;
+}
+
+bool DimAnalysis::broadcastLastDim(Value tensor1, Value tensor2) const {
+  if (!sameRank(tensor1, tensor2))
+    return false;
+  ArrayRef<int64_t> shape1 = tensor1.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> shape2 = tensor2.getType().cast<ShapedType>().getShape();
+  unsigned rank = shape1.size();
+  // The last dimension of tensor1 must be 1, so that tensor1 is broadcasting
+  // to tensor2.
+  if (shape1[rank - 1] != 1)
+    return false;
+  // Other dimensions except the last one must be the same.
+  for (unsigned i = 0; i < rank - 1; ++i) {
+    if (!sameDim(tensor1, i, tensor2, i))
+      return false;
   }
   return true;
 }
 
 void DimAnalysis::dump() const {
-  llvm::outs() << numOfUnknownDims
-               << " unknown dimensions (not including block arguments) are "
+  llvm::outs() << numOfDynamicDims
+               << " dynamic dimensions (not including block arguments) are "
                   "classified into "
                << dimSetMap.size() << " sets.\n";
   for (auto &entry : dimSetMap) {
@@ -221,11 +266,11 @@ void DimAnalysis::dump() const {
 }
 
 void DimAnalysis::analyze() {
-  // Build sets of the same unknown dimensions and merge them until a fixed
+  // Build sets of the same dynamic dimensions and merge them until a fixed
   // point where there is no update on each set.
   bool continued = true;
   while (continued) {
-    // Local search and update each set of unknown dimensions.
+    // Local search and update each set of dynamic dimensions.
     continued = updateDimSets();
 
     // Merge sets if there is update.
@@ -236,7 +281,7 @@ void DimAnalysis::analyze() {
   }
 
   LLVM_DEBUG(
-      llvm::dbgs() << "The number of sets of same unknown dims in the IR: "
+      llvm::dbgs() << "The number of sets of same dynamic dims in the IR: "
                    << dimSetMap.size() << "\n");
 }
 
@@ -252,7 +297,7 @@ bool DimAnalysis::updateDimSets() {
     // Update the dim set.
     for (auto &d : newSameDims) {
       if (!dimSet.contains(d)) {
-        // Found new unknown dims.
+        // Found new dynamic dims.
         dimSet.insert(d);
         updated = true;
       }
@@ -348,7 +393,7 @@ void DimAnalysis::visitDim(
     // clang-format on
     bool success = exploreSameInputDims(dim, op, sameDims);
     assert(success && "dim analysis should be successful for broadcast ops ");
-    // If we know by this analysis that two unknown dims at the same index are
+    // If we know by this analysis that two dynamic dims at the same index are
     // the same, then the output dim must be the same too.
     Value A = op->getOperands()[0];
     Value B = op->getOperands()[1];
@@ -360,14 +405,14 @@ void DimAnalysis::visitDim(
     if ((aRank != 0) && (bRank != 0)) {
       ArrayRef<int64_t> aShape = onnx_mlir::getShape(aType);
       ArrayRef<int64_t> bShape = onnx_mlir::getShape(bType);
-      // aDim == bDim (unknown), there is no broadcasting and aDim ==
+      // aDim == bDim (dynamic), there is no broadcasting and aDim ==
       // outputDim.
       int64_t aDimIndex = dimIndex - (maxRank - aRank);
       int64_t bDimIndex = dimIndex - (maxRank - bRank);
       if ((aDimIndex >= 0) && (bDimIndex >= 0) &&
           ShapedType::isDynamic(aShape[aDimIndex]) &&
           ShapedType::isDynamic(bShape[bDimIndex]) &&
-          onnx_mlir::DimAnalysis::sameUnknownDim(A, aDimIndex, B, bDimIndex))
+          onnx_mlir::DimAnalysis::sameDynDim(A, aDimIndex, B, bDimIndex))
         sameDims.insert(onnx_mlir::DimAnalysis::DimT(A, aDimIndex));
     }
     return;
@@ -391,12 +436,23 @@ void DimAnalysis::visitDim(
     return;
   }
 
+  // ExpandOp when shape is from Concat of dims.
+  if (auto expandOp = dyn_cast<ONNXExpandOp>(op)) {
+    if (areDimsFromConcat(expandOp.getShape())) {
+      SmallVector<Value, 4> shapes;
+      getDims(expandOp.getShape(), shapes);
+      DimT newSameDim(shapes[dimIndex], dimIndex);
+      sameDims.insert(newSameDim);
+      return;
+    }
+  }
+
   // MatMulOp
   if (auto matmulOp = dyn_cast<ONNXMatMulOp>(op)) {
     bool success = exploreSameInputDims(dim, op, sameDims);
     assert(success && "dim analysis should be successful for matmul ops ");
 
-    // If we know by this analysis that two unknown dims at the same index in
+    // If we know by this analysis that two dynamic dims at the same index in
     // the batchsize space are the same, then the output dim must be the same
     // too.
     Value A = matmulOp.getA();
@@ -409,14 +465,14 @@ void DimAnalysis::visitDim(
     if (dimIndex <= maxRank - 2) { // In the batchsize space.
       ArrayRef<int64_t> aShape = getShape(aType);
       ArrayRef<int64_t> bShape = getShape(bType);
-      // aDim == bDim (unknown), there is no broadcasting and aDim ==
+      // aDim == bDim (dynamic), there is no broadcasting and aDim ==
       // outputDim.
       int64_t aDimIndex = dimIndex - (maxRank - aRank);
       int64_t bDimIndex = dimIndex - (maxRank - bRank);
       if ((aDimIndex >= 0) && (bDimIndex >= 0) &&
           ShapedType::isDynamic(aShape[aDimIndex]) &&
           ShapedType::isDynamic(bShape[bDimIndex]) &&
-          sameUnknownDim(A, aDimIndex, B, bDimIndex))
+          sameDynDim(A, aDimIndex, B, bDimIndex))
         sameDims.insert(DimT(A, aDimIndex));
     }
     return;
@@ -430,7 +486,7 @@ void DimAnalysis::visitDim(
     // The output dimension i can be from
     // - shape[i] or,
     // - data[j] if
-    //    - dim j and i are the only unknown dimension in data and
+    //    - dim j and i are the only dynamic dimension in data and
     // output, respectively, and
     //    - the products of the static dimensions in data and output are
     //    equal.
@@ -439,7 +495,7 @@ void DimAnalysis::visitDim(
     // we can say that arg0[ii] == arg1[jj], that can be used to verify user
     // inputs.
 
-    // Get the unknown dimension from shape. Use this to update the current
+    // Get the dynamic dimension from shape. Use this to update the current
     // dimension.
     if (areDimsFromConcat(reshapeOp.getShape())) {
       SmallVector<Value, 4> shapeDims;
@@ -449,35 +505,35 @@ void DimAnalysis::visitDim(
       sameDims.insert(newSameDim);
     }
 
-    // Get the unknown dimension from data.
+    // Get the dynamic dimension from data.
     RankedTensorType dataType =
         reshapeOp.getData().getType().dyn_cast<RankedTensorType>();
     RankedTensorType outputType =
         reshapeOp.getReshaped().getType().dyn_cast<RankedTensorType>();
-    // Check if there is only one unknown dimension in the data and output.
+    // Check if there is only one dynamic dimension in the data and output.
     bool isDataOK =
         (llvm::count(dataType.getShape(), ShapedType::kDynamic) == 1);
     bool isOutputOK =
         (llvm::count(outputType.getShape(), ShapedType::kDynamic) == 1);
     // Check if the products of static sizes in the data and output are equal.
-    // It's ok to count ShapedType::kDynamic (unknown dimension) in the size.
+    // It's ok to count ShapedType::kDynamic (dynamic dimension) in the size.
     int64_t dataSize = 1, outputSize = 1;
     for (int64_t i = 0; i < dataType.getRank(); ++i)
       dataSize *= dataType.getShape()[i];
     for (int64_t i = 0; i < outputType.getRank(); ++i)
       outputSize *= outputType.getShape()[i];
-    // Conditions hold, the unknown dimension can be from the data.
+    // Conditions hold, the dynamic dimension can be from the data.
     if (isDataOK && isOutputOK && (dataSize == outputSize)) {
-      // Find the index of the unknown dimension in the data.
-      Optional<int64_t> unknownDimIndexInData = std::nullopt;
+      // Find the index of the dynamic dimension in the data.
+      Optional<int64_t> dynamicDimIndexInData = std::nullopt;
       for (int64_t i = 0; i < dataType.getRank(); ++i)
         if (dataType.isDynamicDim(i)) {
-          unknownDimIndexInData = i;
+          dynamicDimIndexInData = i;
           break;
         }
-      assert(unknownDimIndexInData.has_value() &&
-             "Failed to obtain the index of the unknown dimension in the data");
-      DimT newSameDim(reshapeOp.getData(), *unknownDimIndexInData);
+      assert(dynamicDimIndexInData.has_value() &&
+             "Failed to obtain the index of the dynamic dimension in the data");
+      DimT newSameDim(reshapeOp.getData(), *dynamicDimIndexInData);
       sameDims.insert(newSameDim);
     }
     return;
@@ -491,7 +547,7 @@ void DimAnalysis::visitDim(
     // Only support keepdims at this moment.
     if (reduceMeanOp.getKeepdims() != 1)
       return;
-    // Reduction dims in output are always 1. So an unknown dim in the output
+    // Reduction dims in output are always 1. So a dynamic dim in the output
     // is at the same index as the one in the input.
     llvm::Optional<ArrayAttr> axesAttr = reduceMeanOp.getAxes();
     if (axesAttr.has_value()) {
@@ -517,7 +573,7 @@ void DimAnalysis::visitDim(
 namespace {
 
 /// This pass is for testing purpose. It introduces onnx.DimGroup to the IR to
-/// show group IDs. Unknown dimensions with the same group ID are supposed to be
+/// show group IDs. Dynamic dimensions with the same group ID are supposed to be
 /// equal.
 struct ONNXDimAnalysisPass
     : public PassWrapper<ONNXDimAnalysisPass, OperationPass<ModuleOp>> {

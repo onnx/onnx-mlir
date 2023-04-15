@@ -90,6 +90,9 @@ bool hasConvONNXTensorDataLayout(const mlir::Type type);
 // Return true if the type has a layout, and that layout is not STANDARD.
 bool hasCustomONNXTensorDataLayout(const mlir::Type type);
 
+/// Return true if two tensors or memrefs have the same rank.
+bool sameRank(mlir::Value tensorOrMemref1, mlir::Value tensorOrMemref2);
+
 //===----------------------------------------------------------------------===//
 // Identity map
 
@@ -162,14 +165,14 @@ int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
 mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
-mlir::ONNXConstantOp createONNXConstantOpWithDenseAttr(
-    mlir::OpBuilder &builder, mlir::Location loc, mlir::Attribute dense);
-mlir::Value createNoneIntegerConstant(
-    mlir::PatternRewriter &rewriter, mlir::Location loc);
-mlir::Value createNoneFloatConstant(
-    mlir::PatternRewriter &rewriter, mlir::Location loc);
 
-bool isFromNone(mlir::Value value);
+// Test if the value is none. Since none is a unit value it never makes a
+// difference whether it's a constant (the result of ONNXNoneOp) or the
+// optional result of some other op (e.g. ONNXDropoutOp mask result).
+// Note: It's ok to inline the isa<NoneType> test and not call this function.
+inline bool isNoneValue(mlir::Value value) {
+  return llvm::isa<mlir::NoneType>(value.getType());
+}
 
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
@@ -183,16 +186,8 @@ mlir::ArrayAttr CombinedTransposePattern(mlir::PatternRewriter &rewriter,
 /// Identity patterns are {0, 1, 2, ... , rank -1}.
 bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
 
-/// Test if two axis arrays contain the same values or not.
-bool AreTheSameAxisArray(
-    int64_t rank, mlir::ArrayAttr lhsAttr, mlir::ArrayAttr rhsAttr);
-
 /// Test if the value has the specified constant shape
 bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
-
-/// Test if two constant ops contain the same values or not.
-bool AreTheSameConstantOpDenseAttr(
-    mlir::Builder &builder, int64_t rank, mlir::Value lhsOp, mlir::Value rhsOp);
 
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(mlir::Value val);
@@ -220,8 +215,7 @@ mlir::DenseElementsAttr createDenseElementsAttrFromSize(
     mlir::PatternRewriter &rewriter, mlir::Value value);
 
 // Create an ArrayAttr from a dense ConstantOp
-mlir::ArrayAttr createArrayAttrFromConstantOp(
-    mlir::Builder &builder, mlir::Value constOp);
+mlir::ArrayAttr createArrayAttrFromConstantOp(mlir::ONNXConstantOp constOp);
 
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);

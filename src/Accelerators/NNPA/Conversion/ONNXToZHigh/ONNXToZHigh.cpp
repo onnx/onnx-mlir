@@ -17,9 +17,9 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 using namespace mlir;
 
@@ -94,7 +94,7 @@ Value getLSTMGRUZDNNWeightFromONNXWeight(
 Value getLSTMGRUGetY(
     Location loc, PatternRewriter &rewriter, Value val, Value resY) {
   Value noneValue;
-  if (isFromNone(resY)) {
+  if (isNoneValue(resY)) {
     return noneValue;
   }
   return val;
@@ -103,7 +103,7 @@ Value getLSTMGRUGetY(
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
     Value resY, Value resYh, Value X, StringAttr direction) {
   Value noneValue;
-  if (isFromNone(resYh) || isFromNone(val))
+  if (isNoneValue(resYh) || isNoneValue(val))
     return noneValue;
 
   ArrayRef<int64_t> shapeX = X.getType().cast<ShapedType>().getShape();
@@ -130,7 +130,7 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
   StringRef directionStr = direction.getValue();
   ArrayRef<int64_t> resYhShape =
       resYh.getType().cast<RankedTensorType>().getShape();
-  int64_t T = isFromNone(resY) ? 1 : shapeX[0];
+  int64_t T = isNoneValue(resY) ? 1 : shapeX[0];
   int64_t D = resYhShape[0];
   int64_t B = resYhShape[1];
   int64_t H = resYhShape[2];
@@ -173,7 +173,7 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
 Value getLSTMGRUGetYc(
     Location loc, PatternRewriter &rewriter, Value val, Value resYc) {
   Value noneValue;
-  if (isFromNone(resYc))
+  if (isNoneValue(resYc))
     return noneValue;
 
   zhigh::ZHighUnstickOp unstickOp =

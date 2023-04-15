@@ -153,7 +153,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createDisconnectKrnlDimFromAllocPass());
   pm.addPass(mlir::createCanonicalizerPass());
-} // namespace onnx_mlir
+}
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(

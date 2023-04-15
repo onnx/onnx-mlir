@@ -51,7 +51,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **ConstantOfShape** |9 | | |
 | **Conv** |11 | | |
 | **ConvInteger** | |unsupported | |
-| **ConvTranspose** |11 |`SAME_UPPER` and `SAME_LOWER` in `auto_pad` attribute not supported. Unknown dimension in spatial dimensions (such as H and W) not supported. | |
+| **ConvTranspose** |11 |Unknown dimension in spatial dimensions (such as H and W) not supported. | |
 | **Cos** |7 | | |
 | **Cosh** |9 | | |
 | **CumSum** |14 | | |
@@ -62,7 +62,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **DictVectorizer** | |unsupported | |
 | **Div** |14 |No support for short integers. | |
 | **Dropout** |13 |Does not support masked and training. | |
-| **DynamicQuantizeLinear** | |unsupported | |
+| **DynamicQuantizeLinear** |11 | | |
 | **Einsum** |12 |Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. | |
 | **Elu** |6 | | |
 | **Equal** |13 | | |
@@ -143,7 +143,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **Pow** |15 |No support for power with integer types. | |
 | **QLinearConv** | |unsupported | |
 | **QLinearMatMul** | |unsupported | |
-| **QuantizeLinear** | |unsupported | |
+| **QuantizeLinear** |13 |Do not support per-axis and i8 quantization. | |
 | **RNN** |14 | | |
 | **RandomNormal** | |unsupported | |
 | **RandomNormalLike** | |unsupported | |

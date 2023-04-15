@@ -18,6 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
@@ -72,8 +73,8 @@ class Test {
   Value zeros(ArrayRef<int64_t> shape, Type t) {
     RankedTensorType tensorType = RankedTensorType::get(shape, t);
     SmallVector<Attribute> values(tensorType.getNumElements(), zero(t));
-    return createONNXConstantOpWithDenseAttr(
-        builder, loc, DenseElementsAttr::get(tensorType, ArrayRef(values)));
+    return OnnxBuilder(builder, loc)
+        .constant(DenseElementsAttr::get(tensorType, ArrayRef(values)));
   }
 
   ONNXEinsumOp einsumOp(
