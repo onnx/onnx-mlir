@@ -40,10 +40,8 @@ std::vector<int> getSortedWithNonNegativeAxes(mlir::ArrayAttr axesRaw) {
 // This is overloaded function that converts axes operand in v13 of squeeze
 // and returns a vector of integers
 std::vector<int> getAxes(ONNXSqueezeOp squeezeOp) {
-  auto builder = mlir::Builder(squeezeOp.getContext());
   auto axesConstOp = onnx_mlir::getONNXConstantOp(squeezeOp.getAxes());
-  auto axesAttr =
-      onnx_mlir::createArrayAttrFromConstantOp(builder, axesConstOp);
+  auto axesAttr = onnx_mlir::createArrayAttrFromConstantOp(axesConstOp);
   return getSortedWithNonNegativeAxes(axesAttr);
 }
 

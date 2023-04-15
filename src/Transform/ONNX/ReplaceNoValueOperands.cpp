@@ -23,6 +23,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -55,8 +56,7 @@ Value createONNXConstFromFloatValue(PatternRewriter &rewriter,
     const Location &loc, ArrayRef<int64_t> shape, float floatValue) {
   DenseElementsAttr newConstantAttr = DenseElementsAttr::get(
       RankedTensorType::get(shape, rewriter.getF32Type()), {floatValue});
-  auto constOp =
-      createONNXConstantOpWithDenseAttr(rewriter, loc, newConstantAttr);
+  auto constOp = OnnxBuilder(rewriter, loc).constant(newConstantAttr);
   return constOp;
 }
 
@@ -86,9 +86,11 @@ public:
     if (isNotNoValue(matrixC)) {
       return rewriter.notifyMatchFailure(op, "has no NoValue operand");
     }
-    ArrayRef<int64_t> cshape(op.getResult().getType().cast<TensorType>().getShape()[1]);
+    ArrayRef<int64_t> cshape(
+        op.getResult().getType().cast<TensorType>().getShape()[1]);
 
-    matrixC = createONNXConstFromFloatValue(rewriter, op.getLoc(), cshape, 0.0F);
+    matrixC =
+        createONNXConstFromFloatValue(rewriter, op.getLoc(), cshape, 0.0F);
     op.setOperand(2, matrixC);
     return success();
   }
