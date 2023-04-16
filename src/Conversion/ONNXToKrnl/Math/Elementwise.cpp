@@ -1229,9 +1229,10 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
   }
   if (collapsedInnermostLoops > 0 &&
       collapsedInnermostLoops < (int64_t)memRefType.getRank()) {
-    // We have a partially flattened operator. Since we do only full simd, make
-    // sure the static size is a multiple of the VL.
-    // Get the VL of the store (output's element type).
+    // We have a partially flattened operator. Since we do only simdize entire
+    // loops (i.e. we don't support scalar epilogues at this time), make sure
+    // the static size is a multiple of the VL. Get the VL of the store
+    // (output's element type).
     int64_t VL = vms->getVectorLength(elementType);
     if (collapsedLiteralSize % VL != 0) {
       LLVM_DEBUG(llvm::dbgs()
@@ -1253,6 +1254,8 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
         break;
       }
     }
+    // Since we passed the test collapsedLiteralSize % VL == 0 above, this
+    // assert is expected to hold true.
     assert(gotOne && "expected at least 1 *VL to work");
   }
   LLVM_DEBUG(llvm::dbgs() << "  SIMD with avg width " << avgSimdWidth
@@ -1616,7 +1619,8 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, create, outputMemRefType, outputRank, 1);
+              shapeHelper, create, outputMemRefType, outputRank,
+              /*collapsedInnermostLoops*/ 1);
       if (simdUnroll > 0)
         return getFullyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter, create,
             &shapeHelper, op, outputMemRefType, operands, alignment, simdUnroll,
@@ -1731,10 +1735,10 @@ struct ONNXElementwiseBinaryOpLowering
       op->dump();
     });
 
-    bool isScalar = hasAllScalarValues(operands);
-    bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
     int64_t collapsedInnermostLoops, collapsedLiteralSize;
     IndexExpr collapsedDynamicSize;
+    bool isScalar = hasAllScalarValues(operands);
+    bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
     bool hasManageableBroadcast =
         shapeHelper.hasManageableBroadcastForInnerDims(collapsedInnermostLoops,
             collapsedLiteralSize, collapsedDynamicSize, dimAnalysis);
@@ -1864,10 +1868,10 @@ struct ONNXElementwiseVariadicOpLowering
       op->dump();
     });
 
-    bool isScalar = hasAllScalarValues(operands);
-    bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
     int64_t collapsedInnermostLoops, collapsedLiteralSize;
     IndexExpr collapsedDynamicSize;
+    bool isScalar = hasAllScalarValues(operands);
+    bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
     bool hasManageableBroadcast =
         shapeHelper.hasManageableBroadcastForInnerDims(collapsedInnermostLoops,
             collapsedLiteralSize, collapsedDynamicSize, dimAnalysis);

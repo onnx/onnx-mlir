@@ -384,6 +384,6 @@ $ git clone https://github.com/onnx/models
 $ cd models
 $ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ /onnx-mlir/utils/RunONNXModelZoo.py -m mnist-8 -c "-O3"
 ```
-Run the script with `-h` to see all the options. In addition to the `-m` to specify a model and `-c` to specify the compile options, useful options are the `-k` to leave the onnx model in the current directory as a `.tgz` file, and the `-l debug` to print lots of debugging info.
+Run the script with `-h` to see all the options. In addition to the `-m` flag to specify a model and `-c` flag to specify the compile options, useful options are the `-k` flag to leave the onnx model in the current directory as a `.tgz` file, and the `-l debug` flag to print lots of debugging info.
 
-If you are unsure of the available models, you can always fire a `find . -name "*.onnx" -print` command to find them.
+If you are unsure of the names available models, you can always fire a `find . -name "*.onnx" -print` command to find which ones are available.
