@@ -89,7 +89,7 @@ int check(ModelProto &model) {
 
   mlir::PassManager pm(
       module.get()->getName(), mlir::OpPassManager::Nesting::Implicit);
-  pm.addPass(onnx_mlir::createShapeInferencePass());
+  pm.addNestedPass<mlir::func::FuncOp>(onnx_mlir::createShapeInferencePass());
   (void)mlir::applyPassManagerCLOptions(pm);
   if (mlir::failed(pm.run(*module))) {
     module->dump();
