@@ -124,8 +124,6 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(
 /// Pass for lowering Onnx ops to TOSA dialect
 std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
 
-std::unique_ptr<mlir::Pass> createReplaceNoValuePass();
-
 /// Pass for extending location info with layer name information
 std::unique_ptr<mlir::Pass> createLayerNameToLocationPass();
 

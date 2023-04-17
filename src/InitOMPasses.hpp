@@ -117,10 +117,6 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createReplaceNoValuePass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createLayerNameToLocationPass();
   });
 
