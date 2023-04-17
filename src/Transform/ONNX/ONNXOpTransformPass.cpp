@@ -72,15 +72,18 @@ void ONNXOpTransformPass::runOnOperation() {
     OpPassManager dynamicPM("builtin.module");
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createDecomposeONNXToONNXPass());
-    dynamicPM.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createShapeInferencePass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
-    dynamicPM.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createShapeInferencePass());
     // Convolution Optimization currently only for CPU.
     if (onnxOpTransformTargetCPU) {
       dynamicPM.addNestedPass<func::FuncOp>(
           onnx_mlir::createConvOptONNXToONNXPass(
               onnxOpTransformEnableSimdDataLayout));
-      dynamicPM.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+      dynamicPM.addNestedPass<func::FuncOp>(
+          onnx_mlir::createShapeInferencePass());
     }
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createConstPropONNXToONNXPass());
