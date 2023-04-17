@@ -17,12 +17,15 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Transform/ONNX/ShapeInference.hpp"
 
 using namespace mlir;
 
@@ -64,13 +67,33 @@ public:
     return "Shape inference for frontend dialects.";
   }
 
+  LogicalResult initialize(MLIRContext *context) override {
+    RewritePatternSet cumulativePatterns(context);
+    getShapeInferencePatterns(cumulativePatterns);
+    patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
+    return success();
+  }
+
   void runOnOperation() override {
     func::FuncOp f = getOperation();
     if (!analyzeAllFunctions && !f.getName().ends_with("main_graph"))
       return;
-    if (failed(runShapeInferenceOn(f)))
-      signalPassFailure();
+
+    auto &body = f.getBody();
+    if (enablePatternShapeInference) {
+      GreedyRewriteConfig config;
+      config.useTopDownTraversal = true;
+      (void)applyPatternsAndFoldGreedily(body, patterns, config);
+    } else {
+      if (failed(runShapeInferenceOnRegion(body))) {
+        signalPassFailure();
+        return;
+      }
+    }
+    inferFunctionReturnShapes(f);
   }
+
+  FrozenRewritePatternSet patterns;
 
   static LogicalResult runShapeInferenceOnRegion(Region &r) {
     std::function<void(Region &)> doShapeInference = [](Region &region) {
@@ -103,25 +126,6 @@ public:
         return op.emitError("unable to infer shape of operation without shape "
                             "inference interface");
     }
-    return success();
-  }
-
-  static LogicalResult runShapeInferenceOn(func::FuncOp f) {
-    // Iterate on the operations that need shape inference i.e the operations
-    // that return a dynamic shape or followed by a return op.
-    auto &funcBody = f.getBody();
-    if (failed(runShapeInferenceOnRegion(funcBody)))
-      return failure();
-
-    // Check if a terminator op exists for function.
-    if (!funcBody.empty() && !funcBody.back().empty() &&
-        funcBody.back().back().hasTrait<OpTrait::IsTerminator>())
-      if (auto returnOp = f.getBody().back().getTerminator()) {
-        auto results = returnOp->getOperandTypes();
-        f.setType(
-            FunctionType::get(f.getContext(), f.getFunctionType().getInputs(),
-                std::vector<Type>(results.begin(), results.end())));
-      }
     return success();
   }
 

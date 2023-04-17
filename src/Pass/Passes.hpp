@@ -65,9 +65,6 @@ std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
 /// including shape inference.
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass();
 
-/// Shape inference only variant of ONNXHybridTransform.
-std::unique_ptr<mlir::Pass> createONNXShapeInferenceTransformPass();
-
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
 
