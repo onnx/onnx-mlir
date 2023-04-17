@@ -18,7 +18,7 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
-#define DEBUG_TYPE "convert-onnx-to-krnl-simd"
+#define DEBUG_TYPE "convert-onnx-to-krnl"
 
 using namespace mlir;
 
@@ -1377,33 +1377,6 @@ static LogicalResult getFullyFlattenedSimdCode(
   return success();
 }
 
-// Check if we have a 'tensor<' ('1x')* 'x type>' type, namely a scalar or a
-// n-dimensional tensor of size 1 along all dimensions.
-bool isMultiDimScalarValue(Value value) {
-  if (isScalarValue(value))
-    return true;
-  ShapedType type = value.getType().dyn_cast<ShapedType>();
-  assert(type && "expected shaped type");
-  for (int64_t s : type.getShape())
-    if (s != 1)
-      return false;
-  return true;
-}
-
-// Same as above, but from the innermost dimensions up to innerDim.
-bool isInnerMultiDimScalarValue(Value value, int64_t innerDim) {
-  if (isScalarValue(value))
-    return true;
-  ShapedType type = value.getType().dyn_cast<ShapedType>();
-  assert(type && "expected shaped type");
-  mlir::ArrayRef<int64_t> shape = type.getShape();
-  int64_t rank = type.getRank();
-  for (int64_t i = rank - innerDim; i < rank; ++i)
-    if (shape[i] != 1)
-      return false;
-  return true;
-}
-
 template <typename OP_TYPE>
 static LogicalResult getPartiallyFlattenedSimdCode(
     ConversionPatternRewriter &rewriter, MDBuilder &create,
@@ -1432,7 +1405,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // Create flat inputs in the last innerDinNum dims.
   llvm::SmallVector<Value, 4> flatOperands;
   for (Value oper : operands) {
-    if (isNoneValue(oper) || isMultiDimScalarValue(oper)) {
+    if (isNoneValue(oper) || hasOneElement(oper)) {
       // If its a none / scalar, it is not meant to be flattened.
       flatOperands.emplace_back(oper);
       continue;
@@ -1488,10 +1461,10 @@ static LogicalResult getPartiallyFlattenedSimdCode(
           assert(memRefType && "expected memref");
           VectorType vecType =
               VectorType::get({VL}, memRefType.getElementType());
-          if (isInnerMultiDimScalarValue(flatOper, 1)) {
+          if (hasOneElementInInnermostDims(flatOper, 1)) {
             // If its a scalar, do a scalar load and splat.
             llvm::SmallVector<IndexExpr, 4> scalarAccessFct;
-            if (isMultiDimScalarValue(flatOper)) {
+            if (hasOneElement(flatOper)) {
               // Not flattened, with only 1 dims, just put zeros as needed.
               int64_t scalarRank =
                   flatOper.getType().dyn_cast<ShapedType>().getRank();

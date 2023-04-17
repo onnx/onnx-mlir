@@ -332,6 +332,16 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
 
 // Attempt to rule out broadcasting at compile time, using dim analysis when
 // available (i.e. nonnull). Must be called after computeShape.
+//
+// Note that broadcasting handles tensors of different ranks by prepending `1x`
+// to the shorter input shapes. When inputs `1x1x5xf32` and `5xf32` are analyzed
+// for broadcasting patterns, the shorter `5xf32` is first expanded to
+// `1x1x5xf32` before being compared to the other inputs. Comparing `1x1x5xf32`
+// with `1x1x5xf32` determines that there is no broadcast; thus this call will
+// return false in such situation. This make practical senses too as no values
+// of either input will be used more than once with the value of the other
+// input.
+//
 bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   // First use static analysis to rule out broadcast. If we cannot rule out
   // broadcasting for any reasons, hasNoBroadcast is set to false.
@@ -548,7 +558,7 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     int64_t operandIndex, const SmallVectorImpl<IndexExpr> &loopAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs, bool flattenedInnerDims,
-    bool ruledOutBroadcast) {
+    bool hasNoBroadcast) {
   // Get info.
   int64_t loopDepth = loopAccessExprs.size();
   int64_t inputSize = inputsDims.size();
@@ -557,7 +567,8 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
   // Not flattened? one loop per dim in output (aka output rank).
   if (flattenedInnerDims)
     assert(loopDepth <= (int64_t)outputRank &&
-           "without flattening, expect one loop iter variable per output rank");
+           "with flattening, expect no more than one loop iter variable per "
+           "output rank");
   else
     assert(loopDepth == (int64_t)outputRank &&
            "without flattening, expect one loop iter variable per output rank");
@@ -569,11 +580,11 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
   if (operandRank == 0)
     return success();
 
-  // The ruledOutBroadcast pattern can be established by shape inference using
+  // The hasNoBroadcast pattern can be established by shape inference using
   // DimAnalysis. If that is available, and broadcasting was ruled out, then
   // more efficient code can be generated.
   bool noBroadcasting =
-      ruledOutBroadcast || (hasUniBroadcasting && operandIndex == 0);
+      hasNoBroadcast || (hasUniBroadcasting && operandIndex == 0);
 
   for (int64_t r = 0; r < operandRank; ++r) {
     // Shape helper may pretend 1s, thus adjust dimension index accordingly.
@@ -582,7 +593,7 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     int64_t dimIndex = loopDepth - operandRank + r;
     SymbolIndexExpr operandDim(inputsDims[operandIndex][dimIndex]);
 
-    bool guaranteedBroadcasting = false;
+    bool useLoopIndexNoMatterWhat = false;
     if (noBroadcasting) {
       // Broadcasting is already ruled out, no need for further analysis
     } else {
@@ -592,6 +603,20 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
       // the loop variable index is 0) or (2) it has a dim of X (compile or
       // runtime) and this will be a broadcasted dimensions (and thus the loop
       // variable index can also safely be used).
+      //
+      // For example we have 5x?x3xf32 and 5x1x3xf32. We don't know at compile
+      // time if the `?` will be 1 or (assuming without loss of generality) 10.
+      // Normal code is to generate for `?` for that access dimension:
+      //   select(dim==1 ? 0 : loop-var)
+      // so that if this access needs to be broadcasted, we will only access the
+      // `0` value of this broadcasted value; and if it is not broadcasted, we
+      // will access each `loop-var` value for this access.
+      //
+      // But since all of the other dimensions are '1', they cannot generate
+      // a broadcasting situation. Thus, for this access function, we can
+      // generate the access `loop-var` regardless of whether the `?` will
+      // evaluate to 1 or 10 at runtime. It will be correct no matter which
+      // situation we will be in.
       bool allOtherInputDimsAreOne = true;
       for (int64_t i = 0; i < inputSize; ++i) {
         if (i == operandIndex)
@@ -602,17 +627,18 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
           break;
         }
       }
-      guaranteedBroadcasting = allOtherInputDimsAreOne;
+      useLoopIndexNoMatterWhat = allOtherInputDimsAreOne;
     }
 
     // Compute access index based on broadcasting rules.
     if (operandDim.isLiteralAndIdenticalTo(1)) {
       // Dim of size 1: access is always 0.
       operandAccessExprs.emplace_back(LiteralIndexExpr(0));
-    } else if (noBroadcasting || guaranteedBroadcasting) {
-      // No broadcasting or guaranteed broadcasting -> just use the index.
+    } else if (noBroadcasting || useLoopIndexNoMatterWhat) {
+      // No broadcasting or we can use the loop index no matter what -> just use
+      // the index.
       //
-      // guaranteedBroadcasting -> use loop index without worries.
+      // useLoopIndexNoMatterWhat -> use loop index without worries.
       // Our dim may be [*, dim, *] where all the others are [*, 1, *];
       // Regardless of the value of dim (constant, `?`) we can use the loop
       // index variable without reservation as if dim is 1, then its 0 by def,

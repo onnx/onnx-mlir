@@ -235,7 +235,20 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
       bool flattenedInnerDims = false, bool ruledOutBroadcast = false);
 
   // Determine if broadcast can be ruled out at compile time. Use DimAnalysis
-  // when available.
+  // when available. Broadcasting is defined is one value of one input is used
+  // two or more times with a value of another input (when only looking at the
+  // tensors, not the actual algorithms).
+  //
+  // Examples with broadcasts:
+  // * 2x5xf32 and 1x5xf32 has broadcast as the second input's value are used
+  //   for each of the two instances of 5xf32 in the first input.
+  // * Same holds for 2x5xf32 and 5xf32 as shorter ranked
+  //   inputs are extended by prepending 1x.
+  //
+  // Example without broadcast:
+  // * 3x5xf32 and 3x5xf32 have no broadcast.
+  // * 1x5xf32 and 5xf32 have also no broadcast as prepending 1x results as
+  //   comparing 1x5xf32 with 1x5xf32.
   bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
 
   // Determine of the broadcast operation has manageable broadcast (MB), and if

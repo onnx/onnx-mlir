@@ -76,7 +76,7 @@ struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...>
     : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), krnlOnnx(b, loc) {}
-  MultiDialectBuilder(const DialectBuilder &db)
+  MultiDialectBuilder(const  DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), krnlOnnx(db) {}
   OnnxToKrnlBuilder krnlOnnx;
 };
@@ -88,6 +88,12 @@ struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...>
 /// Check if one/all operands are scalar values at compile time.
 bool isScalarValue(mlir::Value value);
 bool hasAllScalarValues(mlir::ValueRange values);
+// HasOneElement returns true for scalars as well as tensors that contain only
+// one elements, such as 1xf32 or 1x1x1xf32.
+bool hasOneElement(mlir::Value value);
+// Same as hasOneElement, but check only from the innerDims innermost
+// dimensions.
+bool hasOneElementInInnermostDims(mlir::Value value, int64_t innerDims);
 
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
 /// integer constants.
