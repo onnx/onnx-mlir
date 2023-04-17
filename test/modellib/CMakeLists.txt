@@ -3,6 +3,7 @@
 add_onnx_mlir_library(ModelLib
   CategoryMapperModel.cpp
   ConvModel.cpp
+  ElementwiseModel.cpp
   GRUModel.cpp
   GemmModel.cpp
   LSTMModel.cpp

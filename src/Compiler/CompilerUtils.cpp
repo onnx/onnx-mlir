@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Support/FileUtilities.h"
+#include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/IR/Constants.h"
@@ -36,7 +37,6 @@
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
 
-#include <charconv>
 #include <regex>
 
 #define DEBUG_TYPE "compiler_utils"
@@ -396,6 +396,7 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   }
 
   llvm::LLVMContext llvmContext;
+  mlir::registerBuiltinDialectTranslation(*(module.get().getContext()));
   mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
   std::unique_ptr<llvm::Module> llvmModule =
       mlir::translateModuleToLLVMIR(*module, llvmContext);
@@ -901,7 +902,8 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   if (rc != CompilerSuccess)
     return rc;
 
-  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+  mlir::PassManager pm(
+      module.get()->getName(), mlir::OpPassManager::Nesting::Implicit);
   // TODO(tung): Revise adding passes. The current mechanism does not work if
   // there are multiple accelerators enabled at the same time. It's because
   // each `accel->addPasses` is independent and controls the whole compilation
@@ -919,7 +921,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     pm.addInstrumentation(std::make_unique<HeapReporter>(
         heapLogFileame, reportHeapBefore, reportHeapAfter));
   }
-  mlir::applyPassManagerCLOptions(pm);
+  (void)mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 
   if (mlir::failed(pm.run(*module)))

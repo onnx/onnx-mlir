@@ -121,7 +121,7 @@ int64_t mlirTypeToOnnxType(Type elemType) {
   return onnx_mlir::mlirTypeToOnnxType(elemType);
 }
 
-void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
+void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
     int64_t outOwning, PatternRewriter &rewriter, const Location &loc,
     const RuntimeAPIRegistry &apiRegistry, ModuleOp &module) {
   MLIRContext *context = module.getContext();
@@ -145,9 +145,6 @@ void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
   // Set ownership, allocated and aligned pointer.
   RuntimeAPI::callApi(rewriter, loc, apiRegistry, RuntimeAPI::API::SET_DATA,
       {outOMTensor, owning, outMemRefAllocatedPtr, outMemRefAlignedPtr});
-
-  Type elemTy =
-      outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
 
   int64_t onnxTy = krnl::mlirTypeToOnnxType(elemTy);
   Value onnxTyVal = create.llvm.constant(int64Ty, onnxTy);
@@ -182,7 +179,8 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
     OpBuilder &builder, ModuleOp module, LLVMTypeConverter *typeConverter) {
   MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   assert(typeConverter && "Expecting a valid LLVM type converter");
-  LLVM::GlobalOp global = module.lookupSymbol<LLVM::GlobalOp>(str);
+  LLVM::GlobalOp global =
+      module.lookupSymbol<LLVM::GlobalOp>("om_" + str.str());
   if (!global) {
     // Create the global at the entry of the module.
     OpBuilder::InsertionGuard insertGuard(builder);
@@ -191,7 +189,7 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
     Type i8Type = IntegerType::get(builder.getContext(), 8);
     Type type = LLVM::LLVMArrayType::get(i8Type, str.size());
     global = create.llvm.globalOp(type, /*isConstant=*/true,
-        LLVM::Linkage::Internal, str, builder.getStringAttr(str));
+        LLVM::Linkage::Internal, "om_" + str.str(), builder.getStringAttr(str));
 
     krnl::setAlignment(global, nullptr, module, builder, *typeConverter);
   }

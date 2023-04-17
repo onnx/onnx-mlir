@@ -41,7 +41,7 @@ func.func @test_dim_analysis_with_bert(%arg0: tensor<?x256xi64>, %arg1: tensor<?
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<256> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.ConstantOfShape"([[VAR_3_]]) {onnx_node_name = "bert/encoder/ones", value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<?x256x1xf32>
+// CHECK:           [[VAR_4_:%.+]] = onnx.ConstantOfShape([[VAR_3_]]) {onnx_node_name = "bert/encoder/ones", value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<?x256x1xf32>
 // CHECK:           "onnx.DimGroup"([[VAR_4_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x256x1xf32>) -> ()
 
 // CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
@@ -123,5 +123,27 @@ func.func @test_binary_elementwise(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?xf3
 // CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = 1 : si64} : (tensor<?x3x?xf32>) -> ()
 // CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
 // CHECK:           return [[VAR_1_]] : tensor<?x3x?xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_expand_from_concat_dims(%arg0: tensor<1x256xi64>, %arg1: tensor<?x256xi64>) -> tensor<?x256xi64> {
+  %0 = onnx.Constant dense<256> : tensor<1xi64>
+  %1 = "onnx.Dim"(%arg1) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
+  %2 = "onnx.Concat"(%1, %0) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %3 = "onnx.Expand"(%arg0, %2) {onnx_node_name = "Expand_30"} : (tensor<1x256xi64>, tensor<2xi64>) -> tensor<?x256xi64>
+  return %3: tensor<?x256xi64>
+
+// CHECK-LABEL:  func.func @test_expand_from_concat_dims
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x256xi64>, [[PARAM_1_:%.+]]: tensor<?x256xi64>) -> tensor<?x256xi64> {
+// CHECK:           "onnx.DimGroup"([[PARAM_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x256xi64>) -> ()
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<256> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_1_]]) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
+// CHECK:           "onnx.DimGroup"([[PARAM_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x256xi64>) -> ()
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Expand"([[PARAM_0_]], [[VAR_2_]]) {onnx_node_name = "Expand_30"} : (tensor<1x256xi64>, tensor<2xi64>) -> tensor<?x256xi64>
+// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x256xi64>) -> ()
+// CHECK:           return [[VAR_3_]] : tensor<?x256xi64>
 // CHECK:         }
 }

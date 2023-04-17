@@ -4,7 +4,7 @@
 
 //===--- RewriteONNXForZHigh.cpp - Rewrite ONNX ops for ZHigh lowering ----===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,10 +27,10 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
-#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 using namespace mlir;
 
@@ -231,7 +231,8 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
   if (op.getAutoPad().equals_insensitive("VALID"))
     return false;
   // image dimensions of input shape should be static
-  if ((inputShape[2] <= 0) || (inputShape[3] <= 0))
+  if ((inputShape[2] == ShapedType::kDynamic) ||
+      (inputShape[3] == ShapedType::kDynamic))
     return false;
   return true;
 }
@@ -479,8 +480,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
       for (int64_t i = 0; i < aRank - 2; ++i) {
         sameBatchDims &= (aShape[i] == bShape[i]);
         if (sameBatchDims && ShapedType::isDynamic(aShape[i]))
-          sameBatchDims =
-              dimAnalysis.sameUnknownDim(op.getA(), i, op.getB(), i);
+          sameBatchDims = dimAnalysis.sameDynDim(op.getA(), i, op.getB(), i);
       }
       return !sameBatchDims;
     }

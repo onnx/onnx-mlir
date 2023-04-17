@@ -4,7 +4,7 @@
 
 //===-------- RandomNormalLike.cpp - Lowering RandomNormal Op -------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -24,17 +24,16 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
+struct ONNXRandomNormalLikeOpLowering
+    : public OpConversionPattern<ONNXRandomNormalLikeOp> {
   ONNXRandomNormalLikeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXRandomNormalLikeOp::getOperationName(), 1, ctx) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      : OpConversionPattern(typeConverter, ctx) {}
+  LogicalResult matchAndRewrite(ONNXRandomNormalLikeOp randOp,
+      ONNXRandomNormalLikeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-
-    // Get the input memref:
-    ONNXRandomNormalLikeOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
+    Operation *op = randOp.getOperation();
+    Location loc = ONNXLoc<ONNXRandomNormalLikeOp>(op);
+    Value input = adaptor.getInput();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -44,38 +43,34 @@ struct ONNXRandomNormalLikeOpLowering : public ConversionPattern {
     ArrayRef<int64_t> outputMemRefShape = outputMemRefType.getShape();
     int outputRank = outputMemRefShape.size();
     Type elementType = outputMemRefType.getElementType();
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, MemRefBuilder>
+        create(rewriter, loc);
 
     // Insert alloc/dealloc pair for output tensor.
-    bool insertDealloc = checkInsertDealloc(op);
-    Value alloc = insertAllocAndDealloc(
-        outputMemRefType, loc, rewriter, insertDealloc, input);
+    Value alloc = create.mem.alignedAlloc(input, outputMemRefType);
 
     // Compute the number of random values required.
     int64_t constantValues = 1;
     for (decltype(outputRank) i = 0; i < outputRank; ++i)
-      if (outputMemRefShape[i] > 0)
+      if (outputMemRefShape[i] != ShapedType::kDynamic)
         constantValues *= outputMemRefShape[i];
-    MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
-        rewriter, loc);
     Value numberOfRandomValues =
         create.math.constant(rewriter.getIndexType(), constantValues);
 
     // Incorporate any dynamic values into the number of values:
     for (decltype(outputRank) i = 0; i < outputRank; ++i) {
-      if (outputMemRefShape[i] < 0) {
+      if (outputMemRefShape[i] == ShapedType::kDynamic) {
         Value dim = create.mem.dim(input, i);
         numberOfRandomValues = create.math.mul(numberOfRandomValues, dim);
       }
     }
 
     // Create the Krnl Random Normal operation:
-    ONNXRandomNormalLikeOp randomNormalLikeOp =
-        cast<ONNXRandomNormalLikeOp>(op);
-    double mean = randomNormalLikeOp.getMean().convertToDouble();
+    double mean = adaptor.getMean().convertToDouble();
     Value meanValue = create.math.constant(elementType, mean);
-    double scale = randomNormalLikeOp.getScale().convertToDouble();
+    double scale = adaptor.getScale().convertToDouble();
     Value scaleValue = create.math.constant(elementType, scale);
-    auto seed = randomNormalLikeOp.getSeed();
+    auto seed = adaptor.getSeed();
     srand(time(NULL));
     double doubleSeed = rand() % 100;
     if (seed)

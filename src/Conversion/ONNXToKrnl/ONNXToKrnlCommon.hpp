@@ -4,7 +4,7 @@
 
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -36,15 +36,13 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
-
-// A global variable to indicate whether this pass will emit dealloc for
-// allocated memrefs or not during the conversion of ONNX to Krnl.
-extern bool ONNXToKrnl_gEmitDealloc;
 
 //===----------------------------------------------------------------------===//
 // Extends OnnxBuilder with member functions that might generate Krnl dialect
@@ -87,34 +85,13 @@ struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...>
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
 
-/// Check if all operands are scalar values at compile time.
-bool hasAllScalarValues(llvm::ArrayRef<mlir::Value> values);
+/// Check if one/all operands are scalar values at compile time.
+bool isScalarValue(mlir::Value value);
+bool hasAllScalarValues(mlir::ValueRange values);
 
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
 /// integer constants.
 bool indicesAreNonNegativeConstants(mlir::Value indices);
-
-/// Insert an allocation and deallocation for the given MemRefType.
-mlir::Value insertAllocAndDealloc(mlir::MemRefType type, mlir::Location loc,
-    mlir::PatternRewriter &rewriter, bool insertDealloc,
-    mlir::Value operand = nullptr, int64_t alignment = -1);
-
-// Insert an allocation and deallocation for the given MemRefType, handling
-// compile time relying on the above function, and extracting the runtime
-// definitions from the index expressions otherwise.
-mlir::Value insertAllocAndDeallocSimple(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::MemRefType type, mlir::Location loc,
-    const llvm::SmallVectorImpl<IndexExpr> &outputDims, int64_t alignment = -1);
-// Same where boolean to assert if dealloc is to be gen or not is specified
-mlir::Value insertAllocAndDeallocSimple(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::MemRefType type, mlir::Location loc,
-    const llvm::SmallVectorImpl<IndexExpr> &outputDims, bool insertDealloc,
-    int64_t alignment = -1);
-
-// Determine if current function returns the result value of the
-// current op being lowered. If it does then dealloc should not be
-// inserted.
-bool checkInsertDealloc(mlir::Operation *currentOp, int resultIndex = 0);
 
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
@@ -194,10 +171,15 @@ mlir::Value emitArgUnique(mlir::ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
+
+// Definition for easier readability
+using NotSuportedScalarOp = void; // Unsupported, e.g. integer version of cos.
+using CustomScalarOp = void *;    // Custom support, e.g. float version of cosh.
+
 template <typename Op>
 struct ScalarOp {
-  using FOp = void;
-  using IOp = void;
+  using FOp = NotSuportedScalarOp;
+  using IOp = NotSuportedScalarOp;
 };
 
 template <typename FOp>
@@ -215,20 +197,52 @@ mlir::Value getIdentityValue(mlir::ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// emitScalarOpFor
+//===----------------------------------------------------------------------===//
+//
 // This is used in the innermost loop of a KrnlIterateOp to insert computation
 // composed of one or many scalar ops.
 // Use template specialization for each of different ONNX operations.
+//
+// Note that all values passed in scalarOperands are already loaded in memory.
+// *  If they are scalar, then a scalar is loaded. If used in SIMD mode, that
+//    vector was splatted to the right shape.
+// *  If they have a non value, then that non-value is simply passed on.
+// *  If they are a variable with a rank>0, then that the loaded value has been
+//    loaded with the right loop indices in it.
+//
+// So there should be no "loading" of any values inside the emitScalarOpFor
+// functions
 //===----------------------------------------------------------------------===//
+
 template <typename Op>
 mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
     llvm::ArrayRef<mlir::Value> scalarOperands) {
-  if (elementType.isa<mlir::IntegerType>()) {
-    return rewriter.create<ScalarIOp<Op>>(
-        loc, elementType, scalarOperands, std::nullopt);
-  } else if (elementType.isa<mlir::FloatType>()) {
-    return rewriter.create<ScalarFOp<Op>>(
-        loc, elementType, scalarOperands, std::nullopt);
+  // Find the actual element type, regardless of whether we have a vector or
+  // scalar elementary type. For some operations, the output in a different type
+  // than its input(s), e.g. isNan where inputs are float and output is boolean
+  // int. Thus we look at the type the first input argument, and not the output
+  // elementType.
+  mlir::Type actualElementType =
+      MathBuilder::elementTypeWithVector(scalarOperands[0].getType());
+  // Perform int or float operation depending on the actual elementary type.
+  if (actualElementType.isa<mlir::IntegerType>()) {
+    // Generate the integer code only if the scalar integer op is non-void
+    // (unsupported) and non-int (supported by custom sequence of ops).
+    if constexpr (!(std::is_same<ScalarIOp<Op>, NotSuportedScalarOp>::value) &&
+                  !(std::is_same<ScalarIOp<Op>, CustomScalarOp>::value))
+      return rewriter.create<ScalarIOp<Op>>(
+          loc, elementType, scalarOperands, std::nullopt);
+    llvm_unreachable("unsupported integer operation");
+  } else if (actualElementType.isa<mlir::FloatType>()) {
+    // Generate the floating point code only if the scalar integer op is
+    // non-void (unsupported) and non-int (supported by custom sequence of ops).
+    if constexpr (!(std::is_same<ScalarFOp<Op>, NotSuportedScalarOp>::value) &&
+                  !(std::is_same<ScalarFOp<Op>, CustomScalarOp>::value))
+      return rewriter.create<ScalarFOp<Op>>(
+          loc, elementType, scalarOperands, std::nullopt);
+    llvm_unreachable("unsupported float operation");
   } else {
     llvm_unreachable("unsupported element type");
   }
@@ -288,8 +302,8 @@ void populateLoweringONNXClipOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXCumSumOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXElementwiseOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD);
 void populateLoweringONNXGemmOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
 void populateLoweringONNXHardmaxOpPattern(
@@ -298,6 +312,8 @@ void populateLoweringONNXLRNOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXMatMulOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
+void populateLoweringONNXMatMulIntegerOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXRandomNormalOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXRandomNormalLikeOpPattern(
@@ -323,6 +339,12 @@ void populateLoweringONNXPoolingOpPattern(
 
 // `ObjectDetection` directory methods:
 void populateLoweringONNXNonMaxSuppressionOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+
+// `Quantization` directory methods:
+void populateLoweringONNXDynamicQuantizeLinearOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXQuantizeLinearOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
 // `RNN` directory methods:
@@ -425,6 +447,10 @@ void populateLoweringONNXLayoutTransformOpPattern(
 void populateLoweringONNXUniqueOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
+// `Additional` directory methods:
+void populateLoweringONNXShapeTransformOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+
 bool checkOpResultIsUsedByGetRef(mlir::memref::AllocOp *allocOp);
 
 /// This function returns the index in the list of alloc arguments of the
@@ -462,5 +488,11 @@ mlir::Value getOptionalScalarValue(mlir::ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 
 mlir::MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(mlir::Type type);
+
+// Determine if the MemRef val has a custom layout (i.e. non-identity).
+bool hasNonIdentityLayout(mlir::Value val);
+// Determine if one or more operands have custom layouts. Return false when
+// every layout is an identity layout.
+bool hasNonIdentityLayout(mlir::ValueRange operands);
 
 } // namespace onnx_mlir

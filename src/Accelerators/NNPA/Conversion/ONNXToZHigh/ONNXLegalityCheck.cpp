@@ -4,7 +4,7 @@
 
 //===---------- ONNXLegalityCheck.cpp - Check legality for ONNX ops -------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -16,8 +16,8 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -201,7 +201,7 @@ StringRef getStrPaddingType(OP op) {
   return StringRef();
 }
 
-/// Check if input, output, kernel, strides, and paddingYype for each axis meet
+/// Check if input, output, kernel, strides, and paddingType for each axis meet
 /// parameter restrictions for maxpool. See "MaxPool2D Parameter Restrictions"
 /// in "zDNN API Reference"
 bool meetPoolParamRestrictions(int64_t inputShape, int64_t kernelShape,
@@ -312,7 +312,7 @@ bool isSuitableForZDNN<ONNXSumOp>(
 }
 
 /// Check legality for ONNXMin.
-/// zDNN Min/Max do not support boradcasting, and getNumOperands != 2.
+/// zDNN Min/Max do not support broadcasting, and getNumOperands != 2.
 template <>
 bool isSuitableForZDNN<ONNXMinOp>(
     ONNXMinOp op, const DimAnalysis *dimAnalysis) {
@@ -482,7 +482,7 @@ bool isSuitableForZDNN<ONNXGemmOp>(
   ArrayRef<int64_t> bShape = bType.getShape();
   ArrayRef<int64_t> cShape;
 
-  bool hasC = !isFromNone(C);
+  bool hasC = !isNoneValue(C);
   if (hasC) {
     cType = C.getType().cast<ShapedType>();
     cShape = cType.getShape();
@@ -515,10 +515,10 @@ bool isSuitableForZDNN<ONNXGemmOp>(
   return true;
 }
 
-/// Check legality for ONNXReduceMean.
+/// Check legality for ONNXReduceMeanV13.
 template <>
-bool isSuitableForZDNN<ONNXReduceMeanOp>(
-    ONNXReduceMeanOp op, const DimAnalysis *dimAnalysis) {
+bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
+    ONNXReduceMeanV13Op op, const DimAnalysis *dimAnalysis) {
   // Check data type.
   if (!isValidElementTypeAndRank(op.getData()))
     return false;
@@ -542,7 +542,8 @@ bool isSuitableForZDNN<ONNXReduceMeanOp>(
   }
 
   // Check dimensions.
-  if ((shapeData[2] < 0) || (shapeData[3] < 0) || (shapeData[2] > 1024) ||
+  if ((shapeData[2] == ShapedType::kDynamic) ||
+      (shapeData[3] == ShapedType::kDynamic) || (shapeData[2] > 1024) ||
       (shapeData[3] > 1024))
     return false;
 
@@ -576,7 +577,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
   llvm::Optional<ArrayAttr> activations = op.getActivations();
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] < 0)
+  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] == ShapedType::kDynamic)
     return false;
   // Check if R has static dimensions, and the direction dim is 1 or 2.
   ArrayRef<int64_t> rShape = R.getType().cast<ShapedType>().getShape();
@@ -587,19 +588,19 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
   if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_LSTM)
     return false;
   // zDNN does not support sequence_lens.
-  if (!isFromNone(op.getSequenceLens()))
+  if (!isNoneValue(op.getSequenceLens()))
     return false;
   // check if B, initial_h and initial_c have static dimensions if given.
-  if (!isFromNone(B) && !B.getType().cast<ShapedType>().hasStaticShape())
+  if (!isNoneValue(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
   // check if B's direction dim is 1 or 2.
-  if (!isFromNone(B)) {
+  if (!isNoneValue(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
     if (bShape[0] != 1 && bShape[0] != 2)
       return false;
   }
   // zDNN does not support P(peepholes), activation_alpha and activation_beta.
-  if (!isFromNone(op.getP()) || op.getActivationAlpha() ||
+  if (!isNoneValue(op.getP()) || op.getActivationAlpha() ||
       op.getActivationBeta())
     return false;
   // zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only.
@@ -611,7 +612,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
       (activations && (activations.value().size() > 2) &&
           (activations.value()[2].cast<StringAttr>().getValue() != "Tanh")))
     return false;
-  // zDNN does not supprt clip(Cell clip threshold).
+  // zDNN does not support clip(Cell clip threshold).
   if (op.getClip())
     return false;
   // zDNN does not support hidden_size not equal to the hidden size in
@@ -651,7 +652,7 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   llvm::Optional<ArrayAttr> activations = op.getActivations();
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] < 0)
+  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] == ShapedType::kDynamic)
     return false;
   // Check if R has static dimensions.
   if (!R.getType().cast<ShapedType>().hasStaticShape())
@@ -660,13 +661,13 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_GRU)
     return false;
   // zDNN does not support sequence_lens.
-  if (!isFromNone(op.getSequenceLens()))
+  if (!isNoneValue(op.getSequenceLens()))
     return false;
   // check if B and initial_h have static dimensions if given.
-  if (!isFromNone(B) && !B.getType().cast<ShapedType>().hasStaticShape())
+  if (!isNoneValue(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
   // check if B's direction dim is 1 or 2.
-  if (!isFromNone(B)) {
+  if (!isNoneValue(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
     if (bShape[0] != 1 && bShape[0] != 2)
       return false;
@@ -683,7 +684,7 @@ bool isSuitableForZDNN<ONNXGRUOp>(
       (activations && (activations.value().size() > 2) &&
           (activations.value()[2].cast<StringAttr>().getValue() != "Tanh")))
     return false;
-  // zDNN does not supprt clip(Cell clip threshold).
+  // zDNN does not support clip(Cell clip threshold).
   if (op.getClip())
     return false;
   // zDNN does not support hidden_size not equal to the hidden size in

@@ -27,6 +27,53 @@
 namespace onnx_mlir {
 
 // =============================================================================
+// TOSA Builder
+// =============================================================================
+
+struct TosaBuilder : DialectBuilder {
+  TosaBuilder(mlir::Location loc) : DialectBuilder(loc) {}
+  TosaBuilder(mlir::PatternRewriter &b, mlir::Location loc)
+      : DialectBuilder(b, loc), patternRewriter(&b) {}
+  TosaBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  virtual ~TosaBuilder() {}
+
+  mlir::Value transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm);
+  mlir::Value slice(mlir::Value &inputConst, llvm::ArrayRef<int64_t> size,
+      llvm::ArrayRef<int64_t> start);
+
+  mlir::Value getConst(
+      llvm::ArrayRef<int64_t> vec, llvm::ArrayRef<int64_t> shape);
+  mlir::Value getConst(
+      llvm::ArrayRef<int32_t> vec, llvm::ArrayRef<int64_t> shape);
+  mlir::Value getConst(
+      llvm::ArrayRef<float> vec, llvm::ArrayRef<int64_t> shape);
+  // Create a 32-bit float constant operator from a float
+  // The tensor will have the same rank as shape but all dimensions will
+  // have size 1 (differs from tensorflow impl.)
+  mlir::Value getSplattedConst(float val, llvm::ArrayRef<int64_t> shape = {});
+
+protected:
+  template <typename T>
+  bool testNumberOfElementsMatch(
+      llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape);
+  template <typename T>
+  mlir::Value createConstFromRankedTensorAndVec(
+      llvm::ArrayRef<T> vec, mlir::RankedTensorType &constType);
+  template <typename T>
+  mlir::Value createConst(
+      llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape, mlir::Type &type);
+
+  // Private getters of builder (concise version).
+  mlir::PatternRewriter &rewriter() const {
+    assert(patternRewriter && "rewriter is null");
+    return *patternRewriter;
+  }
+
+private:
+  mlir::PatternRewriter *patternRewriter;
+};
+
+// =============================================================================
 // IndexExpr Builder for Shape lowering
 // =============================================================================
 

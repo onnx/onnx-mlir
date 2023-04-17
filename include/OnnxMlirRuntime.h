@@ -4,7 +4,7 @@
 
 //===------- OnnxMlirRuntime.h - ONNX-MLIR Runtime API Declarations -------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -47,6 +47,13 @@
  * `OMTensorList` is the data structure used to hold a list of pointers to
  * OMTensor so that they can be passed into and out of the compiled model as
  * inputs and outputs.
+ *
+ * `OMEntryPoint` is the data structure used to return all entry point names
+ * in a model. These entry point names are the symbols of the inference functions
+ * in the model.
+ *
+ * `OMSignature` is the data structure used to return the output signature of
+ * the given entry point as a JSON string.
  *
  * \subsection model-entry-point-signature Model Entry Point Signature
  *
@@ -113,6 +120,17 @@
  * 3.000000 3.000000 3.000000 3.000000 3.000000 3.000000
  * ```
  * Exactly as it should be.
+ *
+ * \subsection freeing-tensor-memory Freeing Tensor Memory
+ *
+ *
+ * When creating an OMTensor with a specified tensor array, a user has the option to
+ * create a tensor with or without ownership (omTensorCreateWithOwnership).
+ *
+ * If the ownership flag is set to "false", then a user is responsible for freeing memory until the last use.
+ * Otherwise, if the flag is set to "true", then the destruction of the tensor (omTensorDestroy)
+ * will also free any associated memory and data buffers.
+ *
  *
  * \subsection reference Reference
  *

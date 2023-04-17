@@ -33,7 +33,9 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
@@ -62,6 +64,52 @@ namespace onnx_mlir {
 namespace krnl {
 
 uint64_t KRNL_ENTRY_POINT_ID = 0;
+
+// Return true if the value owns the storge. A value defined by memref.alloc
+// owns the storage. A value defined by constant, krnl.Global, does not own
+// the storage (in the sense that the storage can not be freed)
+// The result determines whether the returned tensor owns the storage
+// It is assumed that bufferization dealloc pass already added bufferization
+// clone when necessary.
+// Currently, the ViewLikeOp and arith.select are traced back. Any other
+// cases? A general solution is suggested in issue#2033
+// If this function returns a false positive, seg fault may occur when the
+// storage is freed.
+// If this function returns false negative, memory leak may occur.
+static bool shouldOwn(Value v) {
+  bool result = true;
+  Operation *definingOp = v.getDefiningOp();
+  if (!definingOp)
+    // Block argument, do not own this since it is an input that can be owned
+    // by an input OMTensor.
+    result = false;
+  else {
+    // If output is just a view, trace back to find which op was producing the
+    // source memref.
+    while (auto viewOp = llvm::dyn_cast<ViewLikeOpInterface>(definingOp)) {
+      Value source = viewOp.getViewSource();
+      definingOp = source.getDefiningOp();
+      // Block argument, stop.
+      if (!definingOp)
+        break;
+    }
+    if (!definingOp)
+      // Block argument, do not own this since it is an input that can be
+      // owned by an input OMTensor.
+      result = false;
+    else if (llvm::dyn_cast<KrnlGlobalOp>(definingOp))
+      // Do not own a constant that is defined by KrnlGlobalOp.
+      result = false;
+    else if (auto selectOp = llvm::dyn_cast<arith::SelectOp>(definingOp)) {
+      // Temporary fix: the value come from select. Should further track
+      // the false and true inputs of arith.select. But leave it to PR
+      // which will focus on this problem.
+      result = shouldOwn(selectOp.getTrueValue()) &&
+               shouldOwn(selectOp.getFalseValue());
+    }
+  }
+  return result;
+}
 
 void determineOwnershipForOutputOMTensors(
     ModuleOp &module, SmallVectorImpl<bool> &outputOMTensorOwnerships) {
@@ -110,34 +158,11 @@ void determineOwnershipForOutputOMTensors(
   // Check, for each output, if it was transitively produced by a constant or
   // a block argument.
   for (Value v : returnOp->getOperands()) {
-    bool shouldOwn = true;
-    Operation *definingOp = v.getDefiningOp();
-    if (!definingOp)
-      // Block argument, do not own this since it is an input that can be owned
-      // by an input OMTensor.
-      shouldOwn = false;
-    else {
-      // If output is just a view, trace back to find which op was producing the
-      // source memref.
-      while (auto viewOp = llvm::dyn_cast<ViewLikeOpInterface>(definingOp)) {
-        Value source = viewOp.getViewSource();
-        definingOp = source.getDefiningOp();
-        // Block argument, stop.
-        if (!definingOp)
-          break;
-      }
-      if (!definingOp)
-        // Block argument, do not own this since it is an input that can be
-        // owned by an input OMTensor.
-        shouldOwn = false;
-      else if (llvm::dyn_cast<KrnlGlobalOp>(definingOp))
-        // Do not own a constant that is defined by KrnlGlobalOp.
-        shouldOwn = false;
-    }
-    outputOMTensorOwnerships.emplace_back(shouldOwn);
+    bool shouldOwnResult = shouldOwn(v);
+    outputOMTensorOwnerships.emplace_back(shouldOwnResult);
     LLVM_DEBUG(llvm::dbgs()
                << "Should the OMTensor own the entry function output? "
-               << shouldOwn << "\n");
+               << shouldOwnResult << "\n");
   }
 }
 
@@ -146,7 +171,10 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     ArrayRef<bool> constantOutputs, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+    std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
+    bool verifyInputTensors) {
   // TODO: look at what is done in
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
@@ -154,8 +182,10 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
 
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
   vector::populateVectorBroadcastLoweringPatterns(patterns);
-  vector::populateVectorContractLoweringPatterns(patterns);
-  vector::populateVectorTransposeLoweringPatterns(patterns);
+  vector::populateVectorContractLoweringPatterns(
+      patterns, vector::VectorTransformsOptions());
+  vector::populateVectorTransposeLoweringPatterns(
+      patterns, vector::VectorTransformsOptions());
 
   populateAffineToStdConversionPatterns(patterns);
   populateSCFToControlFlowConversionPatterns(patterns);
@@ -171,14 +201,14 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   arith::populateArithExpandOpsPatterns(patterns);
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateFuncToLLVMConversionPatterns(typeConverter, patterns);
-  populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
+  populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
   arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
 
   populateReconcileUnrealizedCastsPatterns(patterns);
   krnl::populateKrnlToLLVMConversion(typeConverter, patterns, ctx,
       constantOutputs, singleEntryPoint, entryGlobalOps, inSigGlobalOps,
-      outSigGlobalOps, verifyInputTensors);
+      outSigGlobalOps, inputMemRefTypes, outputMemRefTypes, verifyInputTensors);
 }
 
 bool hasSingleEntryPoint(ModuleOp &module) {
@@ -189,6 +219,41 @@ bool hasSingleEntryPoint(ModuleOp &module) {
     return WalkResult::advance();
   });
   return (i == 1);
+}
+
+/// Keep original MemRefTypes for inputs and outputs. These information will be
+/// used for constructing OMTensors for inputs and outputs. We have to record
+/// this information at this point before they are disappeared during the
+/// lowering to LLVM. For example, unsigned types do not exist at LLVM level,
+/// typed pointers becomes opaque if opaque point is enabled.
+void recordInputOutputMemRefTypes(ModuleOp &module,
+    std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+    std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes) {
+  module->walk([&](KrnlEntryPointOp entryOp) -> WalkResult {
+    StringRef entryPointFuncName =
+        entryOp.getOperation()
+            ->getAttrOfType<SymbolRefAttr>(
+                KrnlEntryPointOp::getEntryPointFuncAttrName())
+            .getLeafReference()
+            .getValue();
+    auto *entryPointFunc = module.lookupSymbol(entryPointFuncName);
+    assert(entryPointFunc && isa<func::FuncOp>(entryPointFunc) &&
+           "entry point func must exist and be an llvm func op");
+    auto entryPointTy = dyn_cast<func::FuncOp>(entryPointFunc)
+                            .getFunctionType()
+                            .dyn_cast<FunctionType>();
+    SmallVector<MemRefType, 4> inputTypes, outputTypes;
+    for (Type ty : entryPointTy.getInputs())
+      inputTypes.emplace_back(dyn_cast<MemRefType>(ty));
+    for (Type ty : entryPointTy.getResults())
+      outputTypes.emplace_back(dyn_cast<MemRefType>(ty));
+    inputMemRefTypes.emplace(
+        std::make_pair(entryPointFuncName.str(), inputTypes));
+    outputMemRefTypes.emplace(
+        std::make_pair(entryPointFuncName.str(), outputTypes));
+    return WalkResult::advance();
+  });
+  return;
 }
 
 /// This function emits three functions: omQueryEntryPoints, omInputSignature
@@ -387,14 +452,30 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   MLIRContext *ctx = &getContext();
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
+
+  // There are many places where we still rely on non-opaque pointers. Disable
+  // opaque-pointers until we migrated the affected code parts
+  options.useOpaquePointers = false;
+
   KRNL_ENTRY_POINT_ID = 0;
 
-  // Record entry point names and their input/output signatures.
+  // Global Op for entry point names and their input/output JSON signatures,
+  // those will generated when lowering KrnlEntryPoint.
   // This info is used to generate global signature functions.
   SmallVector<LLVM::GlobalOp, 1> entryGlobalOps, inSigGlobalOps,
       outSigGlobalOps;
 
-  // Determine the module has a single entry point or not.
+  // Keep original MemRefTypes for inputs and outputs. These information will be
+  // used for constructing OMTensors for inputs and outputs.
+  // We have to record this information at this point before they are
+  // disappeared during the lowering to LLVM. For example, unsigned types do
+  // not exist at LLVM level, typed pointers becomes opaque if opaque point is
+  // enabled.
+  std::map<std::string, SmallVector<MemRefType, 4>> inputMemRefTypes;
+  std::map<std::string, SmallVector<MemRefType, 4>> outputMemRefTypes;
+  recordInputOutputMemRefTypes(module, inputMemRefTypes, outputMemRefTypes);
+
+  // Determine whether the module has a single entry point or not.
   bool singleEntryPoint = hasSingleEntryPoint(module);
 
   // Request C wrapper emission via attribute.
@@ -428,7 +509,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
+      inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
+      verifyInputTensors);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -460,10 +542,14 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
     ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+    std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
+    bool verifyInputTensors) {
   krnl::populateLoweringKrnlEntryPointOpPattern(typeConverter, patterns, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
+      inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
+      verifyInputTensors);
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);

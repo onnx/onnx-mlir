@@ -4,7 +4,7 @@
 
 //===----------- Normalization.cpp - Lowering Normalization Ops -----------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,21 +19,22 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXBatchNormalizationInferenceModeOpLowering
-    : public ConversionPattern {
+    : public OpConversionPattern<ONNXBatchNormalizationInferenceModeOp> {
   ONNXBatchNormalizationInferenceModeOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXBatchNormalizationInferenceModeOp::getOperationName(), 1,
-            ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(
+      ONNXBatchNormalizationInferenceModeOp batchnormOp,
+      ONNXBatchNormalizationInferenceModeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // batchnorm{epsilon}(x, scale, bias, mean, variance) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
-    ONNXBatchNormalizationInferenceModeOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = batchnormOp.getOperation();
+    Location loc = ONNXLoc<ONNXBatchNormalizationInferenceModeOp>(op);
 
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+        rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -41,24 +42,16 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
-    Value epsilon = create.math.constant(memRefType.getElementType(),
-        cast<ONNXBatchNormalizationInferenceModeOp>(op)
-            .getEpsilon()
-            .convertToDouble());
-    Value operand = operandAdaptor.getX();
-    Value scale = operandAdaptor.getScale();
-    Value bias = operandAdaptor.getB();
-    Value mean = operandAdaptor.getMean();
-    Value variance = operandAdaptor.getVar();
+    Value epsilon = create.math.constant(
+        memRefType.getElementType(), adaptor.getEpsilon().convertToDouble());
+    Value operand = adaptor.getX();
+    Value scale = adaptor.getScale();
+    Value bias = adaptor.getB();
+    Value mean = adaptor.getMean();
+    Value variance = adaptor.getVar();
 
     // Insert an allocation and deallocation for the result of this operation.
-    bool insertDealloc = checkInsertDealloc(op);
-
-    Value alloc =
-        (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, {operand});
+    Value alloc = create.mem.alignedAlloc(operand, memRefType);
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
     // In case of N, C is assumed to be 1.
@@ -142,18 +135,20 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
   }
 };
 
-struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
+struct ONNXInstanceNormalizationOpLowering
+    : public OpConversionPattern<ONNXInstanceNormalizationOp> {
   ONNXInstanceNormalizationOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXInstanceNormalizationOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXInstanceNormalizationOp instanceOp,
+      ONNXInstanceNormalizationOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // instance_normalization{epsilon}(x, scale, bias) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
-    ONNXInstanceNormalizationOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = instanceOp.getOperation();
+    Location loc = ONNXLoc<ONNXInstanceNormalizationOp>(op);
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
         MathBuilder>
         create(rewriter, loc);
@@ -164,20 +159,14 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
     Type elementType = memRefType.getElementType();
-    Value epsilon = create.math.constant(elementType,
-        cast<ONNXInstanceNormalizationOp>(op).getEpsilon().convertToDouble());
-
-    Value inputMemRef = operandAdaptor.getInput();
-    Value scaleMemRef = operandAdaptor.getScale();
-    Value biasMemRef = operandAdaptor.getB();
+    Value epsilon = create.math.constant(
+        elementType, adaptor.getEpsilon().convertToDouble());
+    Value inputMemRef = adaptor.getInput();
+    Value scaleMemRef = adaptor.getScale();
+    Value biasMemRef = adaptor.getB();
 
     // Insert an allocation and deallocation for the result of this operation.
-    bool insertDealloc = checkInsertDealloc(op);
-    Value resMemRef =
-        (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, {inputMemRef});
+    Value resMemRef = create.mem.alignedAlloc(inputMemRef, memRefType);
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn
     // Shapes of scale, bias must be C.

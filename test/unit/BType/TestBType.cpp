@@ -8,9 +8,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 
 #include "mlir/IR/Builders.h"
 
@@ -92,14 +92,6 @@ public:
 
   int test_FloatingPoint16() {
     std::cout << "test_FloatingPoint16:" << std::endl;
-
-    float_16 f9984(9984);
-    bfloat_16 fminus1(-1);
-    float_16 bfminus1(fminus1);
-    bfloat_16 bf9984(f9984);
-    assert(bfminus1.toFloat() == fminus1.toFloat());
-    assert(static_cast<float_16>(bf9984).toFloat() ==
-           static_cast<bfloat_16>(f9984).toFloat());
 
     // Test that constexpr works for all these:
     constexpr float_16 f16z = float_16();

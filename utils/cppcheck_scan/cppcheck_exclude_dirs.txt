@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2023 The IBM Research Authors.
+# Directories to exclude from the cppcheck scan
+
+# Benchmark is only used during build and not included in a deliverable.
+/workdir/onnx-mlir/third_party/benchmark

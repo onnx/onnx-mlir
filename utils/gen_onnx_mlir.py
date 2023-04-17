@@ -57,7 +57,7 @@ check_operation_version = args.check_operation_version
 list_operation_version = args.list_operation_version
 
 # Change this variable only when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.13.0"
+current_onnx_version = "1.13.1"
 
 # Check the version of onnx package being used.
 if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
@@ -171,7 +171,7 @@ version_dict = {
  'LogSoftmax': [13],
  'Loop': [16],
  'LpNormalization': [1],
- 'LpPool': [11],
+ 'LpPool': [18],
  'MatMul': [13],
  'MatMulInteger': [10],
  'Max': [13],
@@ -200,7 +200,7 @@ version_dict = {
  'OptionalHasElement' : [18],
  'Or': [7],
  'PRelu': [16],
- 'Pad': [13, 11, 2],
+ 'Pad': [18, 13, 11, 2],
  'Pow': [15],
  'QLinearConv': [10],
  'QLinearMatMul': [10],
@@ -212,16 +212,16 @@ version_dict = {
  'RandomUniformLike': [1],
  'Range': [11],
  'Reciprocal': [13],
- 'ReduceL1': [13],
- 'ReduceL2': [13],
- 'ReduceLogSum': [13],
- 'ReduceLogSumExp': [13],
- 'ReduceMax': [13],
- 'ReduceMean': [13],
- 'ReduceMin': [13],
- 'ReduceProd': [13],
+ 'ReduceL1': [18, 13],
+ 'ReduceL2': [18, 13],
+ 'ReduceLogSum': [18, 13],
+ 'ReduceLogSumExp': [18, 13],
+ 'ReduceMax': [18, 13],
+ 'ReduceMean': [18, 13],
+ 'ReduceMin': [18, 13],
+ 'ReduceProd': [18, 13],
  'ReduceSum': [13, 11],
- 'ReduceSumSquare': [13],
+ 'ReduceSumSquare': [18, 13],
  'Relu': [14],
  'Reshape': [14],
  'Resize': [13, 11, 10],
@@ -299,11 +299,13 @@ special_op_handler = dict([
     ("MaxPool", "ImportNodeMaxPool"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
+    ("Scan", "ImportScan"),
 ])
 
 # Operations with custom assembly format (alphabetical order).
 OpsWithCustomAssemblyFormat = [
     'Constant',
+    'ConstantOfShape',
 ]
 
 # Operations supporting canonicalization (alphabetical order).
@@ -371,6 +373,7 @@ OpsWithVerifier = [
     'LessOrEqual',
     'LogSoftmax',
     'Max',
+    'MatMulInteger',
     'Mean',
     'Min',
     'Mod',
@@ -405,6 +408,18 @@ OpsWithVerifier = [
     'Upsample',
     'Where',
     'Xor'
+]
+
+# Op with fold function
+OpsWithFolder = [
+    'Constant',
+    'Squeeze',
+    'SqueezeV11'
+]
+
+# Op with ConstantLike trait
+OpsWithConstantLike = [
+    'Constant'
 ]
 
 # Op with Helper functions
@@ -472,11 +487,13 @@ OpsWithResultTypeInference = {
 #  - one with operands and attributes having aggregated parameters.
 custom_builder_unranked_ops_list = [
     'Abs',
+    'Conv',
     'Exp',
     'Identity',
     'Neg',
     'Pad',
     'ReduceLogSum',
+    'ReduceMaxV13',
     'ReduceMax',
     'ReduceSum',
     'ReduceSumSquare',
@@ -484,6 +501,7 @@ custom_builder_unranked_ops_list = [
     'Softmax',
     'Split',
     'Sqrt',
+    'Squeeze',
     'SqueezeV11',
     'UnsqueezeV11',
 ]
@@ -535,13 +553,47 @@ custom_definition_misc = dict([ ('Constant',
   ];'''
  )])
 
+# Get this order from TensorProto in https://github.com/onnx/onnx/blob/main/onnx/onnx.in.proto#L481.
+# enum DataType {
+#     UNDEFINED = 0;
+#     // Basic types.
+#     FLOAT = 1;   // float
+#     UINT8 = 2;   // uint8_t
+#     INT8 = 3;    // int8_t
+#     UINT16 = 4;  // uint16_t
+#     INT16 = 5;   // int16_t
+#     INT32 = 6;   // int32_t
+#     INT64 = 7;   // int64_t
+#     STRING = 8;  // string
+#     BOOL = 9;    // bool
+# 
+#     // IEEE754 half-precision floating-point format (16 bits wide).
+#     // This format has 1 sign bit, 5 exponent bits, and 10 mantissa bits.
+#     FLOAT16 = 10;
+# 
+#     DOUBLE = 11;
+#     UINT32 = 12;
+#     UINT64 = 13;
+#     COMPLEX64 = 14;     // complex with float32 real and imaginary components
+#     COMPLEX128 = 15;    // complex with float64 real and imaginary components
+# 
+#     // Non-IEEE floating-point format based on IEEE754 single-precision
+#     // floating-point number truncated to 16 bits.
+#     // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
+#     BFLOAT16 = 16;
+# 
+#     // Future extensions go here.
+#   }
 onnx_types = (
-    'bool', 'int8', 'int16', 'int32', 'int64', 'unknown', 'float16',
-    'float', 'double', 'complex64', 'complex128', 'string'
+    'undefined', 'float', 'uint8', 'int8', 'uint16', 'int16', 'int32', 'int64', 
+    'string', 'bool', 'float16', 'double', 'uint32', 'uint64',
+    'complex64', 'complex128', 'bfloat16'
 )
-tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64',
-    'BF16', 'F16', 'F32', 'F64', 'Complex<F32>', 'Complex<F64>',
-    'StringType'
+tblgen_types = (
+    'BF16', 'F32', 'AnyUI8', 'AnyI8', 'AnyUI16', 'AnyI16', 'AnyI32', 'AnyI64',
+    'StringType', 'AnyI1', 'F16', 'F64', 'AnyUI32', 'AnyUI64',
+    'Complex<F32>', 'Complex<F64>','BF16', 
+    
 )
 
 # Maximum count for actual type. Number more than MAX_NUM_TYPES will be used to encode
@@ -942,7 +994,7 @@ def parse_type_str(allowedType):
         'bfloat16' : 'BF16',
         'float' : 'F32',
         'double' : 'F64',
-        'unknown' : 'BF16',
+        'undefined' : 'BF16',
         'complex64' : 'Complex<F32>',
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
@@ -1032,6 +1084,11 @@ def gen_op_def(schema, with_version = False):
 
     # Generate decl for op traits.
     traits = ["Pure"]
+
+    # Generate ConstantLike traits.
+    if opName in OpsWithConstantLike:
+      traits.append("ConstantLike")
+
     # OpsWithShapeInference:
     # Now the ShapeInference traits are added to all operation.
     # Dummy implementations are added to ONNXOps.cpp.
@@ -1209,7 +1266,8 @@ def gen_op_def(schema, with_version = False):
     # Generate decl for verifier.
     if opName in OpsWithVerifier:
         s += indent + 'let hasVerifier = 1;\n'
-
+    if opName in OpsWithFolder:
+        s += indent + 'let hasFolder = 1;\n'
     s += '}\n\n'
     return s
 

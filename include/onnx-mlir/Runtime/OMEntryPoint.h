@@ -28,6 +28,9 @@ extern "C" {
  * An entry point name can be passed to functions `omInputSignature` and
  * `omOutputSignature` to query its input and output signatures, respectively.
  *
+ * The array returned by omQueryEntryPoints is not to be freed because
+ * the array is embedded in the compiled model.
+ *
  * @param numOfEntryPoints to get the number of entry points.
  * @return an array of strings. The array ends with NULL. For example:
  * ["run_add", "run_sub", NULL].

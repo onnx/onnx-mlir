@@ -88,6 +88,11 @@ add_numerical_unittest(TestScan
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
+  add_numerical_unittest(TestElementwise
+  TestElementwise.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
 add_numerical_unittest(TestUnique
   TestUnique.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}

@@ -23,7 +23,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOptionalOp::verify() {
-  if (getType().has_value() != isFromNone(getInput()))
+  if (getType().has_value() != isNoneValue(getInput()))
     return emitError(
         "Optional should have either type attribute or input value");
   return success();
@@ -72,6 +72,6 @@ LogicalResult ONNXOptionalHasElementOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Builder builder(getContext());
   Type scalarBoolType = RankedTensorType::get({}, builder.getI1Type());
-  getResult().setType(scalarBoolType);
+  getResult().setType(cast<TensorType>(scalarBoolType));
   return success();
 }

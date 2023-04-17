@@ -15,6 +15,8 @@ set(MHLO_LIBS
   StablehloRegister
   StablehloTypeInference
   VhloOps
+  VhloTypes
+  Version
   )
 
 install(TARGETS

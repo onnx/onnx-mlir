@@ -4,7 +4,7 @@
 
 //===------------------------- CompilerPasses.cpp -------------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,6 +23,7 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
@@ -56,13 +57,19 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
       std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
-  pm.addPass(onnx_mlir::createShapeInferencePass());
-  pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(onnx_mlir::createShapeInferencePass());
+  if (enableONNXHybridPass) {
+    // For starters only illustrating the new hybrid pass by replacing 3 passes
+    // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
+  } else {
+    pm.addPass(onnx_mlir::createShapeInferencePass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(onnx_mlir::createShapeInferencePass());
+  }
   // Convolution Optimization for CPU: enable when there are no accelerators.
   if (targetCPU) {
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createConvOptONNXToONNXPass(enableSimdDataLayout));
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
+        enableSimdDataLayout && !disableSimdOption));
     pm.addPass(onnx_mlir::createShapeInferencePass());
   }
   // There are more opportunities for const propagation once all tensors have
@@ -73,7 +80,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   if (onnxOpTransformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
     pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
-        onnxOpTransformReport, targetCPU, enableSimdDataLayout));
+        onnxOpTransformReport, targetCPU,
+        enableSimdDataLayout && !disableSimdOption));
   } else {
     // Statically add extra passes
     for (int i = 0; i < repeatOnnxTransform; i++) {
@@ -128,7 +136,9 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   if (enableInstrumentONNXSignature)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentONNXSignaturePass());
-  pm.addPass(onnx_mlir::createLowerToKrnlPass(optLevel, enableParallel));
+  pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
+      /*enableSIMD*/ optLevel >= 3 && !disableSimdOption,
+      /*enableParallel*/ enableParallel));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
@@ -136,7 +146,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createDisconnectKrnlDimFromAllocPass());
   pm.addPass(mlir::createCanonicalizerPass());
-} // namespace onnx_mlir
+}
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
@@ -171,9 +181,13 @@ void addKrnlToLLVMPasses(
     pm.addNestedPass<func::FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
   }
 
-  pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
+  // The pass below is needed for subview and collapseShape.. Unfortunately,
+  // MLIR supports only collapse for scalar loaded by scalar memory at this
+  // time. Uncomment if subview/collapse are used.
+  // pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertSCFToCFPass());
 
+  pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());

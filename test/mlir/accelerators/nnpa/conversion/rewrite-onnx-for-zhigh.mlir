@@ -355,15 +355,15 @@ func.func @test_matmul(%arg0: tensor<4x12x256x256xf32>, %arg1: tensor<4x12x256x6
 
 // CONSTPROP-LABEL:  func.func @test_matmul
 // CONSTPROP-SAME:   ([[PARAM_0_:%.+]]: tensor<4x12x256x256xf32>, [[PARAM_1_:%.+]]: tensor<4x12x256x64xf32>) -> tensor<4x12x256x64xf32> {
-// CONSTPROP:           [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 256, 256]> : tensor<3xi64>
-// CONSTPROP-DAG:       [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<4x12x256x256xf32>, tensor<3xi64>) -> tensor<48x256x256xf32>
-// CONSTPROP-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[-1, 256, 64]> : tensor<3xi64>
-// CONSTPROP:           [[VAR_3_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_2_]]) {allowzero = 0 : si64} : (tensor<4x12x256x64xf32>, tensor<3xi64>) -> tensor<48x256x64xf32>
-// CONSTPROP-DAG:       [[VAR_4_:%.+]] = "onnx.MatMul"([[VAR_1_]], [[VAR_3_]]) : (tensor<48x256x256xf32>, tensor<48x256x64xf32>) -> tensor<48x256x64xf32>
-// CONSTPROP-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<[4, 12, 256, 64]> : tensor<4xi64>
-// CONSTPROP:           [[VAR_6_:%.+]] = "onnx.Reshape"([[VAR_4_]], [[VAR_5_]]) {allowzero = 0 : si64} : (tensor<48x256x64xf32>, tensor<4xi64>) -> tensor<4x12x256x64xf32>
+// CONSTPROP-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 256, 256]> : tensor<3xi64>
+// CONSTPROP-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[-1, 256, 64]> : tensor<3xi64>
+// CONSTPROP-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[4, 12, 256, 64]> : tensor<4xi64>
+// CONSTPROP-NOT: separator of consecutive DAGs
+// CONSTPROP-DAG:       [[VAR_3_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<4x12x256x256xf32>, tensor<3xi64>) -> tensor<48x256x256xf32>
+// CONSTPROP-DAG:       [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<4x12x256x64xf32>, tensor<3xi64>) -> tensor<48x256x64xf32>
+// CONSTPROP:           [[VAR_5_:%.+]] = "onnx.MatMul"([[VAR_3_]], [[VAR_4_]]) : (tensor<48x256x256xf32>, tensor<48x256x64xf32>) -> tensor<48x256x64xf32>
+// CONSTPROP:           [[VAR_6_:%.+]] = "onnx.Reshape"([[VAR_5_]], [[VAR_2_]]) {allowzero = 0 : si64} : (tensor<48x256x64xf32>, tensor<4xi64>) -> tensor<4x12x256x64xf32>
 // CONSTPROP:           return [[VAR_6_]] : tensor<4x12x256x64xf32>
-// CONSTPROP:         }
 }
 
 // -----
@@ -374,13 +374,12 @@ func.func @test_matmul_broadcast_1(%arg0: tensor<4x12x256x256xf32>, %arg1: tenso
 
 // CONSTPROP-LABEL:  func.func @test_matmul_broadcast_1
 // CONSTPROP-SAME:   ([[PARAM_0_:%.+]]: tensor<4x12x256x256xf32>, [[PARAM_1_:%.+]]: tensor<256x64xf32>) -> tensor<4x12x256x64xf32> {
-// CONSTPROP:           [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 256, 256]> : tensor<3xi64>
-// CONSTPROP:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<4x12x256x256xf32>, tensor<3xi64>) -> tensor<48x256x256xf32>
-// CONSTPROP-DAG:       [[VAR_2_:%.+]] = "onnx.MatMul"([[VAR_1_]], [[PARAM_1_]]) : (tensor<48x256x256xf32>, tensor<256x64xf32>) -> tensor<48x256x64xf32>
-// CONSTPROP-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[4, 12, 256, 64]> : tensor<4xi64>
-// CONSTPROP:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_2_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<48x256x64xf32>, tensor<4xi64>) -> tensor<4x12x256x64xf32>
+// CONSTPROP-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 256, 256]> : tensor<3xi64>
+// CONSTPROP-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[4, 12, 256, 64]> : tensor<4xi64>
+// CONSTPROP:           [[VAR_2_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<4x12x256x256xf32>, tensor<3xi64>) -> tensor<48x256x256xf32>
+// CONSTPROP:           [[VAR_3_:%.+]] = "onnx.MatMul"([[VAR_2_]], [[PARAM_1_]]) : (tensor<48x256x256xf32>, tensor<256x64xf32>) -> tensor<48x256x64xf32>
+// CONSTPROP:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_3_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<48x256x64xf32>, tensor<4xi64>) -> tensor<4x12x256x64xf32>
 // CONSTPROP:           return [[VAR_4_]] : tensor<4x12x256x64xf32>
-// CONSTPROP:         }
 }
 
 // -----
@@ -392,9 +391,9 @@ func.func @test_matmul_broadcast_2(%arg0: tensor<256x256xf32>, %arg1: tensor<4x1
 // CONSTPROP-LABEL:  func.func @test_matmul_broadcast_2
 // CONSTPROP-SAME:   ([[PARAM_0_:%.+]]: tensor<256x256xf32>, [[PARAM_1_:%.+]]: tensor<4x12x256x64xf32>) -> tensor<4x12x256x64xf32> {
 // CONSTPROP:           [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 256, 64]> : tensor<3xi64>
+// CONSTPROP-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[4, 12, 256, 64]> : tensor<4xi64>
 // CONSTPROP:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<4x12x256x64xf32>, tensor<3xi64>) -> tensor<48x256x64xf32>
 // CONSTPROP-DAG:       [[VAR_2_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<256x256xf32>, tensor<48x256x64xf32>) -> tensor<48x256x64xf32>
-// CONSTPROP-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[4, 12, 256, 64]> : tensor<4xi64>
 // CONSTPROP:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_2_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<48x256x64xf32>, tensor<4xi64>) -> tensor<4x12x256x64xf32>
 // CONSTPROP:           return [[VAR_4_]] : tensor<4x12x256x64xf32>
 // CONSTPROP:         }
@@ -405,36 +404,29 @@ func.func @test_matmul_broadcast_2(%arg0: tensor<256x256xf32>, %arg1: tensor<4x1
 func.func @test_matmul_broadcast_dyn_dims(%arg0: tensor<256x?xf32>, %arg1: tensor<4x12x?x?xf32>) -> (tensor<4x12x256x?xf32>) {
     %0= "onnx.MatMul"(%arg0, %arg1) : (tensor<256x?xf32>, tensor<4x12x?x?xf32>) -> tensor<4x12x256x?xf32>
     return %0 : tensor<4x12x256x?xf32>
-
 // CONSTPROP-LABEL:  func.func @test_matmul_broadcast_dyn_dims
 // CONSTPROP-SAME:   ([[PARAM_0_:%.+]]: tensor<256x?xf32>, [[PARAM_1_:%.+]]: tensor<4x12x?x?xf32>) -> tensor<4x12x256x?xf32> {
-// CONSTPROP-DAG:       [[VAR_0_:%.+]] = "onnx.Shape"([[PARAM_1_]]) {start = 0 : si64} : (tensor<4x12x?x?xf32>) -> tensor<4xi64>
-// CONSTPROP-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
-// CONSTPROP-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
-// CONSTPROP-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
-// CONSTPROP-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
-// CONSTPROP-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<4> : tensor<1xi64>
-// CONSTPROP:           [[VAR_6_:%.+]] = "onnx.Slice"([[VAR_0_]], [[VAR_4_]], [[VAR_5_]], [[VAR_1_]], [[VAR_2_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
-// CONSTPROP:           [[VAR_7_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_6_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
-// CONSTPROP:           [[VAR_8_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_7_]]) {allowzero = 0 : si64} : (tensor<4x12x?x?xf32>, tensor<3xi64>) -> tensor<?x?x?xf32>
-// CONSTPROP-DAG:       [[VAR_9_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_8_]]) : (tensor<256x?xf32>, tensor<?x?x?xf32>) -> tensor<?x256x?xf32>
-// CONSTPROP-DAG:       [[VAR_10_:%.+]] = "onnx.Shape"([[PARAM_0_]]) {start = 0 : si64} : (tensor<256x?xf32>) -> tensor<2xi64>
-// CONSTPROP-DAG:       [[VAR_11_:%.+]] = "onnx.Shape"([[PARAM_1_]]) {start = 0 : si64} : (tensor<4x12x?x?xf32>) -> tensor<4xi64>
-// CONSTPROP-DAG:       [[VAR_12_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
-// CONSTPROP-DAG:       [[VAR_13_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
-// CONSTPROP-DAG:       [[VAR_14_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
-// CONSTPROP-DAG:       [[VAR_15_:%.+]] = onnx.Constant dense<4> : tensor<1xi64>
-// CONSTPROP-DAG:       [[VAR_16_:%.+]] = onnx.Constant dense<3> : tensor<1xi64>
-// CONSTPROP-DAG:       [[VAR_17_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
-// CONSTPROP-DAG:       [[VAR_18_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
+// CONSTPROP-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<3> : tensor<1xi64>
+// CONSTPROP-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CONSTPROP-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<4> : tensor<1xi64>
+// CONSTPROP-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
+// CONSTPROP-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CONSTPROP-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CONSTPROP-DAG:       [[VAR_6_:%.+]] = "onnx.Shape"([[PARAM_1_]]) {start = 0 : si64} : (tensor<4x12x?x?xf32>) -> tensor<4xi64>
+// CONSTPROP:           [[VAR_7_:%.+]] = "onnx.Slice"([[VAR_6_]], [[VAR_3_]], [[VAR_2_]], [[VAR_4_]], [[VAR_1_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CONSTPROP:           [[VAR_8_:%.+]] = "onnx.Concat"([[VAR_5_]], [[VAR_7_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>) -> tensor<3xi64>
+// CONSTPROP:           [[VAR_9_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_8_]]) {allowzero = 0 : si64} : (tensor<4x12x?x?xf32>, tensor<3xi64>) -> tensor<?x?x?xf32>
+// CONSTPROP-DAG:       [[VAR_10_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_9_]]) : (tensor<256x?xf32>, tensor<?x?x?xf32>) -> tensor<?x256x?xf32>
+// CONSTPROP-DAG:       [[VAR_11_:%.+]] = "onnx.Shape"([[PARAM_0_]]) {start = 0 : si64} : (tensor<256x?xf32>) -> tensor<2xi64>
+// CONSTPROP-DAG:       [[VAR_12_:%.+]] = "onnx.Shape"([[PARAM_1_]]) {start = 0 : si64} : (tensor<4x12x?x?xf32>) -> tensor<4xi64>
 // CONSTPROP-NOT: separator of consecutive DAGs
-// CONSTPROP-DAG:       [[VAR_19_:%.+]] = "onnx.Slice"([[VAR_11_]], [[VAR_12_]], [[VAR_18_]], [[VAR_12_]], [[VAR_13_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
-// CONSTPROP-DAG:       [[VAR_20_:%.+]] = "onnx.Slice"([[VAR_10_]], [[VAR_17_]], [[VAR_14_]], [[VAR_12_]], [[VAR_13_]]) : (tensor<2xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
-// CONSTPROP-DAG:       [[VAR_21_:%.+]] = "onnx.Slice"([[VAR_11_]], [[VAR_16_]], [[VAR_15_]], [[VAR_12_]], [[VAR_13_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
-// CONSTPROP:           [[VAR_22_:%.+]] = "onnx.Concat"([[VAR_19_]], [[VAR_20_]], [[VAR_21_]]) {axis = 0 : si64} : (tensor<2xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
-// CONSTPROP:           [[VAR_23_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_22_]]) {allowzero = 0 : si64} : (tensor<?x256x?xf32>, tensor<4xi64>) -> tensor<4x12x256x?xf32>
-// CONSTPROP:           return [[VAR_23_]] : tensor<4x12x256x?xf32>
-// CONSTPROP:         }
+// CONSTPROP-DAG:       [[VAR_13_:%.+]] = "onnx.Slice"([[VAR_12_]], [[VAR_4_]], [[VAR_3_]], [[VAR_4_]], [[VAR_1_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CONSTPROP-DAG:       [[VAR_14_:%.+]] = "onnx.Slice"([[VAR_11_]], [[VAR_4_]], [[VAR_1_]], [[VAR_4_]], [[VAR_1_]]) : (tensor<2xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+// CONSTPROP-DAG:       [[VAR_15_:%.+]] = "onnx.Slice"([[VAR_12_]], [[VAR_0_]], [[VAR_2_]], [[VAR_4_]], [[VAR_1_]]) : (tensor<4xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+// CONSTPROP:           [[VAR_16_:%.+]] = "onnx.Concat"([[VAR_13_]], [[VAR_14_]], [[VAR_15_]]) {axis = 0 : si64} : (tensor<2xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CONSTPROP:           [[VAR_17_:%.+]] = "onnx.Reshape"([[VAR_10_]], [[VAR_16_]]) {allowzero = 0 : si64} : (tensor<?x256x?xf32>, tensor<4xi64>) -> tensor<4x12x256x?xf32>
+// CONSTPROP:           return [[VAR_17_]] : tensor<4x12x256x?xf32>
+
 }
 
 // -----
@@ -533,9 +525,9 @@ func.func @softmax_nd_to_2d(%arg0: tensor<4x12x256x256xf32>) -> (tensor<4x12x256
 // CONSTPROP-LABEL:  func.func @softmax_nd_to_2d
 // CONSTPROP-SAME:   ([[PARAM_0_:%.+]]: tensor<4x12x256x256xf32>) -> tensor<4x12x256x256xf32> {
 // CONSTPROP:           [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 256, 256]> : tensor<3xi64>
+// CONSTPROP-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[4, 12, 256, 256]> : tensor<4xi64>
 // CONSTPROP:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<4x12x256x256xf32>, tensor<3xi64>) -> tensor<48x256x256xf32>
 // CONSTPROP-DAG:       [[VAR_2_:%.+]] = "onnx.Softmax"([[VAR_1_]]) {axis = -1 : si64} : (tensor<48x256x256xf32>) -> tensor<48x256x256xf32>
-// CONSTPROP-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[4, 12, 256, 256]> : tensor<4xi64>
 // CONSTPROP:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_2_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<48x256x256xf32>, tensor<4xi64>) -> tensor<4x12x256x256xf32>
 // CONSTPROP:           return [[VAR_4_]] : tensor<4x12x256x256xf32>
 // CONSTPROP:         }
@@ -552,9 +544,10 @@ func.func @test_onnx_conv2d_notset_with_pads(%arg0: tensor<5x3x32x32xf32>, %arg1
   // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[0, 0, 0, 0, 0, 0, 2, 2]> : tensor<8xi64>
   // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
-  // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Pad"([[PARAM_0_]], [[VAR_1_]], [[VAR_2_]]) {mode = "constant"} : (tensor<5x3x32x32xf32>, tensor<8xi64>, tensor<f32>) -> tensor<5x3x34x34xf32>
-  // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Conv"([[VAR_3_]], [[PARAM_1_]], [[VAR_0_]]) {auto_pad = "VALID", group = 1 : si64, kernel_shape = [2, 2], pads = [0, 0, 0, 0]} : (tensor<5x3x34x34xf32>, tensor<1024x3x2x2xf32>, none) -> tensor<5x1024x33x33xf32>
-  // CHECK:           return [[VAR_4_]] : tensor<5x1024x33x33xf32>
+  // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Pad"([[PARAM_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]]) {mode = "constant"} : (tensor<5x3x32x32xf32>, tensor<8xi64>, tensor<f32>, none) -> tensor<5x3x34x34xf32>
+  // CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Conv"([[VAR_4_]], [[PARAM_1_]], [[VAR_0_]]) {auto_pad = "VALID", group = 1 : si64, kernel_shape = [2, 2], pads = [0, 0, 0, 0]} : (tensor<5x3x34x34xf32>, tensor<1024x3x2x2xf32>, none) -> tensor<5x1024x33x33xf32>
+  // CHECK:           return [[VAR_5_]] : tensor<5x1024x33x33xf32>
   // CHECK:         }
 }
 
@@ -567,9 +560,10 @@ func.func @test_onnx_conv2d_with_bias_and_different_pads(%arg0: tensor<1x3x224x2
   // CHECK-SAME:   ([[PARAM_0_]]: tensor<1x3x224x224xf32>, [[PARAM_1_]]: tensor<64x3x7x7xf32>, [[PARAM_2_]]: tensor<64xf32>) -> tensor<1x64x112x112xf32> {
   // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 0, 3, 3, 0, 0, 3, 3]> : tensor<8xi64>
   // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
-  // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Pad"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]]) {mode = "constant"} : (tensor<1x3x224x224xf32>, tensor<8xi64>, tensor<f32>) -> tensor<1x3x230x230xf32>
-  // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Conv"([[VAR_2_]], [[PARAM_1_]], [[PARAM_2_]]) {auto_pad = "VALID", group = 1 : si64, kernel_shape = [7, 7], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x3x230x230xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
-  // CHECK:           return [[VAR_3_]] : tensor<1x64x112x112xf32>
+  // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Pad"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]], [[VAR_2_]]) {mode = "constant"} : (tensor<1x3x224x224xf32>, tensor<8xi64>, tensor<f32>, none) -> tensor<1x3x230x230xf32>
+  // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Conv"([[VAR_3_]], [[PARAM_1_]], [[PARAM_2_]]) {auto_pad = "VALID", group = 1 : si64, kernel_shape = [7, 7], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x3x230x230xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+  // CHECK:           return [[VAR_4_]] : tensor<1x64x112x112xf32>
   // CHECK:         }
 }
 

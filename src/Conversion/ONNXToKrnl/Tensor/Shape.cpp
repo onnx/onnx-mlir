@@ -4,7 +4,7 @@
 
 //===----------------- Shape.cpp - Lowering Shape Op ----------------------===//
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -20,15 +20,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXShapeOpLowering : public ConversionPattern {
+struct ONNXShapeOpLowering : public OpConversionPattern<ONNXShapeOp> {
   ONNXShapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXShapeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXShapeOp shapeOp, ONNXShapeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    Operation *op = shapeOp.getOperation();
+    Location loc = ONNXLoc<ONNXShapeOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
 
     // Get shape.
@@ -45,8 +48,8 @@ struct ONNXShapeOpLowering : public ConversionPattern {
     // TODO: if the dimensions are known at compile time
     // (shapeHelper.dimsForOutput literal), then we could use a constant array.
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Compute the data selected by the Shape operator.
     DimsExpr selectedData;

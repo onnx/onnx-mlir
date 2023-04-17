@@ -528,6 +528,18 @@ void IndexExpr::debugPrint(
   }
 }
 
+/*static*/ void IndexExpr::getDynSymbols(
+    llvm::SmallVectorImpl<IndexExpr> &indexExprList, // Input list.
+    llvm::SmallVectorImpl<Value> &dynSymbols) {      // Symbol for dyn ref.
+  // Set shape.
+  int64_t rank = indexExprList.size();
+  // For each dyn shape, enqueue its value in dynamic symbol list.
+  dynSymbols.clear();
+  for (int64_t i = 0; i < rank; ++i)
+    if (!indexExprList[i].isLiteral())
+      dynSymbols.emplace_back(indexExprList[i].getValue());
+}
+
 /*static*/ void IndexExpr::getOpOrFoldResults(
     SmallVectorImpl<IndexExpr> &indexExprList,
     SmallVectorImpl<OpFoldResult> &resList) {
@@ -1893,10 +1905,12 @@ void getIndexExprListFromShape(
     ArrayRef<int64_t> inputList, llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (int64_t item : inputList) {
-    if (item >= 0)
-      outputList.emplace_back(LiteralIndexExpr(item));
-    else
+    if (item == ShapedType::kDynamic)
       outputList.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
+    else {
+      assert(item >= 0 && "expected kDynamic, not -1");
+      outputList.emplace_back(LiteralIndexExpr(item));
+    }
   }
 }
 

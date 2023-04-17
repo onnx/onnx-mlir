@@ -4,7 +4,7 @@
 
 //===--------------- Conv.cpp - Lowering Convolution Op -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-//#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
@@ -20,11 +19,10 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXConvOpLowering : public ConversionPattern {
+struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
   ONNXConvOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXConvOp::getOperationName(), 1, ctx),
+      : OpConversionPattern(typeConverter, ctx),
         enableParallel(enableParallel) {}
   bool enableParallel;
 
@@ -228,15 +226,17 @@ struct ONNXConvOpLowering : public ConversionPattern {
     }
   }
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXConvOp convOp, ONNXConvOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ONNXConvOpAdaptor operandAdaptor(operands);
-    ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
+    Operation *op = convOp.getOperation();
+    Location loc = ONNXLoc<ONNXConvOp>(op);
+    ValueRange operands = adaptor.getOperands();
 
     // Get shape.
-    IndexExprBuilderForKrnl createIE(rewriter, loc);
-    ONNXConvOpShapeHelper shapeHelper(op, operands, &createIE);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
+        rewriter, loc);
+
+    ONNXConvOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
@@ -246,11 +246,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
-    convUnoptimized(
-        rewriter, convOp, operandAdaptor, shapeHelper, memRefType, alloc);
+    convUnoptimized(rewriter, convOp, adaptor, shapeHelper, memRefType, alloc);
 
     rewriter.replaceOp(op, alloc);
     return success();

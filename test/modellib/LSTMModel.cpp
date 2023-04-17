@@ -4,7 +4,7 @@
 
 //=============-- LSTMModel.cpp - Building LSTM Models for tests -============//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -80,7 +80,7 @@ bool LSTMLibBuilder::build() {
   func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
-  auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
+  Value noneVal = builder.create<ONNXNoneOp>(loc).getResult();
   auto xVal = entryBlock.getArgument(0);
   auto hVal = (isNoneH) ? noneVal : entryBlock.getArgument(1);
   auto cVal = (isNoneC) ? noneVal : entryBlock.getArgument(2);
@@ -136,9 +136,7 @@ bool LSTMLibBuilder::build() {
 
 bool LSTMLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 3;
-  OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
-  if (!list)
-    return false;
+  OMTensor* list[num];
   float dataRangeHLL = (isNoneH) ? 0.0 : dataRangeLB;
   float dataRangeHUL = (isNoneH) ? 0.0 : dataRangeUB;
   float dataRangeCLL = (isNoneC) ? 0.0 : dataRangeLB;
@@ -149,7 +147,7 @@ bool LSTMLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
       llvm::ArrayRef(hShape), dataRangeHLL, dataRangeHUL);
   list[2] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(cShape), dataRangeCLL, dataRangeCUL);
-  inputs = omTensorListCreateWithOwnership(list, num, true);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1] && list[2];
 }
 

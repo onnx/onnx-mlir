@@ -73,6 +73,35 @@ set_target_properties(OMExecutionSession
   POSITION_INDEPENDENT_CODE TRUE
   )
   
+# TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
+add_onnx_mlir_library(OMPyExecutionSessionBase
+  PyExecutionSessionBase.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  LINK_LIBS PUBLIC
+  OMExecutionSession
+  pybind11::embed
+  pybind11::python_link_helper
+  )
+if(MSVC)
+  target_link_libraries(OMPyExecutionSessionBase
+    PRIVATE pybind11::windows_extras
+  )
+endif()
+set_target_properties(OMPyExecutionSessionBase
+  PROPERTIES
+  POSITION_INDEPENDENT_CODE TRUE
+  )
+target_compile_definitions(OMPyExecutionSessionBase
+  PRIVATE
+  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
+  )
+target_include_directories(OMPyExecutionSessionBase
+  PRIVATE
+  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
+  )
+
 # When running on ubi8 image, shared lib backend tests fail with
 # the following error:
 #
@@ -117,7 +146,7 @@ target_include_directories(PyRuntime
   )
 target_link_libraries(PyRuntime
   PRIVATE
-  OMExecutionSession
+  OMPyExecutionSessionBase
   )
 llvm_update_compile_flags(PyRuntime)
 
@@ -144,7 +173,7 @@ target_include_directories(PyCompileAndRuntime
 target_link_libraries(PyCompileAndRuntime
   PRIVATE
   OMCompiler
-  OMExecutionSession
+  OMPyExecutionSessionBase
   )
 llvm_update_compile_flags(PyCompileAndRuntime)
 
