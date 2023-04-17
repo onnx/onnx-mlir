@@ -495,6 +495,20 @@ void DimAnalysis::visitDim(
     if (reshapeOp.getAllowzero() != 0)
       return;
 
+    Value data = reshapeOp.getData();
+    Value shape = reshapeOp.getShape();
+    Value output = reshapeOp.getReshaped();
+
+    // Get the dynamic dimension from shape. Use this to update the current
+    // dimension.
+    if (areDimsFromConcat(shape)) {
+      SmallVector<Value, 4> shapeDims;
+      getDims(shape, shapeDims);
+      Value dimFromShape = shapeDims[dimIndex];
+      DimT newSameDim(dimFromShape, dimIndex);
+      sameDims.insert(newSameDim);
+    }
+
     // The output dimension i can be from
     // - shape[i] or,
     // - data[j] if
@@ -507,21 +521,9 @@ void DimAnalysis::visitDim(
     // we can say that arg0[ii] == arg1[jj], that can be used to verify user
     // inputs.
 
-    // Get the dynamic dimension from shape. Use this to update the current
-    // dimension.
-    if (areDimsFromConcat(reshapeOp.getShape())) {
-      SmallVector<Value, 4> shapeDims;
-      getDims(reshapeOp.getShape(), shapeDims);
-      Value dimFromShape = shapeDims[dimIndex];
-      DimT newSameDim(dimFromShape, dimIndex);
-      sameDims.insert(newSameDim);
-    }
-
     // Get the dynamic dimension from data.
-    RankedTensorType dataType =
-        reshapeOp.getData().getType().dyn_cast<RankedTensorType>();
-    RankedTensorType outputType =
-        reshapeOp.getReshaped().getType().dyn_cast<RankedTensorType>();
+    RankedTensorType dataType = data.getType().dyn_cast<RankedTensorType>();
+    RankedTensorType outputType = output.getType().dyn_cast<RankedTensorType>();
     // Check if there is only one dynamic dimension in the data and output.
     bool isDataOK =
         (llvm::count(dataType.getShape(), ShapedType::kDynamic) == 1);
@@ -547,6 +549,34 @@ void DimAnalysis::visitDim(
              "Failed to obtain the index of the dynamic dimension in the data");
       DimT newSameDim(reshapeOp.getData(), *dynamicDimIndexInData);
       sameDims.insert(newSameDim);
+    }
+
+    // Special case: input and output have the same rank of 2, if one output dim
+    // is from an input dim, the other output dim must be from the remaining
+    // input dim.
+    //
+    // clang-format off
+    // ```mlir
+    // %cst_minus1 = onnx.Constant dense<-1> : tensor<1xi64>
+    // %0 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    // %1 = "onnx.Concat"(%cst_minus1, %0) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+    // %2 = "onnx.Reshape"(%arg0, %1) {allowzero = 0 : si64} : (tensor<?x?xi64>, tensor<2xi64>) -> tensor<?x?xi64>
+    // ```
+    // clang-format on
+    int64_t dataRank = dataType.getRank();
+    int64_t outputRank = outputType.getRank();
+    if ((dataRank == 2) && (outputRank == 2)) {
+      // Find if the output dim is from an input dim.
+      int64_t iDim = -1;
+      for (int64_t i = 0; i < dataRank; ++i) {
+        if (sameDynDim(data, i, output, 1 - dimIndex)) {
+          iDim = i;
+          // The other output dim must be the same as the other input dim.
+          DimT newSameDim(data, 1 - iDim);
+          sameDims.insert(newSameDim);
+          break;
+        }
+      }
     }
     return;
   }
