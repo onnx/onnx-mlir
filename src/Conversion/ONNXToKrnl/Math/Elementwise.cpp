@@ -1496,7 +1496,7 @@ public:
   // After fusion, the only store is for the last Op.
   // Therefore, the allocation should be the output of the last Op
   MemRefType updateOutputType(MemRefType outputType) {
-    if (!fusibleOpsIsEmpty() > 0) {
+    if (!fusibleOpsIsEmpty()) {
       Operation *lastOp = fusibleOps_[fusibleOps_.size() - 1];
       return MemRefType::get(
           outputType.getShape(), lastOp->getResults()[0]
