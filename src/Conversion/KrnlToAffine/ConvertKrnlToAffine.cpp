@@ -675,7 +675,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   ConversionTarget target(*ctx);
   // Legal/illegal ops.
   target.addIllegalOp<KrnlTerminatorOp>();
-
   // krnl.dim operations must be lowered prior to this pass.
   target.addIllegalOp<KrnlDimOp>();
   target.addIllegalOp<KrnlMatMulOp>();
@@ -685,6 +684,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
+  target.addLegalOp<UnrealizedConversionCastOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithDialect,
       mlir::memref::MemRefDialect, mlir::func::FuncDialect,
       mlir::vector::VectorDialect>();
