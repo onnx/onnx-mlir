@@ -52,14 +52,8 @@ namespace {
  */
 class ShapeInferencePass
     : public PassWrapper<ShapeInferencePass, OperationPass<func::FuncOp>> {
-private:
-  bool analyzeAllFunctions;
-
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ShapeInferencePass)
-
-  ShapeInferencePass(bool analyzeAllFunctions)
-      : analyzeAllFunctions(analyzeAllFunctions) {}
 
   StringRef getArgument() const override { return "shape-inference"; }
 
@@ -76,9 +70,6 @@ public:
 
   void runOnOperation() override {
     func::FuncOp f = getOperation();
-    if (!analyzeAllFunctions && !f.getName().ends_with("main_graph"))
-      return;
-
     auto &body = f.getBody();
     if (enablePatternShapeInference) {
       GreedyRewriteConfig config;
@@ -156,8 +147,8 @@ public:
 /*!
  * Create a Shape Inference pass.
  */
-std::unique_ptr<Pass> createShapeInferencePass(bool analyzeAllFunctions) {
-  return std::make_unique<ShapeInferencePass>(analyzeAllFunctions);
+std::unique_ptr<Pass> createShapeInferencePass() {
+  return std::make_unique<ShapeInferencePass>();
 }
 
 } // namespace onnx_mlir
