@@ -4175,8 +4175,6 @@ func.func @test_erf(%arg0: tensor<?x10xf32>) -> (tensor<*xf32>) {
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func @test_erf
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
-// CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant dense<1.000000e-03> : vector<4xf32>
-// CHECK-DAG:       [[VAR_cst_0_:%.+]] = arith.constant dense<1.12837923> : vector<4xf32>
 // CHECK-DAG:       [[VAR_cst_1_:%.+]] = arith.constant dense<0.327591091> : vector<4xf32>
 // CHECK-DAG:       [[VAR_cst_2_:%.+]] = arith.constant dense<1.06140542> : vector<4xf32>
 // CHECK-DAG:       [[VAR_cst_3_:%.+]] = arith.constant dense<-1.45315206> : vector<4xf32>
@@ -4227,10 +4225,7 @@ func.func @test_erf(%arg0: tensor<?x10xf32>) -> (tensor<*xf32>) {
 // CHECK-DAG:         [[VAR_24_:%.+]] = arith.cmpf ogt, [[LOAD_VAR_reshape_MEM_]], [[VAR_cst_9_]] : vector<4xf32>
 // CHECK-DAG:             [[VAR_25_:%.+]] = arith.mulf [[VAR_23_]], [[VAR_cst_7_]] : vector<4xf32>
 // CHECK-DAG:         [[VAR_26_:%.+]] = arith.select [[VAR_24_]], [[VAR_23_]], [[VAR_25_]] : vector<4xi1>, vector<4xf32>
-// CHECK-DAG:         [[VAR_27_:%.+]] = arith.mulf [[LOAD_VAR_reshape_MEM_]], [[VAR_cst_0_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_28_:%.+]] = arith.cmpf olt, [[VAR_6_]], [[VAR_cst_]] : vector<4xf32>
-// CHECK-DAG:             [[VAR_29_:%.+]] = arith.select [[VAR_28_]], [[VAR_27_]], [[VAR_26_]] : vector<4xi1>, vector<4xf32>
-// CHECK-DAG:             vector.store [[VAR_29_]], [[VAR_reshape_13_]]{{.}}[[VAR_4_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:             vector.store [[VAR_26_]], [[VAR_reshape_13_]]{{.}}[[VAR_4_]]{{.}} : memref<?xf32>, vector<4xf32>
 // CHECK-DAG:           }
 // CHECK-DAG:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK-DAG:         }

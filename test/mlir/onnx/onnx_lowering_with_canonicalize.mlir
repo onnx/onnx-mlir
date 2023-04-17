@@ -4359,8 +4359,6 @@ func.func @test_erf(%arg0: tensor<?x10xf32>) -> (tensor<*xf32>) attributes {} {
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func.func @test_erf
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
-// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e-03 : f32
-// CHECK-DAG:       [[CST_1_dot_12837923_:%.+]] = arith.constant 1.12837923 : f32
 // CHECK-DAG:       [[CST_0_dot_327591091_:%.+]] = arith.constant 0.327591091 : f32
 // CHECK-DAG:       [[CST_1_dot_06140542_:%.+]] = arith.constant 1.06140542 : f32
 // CHECK-DAG:       [[CST_minus_1_dot_45315206_:%.+]] = arith.constant -1.45315206 : f32
@@ -4399,10 +4397,7 @@ func.func @test_erf(%arg0: tensor<?x10xf32>) -> (tensor<*xf32>) attributes {} {
 // CHECK-DAG:         [[VAR_21_:%.+]] = arith.cmpf ogt, [[LOAD_PARAM_0_MEM_]], [[CST_0_dot_000000_]] : f32
 // CHECK-DAG:             [[VAR_22_:%.+]] = arith.mulf [[VAR_20_]], [[CST_minus_1_dot_000000_]] : f32
 // CHECK-DAG:         [[VAR_23_:%.+]] = arith.select [[VAR_21_]], [[VAR_20_]], [[VAR_22_]] : f32
-// CHECK-DAG:         [[VAR_24_:%.+]] = arith.mulf [[LOAD_PARAM_0_MEM_]], [[CST_1_dot_12837923_]] : f32
-// CHECK-DAG:         [[VAR_25_:%.+]] = arith.cmpf olt, [[VAR_3_]], [[CST_1_dot_000000_]] : f32
-// CHECK-DAG:             [[VAR_26_:%.+]] = arith.select [[VAR_25_]], [[VAR_24_]], [[VAR_23_]] : f32
-// CHECK-DAG:             krnl.store [[VAR_26_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
+// CHECK-DAG:             krnl.store [[VAR_23_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
 // CHECK-DAG:           }
 // CHECK-DAG:           return [[RES_]] : memref<?x10xf32>
 }

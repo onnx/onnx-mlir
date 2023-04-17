@@ -789,10 +789,6 @@ Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
   // https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/.
   // ```
   // def erf(x):
-  //   a1_smallx = 1.1283791671
-  //   if abs(x) < 0.001:
-  //     return a1_smallx * x
-  //
   //   a1 =  0.254829592
   //   a2 = -0.284496736
   //   a3 =  1.421413741
@@ -819,7 +815,6 @@ Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
   Value a4 = create.math.constant(elementType, -1.453152027);
   Value a5 = create.math.constant(elementType, 1.061405429);
   Value p = create.math.constant(elementType, 0.3275911);
-  Value a1_smallx = create.math.constant(elementType, 1.1283791671);
   Value absx = create.math.abs(operand);
   Value t =
       create.math.div(one, create.math.add(one, create.math.mul(p, absx)));
@@ -847,12 +842,7 @@ Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
                create.math.exp(
                    create.math.mul(create.math.mul(minusone, absx), absx))));
   Value sign = create.math.gt(operand, zero);
-  Value ans = create.math.select(sign, y, create.math.mul(y, minusone));
-  Value ans_smallx = create.math.mul(a1_smallx, operand);
-  // if abs(x) < 0.001, return ans_smallx otherwise return ans
-  Value epsilon = create.math.constant(elementType, 0.001);
-  Value is_smallx = create.math.lt(absx, epsilon);
-  return create.math.select(is_smallx, ans_smallx, ans);
+  return create.math.select(sign, y, create.math.mul(y, minusone));
 }
 
 //===----------------------------------------------------------------------===//
