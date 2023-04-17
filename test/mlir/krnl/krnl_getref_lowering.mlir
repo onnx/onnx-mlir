@@ -35,6 +35,7 @@ func.func @test_getref_lowering(%arg0: memref<2x2xf32>) -> memref<2x2xf32> {
   // CHECK: [[MEMREF4:%.+]] = llvm.insertvalue [[TYPED_MEMPOOL_ALLOC]], [[MEMREF3]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
 }
 
+// -----
 
 func.func @test_getref_lowering_dynamic(%arg0: memref<2x2xf32>) -> memref<2x?xf32> {
   %c13_i64 = arith.constant 13 : i64
