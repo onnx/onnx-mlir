@@ -70,12 +70,7 @@ struct ONNXHybridTransformPass
     config.useTopDownTraversal = true;
     (void)applyPatternsAndFoldGreedily(body, patterns, config);
 
-    Operation *returnOp = f.getBody().back().getTerminator();
-    assert(returnOp && "function must return");
-    FunctionType fty = f.getFunctionType();
-    assert(f.getNumResults() == returnOp->getNumOperands() &&
-           "returned results count much match function type");
-    f.setType(fty.clone(fty.getInputs(), returnOp->getOperandTypes()));
+    inferFunctionReturnShapes(f);
   }
 
   FrozenRewritePatternSet patterns;
