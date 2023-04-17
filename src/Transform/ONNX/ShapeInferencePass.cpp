@@ -13,8 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <regex>
-
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
@@ -30,16 +28,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 namespace {
-
-static SmallVector<func::FuncOp, 4> lookUpFuncsMatching(
-    ModuleOp module, std::regex pattern) {
-  SmallVector<func::FuncOp, 4> matchedFuncs;
-  module.walk([&](func::FuncOp funcOp) {
-    if (std::regex_search(funcOp.getName().str(), pattern))
-      matchedFuncs.emplace_back(funcOp);
-  });
-  return matchedFuncs;
-}
 
 /*!
  *  Function pass that performs shape inference by iterating over a list of
@@ -60,7 +48,7 @@ static SmallVector<func::FuncOp, 4> lookUpFuncsMatching(
  * purposes.
  */
 class ShapeInferencePass
-    : public PassWrapper<ShapeInferencePass, OperationPass<ModuleOp>> {
+    : public PassWrapper<ShapeInferencePass, OperationPass<func::FuncOp>> {
 private:
   bool analyzeAllFunctions;
 
@@ -77,22 +65,10 @@ public:
   }
 
   void runOnOperation() override {
-    auto module = getOperation();
-    if (!analyzeAllFunctions) {
-      auto matchedFuncs =
-          lookUpFuncsMatching(module, std::regex("[a-zA-Z0-9_]*main_graph"));
-      if (!matchedFuncs.empty()) {
-        for (auto func : matchedFuncs) {
-          if (failed(runShapeInferenceOn(func)))
-            signalPassFailure();
-        }
-        return;
-      }
-    }
-    auto result = module.walk([&](func::FuncOp funcOp) -> WalkResult {
-      return runShapeInferenceOn(funcOp);
-    });
-    if (result.wasInterrupted())
+    func::FuncOp f = getOperation();
+    if (!analyzeAllFunctions && !f.getName().ends_with("main_graph"))
+      return;
+    if (failed(runShapeInferenceOn(f)))
       signalPassFailure();
   }
 
