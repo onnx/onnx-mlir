@@ -91,6 +91,8 @@ public class OMTensor {
      * and Java array length is int.
      */
     private int _rank;
+    private boolean _nativeOwned;
+    private long _offset;
 
     /**
      * Constructor
@@ -597,8 +599,9 @@ public class OMTensor {
      * @param shape data shape
      * @param strides data stride
      * @param dataType data type
+     * @param offset Offset from the start of the allocation to the data pointer.
      */
-    protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType) {
+    protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType, long offset) {
         if (shape.length != strides.length)
             throw new IllegalArgumentException(
                     "shape.length (" + shape.length + ") != stride.length (" + strides.length + ")");
@@ -610,6 +613,9 @@ public class OMTensor {
         _rank = shape.length;
         _shape = shape;
         _strides = strides;
+        /* ByteBuffers passed into this constructor have allocations which need to be freed */
+        _nativeOwned = true;
+        _offset = offset;
     }
 
     /**
@@ -629,4 +635,15 @@ public class OMTensor {
     protected void setData(ByteBuffer data) {
         _data = data.order(nativeEndian);
     }
+
+    /* Cleans up tensor data that was allocated by the JNI code */
+    protected void finalize() throws Throwable {
+        if (_nativeOwned) {
+            free_tensor_data(_data, _offset);
+            _nativeOwned = false;
+        }
+    }
+
+    /* Utilize the Void object type to allow returning NULLs */
+    private static native Void free_tensor_data(ByteBuffer data, long offset);
 }

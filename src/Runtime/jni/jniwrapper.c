@@ -28,10 +28,13 @@
 
 #include "OnnxMlirRuntime.h"
 #include "com_ibm_onnxmlir_OMModel.h"
+#include "com_ibm_onnxmlir_OMTensor.h"
 #include "jnilog.h"
 
 extern OMTensorList *run_main_graph(OMTensorList *);
-
+/* Create a declaration for omTensorGetAllocatedPtr, which is necessary to
+   take ownership of the underlying storage of the tensor. */
+void* omTensorGetAllocatedPtr(OMTensor *);
 /* Declare type var, make call and assign to var, check condition.
  * It's assumed that a Java exception has already been thrown so
  * this call simply returns NULL.
@@ -175,7 +178,7 @@ const char *jnistr[] = {
     "com/ibm/onnxmlir/OMTensor",       /* 3  CLS_COM_IBM_ONNXMLIR_OMTENSOR    */
     "com/ibm/onnxmlir/OMTensorList",   /* 4  CLS_COM_IBM_ONNXMLIR_OMTENSORLIST*/
     "<init>",                          /* 5  CTOR_INIT                        */
-    "(Ljava/nio/ByteBuffer;[J[JI)V",   /* 6  CTOR_OMTENSOR                    */
+    "(Ljava/nio/ByteBuffer;[J[JIJ)V",  /* 6  CTOR_OMTENSOR                    */
     "([Lcom/ibm/onnxmlir/OMTensor;)V", /* 7  CTOR_OMTENSORLIST */
     "()Ljava/nio/ByteBuffer;",         /* 8  SIG_GET_DATA                     */
     "(Ljava/nio/ByteBuffer;)V",        /* 9  SIG_SET_DATA                     */
@@ -213,7 +216,7 @@ enum {
   CLS_COM_IBM_ONNXMLIR_OMTENSOR     = 3,  /* com/ibm/onnxmlir/OMTensor       */
   CLS_COM_IBM_ONNXMLIR_OMTENSORLIST = 4,  /* com/ibm/onnxmlir/OMTensorList   */
   CTOR_INIT                         = 5,  /* <init>                          */
-  CTOR_OMTENSOR                     = 6,  /* (Ljava/nio/ByteBuffer;[J[JI)V   */
+  CTOR_OMTENSOR                     = 6,  /* (Ljava/nio/ByteBuffer;[J[JIJ)V  */
   CTOR_OMTENSORLIST                 = 7,  /* ([Lcom/ibm/onnxmlir/OMTensor;)V */
   SIG_GET_DATA                      = 8,  /* ()Ljava/nio/ByteBuffer;         */
   SIG_SET_DATA                      = 9,  /* (Ljava/nio/ByteBuffer;)V        */
@@ -598,9 +601,9 @@ jobject omtl_native_to_java(
      * If jni_owning is true, we take ownership by setting owner flag
      * to false. This means that when we call omTensorListDestroy
      * the data buffer will not be freed since it has been given to
-     * the Java direct byte buffer and the Java GC will be responsible
-     * for freeing the data buffer. This way we avoid copying the data
-     * buffer.
+     * the Java direct byte buffer and the Java OMTensor finalize()
+     * will be responsible for freeing the data buffer at Java GC time.
+     * This way we avoid copying the data buffer.
      *
      * If jni_owning is false, it means the data buffer is not freeable
      * due to one of the two following cases:
@@ -613,11 +616,16 @@ jobject omtl_native_to_java(
      * subject to GC, we must make a copy of the data buffer.
      */
     void *jbytebuffer_data = jni_data;
+    jlong jomt_offset = 0;
     if (jni_owning) {
       LIB_CALL(omTensorSetOwning(jni_omts[i], (int64_t)0), 1, env,
           japi->jecpt_cls, "");
-      LOG_PRINTF(LOG_DEBUG, "omt[%d]:%p data %p ownership taken", i,
-          jni_omts[i], jni_data);
+      LIB_TYPE_VAR_CALL(void *, jni_alloc, omTensorGetAllocatedPtr(jni_omts[i]),
+          jni_alloc != NULL, env, japi->jecpt_cls, "omg[%d]:alloc=%p", i,
+          jni_alloc);
+      LOG_PRINTF(LOG_DEBUG, "omt[%d]:%p data %p ownership taken. allocation %p", i,
+          jni_omts[i], jni_data, jni_alloc);
+      jomt_offset = (jlong)((char*)jni_data - (char*)jni_alloc);
     } else {
       LIB_VAR_CALL(jbytebuffer_data, malloc(jni_bufferSize),
           jbytebuffer_data != NULL, env, japi->jecpt_cls, "jbytebuffer_data=%p",
@@ -652,7 +660,7 @@ jobject omtl_native_to_java(
     /* Create the OMTensor Java object */
     JNI_TYPE_VAR_CALL(env, jobject, jobj_omt,
         (*env)->NewObject(env, japi->jomt_cls, japi->jomt_constructor,
-            jomt_data, jomt_shape, jomt_strides, jomt_dataType),
+            jomt_data, jomt_shape, jomt_strides, jomt_dataType, jomt_offset),
         jobj_omt != NULL, japi->jecpt_cls, "omt[%d]:jobj_omt=%p", i, jobj_omt);
 
     /* Set the OMTensor object in the object array */
@@ -909,4 +917,27 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
 #endif
 
   return java_osig;
+}
+
+JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMTensor_free_1tensor_1data(
+    JNIEnv *env, jclass cls, jobject jomt_data, jlong jomt_offset) {
+
+  log_init();
+
+  /* Find and initialize Java Exception class */
+  JNI_TYPE_VAR_CALL(env, jclass, jecpt_cls,
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_EXCEPTION]),
+      jecpt_cls != NULL, NULL, "Class java/lang/Exception not found");
+
+  /* Get direct buffer associated with data */
+  JNI_TYPE_VAR_CALL(env, void *, jni_data,
+      (*env)->GetDirectBufferAddress(env, jomt_data), jni_data != NULL,
+      jecpt_cls, "jni_data=%p", jni_data);
+
+  /* Free the data. By virtue of being here the data was allocated by the model or the JNI
+     and can be deleted. */
+  void *jomt_alloc = (void*)((char*)jni_data - (char*)jomt_offset);
+  LOG_PRINTF(LOG_DEBUG, "freeing native allocated buffer=%p", jomt_alloc);
+  free(jomt_alloc);
+  return NULL;
 }
