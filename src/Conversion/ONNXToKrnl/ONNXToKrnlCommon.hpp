@@ -76,7 +76,7 @@ struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...>
     : MultiDialectBuilder<Ts...> {
   MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : MultiDialectBuilder<Ts...>(b, loc), krnlOnnx(b, loc) {}
-  MultiDialectBuilder(const  DialectBuilder &db)
+  MultiDialectBuilder(const DialectBuilder &db)
       : MultiDialectBuilder<Ts...>(db), krnlOnnx(db) {}
   OnnxToKrnlBuilder krnlOnnx;
 };
