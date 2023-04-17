@@ -56,6 +56,12 @@ public:
       mlir::Operation &op, mlir::Value &operand, uint64_t operandRank,
       mlir::StringRef expectedRank);
 
+  /// Verifies whether two dimensions from two inputs have the same value.
+  static mlir::LogicalResult emitDimensionsMustHaveSameValueError(
+      mlir::Operation &op, const llvm::Twine &inputName1, uint64_t axisDim1,
+      int64_t dim1, const llvm::Twine &inputName2, uint64_t axisDim2,
+      int64_t dim2);
+
   /// Diagnostic message for dimension with unexpected value.
   static mlir::LogicalResult emitDimensionHasUnexpectedValueError(
       mlir::Operation &op, mlir::Value &operand, int64_t index, int64_t value,
