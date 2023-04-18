@@ -147,3 +147,31 @@ func.func @test_expand_from_concat_dims(%arg0: tensor<1x256xi64>, %arg1: tensor<
 // CHECK:           return [[VAR_3_]] : tensor<?x256xi64>
 // CHECK:         }
 }
+
+// -----
+
+// COM: input and output have the same rank of 2, and if one output dim is
+// from an input dim, the other output dim must be from the remaining input dim.
+
+func.func @test_reshape_rank_2(%arg0: tensor<?x?xi64>) -> tensor<?x?xi64> {
+  %cst_minus1 = onnx.Constant dense<-1> : tensor<1xi64>
+  %0 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+  %1 = "onnx.Concat"(%0, %cst_minus1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %2 = "onnx.Reshape"(%arg0, %1) {allowzero = 0 : si64} : (tensor<?x?xi64>, tensor<2xi64>) -> tensor<?x?xi64>
+  return %2: tensor<?x?xi64>
+
+// CHECK-LABEL:  func.func @test_reshape_rank_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi64>) -> tensor<?x?xi64> {
+// CHECK:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 1 : si64} : (tensor<?x?xi64>) -> ()
+// CHECK:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = 0 : si64} : (tensor<?x?xi64>) -> ()
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK:           "onnx.DimGroup"([[VAR_0_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<1xi64>) -> ()
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+// CHECK:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xi64>) -> ()
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_2_]]) {allowzero = 0 : si64} : (tensor<?x?xi64>, tensor<2xi64>) -> tensor<?x?xi64>
+// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<?x?xi64>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xi64>) -> ()
+// CHECK:           return [[VAR_3_]] : tensor<?x?xi64>
+// CHECK:         }
+}
