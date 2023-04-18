@@ -34,7 +34,7 @@
 extern OMTensorList *run_main_graph(OMTensorList *);
 /* Create a declaration for omTensorGetAllocatedPtr, which is necessary to
    take ownership of the underlying storage of the tensor. */
-void* omTensorGetAllocatedPtr(OMTensor *);
+void *omTensorGetAllocatedPtr(OMTensor *);
 /* Declare type var, make call and assign to var, check condition.
  * It's assumed that a Java exception has already been thrown so
  * this call simply returns NULL.
@@ -623,9 +623,9 @@ jobject omtl_native_to_java(
       LIB_TYPE_VAR_CALL(void *, jni_alloc, omTensorGetAllocatedPtr(jni_omts[i]),
           jni_alloc != NULL, env, japi->jecpt_cls, "omg[%d]:alloc=%p", i,
           jni_alloc);
-      LOG_PRINTF(LOG_DEBUG, "omt[%d]:%p data %p ownership taken. allocation %p", i,
-          jni_omts[i], jni_data, jni_alloc);
-      jomt_offset = (jlong)((char*)jni_data - (char*)jni_alloc);
+      LOG_PRINTF(LOG_DEBUG, "omt[%d]:%p data %p ownership taken. allocation %p",
+          i, jni_omts[i], jni_data, jni_alloc);
+      jomt_offset = (jlong)((char *)jni_data - (char *)jni_alloc);
     } else {
       LIB_VAR_CALL(jbytebuffer_data, malloc(jni_bufferSize),
           jbytebuffer_data != NULL, env, japi->jecpt_cls, "jbytebuffer_data=%p",
@@ -934,9 +934,9 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMTensor_free_1tensor_1data(
       (*env)->GetDirectBufferAddress(env, jomt_data), jni_data != NULL,
       jecpt_cls, "jni_data=%p", jni_data);
 
-  /* Free the data. By virtue of being here the data was allocated by the model or the JNI
-     and can be deleted. */
-  void *jomt_alloc = (void*)((char*)jni_data - (char*)jomt_offset);
+  /* Free the data. By virtue of being here the data was allocated by the model
+     or the JNI and can be deleted. */
+  void *jomt_alloc = (void *)((char *)jni_data - (char *)jomt_offset);
   LOG_PRINTF(LOG_DEBUG, "freeing native allocated buffer=%p", jomt_alloc);
   free(jomt_alloc);
   return NULL;
