@@ -775,10 +775,10 @@ struct ScalarOp<ONNXErfOp> {
 template <>
 double analyzeSimdFor<ONNXErfOp>(Type t, int64_t &von, int64_t &son) {
   return simdAnalysis(
-      {GenericOps::ArithmeticGop, GenericOps::CompareGop, GenericOps::DivGop,
+      {GenericOps::CompareGop, GenericOps::DivGop, GenericOps::FmaGop,
           GenericOps::MulGop, GenericOps::SelectGop, GenericOps::AbsGop,
           GenericOps::ExpGop},
-      {6, 2, 1, 11, 2, 1, 1}, t, von, son);
+      {1, 1, 6, 4, 1, 1, 1}, t, von, son);
 }
 
 template <>
@@ -816,33 +816,24 @@ Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
   Value a5 = create.math.constant(elementType, 1.061405429);
   Value p = create.math.constant(elementType, 0.3275911);
   Value absx = create.math.abs(operand);
-  Value t =
-      create.math.div(one, create.math.add(one, create.math.mul(p, absx)));
+  Value t = create.math.div(one, create.math.fma(p, absx, one));
   //   y = 1.0 -
   //       (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
   //       exp(-absx*absx)
-  Value y = create.math.sub(
-      one, create.math.mul(
-               create.math.mul(
-                   create.math.add(
-                       create.math.mul(
-                           create.math.add(
-                               create.math.mul(
-                                   create.math.add(
-                                       create.math.mul(
-                                           create.math.add(
-                                               create.math.mul(a5, t), a4),
-                                           t),
-                                       a3),
-                                   t),
-                               a2),
-                           t),
-                       a1),
-                   t),
-               create.math.exp(
-                   create.math.mul(create.math.mul(minusone, absx), absx))));
+  //  minusy = (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
+  //            exp(-absx*absx)
+  //           + (-1.0)
+  Value minusy = create.math.fma(
+      create.math.mul(
+          create.math.fma(
+              create.math.fma(
+                  create.math.fma(create.math.fma(a5, t, a4), t, a3), t, a2),
+              t, a1),
+          t),
+      create.math.exp(create.math.mul(create.math.mul(minusone, absx), absx)),
+      minusone);
   Value sign = create.math.gt(operand, zero);
-  return create.math.select(sign, y, create.math.mul(y, minusone));
+  return create.math.select(sign, create.math.mul(minusy, minusone), minusy);
 }
 
 //===----------------------------------------------------------------------===//

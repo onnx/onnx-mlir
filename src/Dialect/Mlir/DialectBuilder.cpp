@@ -205,6 +205,15 @@ Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
   llvm_unreachable("expected int");
 }
 
+// return (lhs * rhs) + acc
+Value MathBuilder::fma(Value lhs, Value rhs, Value acc) const {
+  assert((lhs.getType() == rhs.getType()) && (rhs.getType() == acc.getType()) &&
+         "expected same type");
+  if (lhs.getType().isa<VectorType>())
+    return b().create<vector::FMAOp>(loc(), lhs, rhs, acc);
+  return add(mul(lhs, rhs), acc);
+}
+
 Value MathBuilder::exp(Value val) const {
   if (isFloatWithVector(val.getType()))
     return b().create<math::ExpOp>(loc(), val);
