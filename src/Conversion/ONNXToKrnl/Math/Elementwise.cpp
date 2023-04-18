@@ -1495,17 +1495,13 @@ public:
 
   // After fusion, the only store is for the last Op.
   // Therefore, the allocation should be the output of the last Op
-  MemRefType updateOutputType(MemRefType outputType) {
+  MemRefType getOutputType(MemRefType outputType) {
     if (!fusibleOpsIsEmpty()) {
       Operation *lastOp = fusibleOps_[fusibleOps_.size() - 1];
-      return MemRefType::get(
-          outputType.getShape(), lastOp->getResults()[0]
-                                     .getType()
-                                     .template cast<ShapedType>()
-                                     .getElementType());
-    } else {
-      return outputType;
+      return MemRefType::get(outputType.getShape(),
+          getElementType(lastOp->getResults()[0].getType()));
     }
+    return outputType;
   }
 
   // Emit fusion Ops
@@ -1518,17 +1514,17 @@ public:
       // The current obstacle is that no easy way to know the type of Op,
       // which is needed by ONNXLoc<T>(op).
       Location loc = currentOp->getLoc();
-      Type currentElementType = currentOp->getResults()[0]
-                                    .getType()
-                                    .cast<ShapedType>()
-                                    .getElementType();
+      Type currentElementType =
+          getElementType(currentOp->getResults()[0].getType());
       finalResult = emitScalar(
           rewriter_, loc, currentOp, currentElementType, finalResult);
     }
     return finalResult;
   }
 
-  void replaceFuseOps(Value alloc) {
+  // Replace the last Op with allocated memref and erase the other Ops.
+  // When the fusible list is empty, the starting Op is the last.
+  void replaceOrEraseONNXOps(Value alloc) {
     auto previous = op_;
     for (Operation *fusedOp : fusibleOps_) {
       rewriter_.eraseOp(previous);
@@ -1538,6 +1534,7 @@ public:
   }
 
 }; // End of OpFusionHelper Declaration
+
 //===----------------------------------------------------------------------===//
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
@@ -1615,7 +1612,7 @@ struct ONNXElementwiseUnaryOpLowering
     // Try to fuse the unary elementwise consumers
     OpFusionHelper opFusionHelper(rewriter, op);
     opFusionHelper.findFusibleOps();
-    outputMemRefType = opFusionHelper.updateOutputType(outputMemRefType);
+    outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1673,7 +1670,7 @@ struct ONNXElementwiseUnaryOpLowering
     }
 
     // Replace the last Op with alloc and delete the other Ops
-    opFusionHelper.replaceFuseOps(alloc);
+    opFusionHelper.replaceOrEraseONNXOps(alloc);
     return success();
   }
 }; // namespace onnx_mlir
@@ -1741,7 +1738,7 @@ struct ONNXElementwiseBinaryOpLowering
     // Try to fuse the unary elementwise consumers
     OpFusionHelper opFusionHelper(rewriter, op);
     opFusionHelper.findFusibleOps();
-    outputMemRefType = opFusionHelper.updateOutputType(outputMemRefType);
+    outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1795,7 +1792,7 @@ struct ONNXElementwiseBinaryOpLowering
     }
 
     // Replace the last Op with alloc and delete the other Ops
-    opFusionHelper.replaceFuseOps(alloc);
+    opFusionHelper.replaceOrEraseONNXOps(alloc);
 
     return success();
   }
@@ -1857,7 +1854,7 @@ struct ONNXElementwiseVariadicOpLowering
     // Try to fuse the unary elementwise consumers
     OpFusionHelper opFusionHelper(rewriter, op);
     opFusionHelper.findFusibleOps();
-    outputMemRefType = opFusionHelper.updateOutputType(outputMemRefType);
+    outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
@@ -1922,7 +1919,7 @@ struct ONNXElementwiseVariadicOpLowering
     }
 
     // Replace the last Op with alloc and delete the other Ops
-    opFusionHelper.replaceFuseOps(alloc);
+    opFusionHelper.replaceOrEraseONNXOps(alloc);
     return success();
   }
 }; // namespace onnx_mlir
