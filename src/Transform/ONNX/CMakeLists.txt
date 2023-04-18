@@ -56,6 +56,16 @@ add_onnx_mlir_library(OMOpTransform
   MLIRTransforms
   )
 
+add_onnx_mlir_library(OMHybridTransform
+  ONNXHybridTransformPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMShapeInferenceOpInterface
+  MLIRPass
+  MLIRTransforms
+  )
+
 add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
   ONNXPreKrnlVerifyPass.cpp
 
@@ -72,19 +82,6 @@ add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   OMONNXOps
   OMONNXRewrite
   OMShapeInference
-  MLIRFuncDialect
-  MLIRPass
-  MLIRTransforms
-  )
-
-add_onnx_mlir_library(OMONNXDimAnalysis
-  ONNXDimAnalysis.cpp
-
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  OMONNXRewrite
-  OMShapeInference
-  OMShapeHelperOpInterface
   MLIRFuncDialect
   MLIRPass
   MLIRTransforms

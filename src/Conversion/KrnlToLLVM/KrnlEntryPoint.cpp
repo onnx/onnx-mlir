@@ -47,17 +47,24 @@ public:
   SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps;
   SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps;
   SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps;
+  std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes;
+  std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes;
   bool verifyInputTensors;
 
   KrnlEntryPointOpLowering(LLVMTypeConverter &typeConverter, MLIRContext *ctx,
       ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
       SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
       SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors)
+      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+      std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+      std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
+      bool verifyInputTensors)
       : OpRewritePattern<KrnlEntryPointOp>(ctx),
         outputOMTensorOwnerships(outputOMTensorOwnerships),
         singleEntryPoint(singleEntryPoint), entryGlobalOps(entryGlobalOps),
         inSigGlobalOps(inSigGlobalOps), outSigGlobalOps(outSigGlobalOps),
+        inputMemRefTypes(inputMemRefTypes),
+        outputMemRefTypes(outputMemRefTypes),
         verifyInputTensors(verifyInputTensors), typeConverter(typeConverter) {}
 
   LogicalResult matchAndRewrite(
@@ -86,9 +93,9 @@ public:
     // string of KrnlEntryPointOp.
     llvm::StringRef inSigJSON, outSigJSON;
     std::tie(inSigJSON, outSigJSON) = sigAttr.getValue().split('@');
-    SmallVector<Type, 4> elemInputTypes, elemOutputTypes;
+    SmallVector<Type, 4> elemInputTypes;
     getElementTypesFromSignature(context, inSigJSON, elemInputTypes);
-    getElementTypesFromSignature(context, outSigJSON, elemOutputTypes);
+    // getElementTypesFromSignature(context, outSigJSON, elemOutputTypes);
 
     // Rewrite Krnl Entry Point Operation to an LLVM function with a dynamic
     // signature. The signature is dynamic because it remains the same no matter
@@ -113,6 +120,15 @@ public:
     // signature-related functions later.
     recordEntryPointSignatures(module, dynEntryPointName, op, entryGlobalOps,
         inSigGlobalOps, outSigGlobalOps);
+
+    // When input and output MemRefs are lowered to LLVM Struct, there is
+    // no information about signed/unsigned integers anymore. In other words,
+    // integers are signless at the time of lowering this operation. To set data
+    // type for OMTensor correctly, we have to obtain element types from
+    // original MemRefTypes.
+    SmallVector<Type, 4> elemOutputTypes;
+    for (MemRefType ty : outputMemRefTypes[staticEntryPointFuncName.str()])
+      elemOutputTypes.emplace_back(ty.getElementType());
 
     // Start lowering the op.
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
@@ -645,10 +661,16 @@ void populateLoweringKrnlEntryPointOpPattern(LLVMTypeConverter &typeConverter,
     ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &inputMemRefTypes,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &outputMemRefTypes,
+    bool verifyInputTensors) {
   patterns.insert<KrnlEntryPointOpLowering>(typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
+      inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
+      verifyInputTensors);
 }
 
 } // namespace krnl

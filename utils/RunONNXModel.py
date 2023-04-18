@@ -74,10 +74,19 @@ parser.add_argument('--save-onnx',
 parser.add_argument('--verify',
                     choices=['onnxruntime', 'ref'],
                     help="Verify the output by using onnxruntime or reference"
-                    " inputs/outputs. By default, no verification")
+                    " inputs/outputs. By default, no verification. When being"
+                    " enabled, --verify-with-softmax or --verify-every-value"
+                    " must be used to specify verification mode")
 parser.add_argument('--verify-all-ops',
                     action='store_true',
                     help="Verify all operation outputs when using onnxruntime")
+parser.add_argument('--verify-with-softmax',
+                    action='store_true',
+                    help="Verify the result obtained by applying softmax "
+                    "to the output")
+parser.add_argument('--verify-every-value',
+                    action='store_true',
+                    help="Verify every value of the output using atol and rtol")
 parser.add_argument('--rtol',
                     type=str,
                     default="0.05",
@@ -115,7 +124,27 @@ data_group.add_argument('--shape-info',
                         help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
                         "Used to generate random inputs for the model if --load-ref is not set")
 
+parser.add_argument('--lower-bound',
+                    type=str,
+                    help="Lower bound values for each data type. Used inputs."
+                    " E.g. --lower-bound=int64:-10,float32:-0.2,uint8:1."
+                    " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
+                    " uint64, int64,float16, float32, float64")
+parser.add_argument('--upper-bound',
+                    type=str,
+                    help="Upper bound values for each data type. Used to generate random inputs."
+                    " E.g. --upper-bound=int64:10,float32:0.2,uint8:9."
+                    " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
+                    " uint64, int64, float16, float32, float64")
+
 args = parser.parse_args()
+if (args.verify and not (args.verify_with_softmax or args.verify_every_value)):
+    raise RuntimeError("Choose verification mode: --verify-with-softmax or "
+                       "--verify-every-value or both")
+if (args.verify_with_softmax and (not args.verify)):
+    raise RuntimeError("Must specify --verify to use --verify-with-softmax")
+if (args.verify_every_value and (not args.verify)):
+    raise RuntimeError("Must specify --verify to use --verify-every-value")
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
     raise RuntimeError(
@@ -155,15 +184,56 @@ MLIR_TYPE_TO_NP_TYPE = {
     'i32': np.dtype("int32"),
     'i16': np.dtype("int16"),
     'i8': np.dtype("int8"),
+    'ui64': np.dtype("uint64"),
+    'ui32': np.dtype("uint32"),
+    'ui16': np.dtype("uint16"),
+    'ui8': np.dtype("uint8"),
     'i1': np.dtype("bool"),
 }
 
+# Default lower bound for generating random inputs.
+DEFAULT_LB = {
+    'float64': -0.1,
+    'float32': -0.1,
+    'float16': -0.1,
+    'int64': -10,
+    'int32': -10,
+    'int16': -10,
+    'int8': -10,
+    'uint64': 0,
+    'uint32': 0,
+    'uint16': 0,
+    'uint8': 0,
+    # For some reason, random.uniform with lb/ub to 0/1 resulted in 1 only.
+    'bool': -10, # treated as int32
+}
+
+# Default upper bound for generating random inputs.
+DEFAULT_UB = {
+    'float64': 0.1,
+    'float32': 0.1,
+    'float16': 0.1,
+    'int64': 10,
+    'int32': 10,
+    'int16': 10,
+    'int8': 10,
+    'uint64': 10,
+    'uint32': 10,
+    'uint16': 10,
+    'uint8': 10,
+    # For some reason, random.uniform with lb/ub to 0/1 resulted in 1 only.
+    'bool': 9, # treated as int32
+}
 
 def ordinal(n):
     suffix = ['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]
     if 11 <= (n % 100) <= 13:
         suffix = 'th'
     return str(n) + suffix
+
+
+def softmax(x):
+    return np.exp(x)/sum(np.exp(x))
 
 
 def execute_commands(cmds):
@@ -290,21 +360,64 @@ def generate_random_input(input_signature, input_shapes):
         # Get element type.
         elem_type = sig['type']
         np_elem_type = MLIR_TYPE_TO_NP_TYPE[elem_type]
+
         # Set a range for random values.
+        custom_lb = {}
+        custom_ub = {}
+        # Get user's range if any.
+        if args.lower_bound:
+            for type_lbs in args.lower_bound.strip().split(","):
+                type_lb = type_lbs.split(":")
+                assert not (type_lb[0] in custom_lb), "Duplicate types"
+                custom_lb[type_lb[0]] = type_lb[1]
+        if args.upper_bound:
+            for type_ubs in args.upper_bound.strip().split(","):
+                type_ub = type_ubs.split(":")
+                assert not (type_ub[0] in custom_ub), "Duplicate types"
+                custom_ub[type_ub[0]] = type_ub[1]
+        DEFAULT_LB.update(custom_lb)
+        DEFAULT_UB.update(custom_ub)
+
         lb = ub = 0
         random_element_type = np_elem_type
-        if (np.issubdtype(np_elem_type, np.floating)):
-            lb = -1.0
-            ub = 1.0
-
-        elif (np.issubdtype(np_elem_type, np.integer)):
-            lb = -10
-            ub = 10
-        elif (np.issubdtype(np_elem_type, np.dtype(bool).type)):
+        if (np.issubdtype(np_elem_type, np.dtype(bool).type)):
             # For some reason, random.uniform with lb/ub to 0/1 resulted in 1 only.
-            lb = -10
-            ub = 9
+            lb = int(DEFAULT_LB["bool"])
+            ub = int(DEFAULT_UB["bool"])
             random_element_type = np.dtype("int32")
+        elif (np.issubdtype(np_elem_type, np.uint8)):
+            lb = int(DEFAULT_LB["uint8"])
+            ub = int(DEFAULT_UB["uint8"])
+        elif (np.issubdtype(np_elem_type, np.uint16)):
+            lb = int(DEFAULT_LB["uint16"])
+            ub = int(DEFAULT_UB["uint16"])
+        elif (np.issubdtype(np_elem_type, np.uint32)):
+            lb = int(DEFAULT_LB["uint32"])
+            ub = int(DEFAULT_UB["uint32"])
+        elif (np.issubdtype(np_elem_type, np.uint64)):
+            lb = int(DEFAULT_LB["uint64"])
+            ub = int(DEFAULT_UB["uint64"])
+        elif (np.issubdtype(np_elem_type, np.int8)):
+            lb = int(DEFAULT_LB["int8"])
+            ub = int(DEFAULT_UB["int8"])
+        elif (np.issubdtype(np_elem_type, np.int16)):
+            lb = int(DEFAULT_LB["int16"])
+            ub = int(DEFAULT_UB["int16"])
+        elif (np.issubdtype(np_elem_type, np.int32)):
+            lb = int(DEFAULT_LB["int32"])
+            ub = int(DEFAULT_UB["int32"])
+        elif (np.issubdtype(np_elem_type, np.int64)):
+            lb = int(DEFAULT_LB["int64"])
+            ub = int(DEFAULT_UB["int64"])
+        elif (np.issubdtype(np_elem_type, np.float64)):
+            lb = float(DEFAULT_LB["float64"])
+            ub = float(DEFAULT_UB["float64"])
+        elif (np.issubdtype(np_elem_type, np.float32)):
+            lb = float(DEFAULT_LB["float32"])
+            ub = float(DEFAULT_UB["float32"])
+        elif (np.issubdtype(np_elem_type, np.float16)):
+            lb = float(DEFAULT_LB["float16"])
+            ub = float(DEFAULT_UB["float16"])
         else:
             raise AssertionError("Unsuported element type")
         rinput = np.random.uniform(lb, ub, explicit_shape).astype(random_element_type)
@@ -325,7 +438,7 @@ def warning(msg):
 
 
 def main():
-    if not(args.model or args.load_so):
+    if not (args.model or args.load_so):
         print("error: no input model, use argument --model and/or --load-so.")
         print(parser.format_usage())
         exit(1)
@@ -479,14 +592,12 @@ def main():
                 os.mkdir(load_ref)
             for i in range(len(inputs)):
                 tensor = numpy_helper.from_array(inputs[i])
-                tensor_path = os.path.join(load_ref,
-                                           'input_{}.pb'.format(i))
+                tensor_path = os.path.join(load_ref, 'input_{}.pb'.format(i))
                 with open(tensor_path, 'wb') as f:
                     f.write(tensor.SerializeToString())
             for i in range(len(outs)):
                 tensor = numpy_helper.from_array(outs[i])
-                tensor_path = os.path.join(load_ref,
-                                           'output_{}.pb'.format(i))
+                tensor_path = os.path.join(load_ref, 'output_{}.pb'.format(i))
                 with open(tensor_path, 'wb') as f:
                     f.write(tensor.SerializeToString())
 
@@ -511,35 +622,45 @@ def main():
                 print("Invalid verify option")
                 exit(1)
 
-            # For each output tensor, compare results.
-            for i, name in enumerate(output_names):
-                print(
-                    "Verifying value of {}:{}".format(name,
-                                                      list(outs[i].shape)),
-                    "using atol={}, rtol={} ...".format(args.atol, args.rtol))
-                total_elements = 0
-                mismatched_elements = 0
-                for index, actual_val in np.ndenumerate(outs[i]):
-                    total_elements += 1
-                    ref_val = ref_outs[i][index]
-                    if (np.issubdtype(outs[i].dtype, np.dtype(bool).type)):
-                        if ref_val == actual_val:
-                            continue
+            # Verify using softmax first.
+            if (args.verify_with_softmax):
+                for i, name in enumerate(output_names):
+                    print(
+                        "Verifying using softmax for output {}:{}".format(name,
+                                                          list(outs[i].shape)))
+                    np.testing.assert_allclose(softmax(outs[i]), softmax(ref_outs[i]))
+                    print("  correct.\n")
+
+            # For each output tensor, compare every value.
+            if (args.verify_every_value):
+                for i, name in enumerate(output_names):
+                    print(
+                        "Verifying value of {}:{}".format(name,
+                                                          list(outs[i].shape)),
+                        "using atol={}, rtol={} ...".format(args.atol, args.rtol))
+                    total_elements = 0
+                    mismatched_elements = 0
+                    for index, actual_val in np.ndenumerate(outs[i]):
+                        total_elements += 1
+                        ref_val = ref_outs[i][index]
+                        if (np.issubdtype(outs[i].dtype, np.dtype(bool).type)):
+                            if ref_val == actual_val:
+                                continue
+                        else:
+                            # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+                            diff = float(args.atol) + float(args.rtol) * abs(ref_val)
+                            if (abs(actual_val - ref_val) <= diff):
+                                continue
+                        mismatched_elements += 1
+                        print("  at {}".format(index),
+                              "mismatch {} (actual)".format(actual_val),
+                              "vs {} (reference)".format(ref_val))
+                    if mismatched_elements == 0:
+                        print("  correct.\n")
                     else:
-                        # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                        diff = float(args.atol) + float(args.rtol) * abs(ref_val)
-                        if (abs(actual_val - ref_val) <= diff):
-                            continue
-                    mismatched_elements += 1
-                    print("  at {}".format(index),
-                          "mismatch {} (actual)".format(actual_val),
-                          "vs {} (reference)".format(ref_val))
-                if mismatched_elements == 0:
-                    print("  correct.\n".format(args.atol, args.rtol))
-                else:
-                    raise AssertionError(
-                        "  mismatched elements {}/{}.\n".format(
-                            mismatched_elements, total_elements))
+                        raise AssertionError(
+                            "  mismatched elements {}/{}.\n".format(
+                                mismatched_elements, total_elements))
 
 
 if __name__ == '__main__':

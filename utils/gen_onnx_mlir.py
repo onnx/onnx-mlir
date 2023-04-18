@@ -200,7 +200,7 @@ version_dict = {
  'OptionalHasElement' : [18],
  'Or': [7],
  'PRelu': [16],
- 'Pad': [13, 11, 2],
+ 'Pad': [18, 13, 11, 2],
  'Pow': [15],
  'QLinearConv': [10],
  'QLinearMatMul': [10],
@@ -299,6 +299,7 @@ special_op_handler = dict([
     ("MaxPool", "ImportNodeMaxPool"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
+    ("Scan", "ImportScan"),
 ])
 
 # Operations with custom assembly format (alphabetical order).
@@ -372,6 +373,7 @@ OpsWithVerifier = [
     'LessOrEqual',
     'LogSoftmax',
     'Max',
+    'MatMulInteger',
     'Mean',
     'Min',
     'Mod',

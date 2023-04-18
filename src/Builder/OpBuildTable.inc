@@ -132,7 +132,7 @@ op_dialect_version_map_["OptionalGetElement"] = {18};
 op_dialect_version_map_["OptionalHasElement"] = {18};
 op_dialect_version_map_["Or"] = {7};
 op_dialect_version_map_["PRelu"] = {16};
-op_dialect_version_map_["Pad"] = {13, 11, 2};
+op_dialect_version_map_["Pad"] = {18, 13, 11, 2};
 op_dialect_version_map_["Pow"] = {15};
 op_dialect_version_map_["QLinearConv"] = {10};
 op_dialect_version_map_["QLinearMatMul"] = {10};
@@ -444,6 +444,8 @@ import_handler_map_["PRelu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPReluOp>;
 import_handler_map_["Pad"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodePad;
+import_handler_map_["PadV13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV13Op>;
 import_handler_map_["PadV11"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV11Op>;
 import_handler_map_["PadV2"] = 
@@ -529,7 +531,7 @@ import_handler_map_["Round"] =
 import_handler_map_["STFT"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSTFTOp>;
 import_handler_map_["Scan"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXScanOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportScan;
 import_handler_map_["Scatter"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXScatterOp>;
 import_handler_map_["ScatterElements"] = 

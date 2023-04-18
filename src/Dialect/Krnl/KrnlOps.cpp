@@ -90,7 +90,7 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   SmallVector<Value, 4> allInputs;
   allInputs.emplace_back(resultVal);
   for (auto operand : operands) {
-    if (!isFromNone(operand))
+    if (!isNoneValue(operand))
       allInputs.emplace_back(operand);
   }
 
