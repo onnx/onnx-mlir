@@ -111,7 +111,7 @@ bool UniqueLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
     return false;
   list[0] = omTensorCreateWithRandomData<int64_t>(
       llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
-  inputs = omTensorListCreateWithOwnership(list, num, true);
+  inputs = omTensorListCreate(list, num);
   return inputs && list[0];
 }
 
