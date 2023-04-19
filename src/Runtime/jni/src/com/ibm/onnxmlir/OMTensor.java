@@ -2,6 +2,9 @@
 
 package com.ibm.onnxmlir;
 
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.DoubleBuffer;
@@ -9,6 +12,8 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Class describing the runtime information such as rank,
@@ -80,6 +85,78 @@ public class OMTensor {
             "COMPLEX128",
             "BFLOAT16",
     };
+
+    /**
+     * Reaper task for managing JNI-allocated resources. Weak References are
+     * created for the objects, and once the object is marked for removal, the
+     * underlying JNI data can be freed.
+     */
+    private static final class Reaper extends Thread {
+        private final Map<WeakReference<ByteBuffer>, ByteBuffer> _refMap =
+            new HashMap<>();
+        private final ReferenceQueue<ByteBuffer> _refQueue =
+            new ReferenceQueue<>();
+
+        public Reaper() {
+            /* Mark the thread as a reaper so it will not hold up the shutdown
+               of the JVM. */
+            setDaemon(true);
+        }
+
+        @Override
+        public void run() {
+            try {
+                for (;;) {
+                    Reference<? extends ByteBuffer> ref = _refQueue.remove();
+                    ByteBuffer allocation;
+                    synchronized (_refMap) {
+                        allocation = _refMap.remove(ref);
+                    }
+
+                    if (allocation != null) {
+                        free_data_jni(allocation);
+                    }
+                }
+            } catch (InterruptedException e) {
+            }
+        }
+
+        /**
+         * Registers an allocation to be cleaned up.
+         *
+         * The data and allocation objects should be two distinct
+         * {@link ByteBuffer} objects, even if they are pointing to the same
+         * exact location. This will avoid issues with the garbage collector
+         * suddenly seeing a new reference at cleanup time.
+         *
+         * @param data The buffered data to monitor.
+         * @param allocation The allocation for the data.
+         * @throws IllegalArgumentException if data and allocation are the same.
+         */
+         public void registerAllocation(ByteBuffer data, ByteBuffer allocation) {
+            /* Intentionally use == here to ensure the object itself is not the
+            same. */
+            if (data == allocation) {
+                throw new IllegalArgumentException("data and allocation objects must be distinct");
+            }
+
+            WeakReference<ByteBuffer> ref = new WeakReference<>(data, _refQueue);
+            /* Synchronization is only needed on _refMap since data is referenced
+               for the lifetime of this method, guaranteeing no race occuring
+               prior to being added to _refMap. */
+            synchronized (_refMap) {
+                _refMap.put(ref, allocation);
+            }
+         }
+    }
+
+    private static final Reaper _reaper;
+    static {
+        /* Start up the reaper daemon, which will be responsible for cleaning
+           up the JNI resources. */
+        _reaper = new Reaper();
+        _reaper.start();
+    }
 
     private final ByteOrder nativeEndian = ByteOrder.nativeOrder();
 
@@ -597,8 +674,9 @@ public class OMTensor {
      * @param shape data shape
      * @param strides data stride
      * @param dataType data type
+     * @param allocation the native allocation
      */
-    protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType) {
+    protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType, ByteBuffer allocation) {
         if (shape.length != strides.length)
             throw new IllegalArgumentException(
                     "shape.length (" + shape.length + ") != stride.length (" + strides.length + ")");
@@ -610,6 +688,12 @@ public class OMTensor {
         _rank = shape.length;
         _shape = shape;
         _strides = strides;
+
+        /* If the JNI is providing an allocation object, register it to be
+           reaped later. */
+        if (allocation != null) {
+            _reaper.registerAllocation(_data, allocation);
+        }
     }
 
     /**
@@ -629,4 +713,9 @@ public class OMTensor {
     protected void setData(ByteBuffer data) {
         _data = data.order(nativeEndian);
     }
+
+    /*
+     * Frees a JNI-allocated allocation.
+     */
+    private static native Void free_data_jni(ByteBuffer allocation);
 }

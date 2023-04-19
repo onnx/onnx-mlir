@@ -28,9 +28,11 @@
 
 #include "OnnxMlirRuntime.h"
 #include "com_ibm_onnxmlir_OMModel.h"
+#include "com_ibm_onnxmlir_OMTensor.h"
 #include "jnilog.h"
 
 extern OMTensorList *run_main_graph(OMTensorList *);
+void *omTensorGetAllocatedPtr(const OMTensor *);
 
 /* Declare type var, make call and assign to var, check condition.
  * It's assumed that a Java exception has already been thrown so
@@ -175,7 +177,7 @@ const char *jnistr[] = {
     "com/ibm/onnxmlir/OMTensor",       /* 3  CLS_COM_IBM_ONNXMLIR_OMTENSOR    */
     "com/ibm/onnxmlir/OMTensorList",   /* 4  CLS_COM_IBM_ONNXMLIR_OMTENSORLIST*/
     "<init>",                          /* 5  CTOR_INIT                        */
-    "(Ljava/nio/ByteBuffer;[J[JI)V",   /* 6  CTOR_OMTENSOR                    */
+    "(Ljava/nio/ByteBuffer;[J[JILjava/nio/ByteBuffer;)V", /* 6  CTOR_OMTENSOR */
     "([Lcom/ibm/onnxmlir/OMTensor;)V", /* 7  CTOR_OMTENSORLIST */
     "()Ljava/nio/ByteBuffer;",         /* 8  SIG_GET_DATA                     */
     "(Ljava/nio/ByteBuffer;)V",        /* 9  SIG_SET_DATA                     */
@@ -613,18 +615,19 @@ jobject omtl_native_to_java(
      * subject to GC, we must make a copy of the data buffer.
      */
     void *jbytebuffer_data = jni_data;
+    jobject jomt_alloc = NULL;
     if (jni_owning) {
       LIB_CALL(omTensorSetOwning(jni_omts[i], (int64_t)0), 1, env,
           japi->jecpt_cls, "");
       LOG_PRINTF(LOG_DEBUG, "omt[%d]:%p data %p ownership taken", i,
           jni_omts[i], jni_data);
-    } else {
-      LIB_VAR_CALL(jbytebuffer_data, malloc(jni_bufferSize),
-          jbytebuffer_data != NULL, env, japi->jecpt_cls, "jbytebuffer_data=%p",
-          jbytebuffer_data);
-      memcpy(jbytebuffer_data, jni_data, jni_bufferSize);
-      LOG_PRINTF(LOG_DEBUG, "omt[%d]:%p data %p copied into %p", i, jni_omts[i],
-          jni_data, jbytebuffer_data);
+      LIB_TYPE_VAR_CALL(void *, jni_alloc, omTensorGetAllocatedPtr(jni_omts[i]),
+          jni_alloc != NULL, env, japi->jecpt_cls, "omt[%d]:alloc=%p", i,
+          jni_alloc);
+      LOG_PRINTF(LOG_DEBUG, "omt[%d]:allocation: %p", i, jni_alloc);
+      JNI_VAR_CALL(env, jomt_alloc, (*env)->NewDirectByteBuffer(env, jni_alloc,
+          jomt_bufferSize), jomt_alloc != NULL, japi->jecpt_cls,
+          "omt[%d]:jomt_alloc=%p", i, jomt_alloc);
     }
     JNI_TYPE_VAR_CALL(env, jobject, jomt_data,
         (*env)->NewDirectByteBuffer(env, jbytebuffer_data, jomt_bufferSize),
@@ -652,7 +655,7 @@ jobject omtl_native_to_java(
     /* Create the OMTensor Java object */
     JNI_TYPE_VAR_CALL(env, jobject, jobj_omt,
         (*env)->NewObject(env, japi->jomt_cls, japi->jomt_constructor,
-            jomt_data, jomt_shape, jomt_strides, jomt_dataType),
+            jomt_data, jomt_shape, jomt_strides, jomt_dataType, jomt_alloc),
         jobj_omt != NULL, japi->jecpt_cls, "omt[%d]:jobj_omt=%p", i, jobj_omt);
 
     /* Set the OMTensor object in the object array */
@@ -909,4 +912,26 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
 #endif
 
   return java_osig;
+}
+
+JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMTensor_free_1data_1jni(
+    JNIEnv *env, jclass cls, jobject jomt_alloc) {
+
+  log_init();
+
+  /* Find and initialize Java Exception class */
+  JNI_TYPE_VAR_CALL(env, jclass, jecpt_cls,
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_EXCEPTION]),
+      jecpt_cls != NULL, NULL, "Class java/lang/Exception not found");
+
+  /* Get the raw allocation pointer */
+  JNI_TYPE_VAR_CALL(env, void *, jni_alloc,
+      (*env)->GetDirectBufferAddress(env, jomt_alloc), jni_alloc != NULL,
+      jecpt_cls, "jni_alloc=%p", jni_alloc);
+
+  LOG_PRINTF(LOG_DEBUG, "freeing allocation=%p", jni_alloc);
+  free(jni_alloc);
+
+  /* Return type is Void so we can safely return NULL. */
+  return NULL;
 }
