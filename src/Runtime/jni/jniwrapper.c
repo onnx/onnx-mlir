@@ -175,7 +175,7 @@ const char *jnistr[] = {
     "com/ibm/onnxmlir/OMTensor",       /* 3  CLS_COM_IBM_ONNXMLIR_OMTENSOR    */
     "com/ibm/onnxmlir/OMTensorList",   /* 4  CLS_COM_IBM_ONNXMLIR_OMTENSORLIST*/
     "<init>",                          /* 5  CTOR_INIT                        */
-    "(Ljava/nio/ByteBuffer;[J[JI)V",   /* 6  CTOR_OMTENSOR                    */
+    "(Ljava/nio/ByteBuffer;[J[JIZ)V",  /* 6  CTOR_OMTENSOR                    */
     "([Lcom/ibm/onnxmlir/OMTensor;)V", /* 7  CTOR_OMTENSORLIST */
     "()Ljava/nio/ByteBuffer;",         /* 8  SIG_GET_DATA                     */
     "(Ljava/nio/ByteBuffer;)V",        /* 9  SIG_SET_DATA                     */
