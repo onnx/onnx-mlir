@@ -86,6 +86,7 @@ public:
     Type int8Ty = IntegerType::get(context, 8);
     Type opaquePtrTy = typeConverter.getPointerType(int8Ty);
     Type int64Ty = IntegerType::get(context, 64);
+    Type omTensorPtrAddrTy = typeConverter.getPointerType(opaquePtrTy);
 
     // When enabling `useOpaquePointers=true` in LowerToLLVMOptions, there is no
     // element type information in the struct of a MemRefType. Hence, record
@@ -246,7 +247,6 @@ public:
       // Call API function to retrieve the i-th dynamic memref.
       Value idxVal = create.llvm.constant(int64Ty, (int64_t)(i - 1));
 
-      Type omTensorPtrAddrTy = typeConverter.getPointerType(opaquePtrTy);
       Value omTensorPtrAddr = create.llvm.getElemPtr_new(
           omTensorPtrAddrTy, opaquePtrTy, omTensorPtrArr, {idxVal});
       Value omTensorPtr = create.llvm.load_new(opaquePtrTy, omTensorPtrAddr);
@@ -308,13 +308,12 @@ public:
     Value numOutput =
         create.llvm.constant(int64Ty, (int64_t)outMemRefList.size());
     // Assume that OMTensor pointer size is 8
-    Value outOmtPtrsArr = create.llvm._alloca(
-        LLVM::LLVMPointerType::get(opaquePtrTy), numOutput, /*alignment=*/0);
+    Value outOmtPtrsArr = create.llvm._alloca_new(
+        omTensorPtrAddrTy, opaquePtrTy, numOutput, /*alignment=*/0);
 
     for (unsigned int i = 0; i < outMemRefList.size(); i++) {
       // Get the i-th memref returned, convert to a dynamic memref and store it
       // in the wrappedOutput.
-
       Value memRef = outMemRefList.at(i);
       auto outMemRefTy = memRef.getType().dyn_cast<LLVM::LLVMStructType>();
       int64_t outMemRefRank = krnl::getRankFromMemRefType(outMemRefTy);
@@ -331,12 +330,9 @@ public:
           outOwning, rewriter, loc, apiRegistry, module, typeConverter);
 
       Value idxVal = create.llvm.constant(int64Ty, (int64_t)i);
-
-      Type omTensorPtrAddrTy = typeConverter.getPointerType(opaquePtrTy);
-      // Value omTensorPtrAddr = create.llvm.getElemPtr_new(
-      //     opaquePtrTy, int8Ty, outOmtPtrsArr, {idxVal});
-
-      // create.llvm.store(outOMTensor, omTensorPtrAddr);
+      Value omTensorPtrAddr = create.llvm.getElemPtr_new(
+          omTensorPtrAddrTy, opaquePtrTy, outOmtPtrsArr, {idxVal});
+      create.llvm.store(outOMTensor, omTensorPtrAddr);
     }
 
     llvm::outs() << "tung: iam before calling CREATE_OMTENSOR_LIST\n";

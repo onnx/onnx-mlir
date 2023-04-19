@@ -136,12 +136,10 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
   // Extract the allocated pointer.
   Value outMemRefAllocatedPtr =
       create.llvm.extractValue(outMemRefTy.getBody()[0], outMemRef, {0});
-  outMemRefAllocatedPtr = create.llvm.bitcastI8Ptr(outMemRefAllocatedPtr);
 
   // Extract the aligned pointer.
   Value outMemRefAlignedPtr =
       create.llvm.extractValue(outMemRefTy.getBody()[1], outMemRef, {1});
-  outMemRefAlignedPtr = create.llvm.bitcastI8Ptr(outMemRefAlignedPtr);
 
   // Set ownership, allocated and aligned pointer.
   RuntimeAPI::callApi(rewriter, loc, apiRegistry, RuntimeAPI::API::SET_DATA,
