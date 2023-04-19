@@ -598,9 +598,11 @@ jobject omtl_native_to_java(
      * If jni_owning is true, we take ownership by setting owner flag
      * to false. This means that when we call omTensorListDestroy
      * the data buffer will not be freed since it has been given to
-     * the Java direct byte buffer and the Java GC will be responsible
-     * for freeing the data buffer. This way we avoid copying the data
-     * buffer.
+     * the Java direct byte buffer. However, the direct byte buffer
+     * created by NewDirectByteBuffer is not subject to Java GC so we
+     * pass clean=true to the OMTensor construct to initializ a cleaner
+     * to manually free the data buffer. This way we avoid copying the
+     * data buffer.
      *
      * If jni_owning is false, it means the data buffer is not freeable
      * due to one of the two following cases:
@@ -609,8 +611,9 @@ jobject omtl_native_to_java(
      *     responsible for freeing it
      *   - the data buffer is static
      *
-     * Either way, since the data buffer will be given to Java and is
-     * subject to GC, we must make a copy of the data buffer.
+     * Either way, since the data buffer given to Java is not subject
+     * to GC, we can simply pass it through with clean=false and no
+     * cleaner will be initialized.
      */
     void *jbytebuffer_data = jni_data;
     if (jni_owning) {
@@ -618,14 +621,8 @@ jobject omtl_native_to_java(
           japi->jecpt_cls, "");
       LOG_PRINTF(LOG_DEBUG, "omt[%d]:%p data %p ownership taken", i,
           jni_omts[i], jni_data);
-    } else {
-      LIB_VAR_CALL(jbytebuffer_data, malloc(jni_bufferSize),
-          jbytebuffer_data != NULL, env, japi->jecpt_cls, "jbytebuffer_data=%p",
-          jbytebuffer_data);
-      memcpy(jbytebuffer_data, jni_data, jni_bufferSize);
-      LOG_PRINTF(LOG_DEBUG, "omt[%d]:%p data %p copied into %p", i, jni_omts[i],
-          jni_data, jbytebuffer_data);
     }
+
     JNI_TYPE_VAR_CALL(env, jobject, jomt_data,
         (*env)->NewDirectByteBuffer(env, jbytebuffer_data, jomt_bufferSize),
         jomt_data != NULL, japi->jecpt_cls, "omt[%d]:jomt_data=%p", i,
@@ -652,7 +649,8 @@ jobject omtl_native_to_java(
     /* Create the OMTensor Java object */
     JNI_TYPE_VAR_CALL(env, jobject, jobj_omt,
         (*env)->NewObject(env, japi->jomt_cls, japi->jomt_constructor,
-            jomt_data, jomt_shape, jomt_strides, jomt_dataType),
+            jomt_data, jomt_shape, jomt_strides, jomt_dataType,
+            (jboolean)jni_owning),
         jobj_omt != NULL, japi->jecpt_cls, "omt[%d]:jobj_omt=%p", i, jobj_omt);
 
     /* Set the OMTensor object in the object array */
@@ -732,7 +730,8 @@ static inline char *conv(const char *str, size_t (*fptr)(char *)) {
 #endif
 
 JNIEXPORT jobjectArray JNICALL
-Java_com_ibm_onnxmlir_OMModel_query_1entry_1points(JNIEnv *env, jclass cls) {
+Java_com_ibm_onnxmlir_OMModel_query_1entry_1points_1jni(
+    JNIEnv *env, jclass cls) {
 
   log_init();
 
@@ -909,4 +908,24 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
 #endif
 
   return java_osig;
+}
+
+JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMTensor_free_1data_1jni(
+    JNIEnv *env, jclass cls, jobject java_data) {
+
+  log_init();
+
+  /* Find and initialize Java Exception class */
+  JNI_TYPE_VAR_CALL(env, jclass, jecpt_cls,
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_EXCEPTION]),
+      jecpt_cls != NULL, NULL, "Class java/lang/Exception not found");
+
+  /* Get native data buffer backing direct byte buffer */
+  JNI_TYPE_VAR_CALL(env, void *, jni_data,
+      (*env)->GetDirectBufferAddress(env, java_data), jni_data != NULL,
+      jecpt_cls, "jni_data=%p", jni_data);
+
+  free(jni_data);
+
+  return NULL;
 }

@@ -2,6 +2,7 @@
 
 package com.ibm.onnxmlir;
 
+import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.DoubleBuffer;
@@ -15,7 +16,7 @@ import java.nio.ShortBuffer;
  * shape, strides, data type, etc. associated with a tensor
  * input/output.
  */
-public class OMTensor {
+public class OMTensor implements AutoCloseable {
 
     /* We can use enum but that creates another class
      * which complicates things for JNI.
@@ -92,6 +93,43 @@ public class OMTensor {
      */
     private int _rank;
 
+    /* ByteBuffer created by jniwrapper using NewDirectByteBuffer
+     * apparently doesn't get GC-ed. So we need to register a
+     * cleaner to manually free the output tensor data buffer
+     * created by the model runtime.
+     *
+     * Note the cleaner API requires Java 9+. For Java 8, we can
+     * use finalize() but be aware that it has been deprecated since
+     * Java 9 (hence the use of cleaner).
+     *
+     * _cleanable is registered by the internal JNI-wrapper-only
+     * OMTensor constructor to signal the need for manual freeing.
+     */
+    private static native Void free_data_jni(ByteBuffer data);
+
+    /* Create a Cleaner object and use it to register our freeData
+     * routine.
+     */
+    private static final Cleaner _cleaner = Cleaner.create();
+    private final Cleaner.Cleanable _cleanable;
+
+    /* When OMTensor becomes phantom reachable, JVM will call the
+     * cleaner we registered and run freeData. We call the native
+     * free_data_jni to do the manual freeing.
+     */
+    private static Runnable freeData(ByteBuffer data) {
+	return() -> {
+	    free_data_jni(data);
+	};
+    }
+
+    /* User can explicit call close to run freeData. This is required
+     * for implementing AutoCloseable. */
+    @Override
+    public void close() {
+	if (_cleanable != null) _cleanable.clean();
+    }
+
     /**
      * Constructor
      *
@@ -107,6 +145,7 @@ public class OMTensor {
 	else
 	    setByteData(data);
 	putShape(shape);
+	_cleanable = null;
     }
 
     /**
@@ -132,6 +171,7 @@ public class OMTensor {
     public OMTensor(short[] data, long[] shape) {
         setShortData(data);
         putShape(shape);
+	_cleanable = null;
     }
 
     /**
@@ -145,6 +185,7 @@ public class OMTensor {
     public OMTensor(int[] data, long[] shape) {
         setIntData(data);
         putShape(shape);
+	_cleanable = null;
     }
 
     /**
@@ -158,6 +199,7 @@ public class OMTensor {
     public OMTensor(long[] data, long[] shape) {
         setLongData(data);
         putShape(shape);
+	_cleanable = null;
     }
 
     /**
@@ -171,6 +213,7 @@ public class OMTensor {
     public OMTensor(float[] data, long[] shape) {
         setFloatData(data);
         putShape(shape);
+	_cleanable = null;
     }
 
     /**
@@ -184,6 +227,7 @@ public class OMTensor {
     public OMTensor(double[] data, long[] shape) {
         setDoubleData(data);
         putShape(shape);
+	_cleanable = null;
     }
 
 
@@ -588,6 +632,7 @@ public class OMTensor {
         _data = data.order(endian);
         _dataType = dataType;
 	putShape(shape);
+	_cleanable = null;
     }
 
     /**
@@ -598,7 +643,7 @@ public class OMTensor {
      * @param strides data stride
      * @param dataType data type
      */
-    protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType) {
+    protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType, boolean clean) {
         if (shape.length != strides.length)
             throw new IllegalArgumentException(
                     "shape.length (" + shape.length + ") != stride.length (" + strides.length + ")");
@@ -610,6 +655,7 @@ public class OMTensor {
         _rank = shape.length;
         _shape = shape;
         _strides = strides;
+	_cleanable = clean ? _cleaner.register(this, freeData(_data)) : null;
     }
 
     /**

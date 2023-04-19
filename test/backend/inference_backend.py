@@ -1180,8 +1180,9 @@ def JniExecutionSession(jar_name, inputs):
         proc.communicate(input=procStdin.encode("utf-8"))[0].decode("utf-8").strip()
     )
 
+    # np.bool is deprecated, use np.bool_ instead
     dtype = {
-        "b1": np.bool,
+        "b1": np.bool_,
         "i1": np.int8,
         "u1": np.uint8,
         "i2": np.int16,
