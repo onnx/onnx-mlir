@@ -4212,12 +4212,12 @@ func.func @test_erf(%arg0: tensor<?x10xf32>) -> (tensor<*xf32>) {
 // CHECK-DAG:         [[VAR_11_:%.+]] = vector.fma [[VAR_10_]], [[VAR_8_]], [[VAR_cst_3_]] : vector<16xf32>
 // CHECK-DAG:         [[VAR_12_:%.+]] = vector.fma [[VAR_11_]], [[VAR_8_]], [[VAR_cst_4_]] : vector<16xf32>
 // CHECK-DAG:         [[VAR_13_:%.+]] = arith.mulf [[VAR_12_]], [[VAR_8_]] : vector<16xf32>
-// CHECK-DAG:         [[VAR_14_:%.+]] = arith.mulf [[VAR_6_]], [[VAR_cst_5_]] : vector<16xf32>
+// CHECK-DAG:         [[VAR_14_:%.+]] = arith.subf [[VAR_cst_7_]], [[VAR_6_]] : vector<16xf32>
 // CHECK-DAG:         [[VAR_15_:%.+]] = arith.mulf [[VAR_14_]], [[VAR_6_]] : vector<16xf32>
 // CHECK-DAG:         [[VAR_16_:%.+]] = math.exp [[VAR_15_]] : vector<16xf32>
 // CHECK-DAG:         [[VAR_17_:%.+]] = vector.fma [[VAR_13_]], [[VAR_16_]], [[VAR_cst_5_]] : vector<16xf32>
 // CHECK-DAG:         [[VAR_18_:%.+]] = arith.cmpf ogt, [[LOAD_VAR_reshape_MEM_]], [[VAR_cst_7_]] : vector<16xf32>
-// CHECK-DAG:         [[VAR_19_:%.+]] = arith.mulf [[VAR_17_]], [[VAR_cst_5_]] : vector<16xf32>
+// CHECK-DAG:         [[VAR_19_:%.+]] = arith.subf [[VAR_cst_7_]], [[VAR_17_]] : vector<16xf32>
 // CHECK:             [[VAR_20_:%.+]] = arith.select [[VAR_18_]], [[VAR_19_]], [[VAR_17_]] : vector<16xi1>, vector<16xf32>
 // CHECK:             vector.store [[VAR_20_]], [[VAR_reshape_11_]]{{.}}[[VAR_4_]]{{.}} : memref<?xf32>, vector<16xf32>
 // CHECK:           }

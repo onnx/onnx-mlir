@@ -4389,13 +4389,13 @@ func.func @test_erf(%arg0: tensor<?x10xf32>) -> (tensor<*xf32>) attributes {} {
 // CHECK-DAG:         [[VAR_13_:%.+]] = arith.mulf [[VAR_12_]], [[VAR_6_]] : f32
 // CHECK-DAG:         [[VAR_14_:%.+]] = arith.addf [[VAR_13_]], [[CST_0_dot_254829586_]] : f32
 // CHECK-DAG:         [[VAR_15_:%.+]] = arith.mulf [[VAR_14_]], [[VAR_6_]] : f32
-// CHECK-DAG:         [[VAR_16_:%.+]] = arith.mulf [[VAR_3_]], [[CST_minus_1_dot_000000_]] : f32
+// CHECK-DAG:         [[VAR_16_:%.+]] = arith.subf [[CST_0_dot_000000_]], [[VAR_3_]] : f32
 // CHECK-DAG:         [[VAR_17_:%.+]] = arith.mulf [[VAR_16_]], [[VAR_3_]] : f32
 // CHECK-DAG:         [[VAR_18_:%.+]] = math.exp [[VAR_17_]] : f32
 // CHECK-DAG:         [[VAR_19_:%.+]] = arith.mulf [[VAR_15_]], [[VAR_18_]] : f32
 // CHECK-DAG:         [[VAR_20_:%.+]] = arith.addf [[VAR_19_]], [[CST_minus_1_dot_000000_]] : f32
 // CHECK-DAG:         [[VAR_21_:%.+]] = arith.cmpf ogt, [[LOAD_PARAM_0_MEM_]], [[CST_0_dot_000000_]] : f32
-// CHECK-DAG:         [[VAR_22_:%.+]] = arith.mulf [[VAR_20_]], [[CST_minus_1_dot_000000_]] : f32
+// CHECK-DAG:         [[VAR_22_:%.+]] = arith.subf [[CST_0_dot_000000_]], [[VAR_20_]] : f32
 // CHECK-DAG:         [[VAR_23_:%.+]] = arith.select [[VAR_21_]], [[VAR_22_]], [[VAR_20_]] : f32
 // CHECK:             krnl.store [[VAR_23_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
 // CHECK:           }

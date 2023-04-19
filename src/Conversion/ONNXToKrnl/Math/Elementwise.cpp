@@ -778,10 +778,10 @@ struct ScalarOp<ONNXErfOp> {
 template <>
 double analyzeSimdFor<ONNXErfOp>(Type t, int64_t &von, int64_t &son) {
   return simdAnalysis(
-      {GenericOps::CompareGop, GenericOps::DivGop, GenericOps::FmaGop,
-          GenericOps::MulGop, GenericOps::SelectGop, GenericOps::AbsGop,
-          GenericOps::ExpGop},
-      {1, 1, 6, 4, 1, 1, 1}, t, von, son);
+      {GenericOps::ArithmeticGop, GenericOps::CompareGop, GenericOps::DivGop,
+          GenericOps::FmaGop, GenericOps::MulGop, GenericOps::SelectGop,
+          GenericOps::AbsGop, GenericOps::ExpGop},
+      {2, 1, 1, 6, 2, 1, 1, 1}, t, von, son);
 }
 
 template <>
@@ -833,10 +833,10 @@ Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
                   create.math.fma(create.math.fma(a5, t, a4), t, a3), t, a2),
               t, a1),
           t),
-      create.math.exp(create.math.mul(create.math.mul(minusone, absx), absx)),
+      create.math.exp(create.math.mul(create.math.sub(zero, absx), absx)),
       minusone);
   Value sign = create.math.gt(operand, zero);
-  return create.math.select(sign, create.math.mul(minusy, minusone), minusy);
+  return create.math.select(sign, create.math.sub(zero, minusy), minusy);
 }
 
 //===----------------------------------------------------------------------===//
