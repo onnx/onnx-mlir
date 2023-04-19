@@ -38,6 +38,8 @@ public:
     Location loc = printOp.getLoc();
     KrnlPrintOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    LLVMTypeConverter *typeConverter =
+        static_cast<LLVMTypeConverter *>(getTypeConverter());
 
     Value input = operandAdaptor.getInput();
     StringRef format = printOp.getFormat();
@@ -48,9 +50,10 @@ public:
     auto printfFuncRef = getOrInsertPrintf(rewriter, module);
 
     // Printf call.
-    LLVM::GlobalOp formatSpec = getOrCreateGlobalString(format, loc, rewriter,
-        module, static_cast<LLVMTypeConverter *>(getTypeConverter()));
-    Value formatSpecPtr = getPtrToGlobalString(formatSpec, loc, rewriter);
+    LLVM::GlobalOp formatSpec =
+        getOrCreateGlobalString(format, loc, rewriter, module, typeConverter);
+    Value formatSpecPtr =
+        getPtrToGlobalString(formatSpec, loc, rewriter, typeConverter);
 
     if (input)
       create.llvm.call({}, printfFuncRef, {formatSpecPtr, input});

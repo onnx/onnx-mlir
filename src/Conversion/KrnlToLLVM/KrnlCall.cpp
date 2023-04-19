@@ -139,7 +139,8 @@ private:
           StringRef attrValue = strAttr.getValue();
           LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
               attrValue, loc, rewriter, module, &typeConverter);
-          Value strPtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
+          Value strPtr = krnl::getPtrToGlobalString(
+              globalStr, loc, rewriter, &typeConverter);
           auto int8Ty = IntegerType::get(context, 8);
           auto opaquePtrTy = typeConverter.getPointerType(int8Ty);
           parameterTypeList.emplace_back(opaquePtrTy);

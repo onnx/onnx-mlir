@@ -45,17 +45,18 @@ public:
     Location loc = op->getLoc();
     KrnlInstrumentOp instrumentOp = llvm::dyn_cast<KrnlInstrumentOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    LLVMTypeConverter *typeConverter =
+        static_cast<LLVMTypeConverter *>(getTypeConverter());
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
     StringRef opNameStr = instrumentOp.getOpName();
-    LLVM::GlobalOp globalOpNameStr =
-        krnl::getOrCreateGlobalString(opNameStr, loc, rewriter, parentModule,
-            static_cast<LLVMTypeConverter *>(getTypeConverter()));
-    Value opNamePtr =
-        krnl::getPtrToGlobalString(globalOpNameStr, loc, rewriter);
+    LLVM::GlobalOp globalOpNameStr = krnl::getOrCreateGlobalString(
+        opNameStr, loc, rewriter, parentModule, typeConverter);
+    Value opNamePtr = krnl::getPtrToGlobalString(
+        globalOpNameStr, loc, rewriter, typeConverter);
     Value tag = create.llvm.constant(
         IntegerType::get(context, 64), (int64_t)instrumentOp.getTag());
     StringRef nodeName;
@@ -63,10 +64,10 @@ public:
       nodeName = instrumentOp.getNodeName().value();
     else
       nodeName = StringRef("NOTSET");
-    LLVM::GlobalOp globalStr =
-        krnl::getOrCreateGlobalString(nodeName, loc, rewriter, parentModule,
-            static_cast<LLVMTypeConverter *>(getTypeConverter()));
-    Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
+    LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
+        nodeName, loc, rewriter, parentModule, typeConverter);
+    Value nodeNamePtr =
+        krnl::getPtrToGlobalString(globalStr, loc, rewriter, typeConverter);
     create.llvm.call({}, instrumentRef, {opNamePtr, tag, nodeNamePtr});
 
     rewriter.eraseOp(op);

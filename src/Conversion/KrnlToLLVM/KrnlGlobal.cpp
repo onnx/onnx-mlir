@@ -253,7 +253,8 @@ private:
     int32_t index = 0;
     Value lastValue = array;
     for (const LLVM::GlobalOp &globalOp : globalOps) {
-      Value strAddr = krnl::getPtrToGlobalString(globalOp, loc, builder);
+      Value strAddr = krnl::getPtrToGlobalString(
+          globalOp, loc, builder, getTypeConverter());
       lastValue =
           create.llvm.insertValue(arrayType, lastValue, strAddr, {index++});
     }

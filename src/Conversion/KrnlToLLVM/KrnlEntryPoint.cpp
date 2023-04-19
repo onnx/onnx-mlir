@@ -465,7 +465,7 @@ private:
       StringRef inSigJSON) const {
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     Type int64Ty = rewriter.getI64Type();
-    Type opaquePtrTy = LLVM::LLVMPointerType::get(rewriter.getI8Type());
+    Type opaquePtrTy = typeConverter.getPointerType(rewriter.getI8Type());
 
     auto JSONInput = llvm::json::parse(inSigJSON.data());
     assert(JSONInput && "failed to parse json");
@@ -487,8 +487,9 @@ private:
     for (int64_t i = 0; i < inputNum; ++i) {
       // Call API function to retrieve the i-th omTensor.
       Value idxVal = create.llvm.constant(int64Ty, i);
-      Value omTensorPtrAddr = create.llvm.getElemPtr(
-          LLVM::LLVMPointerType::get(opaquePtrTy), omTensorPtrArr, {idxVal});
+      Value omTensorPtrAddr =
+          create.llvm.getElemPtr_new(typeConverter.getPointerType(opaquePtrTy),
+              opaquePtrTy, omTensorPtrArr, {idxVal});
       Value omTensorPtr = create.llvm.load(omTensorPtrAddr);
 
       // Verify data type.
@@ -524,8 +525,9 @@ private:
       for (int d = 0; d < rank; ++d) {
         // Get actual dimension size.
         Value dimIdx = create.llvm.constant(int64Ty, (int64_t)d);
-        Value actualDim = create.llvm.load(create.llvm.getElemPtr(
-            LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, {dimIdx}));
+        Value actualDim = create.llvm.load(
+            create.llvm.getElemPtr_new(typeConverter.getPointerType(int64Ty),
+                int64Ty, sizesArrayPtr, {dimIdx}));
         // Get reference dimension size.
         auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
         assert(JSONDimValue && "failed to get value");
