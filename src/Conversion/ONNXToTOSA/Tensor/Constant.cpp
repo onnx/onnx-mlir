@@ -44,7 +44,8 @@ public:
           op, "tosa.const does not support non-tensor types");
     }
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
-    rewriter.replaceOpWithNewOp<tosa::ConstOp>(op, resultType, currentAttr);
+    rewriter.replaceOpWithNewOp<mlir::tosa::ConstOp>(
+        op, resultType, currentAttr);
     return success();
   }
 };
