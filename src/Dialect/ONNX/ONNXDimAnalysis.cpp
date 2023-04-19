@@ -594,9 +594,6 @@ void DimAnalysis::visitDim(
 
   // TileOp
   if (auto tileOp = dyn_cast<ONNXTileOp>(op)) {
-    if (!areDimsFromConcat(tileOp.getRepeats()))
-      return;
-
     // Special case:
     // output_dim[i] = input_dim[i] * repeats[i]
     //
@@ -611,16 +608,15 @@ void DimAnalysis::visitDim(
     // %3 = "onnx.Tile"(%arg1, %3) : (tensor<1x1xi64>, tensor<2xi64>) -> tensor<?x?xi64>
     // ```
     // clang-format on
-
     Type inputType = tileOp.getInput().getType();
     ArrayRef<int64_t> inputShape = onnx_mlir::getShape(inputType);
-    if (inputShape[dimIndex] == 1) {
+    if (areDimsFromConcat(tileOp.getRepeats()) && inputShape[dimIndex] == 1) {
       SmallVector<Value, 4> repeats;
       getDims(tileOp.getRepeats(), repeats);
       DimT newSameDim(repeats[dimIndex], dimIndex);
       sameDims.insert(newSameDim);
+      return;
     }
-    return;
   }
 
   ////////////////////////////////////////////////////
