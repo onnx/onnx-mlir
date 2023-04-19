@@ -115,8 +115,8 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value floor(mlir::Value val) const;                     // Float only.
   mlir::Value floorDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
   mlir::Value fma(mlir::Value lhs, mlir::Value rhs, mlir::Value acc) const;
-  mlir::Value log(mlir::Value val) const;                       // Float only.
-  mlir::Value log2(mlir::Value val) const;                      // Float only.
+  mlir::Value log(mlir::Value val) const;  // Float only.
+  mlir::Value log2(mlir::Value val) const; // Float only.
   mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value neg(mlir::Value val) const;
   mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
