@@ -605,7 +605,7 @@ void DimAnalysis::visitDim(
     // %0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
     // %1 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
     // %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
-    // %3 = "onnx.Tile"(%arg1, %3) : (tensor<1x1xi64>, tensor<2xi64>) -> tensor<?x?xi64>
+    // %3 = "onnx.Tile"(%arg1, %2) : (tensor<1x1xi64>, tensor<2xi64>) -> tensor<?x?xi64>
     // ```
     // clang-format on
     Type inputType = tileOp.getInput().getType();
