@@ -124,7 +124,4 @@ std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
 
 std::unique_ptr<mlir::Pass> createReplaceNoValuePass();
 
-/// Pass for extending location info with layer name information
-std::unique_ptr<mlir::Pass> createLayerNameToLocationPass();
-
 } // namespace onnx_mlir
