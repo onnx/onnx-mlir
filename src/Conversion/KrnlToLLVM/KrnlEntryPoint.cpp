@@ -339,9 +339,11 @@ public:
       // create.llvm.store(outOMTensor, omTensorPtrAddr);
     }
 
+    llvm::outs() << "tung: iam before calling CREATE_OMTENSOR_LIST\n";
     // Create wrapped output.
     Value wrappedOutput = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput});
+    llvm::outs() << "tung: iam after calling CREATE_OMTENSOR_LIST\n";
 
     // Return wrapped output.
     create.llvm._return(wrappedOutput);
