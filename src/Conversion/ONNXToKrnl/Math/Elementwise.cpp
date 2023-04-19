@@ -12,11 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #define DEBUG 0 /* Log which functions are simdized. */
+#define DEBUG_TYPE "lowering-to-krnl"
 
 using namespace mlir;
 
@@ -1453,6 +1456,153 @@ static LogicalResult getVariadicSimdCodeFullyFlattened(
 }
 
 //===----------------------------------------------------------------------===//
+// Utilities for Op fusion at lowering
+//===----------------------------------------------------------------------===//
+
+// Function pointer type for emitScalarOpFor<T>
+typedef mlir::Value (*EmitScalarFunc)(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
+    mlir::ArrayRef<mlir::Value> scalarOperands);
+
+// Variadic template to iterate all the fusible Ops
+template <typename T>
+bool enqueueFusedOpImpl(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+  if (isa<T>(op)) {
+    fusibleOps.emplace_back(op);
+    fuseEmitFunctions.emplace_back(emitScalarOpFor<T>);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+template <typename T = void, class... Ts>
+bool enqueueFusedOp(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions);
+
+template <typename T, class... Ts>
+bool enqueueFusedOp(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+  if (enqueueFusedOpImpl<T>(op, fusibleOps, fuseEmitFunctions)) {
+    return true;
+  } else {
+    return enqueueFusedOp<Ts...>(op, fusibleOps, fuseEmitFunctions);
+  }
+}
+
+template <>
+bool enqueueFusedOp(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+  return false;
+}
+
+class OpFusionHelper {
+
+private:
+  mlir::Operation *op_;
+  mlir::ConversionPatternRewriter &rewriter_;
+  llvm::SmallVector<mlir::Operation *, 2> fusibleOps_;
+  llvm::SmallVector<EmitScalarFunc, 2> fuseEmitFunctions_;
+
+public:
+  // Constructor
+  OpFusionHelper(
+      mlir::ConversionPatternRewriter &rewriter, mlir::Operation *startOp)
+      : op_(startOp), rewriter_(rewriter), fusibleOps_(), fuseEmitFunctions_() {
+  }
+
+  bool checkFusedOp(Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+      SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+
+    // Notice: Though ClipOp is classified as unary element op in this file,
+    // ClipOp requires one required input and two optional input
+
+    return enqueueFusedOp<mlir::ONNXAbsOp, mlir::ONNXAtanOp, mlir::ONNXCastOp,
+        mlir::ONNXCeilOp, mlir::ONNXCosOp, mlir::ONNXCoshOp,
+        mlir::ONNXDequantizeLinearOp, mlir::ONNXEluOp, mlir::ONNXErfOp,
+        mlir::ONNXAcosOp, mlir::ONNXAcoshOp, mlir::ONNXAsinOp,
+        mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp,
+        mlir::ONNXFloorOp, mlir::ONNXHardSigmoidOp, mlir::ONNXIsInfOp,
+        mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp, mlir::ONNXLogOp,
+        mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
+        mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp,
+        mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp,
+        mlir::ONNXSinhOp, mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp,
+        mlir::ONNXSqrtOp, mlir::ONNXTanOp, mlir::ONNXTanhOp>(
+        op, fusibleOps, fuseEmitFunctions);
+  }
+
+  bool fusibleOpsIsEmpty() { return fusibleOps_.size() == 0; }
+
+  // This function starts for elementwise operation, op.
+  // A successor op (user) is fusible if it's the only user and an unary
+  // elementwise Op. The Op and its EmitScalarOpFor<T> are recorded into
+  // the vector.
+  void findFusibleOps() {
+    Operation *currentProducer = op_;
+    while (currentProducer->hasOneUse()) {
+      // Check the users is an unary elementwise op
+      // The right solution, I think, is to define EmitScalarOpFor as
+      // an interface of unary elementwise Ops.
+      // In the draft PR, variadic template is used to iterate through
+      // the possible ONNX Ops.
+      Operation *user = *currentProducer->getUsers().begin();
+      if (!checkFusedOp(user, fusibleOps_, fuseEmitFunctions_))
+        break;
+
+      currentProducer = user;
+    }
+
+    if (!fusibleOpsIsEmpty())
+      LLVM_DEBUG({
+        llvm::dbgs() << "unary op fused: " << fusibleOps_.size() << "\n";
+      });
+  }
+
+  // After fusion, the only store is for the last Op.
+  // Therefore, the allocation should be the output of the last Op
+  MemRefType getOutputType(MemRefType outputType) {
+    if (!fusibleOpsIsEmpty()) {
+      Operation *lastOp = fusibleOps_[fusibleOps_.size() - 1];
+      return MemRefType::get(outputType.getShape(),
+          getElementType(lastOp->getResults()[0].getType()));
+    }
+    return outputType;
+  }
+
+  // Emit fusion Ops
+  Value emitFuseOps(Value finalResult) {
+    // Handle the fused Ops
+    for (size_t i = 0; i < fusibleOps_.size(); i++) {
+      auto currentOp = fusibleOps_[i];
+      auto emitScalar = fuseEmitFunctions_[i];
+      // ToFix: use the ONNX location(ONNXLoc) of each Op.
+      // The current obstacle is that no easy way to know the type of Op,
+      // which is needed by ONNXLoc<T>(op).
+      Location loc = currentOp->getLoc();
+      Type currentElementType =
+          getElementType(currentOp->getResults()[0].getType());
+      finalResult = emitScalar(
+          rewriter_, loc, currentOp, currentElementType, finalResult);
+    }
+    return finalResult;
+  }
+
+  // Replace the last Op with allocated memref and erase the other Ops.
+  // When the fusible list is empty, the starting Op is the last.
+  void replaceOrEraseONNXOps(Value alloc) {
+    auto previous = op_;
+    for (Operation *fusedOp : fusibleOps_) {
+      rewriter_.eraseOp(previous);
+      previous = fusedOp;
+    }
+    rewriter_.replaceOp(previous, alloc);
+  }
+
+}; // End of OpFusionHelper Declaration
+
+//===----------------------------------------------------------------------===//
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 
@@ -1506,8 +1656,8 @@ struct ONNXElementwiseUnaryOpLowering
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
-    Type elementType = memRefType.getElementType();
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    Type elementType = outputMemRefType.getElementType();
 
     // Shape helper.
     MDBuilder create(rewriter, loc);
@@ -1519,21 +1669,27 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, create, memRefType);
+              shapeHelper, create, outputMemRefType);
       if (simdUnroll > 0)
         return getUnaryBinarySimdCodeFullyFlattened<ElementwiseUnaryOp>(
-            rewriter, create, &shapeHelper, op, memRefType, operands, alignment,
-            simdUnroll);
+            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
+            alignment, simdUnroll);
     }
+
+    // Try to fuse the unary elementwise consumers
+    OpFusionHelper opFusionHelper(rewriter, op);
+    opFusionHelper.findFusibleOps();
+    outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
-        memRefType, shapeHelper.getOutputDims(), alignment);
+        outputMemRefType, shapeHelper.getOutputDims(), alignment);
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
-      ValueRange loopDef = create.krnl.defineLoops(memRefType.getRank());
-      SmallVector<IndexExpr, 4> lbs(memRefType.getRank(), LiteralIndexExpr(0));
+      ValueRange loopDef = create.krnl.defineLoops(outputMemRefType.getRank());
+      SmallVector<IndexExpr, 4> lbs(
+          outputMemRefType.getRank(), LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -1554,6 +1710,7 @@ struct ONNXElementwiseUnaryOpLowering
             }
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
                 rewriter, loc, op, elementType, args);
+            loweredOpResult = opFusionHelper.emitFuseOps(loweredOpResult);
             // Store result in the resulting array.
             createKrnl.store(loweredOpResult, alloc, loopInd);
           });
@@ -1574,11 +1731,13 @@ struct ONNXElementwiseUnaryOpLowering
       }
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
           rewriter, loc, op, elementType, args);
+      loweredOpResult = opFusionHelper.emitFuseOps(loweredOpResult);
       // Store result in the resulting array.
       create.krnl.store(loweredOpResult, alloc);
     }
 
-    rewriter.replaceOp(op, alloc);
+    // Replace the last Op with alloc and delete the other Ops
+    opFusionHelper.replaceOrEraseONNXOps(alloc);
     return success();
   }
 }; // namespace onnx_mlir
@@ -1643,6 +1802,11 @@ struct ONNXElementwiseBinaryOpLowering
             alignment, simdUnroll);
     }
 
+    // Try to fuse the unary elementwise consumers
+    OpFusionHelper opFusionHelper(rewriter, op);
+    opFusionHelper.findFusibleOps();
+    outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
+
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
         outputMemRefType, shapeHelper.getOutputDims(), alignment);
@@ -1677,6 +1841,7 @@ struct ONNXElementwiseBinaryOpLowering
             Value result = emitScalarOpFor<ElementwiseBinaryOp>(
                 rewriter, loc, op, outputElementType, {lhs, rhs});
 
+            result = opFusionHelper.emitFuseOps(result);
             // Store result in the resulting array.
             createKrnl.store(result, alloc, loopInd);
           });
@@ -1688,11 +1853,13 @@ struct ONNXElementwiseBinaryOpLowering
       Value result = emitScalarOpFor<ElementwiseBinaryOp>(
           rewriter, loc, op, outputElementType, {lhs, rhs});
 
+      result = opFusionHelper.emitFuseOps(result);
       // Store result in the resulting array.
       create.krnl.store(result, alloc);
     }
 
-    rewriter.replaceOp(op, alloc);
+    // Replace the last Op with alloc and delete the other Ops
+    opFusionHelper.replaceOrEraseONNXOps(alloc);
 
     return success();
   }
@@ -1751,6 +1918,11 @@ struct ONNXElementwiseVariadicOpLowering
             alignment, simdUnroll);
     }
 
+    // Try to fuse the unary elementwise consumers
+    OpFusionHelper opFusionHelper(rewriter, op);
+    opFusionHelper.findFusibleOps();
+    outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
+
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = create.mem.alignedAlloc(
         outputMemRefType, shapeHelper.getOutputDims(), alignment);
@@ -1791,7 +1963,7 @@ struct ONNXElementwiseVariadicOpLowering
 
             Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
                 rewriter, loc, op, outputElementType, accumulated);
-
+            finalResult = opFusionHelper.emitFuseOps(finalResult);
             // Store result in the resulting array.
             createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
           });
@@ -1808,10 +1980,13 @@ struct ONNXElementwiseVariadicOpLowering
       }
       Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
           rewriter, loc, op, outputElementType, accumulated);
+      finalResult = opFusionHelper.emitFuseOps(finalResult);
       // Store result in the resulting array.
       create.krnl.store(finalResult, alloc);
     }
-    rewriter.replaceOp(op, alloc);
+
+    // Replace the last Op with alloc and delete the other Ops
+    opFusionHelper.replaceOrEraseONNXOps(alloc);
     return success();
   }
 }; // namespace onnx_mlir
