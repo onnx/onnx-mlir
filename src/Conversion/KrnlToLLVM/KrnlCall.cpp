@@ -109,13 +109,13 @@ private:
       Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
-      Type elemTy =
-          memRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
-      krnl::fillOMTensorWithMemRef(parameter, elemTy, omTensor,
+      Type llvmOrigElemTy =
+          typeConverter.convertType(originalMemRef.getElementType());
+      krnl::fillOMTensorWithMemRef(parameter, llvmOrigElemTy, omTensor,
           false /*outOwning*/, rewriter, loc, apiRegistry, module,
           typeConverter);
       auto int8Ty = IntegerType::get(context, 8);
-      auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
+      auto opaquePtrTy = typeConverter.getPointerType(int8Ty);
       parameterTypeList.emplace_back(opaquePtrTy);
       parameterList.emplace_back(omTensor);
       omTensors.emplace_back(omTensor);
@@ -141,7 +141,7 @@ private:
               attrValue, loc, rewriter, module, &typeConverter);
           Value strPtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
           auto int8Ty = IntegerType::get(context, 8);
-          auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
+          auto opaquePtrTy = typeConverter.getPointerType(int8Ty);
           parameterTypeList.emplace_back(opaquePtrTy);
           parameterList.emplace_back(strPtr);
         })
@@ -171,7 +171,6 @@ private:
           auto tensorTy = denseAttr.getType().cast<TensorType>();
           auto memRefTy =
               MemRefType::get(tensorTy.getShape(), tensorTy.getElementType());
-          memRefTy.dump();
           Value constantGlobal =
               create.krnl.constant(memRefTy, "constant_", denseAttr);
           Value convertedConstantGlobal =
@@ -188,11 +187,13 @@ private:
           Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
               RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
-          krnl::fillOMTensorWithMemRef(convertedConstantGlobal,
-              memRefTy.getElementType(), omTensor, false /*outOwning*/,
-              rewriter, loc, apiRegistry, module, typeConverter);
+          Type llvmElemTy =
+              typeConverter.convertType(memRefTy.getElementType());
+          krnl::fillOMTensorWithMemRef(convertedConstantGlobal, llvmElemTy,
+              omTensor, false /*outOwning*/, rewriter, loc, apiRegistry, module,
+              typeConverter);
           auto int8Ty = IntegerType::get(context, 8);
-          auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
+          auto opaquePtrTy = typeConverter.getPointerType(int8Ty);
           parameterTypeList.emplace_back(opaquePtrTy);
           parameterList.emplace_back(omTensor);
         })

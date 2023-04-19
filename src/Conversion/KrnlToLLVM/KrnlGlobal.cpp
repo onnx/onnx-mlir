@@ -203,7 +203,7 @@ private:
     MultiDialectBuilder<LLVMBuilder> create(builder, loc);
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
-    auto ptrType = LLVM::LLVMPointerType::get(llvmElemType);
+    auto ptrType = typeConverter.getPointerType(llvmElemType);
     // Bitcast the address to the MemRefType's element type.
     Value bitCastOp = create.llvm.bitcast(ptrType, address);
     // Create llvm MemRef from original MemRef and fill the data pointers.
