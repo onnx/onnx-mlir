@@ -276,8 +276,8 @@ public:
 
       // Fill in the memref underlying ptrToMemRef with information extracted
       // from omTensorPtr.
-      // fillPtrToMemRefWithOMTensor(
-      //    omTensorPtr, ptrToMemRef, rewriter, loc, apiRegistry, module);
+      fillPtrToMemRefWithOMTensor(omTensorPtr, ptrToMemRef, memRefInTy,
+          rewriter, loc, apiRegistry, module);
 
       // ptrToMemRef will be an input to main computation graph function.
       staticInputs.emplace_back(ptrToMemRef);
@@ -365,12 +365,13 @@ private:
   }
 
   void fillPtrToMemRefWithOMTensor(Value &rtMemRef, Value &ptrToMemRef,
-      PatternRewriter &rewriter, const Location &loc,
+      Type memRefTy, PatternRewriter &rewriter, const Location &loc,
       const RuntimeAPIRegistry &apiRegistry, ModuleOp &module) const {
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     auto *context = module.getContext();
-    auto memRefPtrTy = ptrToMemRef.getType().dyn_cast<LLVM::LLVMPointerType>();
-    auto memRefTy = memRefPtrTy.getElementType();
+    // auto memRefPtrTy =
+    // ptrToMemRef.getType().dyn_cast<LLVM::LLVMPointerType>(); auto memRefTy =
+    // memRefPtrTy.getElementType();
     auto int64Ty = IntegerType::get(context, 64);
 
     Value memRef = rewriter.create<LLVM::UndefOp>(loc, memRefTy);
@@ -398,15 +399,17 @@ private:
     for (decltype(rank) i = 0; i < rank; i++) {
       Value dimIdx = create.llvm.constant(int64Ty, (int64_t)i);
       // Insert size of the dimension.
-      Value dimSizePtr = create.llvm.getElemPtr(
-          LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, {dimIdx});
-      Value dimSize = create.llvm.load(dimSizePtr);
+      Value dimSizePtr =
+          create.llvm.getElemPtr_new(typeConverter.getPointerType(int64Ty),
+              int64Ty, sizesArrayPtr, {dimIdx});
+      Value dimSize = create.llvm.load_new(int64Ty, dimSizePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimSize, {3, i});
 
       // Insert stride of the dimension.
-      auto dimStridePtr = create.llvm.getElemPtr(
-          LLVM::LLVMPointerType::get(int64Ty), stridesArrayPtr, {dimIdx});
-      auto dimStride = create.llvm.load(dimStridePtr);
+      auto dimStridePtr =
+          create.llvm.getElemPtr_new(typeConverter.getPointerType(int64Ty),
+              int64Ty, stridesArrayPtr, {dimIdx});
+      auto dimStride = create.llvm.load_new(int64Ty, dimStridePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimStride, {4, i});
     }
 
