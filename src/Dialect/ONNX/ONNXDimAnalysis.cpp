@@ -592,6 +592,33 @@ void DimAnalysis::visitDim(
     return;
   }
 
+  // TileOp
+  if (auto tileOp = dyn_cast<ONNXTileOp>(op)) {
+    // Special case:
+    // output_dim[i] = input_dim[i] * repeats[i]
+    //
+    // If input dimension i (input_dim[i]) is 1, output dimension i
+    // (output_dim[i]) and repeats i (repeats[i]) are equal.
+    //
+    // clang-format off
+    // ```mlir
+    // %0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    // %1 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    // %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+    // %3 = "onnx.Tile"(%arg1, %2) : (tensor<1x1xi64>, tensor<2xi64>) -> tensor<?x?xi64>
+    // ```
+    // clang-format on
+    Type inputType = tileOp.getInput().getType();
+    ArrayRef<int64_t> inputShape = onnx_mlir::getShape(inputType);
+    if (areDimsFromConcat(tileOp.getRepeats()) && inputShape[dimIndex] == 1) {
+      SmallVector<Value, 4> repeats;
+      getDims(tileOp.getRepeats(), repeats);
+      DimT newSameDim(repeats[dimIndex], dimIndex);
+      sameDims.insert(newSameDim);
+      return;
+    }
+  }
+
   ////////////////////////////////////////////////////
   // Generic cases
   exploreSameInputDims(dim, op, sameDims);
