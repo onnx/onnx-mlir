@@ -499,8 +499,7 @@ OMTensorList *omtl_java_to_native(
   free(jobj_omts);
 
   /* Create OMTensorList to be constructed and passed to the model
-   * shared library. Note that we do own the pointers to the native
-   * OMTensor structs, jni_omts.
+   * shared library.
    */
   LIB_TYPE_VAR_CALL(OMTensorList *, jni_omtl,
       omTensorListCreate(jni_omts, (int64_t)jomtl_omtn), jni_omtl != NULL, env,
