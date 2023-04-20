@@ -113,6 +113,7 @@ find_package(Java COMPONENTS Development)
 find_package(JNI)
 
 if (Java_Development_FOUND AND JNI_FOUND)
+  message(STATUS "Java version             : ${Java_VERSION}")
   set(ONNX_MLIR_ENABLE_JNI TRUE)
   include(UseJava)
 else()

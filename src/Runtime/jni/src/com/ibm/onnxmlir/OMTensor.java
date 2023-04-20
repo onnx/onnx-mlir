@@ -105,7 +105,7 @@ public class OMTensor implements AutoCloseable {
      * _cleanable is registered by the internal JNI-wrapper-only
      * OMTensor constructor to signal the need for manual freeing.
      */
-    private static native Void free_data_jni(ByteBuffer data);
+    private static native Void free_data_jni(long alloc);
 
     /* Create a Cleaner object and use it to register our freeData
      * routine.
@@ -117,15 +117,15 @@ public class OMTensor implements AutoCloseable {
      * cleaner we registered and run freeData. We call the native
      * free_data_jni to do the manual freeing.
      */
-    private static Runnable freeData(ByteBuffer data) {
+    private static Runnable freeData(long alloc) {
 	return() -> {
-	    free_data_jni(data);
+	    free_data_jni(alloc);
 	};
     }
 
     /* User can explicit call close to run freeData. This is required
-     * for implementing AutoCloseable. */
-    @Override
+     * for implementing AutoCloseable.
+     */
     public void close() {
 	if (_cleanable != null) _cleanable.clean();
     }
@@ -643,7 +643,7 @@ public class OMTensor implements AutoCloseable {
      * @param strides data stride
      * @param dataType data type
      */
-    protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType, boolean clean) {
+    protected OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType, long alloc) {
         if (shape.length != strides.length)
             throw new IllegalArgumentException(
                     "shape.length (" + shape.length + ") != stride.length (" + strides.length + ")");
@@ -655,7 +655,7 @@ public class OMTensor implements AutoCloseable {
         _rank = shape.length;
         _shape = shape;
         _strides = strides;
-	_cleanable = clean ? _cleaner.register(this, freeData(_data)) : null;
+	_cleanable = alloc == 0 ? null : _cleaner.register(this, freeData(alloc));
     }
 
     /**
