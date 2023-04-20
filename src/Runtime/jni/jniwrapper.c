@@ -504,6 +504,10 @@ OMTensorList *omtl_java_to_native(
       omTensorListCreate(jni_omts, (int64_t)jomtl_omtn), jni_omtl != NULL, env,
       japi->jecpt_cls, "jni_omtl=%p", jni_omtl);
 
+  /* omTensorListCreate makes a copy of the tensor list, so we must free the
+     list that we allocateed. */
+  free(jni_omts);
+
   return jni_omtl;
 }
 
