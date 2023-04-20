@@ -603,6 +603,13 @@ jobject omtl_native_to_java(
      * tensor data to ensure Java ownership of the underlying tensor data.
      * Creation of the DirectByteBuffer here is merely a passthrough mechanism
      * to allow for the copy to occur.
+     *
+     * If jni_owning is false, it means the data buffer is not freeable
+     * due to one of the two following cases:
+     *
+     *   - user has malloc-ed the data buffer so the user is
+     *     responsible for freeing it
+     *   - the data buffer is static
      */
     void *jbytebuffer_data = jni_data;
     JNI_TYPE_VAR_CALL(env, jobject, jomt_data,
