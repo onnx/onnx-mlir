@@ -59,8 +59,8 @@ public:
     Value tag = create.llvm.constant(
         IntegerType::get(context, 64), (int64_t)instrumentOp.getTag());
     StringRef nodeName;
-    if (instrumentOp.getNodeName().has_value())
-      nodeName = instrumentOp.getNodeName().value();
+    if (auto nameLoc = loc.dyn_cast<NameLoc>())
+      nodeName = nameLoc.getName();
     else
       nodeName = StringRef("NOTSET");
     LLVM::GlobalOp globalStr =
