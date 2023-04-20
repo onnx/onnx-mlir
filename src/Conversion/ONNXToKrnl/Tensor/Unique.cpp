@@ -12,9 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "onnx-mlir/Runtime/OMTensor.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "onnx-mlir/Runtime/OMTensor.h"
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -61,8 +61,9 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     ONNXUniqueOp uniqueOp = llvm::cast<ONNXUniqueOp>(op);
     Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
     IndexExprScope scope(create.krnl);
     ONNXUniqueOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     Value X = operandAdaptor.getX();
@@ -101,14 +102,14 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
       outputYDims.emplace_back(totalDimExpr);
       outputIndexDims.emplace_back(totalDimExpr);
     } else {
-    for (int64_t i = 0; i < rank; i++) {
+      for (int64_t i = 0; i < rank; i++) {
         DimIndexExpr tDimExpr = LiteralIndexExpr(xShape[i]);
         if (i == axis)
           tDimExpr = totalDimExpr;
         outputIndexDims.emplace_back(tDimExpr);
       }
     }
- 
+
     // Insert an allocation and deallocation for the results of this operation.
     // For Y output
     Type i64Type = rewriter.getI64Type();
@@ -147,16 +148,16 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 #else
     MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, i64Type);
     Value indices = create.mem.alignedAlloc(memrefType, outputIndexDims);
-    Value reverse_indices = create.mem.alignedAlloc(memrefType, outputIndexDims);
+    Value reverse_indices =
+        create.mem.alignedAlloc(memrefType, outputIndexDims);
     Value counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
 #endif
     // Compute argUnique of X along axis.
     create.krnl.store(iZero, uniqueCount, {});
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         outputY, indices, reverse_indices, counts);
-    
-    rewriter.replaceOp(
-        op, {outputY, indices, reverse_indices, counts});
+
+    rewriter.replaceOp(op, {outputY, indices, reverse_indices, counts});
     return success();
   }
 };
