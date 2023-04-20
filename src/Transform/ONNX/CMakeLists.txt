@@ -89,17 +89,6 @@ add_onnx_mlir_library(OMONNXDimAnalysis
   MLIRTransforms
   )
 
-add_onnx_mlir_library(OMONNXReplaceNoValue
-  ReplaceNoValueOperands.cpp
-
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  OMONNXRewrite
-  MLIRFuncDialect
-  MLIRPass
-  MLIRTransforms
-  )
-
 add_onnx_mlir_library(OMONNXLayerNameToLocation
   LayerNameToLocationPass.cpp
 
