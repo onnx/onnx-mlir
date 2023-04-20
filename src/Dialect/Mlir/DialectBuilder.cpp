@@ -209,9 +209,7 @@ Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
 Value MathBuilder::fma(Value lhs, Value rhs, Value acc) const {
   assert((lhs.getType() == rhs.getType()) && (rhs.getType() == acc.getType()) &&
          "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
-    return add(mul(lhs, rhs), acc);
-  if (lhs.getType().isa<VectorType>())
+  if (isFloatWithVector(lhs.getType()) && !isa<FloatType>(lhs.getType()))
     return b().create<vector::FMAOp>(loc(), lhs, rhs, acc);
   return add(mul(lhs, rhs), acc);
 }
