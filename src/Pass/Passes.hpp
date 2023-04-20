@@ -43,8 +43,7 @@ std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
     bool enableSimdDataLayoutOpt = false);
 
-std::unique_ptr<mlir::Pass> createShapeInferencePass(
-    bool analyzeAllFunctions = false);
+std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass(bool report = false);
 
@@ -64,9 +63,6 @@ std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
 /// Pass that combines multiple ONNX dialect transformations,
 /// including shape inference.
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass();
-
-/// Shape inference only variant of ONNXHybridTransform.
-std::unique_ptr<mlir::Pass> createONNXShapeInferenceTransformPass();
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();

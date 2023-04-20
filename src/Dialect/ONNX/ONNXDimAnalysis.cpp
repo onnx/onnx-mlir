@@ -89,7 +89,7 @@ static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
 bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
   // Has this op a ShapeHelper interface?
-  auto shape_op = llvm::dyn_cast<mlir::ShapeHelper>(*op);
+  auto shape_op = llvm::dyn_cast<ShapeHelperOpInterface>(*op);
   if (!shape_op)
     return false;
 
