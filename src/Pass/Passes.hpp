@@ -78,10 +78,6 @@ std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
     bool enableTiling, bool enableSIMD, bool enableParallel);
 
-/// Add pass for lowering to Torch IR.
-std::unique_ptr<mlir::Pass> createLowerToTorchPass();
-std::unique_ptr<mlir::Pass> createLowerToTorchPass(int optLevel);
-
 /// Pass for ONNX to Aten Types Transform
 std::unique_ptr<mlir::Pass> createONNXToAtenModifyMainFunctionPass();
 
