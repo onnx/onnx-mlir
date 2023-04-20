@@ -102,7 +102,7 @@ public:
           !returnsDynamicOrUnknownShape(op))
         continue;
 
-      if (auto shape_op = llvm::dyn_cast<ShapeInference>(op)) {
+      if (auto shape_op = llvm::dyn_cast<ShapeInferenceOpInterface>(op)) {
         // Verify the operation before attempting to infer the shape of the
         // produced output(s).
         Optional<RegisteredOperationName> registeredInfo =

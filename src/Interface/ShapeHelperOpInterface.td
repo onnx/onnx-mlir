@@ -19,7 +19,7 @@
 include "mlir/IR/OpBase.td"
 #endif // OP_BASE
 
-def ShapeHelperOpInterface : OpInterface<"ShapeHelper"> {
+def ShapeHelperOpInterface : OpInterface<"ShapeHelperOpInterface"> {
   let description = [{
     Interface to access a registered method to infer the return shapes for an
     operation that can be used during type inference. The shape inference

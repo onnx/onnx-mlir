@@ -23,11 +23,13 @@ namespace {
 
 // Shape inference pattern for regular ONNX ops from the ONNX specification,
 // which all implement the ShapeInference interface.
-struct InferShapesPattern : public OpInterfaceRewritePattern<ShapeInference> {
-  using OpInterfaceRewritePattern<ShapeInference>::OpInterfaceRewritePattern;
+struct InferShapesPattern
+    : public OpInterfaceRewritePattern<ShapeInferenceOpInterface> {
+  using OpInterfaceRewritePattern<
+      ShapeInferenceOpInterface>::OpInterfaceRewritePattern;
 
-  LogicalResult matchAndRewrite(
-      ShapeInference shapeInfOp, PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(ShapeInferenceOpInterface shapeInfOp,
+      PatternRewriter &rewriter) const override {
     // TODO: check if it's necessary to skip ops that satisfy
     // !returnsDynamicOrUnknownShape (see ShapeInferencePass.cpp)
 
@@ -56,7 +58,7 @@ struct ReturnShapesPattern : public OpRewritePattern<ONNXReturnOp> {
       ONNXReturnOp returnOp, PatternRewriter &rewriter) const override {
     Operation *parent = returnOp->getParentOp();
     assert(parent && "every onnx.Return op has a parent");
-    if (auto shapeInfOp = llvm::dyn_cast<ShapeInference>(parent)) {
+    if (auto shapeInfOp = dyn_cast<ShapeInferenceOpInterface>(parent)) {
       if (failed(shapeInfOp.inferShapes([](Region &region) {})))
         return shapeInfOp.emitOpError("shape inference failed");
     } else {
