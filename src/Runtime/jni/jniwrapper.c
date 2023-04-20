@@ -498,12 +498,13 @@ OMTensorList *omtl_java_to_native(
   free(jobj_omts);
 
   /* Create OMTensorList to be constructed and passed to the model
-   * shared library. Note that we do own the pointers to the native
-   * OMTensor structs, jni_omts.
+   * shared library. Note that omTensorListCreate now copies the input
+   * tensor list so we must free jni_omts to avoid memory leak.
    */
   LIB_TYPE_VAR_CALL(OMTensorList *, jni_omtl,
       omTensorListCreate(jni_omts, (int64_t)jomtl_omtn), jni_omtl != NULL, env,
       japi->jecpt_cls, "jni_omtl=%p", jni_omtl);
+  free(jni_omts);
 
   return jni_omtl;
 }
@@ -660,11 +661,6 @@ jobject omtl_native_to_java(
     /* Set the OMTensor object in the object array */
     JNI_CALL(env, (*env)->SetObjectArrayElement(env, jobj_omts, i, jobj_omt), 1,
         NULL, "");
-
-    JNI_CALL(env, (*env)->DeleteLocalRef(env, jomt_data), 1, NULL, "");
-    JNI_CALL(env, (*env)->DeleteLocalRef(env, jomt_shape), 1, NULL, "");
-    JNI_CALL(env, (*env)->DeleteLocalRef(env, jomt_strides), 1, NULL, "");
-    JNI_CALL(env, (*env)->DeleteLocalRef(env, jobj_omt), 1, NULL, "");
   }
 
   /* Create the OMTensorList java object */
