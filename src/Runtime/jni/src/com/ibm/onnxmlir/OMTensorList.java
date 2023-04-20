@@ -38,4 +38,14 @@ public class OMTensorList {
     public OMTensor getOmtByIndex(int index) {
         return _omts[index];
     }
+
+    /**
+     * OMTensor cleaner
+     *
+     * Explicitly close OMTensor to free native data buffer (if any)
+     */
+    public void close() {
+	for (int i = 0; i < _omts.length; i++)
+	    _omts[i].close();
+    }
 }

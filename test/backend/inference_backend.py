@@ -1181,7 +1181,8 @@ def JniExecutionSession(jar_name, inputs):
     )
 
     dtype = {
-        "b1": np.bool,
+        # np.bool is deprecated, use np.bool_ instead
+        "b1": np.bool_,
         "i1": np.int8,
         "u1": np.uint8,
         "i2": np.int16,

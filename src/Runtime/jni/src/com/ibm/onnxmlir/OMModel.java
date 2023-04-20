@@ -168,7 +168,7 @@ public class OMModel {
     }
 
     private static native OMTensorList main_graph_jni(OMTensorList list);
-    private static native String[] query_entry_points();
+    private static native String[] query_entry_points_jni();
     private static native String input_signature_jni(String entry_point);
     private static native String output_signature_jni(String entry_point);
 
@@ -188,7 +188,7 @@ public class OMModel {
      * @return String array of entry point names
      */
     public static String[] queryEntryPoints() {
-	return query_entry_points();
+	return query_entry_points_jni();
     }
 
     /**
