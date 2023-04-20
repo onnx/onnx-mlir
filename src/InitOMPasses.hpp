@@ -42,13 +42,7 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    if (enableONNXHybridPass) {
-      // Replaces shape inference in onnx-mlir-opt which is used in all the
-      // lit tests, except the parse lit tests.
-      return createONNXShapeInferenceTransformPass();
-    } else {
-      return createShapeInferencePass();
-    }
+    return createShapeInferencePass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
