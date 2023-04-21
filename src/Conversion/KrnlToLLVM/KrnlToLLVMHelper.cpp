@@ -165,9 +165,8 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
     Value dimIdx = create.llvm.constant(int64Ty, (int64_t)i);
     // Transfer size of dimension from memref to dynamic memref.
     Value dimSize = create.llvm.extractValue(int64Ty, outMemRef, {3, i});
-    Value dimSizePtr =
-        create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
-            sizesArrayPtr, ArrayRef<Value>({dimIdx}));
+    Value dimSizePtr = create.llvm.getElemPtr(getPointerType(context, int64Ty),
+        int64Ty, sizesArrayPtr, ArrayRef<Value>({dimIdx}));
     create.llvm.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.

@@ -58,8 +58,7 @@ public:
     // Common types.
     Type i1Ty = IntegerType::get(context, 1);
     Type i64Ty = IntegerType::get(context, 64);
-    Type i8PtrTy =
-        getPointerType(context, IntegerType::get(context, 8));
+    Type i8PtrTy = getPointerType(context, IntegerType::get(context, 8));
     Type elementType = src.getType().cast<LLVM::LLVMStructType>().getBody()[1];
     int64_t eltSize = getMemRefEltSizeInBytes(
         memcpyOp.getSrc().getType().dyn_cast<MemRefType>());
@@ -116,8 +115,7 @@ private:
     // Create a function declaration for memcpy, the signature is:
     //   * `void (i8*, i8* , i64, i1)`
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    Type llvmI8PtrTy =
-        getPointerType(context, IntegerType::get(context, 8));
+    Type llvmI8PtrTy = getPointerType(context, IntegerType::get(context, 8));
     Type llvmI64Ty = IntegerType::get(context, 64);
     Type llvmI1Ty = IntegerType::get(context, 1);
     return create.llvm.getOrInsertSymbolRef(module,

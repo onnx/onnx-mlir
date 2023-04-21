@@ -225,8 +225,8 @@ public:
     // entry point instead of the wrapped static entry point.
     Type memRefOutTy = staticEntryPointFuncTy.getReturnTypes()[0];
     Type memRefOutPtrTy = getPointerType(context, memRefOutTy);
-    Value ptrToOutMemRef = create.llvm._alloca(
-        memRefOutPtrTy, memRefOutTy, one, /*alignment=*/0);
+    Value ptrToOutMemRef =
+        create.llvm._alloca(memRefOutPtrTy, memRefOutTy, one, /*alignment=*/0);
     staticInputs.emplace_back(ptrToOutMemRef);
 
     // Start with param 1 because 0 is the return value.
@@ -243,8 +243,8 @@ public:
       // Original input is shifted by 1 in the iface func.
       Type memRefInTy = typeConverter.convertType(origInputMemRefTypes[i - 1]);
       Type memRefInPtrTy = getPointerType(context, memRefInTy);
-      Value ptrToMemRef = create.llvm._alloca(
-          memRefInPtrTy, memRefInTy, one, /*alignment=*/0);
+      Value ptrToMemRef =
+          create.llvm._alloca(memRefInPtrTy, memRefInTy, one, /*alignment=*/0);
 
       // Fill in the memref underlying ptrToMemRef with information extracted
       // from omTensorPtr.
@@ -370,16 +370,14 @@ private:
     for (decltype(rank) i = 0; i < rank; i++) {
       Value dimIdx = create.llvm.constant(int64Ty, (int64_t)i);
       // Insert size of the dimension.
-      Value dimSizePtr =
-          create.llvm.getElemPtr(getPointerType(context, int64Ty),
-              int64Ty, sizesArrayPtr, {dimIdx});
+      Value dimSizePtr = create.llvm.getElemPtr(
+          getPointerType(context, int64Ty), int64Ty, sizesArrayPtr, {dimIdx});
       Value dimSize = create.llvm.load_new(int64Ty, dimSizePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimSize, {3, i});
 
       // Insert stride of the dimension.
-      auto dimStridePtr =
-          create.llvm.getElemPtr(getPointerType(context, int64Ty),
-              int64Ty, stridesArrayPtr, {dimIdx});
+      auto dimStridePtr = create.llvm.getElemPtr(
+          getPointerType(context, int64Ty), int64Ty, stridesArrayPtr, {dimIdx});
       auto dimStride = create.llvm.load_new(int64Ty, dimStridePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimStride, {4, i});
     }
@@ -499,8 +497,8 @@ private:
         // Get actual dimension size.
         Value dimIdx = create.llvm.constant(int64Ty, (int64_t)d);
         Value actualDim = create.llvm.load(
-            create.llvm.getElemPtr(getPointerType(context, int64Ty),
-                int64Ty, sizesArrayPtr, {dimIdx}));
+            create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
+                sizesArrayPtr, {dimIdx}));
         // Get reference dimension size.
         auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
         assert(JSONDimValue && "failed to get value");

@@ -205,10 +205,10 @@ ZTensor ZTensorHelper::getZTensor(Value bufferPtr, zdnn_data_types dataType,
   Value transformedDescPtr =
       getTransformedDescPtr(preTransformedDescPtr, isConcat, concatInfo);
   // Create the input zTensor.
-  Value alloc = create.llvm._alloca(
-      krnl::getPointerType(context, llvmZTensorStructTy), llvmZTensorStructTy,
-      one,
-      /*alignment=*/0);
+  Value alloc =
+      create.llvm._alloca(krnl::getPointerType(context, llvmZTensorStructTy),
+          llvmZTensorStructTy, one,
+          /*alignment=*/0);
   // Buffer size.
   Value bufferSize = getBufferSize(transformedDescPtr);
   // clang-format off
@@ -239,10 +239,10 @@ ZTensor ZTensorHelper::getZTensor(Value preTransformedDescPtr,
 
   Type llvmZTensorStructTy = getZTensorStructTy(context);
   Value one = create.llvm.constant(rewriter.getI64Type(), (int64_t)1);
-  Value alloc = create.llvm._alloca(
-      krnl::getPointerType(context, llvmZTensorStructTy), llvmZTensorStructTy,
-      one,
-      /*alignment=*/0);
+  Value alloc =
+      create.llvm._alloca(krnl::getPointerType(context, llvmZTensorStructTy),
+          llvmZTensorStructTy, one,
+          /*alignment=*/0);
   // clang-format off
   fillInZTensor(rewriter, loc, module, alloc,
                 /*preTransformedDescPtr=*/preTransformedDescPtr,
@@ -525,15 +525,15 @@ void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
   Value four = create.llvm.constant(llvmI32Ty, (int64_t)4);
 
   // 1. Set pre-transformed descriptor.
-  Value zTensorPreTransformedDescPtr = create.llvm.getElemPtr(
-      krnl::getPointerType(context, llvmZTensorDescTy), llvmZTensorDescTy,
-      zTensor, {zero, zero});
+  Value zTensorPreTransformedDescPtr =
+      create.llvm.getElemPtr(krnl::getPointerType(context, llvmZTensorDescTy),
+          llvmZTensorDescTy, zTensor, {zero, zero});
   create.llvm.store(preTransformedDescPtr, zTensorPreTransformedDescPtr);
 
   // 2. Set transformed descriptor.
-  Value zTensorTransformedDescPtr = create.llvm.getElemPtr(
-      krnl::getPointerType(context, llvmZTensorDescTy), llvmZTensorDescTy,
-      zTensor, {zero, one});
+  Value zTensorTransformedDescPtr =
+      create.llvm.getElemPtr(krnl::getPointerType(context, llvmZTensorDescTy),
+          llvmZTensorDescTy, zTensor, {zero, one});
   create.llvm.store(transformedDescPtr, zTensorTransformedDescPtr);
 
   // 3. Set buffer_size.
