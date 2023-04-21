@@ -63,11 +63,10 @@ public:
 
     Type elemTy = originalInput.getType().cast<MemRefType>().getElementType();
     krnl::fillOMTensorWithMemRef(input, elemTy, omTensor, false /*outOwning*/,
-        rewriter, loc, apiRegistry, module, *typeConverter);
+        rewriter, loc, apiRegistry, module);
     LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
         msg, loc, rewriter, module, typeConverter);
-    Value strPtr =
-        krnl::getPtrToGlobalString(globalStr, loc, rewriter, typeConverter);
+    Value strPtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
 
     RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::PRINT_OMTENSOR, {strPtr, omTensor});

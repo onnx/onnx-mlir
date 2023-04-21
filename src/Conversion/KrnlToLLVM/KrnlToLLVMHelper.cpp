@@ -24,6 +24,8 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
+extern const bool gUseOpaquePointer = true;
+
 static constexpr int32_t MinGlobalAlign = 16;
 
 // clang-format off
@@ -123,8 +125,7 @@ int64_t mlirTypeToOnnxType(Type elemType) {
 
 void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
     int64_t outOwning, PatternRewriter &rewriter, const Location &loc,
-    const RuntimeAPIRegistry &apiRegistry, ModuleOp &module,
-    LLVMTypeConverter &typeConverter) {
+    const RuntimeAPIRegistry &apiRegistry, ModuleOp &module) {
   MLIRContext *context = module.getContext();
   auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMStructType>();
   auto int64Ty = IntegerType::get(context, 64);
@@ -161,15 +162,15 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
     // Transfer size of dimension from memref to dynamic memref.
     Value dimSize = create.llvm.extractValue(int64Ty, outMemRef, {3, i});
     Value dimSizePtr =
-        create.llvm.getElemPtr_new(typeConverter.getPointerType(int64Ty),
-            int64Ty, sizesArrayPtr, ArrayRef<Value>({dimIdx}));
+        create.llvm.getElemPtr_new(getPointerType(context, int64Ty), int64Ty,
+            sizesArrayPtr, ArrayRef<Value>({dimIdx}));
     create.llvm.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.
     Value dimStride = create.llvm.extractValue(int64Ty, outMemRef, {4, i});
     Value dimStridePtr =
-        create.llvm.getElemPtr_new(typeConverter.getPointerType(int64Ty),
-            int64Ty, stridesArrayPtr, ArrayRef<Value>({dimIdx}));
+        create.llvm.getElemPtr_new(getPointerType(context, int64Ty), int64Ty,
+            stridesArrayPtr, ArrayRef<Value>({dimIdx}));
     create.llvm.store(dimStride, dimStridePtr);
   }
 }
@@ -197,11 +198,12 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
 }
 
 // Return a pointer to a global string.
-Value getPtrToGlobalString(const LLVM::GlobalOp &global, Location loc,
-    OpBuilder &builder, LLVMTypeConverter *typeConverter) {
+Value getPtrToGlobalString(
+    const LLVM::GlobalOp &global, Location loc, OpBuilder &builder) {
   MultiDialectBuilder<LLVMBuilder> create(builder, loc);
-  Type i8Type = IntegerType::get(builder.getContext(), 8);
-  Type i8PtrType = typeConverter->getPointerType(i8Type);
+  MLIRContext *ctx = builder.getContext();
+  Type i8Type = IntegerType::get(ctx, 8);
+  Type i8PtrType = getPointerType(ctx, i8Type);
   Value globalPtr = create.llvm.addressOf(global);
   return create.llvm.bitcast(i8PtrType, globalPtr);
 }
@@ -228,7 +230,7 @@ FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
   MultiDialectBuilder<LLVMBuilder> create(builder, module.getLoc());
   MLIRContext *ctx = module.getContext();
   Type i8Type = IntegerType::get(ctx, 8);
-  Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
+  Type i8PtrTy = getPointerType(ctx, i8Type);
   // Create 'strncmp' function signature: `i32 (i8*, i8*, i64)`
   return create.llvm.getOrInsertSymbolRef(module, StringRef("strncmp"),
       builder.getI32Type(), {i8PtrTy, i8PtrTy, builder.getI64Type()});
@@ -250,7 +252,7 @@ std::string e2a_s(std::string e_s) {
 
 void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
   Type int32Ty = builder.getI32Type();
-  Type int32PtrTy = LLVM::LLVMPointerType::get(int32Ty);
+  Type int32PtrTy = getPointerType(builder.getContext(), int32Ty);
   LLVMBuilder createLLVM(builder, loc);
   LLVMBuilder createLLVMModuleLoc(builder, module.getLoc());
   // Create '__errno_location' function signature: `i32 *()`
@@ -260,6 +262,18 @@ void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
       createLLVM.call(int32PtrTy, errnoSymbolRef, ArrayRef<Value>({}));
   Value errNoVal = createLLVM.constant(int32Ty, (int64_t)errCode);
   createLLVM.store(errNoVal, errNoPos);
+}
+
+LLVM::LLVMPointerType getPointerType(
+    MLIRContext *context, Type elementType, unsigned int addressSpace) {
+  if (gUseOpaquePointer)
+    return LLVM::LLVMPointerType::get(context, addressSpace);
+  return LLVM::LLVMPointerType::get(elementType, addressSpace);
+}
+
+LLVM::LLVMPointerType getI8PointerType(
+    MLIRContext *context, unsigned int addressSpace) {
+  return getPointerType(context, IntegerType::get(context, 8), addressSpace);
 }
 
 } // namespace krnl

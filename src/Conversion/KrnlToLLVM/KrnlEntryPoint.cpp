@@ -168,7 +168,7 @@ public:
             }, /*then=*/
             [&](LLVMBuilder &createLLVM) {
               // return NULL.
-              createLLVM._return(createLLVM.nullI8Ptr());
+              createLLVM._return(createLLVM.null(getI8PointerType(context)));
             });
       }
     }
@@ -300,7 +300,7 @@ public:
                               << " with owning = " << outOwning << "\n");
       krnl::fillOMTensorWithMemRef(memRef,
           origOutputMemRefTypes[i].getElementType(), outOMTensor, outOwning,
-          rewriter, loc, apiRegistry, module, typeConverter);
+          rewriter, loc, apiRegistry, module);
 
       Value idxVal = create.llvm.constant(int64Ty, (int64_t)i);
       Value omTensorPtrAddr = create.llvm.getElemPtr_new(
@@ -410,6 +410,7 @@ private:
   void equalOrFailed(ModuleOp &module, PatternRewriter &rewriter, Location loc,
       Value lhs, Value rhs, std::string errorMsg = "",
       bool appendRHS = true) const {
+    MLIRContext *context = rewriter.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
     create.llvm.ifThenElse(/*cond=*/
         [&](LLVMBuilder &createLLVM) {
@@ -426,7 +427,7 @@ private:
           // Set errno.
           krnl::emitErrNo(module, rewriter, loc, EINVAL);
           // Return NULL.
-          create.llvm._return(create.llvm.nullI8Ptr());
+          create.llvm._return(create.llvm.null(getI8PointerType(context)));
         });
   }
 
@@ -434,6 +435,7 @@ private:
       PatternRewriter &rewriter, Location loc,
       const RuntimeAPIRegistry &apiRegistry, Value omTensorInputs,
       StringRef inSigJSON) const {
+    MLIRContext *context = rewriter.getContext();
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     Type int64Ty = rewriter.getI64Type();
     Type opaquePtrTy = typeConverter.getPointerType(rewriter.getI8Type());
@@ -526,7 +528,8 @@ private:
                 // Set errno.
                 krnl::emitErrNo(module, rewriter, loc, EINVAL);
                 // Return NULL.
-                create.llvm._return(create.llvm.nullI8Ptr());
+                create.llvm._return(
+                    create.llvm.null(getI8PointerType(context)));
               });
         } else {
           Value referenceDim = create.llvm.constant(int64Ty, (int64_t)dim);

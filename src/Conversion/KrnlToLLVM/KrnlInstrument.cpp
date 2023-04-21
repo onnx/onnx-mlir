@@ -55,8 +55,8 @@ public:
     StringRef opNameStr = instrumentOp.getOpName();
     LLVM::GlobalOp globalOpNameStr = krnl::getOrCreateGlobalString(
         opNameStr, loc, rewriter, parentModule, typeConverter);
-    Value opNamePtr = krnl::getPtrToGlobalString(
-        globalOpNameStr, loc, rewriter, typeConverter);
+    Value opNamePtr =
+        krnl::getPtrToGlobalString(globalOpNameStr, loc, rewriter);
     Value tag = create.llvm.constant(
         IntegerType::get(context, 64), (int64_t)instrumentOp.getTag());
     StringRef nodeName;
@@ -66,8 +66,7 @@ public:
       nodeName = StringRef("NOTSET");
     LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
         nodeName, loc, rewriter, parentModule, typeConverter);
-    Value nodeNamePtr =
-        krnl::getPtrToGlobalString(globalStr, loc, rewriter, typeConverter);
+    Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
     create.llvm.call({}, instrumentRef, {opNamePtr, tag, nodeNamePtr});
 
     rewriter.eraseOp(op);
@@ -83,8 +82,7 @@ private:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
     Type llvmI64Ty = IntegerType::get(context, 64);
-    Type llvmI8Ty = IntegerType::get(context, 8);
-    Type opaquePtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
+    Type opaquePtrTy = getI8PointerType(context);
     return create.llvm.getOrInsertSymbolRef(module,
         StringRef("OMInstrumentPoint"), llvmVoidTy,
         {opaquePtrTy, llvmI64Ty, opaquePtrTy});

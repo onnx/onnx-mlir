@@ -52,8 +52,7 @@ public:
     // Printf call.
     LLVM::GlobalOp formatSpec =
         getOrCreateGlobalString(format, loc, rewriter, module, typeConverter);
-    Value formatSpecPtr =
-        getPtrToGlobalString(formatSpec, loc, rewriter, typeConverter);
+    Value formatSpecPtr = getPtrToGlobalString(formatSpec, loc, rewriter);
 
     if (input)
       create.llvm.call({}, printfFuncRef, {formatSpecPtr, input});
@@ -70,8 +69,7 @@ private:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     MLIRContext *ctx = rewriter.getContext();
     Type voidType = LLVM::LLVMVoidType::get(ctx);
-    Type i8Type = IntegerType::get(ctx, 8);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type i8PtrType = getI8PointerType(ctx);
     return create.llvm.getOrInsertSymbolRef(module, StringRef("printf"),
         voidType, {i8PtrType},
         /*isVarArg=*/true);

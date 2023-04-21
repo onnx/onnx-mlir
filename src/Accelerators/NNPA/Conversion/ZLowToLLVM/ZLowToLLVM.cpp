@@ -18,6 +18,7 @@
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "zdnn.h"
 
@@ -738,6 +739,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    MLIRContext *context = rewriter.getContext();
     UnaryElementwiseOp unaryOp = dyn_cast_or_null<UnaryElementwiseOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
@@ -786,7 +788,7 @@ public:
     if (APIFor<UnaryElementwiseOp>() == API::ZDNN_RELU) {
       // Insert "nullptr" as the third argument for the "clipping_value",
       // because onnx.Relu does not use the clipping value.
-      Value nullpointer = create.llvm.nullI8Ptr();
+      Value nullpointer = create.llvm.null(krnl::getI8PointerType(context));
       callApi(rewriter, loc, module, apiRegistry, APIFor<UnaryElementwiseOp>(),
           {toOpaquePtr(rewriter, loc, module, inputZTensor.val), nullpointer,
               toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
@@ -1124,6 +1126,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    MLIRContext *context = rewriter.getContext();
     ZLowConv2DOp convOp = dyn_cast_or_null<ZLowConv2DOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
@@ -1230,7 +1233,7 @@ public:
             /*isTransformed=*/true);
 
     // Prepare nullpointer for the clipping value
-    Value nullpointer = create.llvm.nullI8Ptr();
+    Value nullpointer = create.llvm.null(krnl::getI8PointerType(context));
     // Ready to call zDNN Conv2D.
     callApi(rewriter, loc, module, apiRegistry, API::ZDNN_CONV2D,
         {toOpaquePtr(rewriter, loc, module, inputZTensor.val),

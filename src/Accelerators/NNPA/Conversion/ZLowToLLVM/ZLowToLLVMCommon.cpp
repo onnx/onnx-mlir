@@ -19,6 +19,7 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "zdnn.h"
 
@@ -165,10 +166,11 @@ Value ZTensorHelper::getTransformedDescPtr(
 
 // Get the pointer to memref.
 Value ZTensorHelper::getAlignedI8Ptr(Value memRef) {
+  MLIRContext *context = rewriter.getContext();
   MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
   MemRefDescriptor descriptor(memRef);
   Value alignedPtr = descriptor.alignedPtr(rewriter, loc);
-  return create.llvm.bitcastI8Ptr(alignedPtr);
+  return create.llvm.bitcast(krnl::getI8PointerType(context), alignedPtr);
 }
 
 // Get buffer size from a transformed descriptor.
@@ -490,8 +492,9 @@ Type getZTensorStructTy(MLIRContext *context) {
 /// Function to cast an LLVM pointer to an opaque LLVM pointer.
 Value toOpaquePtr(
     PatternRewriter &rewriter, Location loc, ModuleOp module, Value ptr) {
+  MLIRContext *context = rewriter.getContext();
   MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-  return create.llvm.bitcastI8Ptr(ptr);
+  return create.llvm.bitcast(krnl::getI8PointerType(context), ptr);
 }
 
 void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,

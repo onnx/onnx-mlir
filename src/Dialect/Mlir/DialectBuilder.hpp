@@ -501,8 +501,6 @@ struct LLVMBuilder final : DialectBuilder {
 
   // BitcastOp
   mlir::Value bitcast(mlir::Type type, mlir::Value val) const;
-  mlir::Value bitcastI8Ptr(mlir::Value val) const;
-  mlir::Value bitcastI8PtrPtr(mlir::Value val) const;
 
   // BrOp
   void br(
@@ -562,7 +560,6 @@ struct LLVMBuilder final : DialectBuilder {
 
   // NullOp
   mlir::Value null(mlir::Type type) const;
-  mlir::Value nullI8Ptr() const;
 
   // Ptrtoint
   mlir::Value ptrtoint(mlir::Type type, mlir::Value val) const;

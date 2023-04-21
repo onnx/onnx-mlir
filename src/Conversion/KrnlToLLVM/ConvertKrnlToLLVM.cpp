@@ -275,9 +275,9 @@ void genSignatureFunction(ModuleOp &module,
   Type i8Type = IntegerType::get(context, 8);
   Type i32Type = IntegerType::get(context, 32);
   Type i64Type = IntegerType::get(context, 64);
-  Type i64PtrTy = LLVM::LLVMPointerType::get(i64Type);
-  Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
-  Type i8PtrPtrTy = LLVM::LLVMPointerType::get(i8PtrTy);
+  Type i64PtrTy = getPointerType(context, i64Type);
+  Type i8PtrTy = getPointerType(context, i8Type);
+  Type i8PtrPtrTy = getPointerType(context, i8PtrTy);
 
   uint64_t numOfEntryPoints = entryGlobalOps.size();
 
@@ -300,16 +300,13 @@ void genSignatureFunction(ModuleOp &module,
     uint32_t index = 0;
     Value lastValue = array;
     for (const LLVM::GlobalOp &globalOp : entryGlobalOps) {
-      Value address = create.llvm.addressOf(globalOp);
-      Value zeroI64 = create.llvm.constant(i64Type, (int64_t)0);
-      Value strAddr =
-          create.llvm.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
+      Value strAddr = krnl::getPtrToGlobalString(globalOp, loc, b);
       lastValue =
           create.llvm.insertValue(arrayType, lastValue, strAddr, {index++});
     }
 
     // The last element of the array is NULL.
-    Value nullPtr = create.llvm.nullI8Ptr();
+    Value nullPtr = create.llvm.null(getI8PointerType(context));
     lastValue =
         create.llvm.insertValue(arrayType, lastValue, nullPtr, {index++});
     create.llvm._return(lastValue);
@@ -340,15 +337,15 @@ void genSignatureFunction(ModuleOp &module,
         }, /*then=*/
         [&](LLVMBuilder &createLLVM) {
           Value zero = createLLVM.constant(i64Type, (int64_t)0);
-          Value numOfEntryPointsPtr =
-              createLLVM.getElemPtr(i64PtrTy, numOfEntryPoints, {zero});
+          Value numOfEntryPointsPtr = createLLVM.getElemPtr_new(
+              i64PtrTy, i64Type, numOfEntryPoints, {zero});
           Value noep =
               createLLVM.constant(i64Type, (int64_t)entryGlobalOps.size());
           createLLVM.store(noep, numOfEntryPointsPtr);
         });
     // Emit code to return the entry point array.
     Value entryAddr = create.llvm.addressOf(entryArrayOp);
-    Value entryI8Ptr = create.llvm.bitcastI8PtrPtr(entryAddr);
+    Value entryI8Ptr = create.llvm.bitcast(i8PtrPtrTy, entryAddr);
     create.llvm._return(entryI8Ptr);
   }
 
@@ -388,10 +385,8 @@ void genSignatureFunction(ModuleOp &module,
       create.llvm.ifThenElse(/*cond=*/
           [&](LLVMBuilder &createLLVM) {
             // Read an entry point name.
-            Value address = createLLVM.addressOf(globalEntryPoint);
-            Value zeroI64 = createLLVM.constant(i64Type, (int64_t)0);
             Value entryI8Ptr =
-                createLLVM.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
+                krnl::getPtrToGlobalString(globalEntryPoint, loc, b);
             // Compare it with the user's entry point name.
             FlatSymbolRefAttr StrncmpRef = krnl::getOrInsertStrncmp(b, module);
             Value length = createLLVM.constant(
@@ -404,13 +399,13 @@ void genSignatureFunction(ModuleOp &module,
           }, /*then=*/
           [&](LLVMBuilder &createLLVM) {
             Value sigAddr = createLLVM.addressOf(globalSignature);
-            Value sigI8Ptr = createLLVM.bitcastI8Ptr(sigAddr);
+            Value sigI8Ptr = createLLVM.bitcast(i8PtrTy, sigAddr);
             createLLVM._return(sigI8Ptr);
           });
     }
 
     // Return NULL if not found.
-    create.llvm._return(create.llvm.nullI8Ptr());
+    create.llvm._return(create.llvm.null(getI8PointerType(context)));
   }
 }
 
@@ -454,7 +449,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
   // There are many places where we still rely on non-opaque pointers. Disable
   // opaque-pointers until we migrated the affected code parts
-  options.useOpaquePointers = true;
+  options.useOpaquePointers = gUseOpaquePointer;
 
   KRNL_ENTRY_POINT_ID = 0;
 

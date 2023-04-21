@@ -1507,17 +1507,6 @@ Value LLVMBuilder::bitcast(Type type, Value val) const {
   return b().create<LLVM::BitcastOp>(loc(), type, val);
 }
 
-Value LLVMBuilder::bitcastI8Ptr(Value val) const {
-  return b().create<LLVM::BitcastOp>(
-      loc(), LLVM::LLVMPointerType::get(b().getI8Type()), val);
-}
-
-Value LLVMBuilder::bitcastI8PtrPtr(Value val) const {
-  return b().create<LLVM::BitcastOp>(loc(),
-      LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(b().getI8Type())),
-      val);
-}
-
 void LLVMBuilder::br(ArrayRef<Value> destOperands, Block *destBlock) const {
   b().create<LLVM::BrOp>(loc(), destOperands, destBlock);
 }
@@ -1654,11 +1643,6 @@ Value LLVMBuilder::mul(Value lhs, Value rhs) const {
 
 Value LLVMBuilder::null(Type type) const {
   return b().create<LLVM::NullOp>(loc(), type);
-}
-
-Value LLVMBuilder::nullI8Ptr() const {
-  Type I8PtrTy = LLVM::LLVMPointerType::get(b().getI8Type());
-  return b().create<LLVM::NullOp>(loc(), I8PtrTy);
 }
 
 Value LLVMBuilder::ptrtoint(Type type, Value val) const {

@@ -51,7 +51,7 @@ public:
     // Operands.
     MLIRContext *ctx = module.getContext();
     Type i8Type = IntegerType::get(ctx, 8);
-    Type i8PtrType = llvmTypeConverter->getPointerType(i8Type);
+    Type i8PtrType = getPointerType(ctx, i8Type);
     Value str1Ptr = rewriter.create<LLVM::IntToPtrOp>(
         loc, i8PtrType, operandAdaptor.getStr1());
     Value str2Ptr = rewriter.create<LLVM::IntToPtrOp>(

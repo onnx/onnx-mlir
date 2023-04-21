@@ -225,8 +225,7 @@ private:
     DenseElementsAttr denseAttr =
         krnlGlobalOp.getValue().value().cast<DenseElementsAttr>();
 
-    Type i8Type = IntegerType::get(builder.getContext(), 8);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type i8PtrType = getI8PointerType(builder.getContext());
 
     // Generate LLVM GlobalOps for each string in the KrnlGlobalOp dense
     // attribute.
@@ -253,8 +252,7 @@ private:
     int32_t index = 0;
     Value lastValue = array;
     for (const LLVM::GlobalOp &globalOp : globalOps) {
-      Value strAddr = krnl::getPtrToGlobalString(
-          globalOp, loc, builder, getTypeConverter());
+      Value strAddr = krnl::getPtrToGlobalString(globalOp, loc, builder);
       lastValue =
           create.llvm.insertValue(arrayType, lastValue, strAddr, {index++});
     }

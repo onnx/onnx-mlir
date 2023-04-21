@@ -44,6 +44,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
+    MLIRContext *context = rewriter.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     KrnlGetRefOpAdaptor operandAdaptor(operands);
@@ -75,7 +76,7 @@ public:
     // of the output MemRef.
     auto llvmOutputElementType = outputElementType.cast<Type>();
     Value outputTypedPtrAlloc =
-        create.llvm.bitcast(LLVM::LLVMPointerType::get(llvmOutputElementType),
+        create.llvm.bitcast(getPointerType(context, llvmOutputElementType),
             outputMemPoolTypePtrAlloc);
 
     // Handle the static case.
