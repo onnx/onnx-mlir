@@ -494,8 +494,6 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value addressOf(mlir::LLVM::GlobalOp op) const;
 
   // AllocaOp
-  mlir::Value _alloca(
-      mlir::Type resultType, mlir::Value size, int64_t alignment) const;
   mlir::Value _alloca_new(mlir::Type resultType, mlir::Type elementType,
       mlir::Value size, int64_t alignment) const;
 
@@ -530,8 +528,6 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type) const;
 
   // GEPOp
-  mlir::Value getElemPtr(mlir::Type resultType, mlir::Value base,
-      llvm::ArrayRef<mlir::Value> indices) const;
   mlir::Value getElemPtr_new(mlir::Type resultType, mlir::Type elemType,
       mlir::Value base, llvm::ArrayRef<mlir::Value> indices) const;
 
