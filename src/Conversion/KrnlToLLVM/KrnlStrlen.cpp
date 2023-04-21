@@ -33,7 +33,7 @@ namespace krnl {
 class KrnlStrlenOpLowering : public ConversionPattern {
 public:
   explicit KrnlStrlenOpLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConversionPattern(
             typeConverter, KrnlStrlenOp::getOperationName(), 1, context) {}
 
@@ -46,11 +46,13 @@ public:
     // Get a symbol reference to the strlen function, inserting it if necessary.
     ModuleOp module = op->getParentOfType<ModuleOp>();
     FlatSymbolRefAttr strlenRef = getOrInsertStrlen(rewriter, module);
+    LLVMTypeConverter *llvmTypeConverter =
+        static_cast<LLVMTypeConverter *>(getTypeConverter());
 
     // Operand.
     MLIRContext *ctx = module.getContext();
     Type i8Type = IntegerType::get(ctx, 8);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type i8PtrType = llvmTypeConverter->getPointerType(i8Type);
     Value strPtr = rewriter.create<LLVM::IntToPtrOp>(
         loc, i8PtrType, operandAdaptor.getStr());
 
@@ -67,20 +69,22 @@ public:
 private:
   /// Return a symbol reference to the strlen function, inserting it into the
   /// module if necessary.
-  static FlatSymbolRefAttr getOrInsertStrlen(
-      PatternRewriter &rewriter, ModuleOp module) {
+  FlatSymbolRefAttr getOrInsertStrlen(
+      PatternRewriter &rewriter, ModuleOp module) const {
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
+    LLVMTypeConverter *llvmTypeConverter =
+        static_cast<LLVMTypeConverter *>(getTypeConverter());
     // Create 'strlen' function signature: `size_t (i8*)`
     // TODO: need to create size_t not i64.
     MLIRContext *ctx = module.getContext();
     Type i8Type = IntegerType::get(ctx, 8);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type i8PtrType = llvmTypeConverter->getPointerType(i8Type);
     return create.llvm.getOrInsertSymbolRef(
         module, StringRef("strlen"), rewriter.getI64Type(), {i8PtrType});
   }
 };
 
-void populateLoweringKrnlStrlenOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlStrlenOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlStrlenOpLowering>(typeConverter, ctx);
 }

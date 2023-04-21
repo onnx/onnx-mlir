@@ -32,7 +32,7 @@ namespace krnl {
 class KrnlRandomNormalOpLowering : public ConversionPattern {
 public:
   explicit KrnlRandomNormalOpLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConversionPattern(typeConverter, KrnlRandomNormalOp::getOperationName(),
             1, context) {}
 
@@ -71,6 +71,8 @@ private:
       PatternRewriter &rewriter, ModuleOp module, Type inType) const {
     MLIRContext *context = module.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
+    LLVMTypeConverter *llvmTypeConverter =
+        static_cast<LLVMTypeConverter *>(getTypeConverter());
     StringRef functionName = inType.isF64() ? "get_random_normal_value_f64"
                                             : "get_random_normal_value_f32";
     // Signature of the input is:
@@ -81,10 +83,10 @@ private:
     //  (memref<3x4x5xf64>, index, f64, f64, f64)
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
     Type llvmOptionsTy = FloatType::getF32(context);
-    Type llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
+    Type llvmOutputTy = llvmTypeConverter->getPointerType(llvmOptionsTy);
     if (inType.isF64()) {
       llvmOptionsTy = FloatType::getF64(context);
-      llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
+      llvmOutputTy = llvmTypeConverter->getPointerType(llvmOptionsTy);
     }
     Type llvmI64Ty = IntegerType::get(context, 64);
     return create.llvm.getOrInsertSymbolRef(module, functionName, llvmVoidTy,
@@ -92,7 +94,7 @@ private:
   }
 };
 
-void populateLoweringKrnlRandomNormalOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlRandomNormalOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlRandomNormalOpLowering>(typeConverter, ctx);
 }

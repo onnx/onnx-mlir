@@ -34,7 +34,7 @@ namespace krnl {
 class KrnlInstrumentOpLowering : public ConversionPattern {
 public:
   explicit KrnlInstrumentOpLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConversionPattern(
             typeConverter, KrnlInstrumentOp::getOperationName(), 1, context) {}
 
@@ -91,7 +91,7 @@ private:
   }
 };
 
-void populateLoweringKrnlInstrumentOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlInstrumentOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlInstrumentOpLowering>(typeConverter, ctx);
 }

@@ -28,7 +28,7 @@ namespace krnl {
 class KrnlPrintTensorOpLowering : public ConversionPattern {
 public:
   explicit KrnlPrintTensorOpLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConversionPattern(
             typeConverter, KrnlPrintTensorOp::getOperationName(), 1, context) {}
 
@@ -77,7 +77,7 @@ public:
   }
 };
 
-void populateLoweringKrnlPrintTensorOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlPrintTensorOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlPrintTensorOpLowering>(typeConverter, ctx);
 }

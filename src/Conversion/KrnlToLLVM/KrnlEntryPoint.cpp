@@ -132,8 +132,10 @@ public:
     auto &entryPointEntryBlock =
         createEntryBlock(dynEntryPointFuncTy, dynamicEntryPointFunc, loc);
     rewriter.setInsertionPointToStart(&entryPointEntryBlock);
+    // User's OMTensor inputs.
+    auto omTensorInputs = entryPointEntryBlock.getArgument(0);
 
-    // Emit code to initialize accelerators by calling OMInitCompatibleAccelX
+    // 1. Emit code to initialize accelerators by calling OMInitCompatibleAccelX
     // where X is the accelerator name.
     // OMInitCompatibleAccelX's signature is `i64 (i64)`.
     if (Attribute maccelAttr =
@@ -171,6 +173,18 @@ public:
       }
     }
 
+    // 2. Emit code to verify every tensor in the wrapped input, e.g. verifying
+    // shape and data type.
+    if (verifyInputTensors) {
+      llvm::StringRef inSigJSON;
+      std::tie(inSigJSON, std::ignore) = sigAttr.getValue().split('@');
+      emitVerificationCodeForInputTensors(
+          module, rewriter, loc, apiRegistry, omTensorInputs, inSigJSON);
+    }
+
+    // 3. Emit code to prepare MemRefs from OMTensor inputs and call
+    // `_mlir_ciface` prefixed function of the entry point.
+
     // Based on the static entry point type signature, unpack dynamic memory
     // refs to corresponding static memory refs.
     // Note that, in the static entry point type signature, output type is a
@@ -198,23 +212,13 @@ public:
     auto wrappedStaticEntryPointTy = wrappedStaticEntryPointOp.getFunctionType()
                                          .dyn_cast<LLVM::LLVMFunctionType>();
 
-    // Retrieve dynamic mem refs from wrapped input, and convert every one of
-    // them to static mem refs.
-    SmallVector<Value, 4> staticInputs;
-    auto wrappedInput = entryPointEntryBlock.getArgument(0);
-
-    // Emit code to verify every tensor in the wrapped input, e.g. verifying
-    // shape and data type.
-    if (verifyInputTensors) {
-      llvm::StringRef inSigJSON;
-      std::tie(inSigJSON, std::ignore) = sigAttr.getValue().split('@');
-      emitVerificationCodeForInputTensors(
-          module, rewriter, loc, apiRegistry, wrappedInput, inSigJSON);
-    }
-
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
+        RuntimeAPI::API::GET_OMT_ARRAY, {omTensorInputs});
     Value one = create.llvm.constant(int64Ty, (int64_t)1);
+
+    // Prepare MemRefs as inputs for the wrapped static entry point function.
+    // MemRefs are filled with information from user' OMTensor inputs.
+    SmallVector<Value, 4> staticInputs;
 
     // Create a memref type for the return argument of the iface call.
     // The struct information of outputs will be obtained from the static
@@ -223,10 +227,9 @@ public:
     Type memRefOutPtrTy = typeConverter.getPointerType(memRefOutTy);
     Value ptrToOutMemRef = create.llvm._alloca_new(
         memRefOutPtrTy, memRefOutTy, one, /*alignment=*/0);
-
     staticInputs.emplace_back(ptrToOutMemRef);
 
-    // Start with param 1 because 0 is the return value
+    // Start with param 1 because 0 is the return value.
     for (size_t i = 1; i < wrappedStaticEntryPointTy.getNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       Value idxVal = create.llvm.constant(int64Ty, (int64_t)(i - 1));
@@ -305,14 +308,12 @@ public:
       create.llvm.store(outOMTensor, omTensorPtrAddr);
     }
 
-    llvm::outs() << "tung: iam before calling CREATE_OMTENSOR_LIST\n";
-    // Create wrapped output.
-    Value wrappedOutput = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+    // Create OMTensor outputs.
+    Value omTensorOutputs = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput});
-    llvm::outs() << "tung: iam after calling CREATE_OMTENSOR_LIST\n";
 
     // Return wrapped output.
-    create.llvm._return(wrappedOutput);
+    create.llvm._return(omTensorOutputs);
     return success();
   }
 
@@ -431,7 +432,7 @@ private:
 
   void emitVerificationCodeForInputTensors(ModuleOp &module,
       PatternRewriter &rewriter, Location loc,
-      const RuntimeAPIRegistry &apiRegistry, Value wrappedInput,
+      const RuntimeAPIRegistry &apiRegistry, Value omTensorInputs,
       StringRef inSigJSON) const {
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     Type int64Ty = rewriter.getI64Type();
@@ -447,13 +448,13 @@ private:
     equalOrFailed(module, rewriter, loc,
         create.llvm.constant(int64Ty, (int64_t)inputNum),
         RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-            RuntimeAPI::API::GET_OMTENSOR_LIST_SIZE, {wrappedInput}),
+            RuntimeAPI::API::GET_OMTENSOR_LIST_SIZE, {omTensorInputs}),
         "Wrong number of input tensors: expect " + std::to_string(inputNum) +
             ", but got ");
 
     // Get a pointer to the list of input omTensors.
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
+        RuntimeAPI::API::GET_OMT_ARRAY, {omTensorInputs});
     for (int64_t i = 0; i < inputNum; ++i) {
       // Call API function to retrieve the i-th omTensor.
       Value idxVal = create.llvm.constant(int64Ty, i);

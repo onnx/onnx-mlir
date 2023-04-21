@@ -27,7 +27,7 @@ namespace krnl {
 class KrnlCallOpLowering : public ConversionPattern {
 public:
   explicit KrnlCallOpLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConversionPattern(
             typeConverter, KrnlCallOp::getOperationName(), 1, context) {}
 
@@ -36,18 +36,17 @@ public:
     KrnlCallOpAdaptor krnlCallAdaptor(operands);
     Location loc = op->getLoc();
     KrnlCallOp krnlCallOp = llvm::cast<KrnlCallOp>(op);
-    LLVMTypeConverter *typeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    LLVMTypeConverter *llvmTypeConverter =
+        static_cast<LLVMTypeConverter *>(getTypeConverter());
 
     // Get a symbol reference to the function, inserting it if necessary.
     ModuleOp module = op->getParentOfType<ModuleOp>();
     llvm::SmallVector<Type, 4> parameterTypeList;
     llvm::SmallVector<Value, 4> parameterList;
     llvm::SmallVector<Value, 4> omTensors;
-    handleOneParameter(rewriter, *typeConverter, op,
-        krnlCallAdaptor.getResult(), krnlCallOp.getResult(), parameterTypeList,
-        parameterList, omTensors);
+    handleOneParameter(rewriter, op, krnlCallAdaptor.getResult(),
+        krnlCallOp.getResult(), parameterTypeList, parameterList, omTensors);
 
     // Some type of operands has been converted.
     // It is better to check the type of original operands.
@@ -56,8 +55,8 @@ public:
     auto itOriginal = krnlCallOp.getParameters().begin();
     for (; itConverted != krnlCallAdaptor.getParameters().end();
          itConverted++, itOriginal++) {
-      handleOneParameter(rewriter, *typeConverter, op, *itConverted,
-          *itOriginal, parameterTypeList, parameterList, omTensors);
+      handleOneParameter(rewriter, op, *itConverted, *itOriginal,
+          parameterTypeList, parameterList, omTensors);
     }
 
     // Handle the Attributes
@@ -65,8 +64,8 @@ public:
       // Avoid the funcName() Attribute
       if (namedAttr.getName().getValue().equals("funcName"))
         continue;
-      handleOneAttribute(rewriter, *typeConverter, op, namedAttr.getValue(),
-          parameterTypeList, parameterList);
+      handleOneAttribute(
+          rewriter, op, namedAttr.getValue(), parameterTypeList, parameterList);
     }
 
     FlatSymbolRefAttr callRef =
@@ -76,7 +75,7 @@ public:
 
     // Destroy OMTensor wrappers of parameters.
     const auto &apiRegistry =
-        RuntimeAPIRegistry(module, rewriter, *typeConverter);
+        RuntimeAPIRegistry(module, rewriter, *llvmTypeConverter);
     for (Value omt : omTensors) {
       RuntimeAPI::callApi(
           rewriter, loc, apiRegistry, RuntimeAPI::API::DESTROY_OMTENSOR, {omt});
@@ -87,17 +86,19 @@ public:
   }
 
 private:
-  static void handleOneParameter(PatternRewriter &rewriter,
-      LLVMTypeConverter &typeConverter, Operation *op, Value parameter,
-      Value original, llvm::SmallVector<Type, 4> &parameterTypeList,
+  void handleOneParameter(PatternRewriter &rewriter, Operation *op,
+      Value parameter, Value original,
+      llvm::SmallVector<Type, 4> &parameterTypeList,
       llvm::SmallVector<Value, 4> &parameterList,
-      llvm::SmallVector<Value, 4> &omTensors) {
+      llvm::SmallVector<Value, 4> &omTensors) const {
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
-    const auto &apiRegistry =
-        RuntimeAPIRegistry(module, rewriter, typeConverter);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    LLVMTypeConverter *llvmTypeConverter =
+        static_cast<LLVMTypeConverter *>(getTypeConverter());
+    const auto &apiRegistry =
+        RuntimeAPIRegistry(module, rewriter, *llvmTypeConverter);
 
     // Check the original type, not after type conversion
     Type ty = original.getType();
@@ -110,12 +111,12 @@ private:
           RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
       Type llvmOrigElemTy =
-          typeConverter.convertType(originalMemRef.getElementType());
+          llvmTypeConverter->convertType(originalMemRef.getElementType());
       krnl::fillOMTensorWithMemRef(parameter, llvmOrigElemTy, omTensor,
           false /*outOwning*/, rewriter, loc, apiRegistry, module,
-          typeConverter);
+          *llvmTypeConverter);
       auto int8Ty = IntegerType::get(context, 8);
-      auto opaquePtrTy = typeConverter.getPointerType(int8Ty);
+      auto opaquePtrTy = llvmTypeConverter->getPointerType(int8Ty);
       parameterTypeList.emplace_back(opaquePtrTy);
       parameterList.emplace_back(omTensor);
       omTensors.emplace_back(omTensor);
@@ -125,24 +126,27 @@ private:
     }
   }
 
-  static void handleOneAttribute(PatternRewriter &rewriter,
-      LLVMTypeConverter &typeConverter, Operation *op, Attribute attribute,
-      llvm::SmallVector<Type, 4> &parameterTypeList,
-      llvm::SmallVector<Value, 4> &parameterList) {
+  void handleOneAttribute(PatternRewriter &rewriter, Operation *op,
+      Attribute attribute, llvm::SmallVector<Type, 4> &parameterTypeList,
+      llvm::SmallVector<Value, 4> &parameterList) const {
     auto *context = op->getContext();
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
+    LLVMTypeConverter *llvmTypeConverter =
+        static_cast<LLVMTypeConverter *>(getTypeConverter());
+    const auto &apiRegistry =
+        RuntimeAPIRegistry(module, rewriter, *llvmTypeConverter);
 
     TypeSwitch<Attribute>(attribute)
         .Case<StringAttr>([&](StringAttr strAttr) {
           StringRef attrValue = strAttr.getValue();
           LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
-              attrValue, loc, rewriter, module, &typeConverter);
+              attrValue, loc, rewriter, module, llvmTypeConverter);
           Value strPtr = krnl::getPtrToGlobalString(
-              globalStr, loc, rewriter, &typeConverter);
+              globalStr, loc, rewriter, llvmTypeConverter);
           auto int8Ty = IntegerType::get(context, 8);
-          auto opaquePtrTy = typeConverter.getPointerType(int8Ty);
+          auto opaquePtrTy = llvmTypeConverter->getPointerType(int8Ty);
           parameterTypeList.emplace_back(opaquePtrTy);
           parameterList.emplace_back(strPtr);
         })
@@ -167,8 +171,6 @@ private:
           // In future, the attributes should be converted in krnl.call builder.
           // This code passed onnx-mlir-opt --convert-krnl-to-llvm test case,
           // but failed in onnx-milr for the tensor type for the attribute
-          const auto &apiRegistry =
-              RuntimeAPIRegistry(module, rewriter, typeConverter);
           auto tensorTy = denseAttr.getType().cast<TensorType>();
           auto memRefTy =
               MemRefType::get(tensorTy.getShape(), tensorTy.getElementType());
@@ -176,10 +178,10 @@ private:
               create.krnl.constant(memRefTy, "constant_", denseAttr);
           Value convertedConstantGlobal =
               rewriter
-                  .create<UnrealizedConversionCastOp>(
-                      loc, typeConverter.convertType(memRefTy), constantGlobal)
+                  .create<UnrealizedConversionCastOp>(loc,
+                      llvmTypeConverter->convertType(memRefTy), constantGlobal)
                   .getResult(0);
-          // constantGlobal.setType(typeConverter->convertType(memRefTy));
+          // constantGlobal.setType(llvmTypeConverter->convertType(memRefTy));
 
           auto int64Ty = IntegerType::get(context, 64);
           auto memRefRank = memRefTy.getRank();
@@ -189,12 +191,12 @@ private:
               RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
           Type llvmElemTy =
-              typeConverter.convertType(memRefTy.getElementType());
+              llvmTypeConverter->convertType(memRefTy.getElementType());
           krnl::fillOMTensorWithMemRef(convertedConstantGlobal, llvmElemTy,
               omTensor, false /*outOwning*/, rewriter, loc, apiRegistry, module,
-              typeConverter);
+              *llvmTypeConverter);
           auto int8Ty = IntegerType::get(context, 8);
-          auto opaquePtrTy = typeConverter.getPointerType(int8Ty);
+          auto opaquePtrTy = llvmTypeConverter->getPointerType(int8Ty);
           parameterTypeList.emplace_back(opaquePtrTy);
           parameterList.emplace_back(omTensor);
         })
@@ -205,7 +207,7 @@ private:
   }
 };
 
-void populateLoweringKrnlCallOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlCallOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlCallOpLowering>(typeConverter, ctx);
 }
