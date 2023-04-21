@@ -45,8 +45,6 @@ public:
     // necessary.
     ModuleOp module = op->getParentOfType<ModuleOp>();
     FlatSymbolRefAttr StrncmpRef = getOrInsertStrncmp(rewriter, module);
-    LLVMTypeConverter *llvmTypeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
 
     // Operands.
     MLIRContext *ctx = module.getContext();

@@ -1492,7 +1492,7 @@ Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
   return b().create<LLVM::AddressOfOp>(loc(), op);
 }
 
-Value LLVMBuilder::_alloca_new(
+Value LLVMBuilder::_alloca(
     Type resultType, Type elementType, Value size, int64_t alignment) const {
   return b().create<LLVM::AllocaOp>(
       loc(), resultType, elementType, size, alignment);
@@ -1593,7 +1593,7 @@ LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
   return b().create<LLVM::LLVMFuncOp>(loc(), name, type);
 }
 
-Value LLVMBuilder::getElemPtr_new(
+Value LLVMBuilder::getElemPtr(
     Type resultType, Type elemType, Value base, ArrayRef<Value> indices) const {
   return b().create<LLVM::GEPOp>(loc(), resultType, elemType, base, indices);
 }

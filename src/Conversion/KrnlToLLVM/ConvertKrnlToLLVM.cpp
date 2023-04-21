@@ -337,7 +337,7 @@ void genSignatureFunction(ModuleOp &module,
         }, /*then=*/
         [&](LLVMBuilder &createLLVM) {
           Value zero = createLLVM.constant(i64Type, (int64_t)0);
-          Value numOfEntryPointsPtr = createLLVM.getElemPtr_new(
+          Value numOfEntryPointsPtr = createLLVM.getElemPtr(
               i64PtrTy, i64Type, numOfEntryPoints, {zero});
           Value noep =
               createLLVM.constant(i64Type, (int64_t)entryGlobalOps.size());

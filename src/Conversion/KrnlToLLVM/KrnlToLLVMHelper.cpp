@@ -137,10 +137,14 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
   // Extract the allocated pointer.
   Value outMemRefAllocatedPtr =
       create.llvm.extractValue(outMemRefTy.getBody()[0], outMemRef, {0});
+  outMemRefAllocatedPtr =
+      create.llvm.bitcast(getI8PointerType(context), outMemRefAllocatedPtr);
 
   // Extract the aligned pointer.
   Value outMemRefAlignedPtr =
       create.llvm.extractValue(outMemRefTy.getBody()[1], outMemRef, {1});
+  outMemRefAlignedPtr =
+      create.llvm.bitcast(getI8PointerType(context), outMemRefAlignedPtr);
 
   // Set ownership, allocated and aligned pointer.
   RuntimeAPI::callApi(rewriter, loc, apiRegistry, RuntimeAPI::API::SET_DATA,
@@ -162,14 +166,14 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
     // Transfer size of dimension from memref to dynamic memref.
     Value dimSize = create.llvm.extractValue(int64Ty, outMemRef, {3, i});
     Value dimSizePtr =
-        create.llvm.getElemPtr_new(getPointerType(context, int64Ty), int64Ty,
+        create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
             sizesArrayPtr, ArrayRef<Value>({dimIdx}));
     create.llvm.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.
     Value dimStride = create.llvm.extractValue(int64Ty, outMemRef, {4, i});
     Value dimStridePtr =
-        create.llvm.getElemPtr_new(getPointerType(context, int64Ty), int64Ty,
+        create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
             stridesArrayPtr, ArrayRef<Value>({dimIdx}));
     create.llvm.store(dimStride, dimStridePtr);
   }

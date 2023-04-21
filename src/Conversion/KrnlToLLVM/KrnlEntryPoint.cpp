@@ -225,7 +225,7 @@ public:
     // entry point instead of the wrapped static entry point.
     Type memRefOutTy = staticEntryPointFuncTy.getReturnTypes()[0];
     Type memRefOutPtrTy = typeConverter.getPointerType(memRefOutTy);
-    Value ptrToOutMemRef = create.llvm._alloca_new(
+    Value ptrToOutMemRef = create.llvm._alloca(
         memRefOutPtrTy, memRefOutTy, one, /*alignment=*/0);
     staticInputs.emplace_back(ptrToOutMemRef);
 
@@ -234,7 +234,7 @@ public:
       // Call API function to retrieve the i-th dynamic memref.
       Value idxVal = create.llvm.constant(int64Ty, (int64_t)(i - 1));
 
-      Value omTensorPtrAddr = create.llvm.getElemPtr_new(
+      Value omTensorPtrAddr = create.llvm.getElemPtr(
           omTensorPtrAddrTy, opaquePtrTy, omTensorPtrArr, {idxVal});
       Value omTensorPtr = create.llvm.load_new(opaquePtrTy, omTensorPtrAddr);
 
@@ -243,7 +243,7 @@ public:
       // Original input is shifted by 1 in the iface func.
       Type memRefInTy = typeConverter.convertType(origInputMemRefTypes[i - 1]);
       Type memRefInPtrTy = typeConverter.getPointerType(memRefInTy);
-      Value ptrToMemRef = create.llvm._alloca_new(
+      Value ptrToMemRef = create.llvm._alloca(
           memRefInPtrTy, memRefInTy, one, /*alignment=*/0);
 
       // Fill in the memref underlying ptrToMemRef with information extracted
@@ -280,7 +280,7 @@ public:
     Value numOutput =
         create.llvm.constant(int64Ty, (int64_t)outMemRefList.size());
     // Assume that OMTensor pointer size is 8
-    Value outOmtPtrsArr = create.llvm._alloca_new(
+    Value outOmtPtrsArr = create.llvm._alloca(
         omTensorPtrAddrTy, opaquePtrTy, numOutput, /*alignment=*/0);
 
     for (unsigned int i = 0; i < outMemRefList.size(); i++) {
@@ -303,7 +303,7 @@ public:
           rewriter, loc, apiRegistry, module);
 
       Value idxVal = create.llvm.constant(int64Ty, (int64_t)i);
-      Value omTensorPtrAddr = create.llvm.getElemPtr_new(
+      Value omTensorPtrAddr = create.llvm.getElemPtr(
           omTensorPtrAddrTy, opaquePtrTy, outOmtPtrsArr, {idxVal});
       create.llvm.store(outOMTensor, omTensorPtrAddr);
     }
@@ -371,14 +371,14 @@ private:
       Value dimIdx = create.llvm.constant(int64Ty, (int64_t)i);
       // Insert size of the dimension.
       Value dimSizePtr =
-          create.llvm.getElemPtr_new(typeConverter.getPointerType(int64Ty),
+          create.llvm.getElemPtr(typeConverter.getPointerType(int64Ty),
               int64Ty, sizesArrayPtr, {dimIdx});
       Value dimSize = create.llvm.load_new(int64Ty, dimSizePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimSize, {3, i});
 
       // Insert stride of the dimension.
       auto dimStridePtr =
-          create.llvm.getElemPtr_new(typeConverter.getPointerType(int64Ty),
+          create.llvm.getElemPtr(typeConverter.getPointerType(int64Ty),
               int64Ty, stridesArrayPtr, {dimIdx});
       auto dimStride = create.llvm.load_new(int64Ty, dimStridePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimStride, {4, i});
@@ -461,7 +461,7 @@ private:
       // Call API function to retrieve the i-th omTensor.
       Value idxVal = create.llvm.constant(int64Ty, i);
       Value omTensorPtrAddr =
-          create.llvm.getElemPtr_new(typeConverter.getPointerType(opaquePtrTy),
+          create.llvm.getElemPtr(typeConverter.getPointerType(opaquePtrTy),
               opaquePtrTy, omTensorPtrArr, {idxVal});
       Value omTensorPtr = create.llvm.load(omTensorPtrAddr);
 
@@ -499,7 +499,7 @@ private:
         // Get actual dimension size.
         Value dimIdx = create.llvm.constant(int64Ty, (int64_t)d);
         Value actualDim = create.llvm.load(
-            create.llvm.getElemPtr_new(typeConverter.getPointerType(int64Ty),
+            create.llvm.getElemPtr(typeConverter.getPointerType(int64Ty),
                 int64Ty, sizesArrayPtr, {dimIdx}));
         // Get reference dimension size.
         auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
