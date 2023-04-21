@@ -789,6 +789,37 @@ ElementsAttr ElementsAttrBuilder::range(
   });
 }
 
+namespace {
+template <typename AP_TYPE>
+SmallVector<int64_t> nonZeroIndices(ElementsAttr elms) {
+  SmallVector<int64_t> indices;
+  auto values = elms.getValues<AP_TYPE>();
+  for (const auto &idxpos : StridesRange<0>(elms.getType().getShape(), {})) {
+    if (!values[idxpos.flattenedIndex].isZero())
+      indices.append(idxpos.index.begin(), idxpos.index.end());
+  }
+  return indices;
+}
+} // namespace
+
+ElementsAttr ElementsAttrBuilder::nonZero(ElementsAttr elms) {
+  SmallVector<int64_t> indices = isa<FloatType>(elms.getElementType())
+                                     ? nonZeroIndices<APFloat>(elms)
+                                     : nonZeroIndices<APInt>(elms);
+  int64_t rank = elms.getType().getRank();
+  assert(indices.size() % rank == 0);
+  int64_t count = indices.size() / rank;
+  Type I64 = IntegerType::get(elms.getContext(), 64);
+  // Return transposition from shape [count, rank] to [rank, count].
+  auto nonZeroType = RankedTensorType::get({rank, count}, I64);
+  return fromArray<int64_t>(nonZeroType, [&](MutableArrayRef<int64_t> dst) {
+    for (int64_t i = 0; i < count; ++i) {
+      for (int64_t j = 0; j < rank; ++j)
+        dst[j * count + i] = indices[i * rank + j];
+    }
+  });
+}
+
 /*static*/
 auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     -> ElementsProperties {
