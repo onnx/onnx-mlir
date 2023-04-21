@@ -88,16 +88,6 @@ public:
     Type int64Ty = IntegerType::get(context, 64);
     Type omTensorPtrAddrTy = typeConverter.getPointerType(opaquePtrTy);
 
-    // When enabling `useOpaquePointers=true` in LowerToLLVMOptions, there is no
-    // element type information in the struct of a MemRefType. Hence, record
-    // element types of MemRef inputs and outputs by looking at the signature
-    // string of KrnlEntryPointOp.
-    llvm::StringRef inSigJSON, outSigJSON;
-    std::tie(inSigJSON, outSigJSON) = sigAttr.getValue().split('@');
-    SmallVector<Type, 4> elemInputTypes;
-    getElementTypesFromSignature(context, inSigJSON, elemInputTypes);
-    // getElementTypesFromSignature(context, outSigJSON, elemOutputTypes);
-
     // Rewrite Krnl Entry Point Operation to an LLVM function with a dynamic
     // signature. The signature is dynamic because it remains the same no matter
     // what the model input/output schema look like. Such dynamic signature
@@ -122,14 +112,15 @@ public:
     recordEntryPointSignatures(module, dynEntryPointName, op, entryGlobalOps,
         inSigGlobalOps, outSigGlobalOps);
 
-    // When input and output MemRefs are lowered to LLVM Struct, there is
-    // no information about signed/unsigned integers anymore. In other words,
-    // integers are signless at the time of lowering this operation. To set data
+    // If `useOpaquePointers=true` in LowerToLLVMOptions, all memref arguments
+    // are converted to opaque types, e.g. `!llvm.ptr`, so we lost the
+    // struct information of memref arguments, e.g. element type. To set data
     // type for OMTensor correctly, we have to obtain element types from
     // original MemRefTypes.
-    SmallVector<Type, 4> elemOutputTypes;
-    for (MemRefType ty : outputMemRefTypes[staticEntryPointFuncName.str()])
-      elemOutputTypes.emplace_back(ty.getElementType());
+    SmallVector<MemRefType, 4> origInputMemRefTypes =
+        inputMemRefTypes[staticEntryPointFuncName.str()];
+    SmallVector<MemRefType, 4> origOutputMemRefTypes =
+        outputMemRefTypes[staticEntryPointFuncName.str()];
 
     // Start lowering the op.
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
@@ -195,15 +186,6 @@ public:
     // Static entry point is wrapped with prefix `_mlir_ciface` automatically by
     // MLIR when being converted to LLVM, where memref arguments are converted
     // to pointer-to-struct.
-    //
-    // If `useOpaquePointers=true` in LowerToLLVMOptions, all memref arguments
-    // are converted to opaque types, e.g. `!llvm.ptr`, so we lost the
-    // struct information of memref arguments. In this case:
-    // - the struct information of outputs will be obtained from the static
-    // entry point instead of the wrapped static entry point.
-    // - The struct information of inputs will be obtained from the wrapped
-    // entry point by looking at `LoadOp` of the inputs that returns the actual
-    // struct type of the inputs.
     auto wrappedStaticEntryPointFuncName =
         "_mlir_ciface_" + staticEntryPointFuncName.lower();
     auto *wrappedStaticEntryPointFunc =
@@ -224,6 +206,8 @@ public:
     // Emit code to verify every tensor in the wrapped input, e.g. verifying
     // shape and data type.
     if (verifyInputTensors) {
+      llvm::StringRef inSigJSON;
+      std::tie(inSigJSON, std::ignore) = sigAttr.getValue().split('@');
       emitVerificationCodeForInputTensors(
           module, rewriter, loc, apiRegistry, wrappedInput, inSigJSON);
     }
@@ -232,7 +216,7 @@ public:
         RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
     Value one = create.llvm.constant(int64Ty, (int64_t)1);
 
-    // Create a memref type for the return argument of the iface call
+    // Create a memref type for the return argument of the iface call.
     // The struct information of outputs will be obtained from the static
     // entry point instead of the wrapped static entry point.
     Type memRefOutTy = staticEntryPointFuncTy.getReturnTypes()[0];
@@ -253,23 +237,8 @@ public:
 
       // Create a (static) memref type corresponding to the i-th memref input to
       // the inference function on stack, and load it to memRef.
-      // The struct information of inputs will be obtained from the wrapped
-      // entry point by looking at `LoadOp` of the inputs that returns the
-      // actual struct type of the inputs.
-      // TODO: This way is a bit tricky.
-      llvm::outs() << "iface func arg: "
-                   << wrappedStaticEntryPointOp.getArgument(i) << "\n";
-      Value argi = wrappedStaticEntryPointOp.getArgument(i);
-      LLVM::LoadOp loadOp;
-      for (Operation *user : argi.getUsers()) {
-        if (auto load = dyn_cast<LLVM::LoadOp>(user)) {
-          loadOp = load;
-          break;
-        }
-      }
-      assert(loadOp && "Unable to infer the input struct info");
-      // Type memRefPtrTy = wrappedStaticEntryPointTy.getParamType(i);
-      Type memRefInTy = loadOp.getResult().getType();
+      // Original input is shifted by 1 in the iface func.
+      Type memRefInTy = typeConverter.convertType(origInputMemRefTypes[i - 1]);
       Type memRefInPtrTy = typeConverter.getPointerType(memRefInTy);
       Value ptrToMemRef = create.llvm._alloca_new(
           memRefInPtrTy, memRefInTy, one, /*alignment=*/0);
@@ -326,8 +295,9 @@ public:
       bool outOwning = outputOMTensorOwnerships[i];
       LLVM_DEBUG(llvm::dbgs() << "Output OMTensor " << i
                               << " with owning = " << outOwning << "\n");
-      krnl::fillOMTensorWithMemRef(memRef, elemOutputTypes[i], outOMTensor,
-          outOwning, rewriter, loc, apiRegistry, module, typeConverter);
+      krnl::fillOMTensorWithMemRef(memRef,
+          origOutputMemRefTypes[i].getElementType(), outOMTensor, outOwning,
+          rewriter, loc, apiRegistry, module, typeConverter);
 
       Value idxVal = create.llvm.constant(int64Ty, (int64_t)i);
       Value omTensorPtrAddr = create.llvm.getElemPtr_new(
@@ -637,22 +607,6 @@ private:
     std::string outSigVarName = entryVarName + "_out_sig";
     LLVM::GlobalOp outSigGlobalOp = emitGlobalOp(outSigVarName, outSignature);
     outSigGlobalOps.emplace_back(outSigGlobalOp);
-  }
-
-  void getElementTypesFromSignature(MLIRContext *ctx, const StringRef inSigJSON,
-      SmallVectorImpl<Type> &elemTypes) const {
-    auto JSONInput = llvm::json::parse(inSigJSON.data());
-    assert(JSONInput && "failed to parse json");
-    auto JSONArray = JSONInput->getAsArray();
-    assert(JSONArray && "failed to parse json as array");
-    int64_t inputNum = JSONArray->size();
-    for (int64_t i = 0; i < inputNum; ++i) {
-      auto JSONItem = (*JSONArray)[i].getAsObject();
-      auto JSONItemType = JSONItem->getString("type");
-      assert(JSONItemType && "failed to get type");
-      Type elemTy = parseType(JSONItemType.value(), ctx);
-      elemTypes.emplace_back(elemTy);
-    }
   }
 
 protected:

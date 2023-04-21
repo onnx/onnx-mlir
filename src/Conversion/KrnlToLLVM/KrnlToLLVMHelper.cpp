@@ -196,7 +196,7 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
   return global;
 }
 
-// Return a pointer to the first character in a global string.
+// Return a pointer to a global string.
 Value getPtrToGlobalString(const LLVM::GlobalOp &global, Location loc,
     OpBuilder &builder, LLVMTypeConverter *typeConverter) {
   MultiDialectBuilder<LLVMBuilder> create(builder, loc);
