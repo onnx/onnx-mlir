@@ -17,6 +17,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -71,8 +72,6 @@ private:
       PatternRewriter &rewriter, ModuleOp module, Type inType) const {
     MLIRContext *context = module.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
-    LLVMTypeConverter *llvmTypeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
     StringRef functionName = inType.isF64() ? "get_random_normal_value_f64"
                                             : "get_random_normal_value_f32";
     // Signature of the input is:
@@ -83,10 +82,10 @@ private:
     //  (memref<3x4x5xf64>, index, f64, f64, f64)
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
     Type llvmOptionsTy = FloatType::getF32(context);
-    Type llvmOutputTy = llvmTypeConverter->getPointerType(llvmOptionsTy);
+    Type llvmOutputTy = getPointerType(context, llvmOptionsTy);
     if (inType.isF64()) {
       llvmOptionsTy = FloatType::getF64(context);
-      llvmOutputTy = llvmTypeConverter->getPointerType(llvmOptionsTy);
+      llvmOutputTy = getPointerType(context, llvmOptionsTy);
     }
     Type llvmI64Ty = IntegerType::get(context, 64);
     return create.llvm.getOrInsertSymbolRef(module, functionName, llvmVoidTy,

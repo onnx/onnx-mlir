@@ -84,9 +84,9 @@ public:
 
     // Common types.
     Type int8Ty = IntegerType::get(context, 8);
-    Type opaquePtrTy = typeConverter.getPointerType(int8Ty);
+    Type opaquePtrTy = getPointerType(context, int8Ty);
     Type int64Ty = IntegerType::get(context, 64);
-    Type omTensorPtrAddrTy = typeConverter.getPointerType(opaquePtrTy);
+    Type omTensorPtrAddrTy = getPointerType(context, opaquePtrTy);
 
     // Rewrite Krnl Entry Point Operation to an LLVM function with a dynamic
     // signature. The signature is dynamic because it remains the same no matter
@@ -224,7 +224,7 @@ public:
     // The struct information of outputs will be obtained from the static
     // entry point instead of the wrapped static entry point.
     Type memRefOutTy = staticEntryPointFuncTy.getReturnTypes()[0];
-    Type memRefOutPtrTy = typeConverter.getPointerType(memRefOutTy);
+    Type memRefOutPtrTy = getPointerType(context, memRefOutTy);
     Value ptrToOutMemRef = create.llvm._alloca(
         memRefOutPtrTy, memRefOutTy, one, /*alignment=*/0);
     staticInputs.emplace_back(ptrToOutMemRef);
@@ -242,7 +242,7 @@ public:
       // the inference function on stack, and load it to memRef.
       // Original input is shifted by 1 in the iface func.
       Type memRefInTy = typeConverter.convertType(origInputMemRefTypes[i - 1]);
-      Type memRefInPtrTy = typeConverter.getPointerType(memRefInTy);
+      Type memRefInPtrTy = getPointerType(context, memRefInTy);
       Value ptrToMemRef = create.llvm._alloca(
           memRefInPtrTy, memRefInTy, one, /*alignment=*/0);
 
@@ -371,14 +371,14 @@ private:
       Value dimIdx = create.llvm.constant(int64Ty, (int64_t)i);
       // Insert size of the dimension.
       Value dimSizePtr =
-          create.llvm.getElemPtr(typeConverter.getPointerType(int64Ty),
+          create.llvm.getElemPtr(getPointerType(context, int64Ty),
               int64Ty, sizesArrayPtr, {dimIdx});
       Value dimSize = create.llvm.load_new(int64Ty, dimSizePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimSize, {3, i});
 
       // Insert stride of the dimension.
       auto dimStridePtr =
-          create.llvm.getElemPtr(typeConverter.getPointerType(int64Ty),
+          create.llvm.getElemPtr(getPointerType(context, int64Ty),
               int64Ty, stridesArrayPtr, {dimIdx});
       auto dimStride = create.llvm.load_new(int64Ty, dimStridePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimStride, {4, i});
@@ -438,7 +438,7 @@ private:
     MLIRContext *context = rewriter.getContext();
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     Type int64Ty = rewriter.getI64Type();
-    Type opaquePtrTy = typeConverter.getPointerType(rewriter.getI8Type());
+    Type opaquePtrTy = getPointerType(context, rewriter.getI8Type());
 
     auto JSONInput = llvm::json::parse(inSigJSON.data());
     assert(JSONInput && "failed to parse json");
@@ -461,7 +461,7 @@ private:
       // Call API function to retrieve the i-th omTensor.
       Value idxVal = create.llvm.constant(int64Ty, i);
       Value omTensorPtrAddr =
-          create.llvm.getElemPtr(typeConverter.getPointerType(opaquePtrTy),
+          create.llvm.getElemPtr(getPointerType(context, opaquePtrTy),
               opaquePtrTy, omTensorPtrArr, {idxVal});
       Value omTensorPtr = create.llvm.load(omTensorPtrAddr);
 
@@ -499,7 +499,7 @@ private:
         // Get actual dimension size.
         Value dimIdx = create.llvm.constant(int64Ty, (int64_t)d);
         Value actualDim = create.llvm.load(
-            create.llvm.getElemPtr(typeConverter.getPointerType(int64Ty),
+            create.llvm.getElemPtr(getPointerType(context, int64Ty),
                 int64Ty, sizesArrayPtr, {dimIdx}));
         // Get reference dimension size.
         auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();

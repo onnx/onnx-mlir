@@ -59,7 +59,7 @@ public:
     Type i1Ty = IntegerType::get(context, 1);
     Type i64Ty = IntegerType::get(context, 64);
     Type i8PtrTy =
-        llvmTypeConverter->getPointerType(IntegerType::get(context, 8));
+        getPointerType(context, IntegerType::get(context, 8));
     Type elementType = src.getType().cast<LLVM::LLVMStructType>().getBody()[1];
     int64_t eltSize = getMemRefEltSizeInBytes(
         memcpyOp.getSrc().getType().dyn_cast<MemRefType>());
@@ -117,7 +117,7 @@ private:
     //   * `void (i8*, i8* , i64, i1)`
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
     Type llvmI8PtrTy =
-        llvmTypeConverter->getPointerType(IntegerType::get(context, 8));
+        getPointerType(context, IntegerType::get(context, 8));
     Type llvmI64Ty = IntegerType::get(context, 64);
     Type llvmI1Ty = IntegerType::get(context, 1);
     return create.llvm.getOrInsertSymbolRef(module,

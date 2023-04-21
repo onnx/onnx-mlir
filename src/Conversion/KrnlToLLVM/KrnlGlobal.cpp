@@ -200,10 +200,11 @@ private:
     Type elementType = memRefType.getElementType();
     LLVMTypeConverter &typeConverter = *getTypeConverter();
     Type llvmElemType = typeConverter.convertType(elementType);
+    MLIRContext *context = builder.getContext();
     MultiDialectBuilder<LLVMBuilder> create(builder, loc);
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
-    auto ptrType = typeConverter.getPointerType(llvmElemType);
+    auto ptrType = getPointerType(context, llvmElemType);
     // Bitcast the address to the MemRefType's element type.
     Value bitCastOp = create.llvm.bitcast(ptrType, address);
     // Create llvm MemRef from original MemRef and fill the data pointers.

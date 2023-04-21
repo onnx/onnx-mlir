@@ -14,6 +14,7 @@
 
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
@@ -36,8 +37,6 @@ public:
     Location loc = findIndexOp.getLoc();
     KrnlFindIndexOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-    LLVMTypeConverter *llvmTypeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
 
     // Get a symbol reference to the runtime function to use, creating one if
     // necessary.
@@ -55,7 +54,7 @@ public:
         })
         .Case<StringType>([&](StringType type) {
           Type i8Type = IntegerType::get(ctx, 8);
-          Type i8PtrType = llvmTypeConverter->getPointerType(i8Type);
+          Type i8PtrType = getPointerType(ctx, i8Type);
           firstOperand = rewriter.create<LLVM::IntToPtrOp>(
               loc, i8PtrType, operandAdaptor.getInput());
         })
@@ -96,14 +95,12 @@ private:
       PatternRewriter &rewriter, ModuleOp module, Type inputType) const {
     MLIRContext *ctx = module.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
-    LLVMTypeConverter *llvmTypeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
 
     Type i8Type = IntegerType::get(ctx, 8);
     Type i32Type = IntegerType::get(ctx, 32);
     Type i64Type = IntegerType::get(ctx, 64);
-    Type i8PtrType = llvmTypeConverter->getPointerType(i8Type);
-    Type i32PtrType = llvmTypeConverter->getPointerType(i32Type);
+    Type i8PtrType = getPointerType(ctx, i8Type);
+    Type i32PtrType = getPointerType(ctx, i32Type);
 
     // Select the runtime function to use based on the input type.
     std::string funcName = "find_index_";

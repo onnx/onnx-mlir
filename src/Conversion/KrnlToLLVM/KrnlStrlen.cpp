@@ -46,13 +46,11 @@ public:
     // Get a symbol reference to the strlen function, inserting it if necessary.
     ModuleOp module = op->getParentOfType<ModuleOp>();
     FlatSymbolRefAttr strlenRef = getOrInsertStrlen(rewriter, module);
-    LLVMTypeConverter *llvmTypeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
 
     // Operand.
     MLIRContext *ctx = module.getContext();
     Type i8Type = IntegerType::get(ctx, 8);
-    Type i8PtrType = llvmTypeConverter->getPointerType(i8Type);
+    Type i8PtrType = getPointerType(ctx, i8Type);
     Value strPtr = rewriter.create<LLVM::IntToPtrOp>(
         loc, i8PtrType, operandAdaptor.getStr());
 
@@ -72,13 +70,11 @@ private:
   FlatSymbolRefAttr getOrInsertStrlen(
       PatternRewriter &rewriter, ModuleOp module) const {
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
-    LLVMTypeConverter *llvmTypeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
     // Create 'strlen' function signature: `size_t (i8*)`
     // TODO: need to create size_t not i64.
     MLIRContext *ctx = module.getContext();
     Type i8Type = IntegerType::get(ctx, 8);
-    Type i8PtrType = llvmTypeConverter->getPointerType(i8Type);
+    Type i8PtrType = getPointerType(ctx, i8Type);
     return create.llvm.getOrInsertSymbolRef(
         module, StringRef("strlen"), rewriter.getI64Type(), {i8PtrType});
   }
