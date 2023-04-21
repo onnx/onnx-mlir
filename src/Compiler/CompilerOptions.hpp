@@ -75,10 +75,6 @@ extern llvm::cl::opt<bool> enableParallel;
 extern llvm::cl::opt<bool> disableSimdOption;
 extern llvm::cl::opt<bool> enableSimdDataLayout;
 
-/* FlexML Start */
-extern llvm::cl::opt<bool> layerNameToLocation;
-/* FlexML End */
-
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,
     llvm::raw_ostream *errs = (llvm::raw_ostream *)nullptr);

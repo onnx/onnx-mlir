@@ -106,7 +106,18 @@ private:
 
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
-  Value none() { return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult(); }
+  Location ImportLoc(const onnx::NodeProto &node) {
+    if (node.has_name()) {
+      // Use the the node name as Location.
+      return NameLoc::get(builder_.getStringAttr(node.name()));
+    } else {
+      return UnknownLoc();
+    }
+  }
+
+  Value createNoneValue() {
+    return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult();
+  }
 
   // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
   SymbolToOnnxTypeMapping onnx_type_map;
@@ -138,8 +149,10 @@ private:
   }
 
   Value ImportTensor(const onnx::TensorProto &tensor) {
+    // Use the tensor name as Location.
     return EmitInitializerForInputTensor(
-        UnknownLoc(), builder_, options_.externalDataDir, tensor);
+        NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name())),
+        builder_, options_.externalDataDir, tensor);
   }
 
   /*!
@@ -520,7 +533,8 @@ private:
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<Value> inputs, int expectedNumOperands,
       int expectedNumResults, const std::vector<NamedAttribute> &attributes,
-      std::vector<Type> givenOutputTypes = std::vector<Type>()) {
+      std::vector<Type> givenOutputTypes = std::vector<Type>(),
+      int num_use_inference_outputs = -1) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -534,7 +548,7 @@ private:
     // Trailing optional inputs.
     if (!variadicIn)
       for (int i = (int)inputs.size(); i < expectedNumOperands; i++) {
-        inputs.emplace_back(none());
+        inputs.emplace_back(createNoneValue());
       }
 
     std::vector<Type> outputTypes;
@@ -582,7 +596,8 @@ private:
         outputTypes.emplace_back(builder_.getNoneType());
 
     // TODO: Handle optional inputs.
-    auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
+    auto op =
+        builder_.create<T>(ImportLoc(node), outputTypes, inputs, attributes);
     Operation *genericOp = op.getOperation();
     // Type inference for results.
     for (const auto &attr : node.attribute()) {
@@ -599,7 +614,15 @@ private:
           // Use type info from graph to reset type of output for current op
           for (int i = 0; i < node.output().size(); i++) {
             Type type = funcType.getResults()[i];
-            genericOp->getOpResult(i).setType(type);
+            if ((num_use_inference_outputs < 0) ||
+                (i < num_use_inference_outputs)) {
+              genericOp->getOpResult(i).setType(type);
+            } else {
+              TensorType tensorType = type.cast<TensorType>();
+              Type extendedType =
+                  UnrankedTensorType::get(tensorType.getElementType());
+              genericOp->getOpResult(i).setType(extendedType);
+            }
           }
         } else {
           llvm_unreachable("Op contains subgraph attributes but does not "
@@ -630,7 +653,7 @@ private:
   void getNodeInputs(const onnx::NodeProto &node, std::vector<Value> &inputs) {
     for (const auto &item : node.input()) {
       if (item.empty()) {
-        inputs.emplace_back(none());
+        inputs.emplace_back(createNoneValue());
       } else {
         if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -671,6 +694,33 @@ private:
         expectedNumOperands, expectedNumResults, attributes, outputTypes);
   }
 
+  // The output type of Scan needs special handling
+  // The final_stete_and_scan_outputs of Scan shows final values of loop's
+  // N state variables followed by K scan_outputs.
+  void ImportScan(const onnx::NodeProto &node) {
+    int expectedNumOperands = ONNXScanOp::getNumberOfOperands();
+    int expectedNumResults = ONNXScanOp::getNumberOfResults();
+    std::vector<Value> inputs;
+    getNodeInputs(node, inputs);
+    auto attributes = ImportNodeAttributes(node);
+    int num_scan_inputs = -1;
+    int i;
+    for (i = 0; i < node.attribute_size(); ++i) {
+      auto attr = node.attribute(i);
+      if (attr.name() == "num_scan_inputs") {
+        num_scan_inputs = attr.i();
+        break;
+      }
+    }
+    assert((i < node.attribute_size()) &&
+           "mandatory num_scan_inputs attr not in onnx.Scan");
+    buildOutputAndOperation<ONNXScanOp>(node, inputs, expectedNumOperands,
+        expectedNumResults, attributes,
+        /*givenOutputTypes=*/std::vector<Type>(),
+        /*num_use_inference_outputs=*/num_scan_inputs);
+    return;
+  }
+
   std::vector<NamedAttribute> ImportCastAttributes(
       const onnx::NodeProto &node) {
     std::vector<NamedAttribute> attributes;
@@ -700,7 +750,7 @@ private:
     for (const auto &item : node.input())
       if (item.empty()) {
         // Optional inputs using empty string will be imported as NoneType.
-        inputs.emplace_back(none());
+        inputs.emplace_back(createNoneValue());
       } else {
         if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -879,8 +929,8 @@ private:
 
     assert(inVals[1] != nullptr && "Slice requires a starts attribute");
     assert(inVals[2] != nullptr && "Slice requires an ends attribute");
-    inVals[3] = inVals[3] == nullptr ? none() : inVals[3];
-    inVals[4] = inVals[4] == nullptr ? none() : inVals[4];
+    inVals[3] = inVals[3] == nullptr ? createNoneValue() : inVals[3];
+    inVals[4] = inVals[4] == nullptr ? createNoneValue() : inVals[4];
 
     int nIn = ONNXSliceOp::getNumberOfOperands();
     int nOut = ONNXSliceOp::getNumberOfResults();
@@ -1017,9 +1067,7 @@ private:
       if (v.empty()) {
         // Missing (optional) parameter.
         operandOnnxTypes.push_back(unspecifiedType);
-        auto no_value = builder_.create<ONNXNoneOp>(UnknownLoc());
-
-        operands.push_back(no_value);
+        operands.push_back(createNoneValue());
         operandTypes.push_back(builder_.getNoneType());
         continue;
       }

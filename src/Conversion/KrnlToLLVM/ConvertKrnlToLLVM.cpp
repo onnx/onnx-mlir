@@ -34,6 +34,7 @@
 #include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
@@ -169,7 +170,10 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     ArrayRef<bool> constantOutputs, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+    std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
+    bool verifyInputTensors) {
   // TODO: look at what is done in
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
@@ -177,8 +181,10 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
 
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
   vector::populateVectorBroadcastLoweringPatterns(patterns);
-  vector::populateVectorContractLoweringPatterns(patterns);
-  vector::populateVectorTransposeLoweringPatterns(patterns);
+  vector::populateVectorContractLoweringPatterns(
+      patterns, vector::VectorTransformsOptions());
+  vector::populateVectorTransposeLoweringPatterns(
+      patterns, vector::VectorTransformsOptions());
 
   populateAffineToStdConversionPatterns(patterns);
   populateSCFToControlFlowConversionPatterns(patterns);
@@ -201,7 +207,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateReconcileUnrealizedCastsPatterns(patterns);
   krnl::populateKrnlToLLVMConversion(typeConverter, patterns, ctx,
       constantOutputs, singleEntryPoint, entryGlobalOps, inSigGlobalOps,
-      outSigGlobalOps, verifyInputTensors);
+      outSigGlobalOps, inputMemRefTypes, outputMemRefTypes, verifyInputTensors);
 }
 
 bool hasSingleEntryPoint(ModuleOp &module) {
@@ -212,6 +218,41 @@ bool hasSingleEntryPoint(ModuleOp &module) {
     return WalkResult::advance();
   });
   return (i == 1);
+}
+
+/// Keep original MemRefTypes for inputs and outputs. These information will be
+/// used for constructing OMTensors for inputs and outputs. We have to record
+/// this information at this point before they are disappeared during the
+/// lowering to LLVM. For example, unsigned types do not exist at LLVM level,
+/// typed pointers becomes opaque if opaque point is enabled.
+void recordInputOutputMemRefTypes(ModuleOp &module,
+    std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+    std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes) {
+  module->walk([&](KrnlEntryPointOp entryOp) -> WalkResult {
+    StringRef entryPointFuncName =
+        entryOp.getOperation()
+            ->getAttrOfType<SymbolRefAttr>(
+                KrnlEntryPointOp::getEntryPointFuncAttrName())
+            .getLeafReference()
+            .getValue();
+    auto *entryPointFunc = module.lookupSymbol(entryPointFuncName);
+    assert(entryPointFunc && isa<func::FuncOp>(entryPointFunc) &&
+           "entry point func must exist and be an llvm func op");
+    auto entryPointTy = dyn_cast<func::FuncOp>(entryPointFunc)
+                            .getFunctionType()
+                            .dyn_cast<FunctionType>();
+    SmallVector<MemRefType, 4> inputTypes, outputTypes;
+    for (Type ty : entryPointTy.getInputs())
+      inputTypes.emplace_back(dyn_cast<MemRefType>(ty));
+    for (Type ty : entryPointTy.getResults())
+      outputTypes.emplace_back(dyn_cast<MemRefType>(ty));
+    inputMemRefTypes.emplace(
+        std::make_pair(entryPointFuncName.str(), inputTypes));
+    outputMemRefTypes.emplace(
+        std::make_pair(entryPointFuncName.str(), outputTypes));
+    return WalkResult::advance();
+  });
+  return;
 }
 
 /// This function emits three functions: omQueryEntryPoints, omInputSignature
@@ -417,12 +458,23 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   KRNL_ENTRY_POINT_ID = 0;
 
-  // Record entry point names and their input/output signatures.
+  // Global Op for entry point names and their input/output JSON signatures,
+  // those will generated when lowering KrnlEntryPoint.
   // This info is used to generate global signature functions.
   SmallVector<LLVM::GlobalOp, 1> entryGlobalOps, inSigGlobalOps,
       outSigGlobalOps;
 
-  // Determine the module has a single entry point or not.
+  // Keep original MemRefTypes for inputs and outputs. These information will be
+  // used for constructing OMTensors for inputs and outputs.
+  // We have to record this information at this point before they are
+  // disappeared during the lowering to LLVM. For example, unsigned types do
+  // not exist at LLVM level, typed pointers becomes opaque if opaque point is
+  // enabled.
+  std::map<std::string, SmallVector<MemRefType, 4>> inputMemRefTypes;
+  std::map<std::string, SmallVector<MemRefType, 4>> outputMemRefTypes;
+  recordInputOutputMemRefTypes(module, inputMemRefTypes, outputMemRefTypes);
+
+  // Determine whether the module has a single entry point or not.
   bool singleEntryPoint = hasSingleEntryPoint(module);
 
   // Request C wrapper emission via attribute.
@@ -456,7 +508,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
+      inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
+      verifyInputTensors);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -488,10 +541,14 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
     ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+    std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
+    bool verifyInputTensors) {
   krnl::populateLoweringKrnlEntryPointOpPattern(typeConverter, patterns, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
+      inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
+      verifyInputTensors);
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);

@@ -21,6 +21,7 @@
 #include "src/Builder/ModelInputShaper.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
 using namespace mlir;
 
@@ -171,13 +172,12 @@ std::map<std::string, std::string> ONNXEntryPointLowering::typeMap = {
     {std::string(" ui8 "), std::string(" \"ui8\" ")}};
 
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling,
-    bool enableSIMD, bool enableParallel) {
+    TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
+    bool enableTiling, bool enableSIMD, bool enableParallel) {
+  // clang-format off
   // Type conversion for function signatures.
-  // Call MLIR FuncOp signature conversion when result type is
-  // a ranked tensor.
-  populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
-      patterns, typeConverter);
+  // Call MLIR FuncOp signature conversion when result type is a ranked tensor.
+  populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(patterns, typeConverter);
   populateCallOpTypeConversionPattern(patterns, typeConverter);
   populateReturnOpTypeConversionPattern(patterns, typeConverter);
 
@@ -188,15 +188,13 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXElementwiseOpPattern(
-      patterns, typeConverter, ctx, enableSIMD);
+  populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
   populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXMatMulOpPattern(
-      patterns, typeConverter, ctx, enableTiling);
+  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, enableTiling);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
@@ -204,6 +202,9 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCategoryMapperOpPattern(patterns, typeConverter, ctx);
   // ObjectDetection
   populateLoweringONNXNonMaxSuppressionOpPattern(patterns, typeConverter, ctx);
+  // Quantization
+  populateLoweringONNXDynamicQuantizeLinearOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXQuantizeLinearOpPattern(patterns, typeConverter, ctx);
   // Tensor
   populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
@@ -219,8 +220,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXConcatShapeTransposeOpPattern(
-      patterns, typeConverter, ctx);
+  populateLoweringONNXConcatShapeTransposeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx);
@@ -243,10 +243,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
   populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx);
-
   // Neural network
-  populateLoweringONNXConvOpPattern(
-      patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
   // Recurrent neural network
@@ -263,6 +261,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXEntryPointLowering>(ctx);
   // Additional
   populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
+  // clang-format on
 }
 
 //===----------------------------------------------------------------------===//
@@ -324,6 +323,12 @@ public:
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
+  // Define vector machine.
+  VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
+  // Perform dim analysis (useful for SIMD but also to avoid broadcast
+  // expressions in index access patterns).
+  DimAnalysis *dimAnalysis = new DimAnalysis(module);
+  dimAnalysis->analyze();
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -412,7 +417,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Define patterns.
   populateONNXToKrnlConversionPattern(patterns, krnlTypeConverter,
-      &getContext(), enableTiling, enableSIMD, enableParallel);
+      &getContext(), dimAnalysis, enableTiling, enableSIMD, enableParallel);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -424,6 +429,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
   }
+  VectorMachineSupport::clearGlobalVectorMachineSupport();
+  delete dimAnalysis;
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass() {

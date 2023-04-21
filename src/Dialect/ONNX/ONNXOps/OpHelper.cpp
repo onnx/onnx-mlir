@@ -122,6 +122,16 @@ bool hasCustomONNXTensorDataLayout(const Type type) {
          ONNXTensorEncodingAttr::DataLayout::STANDARD;
 }
 
+bool sameRank(Value tensorOrMemref1, Value tensorOrMemref2) {
+  auto type1 = dyn_cast_or_null<ShapedType>(tensorOrMemref1.getType());
+  auto type2 = dyn_cast_or_null<ShapedType>(tensorOrMemref2.getType());
+  if (!type1 || !type2)
+    return false;
+  if (!type1.hasRank() || !type2.hasRank())
+    return false;
+  return (type1.getRank() == type2.getRank());
+}
+
 // Add a tensor encoding to a rank & shaped type. Otherwise, return an unranked
 // type as it is.
 Type convertTensorTypeToTensorTypeWithEncoding(
@@ -301,46 +311,6 @@ ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
 }
 
-ONNXConstantOp createONNXConstantOpWithDenseAttr(
-    OpBuilder &builder, Location loc, Attribute dense) {
-  return builder.create<ONNXConstantOp>(loc, Attribute(), dense);
-}
-
-// Use 0xi64 to represent a None for an optional integer input
-Value createNoneIntegerConstant(PatternRewriter &rewriter, Location loc) {
-  SmallVector<int64_t, 1> dims(1, 0);
-  SmallVector<int64_t> values;
-  auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
-  auto denseAttr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
-  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
-}
-
-// Use 0xf32 to represent a None for an optional float input
-Value createNoneFloatConstant(PatternRewriter &rewriter, Location loc) {
-  SmallVector<int64_t, 1> dims(1, 0);
-  SmallVector<float> values;
-  auto tensorType = RankedTensorType::get(dims, rewriter.getF32Type());
-  auto denseAttr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
-  return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
-}
-
-// Returns true if the Value is defined by a unit constant.
-// The unit constant can  be 1. NoneType, or 2. 1D tensor with 0 length
-// For example, NoneType, tensor<0xf32>
-// Some onnx model uses 0 length tensor for unit constant.
-bool isFromNone(Value v) {
-  if (v.getType().isa<NoneType>())
-    return true;
-
-  if (auto ty = v.getType().dyn_cast<ShapedType>()) {
-    auto shape = ty.getShape();
-    if (shape.size() == 1 && shape[0] == 0)
-      return true;
-  }
-
-  return false;
-}
-
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
@@ -397,52 +367,6 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
   return true;
 }
 
-/// Test if two axis arrays contain the same values or not.
-bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
-  // false if one of the array attributes is null.
-  if (!(lhsAttr) || !(rhsAttr))
-    return false;
-
-  SmallVector<int64_t, 4> lhs;
-  for (auto attr : lhsAttr.getValue()) {
-    int64_t axis = attr.cast<IntegerAttr>().getInt();
-    if (axis < 0)
-      axis += rank;
-    lhs.emplace_back(axis);
-  }
-
-  size_t rhsSize = 0;
-  for (auto attr : rhsAttr.getValue()) {
-    int64_t axis = attr.cast<IntegerAttr>().getInt();
-    if (axis < 0)
-      axis += rank;
-    // false if axis is not in the lhs. Early stop.
-    if (!llvm::any_of(lhs, [&](int64_t lhsAxis) { return lhsAxis == axis; }))
-      return false;
-    rhsSize++;
-  }
-
-  // false if having different number of elements.
-  if (lhs.size() != rhsSize)
-    return false;
-
-  return true;
-}
-
-/// Convert ConstantOp to ArrayAttr and test if they have the same values
-bool AreTheSameConstantOpDenseAttr(
-    Builder &builder, int64_t rank, Value lhsOp, Value rhsOp) {
-  ONNXConstantOp lhsConstOp = dyn_cast<ONNXConstantOp>(lhsOp.getDefiningOp());
-  ONNXConstantOp rhsConstOp = dyn_cast<ONNXConstantOp>(rhsOp.getDefiningOp());
-  if (lhsConstOp && rhsConstOp) {
-    auto lhsArrAttr = createArrayAttrFromConstantOp(builder, lhsConstOp);
-    auto rhsArrAttr = createArrayAttrFromConstantOp(builder, rhsConstOp);
-    return AreTheSameAxisArray(rank, lhsArrAttr, rhsArrAttr);
-  } else {
-    return false;
-  }
-}
-
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(Value val) {
   Type valType = val.getType();
@@ -469,14 +393,10 @@ bool hasShapeAndRank(Operation *op) {
 //===----------------------------------------------------------------------===//
 
 // Create an ArrayAttr from a dense ConstantOp
-ArrayAttr createArrayAttrFromConstantOp(Builder &builder, Value constOp) {
-  auto elementsAttr = getElementAttributeFromONNXValue(constOp);
-  assert(elementsAttr && "ConstantOp is not an ElementsAttr");
-  SmallVector<int64_t, 4> intVals;
-  for (auto val : elementsAttr.getValues<IntegerAttr>()) {
-    intVals.emplace_back(val.getInt());
-  }
-  return builder.getI64ArrayAttr(ArrayRef<int64_t>(intVals));
+ArrayAttr createArrayAttrFromConstantOp(ONNXConstantOp constOp) {
+  auto elements = cast<ElementsAttr>(constOp.getValueAttr());
+  SmallVector<Attribute> values(elements.getValues<Attribute>());
+  return ArrayAttr::get(constOp.getContext(), values);
 }
 
 // Create a DenseElementsAttr from a float attribute.
@@ -600,34 +520,23 @@ DenseElementsAttr createDenseElementsAttrFromSize(
 
 /// Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(Value result) {
-  Operation *op = result.getDefiningOp();
+  ONNXConstantOp constOp =
+      dyn_cast_or_null<ONNXConstantOp>(result.getDefiningOp());
 
   // Must be a constant.
-  if (!isa_and_nonnull<ONNXConstantOp>(op))
+  if (!constOp)
     return false;
 
-  // The value attribute must be an ElementsAttr
-  // (which is either DenseElementsAttr or DenseResourceElementsAttr
-  // or DisposableElementsAttr).
-  if (!(op->getAttrOfType<ElementsAttr>("value")))
-    return false;
-  // The other attributes must be null.
-  if (op->getAttrOfType<Attribute>("sparse_value"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_float"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_floats"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_int"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_ints"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_string"))
-    return false;
-  if (op->getAttrOfType<Attribute>("value_strings"))
+  // The value attribute must be an ElementsAttr (which is one of
+  // DenseElementsAttr, DenseResourceElementsAttr, DisposableElementsAttr).
+  if (!isa_and_nonnull<ElementsAttr>(constOp.getValueAttr()))
     return false;
 
-  return true;
+  // No other attribute must be set.
+  return !constOp.getValueFloatAttr() && !constOp.getValueFloatsAttr() &&
+         !constOp.getValueIntAttr() && !constOp.getValueIntsAttr() &&
+         !constOp.getValueStringAttr() && !constOp.getValueStringsAttr() &&
+         !constOp.getSparseValueAttr();
 }
 
 /// Get scalar value when it is a constant.

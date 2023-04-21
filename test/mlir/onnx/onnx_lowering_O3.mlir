@@ -1,4 +1,7 @@
-// RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --mtriple=s390x-ibm-loz --mcpu=z14 --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
+
+// use --mtriple=s390x-ibm-loz --mcpu=z14 to enable SIMD as we now need a machine
+// can also use -march=x86-64 instead.
 
 // -----
 
@@ -75,47 +78,54 @@ func.func private @test_add(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_400_:%.+]] = arith.constant 400 : index
+// CHECK-DAG:       [[CST_112_:%.+]] = arith.constant 112 : index
+// CHECK-DAG:       [[CST_512_:%.+]] = arith.constant 512 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<512xi8>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}[] : memref<512xi8> to memref<10x10xf32>
 // CHECK-DAG:       [[CST_10_4_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_5_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_6_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_7_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_10_8_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_9_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_11_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_1_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_18_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
-// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_20_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_1_5_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_12_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_13_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_2_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_25_:%.+]] = memref.reshape [[RES_]]([[RES_]]_23) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_27_:%.+]] = memref.reshape [[VAR_view_]]([[RES_3_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_100_3_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 100){
 // CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK-DAG:         [[LOAD_VAR_reshape_18_MEM_:%.+]] = vector.load [[VAR_reshape_18_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK:             [[VAR_4_:%.+]] = arith.addf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_18_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_4_]], [[VAR_reshape_25_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_20_MEM_:%.+]] = vector.load [[VAR_reshape_20_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.addf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_20_MEM_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_4_]], [[VAR_reshape_27_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<10x10xf32>
+// CHECK:           return [[VAR_view_]] : memref<10x10xf32>
 // CHECK:         }
 }
 
@@ -135,47 +145,54 @@ func.func private @test_mul(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_400_:%.+]] = arith.constant 400 : index
+// CHECK-DAG:       [[CST_112_:%.+]] = arith.constant 112 : index
+// CHECK-DAG:       [[CST_512_:%.+]] = arith.constant 512 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<512xi8>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}[] : memref<512xi8> to memref<10x10xf32>
 // CHECK-DAG:       [[CST_10_4_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_5_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_6_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_7_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_10_8_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_9_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_11_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_1_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_18_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
-// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_20_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_1_5_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_12_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_13_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_2_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_25_:%.+]] = memref.reshape [[RES_]]([[RES_]]_23) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_27_:%.+]] = memref.reshape [[VAR_view_]]([[RES_3_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_100_3_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 100){
 // CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK-DAG:         [[LOAD_VAR_reshape_18_MEM_:%.+]] = vector.load [[VAR_reshape_18_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK:             [[VAR_4_:%.+]] = arith.mulf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_18_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_4_]], [[VAR_reshape_25_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_20_MEM_:%.+]] = vector.load [[VAR_reshape_20_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.mulf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_20_MEM_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_4_]], [[VAR_reshape_27_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<10x10xf32>
+// CHECK:           return [[VAR_view_]] : memref<10x10xf32>
 // CHECK:         }
 }
 
@@ -194,36 +211,55 @@ func.func private @test_div(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_400_:%.+]] = arith.constant 400 : index
+// CHECK-DAG:       [[CST_112_:%.+]] = arith.constant 112 : index
+// CHECK-DAG:       [[CST_512_:%.+]] = arith.constant 512 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<512xi8>
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}[] : memref<512xi8> to memref<10x10xf32>
 // CHECK-DAG:       [[CST_10_4_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_5_:%.+]] = arith.constant 10 : index
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10){
-// CHECK-DAG:         [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[CST_10_6_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:         [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:         [[VAR_true_:%.+]] = arith.constant true
-// CHECK-DAG:         [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:         [[CST_10_7_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:         [[CST_1_2_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:         [[VAR_true_10_:%.+]] = arith.constant true
-// CHECK-DAG:         [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<10x10xf32>
-// CHECK-DAG:         [[CST_10_8_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:         [[CST_1_3_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:         [[VAR_true_14_:%.+]] = arith.constant true
-// CHECK-DAG:         [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:         [[CST_10_9_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:         [[CST_1_4_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:         [[VAR_true_18_:%.+]] = arith.constant true
-// CHECK-DAG:         [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<10x10xf32>
-// CHECK:             [[VAR_4_:%.+]] = arith.divf [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
-// CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<10x10xf32>
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_10_6_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_10_7_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_100_:%.+]] = arith.constant 100 : index
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_10_8_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_10_9_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_10_10_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_10_11_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_100_1_:%.+]] = arith.constant 100 : index
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_20_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_1_5_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_10_12_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_10_13_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_100_2_:%.+]] = arith.constant 100 : index
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_27_:%.+]] = memref.reshape [[VAR_view_]]([[RES_3_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_100_3_:%.+]] = arith.constant 100 : index
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_4_:%.+]] = arith.constant 0 : index
+// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 100){
+// CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_20_MEM_:%.+]] = vector.load [[VAR_reshape_20_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.divf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_20_MEM_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_4_]], [[VAR_reshape_27_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<10x10xf32>
+// CHECK:           return [[VAR_view_]] : memref<10x10xf32>
 // CHECK:         }
 }
 
@@ -243,47 +279,54 @@ func.func private @test_sub(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_400_:%.+]] = arith.constant 400 : index
+// CHECK-DAG:       [[CST_112_:%.+]] = arith.constant 112 : index
+// CHECK-DAG:       [[CST_512_:%.+]] = arith.constant 512 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<512xi8>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}[] : memref<512xi8> to memref<10x10xf32>
 // CHECK-DAG:       [[CST_10_4_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_5_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_6_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_7_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_10_8_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_9_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_11_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_1_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_18_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
-// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_20_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_1_5_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_12_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_13_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_2_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_25_:%.+]] = memref.reshape [[RES_]]([[RES_]]_23) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_27_:%.+]] = memref.reshape [[VAR_view_]]([[RES_3_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_100_3_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 100){
 // CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK-DAG:         [[LOAD_VAR_reshape_18_MEM_:%.+]] = vector.load [[VAR_reshape_18_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK:             [[VAR_4_:%.+]] = arith.subf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_18_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_4_]], [[VAR_reshape_25_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_20_MEM_:%.+]] = vector.load [[VAR_reshape_20_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.subf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_20_MEM_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_4_]], [[VAR_reshape_27_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<10x10xf32>
+// CHECK:           return [[VAR_view_]] : memref<10x10xf32>
 // CHECK:         }
 }
 
@@ -349,55 +392,27 @@ func.func private @test_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
-// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func.func private @test_exp
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
 // CHECK:           [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
-// CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x10xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
-// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
-// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
-// CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
-// CHECK:             [[VAR_7_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_2_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
+// CHECK:             [[VAR_3_:%.+]] = math.exp [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_3_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
 // CHECK:           }
-// CHECK:           return [[VAR_view_]] : memref<?x10xf32>
+// CHECK:           return [[RES_]] : memref<?x10xf32>
 // CHECK:         }
 }
 
@@ -409,55 +424,27 @@ func.func private @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
-// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func.func private @test_tanh
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
 // CHECK:           [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
-// CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x10xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
-// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
-// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
-// CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
-// CHECK:             [[VAR_7_:%.+]] = math.tanh [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_2_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
+// CHECK:             [[VAR_3_:%.+]] = math.tanh [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_3_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
 // CHECK:           }
-// CHECK:           return [[VAR_view_]] : memref<?x10xf32>
+// CHECK:           return [[RES_]] : memref<?x10xf32>
 // CHECK:         }
 }
 
@@ -470,7 +457,7 @@ func.func private @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_sinh
@@ -479,10 +466,11 @@ func.func private @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -491,41 +479,41 @@ func.func private @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_2_dot_000000_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_9_:%.+]] = arith.subf [[VAR_7_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_10_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             [[VAR_11_:%.+]] = math.exp [[VAR_9_]] : vector<4xf32>
-// CHECK:             [[VAR_12_:%.+]] = arith.subf [[VAR_10_]], [[VAR_11_]] : vector<4xf32>
-// CHECK:             [[VAR_13_:%.+]] = arith.divf [[VAR_12_]], [[VAR_8_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_13_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_2_dot_000000_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.subf [[VAR_7_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_10_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             [[VAR_11_:%.+]] = math.exp [[VAR_9_]] : vector<32xf32>
+// CHECK:             [[VAR_12_:%.+]] = arith.subf [[VAR_10_]], [[VAR_11_]] : vector<32xf32>
+// CHECK:             [[VAR_13_:%.+]] = arith.divf [[VAR_12_]], [[VAR_8_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_13_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -540,7 +528,7 @@ func.func private @test_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_cosh
@@ -549,10 +537,11 @@ func.func private @test_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -561,41 +550,41 @@ func.func private @test_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_2_dot_000000_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_9_:%.+]] = arith.subf [[VAR_7_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_10_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             [[VAR_11_:%.+]] = math.exp [[VAR_9_]] : vector<4xf32>
-// CHECK:             [[VAR_12_:%.+]] = arith.addf [[VAR_10_]], [[VAR_11_]] : vector<4xf32>
-// CHECK:             [[VAR_13_:%.+]] = arith.divf [[VAR_12_]], [[VAR_8_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_13_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_2_dot_000000_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.subf [[VAR_7_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_10_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             [[VAR_11_:%.+]] = math.exp [[VAR_9_]] : vector<32xf32>
+// CHECK:             [[VAR_12_:%.+]] = arith.addf [[VAR_10_]], [[VAR_11_]] : vector<32xf32>
+// CHECK:             [[VAR_13_:%.+]] = arith.divf [[VAR_12_]], [[VAR_8_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_13_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -609,55 +598,27 @@ func.func private @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
-// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func.func private @test_cos
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
 // CHECK:           [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
-// CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x10xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
-// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
-// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
-// CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
-// CHECK:             [[VAR_7_:%.+]] = math.cos [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_2_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
+// CHECK:             [[VAR_3_:%.+]] = math.cos [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_3_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
 // CHECK:           }
-// CHECK:           return [[VAR_view_]] : memref<?x10xf32>
+// CHECK:           return [[RES_]] : memref<?x10xf32>
 // CHECK:         }
 }
 
@@ -669,55 +630,27 @@ func.func private @test_sin(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
-// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func.func private @test_sin
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
 // CHECK:           [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
-// CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x10xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
-// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
-// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
-// CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
-// CHECK:             [[VAR_7_:%.+]] = math.sin [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_2_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
+// CHECK:             [[VAR_3_:%.+]] = math.sin [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_3_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
 // CHECK:           }
-// CHECK:           return [[VAR_view_]] : memref<?x10xf32>
+// CHECK:           return [[RES_]] : memref<?x10xf32>
 // CHECK:         }
 }
 
@@ -729,55 +662,27 @@ func.func private @test_log(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
-// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func.func private @test_log
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
 // CHECK:           [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
-// CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x10xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
-// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
-// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
-// CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
-// CHECK:             [[VAR_7_:%.+]] = math.log [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_2_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
+// CHECK:             [[VAR_3_:%.+]] = math.log [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_3_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf32>
 // CHECK:           }
-// CHECK:           return [[VAR_view_]] : memref<?x10xf32>
+// CHECK:           return [[RES_]] : memref<?x10xf32>
 // CHECK:         }
 }
 
@@ -790,7 +695,7 @@ func.func private @test_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_sigmoid
@@ -799,10 +704,11 @@ func.func private @test_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -811,40 +717,40 @@ func.func private @test_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_9_:%.+]] = arith.subf [[VAR_7_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             [[VAR_10_:%.+]] = math.exp [[VAR_9_]] : vector<4xf32>
-// CHECK:             [[VAR_11_:%.+]] = arith.addf [[VAR_8_]], [[VAR_10_]] : vector<4xf32>
-// CHECK:             [[VAR_12_:%.+]] = arith.divf [[VAR_8_]], [[VAR_11_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_12_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.subf [[VAR_7_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             [[VAR_10_:%.+]] = math.exp [[VAR_9_]] : vector<32xf32>
+// CHECK:             [[VAR_11_:%.+]] = arith.addf [[VAR_8_]], [[VAR_10_]] : vector<32xf32>
+// CHECK:             [[VAR_12_:%.+]] = arith.divf [[VAR_8_]], [[VAR_11_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_12_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -859,7 +765,7 @@ func.func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_relu
@@ -868,10 +774,11 @@ func.func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -880,34 +787,34 @@ func.func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
-// CHECK:             [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<4xf32>
-// CHECK:             [[VAR_8_:%.+]] = arith.cmpf oge, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<4xf32>
-// CHECK:             [[VAR_9_:%.+]] = arith.select [[VAR_8_]], [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<4xi1>, vector<4xf32>
-// CHECK:             vector.store [[VAR_9_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:             [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<32xf32>
+// CHECK:             [[VAR_8_:%.+]] = arith.cmpf oge, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<32xf32>
+// CHECK:             [[VAR_9_:%.+]] = arith.select [[VAR_8_]], [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             vector.store [[VAR_9_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -960,47 +867,54 @@ func.func private @test_sum(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_400_:%.+]] = arith.constant 400 : index
+// CHECK-DAG:       [[CST_112_:%.+]] = arith.constant 112 : index
+// CHECK-DAG:       [[CST_512_:%.+]] = arith.constant 512 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<512xi8>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}[] : memref<512xi8> to memref<10x10xf32>
 // CHECK-DAG:       [[CST_10_4_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_5_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_6_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_7_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_10_8_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_9_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_11_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_1_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_18_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
-// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_20_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_1_5_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_12_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_13_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_2_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_25_:%.+]] = memref.reshape [[RES_]]([[RES_]]_23) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_27_:%.+]] = memref.reshape [[VAR_view_]]([[RES_3_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_100_3_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 100){
 // CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK-DAG:         [[LOAD_VAR_reshape_18_MEM_:%.+]] = vector.load [[VAR_reshape_18_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK:             [[VAR_4_:%.+]] = arith.addf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_18_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_4_]], [[VAR_reshape_25_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_20_MEM_:%.+]] = vector.load [[VAR_reshape_20_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.addf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_20_MEM_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_4_]], [[VAR_reshape_27_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<10x10xf32>
+// CHECK:           return [[VAR_view_]] : memref<10x10xf32>
 // CHECK:         }
 }
 
@@ -1020,48 +934,55 @@ func.func private @test_max(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_400_:%.+]] = arith.constant 400 : index
+// CHECK-DAG:       [[CST_112_:%.+]] = arith.constant 112 : index
+// CHECK-DAG:       [[CST_512_:%.+]] = arith.constant 512 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<512xi8>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}[] : memref<512xi8> to memref<10x10xf32>
 // CHECK-DAG:       [[CST_10_4_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_5_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_6_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_7_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_10_8_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_9_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_11_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_1_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_18_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
-// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_20_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_1_5_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_12_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_13_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_2_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_25_:%.+]] = memref.reshape [[RES_]]([[RES_]]_23) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_27_:%.+]] = memref.reshape [[VAR_view_]]([[RES_3_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_100_3_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 100){
 // CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK-DAG:         [[LOAD_VAR_reshape_18_MEM_:%.+]] = vector.load [[VAR_reshape_18_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK:             [[VAR_4_:%.+]] = arith.cmpf ogt, [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_18_MEM_]] : vector<4xf32>
-// CHECK:             [[VAR_5_:%.+]] = arith.select [[VAR_4_]], [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_18_MEM_]] : vector<4xi1>, vector<4xf32>
-// CHECK:             vector.store [[VAR_5_]], [[VAR_reshape_25_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_20_MEM_:%.+]] = vector.load [[VAR_reshape_20_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.cmpf ogt, [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_20_MEM_]] : vector<32xf32>
+// CHECK:             [[VAR_5_:%.+]] = arith.select [[VAR_4_]], [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_20_MEM_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             vector.store [[VAR_5_]], [[VAR_reshape_27_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<10x10xf32>
+// CHECK:           return [[VAR_view_]] : memref<10x10xf32>
 // CHECK:         }
 }
 
@@ -1081,48 +1002,55 @@ func.func private @test_min(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_400_:%.+]] = arith.constant 400 : index
+// CHECK-DAG:       [[CST_112_:%.+]] = arith.constant 112 : index
+// CHECK-DAG:       [[CST_512_:%.+]] = arith.constant 512 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<512xi8>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}[] : memref<512xi8> to memref<10x10xf32>
 // CHECK-DAG:       [[CST_10_4_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_5_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_6_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_7_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_]], [[RES_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_10_8_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_9_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_11_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_1_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_18_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
-// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_1_]], [[RES_2_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_20_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_1_5_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_12_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_10_13_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_100_2_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_25_:%.+]] = memref.reshape [[RES_]]([[RES_]]_23) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
+// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_100_2_]], [[RES_3_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_27_:%.+]] = memref.reshape [[VAR_view_]]([[RES_3_]]) : (memref<10x10xf32>, memref<1xindex>) -> memref<100xf32>
 // CHECK-DAG:       [[CST_100_3_:%.+]] = arith.constant 100 : index
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 100){
 // CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK-DAG:         [[LOAD_VAR_reshape_18_MEM_:%.+]] = vector.load [[VAR_reshape_18_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
-// CHECK:             [[VAR_4_:%.+]] = arith.cmpf olt, [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_18_MEM_]] : vector<4xf32>
-// CHECK:             [[VAR_5_:%.+]] = arith.select [[VAR_4_]], [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_18_MEM_]] : vector<4xi1>, vector<4xf32>
-// CHECK:             vector.store [[VAR_5_]], [[VAR_reshape_25_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_20_MEM_:%.+]] = vector.load [[VAR_reshape_20_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.cmpf olt, [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_20_MEM_]] : vector<32xf32>
+// CHECK:             [[VAR_5_:%.+]] = arith.select [[VAR_4_]], [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_20_MEM_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             vector.store [[VAR_5_]], [[VAR_reshape_27_]]{{.}}[[VAR_1_]]{{.}} : memref<100xf32>, vector<32xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<10x10xf32>
+// CHECK:           return [[VAR_view_]] : memref<10x10xf32>
 // CHECK:         }
 }
 
@@ -1135,7 +1063,7 @@ func.func private @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_elu
@@ -1144,10 +1072,11 @@ func.func private @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -1156,44 +1085,44 @@ func.func private @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_9_:%.+]] = vector.splat [[CST_2_dot_000000_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_10_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_11_:%.+]] = arith.cmpf olt, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<4xf32>
-// CHECK:             [[VAR_12_:%.+]] = arith.subf [[VAR_10_]], [[VAR_8_]] : vector<4xf32>
-// CHECK:             [[VAR_13_:%.+]] = arith.mulf [[VAR_9_]], [[VAR_12_]] : vector<4xf32>
-// CHECK:             [[VAR_14_:%.+]] = arith.select [[VAR_11_]], [[VAR_13_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xi1>, vector<4xf32>
-// CHECK:             vector.store [[VAR_14_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[VAR_9_:%.+]] = vector.splat [[CST_2_dot_000000_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_10_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_11_:%.+]] = arith.cmpf olt, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<32xf32>
+// CHECK:             [[VAR_12_:%.+]] = arith.subf [[VAR_10_]], [[VAR_8_]] : vector<32xf32>
+// CHECK:             [[VAR_13_:%.+]] = arith.mulf [[VAR_9_]], [[VAR_12_]] : vector<32xf32>
+// CHECK:             [[VAR_14_:%.+]] = arith.select [[VAR_11_]], [[VAR_13_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             vector.store [[VAR_14_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -1208,7 +1137,7 @@ func.func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_leakyrelu
@@ -1217,10 +1146,11 @@ func.func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -1229,39 +1159,39 @@ func.func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_9_:%.+]] = arith.cmpf olt, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<4xf32>
-// CHECK:             [[VAR_10_:%.+]] = arith.mulf [[VAR_8_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             [[VAR_11_:%.+]] = arith.select [[VAR_9_]], [[VAR_10_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xi1>, vector<4xf32>
-// CHECK:             vector.store [[VAR_11_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.cmpf olt, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<32xf32>
+// CHECK:             [[VAR_10_:%.+]] = arith.mulf [[VAR_8_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             [[VAR_11_:%.+]] = arith.select [[VAR_9_]], [[VAR_10_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             vector.store [[VAR_11_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -1276,7 +1206,7 @@ func.func private @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_selu
@@ -1285,10 +1215,11 @@ func.func private @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -1297,45 +1228,45 @@ func.func private @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_9_:%.+]] = vector.splat [[CST_2_dot_000000_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_10_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_11_:%.+]] = arith.cmpf ogt, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<4xf32>
-// CHECK:             [[VAR_12_:%.+]] = arith.mulf [[VAR_8_]], [[VAR_10_]] : vector<4xf32>
-// CHECK:             [[VAR_13_:%.+]] = arith.subf [[VAR_12_]], [[VAR_8_]] : vector<4xf32>
-// CHECK:             [[VAR_14_:%.+]] = arith.select [[VAR_11_]], [[LOAD_VAR_reshape_MEM_]], [[VAR_13_]] : vector<4xi1>, vector<4xf32>
-// CHECK:             [[VAR_15_:%.+]] = arith.mulf [[VAR_9_]], [[VAR_14_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_15_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[VAR_9_:%.+]] = vector.splat [[CST_2_dot_000000_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_10_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_11_:%.+]] = arith.cmpf ogt, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<32xf32>
+// CHECK:             [[VAR_12_:%.+]] = arith.mulf [[VAR_8_]], [[VAR_10_]] : vector<32xf32>
+// CHECK:             [[VAR_13_:%.+]] = arith.subf [[VAR_12_]], [[VAR_8_]] : vector<32xf32>
+// CHECK:             [[VAR_14_:%.+]] = arith.select [[VAR_11_]], [[LOAD_VAR_reshape_MEM_]], [[VAR_13_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             [[VAR_15_:%.+]] = arith.mulf [[VAR_9_]], [[VAR_14_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_15_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -1350,7 +1281,7 @@ func.func private @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_hardsigmoid
@@ -1359,10 +1290,11 @@ func.func private @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -1371,48 +1303,48 @@ func.func private @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_1_dot_000000_1_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_9_:%.+]] = vector.splat [[CST_1_dot_000000_1_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_9_:%.+]] = vector.splat [[CST_1_dot_000000_1_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_10_:%.+]] = vector.splat [[CST_2_dot_000000_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_11_:%.+]] = arith.mulf [[VAR_9_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             [[VAR_12_:%.+]] = arith.addf [[VAR_11_]], [[VAR_10_]] : vector<4xf32>
-// CHECK:             [[VAR_13_:%.+]] = arith.cmpf ogt, [[VAR_12_]], [[VAR_7_]] : vector<4xf32>
-// CHECK:             [[VAR_14_:%.+]] = arith.select [[VAR_13_]], [[VAR_12_]], [[VAR_7_]] : vector<4xi1>, vector<4xf32>
-// CHECK:             [[VAR_15_:%.+]] = arith.cmpf olt, [[VAR_14_]], [[VAR_8_]] : vector<4xf32>
-// CHECK:             [[VAR_16_:%.+]] = arith.select [[VAR_15_]], [[VAR_14_]], [[VAR_8_]] : vector<4xi1>, vector<4xf32>
-// CHECK:             vector.store [[VAR_16_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[VAR_10_:%.+]] = vector.splat [[CST_2_dot_000000_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_11_:%.+]] = arith.mulf [[VAR_9_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             [[VAR_12_:%.+]] = arith.addf [[VAR_11_]], [[VAR_10_]] : vector<32xf32>
+// CHECK:             [[VAR_13_:%.+]] = arith.cmpf ogt, [[VAR_12_]], [[VAR_7_]] : vector<32xf32>
+// CHECK:             [[VAR_14_:%.+]] = arith.select [[VAR_13_]], [[VAR_12_]], [[VAR_7_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             [[VAR_15_:%.+]] = arith.cmpf olt, [[VAR_14_]], [[VAR_8_]] : vector<32xf32>
+// CHECK:             [[VAR_16_:%.+]] = arith.select [[VAR_15_]], [[VAR_14_]], [[VAR_8_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             vector.store [[VAR_16_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -1427,7 +1359,7 @@ func.func private @test_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_reciprocal
@@ -1436,10 +1368,11 @@ func.func private @test_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -1448,33 +1381,33 @@ func.func private @test_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK-DAG:         [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
-// CHECK:             [[VAR_7_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<4xf32>
-// CHECK:             [[VAR_8_:%.+]] = arith.divf [[VAR_7_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_8_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:             [[VAR_7_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<32xf32>
+// CHECK:             [[VAR_8_:%.+]] = arith.divf [[VAR_7_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_8_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -1489,7 +1422,7 @@ func.func private @test_softplus(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_softplus
@@ -1498,10 +1431,11 @@ func.func private @test_softplus(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -1510,35 +1444,35 @@ func.func private @test_softplus(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
-// CHECK-DAG:         [[VAR_7_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
+// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = math.exp [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
-// CHECK:             [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<4xf32>
-// CHECK:             [[VAR_9_:%.+]] = arith.addf [[VAR_7_]], [[VAR_8_]] : vector<4xf32>
-// CHECK:             [[VAR_10_:%.+]] = math.log [[VAR_9_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_10_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:             [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<32xf32>
+// CHECK:             [[VAR_9_:%.+]] = arith.addf [[VAR_7_]], [[VAR_8_]] : vector<32xf32>
+// CHECK:             [[VAR_10_:%.+]] = math.log [[VAR_9_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_10_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -1553,7 +1487,7 @@ func.func private @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_softsign
@@ -1562,10 +1496,11 @@ func.func private @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -1574,35 +1509,35 @@ func.func private @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
-// CHECK-DAG:         [[VAR_7_:%.+]] = math.absf [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
+// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = math.absf [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
-// CHECK:             [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<4xf32>
-// CHECK:             [[VAR_9_:%.+]] = arith.addf [[VAR_7_]], [[VAR_8_]] : vector<4xf32>
-// CHECK:             [[VAR_10_:%.+]] = arith.divf [[LOAD_VAR_reshape_MEM_]], [[VAR_9_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_10_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:             [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<32xf32>
+// CHECK:             [[VAR_9_:%.+]] = arith.addf [[VAR_7_]], [[VAR_8_]] : vector<32xf32>
+// CHECK:             [[VAR_10_:%.+]] = arith.divf [[LOAD_VAR_reshape_MEM_]], [[VAR_9_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_10_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -1961,7 +1896,7 @@ func.func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_sqrt
@@ -1970,10 +1905,11 @@ func.func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -1982,31 +1918,31 @@ func.func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
-// CHECK:             [[VAR_7_:%.+]] = math.sqrt [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK:             [[VAR_7_:%.+]] = math.sqrt [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -2179,7 +2115,7 @@ func.func private @test_sign_f(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_sign_f
@@ -2188,10 +2124,11 @@ func.func private @test_sign_f(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -2200,44 +2137,44 @@ func.func private @test_sign_f(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_dot_000000_]] : vector<32xf32>
 // CHECK-DAG:         [[CST_minus_1_dot_000000_:%.+]] = arith.constant -1.000000e+00 : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_9_:%.+]] = vector.splat [[CST_minus_1_dot_000000_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_10_:%.+]] = arith.cmpf ogt, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_9_:%.+]] = vector.splat [[CST_minus_1_dot_000000_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_10_:%.+]] = arith.cmpf ogt, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<32xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[VAR_8_]], [[VAR_9_]] : vector<4xi1>, vector<4xf32>
-// CHECK-DAG:         [[VAR_12_:%.+]] = arith.cmpf oeq, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<4xf32>
-// CHECK:             [[VAR_13_:%.+]] = arith.select [[VAR_12_]], [[VAR_7_]], [[VAR_11_]] : vector<4xi1>, vector<4xf32>
-// CHECK:             vector.store [[VAR_13_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK-DAG:         [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[VAR_8_]], [[VAR_9_]] : vector<32xi1>, vector<32xf32>
+// CHECK-DAG:         [[VAR_12_:%.+]] = arith.cmpf oeq, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<32xf32>
+// CHECK:             [[VAR_13_:%.+]] = arith.select [[VAR_12_]], [[VAR_7_]], [[VAR_11_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             vector.store [[VAR_13_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -2252,7 +2189,7 @@ func.func private @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_sign_i
@@ -2261,10 +2198,11 @@ func.func private @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xi32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -2273,44 +2211,44 @@ func.func private @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xi32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xi32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xi32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xi32>, memref<1xindex>) -> memref<?xi32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xi32>, memref<1xindex>) -> memref<?xi32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xi32>, memref<1xindex>) -> memref<?xi32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xi32>, vector<4xi32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xi32>, vector<32xi32>
 // CHECK-DAG:         [[CST_0_6_:%.+]] = arith.constant 0 : i32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_6_]] : vector<4xi32>
-// CHECK-DAG:         [[CST_1_3_:%.+]] = arith.constant 1 : i32
+// CHECK-DAG:         [[VAR_7_:%.+]] = vector.splat [[CST_0_6_]] : vector<32xi32>
+// CHECK-DAG:         [[CST_1_4_:%.+]] = arith.constant 1 : i32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_3_]] : vector<4xi32>
+// CHECK-DAG:         [[VAR_8_:%.+]] = vector.splat [[CST_1_4_]] : vector<32xi32>
 // CHECK-DAG:         [[CST_minus_1_:%.+]] = arith.constant -1 : i32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_9_:%.+]] = vector.splat [[CST_minus_1_]] : vector<4xi32>
-// CHECK-DAG:         [[VAR_10_:%.+]] = arith.cmpi sgt, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<4xi32>
+// CHECK-DAG:         [[VAR_9_:%.+]] = vector.splat [[CST_minus_1_]] : vector<32xi32>
+// CHECK-DAG:         [[VAR_10_:%.+]] = arith.cmpi sgt, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<32xi32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[VAR_8_]], [[VAR_9_]] : vector<4xi1>, vector<4xi32>
-// CHECK-DAG:         [[VAR_12_:%.+]] = arith.cmpi eq, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<4xi32>
-// CHECK:             [[VAR_13_:%.+]] = arith.select [[VAR_12_]], [[VAR_7_]], [[VAR_11_]] : vector<4xi1>, vector<4xi32>
-// CHECK:             vector.store [[VAR_13_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xi32>, vector<4xi32>
+// CHECK-DAG:         [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[VAR_8_]], [[VAR_9_]] : vector<32xi1>, vector<32xi32>
+// CHECK-DAG:         [[VAR_12_:%.+]] = arith.cmpi eq, [[LOAD_VAR_reshape_MEM_]], [[VAR_7_]] : vector<32xi32>
+// CHECK:             [[VAR_13_:%.+]] = arith.select [[VAR_12_]], [[VAR_7_]], [[VAR_11_]] : vector<32xi1>, vector<32xi32>
+// CHECK:             vector.store [[VAR_13_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xi32>, vector<32xi32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xi32>
 // CHECK:         }
@@ -2411,7 +2349,7 @@ func.func private @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_abs_float
@@ -2420,10 +2358,11 @@ func.func private @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -2432,31 +2371,31 @@ func.func private @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
-// CHECK:             [[VAR_7_:%.+]] = math.absf [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK:             [[VAR_7_:%.+]] = math.absf [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -2471,7 +2410,7 @@ func.func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_abs_int
@@ -2480,10 +2419,11 @@ func.func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xi32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -2492,31 +2432,31 @@ func.func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xi32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xi32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xi32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xi32>, memref<1xindex>) -> memref<?xi32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xi32>, memref<1xindex>) -> memref<?xi32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xi32>, memref<1xindex>) -> memref<?xi32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xi32>, vector<4xi32>
-// CHECK:             [[VAR_7_:%.+]] = math.absi [[LOAD_VAR_reshape_MEM_]] : vector<4xi32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xi32>, vector<4xi32>
+// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xi32>, vector<32xi32>
+// CHECK:             [[VAR_7_:%.+]] = math.absi [[LOAD_VAR_reshape_MEM_]] : vector<32xi32>
+// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xi32>, vector<32xi32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xi32>
 // CHECK:         }
@@ -3282,6 +3222,7 @@ func.func private @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
 
 // -----
 
+
 func.func private @test_less(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xi1> {
   %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
   return %0 : tensor<3x4x5xi1>
@@ -3303,33 +3244,8 @@ func.func private @test_less(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>)
 // CHECK-DAG:       [[CST_4_2_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_5_2_:%.+]] = arith.constant 5 : index
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
-// CHECK-DAG:         [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-// CHECK-DAG:         [[CST_3_3_:%.+]] = arith.constant 3 : index
-// CHECK-DAG:         [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:         [[VAR_true_:%.+]] = arith.constant true
-// CHECK-DAG:         [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:         [[CST_4_3_:%.+]] = arith.constant 4 : index
-// CHECK-DAG:         [[CST_1_2_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:         [[VAR_true_11_:%.+]] = arith.constant true
-// CHECK-DAG:         [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:         [[CST_5_3_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:         [[CST_1_3_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:         [[VAR_true_15_:%.+]] = arith.constant true
-// CHECK-DAG:         [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK-NOT: separator of consecutive DAGs
+// CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x4x5xf32>
-// CHECK-DAG:         [[CST_3_4_:%.+]] = arith.constant 3 : index
-// CHECK-DAG:         [[CST_1_4_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:         [[VAR_true_19_:%.+]] = arith.constant true
-// CHECK-DAG:         [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:         [[CST_4_4_:%.+]] = arith.constant 4 : index
-// CHECK-DAG:         [[CST_1_5_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:         [[VAR_true_23_:%.+]] = arith.constant true
-// CHECK-DAG:         [[CST_0_5_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:         [[CST_5_4_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:         [[CST_1_6_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:         [[VAR_true_27_:%.+]] = arith.constant true
-// CHECK-DAG:         [[CST_0_6_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x4x5xf32>
 // CHECK:             [[VAR_4_:%.+]] = arith.cmpf olt, [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
 // CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x4x5xi1>
@@ -3389,7 +3305,7 @@ func.func private @test_floor(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_floor
@@ -3398,10 +3314,11 @@ func.func private @test_floor(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -3410,31 +3327,31 @@ func.func private @test_floor(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
-// CHECK:             [[VAR_7_:%.+]] = math.floor [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK:             [[VAR_7_:%.+]] = math.floor [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -3449,7 +3366,7 @@ func.func private @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 16)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func private @test_ceil
@@ -3458,10 +3375,11 @@ func.func private @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]{{.}}
-// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
 // CHECK-DAG:       [[VAR_1_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?xi8>
@@ -3470,31 +3388,31 @@ func.func private @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_1_]]{{.}}{{.}}[[VAR_dim_]]{{.}} : memref<?xi8> to memref<?x10xf32>
 // CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
+// CHECK-DAG:       [[VAR_dim_3_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x10xf32>
 // CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_2_]]{{.}}
+// CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_2_]], [[RES_1_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_dim_]]{{.}}
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK-DAG:       [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           affine.store [[VAR_3_]], [[RES_2_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_12_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:       [[VAR_reshape_13_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:           [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_3_]](){{.}}[[VAR_dim_]], [[VAR_3_]]{{.}}){
 // CHECK:             [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
-// CHECK:             [[VAR_7_:%.+]] = math.ceil [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_12_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<4xf32>
+// CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK:             [[VAR_7_:%.+]] = math.ceil [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_13_]]{{.}}[[VAR_5_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:           }
 // CHECK:           return [[VAR_view_]] : memref<?x10xf32>
 // CHECK:         }
@@ -3502,49 +3420,142 @@ func.func private @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func.func private @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
-  %0 = "onnx.Clip"(%arg0, %arg1, %arg2) : (tensor<3xf32>, tensor<f32>, tensor<f32>) -> tensor<3xf32>
-  return %0 : tensor<3xf32>
 
-// CHECK-LABEL: test_clip
-// CHECK-SAME:   ([[INPUT:%.+]]: memref<3xf32>, [[MIN:%.+]]: memref<f32>, [[MAX:%.+]]: memref<f32>) -> memref<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
-// CHECK-DAG:       [[RES:%.+]] = memref.alloc() {{.*}}: memref<3xf32>
-// CHECK-DAG:       [[LOOP_0:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.iterate([[LOOP_0]]) with ([[LOOP_0]] -> [[I_0:%.+]] = 0 to 3){
-// CHECK-NEXT:        [[IV:%.+]] = krnl.get_induction_var_value([[LOOP_0]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_INPUT_MEM:%.+]] = krnl.load [[INPUT]]{{.}}[[IV]]{{.}} : memref<3xf32>
-// CHECK-DAG:         [[LOAD_MIN_MEM:%.+]] = krnl.load [[MIN]][] : memref<f32>
-// CHECK:             [[VAR_4:%.+]] = arith.cmpf olt, [[LOAD_INPUT_MEM]], [[LOAD_MIN_MEM]] : f32
-// CHECK-DAG:         [[VAR_5:%.+]] = arith.select [[VAR_4]], [[LOAD_MIN_MEM]], [[LOAD_INPUT_MEM]] : f32
-// CHECK-DAG:         [[LOAD_MAX_MEM:%.+]] = krnl.load [[MAX]][] : memref<f32>
-// CHECK:             [[VAR_7:%.+]] = arith.cmpf olt, [[VAR_5]], [[LOAD_MAX_MEM]] : f32
-// CHECK:             [[VAR_8:%.+]] = arith.select [[VAR_7]], [[VAR_5]], [[LOAD_MAX_MEM]] : f32
-// CHECK:             krnl.store [[VAR_8]], [[RES]]{{.}}[[IV]]{{.}} : memref<3xf32>
+func.func private @test_clip(%arg0: tensor<128xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<128xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+  %0 = "onnx.Clip"(%arg0, %arg1, %arg2) : (tensor<128xf32>, tensor<f32>, tensor<f32>) -> tensor<128xf32>
+  return %0 : tensor<128xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func private @test_clip
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<128xf32>, [[PARAM_1_:%.+]]: memref<f32>, [[PARAM_2_:%.+]]: memref<f32>) -> memref<128xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<128xf32>
+// CHECK-DAG:       [[CST_128_1_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_128_2_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_128_2_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<128xf32>, memref<1xindex>) -> memref<128xf32>
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_128_3_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_128_3_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_9_:%.+]] = memref.reshape [[RES_]]([[RES_]]_7) : (memref<128xf32>, memref<1xindex>) -> memref<128xf32>
+// CHECK-DAG:       [[CST_128_4_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 128){
+// CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<128xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<f32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_4_:%.+]] = vector.splat [[LOAD_PARAM_1_MEM_]] : vector<32xf32>
+// CHECK-DAG:         [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]][] : memref<f32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_6_:%.+]] = vector.splat [[LOAD_PARAM_2_MEM_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_7_:%.+]] = arith.cmpf olt, [[LOAD_VAR_reshape_MEM_]], [[VAR_4_]] : vector<32xf32>
+// CHECK:             [[VAR_8_:%.+]] = arith.select [[VAR_7_]], [[VAR_4_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             [[VAR_9_:%.+]] = arith.cmpf olt, [[VAR_8_]], [[VAR_6_]] : vector<32xf32>
+// CHECK:             [[VAR_10_:%.+]] = arith.select [[VAR_9_]], [[VAR_8_]], [[VAR_6_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             vector.store [[VAR_10_]], [[VAR_reshape_9_]]{{.}}[[VAR_1_]]{{.}} : memref<128xf32>, vector<32xf32>
 // CHECK:           }
-// CHECK:           return [[RES]] : memref<3xf32>
+// CHECK:           return [[RES_]] : memref<128xf32>
 // CHECK:         }
 }
 
 // -----
 
-func.func private @test_clip_default_min(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+func.func private @test_clip_default_min(%arg0: tensor<128xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<128xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
   %cst = "onnx.NoValue"() {value} : () -> none
-  %0 = "onnx.Clip"(%arg0, %cst, %arg2) : (tensor<3xf32>, none, tensor<f32>) -> tensor<3xf32>
-  return %0 : tensor<3xf32>
+  %0 = "onnx.Clip"(%arg0, %cst, %arg2) : (tensor<128xf32>, none, tensor<f32>) -> tensor<128xf32>
+  return %0 : tensor<128xf32>
 
-// CHECK-LABEL: test_clip_default_min
-// CHECK-SAME:   ([[INPUT:%.+]]: memref<3xf32>, [[MIN:%.+]]: memref<f32>, [[MAX:%.+]]: memref<f32>) -> memref<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
-// CHECK-DAG:       [[RES:%.+]] = memref.alloc() {{.*}}: memref<3xf32>
-// CHECK-DAG:       [[LOOP_0:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.iterate([[LOOP_0]]) with ([[LOOP_0]] -> [[I_0:%.+]] = 0 to 3){
-// CHECK-NEXT:        [[IV:%.+]] = krnl.get_induction_var_value([[LOOP_0]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_INPUT_MEM:%.+]] = krnl.load [[INPUT]]{{.}}[[IV]]{{.}} : memref<3xf32>
-// CHECK-DAG:         [[LOAD_MAX_MEM:%.+]] = krnl.load [[MAX]][] : memref<f32>
-// CHECK:             [[VAR_7:%.+]] = arith.cmpf olt, [[LOAD_INPUT_MEM]], [[LOAD_MAX_MEM]] : f32
-// CHECK:             [[VAR_8:%.+]] = arith.select [[VAR_7]], [[LOAD_INPUT_MEM]], [[LOAD_MAX_MEM]] : f32
-// CHECK:             krnl.store [[VAR_8]], [[RES]]{{.}}[[IV]]{{.}} : memref<3xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func private @test_clip_default_min
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<128xf32>, [[PARAM_1_:%.+]]: memref<f32>, [[PARAM_2_:%.+]]: memref<f32>) -> memref<128xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<128xf32>
+// CHECK-DAG:       [[CST_128_1_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_128_2_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_128_2_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<128xf32>, memref<1xindex>) -> memref<128xf32>
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_128_3_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_128_3_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_9_:%.+]] = memref.reshape [[RES_]]([[RES_]]_7) : (memref<128xf32>, memref<1xindex>) -> memref<128xf32>
+// CHECK-DAG:       [[CST_128_4_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 128){
+// CHECK:             [[VAR_2_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_2_]]{{.}} : memref<128xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]][] : memref<f32>
+// CHECK:             [[VAR_5_:%.+]] = vector.splat [[LOAD_PARAM_2_MEM_]] : vector<32xf32>
+// CHECK:             [[VAR_6_:%.+]] = arith.cmpf olt, [[LOAD_VAR_reshape_MEM_]], [[VAR_5_]] : vector<32xf32>
+// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_6_]], [[LOAD_VAR_reshape_MEM_]], [[VAR_5_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_9_]]{{.}}[[VAR_2_]]{{.}} : memref<128xf32>, vector<32xf32>
 // CHECK:           }
-// CHECK:           return [[RES]] : memref<3xf32>
+// CHECK:           return [[RES_]] : memref<128xf32>
+// CHECK:         }
+}
+
+// -----
+
+
+func.func private @test_clip_default_min_int(%arg0: tensor<128xi32>, %arg1: tensor<i32>, %arg2: tensor<i32>) -> tensor<128xi32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Clip"(%arg0, %cst, %arg2) : (tensor<128xi32>, none, tensor<i32>) -> tensor<128xi32>
+  return %0 : tensor<128xi32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func private @test_clip_default_min_int
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<128xi32>, [[PARAM_1_:%.+]]: memref<i32>, [[PARAM_2_:%.+]]: memref<i32>) -> memref<128xi32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[CST_128_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<128xi32>
+// CHECK-DAG:       [[CST_128_1_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_128_2_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_128_2_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<128xi32>, memref<1xindex>) -> memref<128xi32>
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_128_3_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_128_3_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_9_:%.+]] = memref.reshape [[RES_]]([[RES_]]_7) : (memref<128xi32>, memref<1xindex>) -> memref<128xi32>
+// CHECK-DAG:       [[CST_128_4_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 128){
+// CHECK:             [[VAR_2_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_2_]]{{.}} : memref<128xi32>, vector<32xi32>
+// CHECK-DAG:         [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]][] : memref<i32>
+// CHECK:             [[VAR_5_:%.+]] = vector.splat [[LOAD_PARAM_2_MEM_]] : vector<32xi32>
+// CHECK:             [[VAR_6_:%.+]] = arith.cmpi slt, [[LOAD_VAR_reshape_MEM_]], [[VAR_5_]] : vector<32xi32>
+// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_6_]], [[LOAD_VAR_reshape_MEM_]], [[VAR_5_]] : vector<32xi1>, vector<32xi32>
+// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_9_]]{{.}}[[VAR_2_]]{{.}} : memref<128xi32>, vector<32xi32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<128xi32>
 // CHECK:         }
 }
 
@@ -3565,54 +3576,18 @@ func.func private @test_pown(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>)
 // CHECK-DAG:       [[CST_3_1_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_1_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_5_1_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[CST_3_2_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_2_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_5_2_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_3_3_:%.+]] = arith.constant 3 : index
-// CHECK-DAG:       [[CST_4_3_:%.+]] = arith.constant 4 : index
-// CHECK-DAG:       [[CST_12_:%.+]] = arith.constant 12 : index
-// CHECK-DAG:       [[CST_5_3_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:       [[CST_60_:%.+]] = arith.constant 60 : index
-// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_60_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<3x4x5xf32>, memref<1xindex>) -> memref<60xf32>
-// CHECK-DAG:       [[CST_3_4_:%.+]] = arith.constant 3 : index
-// CHECK-DAG:       [[CST_4_4_:%.+]] = arith.constant 4 : index
-// CHECK-DAG:       [[CST_5_4_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_3_5_:%.+]] = arith.constant 3 : index
-// CHECK-DAG:       [[CST_4_5_:%.+]] = arith.constant 4 : index
-// CHECK-DAG:       [[CST_12_1_:%.+]] = arith.constant 12 : index
-// CHECK-DAG:       [[CST_5_5_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:       [[CST_60_1_:%.+]] = arith.constant 60 : index
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_60_1_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_23_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<3x4x5xf32>, memref<1xindex>) -> memref<60xf32>
-// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[CST_3_6_:%.+]] = arith.constant 3 : index
-// CHECK-DAG:       [[CST_4_6_:%.+]] = arith.constant 4 : index
-// CHECK-DAG:       [[CST_12_2_:%.+]] = arith.constant 12 : index
-// CHECK-DAG:       [[CST_5_6_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:       [[CST_60_2_:%.+]] = arith.constant 60 : index
-// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_60_2_]], [[RES_3_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_32_:%.+]] = memref.reshape [[RES_]]([[RES_]]_30) : (memref<3x4x5xf32>, memref<1xindex>) -> memref<60xf32>
-// CHECK-DAG:       [[CST_60_3_:%.+]] = arith.constant 60 : index
-// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 60){
-// CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<60xf32>, vector<4xf32>
-// CHECK-DAG:         [[LOAD_VAR_reshape_23_MEM_:%.+]] = vector.load [[VAR_reshape_23_]]{{.}}[[VAR_1_]]{{.}} : memref<60xf32>, vector<4xf32>
-// CHECK:             [[VAR_4_:%.+]] = math.powf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_23_MEM_]] : vector<4xf32>
-// CHECK:             vector.store [[VAR_4_]], [[VAR_reshape_32_]]{{.}}[[VAR_1_]]{{.}} : memref<60xf32>, vector<4xf32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
+// CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x4x5xf32>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x4x5xf32>
+// CHECK:             [[VAR_4_:%.+]] = math.powf [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x4x5xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<3x4x5xf32>
 // CHECK:         }
@@ -3637,59 +3612,66 @@ func.func @test_prelu_float(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) 
 // CHECK-DAG:       [[CST_4_1_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_5_1_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf32>
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_240_:%.+]] = arith.constant 240 : index
+// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_256_:%.+]] = arith.constant 256 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<256xi8>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}[] : memref<256xi8> to memref<3x4x5xf32>
 // CHECK-DAG:       [[CST_3_2_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_2_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_5_2_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_3_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_3_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_12_:%.+]] = arith.constant 12 : index
 // CHECK-DAG:       [[CST_5_3_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[CST_60_:%.+]] = arith.constant 60 : index
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_60_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_60_]], [[RES_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<3x4x5xf32>, memref<1xindex>) -> memref<60xf32>
 // CHECK-DAG:       [[CST_3_4_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_5_4_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_3_5_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_5_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_12_1_:%.+]] = arith.constant 12 : index
 // CHECK-DAG:       [[CST_5_5_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[CST_60_1_:%.+]] = arith.constant 60 : index
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_60_1_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_23_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<3x4x5xf32>, memref<1xindex>) -> memref<60xf32>
-// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_60_1_]], [[RES_2_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_25_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<3x4x5xf32>, memref<1xindex>) -> memref<60xf32>
+// CHECK-DAG:       [[CST_1_5_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_3_6_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_6_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_12_2_:%.+]] = arith.constant 12 : index
 // CHECK-DAG:       [[CST_5_6_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[CST_60_2_:%.+]] = arith.constant 60 : index
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_60_2_]], [[RES_3_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_32_:%.+]] = memref.reshape [[RES_]]([[RES_]]_30) : (memref<3x4x5xf32>, memref<1xindex>) -> memref<60xf32>
+// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_60_2_]], [[RES_3_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_34_:%.+]] = memref.reshape [[VAR_view_]]([[RES_3_]]) : (memref<3x4x5xf32>, memref<1xindex>) -> memref<60xf32>
 // CHECK-DAG:       [[CST_60_3_:%.+]] = arith.constant 60 : index
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 60){
 // CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<60xf32>, vector<4xf32>
-// CHECK-DAG:         [[LOAD_VAR_reshape_23_MEM_:%.+]] = vector.load [[VAR_reshape_23_]]{{.}}[[VAR_1_]]{{.}} : memref<60xf32>, vector<4xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<60xf32>, vector<32xf32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_25_MEM_:%.+]] = vector.load [[VAR_reshape_25_]]{{.}}[[VAR_1_]]{{.}} : memref<60xf32>, vector<32xf32>
 // CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
-// CHECK:             [[VAR_4_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpf olt, [[LOAD_VAR_reshape_MEM_]], [[VAR_4_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_6_:%.+]] = arith.mulf [[LOAD_VAR_reshape_23_MEM_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xf32>
-// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_5_]], [[VAR_6_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xi1>, vector<4xf32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_32_]]{{.}}[[VAR_1_]]{{.}} : memref<60xf32>, vector<4xf32>
+// CHECK:             [[VAR_4_:%.+]] = vector.splat [[CST_0_dot_000000_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpf olt, [[LOAD_VAR_reshape_MEM_]], [[VAR_4_]] : vector<32xf32>
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.mulf [[LOAD_VAR_reshape_25_MEM_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
+// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_5_]], [[VAR_6_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xi1>, vector<32xf32>
+// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_34_]]{{.}}[[VAR_1_]]{{.}} : memref<60xf32>, vector<32xf32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<3x4x5xf32>
+// CHECK:           return [[VAR_view_]] : memref<3x4x5xf32>
 // CHECK:         }
 }
 
@@ -3712,108 +3694,156 @@ func.func @test_prelu_int(%arg0: tensor<3x4x5xi32>, %arg1: tensor<3x4x5xi32>) ->
 // CHECK-DAG:       [[CST_4_1_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_5_1_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xi32>
+// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_240_:%.+]] = arith.constant 240 : index
+// CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
+// CHECK-DAG:       [[CST_256_:%.+]] = arith.constant 256 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<256xi8>
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_view_:%.+]] = memref.view [[RES_]]{{.}}[[CST_0_]]{{.}}[] : memref<256xi8> to memref<3x4x5xi32>
 // CHECK-DAG:       [[CST_3_2_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_2_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_5_2_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:       [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_3_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_3_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_12_:%.+]] = arith.constant 12 : index
 // CHECK-DAG:       [[CST_5_3_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[CST_60_:%.+]] = arith.constant 60 : index
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_60_]], [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_60_]], [[RES_1_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_0_]]([[RES_1_]]) : (memref<3x4x5xi32>, memref<1xindex>) -> memref<60xi32>
 // CHECK-DAG:       [[CST_3_4_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_5_4_:%.+]] = arith.constant 5 : index
-// CHECK-DAG:       [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_3_5_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_5_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_12_1_:%.+]] = arith.constant 12 : index
 // CHECK-DAG:       [[CST_5_5_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[CST_60_1_:%.+]] = arith.constant 60 : index
 // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_60_1_]], [[RES_2_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_23_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<3x4x5xi32>, memref<1xindex>) -> memref<60xi32>
-// CHECK-DAG:       [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_60_1_]], [[RES_2_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_25_:%.+]] = memref.reshape [[PARAM_1_]]([[RES_2_]]) : (memref<3x4x5xi32>, memref<1xindex>) -> memref<60xi32>
+// CHECK-DAG:       [[CST_1_5_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_3_6_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_4_6_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_12_2_:%.+]] = arith.constant 12 : index
 // CHECK-DAG:       [[CST_5_6_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[CST_60_2_:%.+]] = arith.constant 60 : index
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:       [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK:           affine.store [[CST_60_2_]], [[RES_3_]]{{.}}[[CST_0_2_]]{{.}} : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_32_:%.+]] = memref.reshape [[RES_]]([[RES_]]_30) : (memref<3x4x5xi32>, memref<1xindex>) -> memref<60xi32>
+// CHECK-DAG:       [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           affine.store [[CST_60_2_]], [[RES_3_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_34_:%.+]] = memref.reshape [[VAR_view_]]([[RES_3_]]) : (memref<3x4x5xi32>, memref<1xindex>) -> memref<60xi32>
 // CHECK-DAG:       [[CST_60_3_:%.+]] = arith.constant 60 : index
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:           [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:           [[CST_0_4_:%.+]] = arith.constant 0 : index
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 60){
 // CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<60xi32>, vector<4xi32>
-// CHECK-DAG:         [[LOAD_VAR_reshape_23_MEM_:%.+]] = vector.load [[VAR_reshape_23_]]{{.}}[[VAR_1_]]{{.}} : memref<60xi32>, vector<4xi32>
-// CHECK-DAG:         [[CST_0_4_:%.+]] = arith.constant 0 : i32
-// CHECK:             [[VAR_4_:%.+]] = vector.splat [[CST_0_4_]] : vector<4xi32>
-// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi slt, [[LOAD_VAR_reshape_MEM_]], [[VAR_4_]] : vector<4xi32>
-// CHECK-DAG:         [[VAR_6_:%.+]] = arith.muli [[LOAD_VAR_reshape_23_MEM_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xi32>
-// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_5_]], [[VAR_6_]], [[LOAD_VAR_reshape_MEM_]] : vector<4xi1>, vector<4xi32>
-// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_32_]]{{.}}[[VAR_1_]]{{.}} : memref<60xi32>, vector<4xi32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<60xi32>, vector<32xi32>
+// CHECK-DAG:         [[LOAD_VAR_reshape_25_MEM_:%.+]] = vector.load [[VAR_reshape_25_]]{{.}}[[VAR_1_]]{{.}} : memref<60xi32>, vector<32xi32>
+// CHECK-DAG:         [[CST_0_5_:%.+]] = arith.constant 0 : i32
+// CHECK:             [[VAR_4_:%.+]] = vector.splat [[CST_0_5_]] : vector<32xi32>
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi slt, [[LOAD_VAR_reshape_MEM_]], [[VAR_4_]] : vector<32xi32>
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.muli [[LOAD_VAR_reshape_25_MEM_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xi32>
+// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_5_]], [[VAR_6_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xi1>, vector<32xi32>
+// CHECK:             vector.store [[VAR_7_]], [[VAR_reshape_34_]]{{.}}[[VAR_1_]]{{.}} : memref<60xi32>, vector<32xi32>
 // CHECK:           }
-// CHECK:           return [[RES_]] : memref<3x4x5xi32>
+// CHECK:           return [[VAR_view_]] : memref<3x4x5xi32>
 // CHECK:         }
 }
 
 // -----
 
 // COM: Check PRelu with unidirectional broadcasting.
+
 func.func @test_prelu_broadcast1(%arg0: tensor<3x4x5xf32>, %arg1: tensor<5xf32>) -> tensor<*xf32> {
   %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<5xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
-  // CHECK-LABEL: func @test_prelu_broadcast1
-  // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf32>
-  // CHECK: [[MAIN_LOOP:%.+]]:3 = krnl.define_loops 3
-  // CHECK: krnl.iterate([[MAIN_LOOP]]#0, [[MAIN_LOOP]]#1, [[MAIN_LOOP]]#2) with ([[MAIN_LOOP]]#0 -> %arg2 = 0 to 3, [[MAIN_LOOP]]#1 -> %arg3 = 0 to 4, [[MAIN_LOOP]]#2 -> %arg4 = 0 to 5){
-  // CHECK:       [[IV:%.+]]:3 = krnl.get_induction_var_value([[MAIN_LOOP]]#0, [[MAIN_LOOP]]#1, [[MAIN_LOOP]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-  // CHECK:       [[LOAD_X:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1, [[IV]]#2] : memref<3x4x5xf32>
-  // CHECK:       [[LOAD_SLOPE:%.+]] = krnl.load %arg1[[[IV]]#2] : memref<5xf32>
-  // CHECK-DAG:   [[CST_0:%.+]] = arith.constant 0.000000e+00 : f32
-  // CHECK:       [[LESS_THAN_ZERO:%.+]] = arith.cmpf olt, [[LOAD_X]], [[CST_0]] : f32
-  // CHECK:       [[MUL:%.+]] = arith.mulf [[LOAD_SLOPE]], [[LOAD_X]] : f32
-  // CHECK:       [[SELECT:%.+]] = arith.select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : f32
-  // CHECK:       krnl.store [[SELECT]], [[RES]][[[IV]]#0, [[IV]]#1, [[IV]]#2] : memref<3x4x5xf32>
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<3x4x5xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_prelu_broadcast1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x4x5xf32>, [[PARAM_1_:%.+]]: memref<5xf32>) -> memref<3x4x5xf32> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
+// CHECK-DAG:       [[CST_4_:%.+]] = arith.constant 4 : index
+// CHECK-DAG:       [[CST_5_:%.+]] = arith.constant 5 : index
+// CHECK-DAG:       [[CST_5_1_:%.+]] = arith.constant 5 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_3_1_:%.+]] = arith.constant 3 : index
+// CHECK-DAG:       [[CST_4_1_:%.+]] = arith.constant 4 : index
+// CHECK-DAG:       [[CST_5_2_:%.+]] = arith.constant 5 : index
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
+// CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x4x5xf32>
+// CHECK-DAG:         [[CST_5_3_:%.+]] = arith.constant 5 : index
+// CHECK-DAG:         [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:         [[VAR_true_:%.+]] = arith.constant true
+// CHECK-DAG:         [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#2] : memref<5xf32>
+// CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_4_:%.+]] = arith.cmpf olt, [[LOAD_PARAM_0_MEM_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.mulf [[LOAD_PARAM_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             [[VAR_6_:%.+]] = arith.select [[VAR_4_]], [[VAR_5_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_6_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x4x5xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<3x4x5xf32>
+// CHECK:         }
 }
 
 // -----
 
 // COM: Check PRelu with unidirectional broadcasting.
 // COM: Tensor slope should be unidirectional broadcastable to input tensor X
+
 func.func @test_prelu_broadcast2(%arg0: tensor<3x4x5xf32>, %arg1: tensor<1x5xf32>) -> tensor<*xf32> {
   %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<1x5xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
-  // CHECK-LABEL: func @test_prelu_broadcast2
-  // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf32>
-  // CHECK: [[MAIN_LOOP:%.+]]:3 = krnl.define_loops 3
-  // CHECK: krnl.iterate([[MAIN_LOOP]]#0, [[MAIN_LOOP]]#1, [[MAIN_LOOP]]#2) with ([[MAIN_LOOP]]#0 -> %arg2 = 0 to 3, [[MAIN_LOOP]]#1 -> %arg3 = 0 to 4, [[MAIN_LOOP]]#2 -> %arg4 = 0 to 5){
-  // CHECK:       [[IV:%.+]]:3 = krnl.get_induction_var_value([[MAIN_LOOP]]#0, [[MAIN_LOOP]]#1, [[MAIN_LOOP]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-  // CHECK:       [[LOAD_X:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1, [[IV]]#2] : memref<3x4x5xf32>
-  // CHECK-DAG:   [[ZERO_INDEX:%.+]] = arith.constant 0 : index
-  // CHECK:       [[LOAD_SLOPE:%.+]] = krnl.load %arg1{{\[}}[[ZERO_INDEX]], [[IV]]#2] : memref<1x5xf32>
-  // CHECK-DAG:   [[CST_0:%.+]] = arith.constant 0.000000e+00 : f32
-  // CHECK:       [[LESS_THAN_ZERO:%.+]] = arith.cmpf olt, [[LOAD_X]], [[CST_0]] : f32
-  // CHECK:       [[MUL:%.+]] = arith.mulf [[LOAD_SLOPE]], [[LOAD_X]] : f32
-  // CHECK:       [[SELECT:%.+]] = arith.select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : f32
-  // CHECK:       krnl.store [[SELECT]], [[RES]][[[IV]]#0, [[IV]]#1, [[IV]]#2] : memref<3x4x5xf32>
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<3x4x5xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_prelu_broadcast2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x4x5xf32>, [[PARAM_1_:%.+]]: memref<1x5xf32>) -> memref<3x4x5xf32> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
+// CHECK-DAG:       [[CST_4_:%.+]] = arith.constant 4 : index
+// CHECK-DAG:       [[CST_5_:%.+]] = arith.constant 5 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_5_1_:%.+]] = arith.constant 5 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x4x5xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_3_1_:%.+]] = arith.constant 3 : index
+// CHECK-DAG:       [[CST_4_1_:%.+]] = arith.constant 4 : index
+// CHECK-DAG:       [[CST_5_2_:%.+]] = arith.constant 5 : index
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
+// CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x4x5xf32>
+// CHECK-DAG:         [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:         [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:         [[VAR_false_:%.+]] = arith.constant false
+// CHECK-DAG:         [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:         [[CST_5_3_:%.+]] = arith.constant 5 : index
+// CHECK-DAG:         [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:         [[VAR_true_:%.+]] = arith.constant true
+// CHECK-DAG:         [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[CST_0_1_]], [[VAR_1_]]#2] : memref<1x5xf32>
+// CHECK-DAG:         [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_4_:%.+]] = arith.cmpf olt, [[LOAD_PARAM_0_MEM_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.mulf [[LOAD_PARAM_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             [[VAR_6_:%.+]] = arith.select [[VAR_4_]], [[VAR_5_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_6_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x4x5xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<3x4x5xf32>
+// CHECK:         }
 }
 
 // -----
@@ -3880,55 +3910,30 @@ func.func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor
 // CHECK-DAG:             [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:             [[CST_1_2_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:             [[CST_1_3_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:             [[CST_8_:%.+]] = arith.constant 8 : index
-// CHECK-DAG:             [[CST_8_1_:%.+]] = arith.constant 8 : index
-// CHECK-DAG:             [[CST_16_:%.+]] = arith.constant 16 : index
-// CHECK-DAG:             [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<16xi8>
-// CHECK-DAG:             [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:             [[VAR_view_:%.+]] = memref.view [[RES_3_]]{{.}}[[CST_0_2_]]{{.}}[] : memref<16xi8> to memref<1xi64>
-// CHECK-DAG:             [[CST_1_4_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:             [[CST_1_5_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:             [[CST_1_6_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:             [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:             [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK:                 affine.store [[CST_1_5_]], [[RES_4_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xindex>
-// CHECK-DAG:             [[VAR_reshape_:%.+]] = memref.reshape [[RES_]]([[RES_]]_12) : (memref<1xi64>, memref<1xindex>) -> memref<1xi64>
-// CHECK-DAG:             [[CST_1_7_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:             [[RES_5_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:             [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK:                 affine.store [[CST_1_7_]], [[RES_5_]]{{.}}[[CST_0_4_]]{{.}} : memref<1xindex>
-// CHECK-DAG:             [[VAR_reshape_17_:%.+]] = memref.reshape [[RES_2_]]([[RES_5_]]) : (memref<i64>, memref<1xindex>) -> memref<1xi64>
-// CHECK-DAG:             [[CST_1_8_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:             [[CST_1_9_:%.+]] = arith.constant 1 : index
-// CHECK-DAG:             [[RES_6_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK-DAG:             [[CST_0_5_:%.+]] = arith.constant 0 : index
-// CHECK:                 affine.store [[CST_1_8_]], [[RES_6_]]{{.}}[[CST_0_5_]]{{.}} : memref<1xindex>
-// CHECK-DAG:             [[VAR_reshape_22_:%.+]] = memref.reshape [[VAR_view_]]([[RES_6_]]) : (memref<1xi64>, memref<1xindex>) -> memref<1xi64>
-// CHECK-DAG:             [[CST_1_10_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xi64>
 // CHECK-DAG:             [[LOOP_2_:%.+]] = krnl.define_loops 1
-// CHECK:                 [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_2_]] 2 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:                 [[CST_0_6_:%.+]] = arith.constant 0 : index
-// CHECK:                 krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_2_]] -> [[I_2_:%.+]] = 0 to 1){
-// CHECK:                   [[VAR_14_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
-// CHECK-DAG:               [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_14_]]{{.}} : memref<1xi64>, vector<2xi64>
-// CHECK-DAG:               [[LOAD_VAR_reshape_17_MEM_:%.+]] = vector.load [[VAR_reshape_17_]]{{.}}[[VAR_14_]]{{.}} : memref<1xi64>, vector<2xi64>
-// CHECK:                   [[VAR_17_:%.+]] = arith.addi [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_17_MEM_]] : vector<2xi64>
-// CHECK:                   vector.store [[VAR_17_]], [[VAR_reshape_22_]]{{.}}[[VAR_14_]]{{.}} : memref<1xi64>, vector<2xi64>
+// CHECK-DAG:             [[CST_0_2_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:             [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK:                 krnl.iterate([[LOOP_2_]]) with ([[LOOP_2_]] -> [[I_2_:%.+]] = 0 to 1){
+// CHECK:                   [[VAR_14_:%.+]] = krnl.get_induction_var_value([[LOOP_2_]]) : (!krnl.loop) -> index
+// CHECK-DAG:               [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_14_]]{{.}} : memref<1xi64>
+// CHECK-DAG:               [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<i64>
+// CHECK:                   [[VAR_17_:%.+]] = arith.addi [[LOAD_RES_MEM_]], [[LOAD_RES_2_MEM_]] : i64
+// CHECK:                   krnl.store [[VAR_17_]], [[RES_3_]]{{.}}[[VAR_14_]]{{.}} : memref<1xi64>
 // CHECK:                 }
-// CHECK-DAG:             [[VAR_9_:%.+]] = builtin.unrealized_conversion_cast [[VAR_view_]] : memref<1xi64> to tensor<1xi64>
+// CHECK-DAG:             [[VAR_9_:%.+]] = builtin.unrealized_conversion_cast [[RES_3_]] : memref<1xi64> to tensor<1xi64>
 // CHECK-DAG:             [[VAR_10_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_1_]] : memref<i1> to memref<i1>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:             [[VAR_11_:%.+]] = builtin.unrealized_conversion_cast [[VAR_9_]] : tensor<1xi64> to memref<1xi64>
 // CHECK-DAG:             [[LOAD_VAR_10_MEM_:%.+]] = krnl.load [[VAR_10_]][] : memref<i1>
 // CHECK:                 krnl.store [[LOAD_VAR_10_MEM_]], [[RES_1_]][] : memref<i1>
 // CHECK-DAG:             [[LOOP_3_:%.+]] = krnl.define_loops 1
-// CHECK-DAG:             [[CST_0_7_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:             [[CST_1_11_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:             [[CST_1_5_:%.+]] = arith.constant 1 : index
 // CHECK:                 krnl.iterate([[LOOP_3_]]) with ([[LOOP_3_]] -> [[I_3_:%.+]] = 0 to 1){
 // CHECK:                   [[VAR_14_1_:%.+]] = krnl.get_induction_var_value([[LOOP_3_]]) : (!krnl.loop) -> index
-// CHECK:                   [[LOAD_VAR_reshape_MEM_1_:%.+]] = krnl.load [[VAR_11_]]{{.}}[[VAR_14_1_]]{{.}} : memref<1xi64>
-// CHECK:                   krnl.store [[LOAD_VAR_reshape_MEM_1_]], [[RES_]]{{.}}[[VAR_14_1_]]{{.}} : memref<1xi64>
+// CHECK:                   [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[VAR_11_]]{{.}}[[VAR_14_1_]]{{.}} : memref<1xi64>
+// CHECK:                   krnl.store [[LOAD_RES_MEM_1_]], [[RES_]]{{.}}[[VAR_14_1_]]{{.}} : memref<1xi64>
 // CHECK:                 }
 // CHECK:               }) : () -> ()
 // CHECK:             }
@@ -3939,9 +3944,10 @@ func.func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor
 
 // -----
 
+
 func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>) -> (tensor<?x?xf32>) {
   %0 = "onnx.Loop"(%arg0, %arg1) ({
-  ^bb0(%arg3: tensor<i64>, %arg4: tensor<i1>, %arg5: tensor<?xf32>):
+  ^bb0(%arg3: tensor<i64>, %arg4: tensor<i1>):
     %7 = "onnx.Add"(%arg2, %arg2) : (tensor<?xf32>, tensor<?xf32>) -> (tensor<?xf32>)
     onnx.Return %arg4,  %7 : tensor<i1>, tensor<?xf32>
   }) : (tensor<i64>, tensor<i1>) -> tensor<?x?xf32>
@@ -3949,8 +3955,9 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (d0, d1)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d2)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 4)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 4 + 128)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func.func @test_loop
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<i64>, [[PARAM_1_:%.+]]: memref<i1>, [[PARAM_2_:%.+]]: memref<?xf32>) -> memref<?x?xf32> {
 // CHECK:           [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<i64>
@@ -3977,61 +3984,83 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
 // CHECK-DAG:             [[VAR_dim_7_:%.+]] = memref.dim [[PARAM_2_]], [[CST_0_1_]] : memref<?xf32>
 // CHECK-DAG:             [[CST_0_2_:%.+]] = arith.constant 0 : index
 // CHECK:                 [[VAR_dim_9_:%.+]] = memref.dim [[PARAM_2_]], [[CST_0_2_]] : memref<?xf32>
-// CHECK:                 [[VAR_11_:%.+]] = affine.max [[MAP_0_]]([[VAR_dim_7_]], [[VAR_dim_9_]])
-// CHECK-DAG:             [[RES_3_:%.+]] = memref.alloc([[VAR_11_]]) {{.*}}: memref<?xf32>
-// CHECK-DAG:             [[LOOP_1_:%.+]] = krnl.define_loops 1
+// CHECK-DAG:             [[VAR_11_:%.+]] = affine.max [[MAP_0_]]([[VAR_dim_7_]], [[VAR_dim_9_]])
+// CHECK-DAG:             [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[CST_4_:%.+]] = arith.constant 4 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:             [[VAR_12_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_11_]]{{.}}
+// CHECK-DAG:             [[CST_128_:%.+]] = arith.constant 128 : index
+// CHECK-DAG:             [[VAR_13_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_11_]]{{.}}
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:             [[RES_3_:%.+]] = memref.alloc([[VAR_13_]]) {{.*}}: memref<?xi8>
 // CHECK-DAG:             [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:             [[VAR_view_:%.+]] = memref.view [[RES_3_]]{{.}}[[CST_0_3_]]{{.}}{{.}}[[VAR_11_]]{{.}} : memref<?xi8> to memref<?xf32>
 // CHECK-DAG:             [[CST_0_4_:%.+]] = arith.constant 0 : index
-// CHECK:                 krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_7_]], [[VAR_dim_9_]], [[VAR_11_]])){
-// CHECK-DAG:               [[VAR_17_:%.+]] = krnl.get_induction_var_value([[LOOP_1_]]) : (!krnl.loop) -> index
-// CHECK-DAG:               [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:               [[VAR_18_:%.+]] = arith.cmpi sgt, [[VAR_dim_7_]], [[CST_1_1_]] : index
-// CHECK-DAG:               [[CST_0_5_:%.+]] = arith.constant 0 : index
-// CHECK:                   [[VAR_19_:%.+]] = arith.select [[VAR_18_]], [[VAR_17_]], [[CST_0_5_]] : index
-// CHECK-DAG:               [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[VAR_19_]]{{.}} : memref<?xf32>
-// CHECK-DAG:               [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[VAR_dim_15_:%.+]] = memref.dim [[PARAM_2_]], [[CST_0_4_]] : memref<?xf32>
+// CHECK-DAG:             [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:             [[CST_0_5_:%.+]] = arith.constant 0 : index
+// CHECK:                 affine.store [[VAR_dim_15_]], [[RES_4_]]{{.}}[[CST_0_5_]]{{.}} : memref<1xindex>
+// CHECK-DAG:             [[VAR_reshape_:%.+]] = memref.reshape [[PARAM_2_]]([[RES_4_]]) : (memref<?xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:             [[CST_0_6_:%.+]] = arith.constant 0 : index
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:               [[VAR_21_:%.+]] = arith.cmpi sgt, [[VAR_dim_9_]], [[CST_1_2_]] : index
-// CHECK-DAG:               [[CST_0_6_:%.+]] = arith.constant 0 : index
-// CHECK:                   [[VAR_22_:%.+]] = arith.select [[VAR_21_]], [[VAR_17_]], [[CST_0_6_]] : index
-// CHECK:                   [[LOAD_PARAM_2_MEM_1_:%.+]] = krnl.load [[PARAM_2_]]{{.}}[[VAR_22_]]{{.}} : memref<?xf32>
-// CHECK:                   [[VAR_24_:%.+]] = arith.addf [[LOAD_PARAM_2_MEM_]], [[LOAD_PARAM_2_MEM_1_]] : f32
-// CHECK:                   krnl.store [[VAR_24_]], [[RES_3_]]{{.}}[[VAR_17_]]{{.}} : memref<?xf32>
+// CHECK-DAG:             [[VAR_dim_20_:%.+]] = memref.dim [[PARAM_2_]], [[CST_0_6_]] : memref<?xf32>
+// CHECK-DAG:             [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[RES_5_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:             [[CST_0_7_:%.+]] = arith.constant 0 : index
+// CHECK:                 affine.store [[VAR_dim_20_]], [[RES_5_]]{{.}}[[CST_0_7_]]{{.}} : memref<1xindex>
+// CHECK-DAG:             [[VAR_reshape_24_:%.+]] = memref.reshape [[PARAM_2_]]([[RES_5_]]) : (memref<?xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:             [[CST_1_5_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[RES_6_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK-DAG:             [[CST_0_8_:%.+]] = arith.constant 0 : index
+// CHECK:                 affine.store [[VAR_11_]], [[RES_6_]]{{.}}[[CST_0_8_]]{{.}} : memref<1xindex>
+// CHECK-DAG:             [[VAR_reshape_28_:%.+]] = memref.reshape [[VAR_view_]]([[RES_6_]]) : (memref<?xf32>, memref<1xindex>) -> memref<?xf32>
+// CHECK-DAG:             [[LOOP_1_:%.+]] = krnl.define_loops 1
+// CHECK:                 [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_1_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:                 [[CST_0_9_:%.+]] = arith.constant 0 : index
+// CHECK:                 krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = 0 to [[VAR_11_]]){
+// CHECK:                   [[VAR_19_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:               [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_19_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK-DAG:               [[LOAD_VAR_reshape_24_MEM_:%.+]] = vector.load [[VAR_reshape_24_]]{{.}}[[VAR_19_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK:                   [[VAR_22_:%.+]] = arith.addf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_24_MEM_]] : vector<32xf32>
+// CHECK:                   vector.store [[VAR_22_]], [[VAR_reshape_28_]]{{.}}[[VAR_19_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:                 }
-// CHECK-DAG:             [[VAR_13_:%.+]] = builtin.unrealized_conversion_cast [[RES_3_]] : memref<?xf32> to tensor<?xf32>
-// CHECK-DAG:             [[VAR_14_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_1_]] : memref<i1> to memref<i1>
+// CHECK-DAG:             [[VAR_15_:%.+]] = builtin.unrealized_conversion_cast [[VAR_view_]] : memref<?xf32> to tensor<?xf32>
+// CHECK-DAG:             [[VAR_16_:%.+]] = builtin.unrealized_conversion_cast [[PARAM_1_]] : memref<i1> to memref<i1>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:             [[VAR_15_:%.+]] = builtin.unrealized_conversion_cast [[VAR_13_]] : tensor<?xf32> to memref<?xf32>
-// CHECK-DAG:             [[LOAD_VAR_14_MEM_:%.+]] = krnl.load [[VAR_14_]][] : memref<i1>
-// CHECK:                 krnl.store [[LOAD_VAR_14_MEM_]], [[RES_1_]][] : memref<i1>
-// CHECK:                 "krnl.seqstore"([[VAR_15_]], [[RES_]], [[VAR_8_]]) : (memref<?xf32>, memref<?xmemref<?xf32>>, index) -> ()
+// CHECK-DAG:             [[VAR_17_:%.+]] = builtin.unrealized_conversion_cast [[VAR_15_]] : tensor<?xf32> to memref<?xf32>
+// CHECK-DAG:             [[LOAD_VAR_16_MEM_:%.+]] = krnl.load [[VAR_16_]][] : memref<i1>
+// CHECK:                 krnl.store [[LOAD_VAR_16_MEM_]], [[RES_1_]][] : memref<i1>
+// CHECK:                 "krnl.seqstore"([[VAR_17_]], [[RES_]], [[VAR_8_]]) : (memref<?xf32>, memref<?xmemref<?xf32>>, index) -> ()
 // CHECK:               }) : () -> ()
 // CHECK:             }
 // CHECK:           }
-// CHECK:           [[CST_0_7_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_0_7_]]{{.}} : memref<?xmemref<?xf32>>
-// CHECK-DAG:       [[CST_0_8_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[CST_0_9_:%.+]] = arith.constant 0 : index
-// CHECK:           [[VAR_dim_:%.+]] = memref.dim [[LOAD_RES_MEM_]], [[CST_0_9_]] : memref<?xf32>
-// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[VAR_1_]], [[VAR_dim_]]) {{.*}}: memref<?x?xf32>
+// CHECK:           [[CST_0_10_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_0_10_]]{{.}} : memref<?xmemref<?xf32>>
+// CHECK-DAG:       [[CST_0_11_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_0_12_:%.+]] = arith.constant 0 : index
+// CHECK:           [[VAR_dim_:%.+]] = memref.dim [[LOAD_RES_MEM_]], [[CST_0_12_]] : memref<?xf32>
+// CHECK-DAG:       [[RES_7_:%.+]] = memref.alloc([[VAR_1_]], [[VAR_dim_]]) {{.*}}: memref<?x?xf32>
 // CHECK-DAG:       [[LOOP_2_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_2_]]) with ([[LOOP_2_]] -> [[I_2_:%.+]] = [[CST_0_]] to [[VAR_4_]]){
 // CHECK:             [[VAR_8_1_:%.+]] = krnl.get_induction_var_value([[LOOP_2_]]) : (!krnl.loop) -> index
 // CHECK:             "krnl.region"() ({
 // CHECK-DAG:           [[LOAD_RES_1_MEM_1_:%.+]] = "krnl.seqextract"([[RES_]], [[VAR_8_1_]]) {copy = 0 : ui1} : (memref<?xmemref<?xf32>>, index) -> memref<?xf32>
 // CHECK-DAG:           [[LOOP_3_:%.+]] = krnl.define_loops 1
-// CHECK-DAG:           [[CST_0_10_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:           [[CST_0_11_:%.+]] = arith.constant 0 : index
-// CHECK:               [[VAR_dim_7_1_:%.+]] = memref.dim [[LOAD_RES_1_MEM_1_]], [[CST_0_11_]] : memref<?xf32>
-// CHECK:               krnl.iterate([[LOOP_3_]]) with ([[LOOP_3_]] -> [[I_3_:%.+]] = 0 to [[MAP_2_]]([[VAR_dim_7_1_]])){
+// CHECK-DAG:           [[CST_0_13_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:           [[CST_0_14_:%.+]] = arith.constant 0 : index
+// CHECK:               [[VAR_dim_7_1_:%.+]] = memref.dim [[LOAD_RES_1_MEM_1_]], [[CST_0_14_]] : memref<?xf32>
+// CHECK:               krnl.iterate([[LOOP_3_]]) with ([[LOOP_3_]] -> [[I_3_:%.+]] = 0 to [[MAP_3_]]([[VAR_dim_7_1_]])){
 // CHECK:                 [[VAR_11_1_:%.+]] = krnl.get_induction_var_value([[LOOP_3_]]) : (!krnl.loop) -> index
-// CHECK:                 [[LOOP_1_:%.+]] = krnl.load [[LOAD_RES_1_MEM_1_]]{{.}}[[VAR_11_1_]]{{.}} : memref<?xf32>
-// CHECK:                 krnl.store [[LOOP_1_]], [[RES_4_]]{{.}}[[VAR_8_1_]], [[VAR_11_1_]]{{.}} : memref<?x?xf32>
+// CHECK:                 [[VAR_12_1_:%.+]] = krnl.load [[LOAD_RES_1_MEM_1_]]{{.}}[[VAR_11_1_]]{{.}} : memref<?xf32>
+// CHECK:                 krnl.store [[VAR_12_1_]], [[RES_7_]]{{.}}[[VAR_8_1_]], [[VAR_11_1_]]{{.}} : memref<?x?xf32>
 // CHECK:               }
 // CHECK:             }) : () -> ()
 // CHECK:           }
-// CHECK:           return [[RES_4_]] : memref<?x?xf32>
+// CHECK:           return [[RES_7_]] : memref<?x?xf32>
 // CHECK:         }
 }
 

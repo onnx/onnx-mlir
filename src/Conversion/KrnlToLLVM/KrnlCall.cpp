@@ -104,8 +104,10 @@ private:
       Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
           RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
-      krnl::fillOMTensorWithMemRef(parameter, omTensor, false /*outOwning*/,
-          rewriter, loc, apiRegistry, module);
+      Type elemTy =
+          memRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
+      krnl::fillOMTensorWithMemRef(parameter, elemTy, omTensor,
+          false /*outOwning*/, rewriter, loc, apiRegistry, module);
       auto int8Ty = IntegerType::get(context, 8);
       auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
       parameterTypeList.emplace_back(opaquePtrTy);
@@ -180,8 +182,9 @@ private:
           Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
               RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
-          krnl::fillOMTensorWithMemRef(convertedConstantGlobal, omTensor,
-              false /*outOwning*/, rewriter, loc, apiRegistry, module);
+          krnl::fillOMTensorWithMemRef(convertedConstantGlobal,
+              tensorTy.getElementType(), omTensor, false /*outOwning*/,
+              rewriter, loc, apiRegistry, module);
           auto int8Ty = IntegerType::get(context, 8);
           auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
           parameterTypeList.emplace_back(opaquePtrTy);

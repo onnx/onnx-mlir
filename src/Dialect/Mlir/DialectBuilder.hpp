@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---- DialectBuilder.hpp - Helper functions for MLIR dialects -----===//
 //
 // Copyright 2019-2023 The IBM Research Authors.
@@ -82,11 +86,22 @@ struct MathBuilder final : DialectBuilder {
   MathBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~MathBuilder() {}
 
-  // Support for vectors
-  static mlir::Type elementTypeWithVector(mlir::Type elementOrVectorType);
+  // Support for vectors: we provide queries that work regardless of if we have
+  // (1) a scalar or (2) a vector of a basic element type.
+
+  // The method belows ignore the vectors part of the type to provide answer on
+  // the basic element types alone.
   static bool isIntegerWithVector(mlir::Type elementOrVectorType);
   static bool isUnsignedIntegerWithVector(mlir::Type elementOrVectorType);
   static bool isFloatWithVector(mlir::Type elementOrVectorType);
+  // Return the basic element type regardless of if we are given (1) a scalar or
+  // (2) a vector of a basic element type.
+  static mlir::Type elementTypeWithVector(mlir::Type elementOrVectorType);
+  // Return a type of the same vector shape as vectorType with a basic element
+  // type of elementType. When vectorType is null, then the returned type is
+  // simply a scalar of elementType.
+  static mlir::Type getTypeWithVector(
+      mlir::VectorType vectorType, mlir::Type elementType);
 
   mlir::Value abs(mlir::Value val) const;
   mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
@@ -204,6 +219,14 @@ struct MemRefBuilder final : DialectBuilder {
 
   // Constants
   static const int64_t defaultAlign;
+
+  // Info: get static and dynamic size of memory. Return true if static only.
+  bool getStaticAndDynamicMemSize(mlir::MemRefType type,
+      mlir::ValueRange dynSymbols, int64_t &staticSize,
+      IndexExpr &dynSize) const;
+  bool getStaticAndDynamicMemSize(mlir::MemRefType type,
+      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
+      IndexExpr &dynSize) const;
 
   // Alloc for static shapes without alignment.
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;

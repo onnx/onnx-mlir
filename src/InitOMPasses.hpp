@@ -78,9 +78,8 @@ void initOMPasses(int optLevel) {
         /*enableParallel*/ false);
   });
 
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createLowerToTorchPass();
-  });
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createLowerToTorchPass(); });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createElideConstGlobalValuePass();
@@ -120,10 +119,6 @@ void initOMPasses(int optLevel) {
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createReplaceNoValuePass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createLayerNameToLocationPass();
   });
 
 #ifdef ONNX_MLIR_ENABLE_MHLO

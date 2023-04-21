@@ -51,7 +51,7 @@ struct ONNXSequenceInsertOpLowering
 
     // Handle Optional and negative position
     IndexExpr positionIE;
-    if (isFromNone(adaptor.getPosition())) {
+    if (isNoneValue(adaptor.getPosition())) {
       // Insert at the end of the sequence
       // Could be optimized as: Copy the input sequence and attach input tensor
       // at the end But the size for KrnlMemcpy is integer, not Value

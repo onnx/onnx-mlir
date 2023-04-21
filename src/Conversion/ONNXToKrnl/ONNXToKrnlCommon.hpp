@@ -36,7 +36,9 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
@@ -83,7 +85,8 @@ struct MultiDialectBuilder<OnnxToKrnlBuilder, Ts...>
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
 
-/// Check if all operands are scalar values at compile time.
+/// Check if one/all operands are scalar values at compile time.
+bool isScalarValue(mlir::Value value);
 bool hasAllScalarValues(mlir::ValueRange values);
 
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
@@ -161,24 +164,19 @@ mlir::Value emitArgSort(mlir::ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 
 // Definition for easier readability
-using NotSuportedScalarOp = void; // unsupported, e.g. integer version of cos.
-using CustomScalarOp = void *;    // custom support, e.g. float version of cosh.
-using SimdScalarOp = std::true_type;    // scalar op can be simdized.
-using NoSimdScalarOp = std::false_type; // scalar op cannot be simdized.
+using NotSuportedScalarOp = void; // Unsupported, e.g. integer version of cos.
+using CustomScalarOp = void *;    // Custom support, e.g. float version of cosh.
 
 template <typename Op>
 struct ScalarOp {
   using FOp = NotSuportedScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SimdEnabled = NoSimdScalarOp;
 };
 
 template <typename FOp>
 using ScalarFOp = typename ScalarOp<FOp>::FOp;
 template <typename IOp>
 using ScalarIOp = typename ScalarOp<IOp>::IOp;
-template <typename IOp>
-using SimdizableOp = typename ScalarOp<IOp>::SimdEnabled;
 
 // Get the identity element of an operation.
 // Return NULL if the function does not have identity.
@@ -190,10 +188,24 @@ mlir::Value getIdentityValue(mlir::ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// emitScalarOpFor
+//===----------------------------------------------------------------------===//
+//
 // This is used in the innermost loop of a KrnlIterateOp to insert computation
 // composed of one or many scalar ops.
 // Use template specialization for each of different ONNX operations.
+//
+// Note that all values passed in scalarOperands are already loaded in memory.
+// *  If they are scalar, then a scalar is loaded. If used in SIMD mode, that
+//    vector was splatted to the right shape.
+// *  If they have a non value, then that non-value is simply passed on.
+// *  If they are a variable with a rank>0, then that the loaded value has been
+//    loaded with the right loop indices in it.
+//
+// So there should be no "loading" of any values inside the emitScalarOpFor
+// functions
 //===----------------------------------------------------------------------===//
+
 template <typename Op>
 mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
@@ -282,7 +294,7 @@ void populateLoweringONNXClipOpPattern(
 void populateLoweringONNXCumSumOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD);
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD);
 void populateLoweringONNXGemmOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
 void populateLoweringONNXHardmaxOpPattern(
@@ -316,6 +328,12 @@ void populateLoweringONNXPoolingOpPattern(
 
 // `ObjectDetection` directory methods:
 void populateLoweringONNXNonMaxSuppressionOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+
+// `Quantization` directory methods:
+void populateLoweringONNXDynamicQuantizeLinearOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXQuantizeLinearOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
 // `RNN` directory methods:
