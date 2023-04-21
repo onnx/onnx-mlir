@@ -384,6 +384,19 @@ func.func @test_unsqueezeV11(%arg0 : tensor<*xf32>) -> () {
 
 // -----
 
+func.func @test_padV13(%arg0 : tensor<*xi64>, %arg1 : tensor<2xi64>) -> () {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.PadV13"(%arg0, %arg1, %0) : (tensor<*xi64>, tensor<2xi64>, none) -> tensor<*xi64>
+  return
+  // CHECK-LABEL:  func @test_padV13
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK:           [[VAR_2_:%.+]] = "onnx.Pad"(%arg0, %arg1, [[VAR_0_]], [[VAR_1_]]) {mode = "constant"} : (tensor<*xi64>, tensor<2xi64>, none, none) -> tensor<*xi64>
+  // CHECK:           return
+}
+
+// -----
+
 func.func @test_scatter(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x100xi64>, %arg2: tensor<64x100xf32>) -> tensor<*xf32> {
   %0 = "onnx.Scatter"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<64x25600xf32>, tensor<64x100xi64>, tensor<64x100xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
