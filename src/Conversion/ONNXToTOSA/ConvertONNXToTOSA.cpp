@@ -60,6 +60,10 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
       target, patterns, typeConverter, ctx);
   populateLoweringONNXAveragePoolOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  populateLoweringONNXQuantizeLinearOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
+  populateLoweringONNXDequantizeLinearOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
   // Flow
   populateLoweringONNXEntryPointOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
