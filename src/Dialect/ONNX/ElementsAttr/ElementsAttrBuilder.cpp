@@ -790,6 +790,12 @@ ElementsAttr ElementsAttrBuilder::range(
 }
 
 namespace {
+// Returns indices with non-zero values. The indices are placed back to back,
+// lexicographically sorted. Can be viewed as a [count, rank] shaped matrix
+// linearized in row-major order, where rank is the rank of elms' shape and
+// count is the number of non-zero values. AP_TYPE should be APFloat or APInt.
+// TODO: If this is too slow then reimplement in the style of allEqual()
+//       with WideNum instead of APFloat/APInt.
 template <typename AP_TYPE>
 SmallVector<int64_t> nonZeroIndices(ElementsAttr elms) {
   SmallVector<int64_t> indices;
