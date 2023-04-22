@@ -16,6 +16,7 @@
 
 #include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 
@@ -45,10 +46,14 @@ ElementsAttr IndexExprBuilderForMhlo::getConst(Value value) {
 }
 
 Value IndexExprBuilderForMhlo::getVal(Value intArrayVal, uint64_t i) {
-  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  // Need to add some acceptable dialects to MHLO conversion.
-  llvm_unreachable(
-      "unimplemented getVal (see IndexExprBuilderForKrnl for functionality).");
+  Type elemType = getElementType(intArrayVal.getType());
+  if (!elemType.isa<IndexType>()) {
+    Type indexTensorType = RankedTensorType::get(
+        intArrayVal.getType().cast<ShapedType>().getShape(), b().getIndexType());
+    intArrayVal = b().create<arith::IndexCastOp>(loc(), indexTensorType, intArrayVal);
+  }
+  ShapeBuilder createShape(*this);
+  return createShape.getExtent(intArrayVal, i);
 }
 
 Value IndexExprBuilderForMhlo::getShapeVal(

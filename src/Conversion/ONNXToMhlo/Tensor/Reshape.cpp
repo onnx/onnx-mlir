@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToMhlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
@@ -30,8 +31,18 @@ struct ONNXReshapeOpLoweringToMhlo : public ConversionPattern {
     ONNXReshapeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
     Location loc = op->getLoc();
     Value data = operandAdaptor.getData();
-    Value shape = operandAdaptor.getShape();
     Type outputType = *op->result_type_begin();
+
+    IndexExprBuilderForMhlo createIE(rewriter, loc);
+    ONNXReshapeOpShapeHelper shapeHelper(op, operands, &createIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    DimsExpr outputDims = shapeHelper.getOutputDims();
+    SmallVector<Value> dims;
+    IndexExpr::getValues(outputDims, dims);
+
+    Type outputShapeType = RankedTensorType::get({(int64_t)dims.size()}, rewriter.getIndexType());
+    Value shape = rewriter.create<shape::FromExtentsOp>(loc, dims);
+    shape = rewriter.create<shape::ToExtentTensorOp>(loc, outputShapeType, shape);
     Value result =
         rewriter.create<mhlo::DynamicReshapeOp>(loc, outputType, data, shape);
     rewriter.replaceOp(op, result);
