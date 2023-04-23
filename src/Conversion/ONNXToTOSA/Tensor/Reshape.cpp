@@ -28,23 +28,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     TosaBuilder tosaBuilder(rewriter, op.getLoc());
 
-    ONNXConstantOp constOp = op.getShape().getDefiningOp<ONNXConstantOp>();
-    if (!constOp)
-      return op.emitError(
-          "Dynamic ONNXReshapeOp lowering to tosa not supported");
-
-    Optional<Attribute> valueAttr = constOp.getValue();
-    if (!valueAttr.has_value())
-      return op.emitError("Const operator needs a 'value' attribute");
-
-    DenseElementsAttr valueDenseAttr =
-        valueAttr.value().template cast<DenseElementsAttr>();
-    std::vector<int64_t> shape;
-    for (auto v : valueDenseAttr.getValues<APInt>())
-      shape.push_back(v.getSExtValue());
+    RankedTensorType outputTy = op.getType().template cast<RankedTensorType>();
+    if (llvm::any_of(outputTy.getShape(), ShapedType::isDynamic))
+      return rewriter.notifyMatchFailure(op, "dynamic shapes not supported");
 
     Value data = op.getData();
-    auto tosaReshapeOp = tosaBuilder.reshape(data, shape);
+    auto tosaReshapeOp = tosaBuilder.reshape(data, outputTy.getShape());
     rewriter.replaceOp(op, {tosaReshapeOp});
     return success();
   }
