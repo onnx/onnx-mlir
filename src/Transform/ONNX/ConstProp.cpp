@@ -19,6 +19,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
@@ -781,49 +782,28 @@ Value ConstPropCast(
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for SliceOp.
-//
-// TODO: Move this to a slice method in ElementsAttrBuilder.
 //===----------------------------------------------------------------------===//
-
-void ConstPropSliceImpl(ShapedType outputType,
-    const ONNXSliceOpShapeHelper &shapeHelper, ElementsAttr inputElements,
-    MutableArrayRef<WideNum> outputData) {
-  size_t rank = outputType.getRank();
-  auto outputShape = outputType.getShape();
-  std::vector<int64_t> inputStrides =
-      getStrides(inputElements.getType().getShape());
-  ArrayBuffer<WideNum> inputBuffer = getElementsWideNums(inputElements);
-  const WideNum *start = inputBuffer.get().begin();
-  SmallVector<int64_t, 4> steps(rank, 0);
-  for (size_t axis = 0; axis < rank; ++axis) {
-    start += shapeHelper.starts[axis].getLiteral() * inputStrides[axis];
-    steps[axis] = shapeHelper.steps[axis].getLiteral() * inputStrides[axis];
-  }
-  for (auto &idxpos : StridesRange<1>(outputShape, {steps}))
-    outputData[idxpos.flattenedIndex] = *(start + idxpos[0]);
-}
 
 Value ConstPropSlice(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
   ConstPropCounters::count("Slice", {constValue});
   Operation *op = replacingValue.getDefiningOp();
-  ONNXSliceOp sliceOp = cast<ONNXSliceOp>(op);
 
-  // Get starts, ends, axes and steps via ShapeHelper.
+  // Get shape, starts, steps via ShapeHelper.
   ONNXSliceOpShapeHelper shapeHelper(op, {});
-  if (failed(shapeHelper.computeShape())) {
-    sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
-                      " parameters successfully");
-    return nullptr;
-  }
+  auto outcome = shapeHelper.computeShape();
+  assert(succeeded(outcome) && "Failed to scan slice op parameters");
+  auto toLiterals = [](ArrayRef<IndexExpr> ies) {
+    return llvm::map_range(ies, [](IndexExpr ie) { return ie.getLiteral(); });
+  };
+  SmallVector<int64_t> shape(toLiterals(shapeHelper.getOutputDims()));
+  SmallVector<int64_t> starts(toLiterals(shapeHelper.starts));
+  SmallVector<int64_t> steps(toLiterals(shapeHelper.steps));
 
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr inputElements = getConstValueElements(constValue);
-  ShapedType outputType = replacingValue.getType().cast<ShapedType>();
-  ElementsAttr slicedElements = elementsBuilder.fromWideNums(
-      outputType, [&](MutableArrayRef<WideNum> dst) {
-        ConstPropSliceImpl(outputType, shapeHelper, inputElements, dst);
-      });
+  ElementsAttr slicedElements =
+      elementsBuilder.slice(inputElements, shape, starts, steps);
   return createReplacingConstantOp(rewriter, replacingValue, slicedElements);
 }
 

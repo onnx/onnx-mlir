@@ -504,6 +504,34 @@ ElementsAttr ElementsAttrBuilder::concat(
   });
 }
 
+namespace {
+void sliceImpl(ShapedType outputType, ArrayRef<int64_t> starts,
+    ArrayRef<int64_t> steps, ElementsAttr inputElements,
+    MutableArrayRef<WideNum> outputData) {
+  size_t rank = outputType.getRank();
+  auto outputShape = outputType.getShape();
+  auto inputStrides = getDefaultStrides(inputElements.getType().getShape());
+  ArrayBuffer<WideNum> inputBuffer = getElementsWideNums(inputElements);
+  const WideNum *start = inputBuffer.get().begin();
+  SmallVector<int64_t> stepsStrides;
+  for (size_t axis = 0; axis < rank; ++axis) {
+    start += starts[axis] * inputStrides[axis];
+    stepsStrides.push_back(steps[axis] * inputStrides[axis]);
+  }
+  for (auto &idxpos : StridesRange<1>(outputShape, {stepsStrides}))
+    outputData[idxpos.flattenedIndex] = *(start + idxpos[0]);
+}
+} // namespace
+
+ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
+    ArrayRef<int64_t> shape, ArrayRef<int64_t> starts,
+    ArrayRef<int64_t> steps) {
+  ShapedType outputType = elms.getType().clone(shape);
+  return fromWideNums(outputType, [&](MutableArrayRef<WideNum> dst) {
+    sliceImpl(outputType, starts, steps, elms, dst);
+  });
+}
+
 ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     ArrayRef<unsigned> axes, bool keepdims,
     WideNum (*reducer)(WideNum, WideNum)) {

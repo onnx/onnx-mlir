@@ -153,6 +153,14 @@ public:
   mlir::ElementsAttr concat(
       llvm::ArrayRef<mlir::ElementsAttr> elms, unsigned axis);
 
+  // Slices the tensor.
+  // shape, start, steps lengths must equal the tensor rank.
+  // shape and start must be non-negative.
+  // Negative steps means slicing backwards.
+  mlir::ElementsAttr slice(mlir::ElementsAttr elms,
+      llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> starts,
+      llvm::ArrayRef<int64_t> steps);
+
   // Assumptions: elms is non-empty, reducer is associative and commutative.
   mlir::ElementsAttr reduce(mlir::ElementsAttr elms,
       llvm::ArrayRef<unsigned> axes, bool keepdims,
