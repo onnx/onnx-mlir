@@ -40,9 +40,11 @@ struct ONNXReshapeOpLoweringToMhlo : public ConversionPattern {
     SmallVector<Value> dims;
     IndexExpr::getValues(outputDims, dims);
 
-    Type outputShapeType = RankedTensorType::get({(int64_t)dims.size()}, rewriter.getIndexType());
+    Type outputShapeType =
+        RankedTensorType::get({(int64_t)dims.size()}, rewriter.getIndexType());
     Value shape = rewriter.create<shape::FromExtentsOp>(loc, dims);
-    shape = rewriter.create<shape::ToExtentTensorOp>(loc, outputShapeType, shape);
+    shape =
+        rewriter.create<shape::ToExtentTensorOp>(loc, outputShapeType, shape);
     Value result =
         rewriter.create<mhlo::DynamicReshapeOp>(loc, outputType, data, shape);
     rewriter.replaceOp(op, result);

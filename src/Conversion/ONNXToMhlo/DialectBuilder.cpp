@@ -49,8 +49,10 @@ Value IndexExprBuilderForMhlo::getVal(Value intArrayVal, uint64_t i) {
   Type elemType = getElementType(intArrayVal.getType());
   if (!elemType.isa<IndexType>()) {
     Type indexTensorType = RankedTensorType::get(
-        intArrayVal.getType().cast<ShapedType>().getShape(), b().getIndexType());
-    intArrayVal = b().create<arith::IndexCastOp>(loc(), indexTensorType, intArrayVal);
+        intArrayVal.getType().cast<ShapedType>().getShape(),
+        b().getIndexType());
+    intArrayVal =
+        b().create<arith::IndexCastOp>(loc(), indexTensorType, intArrayVal);
   }
   ShapeBuilder createShape(*this);
   return createShape.getExtent(intArrayVal, i);

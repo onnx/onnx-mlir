@@ -184,7 +184,8 @@ SmallVector<int64_t> getReductionShape(ShapedType inputType,
   return reduceShape;
 }
 
-Value getReductionShapeValue(Location loc, PatternRewriter &rewriter, Value operand, llvm::SmallVector<int64_t, 4> axes, bool keepDims) {
+Value getReductionShapeValue(Location loc, PatternRewriter &rewriter,
+    Value operand, llvm::SmallVector<int64_t, 4> axes, bool keepDims) {
   int64_t rank = operand.getType().cast<RankedTensorType>().getRank();
   // Mark reduction axes.
   llvm::SmallVector<bool, 4> isReductionAxis;
@@ -206,8 +207,8 @@ Value getReductionShapeValue(Location loc, PatternRewriter &rewriter, Value oper
     }
   }
   Value reduceShapeValue = rewriter.create<shape::FromExtentsOp>(loc, dims);
-  reduceShapeValue = rewriter.create<shape::ToExtentTensorOp>(
-      loc, RankedTensorType::get({rank}, rewriter.getIndexType()), reduceShapeValue);
+  reduceShapeValue = rewriter.create<shape::ToExtentTensorOp>(loc,
+      RankedTensorType::get({rank}, rewriter.getIndexType()), reduceShapeValue);
   return reduceShapeValue;
 }
 
@@ -264,9 +265,10 @@ Value createReduce(Location loc, Value operand, Value identity,
   }
   Value result = reduce.getResult(0);
   if (keepDims) {
-    Value reduceShapeValue = getReductionShapeValue(loc, rewriter, operand, axes, true);
-    result =
-        rewriter.create<mhlo::DynamicReshapeOp>(loc, outputType, result, reduceShapeValue);
+    Value reduceShapeValue =
+        getReductionShapeValue(loc, rewriter, operand, axes, true);
+    result = rewriter.create<mhlo::DynamicReshapeOp>(
+        loc, outputType, result, reduceShapeValue);
   }
   return result;
 }
@@ -321,8 +323,8 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
 
     SmallVector<int64_t> reducedShape =
         getReductionShape(inputType, axes, false);
-    Value reduceResult = createReduce<BlockOp<ONNXReductionOp>>(
-        loc, input, identity, reducedShape, axes, rewriter, isKeepdims, outputType);
+    Value reduceResult = createReduce<BlockOp<ONNXReductionOp>>(loc, input,
+        identity, reducedShape, axes, rewriter, isKeepdims, outputType);
     if (computeMean) {
       // TODO: support dynamic shape
       if (inputType.hasStaticShape()) {
@@ -333,8 +335,8 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
             rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
       } else {
         Value ones = getShapedFloat(loc, rewriter, 1.0, input);
-        Value reduceSum = createReduce<mhlo::AddOp>(loc, ones,
-            identity, reducedShape, axes, rewriter, isKeepdims, outputType);
+        Value reduceSum = createReduce<mhlo::AddOp>(loc, ones, identity,
+            reducedShape, axes, rewriter, isKeepdims, outputType);
         reduceResult = rewriter.create<mhlo::DivOp>(
             loc, outputType, reduceResult, reduceSum);
       }
