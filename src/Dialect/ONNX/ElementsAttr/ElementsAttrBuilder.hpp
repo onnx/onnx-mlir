@@ -144,7 +144,7 @@ public:
   // Splits the tensor in elms along axis into sizes.size() tensors where
   // tensor[i].shape[axis] == sizes[i], and they all sum to elms.shape[axis].
   //
-  // The returned tensors don't reuse elms' underlyind data, unless sizes.size()
+  // The returned tensors don't reuse elms' underlying data, unless sizes.size()
   // is 1 and elms is returned.
   std::vector<mlir::ElementsAttr> split(
       mlir::ElementsAttr elms, unsigned axis, llvm::ArrayRef<int64_t> sizes);
