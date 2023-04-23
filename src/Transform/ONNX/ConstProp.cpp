@@ -829,30 +829,7 @@ Value ConstPropSlice(
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for ConcatOp.
-//
-// TODO: Move this to a concat method in ElementsAttrBuilder.
 //===----------------------------------------------------------------------===//
-
-void ConstPropConcatImpl(ShapedType outputType,
-    ArrayRef<ElementsAttr> inputElements, int64_t axis,
-    MutableArrayRef<WideNum> outputData) {
-  ArrayRef<int64_t> outputShape = outputType.getShape();
-  size_t stride = ShapedType::getNumElements(outputShape.drop_front(axis));
-  size_t start = 0;
-  auto out = outputData.begin();
-  for (ElementsAttr input : inputElements) {
-    ArrayRef<int64_t> inputShape = input.getType().getShape();
-    size_t len = ShapedType::getNumElements(inputShape.drop_front(axis));
-    ArrayBuffer<WideNum> inputData = getElementsWideNums(input);
-    auto in = inputData.get().begin();
-    for (size_t offset = start; offset < outputData.size(); offset += stride) {
-      std::copy_n(in, len, out + offset);
-      in += len;
-    }
-    assert(in == inputData.get().end() && "input num elements mismatch");
-    start += len;
-  }
-}
 
 Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
     ValueRange operands, IntegerAttr axisAttr) {
@@ -867,10 +844,8 @@ Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
   inputElements.reserve(operands.size());
   for (Value input : operands)
     inputElements.push_back(getConstValueElements(input));
-  ElementsAttr concatenatedElements = elementsBuilder.fromWideNums(
-      outputType, [&](MutableArrayRef<WideNum> dst) {
-        ConstPropConcatImpl(outputType, inputElements, axis, dst);
-      });
+  ElementsAttr concatenatedElements =
+      elementsBuilder.concat(inputElements, axis);
   return createReplacingConstantOp(
       rewriter, replacingValue, concatenatedElements);
 }

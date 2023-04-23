@@ -450,6 +450,60 @@ std::vector<ElementsAttr> ElementsAttrBuilder::split(
   return results;
 }
 
+namespace {
+void concatImpl(ShapedType outputType, ArrayRef<ElementsAttr> inputElements,
+    int64_t axis, MutableArrayRef<WideNum> dstNums) {
+  ArrayRef<int64_t> outputShape = outputType.getShape();
+  size_t stride = ShapedType::getNumElements(outputShape.drop_front(axis));
+  size_t start = 0;
+  auto out = dstNums.begin();
+  for (ElementsAttr input : inputElements) {
+    ArrayRef<int64_t> inputShape = input.getType().getShape();
+    size_t len = ShapedType::getNumElements(inputShape.drop_front(axis));
+    ArrayBuffer<WideNum> inputData = getElementsWideNums(input);
+    auto in = inputData.get().begin();
+    for (size_t offset = start; offset < dstNums.size(); offset += stride) {
+      std::copy_n(in, len, out + offset);
+      in += len;
+    }
+    assert(in == inputData.get().end() && "input num elements mismatch");
+    start += len;
+  }
+}
+} // namespace
+
+ElementsAttr ElementsAttrBuilder::concat(
+    ArrayRef<ElementsAttr> elms, unsigned axis) {
+  assert(elms.size() >= 1 && "concat tensors must be non-empty");
+
+  ElementsAttr first = elms.front();
+  auto firstShape = first.getType().getShape();
+  size_t rank = firstShape.size();
+  assert(axis < rank && "axis out of range");
+  if (elms.size() == 1)
+    return first;
+
+  // Check elms are compatible and construct outputShape:
+  SmallVector<int64_t> outputShape(firstShape);
+  for (size_t i = 1; i < elms.size(); ++i) {
+    ElementsAttr next = elms[i];
+    assert(next.getElementType() == first.getElementType() &&
+           "concat tensors element types must agree");
+    auto nextShape = next.getType().getShape();
+    assert(nextShape.size() == rank && "concat tensors ranks must agree");
+    for (unsigned a = 0; a < rank; ++a) {
+      assert((a == axis || nextShape[a] == firstShape[a]) &&
+             "concat tensors shapes must agree except for the concat axis");
+    }
+    outputShape[axis] += nextShape[axis];
+  }
+
+  ShapedType outputType = first.getType().clone(outputShape);
+  return fromWideNums(outputType, [&](MutableArrayRef<WideNum> dstNums) {
+    concatImpl(outputType, elms, axis, dstNums);
+  });
+}
+
 ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     ArrayRef<unsigned> axes, bool keepdims,
     WideNum (*reducer)(WideNum, WideNum)) {

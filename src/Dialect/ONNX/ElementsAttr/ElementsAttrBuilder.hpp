@@ -149,6 +149,10 @@ public:
   std::vector<mlir::ElementsAttr> split(
       mlir::ElementsAttr elms, unsigned axis, llvm::ArrayRef<int64_t> sizes);
 
+  // Concatenates the tensors along axis.
+  mlir::ElementsAttr concat(
+      llvm::ArrayRef<mlir::ElementsAttr> elms, unsigned axis);
+
   // Assumptions: elms is non-empty, reducer is associative and commutative.
   mlir::ElementsAttr reduce(mlir::ElementsAttr elms,
       llvm::ArrayRef<unsigned> axes, bool keepdims,
