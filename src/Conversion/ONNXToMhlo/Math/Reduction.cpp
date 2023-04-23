@@ -24,43 +24,41 @@ namespace {
 
 template <typename Op>
 Value getIdentityValue(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   return nullptr;
 }
 
 template <>
 Value getIdentityValue<ONNXReduceMaxV13Op>(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
+  MathBuilder createMath(rewriter, loc);
   return rewriter.create<mhlo::ConstantOp>(
-      loc, rewriter.getFloatAttr(
-               elemType, APFloat::getInf(elemType.getFloatSemantics(),
-                             /*isNegative=*/true)));
+      loc, createMath.negativeInfAttr(elemType));
 }
 
 template <>
 Value getIdentityValue<ONNXReduceMinV13Op>(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
+  MathBuilder createMath(rewriter, loc);
   return rewriter.create<mhlo::ConstantOp>(
-      loc, rewriter.getFloatAttr(
-               elemType, APFloat::getInf(elemType.getFloatSemantics(),
-                             /*isNegative=*/false)));
+      loc, createMath.positiveInfAttr(elemType));
 }
 
 template <>
 Value getIdentityValue<ONNXReduceSumOp>(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
 }
 
 template <>
 Value getIdentityValue<ONNXReduceSumV11Op>(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
 }
 
 template <>
 Value getIdentityValue<ONNXReduceMeanV13Op>(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
 }
 
@@ -296,7 +294,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
     ShapedType outputType = resultType.cast<ShapedType>();
     if (outputType == nullptr)
       return failure();
-    FloatType elemType = inputType.getElementType().cast<FloatType>();
+    Type elemType = inputType.getElementType();
     Value identity = getIdentityValue<ONNXReductionOp>(rewriter, loc, elemType);
     int64_t inRank = inputType.getRank();
 
@@ -334,7 +332,11 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
         reduceResult =
             rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
       } else {
-        Value ones = getShapedFloat(loc, rewriter, 1.0, input);
+        Value ones;
+        if (elemType.isa<IntegerType>())
+          ones = getShapedInt(loc, rewriter, 1, input);
+        else
+          ones = getShapedFloat(loc, rewriter, 1.0, input);
         Value reduceSum = createReduce<mhlo::AddOp>(loc, ones, identity,
             reducedShape, axes, rewriter, isKeepdims, outputType);
         reduceResult = rewriter.create<mhlo::DivOp>(

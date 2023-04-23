@@ -29,12 +29,30 @@ func.func @test_reducemax_v13_keepdims(%arg0: tensor<?x20x30xf32>) -> tensor<?x1
 
 // -----
 
+func.func @test_reducemax_v13_integer_tensor(%arg0 : tensor<3x2x2xi64>) -> tensor<3x2xi64> {
+  %0 ="onnx.ReduceMaxV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xi64>)-> tensor<3x2xi64>
+  "func.return"(%0) : (tensor<3x2xi64>) -> ()
+// CHECK-LABEL:  func @test_reducemax_v13_integer_tensor
+// CHECK: %0 = mhlo.constant dense<-9223372036854775808> : tensor<i64>
+// CHECK: %1 = mhlo.reduce(%arg0 init: %0) applies mhlo.maximum across dimensions = [1] : (tensor<3x2x2xi64>, tensor<i64>) -> tensor<3x2xi64>
+}
+
+// -----
+
 func.func @test_reducemin_v13(%arg0 : tensor<?x2x2xf32>) -> tensor<?x2xf32> {
   %0 ="onnx.ReduceMinV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x2x2xf32>)-> tensor<?x2xf32>
   "func.return"(%0) : (tensor<?x2xf32>) -> ()
 // CHECK-LABEL:  func @test_reducemin
 // CHECK: %0 = mhlo.constant dense<0x7F800000> : tensor<f32>
 // CHECK: %1 = mhlo.reduce(%arg0 init: %0) applies mhlo.minimum across dimensions = [1] : (tensor<?x2x2xf32>, tensor<f32>) -> tensor<?x2xf32>
+}
+
+func.func @test_reducemin_v13_integer_tensor(%arg0 : tensor<?x2x2xi64>) -> tensor<?x2xi64> {
+  %0 ="onnx.ReduceMinV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<?x2x2xi64>)-> tensor<?x2xi64>
+  "func.return"(%0) : (tensor<?x2xi64>) -> ()
+// CHECK-LABEL:  func @test_reducemin_v13_integer_tensor
+// CHECK: %0 = mhlo.constant dense<9223372036854775807> : tensor<i64>
+// CHECK: %1 = mhlo.reduce(%arg0 init: %0) applies mhlo.minimum across dimensions = [1] : (tensor<?x2x2xi64>, tensor<i64>) -> tensor<?x2xi64>
 }
 
 // -----
@@ -50,10 +68,10 @@ func.func @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<3x2xf32> {
 
 // -----
 
-func.func @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<3x2xf32> {
+func.func @test_reducesum_v11(%arg0 : tensor<3x2x2xf32>) -> tensor<3x2xf32> {
   %0 ="onnx.ReduceSumV11"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<3x2xf32>
   "func.return"(%0) : (tensor<3x2xf32>) -> ()
-// CHECK-LABEL:  func @test_reducesumV11
+// CHECK-LABEL:  func @test_reducesum_v11
 // CHECK: %0 = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK: %1 = mhlo.reduce(%arg0 init: %0) applies mhlo.add across dimensions = [1] : (tensor<3x2x2xf32>, tensor<f32>) -> tensor<3x2xf32>
 }
