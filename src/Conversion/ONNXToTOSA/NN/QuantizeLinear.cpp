@@ -6,11 +6,11 @@
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
-// =============================================================================
+// ==================================================================================
 //
 // This file lowers ONNXQuantizeLinearOp operator to TOSA dialect.
 //
-//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/Attributes.h"
@@ -18,6 +18,7 @@
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "torch-mlir/Conversion/TorchToTosa/TosaLegalizeUtils.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -29,35 +30,31 @@ namespace onnx_mlir {
 
 namespace {
 
-class ONNXQuantizeLinearOpLoweringToTOSA : public ConversionPattern {
+class ONNXQuantizeLinearOpLoweringToTOSA : public OpConversionPattern<ONNXQuantizeLinearOp> {
 public:
-  ONNXQuantizeLinearOpLoweringToTOSA(MLIRContext *ctx)
-      : ConversionPattern(ONNXQuantizeLinearOp::getOperationName(), 1, ctx) {}
-  using OpAdaptor = typename ONNXQuantizeLinearOp::Adaptor;
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-    // Quantization formula is ((x / y_scale) + y_zero_point)
-    TosaBuilder tosaBuilder(rewriter, op->getLoc());
-    OpAdaptor adaptor(operands, op->getAttrDictionary());
-    auto qLinearOp = llvm::cast<ONNXQuantizeLinearOp>(op);
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXQuantizeLinearOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
     // Axis attribute is ignored for per-tensor quantization, which is the only one handled
     // for the moment.
     if (adaptor.axis() != 1) {
       return rewriter.notifyMatchFailure(
-          qLinearOp, "Only per-tensor quantization is handled.");
+          op, "Only per-tensor quantization is handled.");
     }
 
-    mlir::Value x = qLinearOp.x();
-    auto y_scale = qLinearOp.y_scale();
-    mlir::Value y_zero_point = qLinearOp.y_zero_point();
-    auto loc = op->getLoc();
+    Value x = op.x();
+    Type xType = x.getType();
+    Value y_scale = op.y_scale();
+    Value y_zero_point = op.y_zero_point();
 
+    // Quantization formula is ((x / y_scale) + y_zero_point)
     // Replace the division by a reciprocal followed by a mul
-    auto recOp = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(rewriter, loc, x.getType(), x).getResult();
-    auto mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, x.getType(), recOp, y_scale, 0).getResult();
-    auto addOp = tosa::CreateOpAndInfer<mlir::tosa::AddOp>(rewriter, loc, x.getType(), mulOp, y_zero_point).getResult();
+    Value recOp = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(rewriter, loc, xType, x).getResult();
+    Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, xType, recOp, y_scale, 0).getResult();
+    Value addOp = tosa::CreateOpAndInfer<mlir::tosa::AddOp>(rewriter, loc, xType, mulOp, y_zero_point).getResult();
     // Cast into the result type
-    auto castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, qLinearOp.getResult().getType(), addOp).getResult();
+    Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, op.getResult().getType(), addOp).getResult();
 
     rewriter.replaceOp(op, castOp);
     return success();

@@ -6,11 +6,11 @@
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
-// =============================================================================
+// ======================================================================================
 //
 // This file lowers ONNXDequantizeLinearOp operator to TOSA dialect.
 //
-//===----------------------------------------------------------------------===//
+//===--------------------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/Attributes.h"
@@ -29,34 +29,29 @@ namespace onnx_mlir {
 
 namespace {
 
-class ONNXDequantizeLinearOpLoweringToTOSA : public ConversionPattern {
+class ONNXDequantizeLinearOpLoweringToTOSA : public OpConversionPattern<ONNXDequantizeLinearOp> {
 public:
-  ONNXDequantizeLinearOpLoweringToTOSA(MLIRContext *ctx)
-      : ConversionPattern(ONNXDequantizeLinearOp::getOperationName(), 1, ctx) {}
-  using OpAdaptor = typename ONNXDequantizeLinearOp::Adaptor;
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-    // Quantization formula is (x - zero_point) * scale
-    TosaBuilder tosaBuilder(rewriter, op->getLoc());
-    OpAdaptor adaptor(operands, op->getAttrDictionary());
-    auto deqLinearOp = llvm::cast<ONNXDequantizeLinearOp>(op);
-    auto result = deqLinearOp.getResult().getType();
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXDequantizeLinearOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+    Type resultType = op.getResult().getType();
     // Axis attribute is ignored for per-tensor quantization, which is the only one handled
     // for the moment.
     if (adaptor.axis() != 1) {
       return rewriter.notifyMatchFailure(
-          deqLinearOp, "Only per-tensor quantization is handled.");
+          op, "Only per-tensor quantization is handled.");
     }
 
-    mlir::Value x = deqLinearOp.x();
-    mlir::Value x_scale = deqLinearOp.x_scale();
-    mlir::Value x_zero_point = deqLinearOp.x_zero_point();
-    auto loc = op->getLoc();
+    Value x = op.x();
+    Value x_scale = op.x_scale();
+    Value x_zero_point = op.x_zero_point();
 
+    // Dequantization formula is (x - zero_point) * scale
     // Cast into the destination type first
-    auto castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, result, x).getResult();
-    auto subOp = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(rewriter, loc, result, castOp, x_zero_point).getResult();
-    auto mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, result, subOp, x_scale, 0).getResult();
+    Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, resultType, x).getResult();
+    Value subOp = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(rewriter, loc, resultType, castOp, x_zero_point).getResult();
+    Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, resultType, subOp, x_scale, 0).getResult();
 
     rewriter.replaceOp(op, mulOp);
     return success();
