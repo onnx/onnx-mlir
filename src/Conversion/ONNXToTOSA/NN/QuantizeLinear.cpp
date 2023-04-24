@@ -33,20 +33,21 @@ namespace {
 class ONNXQuantizeLinearOpLoweringToTOSA : public OpConversionPattern<ONNXQuantizeLinearOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
-  LogicalResult matchAndRewrite(ONNXQuantizeLinearOp op, OpAdaptor adaptor,
+  LogicalResult matchAndRewrite(ONNXQuantizeLinearOp op, OpAdaptor,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    // Axis attribute is ignored for per-tensor quantization, which is the only one handled
-    // for the moment.
-    if (adaptor.axis() != 1) {
-      return rewriter.notifyMatchFailure(
-          op, "Only per-tensor quantization is handled.");
-    }
-
     Value x = op.x();
     Type xType = x.getType();
     Value y_scale = op.y_scale();
     Value y_zero_point = op.y_zero_point();
+    // Axis attribute is ignored for per-tensor quantization, which is the only one handled
+    // for the moment, so there is no need to look at this attribute.
+    // If y_scale is an array, it means it is trying to run per element quantization,
+    // which is not supported.
+    if (cast<TensorType>(y_scale.getType()).getRank() >= 1) {
+      return rewriter.notifyMatchFailure(
+          op, "Only per-tensor quantization is handled.");
+    }
 
     // Quantization formula is ((x / y_scale) + y_zero_point)
     // Replace the division by a reciprocal followed by a mul

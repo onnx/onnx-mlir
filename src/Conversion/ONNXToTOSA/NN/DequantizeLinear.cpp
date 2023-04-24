@@ -32,20 +32,21 @@ namespace {
 class ONNXDequantizeLinearOpLoweringToTOSA : public OpConversionPattern<ONNXDequantizeLinearOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
-  LogicalResult matchAndRewrite(ONNXDequantizeLinearOp op, OpAdaptor adaptor,
+  LogicalResult matchAndRewrite(ONNXDequantizeLinearOp op, OpAdaptor,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    Type resultType = op.getResult().getType();
-    // Axis attribute is ignored for per-tensor quantization, which is the only one handled
-    // for the moment.
-    if (adaptor.axis() != 1) {
-      return rewriter.notifyMatchFailure(
-          op, "Only per-tensor quantization is handled.");
-    }
-
     Value x = op.x();
     Value x_scale = op.x_scale();
     Value x_zero_point = op.x_zero_point();
+    Type resultType = op.getResult().getType();
+    // Axis attribute is ignored for per-tensor quantization, which is the only one handled
+    // for the moment, so there is no need to look at this attribute.
+    // If x_scale is an array, it means it is trying to run per element quantization,
+    // which is not supported.
+    if (cast<TensorType>(x_scale.getType()).getRank() >= 1) {
+      return rewriter.notifyMatchFailure(
+          op, "Only per-tensor quantization is handled.");
+    }
 
     // Dequantization formula is (x - zero_point) * scale
     // Cast into the destination type first
