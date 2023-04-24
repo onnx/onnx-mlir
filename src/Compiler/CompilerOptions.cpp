@@ -208,6 +208,16 @@ llvm::cl::opt<bool> enableSimdDataLayout("simd-data-layout",
                    "Set to 'true' if you want to enable SIMD optimizations."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> enablePatternShapeInference("pattern-shape-inference",
+    llvm::cl::desc("Enable pattern based shape inference (default=false)\n"
+                   "Set to 'true' to enable."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+llvm::cl::opt<bool> enableONNXHybridPass("onnx-hybrid-pass",
+    llvm::cl::desc("Enable ONNX hybrid pass (default=false)\n"
+                   "Set to 'true' if you want to enable ONNX hybrid pass."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
 llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
     llvm::cl::desc(
         "Verify input tensors whenever the entry point function is called.\n"
