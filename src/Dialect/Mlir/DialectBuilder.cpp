@@ -1593,8 +1593,8 @@ LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
   return b().create<LLVM::LLVMFuncOp>(loc(), name, type);
 }
 
-Value LLVMBuilder::getElemPtr(
-    Type resultType, Type elemType, Value base, ArrayRef<Value> indices) const {
+Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
+    ArrayRef<LLVM::GEPArg> indices) const {
   return b().create<LLVM::GEPOp>(loc(), resultType, elemType, base, indices);
 }
 

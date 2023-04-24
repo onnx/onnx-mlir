@@ -24,7 +24,8 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
-extern const bool gUseOpaquePointer = true;
+/// This variable is initizalied inside ConvertKrnlToLLVMPass.
+extern bool LLVM_USE_OPAQUE_POINTER;
 
 static constexpr int32_t MinGlobalAlign = 16;
 
@@ -162,18 +163,17 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
       RuntimeAPI::API::GET_DATA_STRIDES, {outOMTensor});
 
   for (decltype(rank) i = 0; i < rank; i++) {
-    Value dimIdx = create.llvm.constant(int64Ty, (int64_t)i);
     // Transfer size of dimension from memref to dynamic memref.
     Value dimSize = create.llvm.extractValue(int64Ty, outMemRef, {3, i});
     Value dimSizePtr = create.llvm.getElemPtr(getPointerType(context, int64Ty),
-        int64Ty, sizesArrayPtr, ArrayRef<Value>({dimIdx}));
+        int64Ty, sizesArrayPtr, ArrayRef<LLVM::GEPArg>{(int64_t)i});
     create.llvm.store(dimSize, dimSizePtr);
 
     // Transfer stride of dimension from memref to dynamic memref.
     Value dimStride = create.llvm.extractValue(int64Ty, outMemRef, {4, i});
     Value dimStridePtr =
         create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
-            stridesArrayPtr, ArrayRef<Value>({dimIdx}));
+            stridesArrayPtr, ArrayRef<LLVM::GEPArg>{(int64_t)i});
     create.llvm.store(dimStride, dimStridePtr);
   }
 }
@@ -269,7 +269,7 @@ void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
 
 LLVM::LLVMPointerType getPointerType(
     MLIRContext *context, Type elementType, unsigned int addressSpace) {
-  if (gUseOpaquePointer)
+  if (LLVM_USE_OPAQUE_POINTER)
     return LLVM::LLVMPointerType::get(context, addressSpace);
   return LLVM::LLVMPointerType::get(elementType, addressSpace);
 }

@@ -22,8 +22,6 @@
 namespace onnx_mlir {
 namespace krnl {
 
-extern const bool gUseOpaquePointer;
-
 /// Get the rank of the given tensor (represented as a memref).
 int64_t getRankFromMemRefType(mlir::LLVM::LLVMStructType memRefTy);
 

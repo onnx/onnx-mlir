@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-krnl-to-llvm="use-opaque-pointers=false" --canonicalize %s -split-input-file | FileCheck %s
 
 module {
 // Check that output OMTensor does not own the data pointer because data is a constant.

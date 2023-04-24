@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --convert-krnl-to-llvm="use-opaque-pointers=false" %s -split-input-file | FileCheck %s
 
 // -----
 
@@ -84,16 +84,13 @@ func.func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.
   // CHECK:     llvm.mlir.global internal constant @cats_strings{{.*}}() {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x ptr<i8>> { 
   // CHECK:       [[ARRAY:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr<i8>>
   // CHECK:       [[CAT_ADDR:%.+]] = llvm.mlir.addressof @om_cat : !llvm.ptr<array<3 x i8>>
-  // CHECK:       [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64
-  // CHECK:       [[CAT_GEP:%.+]] = llvm.getelementptr [[CAT_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
+  // CHECK:       [[CAT_GEP:%.+]] = llvm.bitcast [[CAT_ADDR]] : !llvm.ptr<array<3 x i8>> to !llvm.ptr<i8>
   // CHECK:       [[CAT_INS_VAL:%.+]] = llvm.insertvalue [[CAT_GEP]], [[ARRAY]][0] : !llvm.array<3 x ptr<i8>>
   // CHECK:       [[DOG_ADDR:%.+]] = llvm.mlir.addressof @om_dog : !llvm.ptr<array<3 x i8>>
-  // CHECK:       [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64  
-  // CHECK:       [[DOG_GEP:%.+]] = llvm.getelementptr [[DOG_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
+  // CHECK:       [[DOG_GEP:%.+]] = llvm.bitcast [[DOG_ADDR]] : !llvm.ptr<array<3 x i8>> to !llvm.ptr<i8>
   // CHECK:       [[DOG_INS_VAL:%.+]] = llvm.insertvalue [[DOG_GEP]], [[CAT_INS_VAL]][1] : !llvm.array<3 x ptr<i8>>
   // CHECK:       [[COW_ADDR:%.+]] = llvm.mlir.addressof @om_cow : !llvm.ptr<array<3 x i8>>
-  // CHECK:       [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64    
-  // CHECK:       [[COW_GEP:%.+]] = llvm.getelementptr [[COW_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
+  // CHECK:       [[COW_GEP:%.+]] = llvm.bitcast [[COW_ADDR]] : !llvm.ptr<array<3 x i8>> to !llvm.ptr<i8>
   // CHECK:       [[COW_INS_VAL:%.+]] = llvm.insertvalue [[COW_GEP]], [[DOG_INS_VAL]][2] : !llvm.array<3 x ptr<i8>>
   // CHECK:       llvm.return [[COW_INS_VAL]] : !llvm.array<3 x ptr<i8>>
   // CHECK:     }
@@ -169,16 +166,13 @@ func.func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) 
   // CHECK:      llvm.mlir.global internal constant @cats_strings{{.*}}() {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x ptr<i8>> { 
   // CHECK:        [[ARRAY:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr<i8>>
   // CHECK:        [[CAT_ADDR:%.+]] = llvm.mlir.addressof @om_cat : !llvm.ptr<array<3 x i8>>
-  // CHECK:        [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64
-  // CHECK:        [[CAT_GEP:%.+]] = llvm.getelementptr [[CAT_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
+  // CHECK:        [[CAT_GEP:%.+]] = llvm.bitcast [[CAT_ADDR]] : !llvm.ptr<array<3 x i8>> to !llvm.ptr<i8>
   // CHECK:        [[CAT_INS_VAL:%.+]] = llvm.insertvalue [[CAT_GEP]], [[ARRAY]][0] : !llvm.array<3 x ptr<i8>>
   // CHECK:        [[DOG_ADDR:%.+]] = llvm.mlir.addressof @om_dog : !llvm.ptr<array<3 x i8>>
-  // CHECK:        [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64  
-  // CHECK:        [[DOG_GEP:%.+]] = llvm.getelementptr [[DOG_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
+  // CHECK:        [[DOG_GEP:%.+]] = llvm.bitcast [[DOG_ADDR]] : !llvm.ptr<array<3 x i8>> to !llvm.ptr<i8>
   // CHECK:        [[DOG_INS_VAL:%.+]] = llvm.insertvalue [[DOG_GEP]], [[CAT_INS_VAL]][1] : !llvm.array<3 x ptr<i8>>
   // CHECK:        [[COW_ADDR:%.+]] = llvm.mlir.addressof @om_cow : !llvm.ptr<array<3 x i8>>
-  // CHECK:        [[ZERO:%.+]] = llvm.mlir.constant(0 : i64) : i64    
-  // CHECK:        [[COW_GEP:%.+]] = llvm.getelementptr [[COW_ADDR]]{{.*}}[[ZERO]], [[ZERO]]{{.*}} : (!llvm.ptr<array<3 x i8>>, i64, i64) -> !llvm.ptr<i8>
+  // CHECK:        [[COW_GEP:%.+]] = llvm.bitcast [[COW_ADDR]] : !llvm.ptr<array<3 x i8>> to !llvm.ptr<i8>
   // CHECK:        [[COW_INS_VAL:%.+]] = llvm.insertvalue [[COW_GEP]], [[DOG_INS_VAL]][2] : !llvm.array<3 x ptr<i8>>
   // CHECK:        llvm.return [[COW_INS_VAL]] : !llvm.array<3 x ptr<i8>>
   // CHECK:      }

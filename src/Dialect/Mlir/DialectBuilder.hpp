@@ -529,7 +529,7 @@ struct LLVMBuilder final : DialectBuilder {
 
   // GEPOp
   mlir::Value getElemPtr(mlir::Type resultType, mlir::Type elemType,
-      mlir::Value base, llvm::ArrayRef<mlir::Value> indices) const;
+      mlir::Value base, llvm::ArrayRef<mlir::LLVM::GEPArg> indices) const;
 
   // GlobalOp
   mlir::LLVM::GlobalOp globalOp(mlir::Type resultType, bool isConstant,

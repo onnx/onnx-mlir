@@ -63,6 +63,8 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
+bool LLVM_USE_OPAQUE_POINTER = true;
+
 uint64_t KRNL_ENTRY_POINT_ID = 0;
 
 // Return true if the value owns the storge. A value defined by memref.alloc
@@ -336,9 +338,8 @@ void genSignatureFunction(ModuleOp &module,
               LLVM::ICmpPredicate::ne, numOfEntryPoints, nullPtr);
         }, /*then=*/
         [&](LLVMBuilder &createLLVM) {
-          Value zero = createLLVM.constant(i64Type, (int64_t)0);
           Value numOfEntryPointsPtr = createLLVM.getElemPtr(
-              i64PtrTy, i64Type, numOfEntryPoints, {zero});
+              i64PtrTy, i64Type, numOfEntryPoints, ArrayRef<LLVM::GEPArg>{0});
           Value noep =
               createLLVM.constant(i64Type, (int64_t)entryGlobalOps.size());
           createLLVM.store(noep, numOfEntryPointsPtr);
@@ -422,8 +423,9 @@ struct ConvertKrnlToLLVMPass
   ConvertKrnlToLLVMPass() = default;
   ConvertKrnlToLLVMPass(const ConvertKrnlToLLVMPass &pass)
       : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
-  ConvertKrnlToLLVMPass(bool verifyInputTensors) {
+  ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useOpaquePointers) {
     this->verifyInputTensors = verifyInputTensors;
+    this->useOpaquePointers = useOpaquePointers;
   }
 
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
@@ -433,6 +435,11 @@ struct ConvertKrnlToLLVMPass
   }
 
   void runOnOperation() final;
+
+  Option<bool> useOpaquePointers{*this, "use-opaque-pointers",
+      llvm::cl::desc("Whether to use opaque pointers instead of typed pointers "
+                     "when lowering to LLVM. Default: true"),
+      llvm::cl::init(true)};
 
   Option<bool> verifyInputTensors{*this, "verify-input-tensors",
       llvm::cl::desc(
@@ -447,9 +454,11 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   MLIRContext *ctx = &getContext();
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
-  // There are many places where we still rely on non-opaque pointers. Disable
-  // opaque-pointers until we migrated the affected code parts
-  options.useOpaquePointers = gUseOpaquePointer;
+
+  // MLIR/LLVM is moving to using opaque pointers instead of typed pointers.
+  // Remove this once MLIR/LLVM completely uses opaque pointers.
+  options.useOpaquePointers = useOpaquePointers; // for LLVMTypeConverter.
+  LLVM_USE_OPAQUE_POINTER = useOpaquePointers; // for onnx-mlir util functions.
 
   KRNL_ENTRY_POINT_ID = 0;
 
@@ -527,8 +536,10 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
   return std::make_unique<ConvertKrnlToLLVMPass>();
 }
-std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors) {
-  return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors);
+std::unique_ptr<Pass> createConvertKrnlToLLVMPass(
+    bool verifyInputTensors, bool useOpaquePointers) {
+  return std::make_unique<ConvertKrnlToLLVMPass>(
+      verifyInputTensors, useOpaquePointers);
 }
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,

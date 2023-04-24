@@ -43,8 +43,6 @@ public:
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-    LLVMTypeConverter *llvmTypeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
     KrnlMemcpyOp memcpyOp = llvm::dyn_cast<KrnlMemcpyOp>(op);
 
     // Get operands.
@@ -110,8 +108,6 @@ private:
       PatternRewriter &rewriter, ModuleOp module) const {
     MLIRContext *context = module.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
-    LLVMTypeConverter *llvmTypeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
     // Create a function declaration for memcpy, the signature is:
     //   * `void (i8*, i8* , i64, i1)`
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
