@@ -37,12 +37,15 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Quantization formula is ((x / y_scale) + y_zero_point)
-    // TODO : Axis and Saturate attributes
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     OpAdaptor adaptor(operands, op->getAttrDictionary());
     auto qLinearOp = llvm::cast<ONNXQuantizeLinearOp>(op);
-    //mlir::Type resultType =
-    //    getTypeConverter()->convertType(qLinearOp.getResult().getType());
+    // Axis attribute is ignored for per-tensor quantization, which is the only one handled
+    // for the moment.
+    if (adaptor.axis() != 1) {
+      return rewriter.notifyMatchFailure(
+          qLinearOp, "Only per-tensor quantization is handled.");
+    }
 
     mlir::Value x = qLinearOp.x();
     auto y_scale = qLinearOp.y_scale();

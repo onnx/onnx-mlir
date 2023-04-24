@@ -37,14 +37,19 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // Quantization formula is (x - zero_point) * scale
-    // TODO : Axis attribute
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     OpAdaptor adaptor(operands, op->getAttrDictionary());
     auto deqLinearOp = llvm::cast<ONNXDequantizeLinearOp>(op);
     auto result = deqLinearOp.getResult().getType();
+    // Axis attribute is ignored for per-tensor quantization, which is the only one handled
+    // for the moment.
+    if (adaptor.axis() != 1) {
+      return rewriter.notifyMatchFailure(
+          deqLinearOp, "Only per-tensor quantization is handled.");
+    }
 
     mlir::Value x = deqLinearOp.x();
-    auto x_scale = deqLinearOp.x_scale();
+    mlir::Value x_scale = deqLinearOp.x_scale();
     mlir::Value x_zero_point = deqLinearOp.x_zero_point();
     auto loc = op->getLoc();
 
