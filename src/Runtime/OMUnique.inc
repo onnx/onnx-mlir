@@ -58,7 +58,9 @@ uint64_t elementTable_count(elementTable *table) { return table->elementCount; }
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t inputAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
     OMTensor *reverse_indices, OMTensor *counts) {
-  printf("omTensorUnique: axis=%ld, sorted=%ld, ", inputAxis, sorted);
+  printf("omTensorUnique: axis=%ld, sorted=%ld, Y=%p, indices=%p, "
+         "reverse_indices=%p, count=%p, ", inputAxis, sorted, Y, indices,
+         reverse_indices, counts);
   omTensorPrint("input:", inputTensor);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const int64_t inputRank = omTensorGetRank(inputTensor);
@@ -67,6 +69,7 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
   void *dataPtr = omTensorGetDataPtr(inputTensor);
+  void *YPtr = (Y != NULL) ? omTensorGetDataPtr(Y) : NULL;
   uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
 
   int count = 0;
@@ -80,6 +83,10 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     for (uint64_t off = 0; off < elementNum; off++) {
       void *data = ((char *)dataPtr) + dataSize * off;
       if (elementTableRegister(&elementTable, data) == 0) {
+        if (YPtr != NULL) {
+          void *currY = ((char *)YPtr) + dataSize * count;
+          memcpy(currY, data, dataSize);
+        }
         count++;
       }
     }
@@ -146,15 +153,22 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
         }
       }
       if (dimPrevInUniqueAxis == dimCurrInUniqueAxis) {
-        count++; // dimCurrInUniqueAxis is a unique dim in the unique axis
+        //if (YPtr != NULL) {
+          //void *currY = ((char *)YPtr) + dataSize * count;
+          //memcpy(currY, data, dataSize);
+        //}
         // TODO: Fill values of return variables, such as Y, indices,
         //       inverse_indices and counts
+        count++; // dimCurrInUniqueAxis is a unique dim in the unique axis
       }
     }
   }
   *totalPtr = count;
   printf("==> %d\n", count);
   //omTensorPrint("omTensorUnique: total =", totalTensor);
+  if (YPtr != NULL) {
+    omTensorPrint("omTensorUnique: Y =", Y);
+  }
   printf("======================================================================\n");
   return;
 }

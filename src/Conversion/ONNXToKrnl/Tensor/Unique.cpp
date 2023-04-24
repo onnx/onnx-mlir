@@ -116,42 +116,18 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 
     Value outputY;
     if (axis < 0) {
-#if 0
-      outputY = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputYDims,
-        insertDealloc);
-#else
       MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, i64Type);
       outputY = create.mem.alignedAlloc(memrefType, outputYDims);
-#endif
     } else {
       ArrayRef<int64_t> yShape = getShape(X.getType());
-#if 0
-      outputY = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(yShape, i64Type), loc, outputYDims,
-        insertDealloc);
-#else
       MemRefType memrefType = MemRefType::get(yShape, i64Type);
       outputY = create.mem.alignedAlloc(memrefType, outputYDims);
-#endif
     }
-#if 0
-    Value indices = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputIndexDims,
-        insertDealloc);
-    Value reverse_indices = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputIndexDims,
-        insertDealloc);;
-    Value counts = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get({ShapedType::kDynamic}, i64Type), loc, outputIndexDims,
-        insertDealloc);;
-#else
     MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, i64Type);
     Value indices = create.mem.alignedAlloc(memrefType, outputIndexDims);
     Value reverse_indices =
         create.mem.alignedAlloc(memrefType, outputIndexDims);
     Value counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
-#endif
     // Compute argUnique of X along axis.
     create.krnl.store(iZero, uniqueCount, {});
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,

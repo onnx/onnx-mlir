@@ -130,9 +130,17 @@ bool UniqueLibBuilder::verifyOutputs() {
   // Get inputs and outputs.
   if (!inputs || !outputs)
     return false;
-#if 0
   OMTensor *x = omTensorListGetOmtByIndex(inputs, 0);
   OMTensor *res = omTensorListGetOmtByIndex(outputs, 0);
+  OMTensor *ref = omTensorCreateWithShape<float>({I, J});
+  if (!x || !res || !ref)
+    return false;
+  printf("UniqueLibBuilder::verifyOutputs: rank=2<%dx%d>[", I, J);
+  omTensorPrint("  Input: ", x);
+  omTensorPrint("  outputs: ", res);
+  printf("]\n");
+  fflush(stdout);
+#if 0
   OMTensor *ref = omTensorCreateWithShape<float>({I, J});
   if (!a || !b || !c || !res || !ref)
     return false;
@@ -173,15 +181,6 @@ bool UniqueLibBuilder::verifyOutputs() {
   omTensorDestroy(ref);
   return ok;
 #else
-  OMTensor *x = omTensorListGetOmtByIndex(inputs, 0);
-  OMTensor *res = omTensorListGetOmtByIndex(outputs, 0);
-  OMTensor *ref = omTensorCreateWithShape<float>({I, J});
-  if (!x || !res || !ref)
-    return false;
-  printf("UniqueLibBuilder::verifyOutputs: rank=2<%dx%d>[", I, J);
-  omTensorPrint("  Input: ", x);
-  printf("]\n");
-  fflush(stdout);
   return true;
 #endif
 }

@@ -22,6 +22,7 @@
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
+#include "llvm/Support/Debug.h"
 
 using namespace mlir;
 
