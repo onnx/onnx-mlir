@@ -149,7 +149,7 @@ namespace onnx_mlir {
 inline bool isTOSASignedInt(mlir::Type type) {
   mlir::IntegerType intType = type.dyn_cast<mlir::IntegerType>();
   std::set<unsigned> intWidth{8, 16, 32, 48, 64};
-  return intType && intType.isSignless() &&
+  return intType &&
          (intWidth.find(intType.getWidth()) != intWidth.end());
 }
 

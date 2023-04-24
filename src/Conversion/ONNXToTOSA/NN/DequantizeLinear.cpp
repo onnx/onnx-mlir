@@ -41,8 +41,7 @@ public:
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     OpAdaptor adaptor(operands, op->getAttrDictionary());
     auto deqLinearOp = llvm::cast<ONNXDequantizeLinearOp>(op);
-    mlir::Type resultType =
-        getTypeConverter()->convertType(deqLinearOp.getResult().getType());
+    auto result = deqLinearOp.getResult().getType();
 
     mlir::Value x = deqLinearOp.x();
     auto x_scale = deqLinearOp.x_scale();
@@ -50,9 +49,9 @@ public:
     auto loc = op->getLoc();
 
     // Cast into the destination type first
-    auto castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, resultType, x).getResult();
-    auto subOp = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(rewriter, loc, x.getType(), castOp, x_zero_point).getResult();
-    auto mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, x.getType(), subOp, x_scale, 0).getResult();
+    auto castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, result, x).getResult();
+    auto subOp = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(rewriter, loc, result, castOp, x_zero_point).getResult();
+    auto mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, result, subOp, x_scale, 0).getResult();
 
     rewriter.replaceOp(op, mulOp);
     return success();
