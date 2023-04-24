@@ -29,7 +29,7 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
   uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.getX());
   DimsExpr inputDims, outputDims;
   createIE->getShapeAsDims(operandAdaptor.getX(), inputDims);
-  bool scalesFromNone = isFromNone(operandAdaptor.getScales());
+  bool scalesFromNone = isNoneValue(operandAdaptor.getScales());
 
   if (!scalesFromNone) {
     // Read and save scales as float.
@@ -77,8 +77,8 @@ LogicalResult ONNXResizeOp::verify() {
     return success();
   }
 
-  bool scalesFromNone = isFromNone(getScales());
-  bool sizesFromNone = isFromNone(getSizes());
+  bool scalesFromNone = isNoneValue(getScales());
+  bool sizesFromNone = isNoneValue(getSizes());
   if (scalesFromNone == sizesFromNone) {
     if (scalesFromNone)
       return emitError("scales() and sizes() can not be both None");

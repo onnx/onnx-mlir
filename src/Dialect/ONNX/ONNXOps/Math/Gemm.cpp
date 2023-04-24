@@ -35,7 +35,7 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape() {
   Value A = operandAdaptor.getA();
   Value B = operandAdaptor.getB();
   Value C = operandAdaptor.getC();
-  hasBias = !isFromNone(C);
+  hasBias = !isNoneValue(C);
 
   // Test ranks.
   if (A.getType().cast<ShapedType>().getShape().size() != 2)
@@ -117,7 +117,7 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape() {
 
 LogicalResult ONNXGemmOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  bool hasBias = !isFromNone(getC());
+  bool hasBias = !isNoneValue(getC());
   // Cannot infer shape if no shape exists.
   if (!hasShapeAndRank(getA()) || !hasShapeAndRank(getB()) ||
       (hasBias && !hasShapeAndRank(getC())))

@@ -497,12 +497,15 @@ OMTensorList *omtl_java_to_native(
   free(jobj_omts);
 
   /* Create OMTensorList to be constructed and passed to the model
-   * shared library. Note that we do own the pointers to the native
-   * OMTensor structs, jni_omts.
+   * shared library.
    */
   LIB_TYPE_VAR_CALL(OMTensorList *, jni_omtl,
       omTensorListCreate(jni_omts, (int64_t)jomtl_omtn), jni_omtl != NULL, env,
       japi->jecpt_cls, "jni_omtl=%p", jni_omtl);
+
+  /* omTensorListCreate makes a copy of the tensor list, so we must free the
+     list that we allocateed. */
+  free(jni_omts);
 
   return jni_omtl;
 }
@@ -595,12 +598,10 @@ jobject omtl_native_to_java(
 
     /* Create direct byte buffer Java object from native data buffer.
      *
-     * If jni_owning is true, we take ownership by setting owner flag
-     * to false. This means that when we call omTensorListDestroy
-     * the data buffer will not be freed since it has been given to
-     * the Java direct byte buffer and the Java GC will be responsible
-     * for freeing the data buffer. This way we avoid copying the data
-     * buffer.
+     * When the Java OMTensor object is created, it will create a copy of the
+     * tensor data to ensure Java ownership of the underlying tensor data.
+     * Creation of the DirectByteBuffer here is merely a passthrough mechanism
+     * to allow for the copy to occur.
      *
      * If jni_owning is false, it means the data buffer is not freeable
      * due to one of the two following cases:
@@ -608,24 +609,8 @@ jobject omtl_native_to_java(
      *   - user has malloc-ed the data buffer so the user is
      *     responsible for freeing it
      *   - the data buffer is static
-     *
-     * Either way, since the data buffer will be given to Java and is
-     * subject to GC, we must make a copy of the data buffer.
      */
     void *jbytebuffer_data = jni_data;
-    if (jni_owning) {
-      LIB_CALL(omTensorSetOwning(jni_omts[i], (int64_t)0), 1, env,
-          japi->jecpt_cls, "");
-      LOG_PRINTF(LOG_DEBUG, "omt[%d]:%p data %p ownership taken", i,
-          jni_omts[i], jni_data);
-    } else {
-      LIB_VAR_CALL(jbytebuffer_data, malloc(jni_bufferSize),
-          jbytebuffer_data != NULL, env, japi->jecpt_cls, "jbytebuffer_data=%p",
-          jbytebuffer_data);
-      memcpy(jbytebuffer_data, jni_data, jni_bufferSize);
-      LOG_PRINTF(LOG_DEBUG, "omt[%d]:%p data %p copied into %p", i, jni_omts[i],
-          jni_data, jbytebuffer_data);
-    }
     JNI_TYPE_VAR_CALL(env, jobject, jomt_data,
         (*env)->NewDirectByteBuffer(env, jbytebuffer_data, jomt_bufferSize),
         jomt_data != NULL, japi->jecpt_cls, "omt[%d]:jomt_data=%p", i,
