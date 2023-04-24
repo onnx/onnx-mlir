@@ -19,6 +19,7 @@ func.func @test_softmax(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
 // CHECK-NEXT:    return [[VAR_10_]] : tensor<10x20x30xf32>
 }
 
+// -----
 
 func.func @test_softmax_dynamic(%arg0 : tensor<?x20x30xf32>) -> tensor<?x20x30xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = 1: si64} : (tensor<?x20x30xf32>) -> tensor<?x20x30xf32>
@@ -58,6 +59,8 @@ func.func @test_softmax_dynamic(%arg0 : tensor<?x20x30xf32>) -> tensor<?x20x30xf
 // CHECK-NEXT:    return [[VAR_26_]] : tensor<?x20x30xf32>
 }
 
+// -----
+
 func.func @test_softmax_2d(%arg0 : tensor<1x10xf32>) -> tensor<1x10xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = -1 : si64} : (tensor<1x10xf32>) -> tensor<1x10xf32>
   "func.return"(%0) : (tensor<1x10xf32>) -> ()
@@ -69,6 +72,5 @@ func.func @test_softmax_2d(%arg0 : tensor<1x10xf32>) -> tensor<1x10xf32> {
 // CHECK: [[VAR_7_:%.+]] = mhlo.reduce([[VAR_6_]] init: [[VAR_0_:%.+]]) applies mhlo.add across dimensions = [1] : (tensor<1x10xf32>, tensor<f32>) -> tensor<1xf32>
 // CHECK: [[VAR_8_:%.+]] = mhlo.reshape [[VAR_7_]] : (tensor<1xf32>) -> tensor<1x1xf32>
 // CHECK: [[VAR_9_:%.+]] = "mhlo.broadcast_in_dim"([[VAR_8_]]) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (tensor<1x1xf32>) -> tensor<1x10xf32>
-// CHECK: [[VAR_10_:%.+]] = mhlo.divide [[VAR_6_]], [[VAR_9_]] : tensor<1x10xf32> 
+// CHECK: [[VAR_10_:%.+]] = mhlo.divide [[VAR_6_]], [[VAR_9_]] : tensor<1x10xf32>
 }
-
