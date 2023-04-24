@@ -379,7 +379,7 @@ std::vector<Value> getDimsFromShapeMemRefBySize(PatternRewriter &rewriter,
     Value index = create.llvm.constant(int64Ty, i);
     Value alignedGep = create.llvm.getElemPtr(
         krnl::getPointerType(context, int64Ty), int64Ty, alignedPtr, {index});
-    Value dimI64 = create.llvm.load_new(int64Ty, alignedGep);
+    Value dimI64 = create.llvm.load(int64Ty, alignedGep);
     dims.emplace_back(dimI64);
   }
   return dims;

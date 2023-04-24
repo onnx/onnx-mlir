@@ -548,7 +548,7 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value inttoptr(mlir::Type type, mlir::Value val) const;
 
   // LoadOp
-  mlir::Value load_new(mlir::Type elementType, mlir::Value addr) const;
+  mlir::Value load(mlir::Type elementType, mlir::Value addr) const;
 
   // MulOp
   mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
