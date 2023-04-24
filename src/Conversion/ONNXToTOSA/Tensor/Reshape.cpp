@@ -28,7 +28,8 @@ public:
   LogicalResult matchAndRewrite(ONNXReshapeOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     if (op.getAllowzero())
-      return rewriter.notifyMatchFailure(op, "lowering with `allowzero = 1` attribute not supported");
+      return rewriter.notifyMatchFailure(
+          op, "lowering with `allowzero = 1` attribute not supported");
 
     TosaBuilder tosaBuilder(rewriter, op.getLoc());
 
@@ -37,7 +38,8 @@ public:
       return rewriter.notifyMatchFailure(op, "dynamic shapes not supported");
 
     Value data = op.getData();
-    Value reshapeOp = tosaBuilder.reshape(data, outputTy.cast<RankedTensorType>().getShape());
+    Value reshapeOp =
+        tosaBuilder.reshape(data, outputTy.cast<RankedTensorType>().getShape());
     rewriter.replaceOp(op, {reshapeOp});
     return success();
   }
