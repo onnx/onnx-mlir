@@ -163,7 +163,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **ReduceSumSquare** |18, 13 |Default axis and do_not_keep_dim not supported. | |
 | **Relu** |14 | | |
 | **Reshape** |14 |allowzero not supported. | |
-| **Resize** |13, 11, 10 |Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. | |
+| **Resize** |18, 13, 11, 10 |Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported. | |
 | **ReverseSequence** |10 | | |
 | **RoiAlign** | |unsupported | |
 | **Round** |11 | | |

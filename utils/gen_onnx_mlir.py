@@ -224,7 +224,7 @@ version_dict = {
  'ReduceSumSquare': [18, 13],
  'Relu': [14],
  'Reshape': [14],
- 'Resize': [13, 11, 10],
+ 'Resize': [18, 13, 11, 10],
  'ReverseSequence': [10],
  'RoiAlign': [16],
  'Round': [11],
