@@ -450,28 +450,6 @@ std::vector<ElementsAttr> ElementsAttrBuilder::split(
   return results;
 }
 
-namespace {
-void concatImpl(ShapedType outputType, ArrayRef<ElementsAttr> inputElements,
-    int64_t axis, MutableArrayRef<WideNum> dstNums) {
-  ArrayRef<int64_t> outputShape = outputType.getShape();
-  size_t stride = ShapedType::getNumElements(outputShape.drop_front(axis));
-  size_t start = 0;
-  auto out = dstNums.begin();
-  for (ElementsAttr input : inputElements) {
-    ArrayRef<int64_t> inputShape = input.getType().getShape();
-    size_t len = ShapedType::getNumElements(inputShape.drop_front(axis));
-    ArrayBuffer<WideNum> inputData = getElementsWideNums(input);
-    auto in = inputData.get().begin();
-    for (size_t offset = start; offset < dstNums.size(); offset += stride) {
-      std::copy_n(in, len, out + offset);
-      in += len;
-    }
-    assert(in == inputData.get().end() && "input num elements mismatch");
-    start += len;
-  }
-}
-} // namespace
-
 ElementsAttr ElementsAttrBuilder::concat(
     ArrayRef<ElementsAttr> elms, unsigned axis) {
   assert(elms.size() >= 1 && "concat tensors must be non-empty");
@@ -483,8 +461,8 @@ ElementsAttr ElementsAttrBuilder::concat(
   if (elms.size() == 1)
     return first;
 
-  // Check elms are compatible and construct outputShape:
-  SmallVector<int64_t> outputShape(firstShape);
+  // Check elms are compatible and construct outShape:
+  SmallVector<int64_t> outShape(firstShape);
   for (size_t i = 1; i < elms.size(); ++i) {
     ElementsAttr next = elms[i];
     assert(next.getElementType() == first.getElementType() &&
@@ -495,12 +473,32 @@ ElementsAttr ElementsAttrBuilder::concat(
       assert((a == axis || nextShape[a] == firstShape[a]) &&
              "concat tensors shapes must agree except for the concat axis");
     }
-    outputShape[axis] += nextShape[axis];
+    outShape[axis] += nextShape[axis];
   }
 
-  ShapedType outputType = first.getType().clone(outputShape);
-  return fromWideNums(outputType, [&](MutableArrayRef<WideNum> dstNums) {
-    concatImpl(outputType, elms, axis, dstNums);
+  ShapedType outType = first.getType().clone(outShape);
+  return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    auto postAxisShape = ArrayRef(outShape).drop_front(axis + 1);
+    size_t postAxisNumElements = ShapedType::getNumElements(postAxisShape);
+    // A "block" fixes the axes before axis and iterates over the others.
+    size_t outBlockLen = outShape[axis] * postAxisNumElements;
+    size_t start = 0;
+    for (ElementsAttr inputElms : elms) {
+      ArrayRef<int64_t> inputShape = inputElms.getType().getShape();
+      size_t inputBlockLen = inputShape[axis] * postAxisNumElements;
+      SmallVector<int64_t> strides;
+      ArrayBuffer<WideNum> src = getWideNumsAndStrides(inputElms, strides);
+      StridesRange<1> range(inputShape, {strides});
+      auto it = range.begin();
+      for (size_t offset = start; offset < dst.size(); offset += outBlockLen) {
+        for (size_t pos = 0; pos < inputBlockLen; ++pos) {
+          dst[offset + pos] = src.get()[it->pos[0]];
+          ++it;
+        }
+      }
+      assert(it == range.end() && "input num elements mismatch");
+      start += inputBlockLen;
+    }
   });
 }
 
