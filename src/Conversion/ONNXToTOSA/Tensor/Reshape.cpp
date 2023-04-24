@@ -14,6 +14,7 @@
 
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 
@@ -26,15 +27,18 @@ public:
   using OpConversionPattern<ONNXReshapeOp>::OpConversionPattern;
   LogicalResult matchAndRewrite(ONNXReshapeOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
+    if (op.getAllowzero())
+      return rewriter.notifyMatchFailure(op, "lowering with `allowzero = 1` attribute not supported");
+
     TosaBuilder tosaBuilder(rewriter, op.getLoc());
 
-    RankedTensorType outputTy = op.getType().template cast<RankedTensorType>();
-    if (llvm::any_of(outputTy.getShape(), ShapedType::isDynamic))
+    Type outputTy = op.getType();
+    if (!hasStaticShape(outputTy))
       return rewriter.notifyMatchFailure(op, "dynamic shapes not supported");
 
     Value data = op.getData();
-    auto tosaReshapeOp = tosaBuilder.reshape(data, outputTy.getShape());
-    rewriter.replaceOp(op, {tosaReshapeOp});
+    Value reshapeOp = tosaBuilder.reshape(data, outputTy.cast<RankedTensorType>().getShape());
+    rewriter.replaceOp(op, {reshapeOp});
     return success();
   }
 };
