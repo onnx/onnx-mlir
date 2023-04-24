@@ -502,31 +502,20 @@ ElementsAttr ElementsAttrBuilder::concat(
   });
 }
 
-namespace {
-void sliceImpl(ShapedType outputType, ArrayRef<int64_t> starts,
-    ArrayRef<int64_t> steps, ElementsAttr inputElements,
-    MutableArrayRef<WideNum> outputData) {
-  size_t rank = outputType.getRank();
-  auto outputShape = outputType.getShape();
-  auto inputStrides = getDefaultStrides(inputElements.getType().getShape());
-  ArrayBuffer<WideNum> inputBuffer = getElementsWideNums(inputElements);
-  const WideNum *start = inputBuffer.get().begin();
-  SmallVector<int64_t> stepsStrides;
-  for (size_t axis = 0; axis < rank; ++axis) {
-    start += starts[axis] * inputStrides[axis];
-    stepsStrides.push_back(steps[axis] * inputStrides[axis]);
-  }
-  for (auto &idxpos : StridesRange<1>(outputShape, {stepsStrides}))
-    outputData[idxpos.flattenedIndex] = *(start + idxpos[0]);
-}
-} // namespace
-
 ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
     ArrayRef<int64_t> shape, ArrayRef<int64_t> starts,
     ArrayRef<int64_t> steps) {
-  ShapedType outputType = elms.getType().clone(shape);
-  return fromWideNums(outputType, [&](MutableArrayRef<WideNum> dst) {
-    sliceImpl(outputType, starts, steps, elms, dst);
+  ShapedType outType = elms.getType().clone(shape);
+  return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    SmallVector<int64_t> strides;
+    ArrayBuffer<WideNum> src = getWideNumsAndStrides(elms, strides);
+    const WideNum *start = src.get().begin();
+    for (size_t axis = 0; axis < shape.size(); ++axis) {
+      start += starts[axis] * strides[axis];
+      strides[axis] *= steps[axis];
+    }
+    for (auto &idxpos : StridesRange<1>(shape, {strides}))
+      dst[idxpos.flattenedIndex] = *(start + idxpos[0]);
   });
 }
 
