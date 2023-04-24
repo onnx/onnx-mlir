@@ -233,7 +233,7 @@ public:
     for (size_t i = 1; i < wrappedStaticEntryPointTy.getNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       Value omTensorPtrAddr = create.llvm.getElemPtr(omTensorPtrAddrTy,
-          opaquePtrTy, omTensorPtrArr, ArrayRef<LLVM::GEPArg>{i - 1});
+          opaquePtrTy, omTensorPtrArr, ArrayRef<LLVM::GEPArg>{(int32_t)i - 1});
       Value omTensorPtr = create.llvm.load_new(opaquePtrTy, omTensorPtrAddr);
 
       // Create a (static) memref type corresponding to the i-th memref input to
@@ -301,7 +301,7 @@ public:
           rewriter, loc, apiRegistry, module);
 
       Value omTensorPtrAddr = create.llvm.getElemPtr(omTensorPtrAddrTy,
-          opaquePtrTy, outOmtPtrsArr, ArrayRef<LLVM::GEPArg>{i});
+          opaquePtrTy, outOmtPtrsArr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
       create.llvm.store(outOMTensor, omTensorPtrAddr);
     }
 
@@ -368,14 +368,14 @@ private:
       // Insert size of the dimension.
       Value dimSizePtr =
           create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
-              sizesArrayPtr, ArrayRef<LLVM::GEPArg>{i});
+              sizesArrayPtr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
       Value dimSize = create.llvm.load_new(int64Ty, dimSizePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimSize, {3, i});
 
       // Insert stride of the dimension.
       auto dimStridePtr =
           create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
-              stridesArrayPtr, ArrayRef<LLVM::GEPArg>{i});
+              stridesArrayPtr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
       auto dimStride = create.llvm.load_new(int64Ty, dimStridePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimStride, {4, i});
     }
@@ -457,7 +457,7 @@ private:
       // Call API function to retrieve the i-th omTensor.
       Value omTensorPtrAddr =
           create.llvm.getElemPtr(getPointerType(context, opaquePtrTy),
-              opaquePtrTy, omTensorPtrArr, ArrayRef<LLVM::GEPArg>{i});
+              opaquePtrTy, omTensorPtrArr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
       Value omTensorPtr = create.llvm.load_new(opaquePtrTy, omTensorPtrAddr);
 
       // Verify data type.
@@ -492,9 +492,9 @@ private:
           RuntimeAPI::API::GET_DATA_SHAPE, {omTensorPtr});
       for (int d = 0; d < rank; ++d) {
         // Get actual dimension size.
-        Value actualDim = create.llvm.load(
+        Value actualDim = create.llvm.load_new(int64Ty,
             create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
-                sizesArrayPtr, ArrayRef<LLVM::GEPArg>{d}));
+                sizesArrayPtr, ArrayRef<LLVM::GEPArg>{(int32_t)d}));
         // Get reference dimension size.
         auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
         assert(JSONDimValue && "failed to get value");

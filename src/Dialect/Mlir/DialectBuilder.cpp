@@ -1619,10 +1619,6 @@ Value LLVMBuilder::inttoptr(Type type, Value val) const {
   return b().create<LLVM::IntToPtrOp>(loc(), type, val);
 }
 
-Value LLVMBuilder::load(Value addr) const {
-  return b().create<LLVM::LoadOp>(loc(), addr);
-}
-
 Value LLVMBuilder::load_new(Type elementType, Value addr) const {
   return b().create<LLVM::LoadOp>(loc(), elementType, addr);
 }
