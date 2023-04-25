@@ -167,6 +167,12 @@ public:
   mlir::ElementsAttr gather(
       mlir::ElementsAttr input, mlir::ElementsAttr indices, unsigned axis);
 
+  // Returns copy of input with updates from a tensor of update values at the
+  // index positions given by a tensor of indices.
+  // Follows the specification of the onnx ScatterND operation.
+  mlir::ElementsAttr scatterND(mlir::ElementsAttr input,
+      mlir::ElementsAttr indices, mlir::ElementsAttr updates);
+
   // Assumptions: elms is non-empty, reducer is associative and commutative.
   mlir::ElementsAttr reduce(mlir::ElementsAttr elms,
       llvm::ArrayRef<unsigned> axes, bool keepdims,

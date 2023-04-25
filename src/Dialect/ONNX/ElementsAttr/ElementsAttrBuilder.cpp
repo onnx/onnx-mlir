@@ -551,6 +551,46 @@ ElementsAttr ElementsAttrBuilder::gather(
   });
 }
 
+ElementsAttr ElementsAttrBuilder::scatterND(
+    ElementsAttr input, ElementsAttr indices, ElementsAttr updates) {
+  return fromWideNums(input.getType(), [&](MutableArrayRef<WideNum> dst) {
+    // numpy implementation:
+    //
+    //   dst = np.copy(input)
+    //   outer = indices.shape[:-1]
+    //   for idx in np.ndindex(outer):
+    //     dst[indices[idx]] = updates[idx]
+
+    readElementsWideNums(input, dst);
+    ArrayBuffer<int64_t> indicesBuffer = getElementsArray<int64_t>(indices);
+    auto indicesArray = castArrayRef<uint64_t>(indicesBuffer.get());
+    ArrayBuffer<WideNum> updatesBuffer = getElementsWideNums(updates);
+    ArrayRef<WideNum> updatesArray = updatesBuffer.get();
+
+    auto dataShape = input.getType().getShape();
+    auto indicesShape = indices.getType().getShape();
+    auto updatesShape = updates.getType().getShape();
+
+    int64_t indices_nd = indicesShape.back();
+    auto outer = indicesShape.drop_back();
+    int64_t n_slices = ShapedType::getNumElements(outer);
+    int64_t slice_size =
+        ShapedType::getNumElements(updatesShape.drop_front(outer.size()));
+    auto dataStrides = getDefaultStrides(dataShape);
+    auto sliceStrides = llvm::ArrayRef(dataStrides).take_front(indices_nd);
+
+    auto indicesIter = indicesArray.begin();
+    auto updatesIter = updatesArray.begin();
+    for (int64_t i = 0; i < n_slices; ++i) {
+      ArrayRef<uint64_t> idxs(indicesIter, indices_nd);
+      int64_t pos = getStridesPosition(idxs, sliceStrides);
+      std::copy_n(updatesIter, slice_size, dst.begin() + pos);
+      indicesIter += indices_nd;
+      updatesIter += slice_size;
+    }
+  });
+}
+
 ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     ArrayRef<unsigned> axes, bool keepdims,
     WideNum (*reducer)(WideNum, WideNum)) {

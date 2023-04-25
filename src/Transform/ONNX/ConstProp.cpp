@@ -660,67 +660,9 @@ public:
   }
 };
 
-/// Compute strides for a given shape.
-std::vector<int64_t> getStrides(ArrayRef<int64_t> shape) {
-  int rank = shape.size();
-  std::vector<int64_t> strides;
-  int64_t count = 1;
-  for (int i = rank - 1; i >= 0; i--) {
-    strides.insert(strides.begin(), count);
-    count *= shape[i];
-  }
-  return strides;
-}
-
-/// Compute the linear access index.
-int64_t getLinearAccessIndex(
-    ArrayRef<int64_t> indices, ArrayRef<int64_t> strides) {
-  int64_t index = 0;
-  for (unsigned int i = 0; i < strides.size(); ++i)
-    index += indices[i] * strides[i];
-  return index;
-}
-
-// https://github.com/onnx/onnx/blob/main/docs/Changelog.md#ScatterND-13
-/*
- * output = np.copy(data)
- * update_indices = indices.shape[:-1]
- * for idx in np.ndindex(update_indices):
- *     output[indices[idx]] = updates[idx]
- *
- * TODO: Move this to a scatterND method in ElementsAttrBuilder.
- */
-void ScatterNDImpl(ElementsAttr dataElements, ElementsAttr indicesElements,
-    ElementsAttr updatesElements, MutableArrayRef<WideNum> output) {
-  readElementsWideNums(dataElements, output);
-  ArrayBuffer<int64_t> indicesBuffer =
-      getElementsArray<int64_t>(indicesElements);
-  ArrayRef<int64_t> indices = indicesBuffer.get();
-  ArrayBuffer<WideNum> updatesBuffer = getElementsWideNums(updatesElements);
-  ArrayRef<WideNum> updates = updatesBuffer.get();
-
-  auto dataShape = dataElements.getType().getShape();
-  auto indicesShape = indicesElements.getType().getShape();
-  auto updatesShape = updatesElements.getType().getShape();
-
-  int64_t indices_nd = indicesShape.back();
-  auto outer = indicesShape.drop_back();
-  int64_t n_slices = ShapedType::getNumElements(outer);
-  int64_t slice_size =
-      ShapedType::getNumElements(updatesShape.drop_front(outer.size()));
-  auto dataStrides = getStrides(dataShape);
-  auto sliceStrides = llvm::ArrayRef(dataStrides).take_front(indices_nd);
-
-  auto indicesIter = indices.begin();
-  auto updatesIter = updates.begin();
-  for (int64_t i = 0; i < n_slices; ++i) {
-    ArrayRef<int64_t> idxs(indicesIter, indices_nd);
-    int64_t pos = getLinearAccessIndex(idxs, sliceStrides);
-    std::copy_n(updatesIter, slice_size, output.begin() + pos);
-    indicesIter += indices_nd;
-    updatesIter += slice_size;
-  }
-}
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ScatterND.
+//===----------------------------------------------------------------------===//
 
 class ConstPropScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
 public:
@@ -751,10 +693,8 @@ public:
         getConstValueElements(scatterNdOp.getIndices());
     ElementsAttr updatesElements =
         getConstValueElements(scatterNdOp.getUpdates());
-    ElementsAttr scatteredElements = elementsBuilder.fromWideNums(
-        dataElements.getType(), [&](MutableArrayRef<WideNum> dst) {
-          ScatterNDImpl(dataElements, indicesElements, updatesElements, dst);
-        });
+    ElementsAttr scatteredElements = elementsBuilder.scatterND(
+        dataElements, indicesElements, updatesElements);
     Value constOpResult = createReplacingConstantOp(
         rewriter, scatterNdOp.getData(), scatteredElements);
 
