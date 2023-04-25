@@ -61,8 +61,7 @@ public:
     Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
-    Type elemTy = typeConverter->convertType(
-        originalInput.getType().cast<MemRefType>().getElementType());
+    Type elemTy = originalInput.getType().cast<MemRefType>().getElementType();
     krnl::fillOMTensorWithMemRef(input, elemTy, omTensor, false /*outOwning*/,
         rewriter, loc, apiRegistry, module);
     LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
