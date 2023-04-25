@@ -50,6 +50,8 @@ struct TosaBuilder : DialectBuilder {
   mlir::Value getConst(
       llvm::ArrayRef<int32_t> vec, llvm::ArrayRef<int64_t> shape);
   mlir::Value getConst(
+      llvm::ArrayRef<int8_t> vec, llvm::ArrayRef<int64_t> shape);
+  mlir::Value getConst(
       llvm::ArrayRef<float> vec, llvm::ArrayRef<int64_t> shape);
   // Create a 32-bit float constant operator from a float
   // The tensor will have the same rank as shape but with axis 1 (differs from

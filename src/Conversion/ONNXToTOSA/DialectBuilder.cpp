@@ -68,6 +68,17 @@ Value TosaBuilder::getConst(ArrayRef<int32_t> vec, ArrayRef<int64_t> shape) {
   return constOp;
 }
 
+Value TosaBuilder::getConst(ArrayRef<int8_t> vec, ArrayRef<int64_t> shape) {
+  assert(testNumberOfElementsMatch(vec, shape) &&
+         "getConstTensor(): number of elements mismatch.");
+
+  auto constType = RankedTensorType::get(shape, rewriter().getI8Type());
+
+  Value constOp = this->createConstFromRankedTensorAndVec(vec, constType);
+  return constOp;
+}
+
+
 Value TosaBuilder::getConst(ArrayRef<float> vec, ArrayRef<int64_t> shape) {
   assert(testNumberOfElementsMatch(vec, shape) &&
          "getConstTensor(): number of elements mismatch.");

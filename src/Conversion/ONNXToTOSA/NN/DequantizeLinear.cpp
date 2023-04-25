@@ -35,6 +35,7 @@ public:
   LogicalResult matchAndRewrite(ONNXDequantizeLinearOp op, OpAdaptor,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
     Value x = op.x();
     ArrayRef<int64_t> inputShape =  cast<TensorType>(x.getType()).getShape();
     Value x_scale = op.x_scale();
@@ -49,8 +50,8 @@ public:
           op, "Only per-tensor quantization is handled.");
     }
 
-    // Since tosa.sub doesn't allow different shapes, get the value from the zero point
-    // constant, and create a constant of the same shape as the input out of it in order
+    // Since tosa.sub doesn't allow different ranks, get the value from the zero point
+    // constant, and create a constant of the same rank as the input out of it in order
     // to have a correct sub.
     mlir::ElementsAttr zeroPoint;
     if (auto source = x_zero_point.getDefiningOp<ONNXConstantOp>()) {
@@ -59,19 +60,14 @@ public:
     else if (x_zero_point.getDefiningOp<mlir::tosa::ConstOp>()) {
       zeroPoint = tosa::getValueFromTosaConst<ElementsAttr>(x_zero_point);
     }
-    auto zpValue = zeroPoint.getValues<APInt>()[0];
-    
-    uint64_t numElements = 1;
-    for (int64_t a : inputShape) {
-      numElements *= a;
+    auto zpValue = zeroPoint.getValues<int8_t>()[0];
+    llvm::SmallVector<int64_t, 4> tmpTensor;
+    for (uint i = 0; i < inputShape.size(); ++i) {
+      tmpTensor.emplace_back(1);
     }
-    std::vector zpVec = std::vector<APInt>(numElements, zpValue);
-    auto constType =
-        RankedTensorType::get(inputShape, rewriter.getIntegerType(sizeof(int8_t) * 8));
-    auto constAttr = DenseElementsAttr::get(constType, zpVec);
-    auto zpConst = tosa::CreateOpAndInfer<mlir::tosa::ConstOp>(rewriter, loc, constType, constAttr);
+    std::vector zpVec = std::vector<int8_t>{zpValue};
+    auto zpConst = tosaBuilder.getConst(zpVec, tmpTensor);
     
-    // Quantization formula is ((x / y_scale) + y_zero_point)
     // Dequantization formula is (x - zero_point) * scale
     // Cast into the destination type first
     Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, resultType, x).getResult();
