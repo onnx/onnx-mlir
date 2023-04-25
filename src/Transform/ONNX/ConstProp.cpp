@@ -22,8 +22,6 @@
 #include "llvm/ADT/STLExtras.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
-#include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
