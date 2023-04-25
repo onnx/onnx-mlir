@@ -561,13 +561,7 @@ ElementsAttr ElementsAttrBuilder::scatterND(
     //   for idx in np.ndindex(outer):
     //     dst[indices[idx]] = updates[idx]
 
-    readElementsWideNums(input, dst);
-    ArrayBuffer<int64_t> indicesBuffer = getElementsArray<int64_t>(indices);
-    auto indicesArray = castArrayRef<uint64_t>(indicesBuffer.get());
-    ArrayBuffer<WideNum> updatesBuffer = getElementsWideNums(updates);
-    ArrayRef<WideNum> updatesArray = updatesBuffer.get();
-
-    auto dataShape = input.getType().getShape();
+    auto inputShape = input.getType().getShape();
     auto indicesShape = indices.getType().getShape();
     auto updatesShape = updates.getType().getShape();
 
@@ -576,18 +570,30 @@ ElementsAttr ElementsAttrBuilder::scatterND(
     int64_t n_slices = ShapedType::getNumElements(outer);
     int64_t slice_size =
         ShapedType::getNumElements(updatesShape.drop_front(outer.size()));
-    auto dataStrides = getDefaultStrides(dataShape);
-    auto sliceStrides = llvm::ArrayRef(dataStrides).take_front(indices_nd);
+    auto inputStrides = getDefaultStrides(inputShape);
+    auto sliceStrides = llvm::ArrayRef(inputStrides).take_front(indices_nd);
 
-    auto indicesIter = indicesArray.begin();
-    auto updatesIter = updatesArray.begin();
+    readElementsWideNums(input, dst);
+    SmallVector<int64_t> updatesStrides;
+    ArrayBuffer<WideNum> updatesData =
+        getWideNumsAndStrides(updates, updatesStrides);
+    StridesRange<1> updatesRange(updatesShape, {updatesStrides});
+    auto updatesIter = updatesRange.begin();
+    ArrayBuffer<int64_t> indicesBuffer = getElementsArray<int64_t>(indices);
+    auto indicesIter = indicesBuffer.get().begin();
     for (int64_t i = 0; i < n_slices; ++i) {
-      ArrayRef<uint64_t> idxs(indicesIter, indices_nd);
+      ArrayRef<uint64_t> idxs =
+          castArrayRef<uint64_t>(ArrayRef(indicesIter, indices_nd));
       int64_t pos = getStridesPosition(idxs, sliceStrides);
-      std::copy_n(updatesIter, slice_size, dst.begin() + pos);
+      for (int64_t j = 0; j < slice_size; ++j) {
+        dst[pos] = updatesData.get()[updatesIter->pos[0]];
+        ++pos;
+        ++updatesIter;
+      }
       indicesIter += indices_nd;
-      updatesIter += slice_size;
     }
+    assert(
+        updatesIter == updatesRange.end() && "updates num elements mismatch");
   });
 }
 
