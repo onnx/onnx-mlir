@@ -8,9 +8,9 @@ func.func @test_quantizeLinear(%arg0 : tensor<32x3x224x224xf32>) -> tensor<32x3x
 }
 // CHECK-LABEL:  @test_quantizeLinear(%arg0: tensor<32x3x224x224xf32>) -> tensor<32x3x224x224xi8>
 // CHECK-DAG:    %[[SCALE:.*]] = "tosa.const"() {value = dense<3.125000e-02> : tensor<f32>}
-// CHECK-DAG:    %[[ZP:.*]] = "tosa.const"() {value = dense<0> : tensor<32x3x224x224xi8>} : () -> tensor<32x3x224x224xi8>
+// CHECK-DAG:    %[[ZP:.*]] = "tosa.const"() {value = dense<0> : tensor<1x1x1x1xi8>} : () -> tensor<1x1x1x1xi8>
 // CHECK-DAG:    %[[REC:.*]] = "tosa.reciprocal"(%arg0) : (tensor<32x3x224x224xf32>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    %[[MUL:.*]] = "tosa.mul"(%[[REC]], %[[SCALE]]) {shift = 0 : i32} : (tensor<32x3x224x224xf32>, tensor<f32>) -> tensor<32x3x224x224xf32>
-// CHECK-DAG:    %[[ADD:.*]] = "tosa.add"(%[[MUL]], %[[ZP]]) : (tensor<32x3x224x224xf32>, tensor<32x3x224x224xi8>) -> tensor<32x3x224x224xf32>
+// CHECK-DAG:    %[[ADD:.*]] = "tosa.add"(%[[MUL]], %[[ZP]]) : (tensor<32x3x224x224xf32>, tensor<1x1x1x1xi8>) -> tensor<32x3x224x224xf32>
 // CHECK-DAG:    %[[CAST:.*]] = "tosa.cast"(%[[ADD]]) : (tensor<32x3x224x224xf32>) -> tensor<32x3x224x224xi8>
 // CHECK-DAG:    return %[[CAST]] : tensor<32x3x224x224xi8>

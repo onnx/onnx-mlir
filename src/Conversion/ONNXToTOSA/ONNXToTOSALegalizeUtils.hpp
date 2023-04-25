@@ -48,6 +48,8 @@ T getValueFromTosaConst(mlir::Value &val) {
   return val.getDefiningOp<mlir::tosa::ConstOp>().getValue().cast<T>();
 }
 
+mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val);
+
 // Creates a TOSA operation and performs shape inference on the individual
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>

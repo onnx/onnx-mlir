@@ -53,13 +53,7 @@ public:
     // Since tosa.sub doesn't allow different ranks, get the value from the zero point
     // constant, and create a constant of the same rank as the input out of it in order
     // to have a correct sub.
-    mlir::ElementsAttr zeroPoint;
-    if (auto source = x_zero_point.getDefiningOp<ONNXConstantOp>()) {
-      zeroPoint = source.value().value(); 
-    }
-    else if (x_zero_point.getDefiningOp<mlir::tosa::ConstOp>()) {
-      zeroPoint = tosa::getValueFromTosaConst<ElementsAttr>(x_zero_point);
-    }
+    mlir::ElementsAttr zeroPoint = tosa::getElementsAttrFromConst(x_zero_point);
     auto zpValue = zeroPoint.getValues<int8_t>()[0];
     llvm::SmallVector<int64_t, 4> tmpTensor;
     for (uint i = 0; i < inputShape.size(); ++i) {
