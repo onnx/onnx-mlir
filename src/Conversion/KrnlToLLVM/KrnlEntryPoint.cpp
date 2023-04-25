@@ -297,8 +297,8 @@ public:
       LLVM_DEBUG(llvm::dbgs() << "Output OMTensor " << i
                               << " with owning = " << outOwning << "\n");
       krnl::fillOMTensorWithMemRef(memRef,
-          origOutputMemRefTypes[i].getElementType(), outOMTensor, outOwning,
-          rewriter, loc, apiRegistry, module);
+          typeConverter.convertType(origOutputMemRefTypes[i].getElementType()),
+          outOMTensor, outOwning, rewriter, loc, apiRegistry, module);
 
       Value omTensorPtrAddr = create.llvm.getElemPtr(omTensorPtrAddrTy,
           opaquePtrTy, outOmtPtrsArr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
