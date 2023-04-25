@@ -532,7 +532,6 @@ ElementsAttr ElementsAttrBuilder::gather(
   auto outType = inputType.clone(outShape);
   return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
     size_t postAxisNumElements = ShapedType::getNumElements(postAxisShape);
-    // TODO: Use getWideNumsAndStrides() instead of getElementsWideNums()
     ArrayBuffer<WideNum> src = getElementsWideNums(input);
     ArrayBuffer<int64_t> indicesArray = getElementsArray<int64_t>(indices);
     size_t axisInputSize = inputShape[axis];
