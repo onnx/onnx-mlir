@@ -45,6 +45,7 @@ public:
     ArrayRef<int64_t> inputShape =  cast<TensorType>(xType).getShape();
     Value y_scale = op.y_scale();
     Value y_zero_point = op.y_zero_point();
+    Type resultType = op.getResult().getType();
     // Axis attribute is ignored for per-tensor quantization, which is the only one handled
     // for the moment, so there is no need to look at this attribute.
     // If y_scale is an array, it means it is trying to run per element quantization,
@@ -70,11 +71,11 @@ public:
     // Replace the division by a reciprocal followed by a mul
     Value recOp = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(rewriter, loc, xType, x).getResult();
     Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, xType, recOp, y_scale, 0).getResult();
-    Value addOp = tosa::CreateOpAndInfer<mlir::tosa::AddOp>(rewriter, loc, xType, mulOp, zpConst).getResult();
     // Cast into the result type
-    Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, op.getResult().getType(), addOp).getResult();
+    Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, resultType, mulOp).getResult();
+    Value addOp = tosa::CreateOpAndInfer<mlir::tosa::AddOp>(rewriter, loc, resultType, castOp, zpConst).getResult();
 
-    rewriter.replaceOp(op, castOp);
+    rewriter.replaceOp(op, addOp);
     return success();
   }
 };

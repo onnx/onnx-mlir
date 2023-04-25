@@ -64,9 +64,9 @@ public:
     
     // Dequantization formula is (x - zero_point) * scale
     // Cast into the destination type first
-    Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, resultType, x).getResult();
-    Value subOp = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(rewriter, loc, resultType, castOp, zpConst).getResult();
-    Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, resultType, subOp, x_scale, 0).getResult();
+    Value subOp = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(rewriter, loc, resultType, x, zpConst).getResult();
+    Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, resultType, subOp).getResult();
+    Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, resultType, castOp, x_scale, 0).getResult();
 
     rewriter.replaceOp(op, mulOp);
     return success();
