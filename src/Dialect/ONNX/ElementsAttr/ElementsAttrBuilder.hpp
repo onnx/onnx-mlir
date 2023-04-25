@@ -161,6 +161,12 @@ public:
       llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> starts,
       llvm::ArrayRef<int64_t> steps);
 
+  // Gathers a tensor of the values from an input tensor given by a tensor of
+  // indices, along the specified axis.
+  // Follows the specification of the onnx Gather operation.
+  mlir::ElementsAttr gather(
+      mlir::ElementsAttr input, mlir::ElementsAttr indices, unsigned axis);
+
   // Assumptions: elms is non-empty, reducer is associative and commutative.
   mlir::ElementsAttr reduce(mlir::ElementsAttr elms,
       llvm::ArrayRef<unsigned> axes, bool keepdims,

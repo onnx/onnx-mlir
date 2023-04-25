@@ -848,36 +848,7 @@ Value ConstPropExpand(
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for GatherOp.
-//
-// TODO: Move this to a gather method in ElementsAttrBuilder.
 //===----------------------------------------------------------------------===//
-
-void ConstPropGatherImpl(ShapedType outputType, ElementsAttr inputElements,
-    ElementsAttr indicesElements, int64_t axis,
-    MutableArrayRef<WideNum> outputData) {
-  ArrayBuffer<WideNum> inputData = getElementsWideNums(inputElements);
-  ArrayBuffer<int64_t> indicesData = getElementsArray<int64_t>(indicesElements);
-  auto inputShape = inputElements.getType().getShape();
-  size_t axisSize = inputShape[axis];
-  size_t inputStride = ShapedType::getNumElements(inputShape.drop_front(axis));
-  size_t len = inputStride / axisSize;
-  auto outputShape = outputType.getShape();
-  size_t outputStride =
-      ShapedType::getNumElements(outputShape.drop_front(axis));
-  assert(outputStride == indicesData.get().size() * len);
-  size_t start = 0;
-  auto out = outputData.begin();
-  for (int64_t idx : indicesData.get()) {
-    int64_t adjustedIdx = idx < 0 ? idx + axisSize : idx;
-    auto in = inputData.get().begin() + adjustedIdx * len;
-    for (size_t offset = start; offset < outputData.size();
-         offset += outputStride) {
-      std::copy_n(in, len, out + offset);
-      in += inputStride;
-    }
-    start += len;
-  }
-}
 
 Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
     Value inputValue, Value indicesValue) {
@@ -891,12 +862,8 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr inputElements = getConstValueElements(inputValue);
   ElementsAttr indicesElements = getConstValueElements(indicesValue);
-  ShapedType outputType = replacingValue.getType().cast<ShapedType>();
-  ElementsAttr gatheredElements = elementsBuilder.fromWideNums(
-      outputType, [&](MutableArrayRef<WideNum> dst) {
-        ConstPropGatherImpl(
-            outputType, inputElements, indicesElements, axis, dst);
-      });
+  ElementsAttr gatheredElements =
+      elementsBuilder.gather(inputElements, indicesElements, axis);
   return createReplacingConstantOp(rewriter, replacingValue, gatheredElements);
 }
 

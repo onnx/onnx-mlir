@@ -457,7 +457,7 @@ ElementsAttr ElementsAttrBuilder::concat(
   ElementsAttr first = elms.front();
   auto firstShape = first.getType().getShape();
   size_t rank = firstShape.size();
-  assert(axis < rank && "axis out of range");
+  assert(axis < rank && "concat axis out of range");
   if (elms.size() == 1)
     return first;
 
@@ -483,11 +483,11 @@ ElementsAttr ElementsAttrBuilder::concat(
     // A "block" fixes the axes before axis and iterates over the others.
     size_t outBlockLen = outShape[axis] * postAxisNumElements;
     size_t start = 0;
-    for (ElementsAttr inputElms : elms) {
-      ArrayRef<int64_t> inputShape = inputElms.getType().getShape();
+    for (ElementsAttr input : elms) {
+      ArrayRef<int64_t> inputShape = input.getType().getShape();
       size_t inputBlockLen = inputShape[axis] * postAxisNumElements;
       SmallVector<int64_t> strides;
-      ArrayBuffer<WideNum> src = getWideNumsAndStrides(inputElms, strides);
+      ArrayBuffer<WideNum> src = getWideNumsAndStrides(input, strides);
       StridesRange<1> range(inputShape, {strides});
       auto it = range.begin();
       for (size_t offset = start; offset < dst.size(); offset += outBlockLen) {
@@ -516,6 +516,39 @@ ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
     }
     for (auto &idxpos : StridesRange<1>(shape, {strides}))
       dst[idxpos.flattenedIndex] = *(start + idxpos[0]);
+  });
+}
+
+ElementsAttr ElementsAttrBuilder::gather(
+    ElementsAttr input, ElementsAttr indices, unsigned axis) {
+  ShapedType inputType = input.getType();
+  auto inputShape = inputType.getShape();
+  assert(axis < inputShape.size() && "gather axis out of range");
+  auto postAxisShape = inputShape.drop_front(axis + 1);
+  auto indicesShape = indices.getType().getShape();
+  SmallVector<int64_t> outShape(inputShape.take_front(axis));
+  outShape.append(indicesShape.begin(), indicesShape.end());
+  outShape.append(postAxisShape.begin(), postAxisShape.end());
+  auto outType = inputType.clone(outShape);
+  return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    size_t postAxisNumElements = ShapedType::getNumElements(postAxisShape);
+    // TODO: Use getWideNumsAndStrides() instead of getElementsWideNums()
+    ArrayBuffer<WideNum> src = getElementsWideNums(input);
+    ArrayBuffer<int64_t> indicesArray = getElementsArray<int64_t>(indices);
+    size_t axisInputSize = inputShape[axis];
+    size_t inputBlockLen = axisInputSize * postAxisNumElements;
+    size_t outBlockLen = indicesArray.get().size() * postAxisNumElements;
+    size_t start = 0;
+    auto out = dst.begin();
+    for (int64_t idx : indicesArray.get()) {
+      int64_t adjustedIdx = idx < 0 ? idx + axisInputSize : idx;
+      auto in = src.get().begin() + adjustedIdx * postAxisNumElements;
+      for (size_t offset = start; offset < dst.size(); offset += outBlockLen) {
+        std::copy_n(in, postAxisNumElements, out + offset);
+        in += inputBlockLen;
+      }
+      start += postAxisNumElements;
+    }
   });
 }
 
