@@ -89,14 +89,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    ZLowStickOp stickOp = cast<ZLowStickOp>(op);
 
     ZLowStickOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.getX()
-                             .getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    // Do not get element type from adaptor since the type can be opaque.
+    Type llvmElementTy = typeConverter->convertType(
+        stickOp.getX().getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -147,14 +145,13 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    ZLowStickForLSTMOp stickForLSTMOp = cast<ZLowStickForLSTMOp>(op);
 
     ZLowStickForLSTMOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.getFGate()
-                             .getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(stickForLSTMOp.getFGate()
+                                                        .getType()
+                                                        .cast<MemRefType>()
+                                                        .getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -236,14 +233,11 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    ZLowStickForGRUOp stickForGRUOp = cast<ZLowStickForGRUOp>(op);
 
     ZLowStickForGRUOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.getZGate()
-                             .getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        stickForGRUOp.getZGate().getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -323,15 +317,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    ZLowLSTMOp lstmOp = cast<ZLowLSTMOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowLSTMOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.getInput()
-                             .getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        lstmOp.getInput().getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -522,15 +513,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    ZLowGRUOp gruOp = cast<ZLowGRUOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowGRUOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.getInput()
-                             .getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        gruOp.getInput().getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -680,14 +668,11 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    ZLowUnstickOp unstickOp = cast<ZLowUnstickOp>(op);
 
     ZLowUnstickOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.getOut()
-                             .getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        unstickOp.getOut().getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -746,11 +731,8 @@ public:
     Value input = operands[0];
     Value shape = operands[1];
     Value output = operands[2];
-    Type llvmElementTy = input.getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        op->getOperand(0).getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -826,11 +808,8 @@ public:
     Value input2 = operands[1];
     Value shape = operands[2];
     Value output = operands[3];
-    Type llvmElementTy = input1.getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        op->getOperand(0).getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -900,15 +879,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    ZLowSoftmaxOp softmaxOp = cast<ZLowSoftmaxOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowSoftmaxOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.getX()
-                             .getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        softmaxOp.getX().getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -986,15 +962,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    ZLowMatMulOp matmulOp = cast<ZLowMatMulOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMatMulOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.getX()
-                             .getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        matmulOp.getX().getType().cast<MemRefType>().getElementType());
 
     bool stacked, broadcasting;
     if (dyn_cast_or_null<ZLowMatMulOp>(op).getIsStacked() == -1)
@@ -1128,15 +1101,11 @@ public:
     Location loc = op->getLoc();
     MLIRContext *context = rewriter.getContext();
     ZLowConv2DOp convOp = dyn_cast_or_null<ZLowConv2DOp>(op);
+    ZLowConv2DOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
-    ZLowConv2DOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.getInput()
-                             .getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        convOp.getInput().getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -1284,11 +1253,8 @@ public:
     Value input = operands[0];
     Value shape = operands[1];
     Value output = operands[2];
-    Type llvmElementTy = input.getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        op->getOperand(0).getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -1384,15 +1350,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    ZLowMeanReduce2DOp meanOp = cast<ZLowMeanReduce2DOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     ZLowMeanReduce2DOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.getInput()
-                             .getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        meanOp.getInput().getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -1456,14 +1419,11 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
+    ZLowBatchNormOp batchnormOp = cast<ZLowBatchNormOp>(op);
 
     ZLowBatchNormOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = operandAdaptor.getInput()
-                             .getType()
-                             .dyn_cast<LLVM::LLVMStructType>()
-                             .getBody()[0]
-                             .cast<LLVM::LLVMPointerType>()
-                             .getElementType();
+    Type llvmElementTy = typeConverter->convertType(
+        batchnormOp.getInput().getType().cast<MemRefType>().getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);

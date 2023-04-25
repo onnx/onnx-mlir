@@ -41,22 +41,22 @@ func.func @test_stick() -> () {
   // CHECK: [[ZTENSOR:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)> : (i64) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
   // CHECK: [[TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[TRANSFORMED_DESC]] : !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>> to !llvm.ptr<i8>
   // CHECK: [[BUFFER_SIZE:%.+]] = llvm.call @zdnn_getsize_ztensor([[TRANSFORMED_DESC_I8PTR]]) : (!llvm.ptr<i8>) -> i64
-  // CHECK: [[ZTENSOR_PRE_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 0] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
-  // CHECK: llvm.store [[PRE_TRANSFORMED_DESC]], [[ZTENSOR_PRE_TRANSFORMED_DESC]] : !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
+  // CHECK: [[ZTENSOR_PRE_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 0] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
+  // CHECK: llvm.store [[PRE_TRANSFORMED_DESC]], [[ZTENSOR_PRE_TRANSFORMED_DESC]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
 
-  // CHECK: [[ZTENSOR_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 1] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
-  // CHECK: llvm.store [[TRANSFORMED_DESC]], [[ZTENSOR_TRANSFORMED_DESC]] : !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
+  // CHECK: [[ZTENSOR_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 1] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
+  // CHECK: llvm.store [[TRANSFORMED_DESC]], [[ZTENSOR_TRANSFORMED_DESC]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
 
-  // CHECK: [[ZTENSOR_BUFFER_SIZE:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 2] :  (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<i64>
-  // CHECK: llvm.store [[BUFFER_SIZE]], [[ZTENSOR_BUFFER_SIZE]] : !llvm.ptr<i64>
+  // CHECK: [[ZTENSOR_BUFFER_SIZE:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 2] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
+  // CHECK: llvm.store [[BUFFER_SIZE]], [[ZTENSOR_BUFFER_SIZE]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
 
-  // CHECK: [[ZTENSOR_BUFFER:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 3] :  (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<ptr<i8>>
-  // CHECK: llvm.store [[ALIGNED_BUFFER_I8PTR]], [[ZTENSOR_BUFFER]] : !llvm.ptr<ptr<i8>>
+  // CHECK: [[ZTENSOR_BUFFER:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 3] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
+  // CHECK: llvm.store [[ALIGNED_BUFFER_I8PTR]], [[ZTENSOR_BUFFER]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
 
   // CHECK: [[FALSE:%.+]] = llvm.mlir.constant(false) : i1
 
-  // CHECK: [[IS_TRANSFORMED:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 4] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<i1>
-  // CHECK: llvm.store [[FALSE]], [[IS_TRANSFORMED]] : !llvm.ptr<i1>
+  // CHECK: [[IS_TRANSFORMED:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 4] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
+  // CHECK: llvm.store [[FALSE]], [[IS_TRANSFORMED]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
 
   // CHECK: [[UNSTICKIFIED:%.+]] = llvm.extractvalue [[UNSTICKIFIED_MEMREF]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
   // CHECK: [[UNSTICKIFIED_I8PTR:%.+]] = llvm.bitcast [[UNSTICKIFIED]] : !llvm.ptr<f32> to !llvm.ptr<i8>
@@ -95,22 +95,22 @@ func.func @test_unstick() -> () {
   // CHECK: [[ZTENSOR:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)> : (i64) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
   // CHECK: [[TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[TRANSFORMED_DESC]] : !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>> to !llvm.ptr<i8>
   // CHECK: [[BUFFER_SIZE:%.+]] = llvm.call @zdnn_getsize_ztensor([[TRANSFORMED_DESC_I8PTR]]) : (!llvm.ptr<i8>) -> i64
-  // CHECK: [[ZTENSOR_PRE_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 0] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
-  // CHECK: llvm.store [[PRE_TRANSFORMED_DESC]], [[ZTENSOR_PRE_TRANSFORMED_DESC]] : !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
+  // CHECK: [[ZTENSOR_PRE_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 0] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
+  // CHECK: llvm.store [[PRE_TRANSFORMED_DESC]], [[ZTENSOR_PRE_TRANSFORMED_DESC]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
 
-  // CHECK: [[ZTENSOR_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 1] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
-  // CHECK: llvm.store [[TRANSFORMED_DESC]], [[ZTENSOR_TRANSFORMED_DESC]] : !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
+  // CHECK: [[ZTENSOR_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 1] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
+  // CHECK: llvm.store [[TRANSFORMED_DESC]], [[ZTENSOR_TRANSFORMED_DESC]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
 
-  // CHECK: [[ZTENSOR_BUFFER_SIZE:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 2] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<i64>
-  // CHECK: llvm.store [[BUFFER_SIZE]], [[ZTENSOR_BUFFER_SIZE]] : !llvm.ptr<i64>
+  // CHECK: [[ZTENSOR_BUFFER_SIZE:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 2] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
+  // CHECK: llvm.store [[BUFFER_SIZE]], [[ZTENSOR_BUFFER_SIZE]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
 
-  // CHECK: [[ZTENSOR_BUFFER:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 3] :  (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<ptr<i8>>
-  // CHECK: llvm.store [[ALIGNED_BUFFER_I8PTR]], [[ZTENSOR_BUFFER]] : !llvm.ptr<ptr<i8>>
+  // CHECK: [[ZTENSOR_BUFFER:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 3] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
+  // CHECK: llvm.store [[ALIGNED_BUFFER_I8PTR]], [[ZTENSOR_BUFFER]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
 
   // CHECK: [[TRUE:%.+]] = llvm.mlir.constant(true) : i1
 
-  // CHECK: [[IS_TRANSFORMED:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 4] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<i1>
-  // CHECK: llvm.store [[TRUE]], [[IS_TRANSFORMED]] : !llvm.ptr<i1>
+  // CHECK: [[IS_TRANSFORMED:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 4] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
+  // CHECK: llvm.store [[TRUE]], [[IS_TRANSFORMED]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
 
   // CHECK: [[UNSTICKIFIED:%.+]] = llvm.extractvalue [[UNSTICKIFIED_MEMREF]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
   // CHECK: [[UNSTICKIFIED_I8PTR:%.+]] = llvm.bitcast [[UNSTICKIFIED]] : !llvm.ptr<f32> to !llvm.ptr<i8>
