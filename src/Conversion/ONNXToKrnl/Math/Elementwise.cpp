@@ -1398,13 +1398,13 @@ bool areInputsValidForFusion(Operation *producer, Operation *op) {
     return true;
 
   // To fuse Elementwise op with more one operands with the producer,
-  // the shape of the output the user Op has to be the same as shape of 
+  // the shape of the output the user Op has to be the same as shape of
   // the output of the producer Op. Otherwise, the loop iterations of the
   // Ops are not the same and cannot be fused.
 
   // It is easy to check if the shape of output of both Ops are static.
   // Symbolic analysis and some cornor case analysis will be left for future
-  // PR. 
+  // PR.
 
   // One cornor case is that all the other input has dimension size 1 for
   // the dynamic dimension.
@@ -1417,43 +1417,26 @@ bool areInputsValidForFusion(Operation *producer, Operation *op) {
   if (producerShape != userShape) {
     return false;
   }
-  llvm::dbgs() << "fusible\n";
-  op->dump();
-  return true;
 
-  int indexChainedInput = -1;
-  for(size_t i = 0; i <  op->getOperands().size(); i++) {
-    Operation* operand = op->getOperand(i).getDefiningOp();
-
-    // Not fuse if a input is a block argument
-    // Block argument can be viewed as a constant in the sense of value.
-    // But block argument may have dynamic shape, while constant always has 
-    // a constant shape. Allowing block argument will complicate the broadcast
-    // checking.
-    // ToDo: allowing block argument for fusion in future, at least for
-    // constant shaped block argument.
-    if (!operand) {
-      llvm::dbgs() << "block argument\n";
-      return false;
-    }
-
-    operand->dump();
-    if (isa<ONNXConstantOp>(operand) || isa<KrnlGlobalOp>(operand)) {
-      // ToDo: handle unrealized type cast
+  for (size_t i = 0; i < op->getOperands().size(); i++) {
+    Operation *operand = op->getOperand(i).getDefiningOp();
+    if (operand == producer)
       continue;
+
+    // Only input from block argument and constant is allowed.
+    // operand == null means that it is a block argument
+    if (operand && !isa<ONNXConstantOp>(operand)) {
+      return false;
     }
 
-    if (indexChainedInput != -1)
-      // More than one non-constant input
+    // ToFix: This restriction can be relaxed if ShapeHelper utility is used
+    // to generate load in future.
+    if (!hasStaticShape(op->getOperand(i).getType()))
       return false;
-    indexChainedInput = i;
+    auto inputShape = getShape(op->getOperand(i).getType());
+    if (inputShape != producerShape)
+      return false;
   }
-
-  // Check the type
-  auto inputType = op->getOperand(indexChainedInput).getType();
-  auto outputType = op->getResult(0).getType();
-  if (getShape(inputType) != getShape(outputType))
-    return false;
 
   return true;
 }
@@ -1465,25 +1448,27 @@ typedef mlir::Value (*EmitScalarFunc)(mlir::ConversionPatternRewriter &rewriter,
 
 // Variadic template to iterate all the fusible Ops
 template <typename T>
-bool enqueueFusibleOpImpl(Operation *producer, Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+bool enqueueFusibleOpImpl(Operation *producer, Operation *op,
+    SmallVector<Operation *, 2> &fusibleOps,
     SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
   if (isa<T>(op)) {
     if (areInputsValidForFusion(producer, op)) {
-      llvm::dbgs() << "update list\n";
       fusibleOps.emplace_back(op);
       fuseEmitFunctions.emplace_back(emitScalarOpFor<T>);
       return true;
-    } 
+    }
   }
   return false;
 }
 
 template <typename T = void, class... Ts>
-bool enqueueFusibleOp(Operation *producer, Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+bool enqueueFusibleOp(Operation *producer, Operation *op,
+    SmallVector<Operation *, 2> &fusibleOps,
     SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions);
 
 template <typename T, class... Ts>
-bool enqueueFusibleOp(Operation *producer, Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+bool enqueueFusibleOp(Operation *producer, Operation *op,
+    SmallVector<Operation *, 2> &fusibleOps,
     SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
   if (enqueueFusibleOpImpl<T>(producer, op, fusibleOps, fuseEmitFunctions)) {
     return true;
@@ -1493,7 +1478,8 @@ bool enqueueFusibleOp(Operation *producer, Operation *op, SmallVector<Operation 
 }
 
 template <>
-bool enqueueFusibleOp(Operation *producer, Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+bool enqueueFusibleOp(Operation *producer, Operation *op,
+    SmallVector<Operation *, 2> &fusibleOps,
     SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
   return false;
 }
@@ -1507,14 +1493,14 @@ private:
   llvm::SmallVector<EmitScalarFunc, 2> fuseEmitFunctions_;
 
 public:
-
   // Constructor
   OpFusionHelper(
       mlir::ConversionPatternRewriter &rewriter, mlir::Operation *startOp)
       : op_(startOp), rewriter_(rewriter), fusibleOps_(), fuseEmitFunctions_() {
   }
 
-  bool checkFusibleOp(Operation *producer, Operation *op, SmallVector<Operation *, 2> &fusibleOps,
+  bool checkFusibleOp(Operation *producer, Operation *op,
+      SmallVector<Operation *, 2> &fusibleOps,
       SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
 
     // Notice: Though ClipOp is classified as unary element op in this file,
@@ -1522,11 +1508,10 @@ public:
 
     return enqueueFusibleOp<
         // Unary Op
-        mlir::ONNXAbsOp, mlir::ONNXAtanOp, mlir::ONNXCastOp,
-        mlir::ONNXCeilOp, mlir::ONNXCosOp, mlir::ONNXCoshOp,
-        mlir::ONNXDequantizeLinearOp, mlir::ONNXEluOp, mlir::ONNXErfOp,
-        mlir::ONNXAcosOp, mlir::ONNXAcoshOp, mlir::ONNXAsinOp,
-        mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp,
+        mlir::ONNXAbsOp, mlir::ONNXAtanOp, mlir::ONNXCastOp, mlir::ONNXCeilOp,
+        mlir::ONNXCosOp, mlir::ONNXCoshOp, mlir::ONNXDequantizeLinearOp,
+        mlir::ONNXEluOp, mlir::ONNXErfOp, mlir::ONNXAcosOp, mlir::ONNXAcoshOp,
+        mlir::ONNXAsinOp, mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp,
         mlir::ONNXFloorOp, mlir::ONNXHardSigmoidOp, mlir::ONNXIsInfOp,
         mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp, mlir::ONNXLogOp,
         mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
@@ -1535,9 +1520,13 @@ public:
         mlir::ONNXSinhOp, mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp,
         mlir::ONNXSqrtOp, mlir::ONNXTanOp, mlir::ONNXTanhOp,
         // Binary Op
+        mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
+        mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
         mlir::ONNXPowOp,
         // Variadic Op
-        mlir::ONNXAddOp>(
+        mlir::ONNXAddOp, mlir::ONNXAndOp, mlir::ONNXDivOp, mlir::ONNXMaxOp,
+        mlir::ONNXMeanOp, mlir::ONNXMinOp, mlir::ONNXMulOp, mlir::ONNXOrOp,
+        mlir::ONNXSubOp, mlir::ONNXSumOp, mlir::ONNXXorOp>(
         producer, op, fusibleOps, fuseEmitFunctions);
   }
 
@@ -1556,17 +1545,21 @@ public:
       // In the draft PR, variadic template is used to iterate through
       // the possible ONNX Ops.
       Operation *user = *currentProducer->getUsers().begin();
-      if (!checkFusibleOp(currentProducer, user, fusibleOps_, fuseEmitFunctions_))
+      if (!checkFusibleOp(
+              currentProducer, user, fusibleOps_, fuseEmitFunctions_))
         break;
 
       currentProducer = user;
     }
 
-    llvm::dbgs() << "unary op fused: " << fusibleOps_.size() << "\n";
-    if (!isFusibleListEmpty())
-      LLVM_DEBUG({
-        llvm::dbgs() << "unary op fused: " << fusibleOps_.size() << "\n";
-      });
+    LLVM_DEBUG({
+      llvm::dbgs() << "op fusion: fusible ops " << fusibleOps_.size() << "\n";
+      op_->dump();
+      llvm::dbgs() << "begin fusible op list\n";
+      for (auto op : fusibleOps_)
+        op->dump();
+      llvm::dbgs() << "end fusible op list\n";
+    });
   }
 
   // After fusion, the only store is for the last Op.
@@ -1594,30 +1587,48 @@ public:
       // The current obstacle is that no easy way to know the type of Op,
       // which is needed by ONNXLoc<T>(op).
       Location loc = currentOp->getLoc();
-      MultiDialectBuilder<KrnlBuilder> create(rewriter_, loc);
+      MDBuilder create(rewriter_, loc);
       Type currentElementType =
           getElementType(currentOp->getResults()[0].getType());
 
       // Handle inputs
       SmallVector<Value, 2> inputValues;
-      for(size_t i = 0; i <  currentOp->getOperands().size(); i++) {
-        Value inputValue = currentOp->getOperand(i);
-        Operation* operand = inputValue.getDefiningOp();
-        if (operand == producer) {
-          inputValues.emplace_back(producerResult);
-        } else {
-          inputValue.dump();
-          // ToDo: Convert the type with typeConverter
-          rewriter_.getRemappedValue(inputValue).dump();
-/*
-          auto convertedInput = rewriter_
-                    .create<UnrealizedConversionCastOp>(
-                        loc, MemRefType::get(getShape(inputValue.getType()),
-          getElementType(inputValue.getType())), inputValue).getResult(0);
-*/
-          auto load = create.krnl.load(rewriter_.getRemappedValue(inputValue), loopInd);
-        // create load for this input
-          inputValues.emplace_back(load);
+      if (currentOp->getOperands().size() == 0) {
+        // No extra inputs for binary Ops
+        inputValues.emplace_back(producerResult);
+      } else {
+        // ToFix: expect to use new utility for this purpose
+#if 0
+        SmallVector<Value, 4> currentOperands;
+        LogicalResult res = rewriter_.getRemappedValues(
+            currentOp->getOperands(), currentOperands);
+        assert(succeeded(res) && "Could not remap value for rewriter");
+        ONNXBroadcastOpShapeHelper shapeHelper(
+            currentOp, currentOperands, &create.krnlIE, nullptr, false);
+#endif
+        for (size_t i = 0; i < currentOp->getOperands().size(); i++) {
+          Value inputValue = currentOp->getOperand(i);
+          Operation *operand = inputValue.getDefiningOp();
+          if (operand == producer) {
+            inputValues.emplace_back(producerResult);
+          } else {
+            // ToFix: expect to use new utility for this purpose
+#if 0
+            IndexExprScope innerScope(create.krnl, shapeHelper.getScope());
+            SmallVector<IndexExpr, 4> outputAccessExprs;
+            getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
+            SmallVector<IndexExpr, 4> loadAccessExprs;
+            LogicalResult res = shapeHelper.getAccessExprs(
+                inputValue, i, outputAccessExprs, loadAccessExprs, true);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value load =
+                create.krnl.loadIE(currentOperands[i], loadAccessExprs);
+#endif
+            // ToFix: create load for this input with no broadcast assumption
+            auto load = create.krnl.load(
+                rewriter_.getRemappedValue(inputValue), loopInd);
+            inputValues.emplace_back(load);
+          }
         }
       }
       producerResult = emitScalar(
@@ -1753,7 +1764,8 @@ struct ONNXElementwiseUnaryOpLowering
             }
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
                 rewriter, loc, op, elementType, args);
-            loweredOpResult = opFusionHelper.emitFuseOps(loweredOpResult, loopInd);
+            loweredOpResult =
+                opFusionHelper.emitFuseOps(loweredOpResult, loopInd);
             // Store result in the resulting array.
             createKrnl.store(loweredOpResult, alloc, loopInd);
           });
