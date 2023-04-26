@@ -324,8 +324,8 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value result;
 
   MathBuilder createMath(rewriter, loc);
-  Value negInf = create.math.negativeInf(type);
-  Value posInf = create.math.positiveInf(type);
+  Value negInf = create.math.negativeInf(elementType);
+  Value posInf = create.math.positiveInf(elementType);
 
   double detectNegAttribute = isInfOp.getDetectNegative();
   double detectPosAttribute = isInfOp.getDetectPositive();
