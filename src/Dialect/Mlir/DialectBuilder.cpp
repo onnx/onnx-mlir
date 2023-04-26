@@ -1081,32 +1081,57 @@ memref::ReshapeOp MemRefBuilder::reshape(
       loc(), destType, valToReshape, destShapeStoredInMem);
 }
 
-memref::ReshapeOp MemRefBuilder::reshapeToFlat(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims, Value &size1D) const {
+// Flatten the innermost dimsToFlatten of the value valToReshape. Return in
+// flattenSize the cumulative size of the flattened dimensions. If flattenSize
+// is -1, flatten them all. Expect to flatten at least 1 dim (which is a noop).
+// Output rank is Rank(input) - dimsToFlatten + 1.
+Value MemRefBuilder::reshapeToFlat(Value valToReshape,
+    llvm::SmallVectorImpl<IndexExpr> &dims, Value &flattenedSize,
+    int64_t dimsToFlatten) const {
   // Parse input.
   MemRefType inputType = valToReshape.getType().cast<MemRefType>();
-  Type inputElementType = inputType.getElementType();
+  int64_t inputRank = inputType.getRank();
+  assert(inputRank == (int64_t)dims.size() && "rank mismatch");
+  Type elementType = inputType.getElementType();
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
-  Type indexType = b().getIndexType();
+  // Set/check dimsToFlatten.
+  if (dimsToFlatten == -1)
+    dimsToFlatten = inputRank;
+  assert(dimsToFlatten > 0 && dimsToFlatten <= inputRank &&
+         "out of range dimsToFlatten");
   // Create scope to avoid issues.
   IndexExprScope innerScope(getBuilderPtr(), loc());
   MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  // Compute total number of elements in new scope.
-  IndexExpr numOfElements = LiteralIndexExpr(1);
-  for (IndexExpr d : dims)
-    numOfElements = numOfElements * SymbolIndexExpr(d);
-  // Size1D is an output value corresponding to the total number of elements.
-  size1D = numOfElements.getValue();
-  // Shape for reshaping from N-D to 1-D saved into memory.
-  Value shape1D = alignedAlloc(MemRefType::get({1}, indexType));
-  Value zero = create.math.constantIndex(0);
-  create.affine.store(size1D, shape1D, {zero});
-  // Reshape the input N-D MemRef into a 1-D MemRef.
-  int64_t dim1DSize = ShapedType::kDynamic;
-  if (numOfElements.isLiteral())
-    dim1DSize = numOfElements.getLiteral();
-  MemRefType input1DType = MemRefType::get({dim1DSize}, inputElementType);
-  return reshape(input1DType, valToReshape, shape1D);
+  // Compute total number of flattened elements in new scope.
+  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
+  for (int64_t d = inputRank - dimsToFlatten; d < inputRank; ++d) {
+    numOfFlattenedElements = numOfFlattenedElements * SymbolIndexExpr(dims[d]);
+  }
+  // flattenedSize is an output value corresponding to the total number of
+  // elements that were flattened.
+  flattenedSize = numOfFlattenedElements.getValue();
+  if (dimsToFlatten == 1)
+    // Flattening of the last dim is really no flattening at all. Return
+    // original value before doing the actual reshaping, which is unnecessary.
+    // Waited until here as we need to return a valid flattenedSize,
+    return valToReshape;
+  // Shape for reshaping from N-D to M-D saved into memory.
+  int64_t outputRank = (inputRank - dimsToFlatten) + 1;
+  Type indexType = b().getIndexType();
+  Value outputShapeInMem =
+      alignedAlloc(MemRefType::get({outputRank}, indexType));
+  llvm::SmallVector<int64_t, 4> outputShape;
+  // Compute shape and store it in memory.
+  for (int64_t d = 0; d < outputRank; ++d) {
+    Value dd = create.math.constantIndex(d);
+    IndexExpr shapeIE =
+        (d == outputRank - 1) ? numOfFlattenedElements : dims[d];
+    create.affine.store(shapeIE.getValue(), outputShapeInMem, {dd});
+    outputShape.emplace_back(shapeIE.getShape());
+  }
+  // Reshape the input N-D MemRef into a M-D MemRef.
+  MemRefType outputType = MemRefType::get(outputShape, elementType);
+  return reshape(outputType, valToReshape, outputShapeInMem);
 }
 
 memref::ReshapeOp MemRefBuilder::reshapeFromFlat(Value valToReshape,
