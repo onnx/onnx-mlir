@@ -440,7 +440,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 /// input options.
 Value emitArgUnique(ConversionPatternRewriter &rewriter,
     Location loc, Value total, Value input, int64_t axis, int64_t sorted,
-    Value Y, Value indices, Value reverse_indices,
+    Value Y, Value indices, Value inverse_indices,
     Value counts, bool count_only) {
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
       rewriter, loc);
@@ -456,37 +456,18 @@ Value emitArgUnique(ConversionPatternRewriter &rewriter,
   SmallVector<IndexExpr, 4> ubs;
   create.krnlIE.getShapeAsDims(input, ubs);
 
-  // Create and initialize the result.
-#if 0
-  ArrayRef<int64_t> totalShape = {1};
-  Value total = insertAllocAndDeallocSimple(rewriter, nullptr,
-      MemRefType::get(totalShape, indexType), loc, ubs,
-    /*insertDealloc=*/true);
-#elif 0
-  Type indexTy = rewriter.getIndexType();
-  Value iZero = create.math.constantIndex(0);
-  // Emit a variable for the total number of nonzero values.
-  Value total = create.mem.alloca(MemRefType::get({}, indexTy));
-  create.krnl.store(iZero, total, {});
-#endif
-#if 0
-  ValueRange initLoopDef = create.krnl.defineLoops(rank);
-  create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
-      [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-        // order[axis_0, axis_1, ..., axis_k-1, k, axis_k+1, ....] = k
-        createKrnl.store(loopInd[axis], total, loopInd);
-      });
-#endif
   // Emit krnl.Call to call omTensorUnique API
   Type int_type = rewriter.getIntegerType(64);
   Value val_axis = create.math.constant(int_type, axis);
   Value val_sorted = create.math.constant(int_type, sorted);
   if (count_only) {
+    printf("XXXX: calling omTensorUniqueCount(total=%p, input=%p, val_axis=%p, val_sorted=%p)\n", total, input, val_axis, val_sorted);
     SmallVector<Value, 3> operands = {input, val_axis, val_sorted};
     rewriter.create<KrnlCallOp>(loc, "omTensorUniqueCount", total, operands);
   } else {
-    SmallVector<Value, 6> operands = {input, val_axis, val_sorted, Y, indices,
-        reverse_indices, counts};
+    SmallVector<Value, 7> operands = {input, val_axis, val_sorted, Y, indices,
+        inverse_indices, counts};
+    printf("XXXX: calling omTensorUniqueCount(total=%p, input=%p, val_axis=%p, val_sorted=%p, Y=%p, indices=%p, inverse_indices=%p, counts=%p)\n", total, input, val_axis, val_sorted, Y, indices, inverse_indices, counts);
     rewriter.create<KrnlCallOp>(loc, "omTensorUnique", total, operands);
   }
   return total;

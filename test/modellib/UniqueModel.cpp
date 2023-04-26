@@ -136,8 +136,10 @@ bool UniqueLibBuilder::verifyOutputs() {
   if (!x || !res || !ref)
     return false;
   printf("UniqueLibBuilder::verifyOutputs: rank=2<%dx%d>[", I, J);
-  omTensorPrint("  Input: ", x);
-  omTensorPrint("  outputs: ", res);
+  printf("  Input(%p):", x);
+  omTensorPrint(" ", x);
+  printf("outputs(%p):", res);
+  omTensorPrint(" ", res);
   printf("]\n");
   fflush(stdout);
 #if 0

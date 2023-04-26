@@ -15,6 +15,7 @@
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "llvm/Support/Debug.h"
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -91,6 +92,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value uniqueCount = create.mem.alloca(MemRefType::get({}, indexTy));
     create.krnl.store(iZero, uniqueCount, {});
     Value noneValue;
+    printf("XXXX calling emitArgUnique(count): uniqueCount=%p, X=%p, axis=%p, sorted=%p\n", uniqueCount, X, axis, sorted); fflush(stdout);
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         noneValue, noneValue, noneValue, noneValue, /*count_only=*/true);
     // Calculate output shapes for ouputs according to the results
@@ -125,15 +127,16 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     }
     MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, i64Type);
     Value indices = create.mem.alignedAlloc(memrefType, outputIndexDims);
-    Value reverse_indices =
-        create.mem.alignedAlloc(memrefType, outputIndexDims);
+    Value inverse_indices = create.mem.alignedAlloc(X.getType().cast<MemRefType>());
     Value counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
     // Compute argUnique of X along axis.
     create.krnl.store(iZero, uniqueCount, {});
+    printf("XXXX calling emitArgUnique(uniqueCount=%p, X=%p, axis=%p, sorted=%p, outputY=%p, indices=%p, inverse_indices=%p, counts=%p\n", uniqueCount, X, axis, sorted, outputY, indices, inverse_indices, counts); fflush(stdout);
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
-        outputY, indices, reverse_indices, counts);
-
-    rewriter.replaceOp(op, {outputY, indices, reverse_indices, counts});
+        outputY, indices, inverse_indices, counts);
+    llvm::dbgs() << "XXXX AFTER calling emitArgUnique: [\noutputY=" << outputY << ",\n indices=" << indices <<
+      ",\n inverse_indices=" << inverse_indices << ",\n counts=" << counts << "]\n";
+    rewriter.replaceOp(op, {outputY, indices, inverse_indices, counts});
     return success();
   }
 };
