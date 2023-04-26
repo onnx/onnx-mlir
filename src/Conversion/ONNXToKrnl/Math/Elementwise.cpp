@@ -1541,7 +1541,7 @@ public:
         producer, op, fusibleOps, fuseEmitFunctions);
   }
 
-  bool isFusibleListEmpty() { return true; return fusibleOps_.size() == 0; }
+  bool isFusibleListEmpty() { return fusibleOps_.size() == 0; }
 
   // This function starts for elementwise operation, op.
   // A successor op (user) is fusible if it's the only user and an unary
@@ -1581,11 +1581,12 @@ public:
   }
 
   // Emit fusion Ops
-  Value emitFuseOps(Value finalResult) {
+  Value emitFuseOps(Value producerResult, ValueRange loopInd = {}) {
     if (isFusibleListEmpty())
-      return finalResult;
+      return producerResult;
 
     // Handle the fused Ops
+    auto producer = op_;
     for (size_t i = 0; i < fusibleOps_.size(); i++) {
       auto currentOp = fusibleOps_[i];
       auto emitScalar = fuseEmitFunctions_[i];
@@ -1593,12 +1594,37 @@ public:
       // The current obstacle is that no easy way to know the type of Op,
       // which is needed by ONNXLoc<T>(op).
       Location loc = currentOp->getLoc();
+      MultiDialectBuilder<KrnlBuilder> create(rewriter_, loc);
       Type currentElementType =
           getElementType(currentOp->getResults()[0].getType());
-      finalResult = emitScalar(
-          rewriter_, loc, currentOp, currentElementType, finalResult);
+
+      // Handle inputs
+      SmallVector<Value, 2> inputValues;
+      for(size_t i = 0; i <  currentOp->getOperands().size(); i++) {
+        Value inputValue = currentOp->getOperand(i);
+        Operation* operand = inputValue.getDefiningOp();
+        if (operand == producer) {
+          inputValues.emplace_back(producerResult);
+        } else {
+          inputValue.dump();
+          // ToDo: Convert the type with typeConverter
+          rewriter_.getRemappedValue(inputValue).dump();
+/*
+          auto convertedInput = rewriter_
+                    .create<UnrealizedConversionCastOp>(
+                        loc, MemRefType::get(getShape(inputValue.getType()),
+          getElementType(inputValue.getType())), inputValue).getResult(0);
+*/
+          auto load = create.krnl.load(rewriter_.getRemappedValue(inputValue), loopInd);
+        // create load for this input
+          inputValues.emplace_back(load);
+        }
+      }
+      producerResult = emitScalar(
+          rewriter_, loc, currentOp, currentElementType, inputValues);
+      producer = currentOp;
     }
-    return finalResult;
+    return producerResult;
   }
 
   // Replace the last Op with allocated memref and erase the other Ops.
@@ -1727,7 +1753,7 @@ struct ONNXElementwiseUnaryOpLowering
             }
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
                 rewriter, loc, op, elementType, args);
-            loweredOpResult = opFusionHelper.emitFuseOps(loweredOpResult);
+            loweredOpResult = opFusionHelper.emitFuseOps(loweredOpResult, loopInd);
             // Store result in the resulting array.
             createKrnl.store(loweredOpResult, alloc, loopInd);
           });
@@ -1858,7 +1884,7 @@ struct ONNXElementwiseBinaryOpLowering
             Value result = emitScalarOpFor<ElementwiseBinaryOp>(
                 rewriter, loc, op, outputElementType, {lhs, rhs});
 
-            result = opFusionHelper.emitFuseOps(result);
+            result = opFusionHelper.emitFuseOps(result, loopInd);
             // Store result in the resulting array.
             createKrnl.store(result, alloc, loopInd);
           });
@@ -1980,7 +2006,7 @@ struct ONNXElementwiseVariadicOpLowering
 
             Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
                 rewriter, loc, op, outputElementType, accumulated);
-            finalResult = opFusionHelper.emitFuseOps(finalResult);
+            finalResult = opFusionHelper.emitFuseOps(finalResult, loopInd);
             // Store result in the resulting array.
             createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
           });
