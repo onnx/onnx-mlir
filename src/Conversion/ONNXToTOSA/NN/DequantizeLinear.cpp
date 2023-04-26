@@ -4,7 +4,7 @@
 
 //===------------- ONNXDequantizeLinearOp.cpp - ONNXDequantizeLinearOp --------------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2023 Advanced Micro Devices, Inc.
 //
 // ======================================================================================
 //
@@ -55,16 +55,11 @@ public:
     // to have a correct sub.
     mlir::ElementsAttr zeroPoint = tosa::getElementsAttrFromConst(x_zero_point);
     auto zpValue = zeroPoint.getValues<int8_t>()[0];
-    llvm::SmallVector<int64_t, 4> tmpTensor;
-    for (uint i = 0; i < inputShape.size(); ++i) {
-      tmpTensor.emplace_back(1);
-    }
-    std::vector zpVec = std::vector<int8_t>{zpValue};
-    auto zpConst = tosaBuilder.getConst(zpVec, tmpTensor);
+    auto zpConst = tosaBuilder.getSplattedConst<int8_t>(zpValue, inputShape.size());
     
     // Dequantization formula is (x - zero_point) * scale
     // Cast into the destination type first
-    Value subOp = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(rewriter, loc, resultType, x, zpConst).getResult();
+    Value subOp = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(rewriter, loc, x.getType(), x, zpConst).getResult();
     Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, resultType, subOp).getResult();
     Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, resultType, castOp, x_scale, 0).getResult();
 

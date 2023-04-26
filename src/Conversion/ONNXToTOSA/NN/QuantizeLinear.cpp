@@ -4,7 +4,7 @@
 
 //===------------- ONNXQuantizeLinearOp.cpp - ONNXQuantizeLinearOp --------------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2023 Advanced Micro Devices, Inc.
 //
 // ==================================================================================
 //
@@ -60,12 +60,7 @@ public:
     // to have a correct add.
     mlir::ElementsAttr zeroPoint = tosa::getElementsAttrFromConst(y_zero_point);
     auto zpValue = zeroPoint.getValues<int8_t>()[0];
-    llvm::SmallVector<int64_t, 4> tmpTensor;
-    for (uint i = 0; i < inputShape.size(); ++i) {
-      tmpTensor.emplace_back(1);
-    }
-    std::vector zpVec = std::vector<int8_t>{zpValue};
-    auto zpConst = tosaBuilder.getConst(zpVec, tmpTensor);
+    auto zpConst = tosaBuilder.getSplattedConst<int8_t>(zpValue, inputShape.size());
     
     // Quantization formula is ((x / y_scale) + y_zero_point)
     // Replace the division by a reciprocal followed by a mul
