@@ -12,6 +12,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   Math/Conv2D.cpp
   NN/MaxPoolSingleOut.cpp
   Tensor/Constant.cpp
+  Tensor/Reshape.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps
