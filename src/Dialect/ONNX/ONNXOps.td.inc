@@ -6917,6 +6917,51 @@ def ONNXResizeOp:ONNX_Op<"Resize",
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
+  Each dimension value of the output tensor is: <br/>
+    `output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)` <br/>
+  if input \\"sizes\\" is not specified.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$roi,
+    AnyTypeOf<[TensorOf<[F32]>, NoneType]>:$scales,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$sizes,
+    DefaultValuedAttr<SI64Attr, "0">:$antialias,
+    OptionalAttr<I64ArrayAttr>:$axes,
+    DefaultValuedStrAttr<StrAttr, "half_pixel">:$coordinate_transformation_mode,
+    DefaultValuedAttr<F32Attr, "-0.75">:$cubic_coeff_a,
+    DefaultValuedAttr<SI64Attr, "0">:$exclude_outside,
+    DefaultValuedAttr<F32Attr, "0.0">:$extrapolation_value,
+    DefaultValuedStrAttr<StrAttr, "stretch">:$keep_aspect_ratio_policy,
+    DefaultValuedStrAttr<StrAttr, "nearest">:$mode,
+    DefaultValuedStrAttr<StrAttr, "round_prefer_floor">:$nearest_mode);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXResizeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
+}
+
+def ONNXResizeV13Op:ONNX_Op<"ResizeV13",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX Resize operation";
+  let description = [{
+  Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
   Each dimension value of the output tensor is:
     output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \\"sizes\\" is not specified.
   }];
@@ -6945,12 +6990,11 @@ def ONNXResizeOp:ONNX_Op<"Resize",
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXResizeOpShapeHelper(op, oper, ieb, scope);
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXResizeV13OpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
   }];
-  let hasVerifier = 1;
 }
 
 def ONNXResizeV11Op:ONNX_Op<"ResizeV11",
