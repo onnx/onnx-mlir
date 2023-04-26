@@ -480,6 +480,7 @@ public:
   void getAffineMapAndOperands(
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands) const;
   mlir::Value getValue() const;
+  int64_t getShape(bool uniqueQuestionMark = false) const;
 
   // Helpers for list of IndexExpressions: given a (list of) IndexExpr, provide
   // the (list of) Shape/Value/OpFoldResult corresponding to the original (list

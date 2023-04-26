@@ -344,6 +344,8 @@ The standard way to add tracing code in the LLVM and MLIR projects is to use the
 
 To insert a single "printout" under debug control, the following template can be used.
 ```C++
+#include "llvm/Support/Debug.h"
+
 #define DEBUG_TYPE "my_opt_name_here"
 ...
 LLVM_DEBUG(llvm::dbgs() << "debug msg here" <<  obj_to_print << "\n");
@@ -381,6 +383,8 @@ We provide a Python script [RunONNXModelZoo.py](../utils/RunONNXModelZoo.py) to 
 $ mkdir test && cd test
 $ ln -s /onnx-mlir/utils/RunONNXModel.py
 $ ln -s /onnx-mlir/utils/RunONNXModelZoo.py
-$ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python RunONNXModelZoo.py -m mnist-8 --compile-args="-O3"
+$ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python RunONNXModelZoo.py -m mnist-8 -c="-O3"
 ```
-Run the script with `-h` to see all the options.
+Run the script with `-h` to see all the options. In addition to the `-m` flag to specify a model and `-c` flag to specify the compile options, useful options are the `-k` flag to leave the onnx model in the current directory as a `.tgz` file, and the `-l debug` flag to print lots of debugging info.
+
+To find out which models are available, run the script with `-p` to print the list of available models; or `-m` followed by an incomplete name, and the script will suggest the exact names. 
