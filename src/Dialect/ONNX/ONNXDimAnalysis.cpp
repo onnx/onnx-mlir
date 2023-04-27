@@ -32,15 +32,15 @@
 
 using namespace mlir;
 
-namespace {
+namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
 // Helper functions for dimension analysis.
 //===----------------------------------------------------------------------===//
 
 /// Check if two sets are overlapping or not.
-bool areOverlapping(const onnx_mlir::DimAnalysis::DimSetT &lhs,
-    const onnx_mlir::DimAnalysis::DimSetT &rhs) {
+static bool areOverlapping(
+    const DimAnalysis::DimSetT &lhs, const DimAnalysis::DimSetT &rhs) {
   // Call `contains` on the smaller set for better performance.
   if (lhs.size() < rhs.size()) {
     for (auto &ti : lhs) {
@@ -60,25 +60,25 @@ bool areOverlapping(const onnx_mlir::DimAnalysis::DimSetT &lhs,
 
 /// Given a QuestionMarkIndexExpr representing a dynamic dimension, find the
 /// same dynamic dimensions in the inputs.
-static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
+static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
     mlir::Operation *op, mlir::ValueRange operands,
-    onnx_mlir::DimAnalysis::DimSetT &sameDims) {
+    DimAnalysis::DimSetT &sameDims) {
   mlir::Location loc = op->getLoc();
-  onnx_mlir::IndexExprBuilderForAnalysis createIE(loc);
+  IndexExprBuilderForAnalysis createIE(loc);
 
   // Cannot process if the question mark is not a specific one.
   if (!qmOuputIE.specificQuestionmark())
     return;
   // Find the same dynamic dimension in the inputs.
   for (Value v : operands) {
-    if (onnx_mlir::isNoneValue(v))
+    if (isNoneValue(v))
       continue;
-    int64_t rank = onnx_mlir::getRank(v.getType());
-    onnx_mlir::DimsExpr vDims;
+    int64_t rank = getRank(v.getType());
+    DimsExpr vDims;
     createIE.getShapeAsDims(v, vDims);
     for (int64_t i = 0; i < rank; ++i) {
       if (qmOuputIE.sameQuestionmark(vDims[i]))
-        sameDims.insert(onnx_mlir::DimAnalysis::DimT(v, i));
+        sameDims.insert(DimAnalysis::DimT(v, i));
     }
   }
 }
@@ -86,15 +86,15 @@ static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
 /// Given a dynamic dimension, find the same dynamic dimensions in the inputs.
 /// This function uses ShapeHelper to explore the same dynamic dimensions.
 /// Use this function for operations that use adaptor to compute shape.
-bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
-    mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
+static bool exploreSameInputDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
+    mlir::Operation *op, DimAnalysis::DimSetT &sameDims) {
   // Has this op a ShapeHelper interface?
   auto shape_op = llvm::dyn_cast<ShapeHelperOpInterface>(*op);
   if (!shape_op)
     return false;
 
   // Get its shape interface.
-  onnx_mlir::ONNXOpShapeHelper *shapeHelper =
+  ONNXOpShapeHelper *shapeHelper =
       shape_op.getShapeHelper(op, {}, nullptr, nullptr);
   if (!shapeHelper)
     return false;
@@ -108,27 +108,64 @@ bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
   // The operation may have multiple outputs, find the index of the processing
   // output.
   Value outputTensor = dim.first;
-  uint64_t tensorIndex = 0;
-  for (uint64_t i = 0; i < op->getNumResults(); ++i) {
+  int64_t tensorIndex = -1;
+  for (int64_t i = 0; i < op->getNumResults(); ++i) {
     if (op->getResult(i) == outputTensor) {
       tensorIndex = i;
       break;
     }
   }
+  assert(tensorIndex != -1 && "Value does not exist");
 
   // Find the dynamic input dimensions that were transferred to the dynamic
   // output dimension.
   uint64_t dimIndex = dim.second;
-  onnx_mlir::QuestionmarkIndexExpr qmOuputIE =
+  QuestionmarkIndexExpr qmOuputIE =
       shapeHelper->getOutputDims(tensorIndex)[dimIndex];
   findAndAddSameDim(qmOuputIE, op, op->getOperands(), sameDims);
   delete shapeHelper;
   return true;
 }
 
-} // namespace
+static bool exploreSameInputDimsUsingShapeInput(const DimAnalysis::DimT &dim,
+    mlir::Operation *op, DimAnalysis::DimSetT &sameDims) {
+  uint64_t dimIndex = dim.second;
 
-namespace onnx_mlir {
+  // If an operation has an operand that stores the output shape, use the
+  // operand to explore same dimensions.
+  Value shapeInput;
+  if (auto constOp = dyn_cast<ONNXConstantOfShapeOp>(op))
+    // `input` stores shape information.
+    shapeInput = constOp.getInput();
+  else if (auto expandOp = dyn_cast<ONNXExpandOp>(op))
+    // `shape` stores shape information.
+    shapeInput = expandOp.getShape();
+  else if (auto reshapeOp = dyn_cast<ONNXReshapeOp>(op)) {
+    // `shape` stores shape information.
+    if (reshapeOp.getAllowzero() != 0)
+      return false;
+    shapeInput = reshapeOp.getShape();
+  } else if (auto tileOp = dyn_cast<ONNXTileOp>(op)) {
+    // If input dimension i is 1, `repeats` i stores shape information.
+    Type inputType = tileOp.getInput().getType();
+    ArrayRef<int64_t> inputShape = getShape(inputType);
+    if (inputShape[dimIndex] != 1)
+      return false;
+    shapeInput = tileOp.getRepeats();
+  }
+  if (!shapeInput)
+    return false;
+
+  if (!areDimsFromConcat(shapeInput))
+    return false;
+
+  SmallVector<Value, 4> dims;
+  getDims(shapeInput, dims);
+
+  DimAnalysis::DimT newSameDim(dims[dimIndex], dimIndex);
+  sameDims.insert(newSameDim);
+  return true;
+}
 
 DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
   for (Value val : vals)
@@ -373,144 +410,60 @@ void DimAnalysis::visitDim(
   if (isa<ONNXConstantOp>(op))
     return;
 
-  ////////////////////////////////////////////////////
-  // Special cases.
-
-  // BinaryOp (alphabetical list, same as under ShapeHelper
-  // ONNXBroadcastOpShapeHelper).
-  // clang-format off
-  if (isa<ONNXAddOp>(op) || 
-      isa<ONNXAndOp>(op) ||
-      isa<ONNXBitShiftOp>(op) ||
-      isa<ONNXBitwiseAndOp>(op) ||
-      isa<ONNXBitwiseOrOp>(op) ||
-      isa<ONNXBitwiseXorOp>(op) ||
-      isa<ONNXBitShiftOp>(op) ||
-      isa<ONNXDivOp>(op) || 
-      isa<ONNXEqualOp>(op) ||
-      isa<ONNXGreaterOp>(op) ||
-      isa<ONNXGreaterOrEqualOp>(op) ||
-      isa<ONNXLessOp>(op) ||
-      isa<ONNXLessOrEqualOp>(op) ||
-      isa<ONNXMeanOp>(op) ||
-      isa<ONNXMinOp>(op) ||
-      isa<ONNXModOp>(op) ||
-      isa<ONNXMulOp>(op) ||
-      isa<ONNXOrOp>(op) ||
-      isa<ONNXPowOp>(op) ||
-      isa<ONNXSubOp>(op) ||
-      isa<ONNXSumOp>(op) ||
-      isa<ONNXWhereOp>(op) ||
-      isa<ONNXXorOp>(op)) {
-    // clang-format on
-    bool success = exploreSameInputDims(dim, op, sameDims);
-    assert(success && "dim analysis should be successful for broadcast ops ");
-    // If we know by this analysis that two dynamic dims at the same index are
-    // the same, then the output dim must be the same too.
-    Value A = op->getOperands()[0];
-    Value B = op->getOperands()[1];
-    Type aType = A.getType();
-    Type bType = B.getType();
-    uint64_t aRank = onnx_mlir::getRank(aType);
-    uint64_t bRank = onnx_mlir::getRank(bType);
-    uint64_t maxRank = std::max(aRank, bRank);
-    if ((aRank != 0) && (bRank != 0)) {
-      ArrayRef<int64_t> aShape = onnx_mlir::getShape(aType);
-      ArrayRef<int64_t> bShape = onnx_mlir::getShape(bType);
-      // aDim == bDim (dynamic), there is no broadcasting and aDim ==
-      // outputDim.
-      int64_t aDimIndex = dimIndex - (maxRank - aRank);
-      int64_t bDimIndex = dimIndex - (maxRank - bRank);
-      if ((aDimIndex >= 0) && (bDimIndex >= 0) &&
-          ShapedType::isDynamic(aShape[aDimIndex]) &&
-          ShapedType::isDynamic(bShape[bDimIndex]) &&
-          onnx_mlir::DimAnalysis::sameDynDim(A, aDimIndex, B, bDimIndex))
-        sameDims.insert(onnx_mlir::DimAnalysis::DimT(A, aDimIndex));
-    }
-    return;
-  }
-
-  // ConstantOfShapeOp
-  if (auto constOp = dyn_cast<ONNXConstantOfShapeOp>(op)) {
-    if (!areDimsFromConcat(constOp.getInput()))
-      return;
-    SmallVector<Value, 4> inputs;
-    getDims(constOp.getInput(), inputs);
-    DimT newSameDim(inputs[dimIndex], dimIndex);
-    sameDims.insert(newSameDim);
-    return;
-  }
-
   // DimOp
   if (auto dimOp = dyn_cast<ONNXDimOp>(op)) {
-    DimT newSameDim(dimOp.getData(), dimOp.getAxis());
+    DimAnalysis::DimT newSameDim(dimOp.getData(), dimOp.getAxis());
     sameDims.insert(newSameDim);
     return;
   }
 
-  // ExpandOp when shape is from Concat of dims.
-  if (auto expandOp = dyn_cast<ONNXExpandOp>(op)) {
-    if (areDimsFromConcat(expandOp.getShape())) {
-      SmallVector<Value, 4> shapes;
-      getDims(expandOp.getShape(), shapes);
-      DimT newSameDim(shapes[dimIndex], dimIndex);
-      sameDims.insert(newSameDim);
-      return;
-    }
-  }
+  ////////////////////////////////////////////////////
+  // Using ShapeHelper to find out where the output dim comes from.
+  exploreSameInputDimsUsingShapeHelper(dim, op, sameDims);
 
-  // MatMulOp
-  if (auto matmulOp = dyn_cast<ONNXMatMulOp>(op)) {
-    bool success = exploreSameInputDims(dim, op, sameDims);
-    assert(success && "dim analysis should be successful for matmul ops ");
+  ////////////////////////////////////////////////////
+  // For operations that have an input specifying the output shape, the output
+  // dim can come from the shape input.
+  // For example: ConstantOfShape, Expand, Reshape.
+  exploreSameInputDimsUsingShapeInput(dim, op, sameDims);
 
-    // If we know by this analysis that two dynamic dims at the same index in
-    // the batchsize space are the same, then the output dim must be the same
-    // too.
-    Value A = matmulOp.getA();
-    Value B = matmulOp.getB();
-    Type aType = A.getType();
-    Type bType = B.getType();
-    uint64_t aRank = getRank(aType);
-    uint64_t bRank = getRank(bType);
-    uint64_t maxRank = std::max(aRank, bRank);
-    if (dimIndex <= maxRank - 2) { // In the batchsize space.
-      ArrayRef<int64_t> aShape = getShape(aType);
-      ArrayRef<int64_t> bShape = getShape(bType);
-      // aDim == bDim (dynamic), there is no broadcasting and aDim ==
-      // outputDim.
-      int64_t aDimIndex = dimIndex - (maxRank - aRank);
-      int64_t bDimIndex = dimIndex - (maxRank - bRank);
-      if ((aDimIndex >= 0) && (bDimIndex >= 0) &&
-          ShapedType::isDynamic(aShape[aDimIndex]) &&
-          ShapedType::isDynamic(bShape[bDimIndex]) &&
-          sameDynDim(A, aDimIndex, B, bDimIndex))
-        sameDims.insert(DimT(A, aDimIndex));
+  ////////////////////////////////////////////////////
+  // Special/additional cases.
+
+  // BinaryOp (alphabetical list, same as under ONNXBroadcastOpShapeHelper).
+  // MatMul uses the same broadcasting rule as BinaryOp, include it here.
+  // If we know by this analysis that two dynamic dims at the same index
+  // (counting from the innermost dim back) are the same, then the output dim
+  // must be the same too.
+  if (isa<ONNXAddOp, ONNXAndOp, ONNXBitShiftOp, ONNXBitwiseAndOp,
+          ONNXBitwiseOrOp, ONNXBitwiseXorOp, ONNXBitShiftOp, ONNXDivOp,
+          ONNXEqualOp, ONNXGreaterOp, ONNXGreaterOrEqualOp, ONNXLessOp,
+          ONNXLessOrEqualOp, ONNXMatMulOp, ONNXMeanOp, ONNXMinOp, ONNXModOp,
+          ONNXMulOp, ONNXOrOp, ONNXPowOp, ONNXSubOp, ONNXSumOp, ONNXWhereOp,
+          ONNXXorOp>(op)) {
+    Value A = op->getOperands()[0];
+    Value B = op->getOperands()[1];
+    uint64_t aRank = getRank(A.getType());
+    uint64_t bRank = getRank(B.getType());
+    if ((aRank != 0) && (bRank != 0)) {
+      // aDim == bDim (dynamic), there is no broadcasting and aDim == outputDim.
+      uint64_t maxRank = std::max(aRank, bRank);
+      int64_t negativeIndex = dimIndex - maxRank;
+      if (sameDim(A, negativeIndex, B, negativeIndex))
+        sameDims.insert(DimAnalysis::DimT(A, aRank + negativeIndex));
     }
     return;
   }
 
-  // ReshapeOp
+  // ReshapeOp has some additional cases.
   if (auto reshapeOp = dyn_cast<ONNXReshapeOp>(op)) {
     if (reshapeOp.getAllowzero() != 0)
       return;
 
     Value data = reshapeOp.getData();
-    Value shape = reshapeOp.getShape();
     Value output = reshapeOp.getReshaped();
 
-    // Get the dynamic dimension from shape. Use this to update the current
-    // dimension.
-    if (areDimsFromConcat(shape)) {
-      SmallVector<Value, 4> shapeDims;
-      getDims(shape, shapeDims);
-      Value dimFromShape = shapeDims[dimIndex];
-      DimT newSameDim(dimFromShape, dimIndex);
-      sameDims.insert(newSameDim);
-    }
-
     // The output dimension i can be from
-    // - shape[i] or,
     // - data[j] if
     //    - dim j and i are the only dynamic dimension in data and
     // output, respectively, and
@@ -522,22 +475,23 @@ void DimAnalysis::visitDim(
     // inputs.
 
     // Get the dynamic dimension from data.
-    RankedTensorType dataType = data.getType().dyn_cast<RankedTensorType>();
-    RankedTensorType outputType = output.getType().dyn_cast<RankedTensorType>();
+    auto dataType = cast<RankedTensorType>(data.getType());
+    auto outputType = cast<RankedTensorType>(output.getType());
     // Check if there is only one dynamic dimension in the data and output.
-    bool isDataOK =
+    bool dataHasOneDynamicDim =
         (llvm::count(dataType.getShape(), ShapedType::kDynamic) == 1);
-    bool isOutputOK =
+    bool outputHasOneDynamicDim =
         (llvm::count(outputType.getShape(), ShapedType::kDynamic) == 1);
     // Check if the products of static sizes in the data and output are equal.
     // It's ok to count ShapedType::kDynamic (dynamic dimension) in the size.
-    int64_t dataSize = 1, outputSize = 1;
+    int64_t dataStaticSize = 1, outputStaticSize = 1;
     for (int64_t i = 0; i < dataType.getRank(); ++i)
-      dataSize *= dataType.getShape()[i];
+      dataStaticSize *= dataType.getShape()[i];
     for (int64_t i = 0; i < outputType.getRank(); ++i)
-      outputSize *= outputType.getShape()[i];
+      outputStaticSize *= outputType.getShape()[i];
     // Conditions hold, the dynamic dimension can be from the data.
-    if (isDataOK && isOutputOK && (dataSize == outputSize)) {
+    if (dataHasOneDynamicDim && outputHasOneDynamicDim &&
+        (dataStaticSize == outputStaticSize)) {
       // Find the index of the dynamic dimension in the data.
       Optional<int64_t> dynamicDimIndexInData = std::nullopt;
       for (int64_t i = 0; i < dataType.getRank(); ++i)
@@ -580,62 +534,7 @@ void DimAnalysis::visitDim(
     }
     return;
   }
-
-  // ReduceMeanV13Op
-  if (auto reduceMeanOp = dyn_cast<ONNXReduceMeanV13Op>(op)) {
-    // TODO: replace the code here by the following code once ReduceMean uses
-    // IndexExpr for its shape inference.
-
-    // Only support keepdims at this moment.
-    if (reduceMeanOp.getKeepdims() != 1)
-      return;
-    // Reduction dims in output are always 1. So a dynamic dim in the output
-    // is at the same index as the one in the input.
-    llvm::Optional<ArrayAttr> axesAttr = reduceMeanOp.getAxes();
-    if (axesAttr.has_value()) {
-      // Do nothing if the target dim is the reduction dim.
-      for (size_t i = 0; i < ArrayAttrSize(axesAttr); ++i) {
-        if (ArrayAttrIntVal(axesAttr, i) == (int64_t)dim.second)
-          return;
-      }
-      // The target dim is not the reduction dim, it would be the same as the
-      // input dim.
-      sameDims.insert(DimT(reduceMeanOp.getData(), dim.second));
-    }
-    return;
-  }
-
-  // TileOp
-  if (auto tileOp = dyn_cast<ONNXTileOp>(op)) {
-    // Special case:
-    // output_dim[i] = input_dim[i] * repeats[i]
-    //
-    // If input dimension i (input_dim[i]) is 1, output dimension i
-    // (output_dim[i]) and repeats i (repeats[i]) are equal.
-    //
-    // clang-format off
-    // ```mlir
-    // %0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
-    // %1 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
-    // %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
-    // %3 = "onnx.Tile"(%arg1, %2) : (tensor<1x1xi64>, tensor<2xi64>) -> tensor<?x?xi64>
-    // ```
-    // clang-format on
-    Type inputType = tileOp.getInput().getType();
-    ArrayRef<int64_t> inputShape = onnx_mlir::getShape(inputType);
-    if (areDimsFromConcat(tileOp.getRepeats()) && inputShape[dimIndex] == 1) {
-      SmallVector<Value, 4> repeats;
-      getDims(tileOp.getRepeats(), repeats);
-      DimT newSameDim(repeats[dimIndex], dimIndex);
-      sameDims.insert(newSameDim);
-      return;
-    }
-  }
-
-  ////////////////////////////////////////////////////
-  // Generic cases
-  exploreSameInputDims(dim, op, sameDims);
-} // namespace onnx_mlir
+}
 
 } // namespace onnx_mlir
 
