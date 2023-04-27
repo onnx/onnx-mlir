@@ -52,14 +52,18 @@ public:
   DimSetMapT getGroupingResult() const { return dimSetMap; }
 
   /// Test if two dimensions are the same or not.
-  /// Each dimension is identified by its tensor and axis.
-  bool sameDim(mlir::Value tensor1, uint64_t dimAxis1, mlir::Value tensor2,
-      uint64_t dimAxis2) const;
+  /// Each dimension is identified by its tensor and axis. Negative axis is
+  /// interpreted as index from the innermost dimension. Out of bound axis
+  /// results in sameDim to return false.
+  bool sameDim(mlir::Value tensor1, int64_t dimAxis1, mlir::Value tensor2,
+      int64_t dimAxis2) const;
 
   /// Test if two dynamic dimensions are the same or not.
-  /// Each dimension is identified by its tensor and axis.
-  bool sameDynDim(mlir::Value tensor1, uint64_t dimAxis1, mlir::Value tensor2,
-      uint64_t dimAxis2) const;
+  /// Each dimension is identified by its tensor and axis. Negative axis is
+  /// interpreted as index from the innermost dimension. Out of bound axis
+  /// results in sameDynDim to return false.
+  bool sameDynDim(mlir::Value tensor1, int64_t dimAxis1, mlir::Value tensor2,
+      int64_t dimAxis2) const;
 
   /// Test if two tensors have the same shape or not.
   bool sameShape(mlir::Value tensor1, mlir::Value tensor2) const;

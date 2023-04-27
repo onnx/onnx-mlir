@@ -18,7 +18,6 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
-#define DEBUG 0 /* Log which functions are simdized. */
 #define DEBUG_TYPE "lowering-to-krnl"
 
 using namespace mlir;
@@ -1260,8 +1259,9 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 
 // Return SIMD unroll; no simd -> return 0;
 template <typename ShapeHelperType, typename ElementwiseOp>
-int64_t canBeVectorized(
-    ShapeHelperType &shapeHelper, MDBuilder &create, MemRefType memRefType) {
+int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
+    MemRefType memRefType, int64_t collapsedInnermostLoops,
+    int64_t collapsedLiteralSize) {
   int64_t simdUnroll = 0;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
@@ -1269,9 +1269,8 @@ int64_t canBeVectorized(
   double avgSimdWidth =
       analyzeSimdFor<ElementwiseOp>(elementType, vectorizedOpNum, scalarOpNum);
   if (avgSimdWidth < 1.5) {
-    if (DEBUG)
-      llvm::errs() << "SIMD disabled: avg simd width  " << avgSimdWidth
-                   << " too small\n";
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: avg simd width  "
+                            << avgSimdWidth << " too small\n");
     return 0;
   }
   // Determine empirical unroll factor.
@@ -1280,7 +1279,7 @@ int64_t canBeVectorized(
 
   int64_t vrNum = vms->VectorRegisterNum();
   if (vectorizedOpNum >= vrNum / 2)
-    simdUnroll = 1;
+    simdUnroll = 1; // TODO, it would appear to be beneficial to always have 2.
   else if (vectorizedOpNum >= vrNum / 4)
     simdUnroll = 4;
   else
@@ -1291,14 +1290,43 @@ int64_t canBeVectorized(
   bool isStaticSize = create.mem.getStaticAndDynamicMemSize(
       memRefType, shapeHelper.getOutputDims(), staticSize, dynSize);
   if (isStaticSize && staticSize < simdUnroll) {
-    if (DEBUG)
-      llvm::errs() << "SIMD disabled: trip count " << staticSize
-                   << " too short \n";
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
+                            << " too short \n");
     return 0;
   }
-  if (DEBUG)
-    llvm::errs() << "SIMD with avg width " << avgSimdWidth << " and unroll "
-                 << simdUnroll << "\n";
+  if (collapsedInnermostLoops > 0 &&
+      collapsedInnermostLoops < (int64_t)memRefType.getRank()) {
+    // We have a partially flattened operator. Since we do only simdize entire
+    // loops (i.e. we don't support scalar epilogues at this time), make sure
+    // the static size is a multiple of the VL. Get the VL of the store
+    // (output's element type).
+    int64_t VL = vms->getVectorLength(elementType);
+    if (collapsedLiteralSize % VL != 0) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  simd disabled: partial flattened dims "
+                 << collapsedInnermostLoops << " with size "
+                 << collapsedLiteralSize << " is not 0 mod VL " << VL << "\n");
+      return 0;
+    }
+    // See if we can get a unroll factor.
+    bool gotOne = false;
+    for (int64_t u = simdUnroll; u > 0; --u) {
+      if (collapsedLiteralSize % (u * VL) == 0) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "  partial flattened dims " << collapsedInnermostLoops
+                   << " with size " << collapsedLiteralSize << " works with VL "
+                   << VL << " and unroll " << u << "\n");
+        simdUnroll = u;
+        gotOne = true;
+        break;
+      }
+    }
+    // Since we passed the test collapsedLiteralSize % VL == 0 above, this
+    // assert is expected to hold true.
+    assert(gotOne && "expected at least 1 *VL to work");
+  }
+  LLVM_DEBUG(llvm::dbgs() << "  SIMD with avg width " << avgSimdWidth
+                          << " and unroll " << simdUnroll << "\n");
   return simdUnroll;
 }
 
@@ -1306,15 +1334,27 @@ int64_t canBeVectorized(
 // SIMD code gen for kernels where data can be fully flattened.
 //===----------------------------------------------------------------------===//
 
-template <typename ElementwiseUnaryOp>
-static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
+/*
+ Take operations that have no broadcasting and do the following:
+ inputs:
+   * non-scalar: get a flattened view to simdize it easily
+   * scalar: will splat
+  output:
+   * allocate with extra padding so that we may write past the logical end
+   * flatten view so that we may simdize it easily.
+ */
+
+template <typename OP_TYPE>
+static LogicalResult getFullyFlattenedSimdCode(
     ConversionPatternRewriter &rewriter, MDBuilder &create,
     ONNXOpShapeHelper *shapeHelper, Operation *op, MemRefType outputMemRefType,
-    ValueRange operands, int64_t alignment, int64_t simdUnroll) {
+    ValueRange operands, int64_t alignment, int64_t simdUnroll,
+    bool isUnaryOp) {
   Type outputElementType = outputMemRefType.getElementType();
+  unsigned numArgs = op->getNumOperands();
 
-  if (DEBUG)
-    llvm::errs() << "SIMD code for binary op " << op->getName() << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "  fully flattened SIMD code for elementwise op "
+                          << op->getName() << "\n");
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
@@ -1354,6 +1394,7 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
       [&](KrnlBuilder &ck, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
         llvm::SmallVector<Value, 4> loadedVals;
+        // Load all the values
         for (Value flatOper : flatOperands) {
           if (isNoneValue(flatOper)) {
             // None, just pass it on unmodified.
@@ -1374,80 +1415,172 @@ static LogicalResult getUnaryBinarySimdCodeFullyFlattened(
             loadedVals.emplace_back(loadedVal);
           }
         }
-        Value loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-            rewriter, create.getLoc(), op, vecElementType, loadedVals);
+        Value finalResult;
+        if (isUnaryOp) {
+          // For unary op, we through all operands at once as the other ones are
+          // scalars / none values.
+          finalResult = emitScalarOpFor<OP_TYPE>(
+              rewriter, create.getLoc(), op, vecElementType, loadedVals);
+        } else {
+          // For non-unary ops, each op is a flattened array that need to be
+          // processed; process the two first ones, and then "accumulate" one
+          // value at a time. Use the first operand as temporary result.
+          Value accumulated = loadedVals[0];
+          // Iterate over the remaining operands.
+          for (unsigned i = 1; i < numArgs; ++i) {
+            Value next = loadedVals[i];
+            // Fold.
+            accumulated = emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(),
+                op, vecElementType, {accumulated, next});
+          }
+          // Postprocessing (dummy op if none).
+          finalResult = emitPostProcessingFor<OP_TYPE>(
+              rewriter, create.getLoc(), op, vecElementType, accumulated);
+        }
         // Store result in the resulting array.
-        create.vec.store(loweredOpResult, flatAlloc, loopInd);
+        create.vec.store(finalResult, flatAlloc, loopInd);
       });
   rewriter.replaceOp(op, alloc);
   return success();
 }
 
-template <typename ElementwiseVariadicOp>
-static LogicalResult getVariadicSimdCodeFullyFlattened(
+template <typename OP_TYPE>
+static LogicalResult getPartiallyFlattenedSimdCode(
     ConversionPatternRewriter &rewriter, MDBuilder &create,
-    ONNXOpShapeHelper *shapeHelper, Operation *op, MemRefType outputMemRefType,
-    ValueRange operands, int64_t alignment, int64_t simdUnroll) {
+    ONNXBroadcastOpShapeHelper *shapeHelper, Operation *op,
+    MemRefType outputMemRefType, ValueRange operands, int64_t alignment,
+    int64_t simdUnroll, int64_t collapsedInnermostLoops, bool ruledOutBroadcast,
+    bool isUnaryOp) {
   Type outputElementType = outputMemRefType.getElementType();
   unsigned numArgs = op->getNumOperands();
-
-  if (DEBUG)
-    llvm::errs() << "SIMD code for variadic op " << op->getName() << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "  partial SIMD code for elementwise op "
+                          << op->getName() << " flattening "
+                          << collapsedInnermostLoops << " inner dims\n");
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
   int64_t VL =
       create.vec.getMachineVectorLength(outputElementType) * simdUnroll;
   // Alloc memory with padding for SIMD.
+  // For the moment, its ok to go here; if we truly have partial flattening of
+  // the simd code, then we only do it with static memref size that are
+  // multiples of VL * simdUnroll, so there should be no padding anyway. This
+  // will change if we do partial flattening with non-multiple of VL *
+  // simdUnroll.
   Value alloc = create.mem.alignedAllocWithSimdPadding(
       outputMemRefType, shapeHelper->getOutputDims(), simdUnroll, alignment);
-  // Create flat inputs.
+  // Create flat inputs in the last innerDinNum dims.
   llvm::SmallVector<Value, 4> flatOperands;
   for (Value oper : operands) {
+    if (isNoneValue(oper) || hasOneElement(oper)) {
+      // If its a none / scalar, it is not meant to be flattened.
+      flatOperands.emplace_back(oper);
+      continue;
+    }
     llvm::SmallVector<IndexExpr, 4> operDims;
     Value operSize;
     create.krnlIE.getShapeAsSymbols(oper, operDims);
-    Value flatOper = create.mem.reshapeToFlat(oper, operDims, operSize);
+    Value flatOper = create.mem.reshapeToFlat(
+        oper, operDims, operSize, collapsedInnermostLoops);
     flatOperands.emplace_back(flatOper);
   }
   // Create flat output.
-  Value totOutputSize;
+  Value flattenedOutputSize;
+  DimsExpr outputDims = shapeHelper->getOutputDims();
   Value flatAlloc = create.mem.reshapeToFlat(
-      alloc, shapeHelper->getOutputDims(), totOutputSize);
-  IndexExpr totSize = SymbolIndexExpr(totOutputSize);
-  // Create loop iteration (flattened to one dim) and blocked by mVL.
-  ValueRange loopDef = create.krnl.defineLoops(1);
-  ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
-  SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
-  SmallVector<IndexExpr, 1> ubs(1, totSize);
+      alloc, outputDims, flattenedOutputSize, collapsedInnermostLoops);
+  // Create loop iteration (flattened to output dim - inner dim + 1) with inner
+  // one and blocked by mVL.
+  int64_t rank = outputDims.size() - collapsedInnermostLoops + 1;
+  LLVM_DEBUG(
+      llvm::dbgs() << "SIMD partial flatten with loop rank " << rank << "\n");
+  int64_t flattenedDim = rank - 1;
+  ValueRange loopDef = create.krnl.defineLoops(rank);
+  ValueRange blockedLoopDef = create.krnl.block(loopDef[flattenedDim], VL);
+  SmallVector<Value, 4> optimizedLoopDef;
+  SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+  SmallVector<IndexExpr, 4> ubs;
+  for (int64_t r = 0; r < rank - 1; ++r) {
+    optimizedLoopDef.emplace_back(loopDef[r]);
+    ubs.emplace_back(SymbolIndexExpr(outputDims[r]));
+  }
+  optimizedLoopDef.emplace_back(blockedLoopDef[0]);
+  ubs.emplace_back(SymbolIndexExpr(flattenedOutputSize));
   // Create the vector type to operate over.
   VectorType vecElementType = VectorType::get({VL}, outputElementType);
   // Iterate only over the blocks.
-  create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, lbs, ubs,
+  create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, ubs,
       [&](KrnlBuilder &ck, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+        SmallVector<IndexExpr, 4> outputAccessExprs;
+        getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
+
         llvm::SmallVector<Value, 4> loadedVals;
         // Load all the values
-        for (Value flatOper : flatOperands) {
+        for (int64_t i = 0; i < (int64_t)flatOperands.size(); ++i) {
+          Value flatOper = flatOperands[i];
+          if (isNoneValue(flatOper)) {
+            // None, just pass it on unmodified.
+            loadedVals.emplace_back(flatOper);
+            continue;
+          }
           MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
           assert(memRefType && "expected memref");
           VectorType vecType =
               VectorType::get({VL}, memRefType.getElementType());
-          Value loadedVal = create.vec.load(vecType, flatOper, loopInd);
-          loadedVals.emplace_back(loadedVal);
+          if (hasOneElementInInnermostDims(flatOper, 1)) {
+            // If its a scalar, do a scalar load and splat.
+            llvm::SmallVector<IndexExpr, 4> scalarAccessFct;
+            if (hasOneElement(flatOper)) {
+              // Not flattened, with only 1 dims, just put zeros as needed.
+              int64_t scalarRank =
+                  flatOper.getType().dyn_cast<ShapedType>().getRank();
+              for (int r = 0; r < scalarRank; ++r)
+                scalarAccessFct.emplace_back(LiteralIndexExpr(0));
+
+            } else {
+              // Was flattened, with non 1 dims, use get access expr.
+              LogicalResult res =
+                  shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
+                      scalarAccessFct, /*flattened*/ true, ruledOutBroadcast);
+              assert(succeeded(res) && "Could not compute access indices");
+            }
+            Value loadedVal = create.krnl.loadIE(flatOper, scalarAccessFct);
+            Value splatValue = create.vec.splat(vecType, loadedVal);
+            loadedVals.emplace_back(splatValue);
+          } else {
+            llvm::SmallVector<IndexExpr, 4> loadAccessFct;
+            LogicalResult res =
+                shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
+                    loadAccessFct, /*flattened*/ true, ruledOutBroadcast);
+            assert(succeeded(res) && "Could not compute access indices");
+            Value loadedVal =
+                create.vec.loadIE(vecType, flatOper, loadAccessFct, {});
+            loadedVals.emplace_back(loadedVal);
+          }
         }
-        // Use the first operand as temporary result.
-        Value accumulated = loadedVals[0];
-        // Iterate over the remaining operands.
-        for (unsigned i = 1; i < numArgs; ++i) {
-          Value next = loadedVals[i];
-          // Fold.
-          accumulated = emitScalarOpFor<ElementwiseVariadicOp>(rewriter,
-              create.getLoc(), op, vecElementType, {accumulated, next});
+        Value finalResult;
+        if (isUnaryOp) {
+          // For unary op, we through all operands at once as the other ones are
+          // scalars / none values.
+          finalResult = emitScalarOpFor<OP_TYPE>(
+              rewriter, create.getLoc(), op, vecElementType, loadedVals);
+        } else {
+          // For non-unary ops, each op is a flattened array that need to be
+          // processed; process the two first ones, and then "accumulate" one
+          // value at a time. Use the first operand as temporary result.
+          Value accumulated = loadedVals[0];
+          // Iterate over the remaining operands.
+          for (unsigned i = 1; i < numArgs; ++i) {
+            Value next = loadedVals[i];
+            // Fold.
+            accumulated = emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(),
+                op, vecElementType, {accumulated, next});
+          }
+          // Postprocessing (dummy op if none).
+          finalResult = emitPostProcessingFor<OP_TYPE>(
+              rewriter, create.getLoc(), op, vecElementType, accumulated);
         }
-        // Postprocessing (dummy op if none).
-        Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
-            rewriter, create.getLoc(), op, vecElementType, accumulated);
         // Store result in the resulting array.
         create.vec.store(finalResult, flatAlloc, loopInd);
       });
@@ -1657,24 +1790,30 @@ struct ONNXElementwiseUnaryOpLowering
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    int64_t outputRank = outputMemRefType.getRank();
     Type elementType = outputMemRefType.getElementType();
 
     // Shape helper.
     MDBuilder create(rewriter, loc);
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
-
+    LLVM_DEBUG({
+      llvm::dbgs() << "Look at unary elementwise op: " << op->getName() << "\n";
+      op->dump();
+    });
     bool isScalar = hasAllScalarValues(operands);
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, create, outputMemRefType);
+              shapeHelper, create, outputMemRefType, outputRank,
+              /*collapsedInnermostLoops*/ 1);
       if (simdUnroll > 0)
-        return getUnaryBinarySimdCodeFullyFlattened<ElementwiseUnaryOp>(
-            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
-            alignment, simdUnroll);
+        return getFullyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter, create,
+            &shapeHelper, op, outputMemRefType, operands, alignment, simdUnroll,
+            /*unary*/ true);
     }
+    LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
     // Try to fuse the unary elementwise consumers
     OpFusionHelper opFusionHelper(rewriter, op);
@@ -1687,9 +1826,8 @@ struct ONNXElementwiseUnaryOpLowering
 
     // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!isScalar) {
-      ValueRange loopDef = create.krnl.defineLoops(outputMemRefType.getRank());
-      SmallVector<IndexExpr, 4> lbs(
-          outputMemRefType.getRank(), LiteralIndexExpr(0));
+      ValueRange loopDef = create.krnl.defineLoops(outputRank);
+      SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -1786,21 +1924,44 @@ struct ONNXElementwiseBinaryOpLowering
         op, operands, &create.krnlIE, nullptr, isUniBroadcasting);
     shapeHelper.computeShapeAndAssertOnFailure();
 
+    LLVM_DEBUG({
+      llvm::dbgs() << "Look at binary elementwise op: " << op->getName()
+                   << "\n";
+      op->dump();
+    });
+
+    int64_t collapsedInnermostLoops, collapsedLiteralSize;
+    IndexExpr collapsedDynamicSize;
     bool isScalar = hasAllScalarValues(operands);
-    // Shape helper can determine if there is no static broadcast.
     bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
+    bool hasManageableBroadcast =
+        shapeHelper.hasManageableBroadcastForInnerDims(collapsedInnermostLoops,
+            collapsedLiteralSize, collapsedDynamicSize, dimAnalysis);
+    LLVM_DEBUG({
+      if (hasManageableBroadcast)
+        llvm::dbgs() << "  simd with manageable broadcast: inner dims "
+                     << collapsedInnermostLoops << " of lit size "
+                     << collapsedLiteralSize << "\n";
+      else
+        llvm::dbgs() << "  simd not possible, unmanageable broadcast\n";
+      if (hasNoBroadcast)
+        llvm::dbgs() << "  simd possible: hasNoBroadcast\n";
+    });
 
     // SIMD is enabled for this operation, test if desired and feasible
-    if (enableSIMD && !isScalar && hasNoBroadcast &&
+    if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
-              shapeHelper, create, outputMemRefType);
+              shapeHelper, create, outputMemRefType, collapsedInnermostLoops,
+              collapsedLiteralSize);
       if (simdUnroll > 0)
-        return getUnaryBinarySimdCodeFullyFlattened<ElementwiseBinaryOp>(
-            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
-            alignment, simdUnroll);
+        return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
+            create, &shapeHelper, op, outputMemRefType, operands, alignment,
+            simdUnroll, collapsedInnermostLoops, hasNoBroadcast,
+            /*unary*/ false);
     }
+    LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
     // Try to fuse the unary elementwise consumers
     OpFusionHelper opFusionHelper(rewriter, op);
@@ -1825,15 +1986,16 @@ struct ONNXElementwiseBinaryOpLowering
 
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
-            LogicalResult res = shapeHelper.getAccessExprs(operands[0], 0,
-                outputAccessExprs, lhsAccessExprs, hasNoBroadcast);
+            LogicalResult res =
+                shapeHelper.getAccessExprs(operands[0], 0, outputAccessExprs,
+                    lhsAccessExprs, /*flattened dims*/ false, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value lhs = createKrnl.loadIE(operands[0], lhsAccessExprs);
 
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
             res = shapeHelper.getAccessExprs(operands[1], 1, outputAccessExprs,
-                rhsAccessExprs, hasNoBroadcast);
+                rhsAccessExprs, /*flattened dims*/ false, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value rhs = createKrnl.loadIE(operands[1], rhsAccessExprs);
 
@@ -1903,20 +2065,44 @@ struct ONNXElementwiseVariadicOpLowering
     MDBuilder create(rewriter, loc);
     ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
+    LLVM_DEBUG({
+      llvm::dbgs() << "Look at variadic elementwise op: " << op->getName()
+                   << "\n";
+      op->dump();
+    });
 
+    int64_t collapsedInnermostLoops, collapsedLiteralSize;
+    IndexExpr collapsedDynamicSize;
     bool isScalar = hasAllScalarValues(operands);
     bool hasNoBroadcast = shapeHelper.hasNoBroadcast(dimAnalysis);
-    if (enableSIMD && !isScalar && hasNoBroadcast &&
+    bool hasManageableBroadcast =
+        shapeHelper.hasManageableBroadcastForInnerDims(collapsedInnermostLoops,
+            collapsedLiteralSize, collapsedDynamicSize, dimAnalysis);
+    LLVM_DEBUG({
+      if (hasManageableBroadcast)
+        llvm::dbgs() << "  simd with manageable broadcast: inner dims "
+                     << collapsedInnermostLoops << " of lit size "
+                     << collapsedLiteralSize << "\n";
+      else
+        llvm::dbgs() << "  simd not possible, unmanageable broadcast\n";
+      if (hasNoBroadcast)
+        llvm::dbgs() << "  simd possible: hasNoBroadcast\n";
+    });
+
+    if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
-              shapeHelper, create, outputMemRefType);
+              shapeHelper, create, outputMemRefType, collapsedInnermostLoops,
+              collapsedLiteralSize);
       if (simdUnroll > 0)
-        return getVariadicSimdCodeFullyFlattened<ElementwiseVariadicOp>(
-            rewriter, create, &shapeHelper, op, outputMemRefType, operands,
-            alignment, simdUnroll);
+        return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
+            create, &shapeHelper, op, outputMemRefType, operands, alignment,
+            simdUnroll, collapsedInnermostLoops, hasNoBroadcast,
+            /*unary*/ false);
     }
+    LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
     // Try to fuse the unary elementwise consumers
     OpFusionHelper opFusionHelper(rewriter, op);
@@ -1943,8 +2129,9 @@ struct ONNXElementwiseVariadicOpLowering
             // Fold over operands for each of their scalar values.
             // Obtain the first operand.
             SmallVector<IndexExpr, 4> oprdAccessExprs;
-            LogicalResult res = shapeHelper.getAccessExprs(operands[0], 0,
-                outputAccessExprs, oprdAccessExprs, hasNoBroadcast);
+            LogicalResult res =
+                shapeHelper.getAccessExprs(operands[0], 0, outputAccessExprs,
+                    oprdAccessExprs, /*flattened dims*/ false, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
 
@@ -1953,7 +2140,8 @@ struct ONNXElementwiseVariadicOpLowering
               // Obtain the next operand.
               SmallVector<IndexExpr, 4> oprdAccessExprs;
               LogicalResult res = shapeHelper.getAccessExprs(operands[i], i,
-                  outputAccessExprs, oprdAccessExprs, hasNoBroadcast);
+                  outputAccessExprs, oprdAccessExprs, /*flattened dims*/ false,
+                  hasNoBroadcast);
               assert(succeeded(res) && "Could not compute access indices");
               Value next = createKrnl.loadIE(operands[i], oprdAccessExprs);
               // Fold.
@@ -2044,9 +2232,9 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
             // Load the condition value.
             SmallVector<IndexExpr, 4> condAccessExprs;
-            LogicalResult res =
-                shapeHelper.getAccessExprs(operandAdaptor.getCondition(), 0,
-                    outputAccessExprs, condAccessExprs, hasNoBroadcast);
+            LogicalResult res = shapeHelper.getAccessExprs(
+                operandAdaptor.getCondition(), 0, outputAccessExprs,
+                condAccessExprs, /*flattened dims*/ false, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value cond = createKrnl.loadIE(
                 operandAdaptor.getCondition(), condAccessExprs);
@@ -2054,7 +2242,8 @@ struct ONNXWhereOpLowering : public ConversionPattern {
             // Load the first value.
             SmallVector<IndexExpr, 4> lhsAccessExprs;
             res = shapeHelper.getAccessExprs(operandAdaptor.getX(), 1,
-                outputAccessExprs, lhsAccessExprs, hasNoBroadcast);
+                outputAccessExprs, lhsAccessExprs, /*flattened dims*/ false,
+                hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value lhs =
                 createKrnl.loadIE(operandAdaptor.getX(), lhsAccessExprs);
@@ -2062,7 +2251,8 @@ struct ONNXWhereOpLowering : public ConversionPattern {
             // Load the second value.
             SmallVector<IndexExpr, 4> rhsAccessExprs;
             res = shapeHelper.getAccessExprs(operandAdaptor.getY(), 2,
-                outputAccessExprs, rhsAccessExprs, hasNoBroadcast);
+                outputAccessExprs, rhsAccessExprs, /*flattened dims*/ false,
+                hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value rhs =
                 createKrnl.loadIE(operandAdaptor.getY(), rhsAccessExprs);
