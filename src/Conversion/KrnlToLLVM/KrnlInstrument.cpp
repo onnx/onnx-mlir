@@ -74,7 +74,8 @@ public:
       }
       if (name.empty())
         name = "NOTSET";
-      name.pop_back(); // remove last "-"
+      else
+        name.pop_back(); // remove last "-"
       loc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(loc).getName();
     } else if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
