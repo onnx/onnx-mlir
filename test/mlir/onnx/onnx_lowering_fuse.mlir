@@ -1,13 +1,16 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl -canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
 // -----
 
 // Fuse both Sqrt to Add
+
 func.func @test_fuse_element3(%arg0: tensor<1024xf32>, %arg1: tensor<1024xf32>) -> tensor<1024xf32> attributes {input_names = ["x", "y"], output_names = ["sum"]} {
     %0 = "onnx.Add"(%arg0, %arg1) : (tensor<1024xf32>, tensor<1024xf32>) -> tensor<1024xf32>
     %1 = "onnx.Sqrt"(%0) : (tensor<1024xf32>) -> tensor<1024xf32>
     %2 = "onnx.Sqrt"(%1) : (tensor<1024xf32>) -> tensor<1024xf32>
     return %2 : tensor<1024xf32>
+
+// mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_fuse_element3
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1024xf32>, [[PARAM_1_:%.+]]: memref<1024xf32>) -> memref<1024xf32> attributes {input_names = ["x", "y"], output_names = ["sum"]} {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1024xf32>
@@ -27,13 +30,16 @@ func.func @test_fuse_element3(%arg0: tensor<1024xf32>, %arg1: tensor<1024xf32>) 
 
 // -----
 
-// Stop fusion after the first Sqrt because it has more one user 
-  func.func @test_fuse_element4(%arg0: tensor<1024xf32>, %arg1: tensor<1024xf32>) -> tensor<1024xf32> attributes {input_names = ["x", "y"], output_names = ["sum"]} {
+// Stop fusion after the first Sqrt because it has more one user
+
+func.func @test_fuse_element4(%arg0: tensor<1024xf32>, %arg1: tensor<1024xf32>) -> tensor<1024xf32> attributes {input_names = ["x", "y"], output_names = ["sum"]} {
     %0 = "onnx.Add"(%arg0, %arg1) : (tensor<1024xf32>, tensor<1024xf32>) -> tensor<1024xf32>
     %1 = "onnx.Sqrt"(%0) : (tensor<1024xf32>) -> tensor<1024xf32>
     %2 = "onnx.Sqrt"(%1) : (tensor<1024xf32>) -> tensor<1024xf32>
     %3 = "onnx.Add"(%1, %2) : (tensor<1024xf32>, tensor<1024xf32>) -> tensor<1024xf32>
     return %3 : tensor<1024xf32>
+
+// mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_fuse_element4
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1024xf32>, [[PARAM_1_:%.+]]: memref<1024xf32>) -> memref<1024xf32> attributes {input_names = ["x", "y"], output_names = ["sum"]} {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1024xf32>
@@ -65,15 +71,18 @@ func.func @test_fuse_element3(%arg0: tensor<1024xf32>, %arg1: tensor<1024xf32>) 
 // CHECK:           }
 // CHECK:           return [[RES_2_]] : memref<1024xf32>
 // CHECK:         }
-  }
+}
 
 // -----
 
-// Start from binary op and dynamic
+// Start from unary op and dynamic
+
 func.func @test_fuse_element7(%arg0: tensor<?xf32>, %arg1: tensor<1xf32>) -> tensor<?xf32> attributes {input_names = ["x", "y"], output_names = ["sum"]} {
   %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<?xf32>, tensor<1xf32>) -> tensor<?xf32>
   %1 = "onnx.Sqrt"(%0) : (tensor<?xf32>) -> tensor<?xf32>
   return %1 : tensor<?xf32>
+
+// mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func.func @test_fuse_element7
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?xf32>, [[PARAM_1_:%.+]]: memref<1xf32>) -> memref<?xf32> attributes {input_names = ["x", "y"], output_names = ["sum"]} {
@@ -96,10 +105,13 @@ func.func @test_fuse_element7(%arg0: tensor<?xf32>, %arg1: tensor<1xf32>) -> ten
 // -----
 
 // Start from binary and last fusible Op has different element type
+
 func.func @test_fuse_element8(%arg0: tensor<?xf32>, %arg1: tensor<1xf32>) -> tensor<?xi8> {
   %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<?xf32>, tensor<1xf32>) -> tensor<?xf32>
   %1 = "onnx.Cast"(%0) {to = i8} : (tensor<?xf32>) -> tensor<?xi8>
   return %1 : tensor<?xi8>
+
+// mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func.func @test_fuse_element8
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?xf32>, [[PARAM_1_:%.+]]: memref<1xf32>) -> memref<?xi8> {

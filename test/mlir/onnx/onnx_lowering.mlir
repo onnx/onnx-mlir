@@ -2708,13 +2708,17 @@ func.func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor
 // CHECK:                 krnl.store [[VAR_7_]], [[RES_2_]][] : memref<i64>
 // CHECK-DAG:             [[CST_1_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:             [[CST_1_2_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[CST_1_3_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:             [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1xi64>
 // CHECK-DAG:             [[LOOP_2_:%.+]] = krnl.define_loops 1
 // CHECK-DAG:             [[CST_0_2_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:             [[CST_1_3_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[CST_1_4_:%.+]] = arith.constant 1 : index
 // CHECK:                 krnl.iterate([[LOOP_2_]]) with ([[LOOP_2_]] -> [[I_2_:%.+]] = 0 to 1){
-// CHECK:                   [[VAR_14_:%.+]] = krnl.get_induction_var_value([[LOOP_2_]]) : (!krnl.loop) -> index
-// CHECK-DAG:               [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_14_]]{{.}} : memref<1xi64>
+// CHECK-DAG:               [[VAR_14_:%.+]] = krnl.get_induction_var_value([[LOOP_2_]]) : (!krnl.loop) -> index
+// CHECK-DAG:               [[CST_1_5_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:               [[CST_0_3_:%.+]] = arith.constant 0 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:               [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[CST_0_3_]]{{.}} : memref<1xi64>
 // CHECK-DAG:               [[LOAD_RES_2_MEM_:%.+]] = krnl.load [[RES_2_]][] : memref<i64>
 // CHECK:                   [[VAR_17_:%.+]] = arith.addi [[LOAD_RES_MEM_]], [[LOAD_RES_2_MEM_]] : i64
 // CHECK:                   krnl.store [[VAR_17_]], [[RES_3_]]{{.}}[[VAR_14_]]{{.}} : memref<1xi64>
@@ -2726,8 +2730,8 @@ func.func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor
 // CHECK-DAG:             [[LOAD_VAR_10_MEM_:%.+]] = krnl.load [[VAR_10_]][] : memref<i1>
 // CHECK:                 krnl.store [[LOAD_VAR_10_MEM_]], [[RES_1_]][] : memref<i1>
 // CHECK-DAG:             [[LOOP_3_:%.+]] = krnl.define_loops 1
-// CHECK-DAG:             [[CST_0_3_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:             [[CST_1_4_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:             [[CST_0_4_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:             [[CST_1_6_:%.+]] = arith.constant 1 : index
 // CHECK:                 krnl.iterate([[LOOP_3_]]) with ([[LOOP_3_]] -> [[I_3_:%.+]] = 0 to 1){
 // CHECK:                   [[VAR_14_1_:%.+]] = krnl.get_induction_var_value([[LOOP_3_]]) : (!krnl.loop) -> index
 // CHECK:                   [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[VAR_11_]]{{.}}[[VAR_14_1_]]{{.}} : memref<1xi64>
@@ -3048,7 +3052,7 @@ func.func @test_resize2(%arg0 : tensor<3x4xf32>) -> tensor<*xf32> {
 // CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-DAG:       [[VAR_cst_0_:%.+]] = arith.constant 3.000000e+00 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x12xf32>
-// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[VAR_1_]], [[VAR_2_]]) {coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, funcName = "Resize_Scales", mode = "linear", nearest_mode = "round_prefer_floor"} : (memref<3x12xf32>, memref<3x4xf32>, memref<4xf32>, memref<2xf32>) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[VAR_1_]], [[VAR_2_]]) {antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, funcName = "Resize_Scales", keep_aspect_ratio_policy = "stretch", mode = "linear", nearest_mode = "round_prefer_floor"} : (memref<3x12xf32>, memref<3x4xf32>, memref<4xf32>, memref<2xf32>) -> ()
 // CHECK:           return [[RES_]] : memref<3x12xf32>
 // CHECK:         }
 }
