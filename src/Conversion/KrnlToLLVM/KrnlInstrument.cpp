@@ -59,11 +59,12 @@ public:
     Value tag = create.llvm.constant(
         IntegerType::get(context, 64), (int64_t)instrumentOp.getTag());
     StringRef nodeName;
-    if (instrumentOp.getNodeName().has_value()) {
+    if (instrumentOp.getNodeName().has_value())
       nodeName = instrumentOp.getNodeName().value();
-    } else if (auto nameLoc = loc.dyn_cast<NameLoc>()) {
+    else if (auto nameLoc = loc.dyn_cast<NameLoc>())
       nodeName = nameLoc.getName();
-    } else if (auto fusedLoc = loc.dyn_cast<FusedLoc>()) {
+    else if (auto fusedLoc = loc.dyn_cast<FusedLoc>()) {
+      // Combine each location name and set it as nodeName.
       std::string name;
       for (Location locIt : fusedLoc.getLocations()) {
         if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
@@ -73,6 +74,7 @@ public:
       }
       if (name.empty())
         name = "NOTSET";
+      name.pop_back(); // remove last "-"
       loc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(loc).getName();
     } else if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
@@ -80,9 +82,8 @@ public:
                          std::to_string(fileLineColLoc.getLine());
       loc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(loc).getName();
-    } else {
+    } else
       nodeName = StringRef("NOTSET");
-    }
     LLVM::GlobalOp globalStr =
         krnl::getOrCreateGlobalString(nodeName, loc, rewriter, parentModule,
             static_cast<LLVMTypeConverter *>(getTypeConverter()));
