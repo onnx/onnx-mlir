@@ -508,9 +508,6 @@ void fillInZTensor(PatternRewriter &rewriter, Location loc, ModuleOp module,
   MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
   Type llvmI1Ty = IntegerType::get(context, 1);
-  Type llvmI8Ty = IntegerType::get(context, 8);
-  Type llvmI8PtrTy = krnl::getPointerType(context, llvmI8Ty);
-  Type llvmI64Ty = IntegerType::get(context, 64);
   Type llvmZTensorTy = getZTensorStructTy(context);
   Type llvmZTensorPtrTy = krnl::getPointerType(context, llvmZTensorTy);
 

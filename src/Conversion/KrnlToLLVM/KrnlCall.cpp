@@ -95,7 +95,7 @@ private:
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-    LLVMTypeConverter *llvmTypeConverter =
+    auto *llvmTypeConverter =
         static_cast<LLVMTypeConverter *>(getTypeConverter());
     const auto &apiRegistry =
         RuntimeAPIRegistry(module, rewriter, *llvmTypeConverter);
@@ -179,7 +179,6 @@ private:
                   .create<UnrealizedConversionCastOp>(loc,
                       llvmTypeConverter->convertType(memRefTy), constantGlobal)
                   .getResult(0);
-          // constantGlobal.setType(llvmTypeConverter->convertType(memRefTy));
 
           auto int64Ty = IntegerType::get(context, 64);
           auto memRefRank = memRefTy.getRank();

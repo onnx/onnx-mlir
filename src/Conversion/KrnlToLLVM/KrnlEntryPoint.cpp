@@ -191,10 +191,9 @@ public:
     // struct but input types are unpacked into a single list of scalar types.
     auto *staticEntryPointFunc =
         module.lookupSymbol(staticEntryPointFuncName.lower());
-    auto staticEntryPointFuncTy =
-        dyn_cast<LLVM::LLVMFuncOp>(staticEntryPointFunc)
-            .getFunctionType()
-            .dyn_cast<LLVM::LLVMFunctionType>();
+    auto staticEntryPointFuncTy = cast<LLVM::LLVMFuncOp>(staticEntryPointFunc)
+                                      .getFunctionType()
+                                      .cast<LLVM::LLVMFunctionType>();
     LLVM_DEBUG(llvm::dbgs() << "Static entry point function type: "
                             << staticEntryPointFuncTy << "\n");
     // Static entry point is wrapped with prefix `_mlir_ciface` automatically by
@@ -208,9 +207,9 @@ public:
            isa<LLVM::LLVMFuncOp>(wrappedStaticEntryPointFunc) &&
            "entry point func must exist and be an llvm func op");
     auto wrappedStaticEntryPointOp =
-        dyn_cast<LLVM::LLVMFuncOp>(wrappedStaticEntryPointFunc);
+        cast<LLVM::LLVMFuncOp>(wrappedStaticEntryPointFunc);
     auto wrappedStaticEntryPointTy = wrappedStaticEntryPointOp.getFunctionType()
-                                         .dyn_cast<LLVM::LLVMFunctionType>();
+                                         .cast<LLVM::LLVMFunctionType>();
 
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::GET_OMT_ARRAY, {omTensorInputs});
@@ -336,10 +335,7 @@ private:
       Type memRefTy, PatternRewriter &rewriter, const Location &loc,
       const RuntimeAPIRegistry &apiRegistry, ModuleOp &module) const {
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
-    auto *context = module.getContext();
-    // auto memRefPtrTy =
-    // ptrToMemRef.getType().dyn_cast<LLVM::LLVMPointerType>(); auto memRefTy =
-    // memRefPtrTy.getElementType();
+    MLIRContext *context = module.getContext();
     auto int64Ty = IntegerType::get(context, 64);
 
     Value memRef = rewriter.create<LLVM::UndefOp>(loc, memRefTy);
