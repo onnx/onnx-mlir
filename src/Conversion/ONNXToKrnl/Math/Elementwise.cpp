@@ -1392,22 +1392,149 @@ static LogicalResult getVariadicSimdCodeFullyFlattened(
 // Utilities for Op fusion at lowering
 //===----------------------------------------------------------------------===//
 
-bool areInputsValidForFusion(Operation *producer, Operation *op) {
+// Function pointer type for the emitScalarOpFor<T> of elementwise Ops.
+typedef mlir::Value (*EmitScalarFunc)(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
+    mlir::ArrayRef<mlir::Value> scalarOperands);
+
+// Utility class for Op fusion.
+// Start from the root op, which is being lowered as Elementwise Op.
+// A linear sequence of fusible ops are idenitified. The operations of these ops
+// are fused into the loop nest for the root Op, and the last op is replaced
+// and the others are deleted.
+// ToFix: fusion for a graph could be done in future.
+class OpFusionHelper {
+private:
+  mlir::Operation *op_;
+  mlir::ConversionPatternRewriter &rewriter_;
+  llvm::SmallVector<mlir::Operation *, 2> fusibleOps_;
+  llvm::SmallVector<EmitScalarFunc, 2> fuseEmitFunctions_;
+
+public:
+  // Constructor
+  OpFusionHelper(
+      mlir::ConversionPatternRewriter &rewriter, mlir::Operation *startOp)
+      : op_(startOp), rewriter_(rewriter), fusibleOps_(), fuseEmitFunctions_() {
+  }
+
+  // Check whether the inputs of an op allows fusion.
+  static bool areInputsValidForFusion(Operation *producer, Operation *op);
+
+  // Check whether an Op is fusible along the use-def chain.
+  // If true, record the op and its scalar op.
+  bool checkFusibleOp(Operation *producer, Operation *op,
+      SmallVector<Operation *, 2> &fusibleOps,
+      SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions);
+
+  // Find the fusible op chain from the root op
+  void findFusibleOps();
+
+  bool isFusibleListEmpty() { return fusibleOps_.size() == 0; }
+
+  // The final output type for fusionl.
+  // Elementwise op may change the element type.
+  MemRefType getOutputType(MemRefType outputType);
+
+  Value emitFuseOps(Value producerResult, ValueRange loopInd = {});
+
+  void replaceOrEraseONNXOps(Value alloc);
+}; // End of OpFusionHelper Declaration
+
+// Check a node with type T is fusible or not.
+// If true, record the op to data structure
+template <typename T>
+bool enqueueFusibleOpImpl(Operation *producer, Operation *op,
+    SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+  if (isa<T>(op)) {
+    if (OpFusionHelper::areInputsValidForFusion(producer, op)) {
+      fusibleOps.emplace_back(op);
+      fuseEmitFunctions.emplace_back(emitScalarOpFor<T>);
+      return true;
+    }
+  }
+  return false;
+}
+
+// Variadic template to iterate all the Elementwise Ops
+template <typename T = void, class... Ts>
+bool enqueueFusibleOp(Operation *producer, Operation *op,
+    SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions);
+
+template <typename T, class... Ts>
+bool enqueueFusibleOp(Operation *producer, Operation *op,
+    SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+  if (enqueueFusibleOpImpl<T>(producer, op, fusibleOps, fuseEmitFunctions)) {
+    return true;
+  } else {
+    return enqueueFusibleOp<Ts...>(producer, op, fusibleOps, fuseEmitFunctions);
+  }
+}
+
+template <>
+bool enqueueFusibleOp(Operation *producer, Operation *op,
+    SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+  return false;
+}
+
+// Give a list of Elementwise ONNX Op for the template enqueueFusibleOp
+// to iterate.
+bool OpFusionHelper::checkFusibleOp(Operation *producer, Operation *op,
+    SmallVector<Operation *, 2> &fusibleOps,
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+
+  // Notice: Though ClipOp is classified as unary element op in this file,
+  // ClipOp requires one required input and two optional input
+
+  return enqueueFusibleOp<
+      // Unary Op
+      mlir::ONNXAbsOp, mlir::ONNXAtanOp, mlir::ONNXCastOp, mlir::ONNXCeilOp,
+      mlir::ONNXCosOp, mlir::ONNXCoshOp, mlir::ONNXDequantizeLinearOp,
+      mlir::ONNXEluOp, mlir::ONNXErfOp, mlir::ONNXAcosOp, mlir::ONNXAcoshOp,
+      mlir::ONNXAsinOp, mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp,
+      mlir::ONNXFloorOp, mlir::ONNXHardSigmoidOp, mlir::ONNXIsInfOp,
+      mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp, mlir::ONNXLogOp,
+      mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
+      mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp,
+      mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
+      mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
+      mlir::ONNXTanOp, mlir::ONNXTanhOp,
+      // Binary Op
+      mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
+      mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
+      mlir::ONNXPowOp,
+      // Variadic Op
+      mlir::ONNXAddOp, mlir::ONNXAndOp, mlir::ONNXDivOp, mlir::ONNXMaxOp,
+      mlir::ONNXMeanOp, mlir::ONNXMinOp, mlir::ONNXMulOp, mlir::ONNXOrOp,
+      mlir::ONNXSubOp, mlir::ONNXSumOp, mlir::ONNXXorOp>(
+      producer, op, fusibleOps, fuseEmitFunctions);
+}
+
+// To fuse two elementwise ops, producer and consumer, the producer output
+// should be the same size as the consumer output.
+// The other inputs of the consumer (not the one from producer) should not be
+// depended on the root op and should be moved before the root op to make the
+// SSA form correct.
+// In this implementation, no data dependence analysis and code motion for
+// fusion is implemented yet, the only other inputs allowe are block argument
+// and constant. It is assumed the canonicalization has hoisted all constant to
+// the beginning of the function. Therefore, these two kinds of inputs will
+// definition generated before the root Op.
+bool OpFusionHelper::areInputsValidForFusion(
+    Operation *producer, Operation *op) {
   // Elementwise nary operation is always fusible
   if (op->getOperands().size() == 1)
     return true;
 
   // To fuse Elementwise op with more one operands with the producer,
-  // the shape of the output the user Op has to be the same as shape of
-  // the output of the producer Op. Otherwise, the loop iterations of the
-  // Ops are not the same and cannot be fused.
-
-  // It is easy to check if the shape of output of both Ops are static.
-  // Symbolic analysis and some cornor case analysis will be left for future
-  // PR.
-
-  // One cornor case is that all the other input has dimension size 1 for
-  // the dynamic dimension.
+  // the shape of the output the user Op has to have the same size
+  // output as that of the producer Op. Here dimension expansion with size
+  // 1 is allowed. Refer to hasNoBroadcast() definition.
+  // ToFix: This PR simply check static shape and does not use symbolic
+  // shape analysis and BroadcastShapeHelper
 
   if (!hasStaticShape(producer->getResults()[0].getType()))
     return false;
@@ -1441,220 +1568,131 @@ bool areInputsValidForFusion(Operation *producer, Operation *op) {
   return true;
 }
 
-// Function pointer type for emitScalarOpFor<T>
-typedef mlir::Value (*EmitScalarFunc)(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Operation *op, mlir::Type elementType,
-    mlir::ArrayRef<mlir::Value> scalarOperands);
+// This function starts for elementwise operation, op.
+// A successor op (user) is fusible if it's the only user and its inputs
+// are valid for fusion.
+void OpFusionHelper::findFusibleOps() {
+  Operation *currentProducer = op_;
+  while (currentProducer->hasOneUse()) {
+    // Check the users is an unary elementwise op
+    // The right solution, I think, is to define EmitScalarOpFor as
+    // an interface of unary elementwise Ops.
+    // In the draft PR, variadic template is used to iterate through
+    // the possible ONNX Ops.
+    Operation *user = *currentProducer->getUsers().begin();
+    if (!checkFusibleOp(currentProducer, user, fusibleOps_, fuseEmitFunctions_))
+      break;
 
-// Variadic template to iterate all the fusible Ops
-template <typename T>
-bool enqueueFusibleOpImpl(Operation *producer, Operation *op,
-    SmallVector<Operation *, 2> &fusibleOps,
-    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
-  if (isa<T>(op)) {
-    if (areInputsValidForFusion(producer, op)) {
-      fusibleOps.emplace_back(op);
-      fuseEmitFunctions.emplace_back(emitScalarOpFor<T>);
-      return true;
-    }
+    currentProducer = user;
   }
-  return false;
+
+  LLVM_DEBUG({
+    llvm::dbgs() << "op fusion: fusible ops " << fusibleOps_.size() << "\n";
+    op_->dump();
+    llvm::dbgs() << "begin fusible op list\n";
+    for (auto op : fusibleOps_)
+      op->dump();
+    llvm::dbgs() << "end fusible op list\n";
+  });
 }
 
-template <typename T = void, class... Ts>
-bool enqueueFusibleOp(Operation *producer, Operation *op,
-    SmallVector<Operation *, 2> &fusibleOps,
-    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions);
-
-template <typename T, class... Ts>
-bool enqueueFusibleOp(Operation *producer, Operation *op,
-    SmallVector<Operation *, 2> &fusibleOps,
-    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
-  if (enqueueFusibleOpImpl<T>(producer, op, fusibleOps, fuseEmitFunctions)) {
-    return true;
-  } else {
-    return enqueueFusibleOp<Ts...>(producer, op, fusibleOps, fuseEmitFunctions);
+// After fusion, the only store is for the last Op.
+// Therefore, the allocation should be the output of the last Op
+MemRefType OpFusionHelper::getOutputType(MemRefType outputType) {
+  if (!isFusibleListEmpty()) {
+    Operation *lastOp = fusibleOps_[fusibleOps_.size() - 1];
+    return MemRefType::get(outputType.getShape(),
+        getElementType(lastOp->getResults()[0].getType()));
   }
+  return outputType;
 }
 
-template <>
-bool enqueueFusibleOp(Operation *producer, Operation *op,
-    SmallVector<Operation *, 2> &fusibleOps,
-    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
-  return false;
-}
+// Emit fusion Ops
+Value OpFusionHelper::emitFuseOps(Value producerResult, ValueRange loopInd) {
+  if (isFusibleListEmpty())
+    return producerResult;
 
-class OpFusionHelper {
+  // Handle the fused Ops
+  auto producer = op_;
+  for (size_t i = 0; i < fusibleOps_.size(); i++) {
+    auto currentOp = fusibleOps_[i];
+    auto emitScalar = fuseEmitFunctions_[i];
+    // ToFix: use the ONNX location(ONNXLoc) of each Op.
+    // The current obstacle is that no easy way to know the type of Op,
+    // which is needed by ONNXLoc<T>(op).
+    Location loc = currentOp->getLoc();
+    MDBuilder create(rewriter_, loc);
+    Type currentElementType =
+        getElementType(currentOp->getResults()[0].getType());
 
-private:
-  mlir::Operation *op_;
-  mlir::ConversionPatternRewriter &rewriter_;
-  llvm::SmallVector<mlir::Operation *, 2> fusibleOps_;
-  llvm::SmallVector<EmitScalarFunc, 2> fuseEmitFunctions_;
-
-public:
-  // Constructor
-  OpFusionHelper(
-      mlir::ConversionPatternRewriter &rewriter, mlir::Operation *startOp)
-      : op_(startOp), rewriter_(rewriter), fusibleOps_(), fuseEmitFunctions_() {
-  }
-
-  bool checkFusibleOp(Operation *producer, Operation *op,
-      SmallVector<Operation *, 2> &fusibleOps,
-      SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
-
-    // Notice: Though ClipOp is classified as unary element op in this file,
-    // ClipOp requires one required input and two optional input
-
-    return enqueueFusibleOp<
-        // Unary Op
-        mlir::ONNXAbsOp, mlir::ONNXAtanOp, mlir::ONNXCastOp, mlir::ONNXCeilOp,
-        mlir::ONNXCosOp, mlir::ONNXCoshOp, mlir::ONNXDequantizeLinearOp,
-        mlir::ONNXEluOp, mlir::ONNXErfOp, mlir::ONNXAcosOp, mlir::ONNXAcoshOp,
-        mlir::ONNXAsinOp, mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp,
-        mlir::ONNXFloorOp, mlir::ONNXHardSigmoidOp, mlir::ONNXIsInfOp,
-        mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp, mlir::ONNXLogOp,
-        mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
-        mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp,
-        mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp,
-        mlir::ONNXSinhOp, mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp,
-        mlir::ONNXSqrtOp, mlir::ONNXTanOp, mlir::ONNXTanhOp,
-        // Binary Op
-        mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
-        mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
-        mlir::ONNXPowOp,
-        // Variadic Op
-        mlir::ONNXAddOp, mlir::ONNXAndOp, mlir::ONNXDivOp, mlir::ONNXMaxOp,
-        mlir::ONNXMeanOp, mlir::ONNXMinOp, mlir::ONNXMulOp, mlir::ONNXOrOp,
-        mlir::ONNXSubOp, mlir::ONNXSumOp, mlir::ONNXXorOp>(
-        producer, op, fusibleOps, fuseEmitFunctions);
-  }
-
-  bool isFusibleListEmpty() { return fusibleOps_.size() == 0; }
-
-  // This function starts for elementwise operation, op.
-  // A successor op (user) is fusible if it's the only user and an unary
-  // elementwise Op. The Op and its EmitScalarOpFor<T> are recorded into
-  // the vector.
-  void findFusibleOps() {
-    Operation *currentProducer = op_;
-    while (currentProducer->hasOneUse()) {
-      // Check the users is an unary elementwise op
-      // The right solution, I think, is to define EmitScalarOpFor as
-      // an interface of unary elementwise Ops.
-      // In the draft PR, variadic template is used to iterate through
-      // the possible ONNX Ops.
-      Operation *user = *currentProducer->getUsers().begin();
-      if (!checkFusibleOp(
-              currentProducer, user, fusibleOps_, fuseEmitFunctions_))
-        break;
-
-      currentProducer = user;
+    // Prepare Values for EmitScalarOpFor<T>
+    SmallVector<Value, 2> inputValues;
+    // ToFix: expect to use new utility for this purpose
+    // There is an issue to fix: cannot getRemappedValue for the Value that is
+    // currently handling: the producer.
+    // Otherwise, runtime error: "null operand found" caused by
+    // just calling the function without using the result!
+#if 0
+    SmallVector<Value, 4> currentOperands;
+    for (auto oper : currentOp->getOperands()) {
+      if (oper.getDefiningOp() != producer)
+        currentOperands.emplace_back(rewriter_.getRemappedValue(oper));
     }
-
-    LLVM_DEBUG({
-      llvm::dbgs() << "op fusion: fusible ops " << fusibleOps_.size() << "\n";
-      op_->dump();
-      llvm::dbgs() << "begin fusible op list\n";
-      for (auto op : fusibleOps_)
-        op->dump();
-      llvm::dbgs() << "end fusible op list\n";
-    });
-  }
-
-  // After fusion, the only store is for the last Op.
-  // Therefore, the allocation should be the output of the last Op
-  MemRefType getOutputType(MemRefType outputType) {
-    if (!isFusibleListEmpty()) {
-      Operation *lastOp = fusibleOps_[fusibleOps_.size() - 1];
-      return MemRefType::get(outputType.getShape(),
-          getElementType(lastOp->getResults()[0].getType()));
-    }
-    return outputType;
-  }
-
-  // Emit fusion Ops
-  Value emitFuseOps(Value producerResult, ValueRange loopInd = {}) {
-    if (isFusibleListEmpty())
-      return producerResult;
-
-    // Handle the fused Ops
-    auto producer = op_;
-    for (size_t i = 0; i < fusibleOps_.size(); i++) {
-      auto currentOp = fusibleOps_[i];
-      auto emitScalar = fuseEmitFunctions_[i];
-      // ToFix: use the ONNX location(ONNXLoc) of each Op.
-      // The current obstacle is that no easy way to know the type of Op,
-      // which is needed by ONNXLoc<T>(op).
-      Location loc = currentOp->getLoc();
-      MDBuilder create(rewriter_, loc);
-      Type currentElementType =
-          getElementType(currentOp->getResults()[0].getType());
-
-      // Handle inputs
-      SmallVector<Value, 2> inputValues;
-      if (currentOp->getOperands().size() == 0) {
-        // No extra inputs for binary Ops
+    LogicalResult res =
+        rewriter_.getRemappedValues(currentOp->getOperands(), currentOperands);
+    assert(succeeded(res) && "Could not remap value for rewriter");
+    ONNXBroadcastOpShapeHelper shapeHelper(
+        currentOp, currentOperands, &create.krnlIE, nullptr, false);
+#endif
+    for (size_t i = 0; i < currentOp->getOperands().size(); i++) {
+      Value inputValue = currentOp->getOperand(i);
+      Operation *operand = inputValue.getDefiningOp();
+      if (operand == producer) {
         inputValues.emplace_back(producerResult);
       } else {
-        // ToFix: expect to use new utility for this purpose
+        // ToFix: expect to use new utility to handle any broadcast cases
 #if 0
-        SmallVector<Value, 4> currentOperands;
-        LogicalResult res = rewriter_.getRemappedValues(
-            currentOp->getOperands(), currentOperands);
-        assert(succeeded(res) && "Could not remap value for rewriter");
-        ONNXBroadcastOpShapeHelper shapeHelper(
-            currentOp, currentOperands, &create.krnlIE, nullptr, false);
+        IndexExprScope innerScope(create.krnl, shapeHelper.getScope());
+        SmallVector<IndexExpr, 4> outputAccessExprs;
+        getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
+        SmallVector<IndexExpr, 4> loadAccessExprs;
+        LogicalResult res = shapeHelper.getAccessExprs(
+            inputValue, i, outputAccessExprs, loadAccessExprs, true);
+        assert(succeeded(res) && "Could not compute access indices");
+        Value load = create.krnl.loadIE(currentOperands[i], loadAccessExprs);
 #endif
-        for (size_t i = 0; i < currentOp->getOperands().size(); i++) {
-          Value inputValue = currentOp->getOperand(i);
-          Operation *operand = inputValue.getDefiningOp();
-          if (operand == producer) {
-            inputValues.emplace_back(producerResult);
-          } else {
-            // ToFix: expect to use new utility for this purpose
-#if 0
-            IndexExprScope innerScope(create.krnl, shapeHelper.getScope());
-            SmallVector<IndexExpr, 4> outputAccessExprs;
-            getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
-            SmallVector<IndexExpr, 4> loadAccessExprs;
-            LogicalResult res = shapeHelper.getAccessExprs(
-                inputValue, i, outputAccessExprs, loadAccessExprs, true);
-            assert(succeeded(res) && "Could not compute access indices");
-            Value load =
-                create.krnl.loadIE(currentOperands[i], loadAccessExprs);
-#endif
-            // ToFix: create load for this input with no broadcast assumption
-            auto load = create.krnl.load(
-                rewriter_.getRemappedValue(inputValue), loopInd);
-            inputValues.emplace_back(load);
-          }
-        }
+        // The shape is guaranteed to be the same.
+        Value load =
+            create.krnl.load(rewriter_.getRemappedValue(inputValue), loopInd);
+        inputValues.emplace_back(load);
       }
-      producerResult = emitScalar(
-          rewriter_, loc, currentOp, currentElementType, inputValues);
-      producer = currentOp;
     }
-    return producerResult;
+    producerResult =
+        emitScalar(rewriter_, loc, currentOp, currentElementType, inputValues);
+    producer = currentOp;
+  }
+  return producerResult;
+}
+
+// Replace the last Op with allocated memref and erase the other Ops.
+// When the fusible list is empty, the starting Op is the last.
+void OpFusionHelper::replaceOrEraseONNXOps(Value alloc) {
+  if (isFusibleListEmpty()) {
+    rewriter_.replaceOp(op_, alloc);
+    return;
   }
 
-  // Replace the last Op with allocated memref and erase the other Ops.
-  // When the fusible list is empty, the starting Op is the last.
-  void replaceOrEraseONNXOps(Value alloc) {
-    if (isFusibleListEmpty()) {
-      rewriter_.replaceOp(op_, alloc);
-      return;
-    }
-
-    auto previous = op_;
-    for (Operation *fusedOp : fusibleOps_) {
-      rewriter_.eraseOp(previous);
-      previous = fusedOp;
-    }
-    rewriter_.replaceOp(previous, alloc);
+  auto previous = op_;
+  for (Operation *fusedOp : fusibleOps_) {
+    rewriter_.eraseOp(previous);
+    previous = fusedOp;
   }
+  rewriter_.replaceOp(previous, alloc);
+}
 
-}; // End of OpFusionHelper Declaration
+//===----------------------------------------------------------------------===//
+// End of Op Fusion Support
+//===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
 // Element-wise unary ops lowering to Krnl dialect.
