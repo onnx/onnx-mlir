@@ -731,12 +731,10 @@ Value ConstPropSlice(
   ONNXSliceOpShapeHelper shapeHelper(op, {});
   auto outcome = shapeHelper.computeShape();
   assert(succeeded(outcome) && "Failed to scan slice op parameters");
-  auto toLiterals = [](ArrayRef<IndexExpr> ies) {
-    return llvm::map_range(ies, [](IndexExpr ie) { return ie.getLiteral(); });
-  };
-  SmallVector<int64_t> shape(toLiterals(shapeHelper.getOutputDims()));
-  SmallVector<int64_t> starts(toLiterals(shapeHelper.starts));
-  SmallVector<int64_t> steps(toLiterals(shapeHelper.steps));
+  SmallVector<int64_t> shape, starts, steps;
+  IndexExpr::getLiteral(shapeHelper.getOutputDims(), shape);
+  IndexExpr::getLiteral(shapeHelper.starts, starts);
+  IndexExpr::getLiteral(shapeHelper.steps, steps);
 
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr inputElements = getConstValueElements(constValue);
