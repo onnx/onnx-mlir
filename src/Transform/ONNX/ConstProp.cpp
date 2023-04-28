@@ -732,7 +732,7 @@ Value ConstPropSlice(
   auto outcome = shapeHelper.computeShape();
   assert(succeeded(outcome) && "Failed to scan slice op parameters");
   SmallVector<int64_t> shape, starts, steps;
-  IndexExpr::getLiteral(shapeHelper.getOutputDims(), shape);
+  IndexExpr::getShape(shapeHelper.getOutputDims(), shape);
   IndexExpr::getLiteral(shapeHelper.starts, starts);
   IndexExpr::getLiteral(shapeHelper.steps, steps);
 
