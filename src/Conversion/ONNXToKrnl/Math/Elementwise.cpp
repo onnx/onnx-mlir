@@ -1784,8 +1784,8 @@ Value OpFusionHelper::emitFuseOps(Value defOpResult, ValueRange loopInd) {
 #endif
     for (size_t i = 0; i < useOp->getOperands().size(); i++) {
       Value inputValue = useOp->getOperand(i);
-      Operation *operand = inputValue.getDefiningOp();
-      if (operand == defOp) {
+      Operation *inputOp = inputValue.getDefiningOp();
+      if (inputOp == defOp) {
         inputValues.emplace_back(defOpResult);
       } else {
         // ToFix: expect to use new utility to handle any broadcast cases
