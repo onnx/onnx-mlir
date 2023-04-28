@@ -23,6 +23,7 @@
 #include "mlir/Support/LLVM.h"
 
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp" // from @llvm-project
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -56,6 +57,16 @@ mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding) {
   return mlir::RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(shape.size(), 1), elementType, encoding);
+}
+
+mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val) {
+    if (auto source = val.getDefiningOp<mlir::ONNXConstantOp>()) {
+      if (source.value())
+        return source.value().value(); 
+    }
+    // if the constant is not an onnx.const it has to be a tosa.const
+    assert(val.getDefiningOp<mlir::tosa::ConstOp>());
+    return tosa::getValueFromTosaConst<ElementsAttr>(val);
 }
 
 // Create a TOSA rescale op from input framework tensor, zero points and
