@@ -455,7 +455,7 @@ ElementsAttr ElementsAttrBuilder::concat(
   assert(elms.size() >= 1 && "concat tensors must be non-empty");
 
   ElementsAttr first = elms.front();
-  auto firstShape = first.getType().getShape();
+  ArrayRef<int64_t> firstShape = first.getType().getShape();
   size_t rank = firstShape.size();
   assert(axis < rank && "concat axis out of range");
   if (elms.size() == 1)
@@ -467,7 +467,7 @@ ElementsAttr ElementsAttrBuilder::concat(
     ElementsAttr next = elms[i];
     assert(next.getElementType() == first.getElementType() &&
            "concat tensors element types must agree");
-    auto nextShape = next.getType().getShape();
+    ArrayRef<int64_t> nextShape = next.getType().getShape();
     assert(nextShape.size() == rank && "concat tensors ranks must agree");
     for (unsigned a = 0; a < rank; ++a) {
       assert((a == axis || nextShape[a] == firstShape[a]) &&
@@ -522,10 +522,10 @@ ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
 ElementsAttr ElementsAttrBuilder::gather(
     ElementsAttr input, ElementsAttr indices, unsigned axis) {
   ShapedType inputType = input.getType();
-  auto inputShape = inputType.getShape();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
   assert(axis < inputShape.size() && "gather axis out of range");
   auto postAxisShape = inputShape.drop_front(axis + 1);
-  auto indicesShape = indices.getType().getShape();
+  ArrayRef<int64_t> indicesShape = indices.getType().getShape();
   SmallVector<int64_t> outShape(inputShape.take_front(axis));
   outShape.append(indicesShape.begin(), indicesShape.end());
   outShape.append(postAxisShape.begin(), postAxisShape.end());
@@ -538,10 +538,10 @@ ElementsAttr ElementsAttrBuilder::gather(
     size_t inputBlockLen = axisInputSize * postAxisNumElements;
     size_t outBlockLen = indicesArray.get().size() * postAxisNumElements;
     size_t start = 0;
-    auto out = dst.begin();
+    WideNum *out = dst.begin();
     for (int64_t idx : indicesArray.get()) {
       int64_t adjustedIdx = idx < 0 ? idx + axisInputSize : idx;
-      auto in = src.get().begin() + adjustedIdx * postAxisNumElements;
+      const WideNum *in = src.get().begin() + adjustedIdx * postAxisNumElements;
       for (size_t offset = start; offset < dst.size(); offset += outBlockLen) {
         std::copy_n(in, postAxisNumElements, out + offset);
         in += inputBlockLen;
@@ -561,16 +561,16 @@ ElementsAttr ElementsAttrBuilder::scatterND(
     //   for idx in np.ndindex(outer):
     //     dst[indices[idx]] = updates[idx]
 
-    auto inputShape = input.getType().getShape();
-    auto indicesShape = indices.getType().getShape();
-    auto updatesShape = updates.getType().getShape();
+    ArrayRef<int64_t> inputShape = input.getType().getShape();
+    ArrayRef<int64_t> indicesShape = indices.getType().getShape();
+    ArrayRef<int64_t> updatesShape = updates.getType().getShape();
 
     int64_t indices_nd = indicesShape.back();
     auto outer = indicesShape.drop_back();
     int64_t n_slices = ShapedType::getNumElements(outer);
     int64_t slice_size =
         ShapedType::getNumElements(updatesShape.drop_front(outer.size()));
-    auto inputStrides = getDefaultStrides(inputShape);
+    SmallVector<int64_t, 4> inputStrides = getDefaultStrides(inputShape);
     auto sliceStrides = llvm::ArrayRef(inputStrides).take_front(indices_nd);
 
     readElementsWideNums(input, dst);
@@ -580,7 +580,7 @@ ElementsAttr ElementsAttrBuilder::scatterND(
     StridesRange<1> updatesRange(updatesShape, {updatesStrides});
     auto updatesIter = updatesRange.begin();
     ArrayBuffer<int64_t> indicesBuffer = getElementsArray<int64_t>(indices);
-    auto indicesIter = indicesBuffer.get().begin();
+    const int64_t *indicesIter = indicesBuffer.get().begin();
     for (int64_t i = 0; i < n_slices; ++i) {
       ArrayRef<uint64_t> idxs =
           castArrayRef<uint64_t>(ArrayRef(indicesIter, indices_nd));
