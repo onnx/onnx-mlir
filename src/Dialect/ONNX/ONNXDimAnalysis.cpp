@@ -86,7 +86,7 @@ static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
 /// Given a dynamic dimension, find the same dynamic dimensions in the inputs.
 /// This function uses ShapeHelper to explore the same dynamic dimensions.
 /// Use this function for operations that use adaptor to compute shape.
-static bool exploreSameInputDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
+static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
     mlir::Operation *op, DimAnalysis::DimSetT &sameDims) {
   // Has this op a ShapeHelper interface?
   auto shape_op = llvm::dyn_cast<ShapeHelperOpInterface>(*op);
@@ -127,7 +127,7 @@ static bool exploreSameInputDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
   return true;
 }
 
-static bool exploreSameInputDimsUsingShapeInput(const DimAnalysis::DimT &dim,
+static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
     mlir::Operation *op, DimAnalysis::DimSetT &sameDims) {
   uint64_t dimIndex = dim.second;
 
@@ -419,13 +419,13 @@ void DimAnalysis::visitDim(
 
   ////////////////////////////////////////////////////
   // Using ShapeHelper to find out where the output dim comes from.
-  exploreSameInputDimsUsingShapeHelper(dim, op, sameDims);
+  exploreSameDimsUsingShapeHelper(dim, op, sameDims);
 
   ////////////////////////////////////////////////////
   // For operations that have an input specifying the output shape, the output
   // dim can come from the shape input.
   // For example: ConstantOfShape, Expand, Reshape.
-  exploreSameInputDimsUsingShapeInput(dim, op, sameDims);
+  exploreSameDimsUsingShapeInput(dim, op, sameDims);
 
   ////////////////////////////////////////////////////
   // Special/additional cases.
