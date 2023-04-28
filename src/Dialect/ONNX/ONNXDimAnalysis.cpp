@@ -156,6 +156,8 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
   if (!shapeInput)
     return false;
 
+  // If it is not from Concat (e.g. shape operations are not simplified to
+  // Concat), we would not have enough information.
   if (!areDimsFromConcat(shapeInput))
     return false;
 
@@ -166,6 +168,17 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
   sameDims.insert(newSameDim);
   return true;
 }
+
+static bool handleAndTestInBound(int64_t &axis, ShapedType type) {
+  int64_t rank = type.getRank();
+  if (axis < 0)
+    axis += rank;
+  return axis >= 0 && axis < rank;
+}
+
+//===----------------------------------------------------------------------===//
+// DimAnalysis class.
+//===----------------------------------------------------------------------===//
 
 DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
   for (Value val : vals)
@@ -198,13 +211,6 @@ void DimAnalysis::build(Value val) {
       }
     }
   }
-}
-
-static bool handleAndTestInBound(int64_t &axis, ShapedType type) {
-  int64_t rank = type.getRank();
-  if (axis < 0)
-    axis += rank;
-  return axis >= 0 && axis < rank;
 }
 
 bool DimAnalysis::sameDim(
