@@ -322,9 +322,9 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value x = scalarOperands[0]; // x-> input
   Value result;
 
-  MathBuilder createMath(rewriter, loc);
-  Value negInf = createMath.negativeInf(elementType);
-  Value posInf = createMath.positiveInf(elementType);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value negInf = create.math.negativeInf(elementType);
+  Value posInf = create.math.positiveInf(elementType);
 
   double detectNegAttribute = isInfOp.getDetectNegative();
   double detectPosAttribute = isInfOp.getDetectPositive();
