@@ -299,6 +299,11 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
   return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
+void ArrayAttrIntVals(ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i) {
+  for (size_t k = 0; k < a.size(); ++k)
+    i.emplace_back((a.getValue()[k]).cast<IntegerAttr>().getInt());
+}
+
 ElementsAttr getElementAttributeFromONNXValue(Value value) {
   ONNXConstantOp constantOp = getONNXConstantOp(value);
   if (constantOp)

@@ -58,6 +58,13 @@ static bool areOverlapping(
   return false;
 }
 
+static bool handleAndTestInBound(int64_t &axis, ShapedType type) {
+  int64_t rank = type.getRank();
+  if (axis < 0)
+    axis += rank;
+  return axis >= 0 && axis < rank;
+}
+
 /// Given a QuestionMarkIndexExpr representing a dynamic dimension, find the
 /// same dynamic dimensions in the inputs.
 static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
@@ -129,29 +136,61 @@ static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
 
 static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
     mlir::Operation *op, DimAnalysis::DimSetT &sameDims) {
-  uint64_t dimIndex = dim.second;
+  uint64_t outputDimIndex = dim.second;
+  // It's often the case the input and output dim indices are the same.
+  // Otherwise, the input dim index will be refined depending on the operation.
+  uint64_t inputDimIndex = outputDimIndex;
 
   // If an operation has an operand that stores the output shape, use the
   // operand to explore same dimensions.
-  Value shapeInput;
-  if (auto constOp = dyn_cast<ONNXConstantOfShapeOp>(op))
+  // Below are ONNX operations we know that specify the output shape via an
+  // operand. Sorted in the alphabetical order.
+  Value shapeInput = nullptr;
+  if (auto onnxOp = dyn_cast<ONNXCenterCropPadOp>(op)) {
+    // `shape` stores shape information for dimensions specified by `axes`.
+    // `outputDimIndex` must be in `axes` in order to get dim from `shape`.
+    ShapedType outputType = onnxOp.getResult().getType();
+    SmallVector<int64_t, 4> axesInt;
+    ArrayAttr axes = onnxOp.getAxesAttr();
+    if (axes) {
+      ArrayAttrIntVals(axes, axesInt);
+    } else {
+      for (int64_t i = 0; i < outputType.getRank(); ++i)
+        axesInt.emplace_back(i);
+    }
+    bool found = false;
+    for (size_t i = 0; i < axesInt.size(); ++i) {
+      int64_t axis = axesInt[i];
+      if (!handleAndTestInBound(axis, outputType))
+        continue;
+      if ((uint64_t)axis == outputDimIndex) {
+        inputDimIndex = i;
+        found = true;
+        break;
+      }
+    }
+    if (found)
+      shapeInput = onnxOp.getShape();
+  } else if (auto onnxOp = dyn_cast<ONNXConstantOfShapeOp>(op)) {
     // `input` stores shape information.
-    shapeInput = constOp.getInput();
-  else if (auto expandOp = dyn_cast<ONNXExpandOp>(op))
+    shapeInput = onnxOp.getInput();
+  } else if (auto onnxOp = dyn_cast<ONNXExpandOp>(op)) {
     // `shape` stores shape information.
-    shapeInput = expandOp.getShape();
-  else if (auto reshapeOp = dyn_cast<ONNXReshapeOp>(op)) {
-    // `shape` stores shape information.
-    if (reshapeOp.getAllowzero() != 0)
-      return false;
-    shapeInput = reshapeOp.getShape();
-  } else if (auto tileOp = dyn_cast<ONNXTileOp>(op)) {
+    shapeInput = onnxOp.getShape();
+  } else if (auto onnxOp = dyn_cast<ONNXMaxUnpoolOp>(op)) {
+    // Optional `output_shape` stores shape information.
+    if (!isNoneValue(onnxOp.getOutputShape()))
+      shapeInput = onnxOp.getOutputShape();
+  } else if (auto onnxOp = dyn_cast<ONNXReshapeOp>(op)) {
+    // `shape` stores shape information. Only support `allow_zero == 0`.
+    if (onnxOp.getAllowzero() == 0)
+      shapeInput = onnxOp.getShape();
+  } else if (auto onnxOp = dyn_cast<ONNXTileOp>(op)) {
     // If input dimension i is 1, `repeats` i stores shape information.
-    Type inputType = tileOp.getInput().getType();
+    Type inputType = onnxOp.getInput().getType();
     ArrayRef<int64_t> inputShape = getShape(inputType);
-    if (inputShape[dimIndex] != 1)
-      return false;
-    shapeInput = tileOp.getRepeats();
+    if (inputShape[inputDimIndex] == 1)
+      shapeInput = onnxOp.getRepeats();
   }
   if (!shapeInput)
     return false;
@@ -163,17 +202,9 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
 
   SmallVector<Value, 4> dims;
   getDims(shapeInput, dims);
-
-  DimAnalysis::DimT newSameDim(dims[dimIndex], dimIndex);
+  DimAnalysis::DimT newSameDim(dims[inputDimIndex], inputDimIndex);
   sameDims.insert(newSameDim);
   return true;
-}
-
-static bool handleAndTestInBound(int64_t &axis, ShapedType type) {
-  int64_t rank = type.getRank();
-  if (axis < 0)
-    axis += rank;
-  return axis >= 0 && axis < rank;
 }
 
 //===----------------------------------------------------------------------===//
@@ -566,15 +597,21 @@ void ONNXDimAnalysisPass::runOnOperation() {
   ModuleOp moduleOp = getOperation();
   OpBuilder b(moduleOp.getContext());
 
-  onnx_mlir::DimAnalysis testOp(moduleOp);
+  using namespace onnx_mlir;
+
+  DimAnalysis testOp(moduleOp);
   testOp.analyze();
-  // testOp.dump();
+  LLVM_DEBUG({
+    llvm::dbgs();
+    testOp.dump();
+  });
 
   // Add onnx.DimGroup into the IR for LIT tests.
-  onnx_mlir::DimAnalysis::DimSetMapT mapping = testOp.getGroupingResult();
+  DimAnalysis::DimSetMapT mapping = testOp.getGroupingResult();
+  DimAnalysis::DimSetT processed;
   for (auto &entry : mapping) {
     uint64_t groupID = entry.first;
-    onnx_mlir::DimAnalysis::DimSetT dimSet = entry.second;
+    DimAnalysis::DimSetT dimSet = entry.second;
     for (auto &ti : dimSet) {
       Value val = ti.first;
       uint64_t dimAxis = ti.second;
@@ -588,8 +625,13 @@ void ONNXDimAnalysisPass::runOnOperation() {
         if (auto dimOp = dyn_cast<ONNXDimOp>(op))
           val = dimOp.getData();
       }
-      onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(b, loc);
+      DimAnalysis::DimT dim(val, dimAxis);
+      // Ignore if a DimGroup was created for it.
+      if (processed.contains(dim))
+        continue;
+      MultiDialectBuilder<OnnxBuilder> create(b, loc);
       create.onnx.dimGroup(val, dimAxis, groupID);
+      processed.insert(dim);
     }
   }
 }
