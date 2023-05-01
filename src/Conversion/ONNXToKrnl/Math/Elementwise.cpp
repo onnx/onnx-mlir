@@ -263,6 +263,12 @@ struct ScalarOp<ONNXErfOp> {
 };
 
 template <>
+struct ScalarOp<ONNXIsInfOp> {
+  using FOp = KrnlIsInfOp;
+  using IOp = NotSuportedScalarOp;
+};
+
+template <>
 struct ScalarOp<ONNXIsNaNOp> {
   using FOp = KrnlIsNaNOp;
   using IOp = NotSuportedScalarOp;
@@ -308,23 +314,16 @@ struct ScalarOp<ONNXTanOp> {
 // Scalar unary ops for lowering ONNXIsInfOp
 //===----------------------------------------------------------------------===//
 template <>
-struct ScalarOp<ONNXIsInfOp> {
-  using FOp = CustomScalarOp;
-  using IOp = NotSuportedScalarOp;
-};
-
-template <>
 Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
 
-  CheckIfCustomScalarOpIsSupported<ONNXIsInfOp>(elementType);
   Value x = scalarOperands[0]; // x-> input
   Value result;
 
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  Value negInf = create.math.negativeInf(elementType);
-  Value posInf = create.math.positiveInf(elementType);
+  Value negInf = create.math.negativeInf(double);
+  Value posInf = create.math.positiveInf(double);
 
   double detectNegAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
   double detectPosAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
