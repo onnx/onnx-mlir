@@ -1710,14 +1710,15 @@ bool OpFusionHelper::areInputsValidForFusion(
   }
 
   for (size_t i = 0; i < useOp->getOperands().size(); i++) {
-    Operation *input = useOp->getOperand(i).getDefiningOp();
-    if (input == defOp)
-      continue;
-
-    // Only input from block argument and constant is allowed.
-    if (!isa<BlockArgument>(useOp->getOperand(i)) &&
-        !isa<ONNXConstantOp>(input)) {
-      return false;
+    // Only input from block argument and constant is allowed,
+    // if the input does not come from the defining Op
+    if (!isa<BlockArgument>(useOp->getOperand(i))) {
+      Operation *input = useOp->getOperand(i).getDefiningOp();
+      if (input == defOp)
+        continue;
+      if (!isa<ONNXConstantOp>(useOp->getOperand(i).getDefiningOp())) {
+        return false;
+      }
     }
 
     // ToFix: This restriction can be relaxed if ShapeHelper utility is used
