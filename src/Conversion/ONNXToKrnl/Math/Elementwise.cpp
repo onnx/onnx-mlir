@@ -1657,14 +1657,34 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
 // If fused, the two ops will use the same loop nests and the iteration space
 // be the same. Fusion is not allowed along the d-u chain that is broadcasted
 // in the useOp.
-// Since the fusion will move the read of the inputs of useOp to the root Op,
-// the other inputs of the useOp (not the one from the defOp) should be
-// located before the root op to make the SSA correct.
-// In this implementation, no data dependence analysis and code motion for
-// fusion is implemented yet. The only other inputs allowed are block argument
-// and constant to guarantee they are before the root op.
-// It is assumed the canonicalization has hoisted all constant to
-// the beginning of the function by fold function.
+// clang-format off
+// Some discussion can be found at https://github.com/onnx/onnx-mlir/issues/2199
+// Example of shape valid for fusion:
+// %1 = "onnx.Sqrt"(%0) : (tensor<16x24xf32>) -> tensor<16x24xf32>
+// %2 = "onnx.Add"(%1, %3) : (tensor<16x24xf32>, tensor<24xf32>) -> tensor<16x24xf32>
+// Example of shape not valid for fusion
+// %1 = "onnx.Sqrt"(%0) : (tensor<24xf32>) -> tensor<24xf32>
+// %2 = "onnx.Add"(%1, %3) : (tensor<24xf32>, tensor<16x24xf32>) -> tensor<16x24xf32>
+// clang-format on
+
+// Since the fusion will move the read of the inputs of useOp
+// to the root Op, the other inputs of the useOp (not the one from the defOp)
+// should be located before the root op to make the SSA correct.
+// clang-format off
+// Example:
+// %3 = ...
+// %1 = "onnx.Sqrt"(%0) : (tensor<16x24xf32>) -> tensor<16x24xf32>
+// %2 = "onnx.Add"(%1, %3) : (tensor<16x24xf32>, tensor<24xf32>) -> tensor<16x24xf32>
+// Example of invalid fusion without code motion:
+// %1 = "onnx.Sqrt"(%0) : (tensor<16x24xf32>) -> tensor<16x24xf32>
+// %3 = ...
+// %2 = "onnx.Add"(%1, %3) : (tensor<16x24xf32>, tensor<24xf32>) -> tensor<16x24xf32>
+// clang-format on
+// In this implementation, no data dependence analysis and
+// code motion for fusion is implemented yet. The only other inputs allowed are
+// block argument and constant to guarantee they are before the root op. It is
+// assumed the canonicalization has hoisted all constant to the beginning of the
+// function by fold function.
 bool OpFusionHelper::areInputsValidForFusion(
     Operation *useOp, Operation *defOp) {
   // Elementwise nary operation is always fusible
@@ -1677,6 +1697,8 @@ bool OpFusionHelper::areInputsValidForFusion(
   // 1 is allowed. Refer to hasNoBroadcast() definition.
   // ToFix: This PR simply check static shape and does not use symbolic
   // shape analysis and BroadcastShapeHelper
+  // Some discussion can be found at
+  // https://github.com/onnx/onnx-mlir/issues/2199
 
   if (!hasStaticShape(defOp->getResults()[0].getType()))
     return false;
