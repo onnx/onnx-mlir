@@ -322,8 +322,8 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value result;
 
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  Value negInf = create.math.negativeInf(double);
-  Value posInf = create.math.positiveInf(double);
+  Value negInf = create.math.negativeInf(float64_t);
+  Value posInf = create.math.positiveInf(float64_t);
 
   double detectNegAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
   double detectPosAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
