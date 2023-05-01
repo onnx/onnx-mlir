@@ -19,10 +19,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
-#include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -659,67 +658,9 @@ public:
   }
 };
 
-/// Compute strides for a given shape.
-std::vector<int64_t> getStrides(ArrayRef<int64_t> shape) {
-  int rank = shape.size();
-  std::vector<int64_t> strides;
-  int64_t count = 1;
-  for (int i = rank - 1; i >= 0; i--) {
-    strides.insert(strides.begin(), count);
-    count *= shape[i];
-  }
-  return strides;
-}
-
-/// Compute the linear access index.
-int64_t getLinearAccessIndex(
-    ArrayRef<int64_t> indices, ArrayRef<int64_t> strides) {
-  int64_t index = 0;
-  for (unsigned int i = 0; i < strides.size(); ++i)
-    index += indices[i] * strides[i];
-  return index;
-}
-
-// https://github.com/onnx/onnx/blob/main/docs/Changelog.md#ScatterND-13
-/*
- * output = np.copy(data)
- * update_indices = indices.shape[:-1]
- * for idx in np.ndindex(update_indices):
- *     output[indices[idx]] = updates[idx]
- *
- * TODO: Move this to a scatterND method in ElementsAttrBuilder.
- */
-void ScatterNDImpl(ElementsAttr dataElements, ElementsAttr indicesElements,
-    ElementsAttr updatesElements, MutableArrayRef<WideNum> output) {
-  readElementsWideNums(dataElements, output);
-  ArrayBuffer<int64_t> indicesBuffer =
-      getElementsArray<int64_t>(indicesElements);
-  ArrayRef<int64_t> indices = indicesBuffer.get();
-  ArrayBuffer<WideNum> updatesBuffer = getElementsWideNums(updatesElements);
-  ArrayRef<WideNum> updates = updatesBuffer.get();
-
-  auto dataShape = dataElements.getType().getShape();
-  auto indicesShape = indicesElements.getType().getShape();
-  auto updatesShape = updatesElements.getType().getShape();
-
-  int64_t indices_nd = indicesShape.back();
-  auto outer = indicesShape.drop_back();
-  int64_t n_slices = ShapedType::getNumElements(outer);
-  int64_t slice_size =
-      ShapedType::getNumElements(updatesShape.drop_front(outer.size()));
-  auto dataStrides = getStrides(dataShape);
-  auto sliceStrides = llvm::ArrayRef(dataStrides).take_front(indices_nd);
-
-  auto indicesIter = indices.begin();
-  auto updatesIter = updates.begin();
-  for (int64_t i = 0; i < n_slices; ++i) {
-    ArrayRef<int64_t> idxs(indicesIter, indices_nd);
-    int64_t pos = getLinearAccessIndex(idxs, sliceStrides);
-    std::copy_n(updatesIter, slice_size, output.begin() + pos);
-    indicesIter += indices_nd;
-    updatesIter += slice_size;
-  }
-}
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ScatterND.
+//===----------------------------------------------------------------------===//
 
 class ConstPropScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
 public:
@@ -750,10 +691,8 @@ public:
         getConstValueElements(scatterNdOp.getIndices());
     ElementsAttr updatesElements =
         getConstValueElements(scatterNdOp.getUpdates());
-    ElementsAttr scatteredElements = elementsBuilder.fromWideNums(
-        dataElements.getType(), [&](MutableArrayRef<WideNum> dst) {
-          ScatterNDImpl(dataElements, indicesElements, updatesElements, dst);
-        });
+    ElementsAttr scatteredElements = elementsBuilder.scatterND(
+        dataElements, indicesElements, updatesElements);
     Value constOpResult = createReplacingConstantOp(
         rewriter, scatterNdOp.getData(), scatteredElements);
 
@@ -781,78 +720,32 @@ Value ConstPropCast(
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for SliceOp.
-//
-// TODO: Move this to a slice method in ElementsAttrBuilder.
 //===----------------------------------------------------------------------===//
-
-void ConstPropSliceImpl(ShapedType outputType,
-    const ONNXSliceOpShapeHelper &shapeHelper, ElementsAttr inputElements,
-    MutableArrayRef<WideNum> outputData) {
-  size_t rank = outputType.getRank();
-  auto outputShape = outputType.getShape();
-  std::vector<int64_t> inputStrides =
-      getStrides(inputElements.getType().getShape());
-  ArrayBuffer<WideNum> inputBuffer = getElementsWideNums(inputElements);
-  const WideNum *start = inputBuffer.get().begin();
-  SmallVector<int64_t, 4> steps(rank, 0);
-  for (size_t axis = 0; axis < rank; ++axis) {
-    start += shapeHelper.starts[axis].getLiteral() * inputStrides[axis];
-    steps[axis] = shapeHelper.steps[axis].getLiteral() * inputStrides[axis];
-  }
-  for (auto &idxpos : StridesRange<1>(outputShape, {steps}))
-    outputData[idxpos.flattenedIndex] = *(start + idxpos[0]);
-}
 
 Value ConstPropSlice(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
   ConstPropCounters::count("Slice", {constValue});
   Operation *op = replacingValue.getDefiningOp();
-  ONNXSliceOp sliceOp = cast<ONNXSliceOp>(op);
 
-  // Get starts, ends, axes and steps via ShapeHelper.
+  // Get shape, starts, steps via ShapeHelper.
   ONNXSliceOpShapeHelper shapeHelper(op, {});
-  if (failed(shapeHelper.computeShape())) {
-    sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
-                      " parameters successfully");
-    return nullptr;
-  }
+  auto outcome = shapeHelper.computeShape();
+  assert(succeeded(outcome) && "Failed to scan slice op parameters");
+  SmallVector<int64_t> shape, starts, steps;
+  IndexExpr::getShape(shapeHelper.getOutputDims(), shape);
+  IndexExpr::getLiteral(shapeHelper.starts, starts);
+  IndexExpr::getLiteral(shapeHelper.steps, steps);
 
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr inputElements = getConstValueElements(constValue);
-  ShapedType outputType = replacingValue.getType().cast<ShapedType>();
-  ElementsAttr slicedElements = elementsBuilder.fromWideNums(
-      outputType, [&](MutableArrayRef<WideNum> dst) {
-        ConstPropSliceImpl(outputType, shapeHelper, inputElements, dst);
-      });
+  ElementsAttr slicedElements =
+      elementsBuilder.slice(inputElements, shape, starts, steps);
   return createReplacingConstantOp(rewriter, replacingValue, slicedElements);
 }
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for ConcatOp.
-//
-// TODO: Move this to a concat method in ElementsAttrBuilder.
 //===----------------------------------------------------------------------===//
-
-void ConstPropConcatImpl(ShapedType outputType,
-    ArrayRef<ElementsAttr> inputElements, int64_t axis,
-    MutableArrayRef<WideNum> outputData) {
-  ArrayRef<int64_t> outputShape = outputType.getShape();
-  size_t stride = ShapedType::getNumElements(outputShape.drop_front(axis));
-  size_t start = 0;
-  auto out = outputData.begin();
-  for (ElementsAttr input : inputElements) {
-    ArrayRef<int64_t> inputShape = input.getType().getShape();
-    size_t len = ShapedType::getNumElements(inputShape.drop_front(axis));
-    ArrayBuffer<WideNum> inputData = getElementsWideNums(input);
-    auto in = inputData.get().begin();
-    for (size_t offset = start; offset < outputData.size(); offset += stride) {
-      std::copy_n(in, len, out + offset);
-      in += len;
-    }
-    assert(in == inputData.get().end() && "input num elements mismatch");
-    start += len;
-  }
-}
 
 Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
     ValueRange operands, IntegerAttr axisAttr) {
@@ -867,10 +760,8 @@ Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
   inputElements.reserve(operands.size());
   for (Value input : operands)
     inputElements.push_back(getConstValueElements(input));
-  ElementsAttr concatenatedElements = elementsBuilder.fromWideNums(
-      outputType, [&](MutableArrayRef<WideNum> dst) {
-        ConstPropConcatImpl(outputType, inputElements, axis, dst);
-      });
+  ElementsAttr concatenatedElements =
+      elementsBuilder.concat(inputElements, axis);
   return createReplacingConstantOp(
       rewriter, replacingValue, concatenatedElements);
 }
@@ -893,36 +784,7 @@ Value ConstPropExpand(
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for GatherOp.
-//
-// TODO: Move this to a gather method in ElementsAttrBuilder.
 //===----------------------------------------------------------------------===//
-
-void ConstPropGatherImpl(ShapedType outputType, ElementsAttr inputElements,
-    ElementsAttr indicesElements, int64_t axis,
-    MutableArrayRef<WideNum> outputData) {
-  ArrayBuffer<WideNum> inputData = getElementsWideNums(inputElements);
-  ArrayBuffer<int64_t> indicesData = getElementsArray<int64_t>(indicesElements);
-  auto inputShape = inputElements.getType().getShape();
-  size_t axisSize = inputShape[axis];
-  size_t inputStride = ShapedType::getNumElements(inputShape.drop_front(axis));
-  size_t len = inputStride / axisSize;
-  auto outputShape = outputType.getShape();
-  size_t outputStride =
-      ShapedType::getNumElements(outputShape.drop_front(axis));
-  assert(outputStride == indicesData.get().size() * len);
-  size_t start = 0;
-  auto out = outputData.begin();
-  for (int64_t idx : indicesData.get()) {
-    int64_t adjustedIdx = idx < 0 ? idx + axisSize : idx;
-    auto in = inputData.get().begin() + adjustedIdx * len;
-    for (size_t offset = start; offset < outputData.size();
-         offset += outputStride) {
-      std::copy_n(in, len, out + offset);
-      in += inputStride;
-    }
-    start += len;
-  }
-}
 
 Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
     Value inputValue, Value indicesValue) {
@@ -936,12 +798,8 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr inputElements = getConstValueElements(inputValue);
   ElementsAttr indicesElements = getConstValueElements(indicesValue);
-  ShapedType outputType = replacingValue.getType().cast<ShapedType>();
-  ElementsAttr gatheredElements = elementsBuilder.fromWideNums(
-      outputType, [&](MutableArrayRef<WideNum> dst) {
-        ConstPropGatherImpl(
-            outputType, inputElements, indicesElements, axis, dst);
-      });
+  ElementsAttr gatheredElements =
+      elementsBuilder.gather(inputElements, indicesElements, axis);
   return createReplacingConstantOp(rewriter, replacingValue, gatheredElements);
 }
 
