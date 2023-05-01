@@ -91,6 +91,12 @@ struct ONNXOpShapeHelper {
   // Every leaf class is expected to create a computeShape with the following
   // signature. This method is responsible to compute at a minimum the output
   // dims.
+  // Unimplemented operations return success, as these operations may be
+  // transformed later in a sequence of operations with implemented shape
+  // inference. To ensure an implementation, check the `isImplemented` function.
+  // This is used, for example, in dynamic analysis, where unimplemented shape
+  // inferences are simply ignored (and conservatively assume no knowledge about
+  // that operation's transfer function).
   virtual mlir::LogicalResult computeShape() = 0;
 
   // Compute shape and assert on failure.
@@ -108,9 +114,15 @@ struct ONNXOpShapeHelper {
       mlir::ArrayRef<mlir::Attribute> encodingList = {});
 
   // Get output dims for the N-th output dimension as Index Expressions.
-  // Scalar may have a DimsExpr that is empty.
+  // Scalar may have a DimsExpr that is empty. Requires an implementation.
   DimsExpr &getOutputDims(int n = 0) {
-    assert(isImplemented() && "implementation required");
+    if (!isImplemented()) {
+      llvm::errs()
+          << "Implementation of shape helper for op " << op->getName()
+          << "is not currently available; please open an issue on "
+          << "https://github.com/onnx/onnx-mlir/ if this op is required\n";
+      llvm_unreachable("missing implementation for shape inference");
+    }
     return privateOutputsDims[n];
   }
   // Set output dims, merging the dims associated with the current type with
