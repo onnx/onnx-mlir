@@ -96,7 +96,8 @@ bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
   // Get its shape interface.
   onnx_mlir::ONNXOpShapeHelper *shapeHelper =
       shape_op.getShapeHelper(op, {}, nullptr, nullptr);
-  if (!shapeHelper)
+  // If no shape helper, or unimplemented, just abort.
+  if (!shapeHelper || !shapeHelper->isImplemented())
     return false;
 
   // Compute shape.

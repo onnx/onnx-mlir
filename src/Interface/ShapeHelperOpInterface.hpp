@@ -85,6 +85,9 @@ struct ONNXOpShapeHelper {
       IndexExprScope *scope);      /* Install local scope if null. */
   virtual ~ONNXOpShapeHelper();
 
+  // Return true if implemented.
+  virtual bool isImplemented() { return true; }
+
   // Every leaf class is expected to create a computeShape with the following
   // signature. This method is responsible to compute at a minimum the output
   // dims.
@@ -106,7 +109,10 @@ struct ONNXOpShapeHelper {
 
   // Get output dims for the N-th output dimension as Index Expressions.
   // Scalar may have a DimsExpr that is empty.
-  DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }
+  DimsExpr &getOutputDims(int n = 0) {
+    assert(isImplemented() && "implementation required");
+    return privateOutputsDims[n];
+  }
   // Set output dims, merging the dims associated with the current type with
   // inferred dims provided here, as appropriate.
   void setOutputDims(
