@@ -1527,23 +1527,13 @@ Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
 }
 
 Value LLVMBuilder::_alloca(
-    Type resultType, Value size, int64_t alignment) const {
-  return b().create<LLVM::AllocaOp>(loc(), resultType, size, alignment);
+    Type resultType, Type elementType, Value size, int64_t alignment) const {
+  return b().create<LLVM::AllocaOp>(
+      loc(), resultType, elementType, size, alignment);
 }
 
 Value LLVMBuilder::bitcast(Type type, Value val) const {
   return b().create<LLVM::BitcastOp>(loc(), type, val);
-}
-
-Value LLVMBuilder::bitcastI8Ptr(Value val) const {
-  return b().create<LLVM::BitcastOp>(
-      loc(), LLVM::LLVMPointerType::get(b().getI8Type()), val);
-}
-
-Value LLVMBuilder::bitcastI8PtrPtr(Value val) const {
-  return b().create<LLVM::BitcastOp>(loc(),
-      LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(b().getI8Type())),
-      val);
 }
 
 void LLVMBuilder::br(ArrayRef<Value> destOperands, Block *destBlock) const {
@@ -1637,9 +1627,9 @@ LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
   return b().create<LLVM::LLVMFuncOp>(loc(), name, type);
 }
 
-Value LLVMBuilder::getElemPtr(
-    Type resultType, Value base, ArrayRef<Value> indices) const {
-  return b().create<LLVM::GEPOp>(loc(), resultType, base, indices);
+Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
+    ArrayRef<LLVM::GEPArg> indices) const {
+  return b().create<LLVM::GEPOp>(loc(), resultType, elemType, base, indices);
 }
 
 LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
@@ -1663,8 +1653,8 @@ Value LLVMBuilder::inttoptr(Type type, Value val) const {
   return b().create<LLVM::IntToPtrOp>(loc(), type, val);
 }
 
-Value LLVMBuilder::load(Value addr) const {
-  return b().create<LLVM::LoadOp>(loc(), addr);
+Value LLVMBuilder::load(Type elementType, Value addr) const {
+  return b().create<LLVM::LoadOp>(loc(), elementType, addr);
 }
 
 Value LLVMBuilder::mul(Value lhs, Value rhs) const {
@@ -1673,11 +1663,6 @@ Value LLVMBuilder::mul(Value lhs, Value rhs) const {
 
 Value LLVMBuilder::null(Type type) const {
   return b().create<LLVM::NullOp>(loc(), type);
-}
-
-Value LLVMBuilder::nullI8Ptr() const {
-  Type I8PtrTy = LLVM::LLVMPointerType::get(b().getI8Type());
-  return b().create<LLVM::NullOp>(loc(), I8PtrTy);
 }
 
 Value LLVMBuilder::ptrtoint(Type type, Value val) const {

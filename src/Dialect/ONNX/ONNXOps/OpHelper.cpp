@@ -620,6 +620,8 @@ Type convertONNXTypeToMLIRType(
 // Convert an MLIR type to the corresponding ONNX type.
 int64_t mlirTypeToOnnxType(Type elemType) {
   onnx::TensorProto::DataType onnxType = onnx::TensorProto::UNDEFINED;
+  if (!elemType)
+    return onnxType;
 
   TypeSwitch<Type>(elemType)
       .Case<BFloat16Type>(
