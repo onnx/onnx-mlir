@@ -15,4 +15,5 @@ add_onnx_mlir_library(OMONNXElementsAttr
   LINK_LIBS PUBLIC
   OMMlirUtilities
   MLIRIR
+  MLIRDialect # Dialect/Traits
   )

@@ -36,6 +36,7 @@ public:
   enum class API {
     CREATE_OMTENSOR_LIST,
     CREATE_OMTENSOR,
+    DESTROY_OMTENSOR,
     GET_DATA,
     SET_DATA,
     GET_DATA_RANK,
@@ -81,7 +82,8 @@ class RuntimeAPIRegistry final {
 public:
   using ApiRegistry = std::map<RuntimeAPI::API, RuntimeAPI>;
 
-  RuntimeAPIRegistry(mlir::ModuleOp &module, mlir::OpBuilder &builder);
+  RuntimeAPIRegistry(mlir::ModuleOp &module, mlir::OpBuilder &builder,
+      mlir::LLVMTypeConverter &typeConverter);
   ~RuntimeAPIRegistry();
 
   static const RuntimeAPIRegistry build(

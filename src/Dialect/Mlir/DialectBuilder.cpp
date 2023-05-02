@@ -26,6 +26,9 @@
 
 // Please do not add dependences on ONNX or KRNL dialects.
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
+
+#include <algorithm>
 
 #define DEBUG_TYPE "dialect_builder"
 
@@ -53,6 +56,13 @@ namespace onnx_mlir {
   if (vectorType)
     return vectorType.getElementType();
   return elementOrVectorType;
+}
+
+/* static */ Type MathBuilder::getTypeWithVector(
+    VectorType vectorType, Type elementType) {
+  if (vectorType)
+    return VectorType::get(vectorType.getShape(), elementType);
+  return elementType;
 }
 
 /* static */ bool MathBuilder::isIntegerWithVector(Type elementOrVectorType) {
@@ -102,8 +112,18 @@ Value MathBuilder::xori(Value lhs, Value rhs) const {
 
 Value MathBuilder::add(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
-    return b().create<arith::AddIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType())) {
+    Type elemType = elementTypeWithVector(lhs.getType());
+    if (elemType.isUnsignedInteger()) {
+      unsigned elemWidth = elemType.cast<IntegerType>().getWidth();
+      Value castLhs = castToSignless(lhs, elemWidth);
+      Value castRhs = castToSignless(rhs, elemWidth);
+      Value castAdd =
+          b().create<arith::AddUIExtendedOp>(loc(), castLhs, castRhs).getSum();
+      return castToUnsigned(castAdd, elemWidth);
+    } else
+      return b().create<arith::AddIOp>(loc(), lhs, rhs);
+  }
   if (isFloatWithVector(lhs.getType()))
     return b().create<arith::AddFOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
@@ -120,8 +140,18 @@ Value MathBuilder::sub(Value lhs, Value rhs) const {
 
 Value MathBuilder::mul(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
-  if (isIntegerWithVector(lhs.getType()))
-    return b().create<arith::MulIOp>(loc(), lhs, rhs);
+  if (isIntegerWithVector(lhs.getType())) {
+    Type elemType = elementTypeWithVector(lhs.getType());
+    if (elemType.isUnsignedInteger()) {
+      unsigned elemWidth = elemType.cast<IntegerType>().getWidth();
+      Value castLhs = castToSignless(lhs, elemWidth);
+      Value castRhs = castToSignless(rhs, elemWidth);
+      Value castMul =
+          b().create<arith::MulUIExtendedOp>(loc(), castLhs, castRhs).getLow();
+      return castToUnsigned(castMul, elemWidth);
+    } else
+      return b().create<arith::MulIOp>(loc(), lhs, rhs);
+  }
   if (isFloatWithVector(lhs.getType()))
     return b().create<arith::MulFOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
@@ -173,6 +203,15 @@ Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
   if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::FloorDivSIOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int");
+}
+
+// return (lhs * rhs) + acc
+Value MathBuilder::fma(Value lhs, Value rhs, Value acc) const {
+  assert((lhs.getType() == rhs.getType()) && (rhs.getType() == acc.getType()) &&
+         "expected same type");
+  if (isFloatWithVector(lhs.getType()) && !isa<FloatType>(lhs.getType()))
+    return b().create<vector::FMAOp>(loc(), lhs, rhs, acc);
+  return add(mul(lhs, rhs), acc);
 }
 
 Value MathBuilder::exp(Value val) const {
@@ -390,11 +429,16 @@ Value MathBuilder::constant(Type type, double val) const {
           constant =
               b().create<arith::ConstantOp>(loc(), b().getBoolAttr(val != 0));
         else {
-          // If unsigned, the integer is still the same, so just create it.
-          // assert(elementType.isSignless() &&
-          //       "arith::ConstantOp requires a signless type.");
-          constant = b().create<arith::ConstantOp>(loc(),
-              b().getIntegerAttr(elementType, APInt(width, (int64_t)val)));
+          // If unsigned, create a signless constant, then cast it to unsigned.
+          if (elementType.isUnsignedInteger()) {
+            Type signlessTy = b().getIntegerType(width);
+            constant = b().create<arith::ConstantOp>(loc(),
+                b().getIntegerAttr(signlessTy, APInt(width, (int64_t)val)));
+            constant = castToUnsigned(constant, width);
+          } else {
+            constant = b().create<arith::ConstantOp>(loc(),
+                b().getIntegerAttr(elementType, APInt(width, (int64_t)val)));
+          }
         }
       })
       .Case<IndexType>([&](Type elementType) {
@@ -542,87 +586,107 @@ Value MathBuilder::createArithCmp(
 // cast remove the sign of integer types for successful processing, to the
 // best of my understanding.
 Value MathBuilder::castToSignless(Value val, int64_t width) const {
-  assert(val.getType().isa<IntegerType>() &&
-         !val.getType().isSignlessInteger() && "Expecting signed integer type");
+  Type valType = val.getType();
+  VectorType vecType = valType.dyn_cast<VectorType>();
+  Type valElemType = elementTypeWithVector(valType);
+  assert(valElemType.isa<IntegerType>() && !valElemType.isSignlessInteger() &&
+         "Expecting signed integer type");
+  Type destType = getTypeWithVector(vecType, b().getIntegerType(width));
   return b()
-      .create<UnrealizedConversionCastOp>(loc(), b().getIntegerType(width), val)
+      .create<UnrealizedConversionCastOp>(loc(), destType, val)
       .getResult(0);
 }
 
 Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
-  assert(val.getType().isa<IntegerType>() && "Expecting integer type");
+  Type valType = val.getType();
+  VectorType vecType = valType.dyn_cast<VectorType>();
+  Type valElemType = elementTypeWithVector(valType);
+  assert(valElemType.isa<IntegerType>() && "Expecting integer type");
+  Type destType =
+      getTypeWithVector(vecType, b().getIntegerType(width, false /*signed*/));
   return b()
-      .create<UnrealizedConversionCastOp>(
-          loc(), b().getIntegerType(width, false /*signed*/), val)
+      .create<UnrealizedConversionCastOp>(loc(), destType, val)
       .getResult(0);
 }
 
 // Methods inspired from MLIR TosaToLinalg CastOp.
 Value MathBuilder::cast(Type destType, Value src) const {
-  // Get source type and check if we need a cast at all.
+  // Get element type and vector types (if any, i.e. possibly nullptr).
   Type srcType = src.getType();
+  VectorType srcVecType = srcType.dyn_cast<VectorType>();
+  VectorType destVecType = destType.dyn_cast<VectorType>();
+  Type srcElemType = elementTypeWithVector(srcType);
+  Type destElemType = elementTypeWithVector(destType);
+  // Make sure we don't mix vector and scalars.
+  assert(((srcVecType && destVecType) || (!srcVecType && !destVecType)) &&
+         "expect both to be scalars or vectors");
+  // Check if we even need a cast.
   if (srcType == destType)
     return src;
 
   // Process index types first.
-  if (srcType.isa<IndexType>()) {
-    // If our source is an index type, first convert it into a signless int of
+  if (srcElemType.isa<IndexType>()) {
+    // If the source is an index type, first convert it into a signless int of
     // size 64.
-    srcType = b().getIntegerType(64);
+    srcElemType = b().getIntegerType(64);
+    srcType = getTypeWithVector(srcVecType, srcElemType);
     src = b().create<arith::IndexCastOp>(loc(), srcType, src);
   }
   bool destIsIndex = false;
-  if (destType.isa<IndexType>()) {
-    // If our dest is an index type, pretend for now that we want it to be
-    // converted to.
-    destType = b().getIntegerType(64);
+  Type savedDestType = destType; // Used when destIsIndex is true.
+  if (destElemType.isa<IndexType>()) {
+    // If the dest is an index type, pretend for now that we want it to be
+    // converted to signless int of size 64.
+    destElemType = b().getIntegerType(64);
+    destType = getTypeWithVector(destVecType, destElemType);
     destIsIndex = true;
   }
 
   // Only support Integer or Float type at this stage. Index were transformed
   // to signless int.
   // TODO: add support for shaped tensor (MemRef, Vector, Tensor?) if needed.
-  assert((srcType.isa<IntegerType>() || srcType.isa<FloatType>()) &&
+  assert((srcElemType.isa<IntegerType>() || srcElemType.isa<FloatType>()) &&
          "support only float or int");
-  assert((destType.isa<IntegerType>() || destType.isa<FloatType>()) &&
+  assert((destElemType.isa<IntegerType>() || destElemType.isa<FloatType>()) &&
          "support only float or int");
   // Get source and dest type width.
-  int64_t srcWidth = srcType.getIntOrFloatBitWidth();
-  int64_t destWidth = destType.getIntOrFloatBitWidth();
-  bool bitExtend = srcWidth < destWidth;
-  bool bitTrunc = srcWidth > destWidth;
+  int64_t srcElemWidth = srcElemType.getIntOrFloatBitWidth();
+  int64_t destElemWidth = destElemType.getIntOrFloatBitWidth();
+  bool bitExtend = srcElemWidth < destElemWidth;
+  bool bitTrunc = srcElemWidth > destElemWidth;
 
   LLVM_DEBUG(llvm::dbgs() << "srcType: " << srcType << "\n";
              llvm::dbgs() << "destType: " << destType << "\n";);
 
   // Handle boolean first because they need special handling.
   // Boolean to int/float conversions. Boolean are unsigned.
-  if (srcType.isInteger(1)) {
-    if (destType.isa<FloatType>()) {
+  if (srcElemType.isInteger(1)) {
+    if (destElemType.isa<FloatType>()) {
       return b().create<arith::UIToFPOp>(loc(), destType, src);
     } else {
       Value dest = b().create<arith::ExtUIOp>(loc(), destType, src);
       if (destIsIndex)
-        dest = b().create<arith::IndexCastOp>(loc(), b().getIndexType(), dest);
+        dest = b().create<arith::IndexCastOp>(loc(), savedDestType, dest);
       return dest;
     }
   }
 
   // Int/Float to booleans, just compare value to be unequal zero.
-  if (destType.isInteger(1)) {
+  if (destElemType.isInteger(1)) {
     Type constantType = srcType;
-    if (srcType.isa<IntegerType>() && !srcType.isSignlessInteger()) {
+    if (srcElemType.isa<IntegerType>() && !srcElemType.isSignlessInteger()) {
       // An integer constant must be signless.
-      unsigned srcWidth = srcType.cast<IntegerType>().getWidth();
-      constantType = IntegerType::get(srcType.getContext(), srcWidth);
-      src = castToSignless(src, srcWidth);
+      unsigned srcElemWidth = srcElemType.cast<IntegerType>().getWidth();
+      constantType = getTypeWithVector(
+          srcVecType, IntegerType::get(srcElemType.getContext(), srcElemWidth));
+      src = castToSignless(src, srcElemWidth);
     }
     Value zero = constant(constantType, 0);
     return neq(src, zero);
   }
 
   // Float to float conversions.
-  if (srcType.isa<FloatType>() && destType.isa<FloatType>()) {
+  if (srcElemType.isa<FloatType>() && destElemType.isa<FloatType>()) {
     assert((bitExtend || bitTrunc) && "expected extend or trunc");
     if (bitExtend)
       return b().create<arith::ExtFOp>(loc(), destType, src);
@@ -631,25 +695,26 @@ Value MathBuilder::cast(Type destType, Value src) const {
   }
 
   // Float to int conversions.
-  if (srcType.isa<FloatType>() && destType.isa<IntegerType>()) {
+  if (srcElemType.isa<FloatType>() && destElemType.isa<IntegerType>()) {
     // TosaToLinalg in MLIR uses a fancier algorithm that clamps values to
     // min/max signed/unsigned integer values.
     if (destType.isUnsignedInteger()) {
-      Value cast = castToSignless(src, srcWidth);
-      return b().create<arith::FPToUIOp>(loc(), destType, cast);
+      Type castType = b().getIntegerType(destElemWidth);
+      Value cast = b().create<arith::FPToUIOp>(loc(), castType, src);
+      return castToUnsigned(cast, destElemWidth);
     } else {
       // Handle signed int.
       Value dest = b().create<arith::FPToSIOp>(loc(), destType, src);
       if (destIsIndex)
-        dest = b().create<arith::IndexCastOp>(loc(), b().getIndexType(), dest);
+        dest = b().create<arith::IndexCastOp>(loc(), savedDestType, dest);
       return dest;
     }
   }
 
   // Int to float conversion.
-  if (srcType.isa<IntegerType>() && destType.isa<FloatType>()) {
-    if (srcType.isUnsignedInteger()) {
-      Value cast = castToSignless(src, srcWidth);
+  if (srcElemType.isa<IntegerType>() && destElemType.isa<FloatType>()) {
+    if (srcElemType.isUnsignedInteger()) {
+      Value cast = castToSignless(src, srcElemWidth);
       return b().create<arith::UIToFPOp>(loc(), destType, cast);
     } else {
       // Handle signed int.
@@ -660,22 +725,35 @@ Value MathBuilder::cast(Type destType, Value src) const {
   // Int to int conversion.
   if (srcType.isa<IntegerType>() && destType.isa<IntegerType>()) {
     if (srcType.isUnsignedInteger()) {
-      // Unsigned to unsigned conversion. Has to convert to signless first,
-      // and reconvert output to unsigned.
-      assert(destType.isUnsignedInteger() && "no unsigned/signed conversion");
+      // Unsigned to unsigned/signed conversion.
+      // Same bit width for unsigned to signed conversion.
+      if ((srcElemWidth == destElemWidth) && destType.isSignlessInteger())
+        return castToSignless(src, srcElemWidth);
+      // Different bit width.
       assert((bitExtend || bitTrunc) && "expected extend or trunc");
-      Value cast = castToSignless(src, srcWidth);
-      Type castType = b().getIntegerType(destWidth);
+      // Has to convert to signless first, and reconvert output to unsigned.
+      Value cast = castToSignless(src, srcElemWidth);
+      Type castType = b().getIntegerType(destElemWidth);
       if (bitExtend) {
         cast = b().create<arith::ExtUIOp>(loc(), castType, cast);
       } else {
         // TosaToLinalg use a clipping algo, not sure if needed.
         cast = b().create<arith::TruncIOp>(loc(), castType, cast);
       }
-      return castToUnsigned(cast, destWidth);
+      if (destType.isUnsignedInteger()) {
+        // Unsigned to unsigned conversion.
+        return castToUnsigned(cast, destElemWidth);
+      } else {
+        // Unsigned to signed conversion.
+        return cast;
+      }
     } else {
+      // Signed to unsigned/signed conversion.
       // Handle signed integer
-      assert(!destType.isUnsignedInteger() && "no signed/unsigned conversion");
+      // Same bit width for signed to unsigned conversion.
+      if ((srcElemWidth == destElemWidth) && destType.isUnsignedInteger())
+        return castToUnsigned(src, srcElemWidth);
+      // Different bit width.
       Value dest = src;
       if (bitExtend)
         dest = b().create<arith::ExtSIOp>(loc(), destType, src);
@@ -683,8 +761,12 @@ Value MathBuilder::cast(Type destType, Value src) const {
         // TosaToLinalg use a clipping algo
         dest = b().create<arith::TruncIOp>(loc(), destType, src);
       if (destIsIndex)
-        dest = b().create<arith::IndexCastOp>(loc(), b().getIndexType(), dest);
-      return dest;
+        return b().create<arith::IndexCastOp>(loc(), b().getIndexType(), dest);
+      if (destType.isUnsignedInteger()) {
+        return castToUnsigned(dest, destElemWidth);
+      } else {
+        return dest;
+      }
     }
   }
 
@@ -853,6 +935,41 @@ memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
 }
 
 //===----------------------------------------------------------------------===//
+// Info about memory size.
+
+// Compute static and dynamic size of memref. Return true if has static size.
+bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
+    ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize) const {
+  Type elementType = type.getElementType();
+  assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
+  ArrayRef<int64_t> shape = type.getShape();
+  staticSize = 1;                // Multiplication of static sizes.
+  dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
+  bool staticShape = (dynSymbols.size() == 0);
+  int64_t rank = type.getRank();
+  int64_t iDim = 0;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (shape[i] == ShapedType::kDynamic) {
+      assert(!staticShape && "expected static shape");
+      assert(iDim < (int64_t)dynSymbols.size() && "not enough dynamic symbols");
+      dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
+    } else {
+      // Has constant shape.
+      staticSize *= shape[i];
+    }
+  }
+  return staticShape;
+}
+
+bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
+    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
+    IndexExpr &dynSize) const {
+  llvm::SmallVector<Value, 4> dynSymbols;
+  computeDynSymbols(type, dims, dynSymbols);
+  return getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
+}
+
+//===----------------------------------------------------------------------===//
 // Alloc functions with alignment and padding for SIMD
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(
@@ -868,22 +985,10 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
   assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
   assert(simdUnroll >= 1 && "expected positive simd unroll factor");
   // Compute total size of memref (in unit of element type).
-  ArrayRef<int64_t> shape = type.getShape();
-  int64_t staticSize = 1;                  // Multiplication of static sizes.
-  IndexExpr dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
-  bool staticShape = (dynSymbols.size() == 0);
-  int64_t rank = type.getRank();
-  int64_t iDim = 0;
-  for (int64_t i = 0; i < rank; ++i) {
-    if (shape[i] == ShapedType::kDynamic) {
-      assert(!staticShape && "expected static shape");
-      assert(iDim < (int64_t)dynSymbols.size() && "not enough dynamic symbols");
-      dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
-    } else {
-      // Has constant shape.
-      staticSize *= shape[i];
-    }
-  }
+  int64_t staticSize;
+  IndexExpr dynSize;
+  bool staticShape =
+      getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
   // Get vector length for this element type, multiplied by the unroll factor.
   MultiDialectBuilder<VectorBuilder> create(*this);
   int64_t VL = create.vec.getMachineVectorLength(elementType) * simdUnroll;
@@ -985,32 +1090,57 @@ memref::ReshapeOp MemRefBuilder::reshape(
       loc(), destType, valToReshape, destShapeStoredInMem);
 }
 
-memref::ReshapeOp MemRefBuilder::reshapeToFlat(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims, Value &size1D) const {
+// Flatten the innermost dimsToFlatten of the value valToReshape. Return in
+// flattenSize the cumulative size of the flattened dimensions. If flattenSize
+// is -1, flatten them all. Expect to flatten at least 1 dim (which is a noop).
+// Output rank is Rank(input) - dimsToFlatten + 1.
+Value MemRefBuilder::reshapeToFlat(Value valToReshape,
+    llvm::SmallVectorImpl<IndexExpr> &dims, Value &flattenedSize,
+    int64_t dimsToFlatten) const {
   // Parse input.
   MemRefType inputType = valToReshape.getType().cast<MemRefType>();
-  Type inputElementType = inputType.getElementType();
+  int64_t inputRank = inputType.getRank();
+  assert(inputRank == (int64_t)dims.size() && "rank mismatch");
+  Type elementType = inputType.getElementType();
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
-  Type indexType = b().getIndexType();
+  // Set/check dimsToFlatten.
+  if (dimsToFlatten == -1)
+    dimsToFlatten = inputRank;
+  assert(dimsToFlatten > 0 && dimsToFlatten <= inputRank &&
+         "out of range dimsToFlatten");
   // Create scope to avoid issues.
   IndexExprScope innerScope(getBuilderPtr(), loc());
   MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  // Compute total number of elements in new scope.
-  IndexExpr numOfElements = LiteralIndexExpr(1);
-  for (IndexExpr d : dims)
-    numOfElements = numOfElements * SymbolIndexExpr(d);
-  // Size1D is an output value corresponding to the total number of elements.
-  size1D = numOfElements.getValue();
-  // Shape for reshaping from N-D to 1-D saved into memory.
-  Value shape1D = alignedAlloc(MemRefType::get({1}, indexType));
-  Value zero = create.math.constantIndex(0);
-  create.affine.store(size1D, shape1D, {zero});
-  // Reshape the input N-D MemRef into a 1-D MemRef.
-  int64_t dim1DSize = ShapedType::kDynamic;
-  if (numOfElements.isLiteral())
-    dim1DSize = numOfElements.getLiteral();
-  MemRefType input1DType = MemRefType::get({dim1DSize}, inputElementType);
-  return reshape(input1DType, valToReshape, shape1D);
+  // Compute total number of flattened elements in new scope.
+  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
+  for (int64_t d = inputRank - dimsToFlatten; d < inputRank; ++d) {
+    numOfFlattenedElements = numOfFlattenedElements * SymbolIndexExpr(dims[d]);
+  }
+  // flattenedSize is an output value corresponding to the total number of
+  // elements that were flattened.
+  flattenedSize = numOfFlattenedElements.getValue();
+  if (dimsToFlatten == 1)
+    // Flattening of the last dim is really no flattening at all. Return
+    // original value before doing the actual reshaping, which is unnecessary.
+    // Waited until here as we need to return a valid flattenedSize,
+    return valToReshape;
+  // Shape for reshaping from N-D to M-D saved into memory.
+  int64_t outputRank = (inputRank - dimsToFlatten) + 1;
+  Type indexType = b().getIndexType();
+  Value outputShapeInMem =
+      alignedAlloc(MemRefType::get({outputRank}, indexType));
+  llvm::SmallVector<int64_t, 4> outputShape;
+  // Compute shape and store it in memory.
+  for (int64_t d = 0; d < outputRank; ++d) {
+    Value dd = create.math.constantIndex(d);
+    IndexExpr shapeIE =
+        (d == outputRank - 1) ? numOfFlattenedElements : dims[d];
+    create.affine.store(shapeIE.getValue(), outputShapeInMem, {dd});
+    outputShape.emplace_back(shapeIE.getShape());
+  }
+  // Reshape the input N-D MemRef into a M-D MemRef.
+  MemRefType outputType = MemRefType::get(outputShape, elementType);
+  return reshape(outputType, valToReshape, outputShapeInMem);
 }
 
 memref::ReshapeOp MemRefBuilder::reshapeFromFlat(Value valToReshape,
@@ -1198,14 +1328,10 @@ void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }
 //===----------------------------------------------------------------------===//
 
 int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
-  unsigned typeBitSize = elementType.getIntOrFloatBitWidth();
-  unsigned simdBitSize;
-  // TODO: use march and mcpu to determine the right size, right now assume
-  // 4*32=128 bits.
-  simdBitSize = 128;
-  assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
-         "bad machine vector length");
-  return (simdBitSize / typeBitSize);
+  VectorMachineSupport *vms =
+      VectorMachineSupport::getGlobalVectorMachineSupport();
+  // Even if unsupported, we can always compute one result per vector.
+  return std::max((int64_t)1, vms->getVectorLength(elementType));
 }
 
 int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) const {
@@ -1401,23 +1527,13 @@ Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
 }
 
 Value LLVMBuilder::_alloca(
-    Type resultType, Value size, int64_t alignment) const {
-  return b().create<LLVM::AllocaOp>(loc(), resultType, size, alignment);
+    Type resultType, Type elementType, Value size, int64_t alignment) const {
+  return b().create<LLVM::AllocaOp>(
+      loc(), resultType, elementType, size, alignment);
 }
 
 Value LLVMBuilder::bitcast(Type type, Value val) const {
   return b().create<LLVM::BitcastOp>(loc(), type, val);
-}
-
-Value LLVMBuilder::bitcastI8Ptr(Value val) const {
-  return b().create<LLVM::BitcastOp>(
-      loc(), LLVM::LLVMPointerType::get(b().getI8Type()), val);
-}
-
-Value LLVMBuilder::bitcastI8PtrPtr(Value val) const {
-  return b().create<LLVM::BitcastOp>(loc(),
-      LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(b().getI8Type())),
-      val);
 }
 
 void LLVMBuilder::br(ArrayRef<Value> destOperands, Block *destBlock) const {
@@ -1511,9 +1627,9 @@ LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
   return b().create<LLVM::LLVMFuncOp>(loc(), name, type);
 }
 
-Value LLVMBuilder::getElemPtr(
-    Type resultType, Value base, ArrayRef<Value> indices) const {
-  return b().create<LLVM::GEPOp>(loc(), resultType, base, indices);
+Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
+    ArrayRef<LLVM::GEPArg> indices) const {
+  return b().create<LLVM::GEPOp>(loc(), resultType, elemType, base, indices);
 }
 
 LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
@@ -1537,8 +1653,8 @@ Value LLVMBuilder::inttoptr(Type type, Value val) const {
   return b().create<LLVM::IntToPtrOp>(loc(), type, val);
 }
 
-Value LLVMBuilder::load(Value addr) const {
-  return b().create<LLVM::LoadOp>(loc(), addr);
+Value LLVMBuilder::load(Type elementType, Value addr) const {
+  return b().create<LLVM::LoadOp>(loc(), elementType, addr);
 }
 
 Value LLVMBuilder::mul(Value lhs, Value rhs) const {
@@ -1547,11 +1663,6 @@ Value LLVMBuilder::mul(Value lhs, Value rhs) const {
 
 Value LLVMBuilder::null(Type type) const {
   return b().create<LLVM::NullOp>(loc(), type);
-}
-
-Value LLVMBuilder::nullI8Ptr() const {
-  Type I8PtrTy = LLVM::LLVMPointerType::get(b().getI8Type());
-  return b().create<LLVM::NullOp>(loc(), I8PtrTy);
 }
 
 Value LLVMBuilder::ptrtoint(Type type, Value val) const {

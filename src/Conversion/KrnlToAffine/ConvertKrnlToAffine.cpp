@@ -22,13 +22,14 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
+#include "llvm/Support/Debug.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/KrnlToAffine/ConvertKrnlToAffine.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/Common.hpp"
-
-#include "llvm/Support/Debug.h"
 
 #include <functional>
 #include <mutex>
@@ -617,6 +618,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
 
   MLIRContext *ctx = &getContext();
   OpBuilder builder(ctx);
+  VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
 
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(
@@ -673,7 +675,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   ConversionTarget target(*ctx);
   // Legal/illegal ops.
   target.addIllegalOp<KrnlTerminatorOp>();
-
   // krnl.dim operations must be lowered prior to this pass.
   target.addIllegalOp<KrnlDimOp>();
   target.addIllegalOp<KrnlMatMulOp>();
@@ -683,6 +684,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
+  target.addLegalOp<UnrealizedConversionCastOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithDialect,
       mlir::memref::MemRefDialect, mlir::func::FuncDialect,
       mlir::vector::VectorDialect>();
@@ -725,6 +727,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   }
 
   delete currUnrollAndJamList;
+  VectorMachineSupport::clearGlobalVectorMachineSupport();
 }
 
 std::unique_ptr<Pass> createConvertKrnlToAffinePass() {

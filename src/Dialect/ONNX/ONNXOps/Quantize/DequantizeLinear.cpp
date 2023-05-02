@@ -16,6 +16,8 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "llvm/Support/Debug.h"
 
+#define DEBUG_TYPE "ONNXOps"
+
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
@@ -53,7 +55,7 @@ LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
   int64_t d =
       nonScalar1DLen(operandAdaptor.getXScale().getType().cast<ShapedType>());
   if (d == ShapedType::kDynamic &&
-      !isFromNone(operandAdaptor.getXZeroPoint())) {
+      !isNoneValue(operandAdaptor.getXZeroPoint())) {
     d = nonScalar1DLen(
         operandAdaptor.getXZeroPoint().getType().cast<ShapedType>());
   }
@@ -68,8 +70,8 @@ LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
     if (!outputDims[a].isLiteral()) {
       outputDims[a] = LiteralIndexExpr(d);
     }
-    llvm::dbgs() << "literal: " << outputDims[a].getLiteral() << " d = " << d
-                 << "\n";
+    LLVM_DEBUG(llvm::dbgs() << "literal: " << outputDims[a].getLiteral()
+                            << " d = " << d << "\n");
     // Checked in verify.
     assert(outputDims[a].getLiteral() == d &&
            "x_scale and x_zero_point 1-D tensor length must match the input "
@@ -102,7 +104,7 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
 
   Value zero = getXZeroPoint();
   int64_t zeroLen = ShapedType::kDynamic;
-  if (!isFromNone(zero)) {
+  if (!isNoneValue(zero)) {
     if (auto zeroTy = zero.getType().dyn_cast<RankedTensorType>()) {
       if (zeroTy.getRank() > 1)
         return emitOpError("x_zero_point must be a scalar or 1-D tensor");

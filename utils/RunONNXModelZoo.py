@@ -110,12 +110,18 @@ def get_args():
                         choices=[ 'debug', 'info', 'warning', 'error', 'critical' ],
                         default='info',
                         help="log level, default info")
+    parser.add_argument('--log-to-file',
+                        action='store', nargs='?',
+                        const="compilation.log",
+                        default=None,
+                        help="Output compilation messages to file, default compilation.log")
     parser.add_argument('-m',
                         '--model',
                         metavar='model_name',
                         help="Only process a list of models in the ONNX model zoo."
                         " Passing the name of the models, e.g. 'mnist-8 yolov4'."
-                        " Use -p to know model names.")
+                        " Use -p to know model names. Without -m, the script "
+                        " checks all models in the model zoo.")
     parser.add_argument('-p',
                         '--print-paths',
                         action='store_true',
@@ -146,16 +152,24 @@ args = get_args()
 logger = get_logger()
 
 
-def execute_commands(cmds, cwd=None):
+def execute_commands(cmds, cwd=None, tmout=None):
     logger.debug('cmd={} cwd={}'.format(' '.join(cmds), cwd))
     out = subprocess.Popen(cmds, cwd=cwd,
                            stdout=subprocess.PIPE,
                            stderr=subprocess.PIPE)
-    stdout, stderr = out.communicate()
+    try:
+        stdout, stderr = out.communicate(timeout=tmout)
+    except subprocess.TimeoutExpired:
+        # Kill the child process and finish communication
+        out.kill()
+        stdout, stderr = out.communicate()
+        return (False, (stderr.decode("utf-8") + stdout.decode("utf-8") +
+                        "Timeout after {} seconds".format(tmout)))
+    msg = stderr.decode("utf-8") + stdout.decode("utf-8")
     if out.returncode == -signal.SIGSEGV:
-        return (False, "Segfault")
+        return (False, msg + "Segfault")
     if out.returncode != 0:
-        return (False, stderr.decode("utf-8") + stdout.decode("utf-8"))
+        return (False, msg + "Return code {}".format(out.returncode))
     return (True, stdout.decode("utf-8"))
 
 
@@ -185,7 +199,6 @@ deprecated_models = {
 }
 
 int8_models = {
-    "bertsquad-12-int8",
     "bvlcalexnet-12-int8",
     "caffenet-12-int8",
     "densenet-12-int8",
@@ -323,14 +336,19 @@ def check_model(model_path, model_name, compile_args, report_dir):
         options = [compile_options]
         if has_data_sets:
             options += ['--verify=ref']
-            options += ['--data-folder={}'.format(data_set)]
+            options += ['--verify-every-value']
+            options += ['--load-ref={}'.format(data_set)]
         if model_name in RunONNXModel_additional_options:
             options += RunONNXModel_additional_options[model_name]
         if (args.compile_only):
             options += ['--compile-only']
         options += ['--model={}'.format(onnx_file)]
-        ok, msg = execute_commands(RUN_ONNX_MODEL_CMD + options)
+        if args.log_to_file:
+            options += ['--log-to-file={}'.format(args.log_to_file)]
+        # Wait up to 30 minutes for compilation and inference to finish
+        ok, msg = execute_commands(RUN_ONNX_MODEL_CMD + options, tmout=1800)
         state = TEST_PASSED if ok else TEST_FAILED
+        logger.info("[{}] check {}".format(model_name, "passed" if ok else "failed"))
         logger.debug("[{}] {}".format(model_name, msg))
 
         if args.Html:
@@ -355,7 +373,7 @@ def pull_and_check_model(model_path, compile_args, keep_model, work_dir, report_
     model_tar_gz = os.path.join(work_dir, model_path.split('/')[-1])
     model_name = model_path.split('/')[-1][:-len(".tar.gz")]  # remove .tar.gz
     if model_name in excluded_models:
-        logger.warning("The model {} is excluded. Ignored.".format(model_name))
+        logger.warning("[{}] is excluded. Ignored.".format(model_name))
         return state, model_name
 
     # pull the model.
@@ -405,7 +423,8 @@ def output_report(history_dir, report_dir, skipped_models, tested_models,
         prev = hist[0]
     except:
         hist = []
-        prev = { 'author':  '',
+        prev = { '_mesg':   '',
+                 'author':  '',
                  'commit':  '',
                  'date':    '',
                  'failed':  { '_models': [], 'dropped': [], 'entered': [] },
@@ -413,9 +432,10 @@ def output_report(history_dir, report_dir, skipped_models, tested_models,
                  'skipped': { '_models': [], 'dropped': [], 'entered': [] },
                  'total':   { '_models': [], 'dropped': [], 'entered': [] } }
 
-    curr = { 'author': '', 'commit': '', 'date': '',
+    curr = { '_mesg': '', 'author': '', 'commit': '', 'date': '',
              'failed': {}, 'passed': {}, 'skipped': {}, 'total': {} }
 
+    curr['_mesg']  = os.getenv('ONNX_MLIR_HEAD_COMMIT_MESSAGE', '')
     curr['author'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_AUTHOR', '')
     curr['commit'] = os.getenv('ONNX_MLIR_HEAD_COMMIT_HASH', '')
     curr['date']   = os.getenv('ONNX_MLIR_HEAD_COMMIT_DATE', '')

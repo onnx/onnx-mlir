@@ -33,7 +33,9 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
@@ -60,6 +62,8 @@ using namespace mlir;
 
 namespace onnx_mlir {
 namespace krnl {
+
+bool LLVM_USE_OPAQUE_POINTER = true;
 
 uint64_t KRNL_ENTRY_POINT_ID = 0;
 
@@ -169,7 +173,10 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     ArrayRef<bool> constantOutputs, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+    std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
+    bool verifyInputTensors) {
   // TODO: look at what is done in
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
@@ -177,8 +184,10 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
 
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
   vector::populateVectorBroadcastLoweringPatterns(patterns);
-  vector::populateVectorContractLoweringPatterns(patterns);
-  vector::populateVectorTransposeLoweringPatterns(patterns);
+  vector::populateVectorContractLoweringPatterns(
+      patterns, vector::VectorTransformsOptions());
+  vector::populateVectorTransposeLoweringPatterns(
+      patterns, vector::VectorTransformsOptions());
 
   populateAffineToStdConversionPatterns(patterns);
   populateSCFToControlFlowConversionPatterns(patterns);
@@ -201,7 +210,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateReconcileUnrealizedCastsPatterns(patterns);
   krnl::populateKrnlToLLVMConversion(typeConverter, patterns, ctx,
       constantOutputs, singleEntryPoint, entryGlobalOps, inSigGlobalOps,
-      outSigGlobalOps, verifyInputTensors);
+      outSigGlobalOps, inputMemRefTypes, outputMemRefTypes, verifyInputTensors);
 }
 
 bool hasSingleEntryPoint(ModuleOp &module) {
@@ -212,6 +221,41 @@ bool hasSingleEntryPoint(ModuleOp &module) {
     return WalkResult::advance();
   });
   return (i == 1);
+}
+
+/// Keep original MemRefTypes for inputs and outputs. These information will be
+/// used for constructing OMTensors for inputs and outputs. We have to record
+/// this information at this point before they are disappeared during the
+/// lowering to LLVM. For example, unsigned types do not exist at LLVM level,
+/// typed pointers becomes opaque if opaque point is enabled.
+void recordInputOutputMemRefTypes(ModuleOp &module,
+    std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+    std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes) {
+  module->walk([&](KrnlEntryPointOp entryOp) -> WalkResult {
+    StringRef entryPointFuncName =
+        entryOp.getOperation()
+            ->getAttrOfType<SymbolRefAttr>(
+                KrnlEntryPointOp::getEntryPointFuncAttrName())
+            .getLeafReference()
+            .getValue();
+    auto *entryPointFunc = module.lookupSymbol(entryPointFuncName);
+    assert(entryPointFunc && isa<func::FuncOp>(entryPointFunc) &&
+           "entry point func must exist and be an llvm func op");
+    auto entryPointTy = dyn_cast<func::FuncOp>(entryPointFunc)
+                            .getFunctionType()
+                            .dyn_cast<FunctionType>();
+    SmallVector<MemRefType, 4> inputTypes, outputTypes;
+    for (Type ty : entryPointTy.getInputs())
+      inputTypes.emplace_back(dyn_cast<MemRefType>(ty));
+    for (Type ty : entryPointTy.getResults())
+      outputTypes.emplace_back(dyn_cast<MemRefType>(ty));
+    inputMemRefTypes.emplace(
+        std::make_pair(entryPointFuncName.str(), inputTypes));
+    outputMemRefTypes.emplace(
+        std::make_pair(entryPointFuncName.str(), outputTypes));
+    return WalkResult::advance();
+  });
+  return;
 }
 
 /// This function emits three functions: omQueryEntryPoints, omInputSignature
@@ -233,9 +277,9 @@ void genSignatureFunction(ModuleOp &module,
   Type i8Type = IntegerType::get(context, 8);
   Type i32Type = IntegerType::get(context, 32);
   Type i64Type = IntegerType::get(context, 64);
-  Type i64PtrTy = LLVM::LLVMPointerType::get(i64Type);
-  Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
-  Type i8PtrPtrTy = LLVM::LLVMPointerType::get(i8PtrTy);
+  Type i64PtrTy = getPointerType(context, i64Type);
+  Type i8PtrTy = getPointerType(context, i8Type);
+  Type i8PtrPtrTy = getPointerType(context, i8PtrTy);
 
   uint64_t numOfEntryPoints = entryGlobalOps.size();
 
@@ -258,16 +302,13 @@ void genSignatureFunction(ModuleOp &module,
     uint32_t index = 0;
     Value lastValue = array;
     for (const LLVM::GlobalOp &globalOp : entryGlobalOps) {
-      Value address = create.llvm.addressOf(globalOp);
-      Value zeroI64 = create.llvm.constant(i64Type, (int64_t)0);
-      Value strAddr =
-          create.llvm.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
+      Value strAddr = krnl::getPtrToGlobalString(globalOp, loc, b);
       lastValue =
           create.llvm.insertValue(arrayType, lastValue, strAddr, {index++});
     }
 
     // The last element of the array is NULL.
-    Value nullPtr = create.llvm.nullI8Ptr();
+    Value nullPtr = create.llvm.null(getI8PointerType(context));
     lastValue =
         create.llvm.insertValue(arrayType, lastValue, nullPtr, {index++});
     create.llvm._return(lastValue);
@@ -297,16 +338,15 @@ void genSignatureFunction(ModuleOp &module,
               LLVM::ICmpPredicate::ne, numOfEntryPoints, nullPtr);
         }, /*then=*/
         [&](LLVMBuilder &createLLVM) {
-          Value zero = createLLVM.constant(i64Type, (int64_t)0);
-          Value numOfEntryPointsPtr =
-              createLLVM.getElemPtr(i64PtrTy, numOfEntryPoints, {zero});
+          Value numOfEntryPointsPtr = createLLVM.getElemPtr(
+              i64PtrTy, i64Type, numOfEntryPoints, ArrayRef<LLVM::GEPArg>{0});
           Value noep =
               createLLVM.constant(i64Type, (int64_t)entryGlobalOps.size());
           createLLVM.store(noep, numOfEntryPointsPtr);
         });
     // Emit code to return the entry point array.
     Value entryAddr = create.llvm.addressOf(entryArrayOp);
-    Value entryI8Ptr = create.llvm.bitcastI8PtrPtr(entryAddr);
+    Value entryI8Ptr = create.llvm.bitcast(i8PtrPtrTy, entryAddr);
     create.llvm._return(entryI8Ptr);
   }
 
@@ -346,10 +386,8 @@ void genSignatureFunction(ModuleOp &module,
       create.llvm.ifThenElse(/*cond=*/
           [&](LLVMBuilder &createLLVM) {
             // Read an entry point name.
-            Value address = createLLVM.addressOf(globalEntryPoint);
-            Value zeroI64 = createLLVM.constant(i64Type, (int64_t)0);
             Value entryI8Ptr =
-                createLLVM.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
+                krnl::getPtrToGlobalString(globalEntryPoint, loc, b);
             // Compare it with the user's entry point name.
             FlatSymbolRefAttr StrncmpRef = krnl::getOrInsertStrncmp(b, module);
             Value length = createLLVM.constant(
@@ -362,13 +400,13 @@ void genSignatureFunction(ModuleOp &module,
           }, /*then=*/
           [&](LLVMBuilder &createLLVM) {
             Value sigAddr = createLLVM.addressOf(globalSignature);
-            Value sigI8Ptr = createLLVM.bitcastI8Ptr(sigAddr);
+            Value sigI8Ptr = createLLVM.bitcast(i8PtrTy, sigAddr);
             createLLVM._return(sigI8Ptr);
           });
     }
 
     // Return NULL if not found.
-    create.llvm._return(create.llvm.nullI8Ptr());
+    create.llvm._return(create.llvm.null(getI8PointerType(context)));
   }
 }
 
@@ -385,8 +423,9 @@ struct ConvertKrnlToLLVMPass
   ConvertKrnlToLLVMPass() = default;
   ConvertKrnlToLLVMPass(const ConvertKrnlToLLVMPass &pass)
       : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
-  ConvertKrnlToLLVMPass(bool verifyInputTensors) {
+  ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useOpaquePointers) {
     this->verifyInputTensors = verifyInputTensors;
+    this->useOpaquePointers = useOpaquePointers;
   }
 
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
@@ -396,6 +435,11 @@ struct ConvertKrnlToLLVMPass
   }
 
   void runOnOperation() final;
+
+  Option<bool> useOpaquePointers{*this, "use-opaque-pointers",
+      llvm::cl::desc("Whether to use opaque pointers instead of typed pointers "
+                     "when lowering to LLVM. Default: true"),
+      llvm::cl::init(true)};
 
   Option<bool> verifyInputTensors{*this, "verify-input-tensors",
       llvm::cl::desc(
@@ -410,14 +454,31 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   MLIRContext *ctx = &getContext();
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
+
+  // MLIR/LLVM is moving to using opaque pointers instead of typed pointers.
+  // Remove this once MLIR/LLVM completely uses opaque pointers.
+  options.useOpaquePointers = useOpaquePointers; // for LLVMTypeConverter.
+  LLVM_USE_OPAQUE_POINTER = useOpaquePointers; // for onnx-mlir util functions.
+
   KRNL_ENTRY_POINT_ID = 0;
 
-  // Record entry point names and their input/output signatures.
+  // Global Op for entry point names and their input/output JSON signatures,
+  // those will generated when lowering KrnlEntryPoint.
   // This info is used to generate global signature functions.
   SmallVector<LLVM::GlobalOp, 1> entryGlobalOps, inSigGlobalOps,
       outSigGlobalOps;
 
-  // Determine the module has a single entry point or not.
+  // Keep original MemRefTypes for inputs and outputs. These information will be
+  // used for constructing OMTensors for inputs and outputs.
+  // We have to record this information at this point before they are
+  // disappeared during the lowering to LLVM. For example, unsigned types do
+  // not exist at LLVM level, typed pointers becomes opaque if opaque point is
+  // enabled.
+  std::map<std::string, SmallVector<MemRefType, 4>> inputMemRefTypes;
+  std::map<std::string, SmallVector<MemRefType, 4>> outputMemRefTypes;
+  recordInputOutputMemRefTypes(module, inputMemRefTypes, outputMemRefTypes);
+
+  // Determine whether the module has a single entry point or not.
   bool singleEntryPoint = hasSingleEntryPoint(module);
 
   // Request C wrapper emission via attribute.
@@ -451,7 +512,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
+      inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
+      verifyInputTensors);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -474,8 +536,10 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
   return std::make_unique<ConvertKrnlToLLVMPass>();
 }
-std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors) {
-  return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors);
+std::unique_ptr<Pass> createConvertKrnlToLLVMPass(
+    bool verifyInputTensors, bool useOpaquePointers) {
+  return std::make_unique<ConvertKrnlToLLVMPass>(
+      verifyInputTensors, useOpaquePointers);
 }
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
@@ -483,10 +547,14 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
     ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+    std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
+    bool verifyInputTensors) {
   krnl::populateLoweringKrnlEntryPointOpPattern(typeConverter, patterns, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
+      inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
+      verifyInputTensors);
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);

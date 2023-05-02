@@ -126,8 +126,6 @@ Value insertAllocAndDeallocZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
 static Value insertAllocAndDeallocWorkAreaForRNNOps(
     IndexExprBuilderForKrnl &createIE, PatternRewriter &rewriter, Location loc,
     Value rnnInput, Value rnnHiddenWeight, unsigned numOfGates, bool isDouble) {
-  Value alloc;
-
   SmallVector<IndexExpr, 4> inputDims, hiddenWeightDims;
   createIE.getShapeAsDims(rnnInput, inputDims);
   createIE.getShapeAsDims(rnnHiddenWeight, hiddenWeightDims);
@@ -190,7 +188,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
 
     // Use an dense resource attribute to store stickified data.
     // Attribute type: tensor<sizeInBytes x i8>
-    int64_t sizeInBytes = getMemRefSizeInBytes(resType).value();
+    int64_t sizeInBytes = getIntOrFloatMemRefSizeInBytes(resType).value();
     char *rawData = (char *)malloc(sizeInBytes);
     memset(rawData, 0, sizeInBytes);
     DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
