@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm="use-opaque-pointers=false" --canonicalize %s -split-input-file | FileCheck %s
 
 // COM: Generate the default entry point "run_main_graph" since there is only
 // COM: one single point.
@@ -20,7 +20,7 @@ module {
 // CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() {addr_space = 0 : i32} : !llvm.array<2 x ptr<i8>> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = llvm.mlir.undef : !llvm.array<2 x ptr<i8>>
 // CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
-// CHECK:           [[VAR_3_:%.+]] = llvm.getelementptr [[VAR_2_]][0, 0] : (!llvm.ptr<array<15 x i8>>) -> !llvm.ptr<i8>
+// CHECK:           [[VAR_3_:%.+]] = llvm.bitcast [[VAR_2_]] : !llvm.ptr<array<15 x i8>> to !llvm.ptr<i8>
 // CHECK:           [[VAR_4_:%.+]] = llvm.insertvalue [[VAR_3_]], [[VAR_0_]][0] : !llvm.array<2 x ptr<i8>>
 // CHECK:           [[VAR_5_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
 // CHECK:           [[VAR_6_:%.+]] = llvm.insertvalue [[VAR_5_]], [[VAR_4_]][1] : !llvm.array<2 x ptr<i8>>
@@ -44,7 +44,7 @@ module {
 // CHECK:         llvm.func @omInputSignature([[arg0_:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
 // CHECK-DAG:       [[VAR_0_4_:%.+]] = llvm.mlir.constant(0 : i32) : i32
 // CHECK-DAG:       [[VAR_4_5_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
-// CHECK-DAG:       [[VAR_5_4_:%.+]] = llvm.getelementptr [[VAR_4_5_]][0, 0] : (!llvm.ptr<array<15 x i8>>) -> !llvm.ptr<i8>
+// CHECK-DAG:       [[VAR_5_4_:%.+]] = llvm.bitcast [[VAR_4_5_]] : !llvm.ptr<array<15 x i8>> to !llvm.ptr<i8>
 // CHECK-DAG:       [[VAR_6_3_:%.+]] = llvm.mlir.constant(15 : i64) : i64
 // CHECK:           [[VAR_7_1_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_5_4_]], [[VAR_6_3_]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 // CHECK:           [[VAR_8_1_:%.+]] = llvm.icmp "eq" [[VAR_7_1_]], [[VAR_0_4_]] : i32
@@ -61,7 +61,7 @@ module {
 // CHECK:         llvm.func @omOutputSignature([[arg0_:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
 // CHECK-DAG:       [[VAR_0_5_:%.+]] = llvm.mlir.constant(0 : i32) : i32
 // CHECK-DAG:       [[VAR_4_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
-// CHECK-DAG:       [[VAR_5_5_:%.+]] = llvm.getelementptr [[VAR_4_6_]][0, 0] : (!llvm.ptr<array<15 x i8>>) -> !llvm.ptr<i8>
+// CHECK-DAG:       [[VAR_5_5_:%.+]] = llvm.bitcast [[VAR_4_6_]] : !llvm.ptr<array<15 x i8>> to !llvm.ptr<i8>
 // CHECK-DAG:       [[VAR_6_4_:%.+]] = llvm.mlir.constant(15 : i64) : i64
 // CHECK:           [[VAR_7_2_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_5_5_]], [[VAR_6_4_]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 // CHECK:           [[VAR_8_2_:%.+]] = llvm.icmp "eq" [[VAR_7_2_]], [[VAR_0_5_]] : i32
@@ -107,10 +107,10 @@ module {
 // CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() {addr_space = 0 : i32} : !llvm.array<3 x ptr<i8>> {
 // CHECK-DAG:       [[VAR_0_6_:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr<i8>>
 // CHECK-DAG:       [[VAR_2_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<16 x i8>>
-// CHECK:           [[VAR_3_5_:%.+]] = llvm.getelementptr [[VAR_2_6_]][0, 0] : (!llvm.ptr<array<16 x i8>>) -> !llvm.ptr<i8>
+// CHECK:           [[VAR_3_5_:%.+]] = llvm.bitcast [[VAR_2_6_]] : !llvm.ptr<array<16 x i8>> to !llvm.ptr<i8>
 // CHECK:           [[VAR_4_6_:%.+]] = llvm.insertvalue [[VAR_3_5_]], [[VAR_0_6_]][0] : !llvm.array<3 x ptr<i8>>
 // CHECK:           [[VAR_6_5_:%.+]] = llvm.mlir.addressof @_entry_point_1 : !llvm.ptr<array<17 x i8>>
-// CHECK:           [[VAR_7_3_:%.+]] = llvm.getelementptr [[VAR_6_5_]][0, 0] : (!llvm.ptr<array<17 x i8>>) -> !llvm.ptr<i8>
+// CHECK:           [[VAR_7_3_:%.+]] = llvm.bitcast [[VAR_6_5_]] : !llvm.ptr<array<17 x i8>> to !llvm.ptr<i8>
 // CHECK:           [[VAR_8_3_:%.+]] = llvm.insertvalue [[VAR_7_3_]], [[VAR_4_6_]][1] : !llvm.array<3 x ptr<i8>>
 // CHECK:           [[VAR_9_3_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
 // CHECK:           [[VAR_10_3_:%.+]] = llvm.insertvalue [[VAR_9_3_]], [[VAR_8_3_]][2] : !llvm.array<3 x ptr<i8>>
@@ -134,7 +134,7 @@ module {
 // CHECK:         llvm.func @omInputSignature([[arg0_:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
 // CHECK-DAG:       [[VAR_0_12_:%.+]] = llvm.mlir.constant(0 : i32) : i32
 // CHECK-DAG:       [[VAR_4_15_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<16 x i8>>
-// CHECK-DAG:       [[VAR_5_13_:%.+]] = llvm.getelementptr [[VAR_4_15_]][0, 0] : (!llvm.ptr<array<16 x i8>>) -> !llvm.ptr<i8>
+// CHECK-DAG:       [[VAR_5_13_:%.+]] = llvm.bitcast [[VAR_4_15_]] : !llvm.ptr<array<16 x i8>> to !llvm.ptr<i8>
 // CHECK-DAG:       [[VAR_6_10_:%.+]] = llvm.mlir.constant(16 : i64) : i64
 // CHECK-DAG:       [[LOAD_VAR_12_MEM_1_1_:%.+]] = llvm.mlir.constant(17 : i64) : i64
 // CHECK:           [[VAR_7_6_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_5_13_]], [[VAR_6_10_]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
@@ -147,7 +147,7 @@ module {
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_12_4_:%.+]] = llvm.mlir.addressof @_entry_point_1 : !llvm.ptr<array<17 x i8>>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK:           [[VAR_13_3_:%.+]] = llvm.getelementptr [[VAR_12_4_]][0, 0] : (!llvm.ptr<array<17 x i8>>) -> !llvm.ptr<i8>
+// CHECK:           [[VAR_13_3_:%.+]] = llvm.bitcast [[VAR_12_4_]] : !llvm.ptr<array<17 x i8>> to !llvm.ptr<i8>
 // CHECK:           [[VAR_15_3_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_13_3_]], [[LOAD_VAR_12_MEM_1_1_]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 // CHECK:           [[LOAD_VAR_13_MEM_1_1_:%.+]] = llvm.icmp "eq" [[VAR_15_3_]], [[VAR_0_12_]] : i32
 // CHECK:           llvm.cond_br [[LOAD_VAR_13_MEM_1_1_]], ^bb3, ^bb4
@@ -163,7 +163,7 @@ module {
 // CHECK:         llvm.func @omOutputSignature([[arg0_:%.+]]: !llvm.ptr<i8>) -> !llvm.ptr<i8> {
 // CHECK-DAG:       [[VAR_0_13_:%.+]] = llvm.mlir.constant(0 : i32) : i32
 // CHECK-DAG:       [[VAR_4_16_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<16 x i8>>
-// CHECK-DAG:       [[VAR_5_14_:%.+]] = llvm.getelementptr [[VAR_4_16_]][0, 0] : (!llvm.ptr<array<16 x i8>>) -> !llvm.ptr<i8>
+// CHECK-DAG:       [[VAR_5_14_:%.+]] = llvm.bitcast [[VAR_4_16_]] : !llvm.ptr<array<16 x i8>> to !llvm.ptr<i8>
 // CHECK-DAG:       [[VAR_6_11_:%.+]] = llvm.mlir.constant(16 : i64) : i64
 // CHECK-DAG:       [[LOAD_VAR_12_MEM_1_1_:%.+]] = llvm.mlir.constant(17 : i64) : i64
 // CHECK:           [[VAR_7_7_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_5_14_]], [[VAR_6_11_]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
@@ -176,7 +176,7 @@ module {
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_12_5_:%.+]] = llvm.mlir.addressof @_entry_point_1 : !llvm.ptr<array<17 x i8>>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK:           [[VAR_13_4_:%.+]] = llvm.getelementptr [[VAR_12_5_]][0, 0] : (!llvm.ptr<array<17 x i8>>) -> !llvm.ptr<i8>
+// CHECK:           [[VAR_13_4_:%.+]] = llvm.bitcast [[VAR_12_5_]] : !llvm.ptr<array<17 x i8>> to !llvm.ptr<i8>
 // CHECK:           [[VAR_15_4_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_13_4_]], [[LOAD_VAR_12_MEM_1_1_]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64) -> i32
 // CHECK:           [[LOAD_VAR_13_MEM_1_1_:%.+]] = llvm.icmp "eq" [[VAR_15_4_]], [[VAR_0_13_]] : i32
 // CHECK:           llvm.cond_br [[LOAD_VAR_13_MEM_1_1_]], ^bb3, ^bb4

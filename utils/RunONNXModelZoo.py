@@ -120,7 +120,8 @@ def get_args():
                         metavar='model_name',
                         help="Only process a list of models in the ONNX model zoo."
                         " Passing the name of the models, e.g. 'mnist-8 yolov4'."
-                        " Use -p to know model names.")
+                        " Use -p to know model names. Without -m, the script "
+                        " checks all models in the model zoo.")
     parser.add_argument('-p',
                         '--print-paths',
                         action='store_true',
