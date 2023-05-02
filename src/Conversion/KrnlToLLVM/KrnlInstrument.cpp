@@ -13,6 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <filesystem>
+
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -69,8 +71,11 @@ public:
       for (Location locIt : fusedLoc.getLocations()) {
         if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
           name += nameLocIt.getName().str() + "-";
-        else if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>())
-          name += fileLineColLoc.getFilename().str() + "-";
+        else if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
+          std::filesystem::path p = fileLineColLoc.getFilename().str();
+          name += p.filename().string() + ":" +
+                  std::to_string(fileLineColLoc.getLine()) + "-";
+        }
       }
       if (name.empty())
         name = "NOTSET";
@@ -79,7 +84,8 @@ public:
       loc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(loc).getName();
     } else if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
-      std::string name = fileLineColLoc.getFilename().str() + ":" +
+      std::filesystem::path p = fileLineColLoc.getFilename().str();
+      std::string name = p.filename().string() + ":" +
                          std::to_string(fileLineColLoc.getLine());
       loc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(loc).getName();
