@@ -109,6 +109,29 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
 }
 
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
+    std::string funcNameStr, Value resultVal, Operation *op,
+    ValueRange operands, std::vector<std::string> attributeNames) {
+  SmallVector<Value, 4> allInputs;
+  allInputs.emplace_back(resultVal);
+  for (auto operand : operands) {
+    if (!isNoneValue(operand))
+      allInputs.emplace_back(operand);
+  }
+
+  std::vector<NamedAttribute> attributes;
+  StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
+  auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
+
+  attributes.emplace_back(namedAttr);
+  for (auto attributeName : attributeNames) {
+    if (Attribute attr = op->getAttr(attributeName)) {
+      attributes.emplace_back(builder.getNamedAttr(attributeName, attr));
+    }
+  }
+  build(builder, odsState, TypeRange(), ValueRange(allInputs), attributes);
+}
+
+void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
     Value resultVal, Operation *op, ValueRange operands, bool copyAttrs) {
   // Create funcName
   std::string name = op->getName().getStringRef().str();
