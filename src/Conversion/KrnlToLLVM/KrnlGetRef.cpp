@@ -44,6 +44,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
+    MLIRContext *context = rewriter.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     KrnlGetRefOpAdaptor operandAdaptor(operands);
@@ -66,16 +67,17 @@ public:
         create.llvm.extractValue(memPoolType, operandAdaptor.getMempool(), {1});
 
     // Get pointer using the offset.
+    auto llvmOutputElementType = outputElementType.cast<Type>();
     auto offset = operandAdaptor.getOffset();
     auto llvmMemPoolType = typeConverter->convertType(memPoolType).cast<Type>();
     auto outputMemPoolTypePtrAlloc =
-        create.llvm.getElemPtr(llvmMemPoolType, alignedMemPoolBase, {offset});
+        create.llvm.getElemPtr(llvmMemPoolType, llvmOutputElementType,
+            alignedMemPoolBase, ArrayRef<LLVM::GEPArg>{offset});
 
     // Bitcast to output MemRef type i.e. from i8* to the element type
     // of the output MemRef.
-    auto llvmOutputElementType = outputElementType.cast<Type>();
     Value outputTypedPtrAlloc =
-        create.llvm.bitcast(LLVM::LLVMPointerType::get(llvmOutputElementType),
+        create.llvm.bitcast(getPointerType(context, llvmOutputElementType),
             outputMemPoolTypePtrAlloc);
 
     // Handle the static case.
