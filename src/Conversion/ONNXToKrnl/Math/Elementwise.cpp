@@ -314,7 +314,6 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
 
   Value x = scalarOperands[0]; // x-> input
   Type inputElemType = getElementType(x.getType());
-  Value result;
 
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   Value negInf = create.math.negativeInf(inputElemType);
@@ -326,20 +325,29 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   bool detectNeg = detectNegAttribute == 1;
   bool detectPos = detectPosAttribute == 1;
 
-  if (!detectNeg) {
-    // Check if input == posInf
-    Value posInfinity = rewriter.create<arith::CmpFOp>(
-        loc, arith::CmpFPredicate::OEQ, x, posInf);
-    result = create.math.select(posInfinity, posInf, negInf);
-  } else if (!detectPos) {
-    // Check if input == negInf
-    Value negInfinity = rewriter.create<arith::CmpFOp>(
-        loc, arith::CmpFPredicate::OEQ, x, negInf);
-    result = create.math.select(negInfinity, negInf, posInf);
-  } else
-    llvm_unreachable("unsupported element type");
+  // Negative Infinity, when detect_positive = 0 and detect_negative = 1
+  Value cond = detectNeg && !detectPos ;
 
-  return result;
+  // Return negative infinity if condition is true else postive infinity.
+  return create.math.select(cond, negInf, posInf);
+
+
+  // if (detectPos) {
+  //   // Check if input == posInf
+  //   Value posInfinity = rewriter.create<arith::CmpFOp>(
+  //       loc, arith::CmpFPredicate::OEQ, x, posInf);
+  //   result = create.math.select(posInfinity, posInf, negInf);
+  // } else if (detectNeg) {
+  //   // Check if input == negInf
+  //     // Return lhs if cond is true else rhs.
+  //   Value result = rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);
+
+  //   Value negInfinity = rewriter.create<arith::CmpFOp>(
+  //       loc, arith::CmpFPredicate::OEQ, x, negInf);
+  //   result = create.math.select(negInfinity, negInf, posInf);
+  // } else
+  //   llvm_unreachable("unsupported element type");
+
 }
 
 //===----------------------------------------------------------------------===//
