@@ -29,9 +29,11 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
-  ONNXMatMulOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling)
-      : OpConversionPattern(typeConverter, ctx), enableTiling(enableTiling) {}
+  ONNXMatMulOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      DimAnalysis *dimAnalysis, bool enableTiling)
+      : OpConversionPattern(typeConverter, ctx), dimAnalysis(dimAnalysis),
+        enableTiling(enableTiling) {}
+  DimAnalysis *dimAnalysis;
   bool enableTiling;
   // Handle the generic cases, including when there are broadcasts.
   void replaceGenericMatmul(ONNXMatMulOpAdaptor &operandAdaptor,
@@ -433,20 +435,20 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
           /*broadcasting B*/ false,
           /*same static broadcast*/ false, alloc, zero, rewriter, loc);
     } else {
-      // Test if have A and B have identical static broadcast shapes.
-      bool sameStaticBroadcast = (enableTiling && aRank > 2 && aRank == bRank);
-      if (sameStaticBroadcast) {
-        auto aShape = A.getType().cast<MemRefType>().getShape();
-        auto bShape = B.getType().cast<MemRefType>().getShape();
+      // Test if have A and B have identical batch size.
+      bool sameBatchsize = (enableTiling && aRank > 2 && aRank == bRank);
+      if (sameBatchsize) {
         for (int i = 0; i < aRank - 2; ++i)
-          if (aShape[i] == ShapedType::kDynamic || aShape[i] != bShape[i]) {
-            sameStaticBroadcast = false;
+          // Note that using A and B from the operation instead of adaptor.
+          // It's because DimAnalysis has been done on operations.
+          if (!dimAnalysis->sameDim(matMulOp.getA(), i, matMulOp.getB(), i)) {
+            sameBatchsize = false;
             break;
           }
       }
       // While there is technically no broadcasting there, we can use nearly the
       // same logic as in replace2x2Matmul2dBroadcasting. So reuse that code.
-      if (sameStaticBroadcast) {
+      if (sameBatchsize) {
         assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
         replace2x2Matmul2dBroadcasting(adaptor, elementType, shapeHelper,
             /*broadcasting B*/ true,
@@ -463,8 +465,10 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 }; // namespace onnx_mlir
 
 void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
-  patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, enableTiling);
+    TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
+    bool enableTiling) {
+  patterns.insert<ONNXMatMulOpLowering>(
+      typeConverter, ctx, dimAnalysis, enableTiling);
 }
 
 } // namespace onnx_mlir
