@@ -326,13 +326,16 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   bool detectNeg = detectNegAttribute == 1 && detectPosAttribute == 0;
   bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
 
+  Value True = true;
+  Value False = false;
+
   if (detectPos) {
     // If positive infinity return true else false
-    result = create.math.select(posInf, true, false);
+    result = create.math.select(posInf, True, False );
   }
   if (detectNeg) {
     // If negative infinity return true else false
-    result = create.math.select(negInf, true, false);
+    result = create.math.select(negInf, True, False );
   }
 
   return result;
