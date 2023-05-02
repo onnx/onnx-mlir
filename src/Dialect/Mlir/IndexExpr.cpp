@@ -514,37 +514,36 @@ void IndexExpr::debugPrint(
 // Helpers for IndexExpressions
 //===----------------------------------------------------------------------===//
 
-/*static*/ void IndexExpr::getLiteral(SmallVectorImpl<IndexExpr> &indexExprList,
-    SmallVectorImpl<int64_t> &intList) {
+/*static*/ void IndexExpr::getLiteral(
+    ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<int64_t> &intList) {
   intList.clear();
-  llvm::transform(indexExprList, std::back_inserter(intList),
-      [](const auto &indexExpr) { return indexExpr.getLiteral(); });
+  llvm::transform(indexExprArray, std::back_inserter(intList),
+      [](IndexExpr expr) { return expr.getLiteral(); });
 }
 
-/*static*/ void IndexExpr::getShape(SmallVectorImpl<IndexExpr> &indexExprList,
+/*static*/ void IndexExpr::getShape(ArrayRef<IndexExpr> indexExprArray,
     SmallVectorImpl<int64_t> &intDimList, bool uniqueQuestionMark) {
   intDimList.clear();
-  for (IndexExpr &expr : indexExprList)
+  for (IndexExpr expr : indexExprArray)
     intDimList.emplace_back(expr.getShape(uniqueQuestionMark));
 }
 
 /*static*/ void IndexExpr::getDynSymbols(
-    llvm::SmallVectorImpl<IndexExpr> &indexExprList, // Input list.
-    llvm::SmallVectorImpl<Value> &dynSymbols) {      // Symbol for dyn ref.
-  // Set shape.
-  int64_t rank = indexExprList.size();
+    ArrayRef<IndexExpr> indexExprArray,         // Input list.
+    llvm::SmallVectorImpl<Value> &dynSymbols) { // Symbol for dyn ref.
   // For each dyn shape, enqueue its value in dynamic symbol list.
   dynSymbols.clear();
-  for (int64_t i = 0; i < rank; ++i)
-    if (!indexExprList[i].isLiteral())
-      dynSymbols.emplace_back(indexExprList[i].getValue());
+  for (IndexExpr expr : indexExprArray) {
+    if (!expr.isLiteral())
+      dynSymbols.emplace_back(expr.getValue());
+  }
 }
 
 /*static*/ void IndexExpr::getOpOrFoldResults(
-    SmallVectorImpl<IndexExpr> &indexExprList,
+    ArrayRef<IndexExpr> indexExprArray,
     SmallVectorImpl<OpFoldResult> &resList) {
   resList.clear();
-  for (IndexExpr &expr : indexExprList) {
+  for (IndexExpr expr : indexExprArray) {
     if (expr.isLiteral()) {
       assert(!expr.isFloat() && "missing support for float");
       auto val = expr.getRewriter().getIndexAttr(expr.getLiteral());
@@ -557,7 +556,7 @@ void IndexExpr::debugPrint(
 /*static*/ void IndexExpr::getValues(
     ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<Value> &valueList) {
   valueList.clear();
-  for (IndexExpr const &expr : indexExprArray)
+  for (IndexExpr expr : indexExprArray)
     valueList.emplace_back(expr.getValue());
 }
 
