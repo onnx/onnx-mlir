@@ -117,10 +117,10 @@ struct ONNXOpShapeHelper {
   // Scalar may have a DimsExpr that is empty. Requires an implementation.
   DimsExpr &getOutputDims(int n = 0) {
     if (!isImplemented()) {
-      llvm::errs()
-          << "Implementation of shape helper for op " << op->getName()
-          << "is not currently available; please open an issue on "
-          << "https://github.com/onnx/onnx-mlir/ if this op is required\n";
+      llvm::errs() << "Implementation of shape helper for op " << op->getName()
+                   << "is not currently available; please open an issue on "
+                   << "\"https://github.com/onnx/onnx-mlir/\" and/or consider "
+                   << "contributing code if this op is required.\n";
       llvm_unreachable("missing implementation for shape inference");
     }
     return privateOutputsDims[n];
