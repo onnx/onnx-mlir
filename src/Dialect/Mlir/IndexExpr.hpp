@@ -480,22 +480,22 @@ public:
   void getAffineMapAndOperands(
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands) const;
   mlir::Value getValue() const;
+  int64_t getShape(bool uniqueQuestionMark = false) const;
 
   // Helpers for list of IndexExpressions: given a (list of) IndexExpr, provide
   // the (list of) Shape/Value/OpFoldResult corresponding to the original (list
   // of) IndexExpr.
-  static void getLiteral(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
+  static void getLiteral(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<int64_t> &intList);
-  static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
+  static void getShape(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<int64_t> &intDimList,
       bool uniqueQuestionMark = false);
   static void getDynSymbols(
-      llvm::SmallVectorImpl<IndexExpr> &indexExprList, // Input list.
+      mlir::ArrayRef<IndexExpr> indexExprArray,        // Input list.
       llvm::SmallVectorImpl<mlir::Value> &dynSymbols); // Symbol for dyn ref.
   static void getValues(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::Value> &valueList);
-  static void getOpOrFoldResults(
-      llvm::SmallVectorImpl<IndexExpr> &indexExprList,
+  static void getOpOrFoldResults(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::OpFoldResult> &resList);
 
   // Possibly Affine Operations. Return a new IndexExpr

@@ -20,8 +20,8 @@ func.func private @test_category_mapper_string_to_int64(%arg0 : tensor<2x2x!onnx
   // CHECK-DAG: [[LOOP_0:%.+]]:2 = krnl.define_loops 2
   // CHECK:     krnl.iterate([[LOOP_0]]#0, [[LOOP_0]]#1) with ([[LOOP_0]]#0 -> [[I_0:%.+]] = 0 to 2, [[LOOP_0]]#1 -> [[I_1:%.+]] = 0 to 2){  
   // CHECK:     [[IVS:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0]]#0, [[LOOP_0]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-  // CHECK:     [[REF:%.+]] = "krnl.getref"(%arg0, [[ZERO_i64]]) : (memref<2x2x!krnl.string>, i64) -> memref<2x!krnl.string>
-  // CHECK:     [[LOAD1:%.+]] = krnl.load [[REF]]{{.}}[[IVS]]#0, [[IVS]]#1{{.}} : memref<2x!krnl.string>
+  // CHECK:     [[REF:%.+]] = "krnl.getref"(%arg0, [[ZERO_i64]]) : (memref<2x2x!krnl.string>, i64) -> memref<2x2x!krnl.string>
+  // CHECK:     [[LOAD1:%.+]] = krnl.load [[REF]]{{.}}[[IVS]]#0, [[IVS]]#1{{.}} : memref<2x2x!krnl.string>
   // CHECK:     [[INDEX:%.+]] = "krnl.find_index"([[LOAD1]], [[G]], [[V]], [[LEN]]) : (!krnl.string, memref<3xi32>, memref<3xi32>, i32) -> index
   // CHECK:     [[LOAD2:%.+]] = krnl.load [[CAT_STRINGS]]{{.}}[[INDEX]]{{.}} : memref<3x!krnl.string>
   // CHECK:     [[STRLEN:%.+]] = "krnl.strlen"([[LOAD2]]) : (!krnl.string) -> i64

@@ -58,8 +58,25 @@ mlir::Value getMinusBcastConst(mlir::OpBuilder &builder, mlir::Location loc,
 mlir::Value getConstantOfType(
     mlir::OpBuilder &builder, mlir::Location loc, mlir::Type type, float val);
 
-/// True if at least one of the types is NHWC layout.
-bool oneIsOfNHWCLayout(mlir::Type t1, mlir::Type t2);
+/// True if at least one of the types is `layout`.
+bool oneIsOfLayout(
+    mlir::Type t1, mlir::Type t2, ZTensorEncodingAttr::DataLayout layout);
+
+/// Check if ONNXReshapeOp is reshaping 2D/3D to 4D by tiling each input
+/// dimension.
+bool isTiling2DTo4D(mlir::Value val);
+mlir::AffineMapAttr getTiling2DTo4DMap(mlir::OpBuilder &b, mlir::Value val);
+bool isTiling3DTo4D(mlir::Value val);
+mlir::AffineMapAttr getTiling3DTo4DMap(mlir::OpBuilder &b, mlir::Value val);
+/// Check if ONNXReshapeOp is collapsing 4D into 3D/2D by merging the first two
+/// dimensions.
+bool isCollapsing4DTo3D(mlir::Value val);
+mlir::AffineMapAttr getCollapsing4DTo3DMap(mlir::OpBuilder &b, mlir::Value val);
+bool isCollapsing4DTo2D(mlir::Value val);
+mlir::AffineMapAttr getCollapsing4DTo2DMap(mlir::OpBuilder &b, mlir::Value val);
+/// Get an affine map for the permutation array.
+mlir::AffineMapAttr getTransposeMap(
+    mlir::OpBuilder &b, mlir::ArrayAttr permAttr);
 
 } // namespace zhigh
 } // namespace onnx_mlir

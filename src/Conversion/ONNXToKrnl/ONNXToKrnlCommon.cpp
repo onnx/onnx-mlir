@@ -44,8 +44,7 @@ Value OnnxToKrnlBuilder::reshape(
     for (const IndexExpr &dim : shapeDims)
       shape.push_back(dim.getLiteral());
 
-    auto constantOp = createONNXConstantOpWithDenseAttr(
-        b(), loc(), b().getI64TensorAttr(shape));
+    auto constantOp = create.onnx.constantInt64(shape);
 
     Value reshapeRes = create.onnx.reshape(
         MemRefType::get(shape, elementType), input, constantOp);
@@ -108,12 +107,47 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   return transposeRes;
 }
 
+bool isScalarValue(Value value) {
+  ShapedType stype = value.getType().dyn_cast<ShapedType>();
+  assert(stype && "expected shaped type");
+  return stype.getRank() == 0;
+}
+
 /// Check if all operands are scalar values at compile time.
 bool hasAllScalarValues(ValueRange values) {
   for (Value value : values) {
-    if (value.getType().cast<ShapedType>().getRank() != 0)
+    if (isNoneValue(value))
+      continue;
+    if (!isScalarValue(value))
       return false;
   }
+  return true;
+}
+
+// Check if we have a 'tensor<' ('1x')* 'x type>' type, namely a scalar or a
+// n-dimensional tensor of size 1 along all dimensions.
+bool hasOneElement(Value value) {
+  if (isScalarValue(value))
+    return true;
+  ShapedType type = value.getType().dyn_cast<ShapedType>();
+  assert(type && "expected shaped type");
+  for (int64_t s : type.getShape())
+    if (s != 1)
+      return false;
+  return true;
+}
+
+// Same as above, but from the innermost dimensions up to innerDim.
+bool hasOneElementInInnermostDims(Value value, int64_t innerDim) {
+  if (isScalarValue(value))
+    return true;
+  ShapedType type = value.getType().dyn_cast<ShapedType>();
+  assert(type && "expected shaped type");
+  mlir::ArrayRef<int64_t> shape = type.getShape();
+  int64_t rank = type.getRank();
+  for (int64_t i = rank - innerDim; i < rank; ++i)
+    if (shape[i] != 1)
+      return false;
   return true;
 }
 
@@ -599,6 +633,10 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
 }
 
 bool hasNonIdentityLayout(Value val) {
+  // None values have no layout... we are safe.
+  if (isNoneValue(val))
+    return false;
+  // Expect a memref now.
   MemRefType type = val.getType().dyn_cast<MemRefType>();
   assert(type && "expected a memref type");
   return hasNonIdentityLayout(type);

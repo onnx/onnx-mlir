@@ -39,7 +39,7 @@ bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
   Value X = convOp.getX();
   Value W = convOp.getW();
   Value B = convOp.getB();
-  bool hasBias = !isFromNone(B);
+  bool hasBias = !isNoneValue(B);
   if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
     return false;
   if (hasBias && !hasShapeAndRank(B))
@@ -144,7 +144,7 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     Value X = convOp.getX();
     Value W = convOp.getW();
     Value B = convOp.getB();
-    bool hasBias = !onnx_mlir::isFromNone(B);
+    bool hasBias = !onnx_mlir::isNoneValue(B);
     ShapedType xType = X.getType().cast<ShapedType>();
     ShapedType wType = W.getType().cast<ShapedType>();
     Type elementType = xType.getElementType();

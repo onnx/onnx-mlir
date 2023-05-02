@@ -51,6 +51,22 @@ LogicalResult Diagnostic::emitInputsMustHaveSameRankError(Operation &op,
                        .concat(". The two inputs must have the same rank."));
 }
 
+LogicalResult Diagnostic::emitDimensionsMustHaveSameValueError(Operation &op,
+    const llvm::Twine &inputName1, uint64_t axisDim1, int64_t dim1,
+    const llvm::Twine &inputName2, uint64_t axisDim2, int64_t dim2) {
+  llvm::Twine msg(op.getName().getStringRef() + ": ");
+  return emitError(op.getLoc(),
+      msg.concat("'" + inputName1 + "'")
+          .concat(" dimension at index ")
+          .concat(std::to_string(axisDim1))
+          .concat(" has value " + std::to_string(dim1))
+          .concat(", '" + inputName2 + "'")
+          .concat(" dimension at index ")
+          .concat(std::to_string(axisDim2))
+          .concat(" has value " + std::to_string(dim2))
+          .concat(". The two dimensions must have the same value."));
+}
+
 LogicalResult Diagnostic::emitOperandHasUnexpectedRankError(Operation &op,
     Value &operand, uint64_t operandRank, StringRef expectedRank) {
   llvm::Twine msg(op.getName().getStringRef() + ": ");
@@ -85,5 +101,7 @@ template LogicalResult Diagnostic::emitAttributeOutOfRangeError(
     Operation &, const llvm::Twine &, int64_t, Range<int64_t>);
 template LogicalResult Diagnostic::emitInputsMustHaveSameRankError(
     Operation &, const llvm::Twine &, int64_t, const llvm::Twine &, int64_t);
+template LogicalResult Diagnostic::emitInputsMustHaveSameRankError(
+    Operation &, const llvm::Twine &, uint64_t, const llvm::Twine &, uint64_t);
 
 } // namespace onnx_mlir

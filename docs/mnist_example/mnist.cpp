@@ -272,7 +272,7 @@ static float img_data[] = {-0.4242129623889923f, -0.4242129623889923f,
 int main() {
   // Create an input tensor list of 1 tensor.
   int inputNum = 1;
-  OMTensor **inputTensors = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
+  OMTensor *inputTensors[inputNum];
   // The first input is of tensor<1x1x28x28xf32>.
   int64_t rank = 4;
   int64_t shape[] = {1, 1, 28, 28};
@@ -283,6 +283,9 @@ int main() {
 
   // Compute outputs.
   OMTensorList *tensorListOut = run_main_graph(tensorListIn);
+
+  // Free the input as it is no longer needed.
+  omTensorListDestroy(tensorListIn);
 
   // Extract the output. The model defines one output of type tensor<1x10xf32>.
   OMTensor *y = omTensorListGetOmtByIndex(tensorListOut, 0);
@@ -298,6 +301,9 @@ int main() {
       prob = prediction[i];
     }
   }
+
+  // Free the output as it is no longer needed.
+  omTensorListDestroy(tensorListOut);
 
   printf("The digit is %d\n", digit);
   return 0;

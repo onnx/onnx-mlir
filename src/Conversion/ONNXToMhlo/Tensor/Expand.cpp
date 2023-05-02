@@ -43,7 +43,6 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     // LogicalResult shapeComputed = shapeHelper.computeShape();
     // assert(succeeded(shapeComputed) && "Failed to compute shape");
 
-    // Convert the output type to MemRefType.
     Type inputType = input.getType();
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(inputType) && "Expected Ranked ShapedType");
@@ -53,8 +52,13 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     int64_t outputRank = outputShapedType.getRank();
 
     Operation *shapeDefOp = shape.getDefiningOp();
-    Value ones = rewriter.create<mhlo::ConstantOp>(
-        loc, rewriter.getFloatAttr(elementType, 1.0));
+    Value ones;
+    if (elementType.isa<IntegerType>())
+      ones = rewriter.create<mhlo::ConstantOp>(
+          loc, rewriter.getIntegerAttr(elementType, 1));
+    else
+      ones = rewriter.create<mhlo::ConstantOp>(
+          loc, rewriter.getFloatAttr(elementType, 1.0));
     Value broadcastedOnes;
     if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
       assert(shapeOp.getData().getType().isa<ShapedType>() &&
@@ -68,10 +72,8 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     } else if (ONNXConstantOp shapeOp =
                    dyn_cast_or_null<ONNXConstantOp>(shapeDefOp)) {
       llvm::SmallVector<int64_t, 4> shapeValues;
-      mlir::DenseElementsAttr constShape =
-          getONNXConstantOp(shapeOp)
-              .getValueAttr()
-              .dyn_cast_or_null<mlir::DenseElementsAttr>();
+      mlir::ElementsAttr constShape =
+          shapeOp.getValueAttr().cast<ElementsAttr>();
       for (mlir::IntegerAttr element : constShape.getValues<IntegerAttr>())
         shapeValues.push_back(element.getInt());
       RankedTensorType broadcastedType =

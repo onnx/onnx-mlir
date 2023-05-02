@@ -63,7 +63,7 @@ def execute_commands(cmds, dynamic_inputs_dims):
                 else:
                     env_string += "," + str(dim_index)
         my_env["TEST_IMPORTER_FORCE_DYNAMIC"] = env_string
-    subprocess.run(cmds, env=my_env)
+    subprocess.run(cmds, env=my_env, check=True)
 
 
 def check_instruction(test_name, exec_name):
@@ -139,9 +139,12 @@ def compile_model(model, emit):
         print("cwd: " + os.getcwd(), file=sys.stderr)
     execute_commands(command_list, dynamic_inputs_dims)
 
-    # Check if compiled model file exists
-    if not os.path.exists(exec_name):
-        print("Failed " + TEST_DRIVER + ": " + name, file=sys.stderr)
+    # Check if compiled model file exists.
+    #
+    # This is not a reliable way of checking if the compilation
+    # succeeded or not. Since a compiled model may exist due to
+    # a previous successful compilation. The check is now done
+    # in execute_commands when calling subprocess.run.
 
     # Check if specific instruction are included in the compiled model.
     check_instruction(name + "_cpu", exec_name)

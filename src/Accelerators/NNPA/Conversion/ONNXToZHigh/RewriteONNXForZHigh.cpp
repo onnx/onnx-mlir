@@ -27,10 +27,10 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
-#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 using namespace mlir;
 
@@ -480,8 +480,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
       for (int64_t i = 0; i < aRank - 2; ++i) {
         sameBatchDims &= (aShape[i] == bShape[i]);
         if (sameBatchDims && ShapedType::isDynamic(aShape[i]))
-          sameBatchDims =
-              dimAnalysis.sameUnknownDim(op.getA(), i, op.getB(), i);
+          sameBatchDims = dimAnalysis.sameDynDim(op.getA(), i, op.getB(), i);
       }
       return !sameBatchDims;
     }

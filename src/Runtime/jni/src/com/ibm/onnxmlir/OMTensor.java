@@ -605,7 +605,10 @@ public class OMTensor {
         if (dataType < 0 || dataType > ONNX_TYPE_BFLOAT16)
             throw new IllegalArgumentException(
                     "data type " + dataType + " unknown");
-        _data = data.order(nativeEndian);
+        /* data is owned by the native code. Make a copy to allow the JNI
+           wrapper to clean up the native memory. */
+        _data = ByteBuffer.allocateDirect(data.capacity()).order(nativeEndian);
+        _data.slice().put(data.order(nativeEndian));
         _dataType = dataType;
         _rank = shape.length;
         _shape = shape;

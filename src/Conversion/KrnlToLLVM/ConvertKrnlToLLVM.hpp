@@ -1,4 +1,3 @@
-
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -30,6 +29,10 @@ void populateAffineAndKrnlToLLVMConversion(mlir::RewritePatternSet &patterns,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &inSigGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &inputMemRefTypes,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &outputMemRefTypes,
     bool verifyInputTensors);
 
 void populateKrnlToLLVMConversion(mlir::LLVMTypeConverter &typeConverter,
@@ -38,21 +41,31 @@ void populateKrnlToLLVMConversion(mlir::LLVMTypeConverter &typeConverter,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &inSigGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &inputMemRefTypes,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &outputMemRefTypes,
     bool verifyInputTensors);
 
-void populateLoweringKrnlCallOpPattern(mlir::TypeConverter &typeConverter,
+void populateLoweringKrnlCallOpPattern(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlEntryPointOpPattern(mlir::TypeConverter &typeConverter,
-    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx,
-    llvm::ArrayRef<bool> constantOutputs, bool singleEntryPoint,
+void populateLoweringKrnlEntryPointOpPattern(
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx, llvm::ArrayRef<bool> constantOutputs,
+    bool singleEntryPoint,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &inSigGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &inputMemRefTypes,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &outputMemRefTypes,
     bool verifyInputTensors);
 
-void populateLoweringKrnlFindIndexOpPattern(mlir::TypeConverter &typeConverter,
-    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
+void populateLoweringKrnlFindIndexOpPattern(
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
 
 void populateLoweringKrnlGetRefOpPattern(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
@@ -60,31 +73,34 @@ void populateLoweringKrnlGetRefOpPattern(mlir::LLVMTypeConverter &typeConverter,
 void populateLoweringKrnlGlobalOpPattern(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlInstrumentOpPattern(mlir::TypeConverter &typeConverter,
+void populateLoweringKrnlInstrumentOpPattern(
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
+
+void populateLoweringKrnlMemcpyOpPattern(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlMemcpyOpPattern(mlir::TypeConverter &typeConverter,
-    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
-
-void populateLoweringKrnlPrintOpPattern(mlir::TypeConverter &typeConverter,
+void populateLoweringKrnlPrintOpPattern(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
 void populateLoweringKrnlPrintTensorOpPattern(
-    mlir::TypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
     mlir::MLIRContext *ctx);
 
 void populateLoweringKrnlRandomNormalOpPattern(
-    mlir::TypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
     mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlStrlenOpPattern(mlir::TypeConverter &typeConverter,
+void populateLoweringKrnlStrlenOpPattern(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlStrncmpOpPattern(mlir::TypeConverter &typeConverter,
-    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
+void populateLoweringKrnlStrncmpOpPattern(
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
 
-void populateLoweringKrnlUnaryMathOpPattern(mlir::TypeConverter &typeConverter,
-    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
+void populateLoweringKrnlUnaryMathOpPattern(
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
 
 void populateLoweringKrnlVectorTypeCastOpPattern(
     mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,

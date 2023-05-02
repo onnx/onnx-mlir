@@ -455,7 +455,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Get axes dims
     IndexExprScope mainScope(&rewriter, loc);
     DimsExpr axesDims;
-    create.krnlIE.getShapeAsDims(axesVal, axesDims);
+    if (isNoneValue(axesVal) && !isNoop) {
+      // The default is to reduce over all the dimensions of the input tensor if
+      // 'noop_with_empty_axes' is false
+      for (int64_t i = 0; i < inRank; ++i)
+        axesDims.emplace_back(LiteralIndexExpr(i));
+    } else
+      create.krnlIE.getShapeAsDims(axesVal, axesDims);
 
     // Get type information
     auto memRefOutShape = memRefOutType.getShape();
@@ -470,7 +476,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
     Value axesValue = llvm::dyn_cast<ONNXReductionOp>(op).getAxes();
     // Dynamic axes
-    if (!isFromNone(axesValue) && !getONNXConstantOp(axesValue)) {
+    if (!isNoneValue(axesValue) && !getONNXConstantOp(axesValue)) {
       dynamicAxes = true;
       // Handle only when keepdims == true
       if (!isKeepdims)
@@ -502,7 +508,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         Value cond = create.math.eq(axesBound0.getValue(), zeroIndex);
         initVal = create.math.select(cond, trueVal, falseVal);
       } else {
-        // When axesDim is known, it can not be 0 due to !isFromNone
+        // When axesDim is known, it can not be 0 due to !isNoneValue
         initVal = falseVal;
       }
       for (auto i = 0; i < inRank; i++) {
@@ -551,7 +557,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
       // Assume it is verified that axes are known. Convert DenseElementsAttr to
       // ArrayAttr.
-      if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
+      if (!isNoneValue(axesValue) && getONNXConstantOp(axesValue)) {
         auto constAxes = getONNXConstantOp(axesValue)
                              .getValueAttr()
                              .dyn_cast_or_null<mlir::DenseElementsAttr>();

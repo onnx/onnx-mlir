@@ -47,6 +47,8 @@ LogicalResult ONNXCategoryMapperOp::verify() {
   }
 
   ShapedType inputType = X.getType().cast<ShapedType>();
+  if ((inputType.getRank() != 1) && (inputType.getRank() != 2))
+    return emitOpError("input rank must be one or two");
   Type elementType = inputType.getElementType();
   if (!elementType.isInteger(64) && !elementType.isa<ONNXStringType>())
     return emitOpError("input must be a tensor of int64 or string");

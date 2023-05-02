@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --convert-krnl-to-llvm="use-opaque-pointers=true" %s -split-input-file | FileCheck %s
 
 // COM: Check the lowering of an zlow operation when its shape includes constant dims.
 // COM: In this case, the constant values will be passed directly to
@@ -18,6 +18,6 @@ func.func @test_zlow_softmax_constant_shape() -> () {
   // CHECK:           %[[DIM0:.*]] = llvm.mlir.constant(1 : i64) : i64
   // CHECK:           %[[DIM1:.*]] = llvm.mlir.constant(5 : i64) : i64
   // CHECK:           %[[DIM2:.*]] = llvm.mlir.constant(10 : i64) : i64
-  // CHECK:           llvm.call @zdnn_init_pre_transformed_desc({{.*}}, {{.*}}, {{.*}}, %[[DIM0]], %[[DIM1]], %[[DIM2]]) : (i64, i64, !llvm.ptr<i8>, i64, i64, i64) -> ()
+  // CHECK:           llvm.call @zdnn_init_pre_transformed_desc({{.*}}, {{.*}}, {{.*}}, %[[DIM0]], %[[DIM1]], %[[DIM2]]) : (i64, i64, !llvm.ptr, i64, i64, i64) -> ()
 
 }

@@ -53,7 +53,7 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
 
   Type elementType;
   Value zero = getYZeroPoint();
-  if (isFromNone(zero)) {
+  if (isNoneValue(zero)) {
     // If zero point type isn't provided, output type defaults to ui8.
     elementType = IntegerType::get(getContext(), 8, IntegerType::Unsigned);
   } else {

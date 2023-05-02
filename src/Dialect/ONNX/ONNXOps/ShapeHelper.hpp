@@ -28,6 +28,7 @@
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
 #define GET_OP_FWD_DEFINES 1
 #include "src/Dialect/ONNX/ONNXOps.hpp.inc"
@@ -145,6 +146,7 @@ using ONNXCastLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCastOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCeilOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCeluOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXClipOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCosOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCoshOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCumSumOpShapeHelper = ONNXUnaryOpShapeHelper;
@@ -219,15 +221,78 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // Used in a loop to access the operand.
   // Parameters:
   //   - operand: operand to access.
-  //   - operandIndex: index of the operand in 'this->inputsDims'.
+  //   - i: index of the operand in Index Expr Dims 'this->inputsDims'.
   //   - loopAccessExprs: IndexExprs for the loop's IVs.
   //   - operandAccessExprs: access indices to access the operand.
   //     This is the output of this function. Use it in subsequent load/stores.
-  mlir::LogicalResult getAccessExprs(mlir::Value operand, uint64_t i,
-      const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
-      llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs);
+  //   - flattenedInnerDims: whether the innermost dimension corresponds to a
+  //   collapsed/flattened loop index or not.
+  //   - ruledOutBroadcast: determined using shape analysis that there is no
+  //     broadcasting here.
+  mlir::LogicalResult getAccessExprs(mlir::Value operand, int64_t i,
+      const llvm::SmallVectorImpl<IndexExpr> &loopAccessExprs,
+      llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs,
+      bool flattenedInnerDims = false, bool ruledOutBroadcast = false);
 
-  bool hasNoBroadcast();
+  // Determine if broadcast can be ruled out at compile time. Use DimAnalysis
+  // when available. Broadcasting is defined is one value of one input is used
+  // two or more times with a value of another input (when only looking at the
+  // tensors, not the actual algorithms).
+  //
+  // Examples with broadcasts:
+  // * 2x5xf32 and 1x5xf32 has broadcast as the second input's value are used
+  //   for each of the two instances of 5xf32 in the first input.
+  // * Same holds for 2x5xf32 and 5xf32 as shorter ranked
+  //   inputs are extended by prepending 1x.
+  //
+  // Example without broadcast:
+  // * 3x5xf32 and 3x5xf32 have no broadcast.
+  // * 1x5xf32 and 5xf32 have also no broadcast as prepending 1x results as
+  //   comparing 1x5xf32 with 1x5xf32.
+  bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
+
+  // Determine of the broadcast operation has manageable broadcast (MB), and if
+  // so, at which level/rank. We first attempt to see if the innermost dimension
+  // has MB, and if it does, we then attempt to test at the next innermost
+  // level... until we fail or we run out of dimensions.
+  //
+  // Manageable broadcast (MB) is either that:
+  //   1) we have no broadcast up to that level, or
+  //   2) we have scalars up to that level being broadcasted.
+  //
+  // The function return true if there is some MB, and then
+  // * collapsedInnermostLoops: indicates how many inner loops are involved in
+  //   the MB. They are named "collapsed" as in the SIMD code execution, we may
+  //   collapse these dimensions in a single long iteration. For example,
+  //   `0x?x4x5` and `0x?x4x5` have a collapsedInnermostLoops==2 (if the two `?`
+  //   cannot be shown as equals). This means that we may implement operations
+  //   on these inputs as `?x20` and `?x20` respectively.
+  // * collapsedLiteralSize: cumulative static size of the collapsed inner
+  //   loops.
+  // * collapsedDynamicSize: cumulative dynamic size of the collapsed inner
+  //   loops.
+  //
+  // Below are examples of Manageable Broadcast (MB) at a given
+  // collapsedInnermostLoops (CIL) level.
+  //
+  // What is a scalar: `4x2x1x1 is scalar at CIL==1 and 2, but not 3 and 4.
+  //
+  //  - (?1, 1, 4, 1) and (10, 1, 4, 1) have MB at CIL 1, 2, 3, not 4,
+  //    unless dynamic analysis can show ?1 to be equal to 10 (unlikely).
+  //  - (?1, 1, ?2, 1) and (10, 1, ?3, 1) have MB at CIL 1 and at 2
+  //    if dynamic analysis can show ?2 and ?3 to be the same.
+  //  - (1, 4, 1) and (2, 4, 1) have MB at CIL 1 and 2, but not 3 as
+  //    there is broadcasting (1 vs 2) at CIL 3... but the first
+  //    operand is not a scalar at CIL 3.
+  //  - (1, 1, 1) and (2, 4, 1) have MB at CIL 1, 2, and 3 as there is
+  //    broadcast at inner dim 2 and 3, and the first operand is a scalar at
+  //    CIL 1, 2, and 3.
+  // - (1,3) and (1, 1) have MB at CIL 1; technically, CIL 2 is also a MB but
+  //    there is nothing to be gained by collapsing dimensions where all
+  //    inputs have dimensions of 1. We thus do not include them in our CILs.
+  bool hasManageableBroadcastForInnerDims(int64_t &collapsedInnermostLoops,
+      int64_t &collapsedLiteralSize, IndexExpr &collapsedDynamicSize,
+      DimAnalysis *dimAnalysis);
 
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank. Instantiated during ComputeShape.
@@ -669,8 +734,8 @@ struct ONNXResizeOpShapeHelper : public ONNXOpShapeHelper {
   virtual ~ONNXResizeOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Values set by computeShape: scales is a float index expression. It is
-  // directly the `scale` argument when scale is provided by the op. When `size`
-  // is provided, then scale is float(`size`)/float(dim).
+  // directly the `scale` argument when scale is provided by the op. When
+  // `size` is provided, then scale is float(`size`)/float(dim).
   llvm::SmallVector<IndexExpr, 4> scales;
 };
 
@@ -703,7 +768,6 @@ struct ONNXNonSpecificOpShapeHelper : public ONNXOpShapeHelper {
 // clang-format off
 using ONNXBatchNormalizationInferenceModeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXBatchNormalizationInferenceModeOp>;
 using ONNXCategoryMapperOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
-using ONNXClipOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXClipOp>;
 using ONNXCompressOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;
 using ONNXConcatOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>;
 using ONNXConcatShapeTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
@@ -732,6 +796,7 @@ using ONNXRandomNormalOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRan
 using ONNXRangeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXRangeOp>;
 using ONNXReshapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReshapeOp>;
 using ONNXReverseSequenceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXReverseSequenceOp>;
+using ONNXShapeTransformOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXShapeTransformOp>;
 using ONNXSizeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSizeOp>;
 using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpaceToDepthOp>;
 using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;

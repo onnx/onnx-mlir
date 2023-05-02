@@ -126,8 +126,6 @@ Value insertAllocAndDeallocZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
 static Value insertAllocAndDeallocWorkAreaForRNNOps(
     IndexExprBuilderForKrnl &createIE, PatternRewriter &rewriter, Location loc,
     Value rnnInput, Value rnnHiddenWeight, unsigned numOfGates, bool isDouble) {
-  Value alloc;
-
   SmallVector<IndexExpr, 4> inputDims, hiddenWeightDims;
   createIE.getShapeAsDims(rnnInput, inputDims);
   createIE.getShapeAsDims(rnnHiddenWeight, hiddenWeightDims);
@@ -190,7 +188,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
 
     // Use an dense resource attribute to store stickified data.
     // Attribute type: tensor<sizeInBytes x i8>
-    int64_t sizeInBytes = getMemRefSizeInBytes(resType).value();
+    int64_t sizeInBytes = getIntOrFloatMemRefSizeInBytes(resType).value();
     char *rawData = (char *)malloc(sizeInBytes);
     memset(rawData, 0, sizeInBytes);
     DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
@@ -1312,23 +1310,27 @@ struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
 
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) {
+  // Stickify and unstickify operations.
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowUnstickOpLowering>(typeConverter, ctx);
+  // Binary operations
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighAddOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighSubOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighMulOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighDivOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighMinOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighMaxOp>>(typeConverter, ctx);
+  // Activations
   patterns.insert<ZHighToZLowUnaryOpLowering<ZHighLogOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowUnaryOpLowering<ZHighExpOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowUnaryOpLowering<ZHighReluOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowUnaryOpLowering<ZHighTanhOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowUnaryOpLowering<ZHighSigmoidOp>>(
       typeConverter, ctx);
+  // Neural network operations.
   patterns.insert<ZHighToZLowSoftmaxOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMeanReduce2DOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMatMulOpLowering>(typeConverter, ctx);

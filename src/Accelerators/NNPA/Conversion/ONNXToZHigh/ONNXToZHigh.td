@@ -54,7 +54,7 @@ class VariadicSizeIsGT<int N> : Constraint<
 >;
 
 // Create a unit constant that will be used as none input.
-def CreateUnitConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
+def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
 
 class getNth<int n, string x> : NativeCodeCall<x # "[" # n # "]">;
 
@@ -437,7 +437,7 @@ def GetMatMulBiasLayoutStringAttr : NativeCodeCall<
 //                          (ZHighMatMulOp
 //                              (ZHighStickOp %X),
 //                              (ZHighStickOp %Y),
-//                              CreateUnitConstant)
+//                              CreateNoneValue)
 //===----------------------------------------------------------------------===//
 
 def replaceONNXMatMulPattern : Pat<
@@ -446,7 +446,7 @@ def replaceONNXMatMulPattern : Pat<
      (ZHighMatMulOp
         (ZHighStickOp $x, (GetMatMulLayoutStringAttr (GetRank $x))),
         (ZHighStickOp $y, (GetMatMulLayoutStringAttr (GetRank $y))),
-        (CreateUnitConstant)))
+        (CreateNoneValue)))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -567,7 +567,7 @@ def replaceONNXGemmBias2DPattern : Pat<
        (ZHighMatMulOp
           (ZHighStickOp $a, (_2DLayoutAttr)),
           (ZHighStickOp $b, (_2DLayoutAttr)),
-          (CreateUnitConstant)),
+          (CreateNoneValue)),
        (returnType $res)),
     $c),
   [(HasRankOf<2> $c)],
@@ -588,7 +588,7 @@ class GetLSTMGRUZDNNWeightFromONNXWeight<string opName> : NativeCodeCall<
 
 def GetLSTMGRUReturnAllStepsAttr : NativeCodeCall<
   "$_builder.getIntegerAttr($_builder.getIntegerType(64, true),"
-  "(isFromNone($0) ? 1 : -1))">;
+  "(isNoneValue($0) ? 1 : -1))">;
 
 def GetLSTMGRUGetY :
         NativeCodeCall<"getLSTMGRUGetY($_loc, $_builder, $0, $1)">;
