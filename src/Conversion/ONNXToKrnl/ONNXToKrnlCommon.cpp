@@ -488,13 +488,13 @@ Value emitArgUnique(ConversionPatternRewriter &rewriter,
   Value val_axis = create.math.constant(int_type, axis);
   Value val_sorted = create.math.constant(int_type, sorted);
   if (count_only) {
-    printf("XXXX: calling omTensorUniqueCount(total=%p, input=%p, val_axis=%p, val_sorted=%p)\n", total, input, val_axis, val_sorted);
+    //printf("XXXX: calling omTensorUniqueCount(total=%p, input=%p, val_axis=%p, val_sorted=%p)\n", total, input, val_axis, val_sorted);
     SmallVector<Value, 3> operands = {input, val_axis, val_sorted};
     rewriter.create<KrnlCallOp>(loc, "omTensorUniqueCount", total, operands);
   } else {
     SmallVector<Value, 7> operands = {input, val_axis, val_sorted, Y, indices,
         inverse_indices, counts};
-    printf("XXXX: calling omTensorUniqueCount(total=%p, input=%p, val_axis=%p, val_sorted=%p, Y=%p, indices=%p, inverse_indices=%p, counts=%p)\n", total, input, val_axis, val_sorted, Y, indices, inverse_indices, counts);
+    //printf("XXXX: calling omTensorUniqueCount(total=%p, input=%p, val_axis=%p, val_sorted=%p, Y=%p, indices=%p, inverse_indices=%p, counts=%p)\n", total, input, val_axis, val_sorted, Y, indices, inverse_indices, counts);
     rewriter.create<KrnlCallOp>(loc, "omTensorUnique", total, operands);
   }
   return total;
