@@ -314,6 +314,7 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
 
   Value x = scalarOperands[0]; // x-> input
   Type inputElemType = getElementType(x.getType());
+  Value result;
 
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   Value negInf = create.math.negativeInf(inputElemType);
@@ -322,14 +323,25 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   double detectNegAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
   double detectPosAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
 
-  bool detectNeg = detectNegAttribute == 1;
-  bool detectPos = detectPosAttribute == 1;
+  bool detectNeg = detectNegAttribute == 1 && detectPosAttribute == 0;
+  bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
 
-  // Negative Infinity, when detect_positive = 0 and detect_negative = 1
-  Value cond = detectNeg && !detectPos ;
+  if (detectPos) {
+    // If positive infinity return true else false
+    result = create.math.select(posInf, true, false);
+  }
+  if (detectNeg) {
+    // If negative infinity return true else false
+    result = create.math.select(negInf, true, false);
+  }
 
-  // Return negative infinity if condition is true else postive infinity.
-  return create.math.select(cond, negInf, posInf);
+  return result;
+
+  // // Negative Infinity, when detect_positive = 0 and detect_negative = 1
+  // Value cond = detectNeg && !detectPos ;
+
+  // // Return negative infinity if condition is true else postive infinity.
+  // return create.math.select(cond, negInf, posInf);
 
 
   // if (detectPos) {
