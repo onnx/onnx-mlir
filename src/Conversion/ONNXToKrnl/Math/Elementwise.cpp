@@ -326,8 +326,8 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   bool detectNeg = detectNegAttribute == 1 && detectPosAttribute == 0;
   bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
 
-  Value zero = create.math.constant(elementType, 0);
-  Value one = create.math.constant(elementType, 1);
+  Value zero = create.math.constant(inputElemType, 0);
+  Value one = create.math.constant(inputElemType, 1);
 
   if (detectPos) {
     // If positive infinity return true else false
