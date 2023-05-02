@@ -8,7 +8,13 @@
 //
 // =============================================================================
 //
+// This file defines patterns to lower ZLow operations to LLVM dialect.
 //
+// Note that once a type is lowed to LLVM, it can be opaque pointer and its
+// element type is lost. Thus, to get element type in LLVM, get it from the
+// original operation (not via operandAdaptor), then use
+// `typeConverter(elementType)` to convert it to LLVM. See `ZLowStickLowering`
+// as an example.
 //
 //===----------------------------------------------------------------------===//
 
@@ -109,8 +115,8 @@ public:
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
 
     // Get zDNN data layout.
-    zdnn_data_layouts zDNNDataLayout = convertLayoutAttrToZDNNDataLayout(
-        dims.size(), dyn_cast_or_null<ZLowStickOp>(op).getLayoutAttr());
+    zdnn_data_layouts zDNNDataLayout =
+        convertLayoutAttrToZDNNDataLayout(dims.size(), stickOp.getLayoutAttr());
 
     // Create a zTensor.
     Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
@@ -168,8 +174,7 @@ public:
     // Get zDNN data layout and concatInfo
     zdnn_data_layouts zDNNDataLayout;
     zdnn_concat_info zDNNConcatInfo;
-    StringRef prevLayerStr =
-        dyn_cast_or_null<ZLowStickForLSTMOp>(op).getPrevLayer();
+    StringRef prevLayerStr = stickForLSTMOp.getPrevLayer();
     int64_t prevLayer = -1;
     if (prevLayerStr.equals_insensitive("none")) {
       prevLayer = PREV_LAYER_NONE;
@@ -254,8 +259,7 @@ public:
     // Get zDNN data layout.
     zdnn_data_layouts zDNNDataLayout;
     zdnn_concat_info zDNNConcatInfo;
-    StringRef prevLayerStr =
-        dyn_cast_or_null<ZLowStickForGRUOp>(op).getPrevLayer();
+    StringRef prevLayerStr = stickForGRUOp.getPrevLayer();
     int64_t prevLayer = -1;
     if (prevLayerStr.equals_insensitive("none")) {
       prevLayer = PREV_LAYER_NONE;
@@ -346,7 +350,7 @@ public:
     // hidden size
     Value H = dims[4];
 
-    StringRef prevLayerStr = dyn_cast_or_null<ZLowLSTMOp>(op).getPrevLayer();
+    StringRef prevLayerStr = lstmOp.getPrevLayer();
     int64_t prevLayer = -1;
     if (prevLayerStr.equals_insensitive("none")) {
       prevLayer = PREV_LAYER_NONE;
@@ -420,7 +424,7 @@ public:
 
     // Direction input.
     Value direction;
-    StringRef directionStr = dyn_cast_or_null<ZLowLSTMOp>(op).getDirection();
+    StringRef directionStr = lstmOp.getDirection();
     if (directionStr.equals_insensitive("forward")) {
       direction = create.llvm.constant(llvmI64Ty, (int64_t)FWD);
     } else if (directionStr.equals_insensitive("reverse")) {
@@ -437,7 +441,7 @@ public:
     // Create zTensor for hn_output.
     Value preTransformedDescPtr;
 
-    if (dyn_cast_or_null<ZLowLSTMOp>(op).getReturnAllSteps() == -1)
+    if (lstmOp.getReturnAllSteps() == -1)
       // all steps.
       preTransformedDescPtr = zTensorHelper.getPreTransformedDescPtr(
           zDNNDataType, ZDNN_4DS, {T, D, B, H});
@@ -466,7 +470,7 @@ public:
     // hn_output is the last step output.
     ZTensor cfOutputZTensor;
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getCfOutput());
-    if (dyn_cast_or_null<ZLowLSTMOp>(op).getReturnAllSteps() != -1)
+    if (lstmOp.getReturnAllSteps() != -1)
       cfOutputZTensor = zTensorHelper.getZTensor(
           /*preTransformedDescPtr=*/hnOutputZTensor.preTransformedDescPtr,
           /*transformedDescPtr=*/hnOutputZTensor.transformedDescPtr,
@@ -595,7 +599,7 @@ public:
 
     // Direction input.
     Value direction;
-    StringRef directionStr = dyn_cast_or_null<ZLowGRUOp>(op).getDirection();
+    StringRef directionStr = gruOp.getDirection();
     if (directionStr.equals_insensitive("forward")) {
       direction = create.llvm.constant(llvmI64Ty, (int64_t)FWD);
     } else if (directionStr.equals_insensitive("reverse")) {
@@ -611,7 +615,7 @@ public:
 
     // Create zTensor for hn_output.
     Value preTransformedDescPtr;
-    if (dyn_cast_or_null<ZLowGRUOp>(op).getReturnAllSteps() == -1)
+    if (gruOp.getReturnAllSteps() == -1)
       // all steps.
       preTransformedDescPtr = zTensorHelper.getPreTransformedDescPtr(
           zDNNDataType, ZDNN_4DS, {T, D, B, H});
@@ -688,7 +692,7 @@ public:
 
     // Get zDNN data layout.
     zdnn_data_layouts zDNNDataLayout = convertLayoutAttrToZDNNDataLayout(
-        dims.size(), dyn_cast_or_null<ZLowUnstickOp>(op).getLayoutAttr());
+        dims.size(), unstickOp.getLayoutAttr());
 
     // Create a zTensor.
     Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getX());
@@ -725,12 +729,13 @@ public:
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
     MLIRContext *context = rewriter.getContext();
-    UnaryElementwiseOp unaryOp = dyn_cast_or_null<UnaryElementwiseOp>(op);
+    UnaryElementwiseOp unaryOp = cast<UnaryElementwiseOp>(op);
+    typename UnaryElementwiseOp::Adaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
-    Value input = operands[0];
-    Value shape = operands[1];
-    Value output = operands[2];
+    Value input = operandAdaptor.getX();
+    Value shape = operandAdaptor.getShape();
+    Value output = operandAdaptor.getOut();
     Type llvmElementTy = typeConverter->convertType(
         op->getOperand(0).getType().cast<MemRefType>().getElementType());
 
@@ -802,12 +807,13 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    BinaryElementwiseOp binaryOp = dyn_cast_or_null<BinaryElementwiseOp>(op);
+    BinaryElementwiseOp binaryOp = cast<BinaryElementwiseOp>(op);
+    typename BinaryElementwiseOp::Adaptor operandAdaptor(operands);
 
-    Value input1 = operands[0];
-    Value input2 = operands[1];
-    Value shape = operands[2];
-    Value output = operands[3];
+    Value input1 = operandAdaptor.getX();
+    Value input2 = operandAdaptor.getY();
+    Value shape = operandAdaptor.getShape();
+    Value output = operandAdaptor.getOut();
     Type llvmElementTy = typeConverter->convertType(
         op->getOperand(0).getType().cast<MemRefType>().getElementType());
 
@@ -909,7 +915,7 @@ public:
 
     // Create activation function type.
     nnpa_softmax_act actType;
-    StringRef actFuncStr = llvm::dyn_cast<ZLowSoftmaxOp>(op).getActFunc();
+    StringRef actFuncStr = softmaxOp.getActFunc();
     if (actFuncStr.equals_insensitive("act_none"))
       actType = NNPA_SOFTMAX_NONE;
     else if (actFuncStr.equals_insensitive("act_log"))
@@ -970,11 +976,11 @@ public:
         matmulOp.getX().getType().cast<MemRefType>().getElementType());
 
     bool stacked, broadcasting;
-    if (dyn_cast_or_null<ZLowMatMulOp>(op).getIsStacked() == -1)
+    if (matmulOp.getIsStacked() == -1)
       stacked = true;
     else
       stacked = false;
-    if (dyn_cast_or_null<ZLowMatMulOp>(op).getIsBcast() == -1)
+    if (matmulOp.getIsBcast() == -1)
       broadcasting = true;
     else
       broadcasting = false;
@@ -1100,7 +1106,7 @@ public:
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
     MLIRContext *context = rewriter.getContext();
-    ZLowConv2DOp convOp = dyn_cast_or_null<ZLowConv2DOp>(op);
+    ZLowConv2DOp convOp = cast<ZLowConv2DOp>(op);
     ZLowConv2DOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
@@ -1247,12 +1253,13 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    POOLOP poolOp = dyn_cast_or_null<POOLOP>(op);
+    POOLOP poolOp = cast<POOLOP>(op);
+    typename POOLOP::Adaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
-    Value input = operands[0];
-    Value shape = operands[1];
-    Value output = operands[2];
+    Value input = operandAdaptor.getInput();
+    Value shape = operandAdaptor.getShape();
+    Value output = operandAdaptor.getOutput();
     Type llvmElementTy = typeConverter->convertType(
         op->getOperand(0).getType().cast<MemRefType>().getElementType());
 
