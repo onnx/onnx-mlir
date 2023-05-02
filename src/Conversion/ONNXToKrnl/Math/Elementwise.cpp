@@ -343,7 +343,6 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   // // Return negative infinity if condition is true else postive infinity.
   // return create.math.select(cond, negInf, posInf);
 
-
   // if (detectPos) {
   //   // Check if input == posInf
   //   Value posInfinity = rewriter.create<arith::CmpFOp>(
@@ -359,7 +358,6 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   //   result = create.math.select(negInfinity, negInf, posInf);
   // } else
   //   llvm_unreachable("unsupported element type");
-
 }
 
 //===----------------------------------------------------------------------===//
