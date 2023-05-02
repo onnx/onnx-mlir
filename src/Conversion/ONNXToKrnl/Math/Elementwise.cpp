@@ -257,12 +257,6 @@ double analyzeSimdFor<ONNXPowOp>(Type t, int64_t &von, int64_t &son) {
 }
 
 template <>
-struct ScalarOp<ONNXErfOp> {
-  using FOp = KrnlErfOp;
-  using IOp = NotSuportedScalarOp;
-};
-
-template <>
 struct ScalarOp<ONNXIsInfOp> {
   using FOp = KrnlIsInfOp;
   using IOp = NotSuportedScalarOp;
@@ -769,6 +763,79 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
   }
   Value zeroPredicate = create.math.eq(operand, zero);
   return create.math.select(zeroPredicate, zero, plusSelect);
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXErfOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXErfOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+};
+
+template <>
+double analyzeSimdFor<ONNXErfOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis(
+      {GenericOps::ArithmeticGop, GenericOps::CompareGop, GenericOps::DivGop,
+          GenericOps::FmaGop, GenericOps::MulGop, GenericOps::SelectGop,
+          GenericOps::AbsGop, GenericOps::ExpGop},
+      {2, 1, 1, 6, 2, 1, 1, 1}, t, von, son);
+}
+
+template <>
+Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  // Use numpy algorithm for rint as follows, according to
+  // https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/.
+  // ```
+  // def erf(x):
+  //   a1 =  0.254829592
+  //   a2 = -0.284496736
+  //   a3 =  1.421413741
+  //   a4 = -1.453152027
+  //   a5 =  1.061405429
+  //   p  =  0.3275911
+  //
+  //   t = 1.0 / (1.0 + p * abs(x))
+  //   y = 1.0 -
+  //       (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
+  //       exp(-abs(x)*abs(x))
+  //   return -y if x < 0.0 else y
+  // }
+  // ```
+  CheckIfCustomScalarOpIsSupported<ONNXErfOp>(elementType);
+  Value operand = scalarOperands[0];
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value zero = create.math.constant(elementType, 0);
+  Value one = create.math.constant(elementType, 1);
+  Value minusone = create.math.constant(elementType, -1);
+  Value a1 = create.math.constant(elementType, 0.254829592);
+  Value a2 = create.math.constant(elementType, -0.284496736);
+  Value a3 = create.math.constant(elementType, 1.421413741);
+  Value a4 = create.math.constant(elementType, -1.453152027);
+  Value a5 = create.math.constant(elementType, 1.061405429);
+  Value p = create.math.constant(elementType, 0.3275911);
+  Value absx = create.math.abs(operand);
+  Value t = create.math.div(one, create.math.fma(p, absx, one));
+  //   y = 1.0 -
+  //       (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
+  //       exp(-absx*absx)
+  //  minusy = (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
+  //            exp(-absx*absx)
+  //           + (-1.0)
+  Value minusy = create.math.fma(
+      create.math.mul(
+          create.math.fma(
+              create.math.fma(
+                  create.math.fma(create.math.fma(a5, t, a4), t, a3), t, a2),
+              t, a1),
+          t),
+      create.math.exp(create.math.mul(create.math.sub(zero, absx), absx)),
+      minusone);
+  Value sign = create.math.gt(operand, zero);
+  return create.math.select(sign, create.math.sub(zero, minusy), minusy);
 }
 
 //===----------------------------------------------------------------------===//
