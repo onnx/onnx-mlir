@@ -319,8 +319,7 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
 
   Value x = scalarOperands[0]; // x-> input
-  ShapedType inputType = x.getType().cast<ShapedType>();
-  Type inputElemType = inputType.getElementType();
+  Type inputElemType = x.getType().getElementType();
   Value result;
 
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
