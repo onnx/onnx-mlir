@@ -500,12 +500,12 @@ void DimAnalysis::visitDim(
     Value data = reshapeOp.getData();
     Value output = reshapeOp.getReshaped();
 
-    // The output dimension i can be from
+    // Special case 1: the output dimension i can be from
     // - data[j] if
-    //    - dim j and i are the only dynamic dimension in data and
-    // output, respectively, and
-    //    - the products of the static dimensions in data and output are
-    //    equal.
+    //    - dim j and i are the only dynamic dimension in data and output,
+    //    respectively, and
+    //    - the products of the remaining static dimensions in data and output
+    //    are equal.
     //
     // It's interesting that if shape[i] is arg0[ii] and data[j] is arg1[jj],
     // we can say that arg0[ii] == arg1[jj], that can be used to verify user
@@ -542,8 +542,8 @@ void DimAnalysis::visitDim(
       sameDims.insert(newSameDim);
     }
 
-    // Special case: input and output have the same rank of 2, if one output dim
-    // is from an input dim, the other output dim must be from the remaining
+    // Special case 2: input and output have the same rank of 2, if one output
+    // dim is from an input dim, the other output dim must be from the remaining
     // input dim.
     //
     // clang-format off
