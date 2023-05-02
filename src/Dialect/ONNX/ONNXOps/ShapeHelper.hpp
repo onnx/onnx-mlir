@@ -75,7 +75,8 @@ struct ONNXUnimplementedOpShapeHelper : public ONNXOpShapeHelper {
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXUnimplementedOpShapeHelper() {}
 
-  mlir::LogicalResult computeShape() final { return mlir::failure(); }
+  bool isImplemented() override { return false; }
+  mlir::LogicalResult computeShape() final { return mlir::success(); }
 };
 
 // Classes for unsupported ops, including shape inference and shape helpers.
