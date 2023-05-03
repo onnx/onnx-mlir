@@ -3547,3 +3547,25 @@ module {
 // CHECK:         }
   }
 }
+
+// -----
+
+// Check that ClipV6 operation shape inference goes through shape inference smoothly.
+// ClipV6 has no shape inference as it is supposed to be first updated to the latest ClipOp.
+// Using the latest shape inference, the default is to let unimplemented ops go through shape
+// inference without asserts/failures. Asserts only occurs when the results of the shape
+// inference is used.
+// The output shoudl be the same as the input, as no shape inference is expected to be performed.
+
+func.func @test_clipv6(%arg0: tensor<*xf32>) {
+  %0 = "onnx.ClipV6"(%arg0) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<*xf32>) -> tensor<*xf32>
+  return
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_clipv6
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ClipV6"([[PARAM_0_]]) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           return
+// CHECK:         }
+}
+

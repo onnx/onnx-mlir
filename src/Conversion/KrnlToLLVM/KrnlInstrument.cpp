@@ -34,7 +34,7 @@ namespace krnl {
 class KrnlInstrumentOpLowering : public ConversionPattern {
 public:
   explicit KrnlInstrumentOpLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConversionPattern(
             typeConverter, KrnlInstrumentOp::getOperationName(), 1, context) {}
 
@@ -45,15 +45,16 @@ public:
     Location loc = op->getLoc();
     KrnlInstrumentOp instrumentOp = llvm::dyn_cast<KrnlInstrumentOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    LLVMTypeConverter *typeConverter =
+        static_cast<LLVMTypeConverter *>(getTypeConverter());
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
     StringRef opNameStr = instrumentOp.getOpName();
-    LLVM::GlobalOp globalOpNameStr =
-        krnl::getOrCreateGlobalString(opNameStr, loc, rewriter, parentModule,
-            static_cast<LLVMTypeConverter *>(getTypeConverter()));
+    LLVM::GlobalOp globalOpNameStr = krnl::getOrCreateGlobalString(
+        opNameStr, loc, rewriter, parentModule, typeConverter);
     Value opNamePtr =
         krnl::getPtrToGlobalString(globalOpNameStr, loc, rewriter);
     Value tag = create.llvm.constant(
@@ -63,9 +64,8 @@ public:
       nodeName = instrumentOp.getNodeName().value();
     else
       nodeName = StringRef("NOTSET");
-    LLVM::GlobalOp globalStr =
-        krnl::getOrCreateGlobalString(nodeName, loc, rewriter, parentModule,
-            static_cast<LLVMTypeConverter *>(getTypeConverter()));
+    LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
+        nodeName, loc, rewriter, parentModule, typeConverter);
     Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
     create.llvm.call({}, instrumentRef, {opNamePtr, tag, nodeNamePtr});
 
@@ -82,15 +82,14 @@ private:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
     Type llvmI64Ty = IntegerType::get(context, 64);
-    Type llvmI8Ty = IntegerType::get(context, 8);
-    Type opaquePtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
+    Type opaquePtrTy = getI8PointerType(context);
     return create.llvm.getOrInsertSymbolRef(module,
         StringRef("OMInstrumentPoint"), llvmVoidTy,
         {opaquePtrTy, llvmI64Ty, opaquePtrTy});
   }
 };
 
-void populateLoweringKrnlInstrumentOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlInstrumentOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlInstrumentOpLowering>(typeConverter, ctx);
 }

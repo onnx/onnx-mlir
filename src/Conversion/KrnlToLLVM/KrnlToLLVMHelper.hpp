@@ -66,5 +66,17 @@ std::string e2a_s(std::string e_s);
 void emitErrNo(mlir::ModuleOp module, mlir::OpBuilder &builder,
     mlir::Location loc, int err);
 
+/// Creates an LLVM pointer type with the given element type and address space.
+/// This function is meant to be used in code supporting both typed and opaque
+/// pointers, as it will create an opaque pointer with the given address space
+/// if opaque pointers are enabled in the lowering options. This function is
+/// obtained from LLVMTypeConverter. Put it here so that there is no need to
+/// construct an LLVMTypeConverter.
+mlir::LLVM::LLVMPointerType getPointerType(mlir::MLIRContext *context,
+    mlir::Type elementType, unsigned addressSpace = 0);
+
+mlir::LLVM::LLVMPointerType getI8PointerType(
+    mlir::MLIRContext *context, unsigned addressSpace = 0);
+
 } // namespace krnl
 } // namespace onnx_mlir
