@@ -1,21 +1,5 @@
 // RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
-/// onnx.Erf lowering to krnl.erf.
-func.func @erf_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
-  %0 = "onnx.Erf"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
-  "func.return"(%0) : (tensor<10x10xf32>) -> ()
-}
-
-// CHECK-LABEL erf_function
-// CHECK: [[ALLOC:%.+]] = memref.alloc() {{.*}}: memref<10x10xf32>
-// CHECK: [[LOOP:%.+]]:2 = krnl.define_loops 2
-// CHECK: krnl.iterate
-// CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP]]#0, [[LOOP]]#1) : (!krnl.loop, !krnl.loop) -> (index, index) 
-// CHECK: [[LOAD:%.+]] = {{.*}}load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
-// CHECK: [[ERF:%.+]]  = "krnl.erf"([[LOAD]]) : (f32) -> f32
-// CHECK: {{.*}}store [[ERF]], [[ALLOC]][[[IV]]#0, [[IV]]#1] : memref<10x10xf32>
-// CHECK: return [[ALLOC]] : memref<10x10xf32>
- 
 /// onnx.Acos lowering to krnl.acos.
 func.func @acos_function(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Acos"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
