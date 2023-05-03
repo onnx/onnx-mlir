@@ -25,17 +25,9 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-namespace {
-
-struct IsFloat {
-  static LogicalResult checkType(
-      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!isTOSAFloat(scalarType)) {
-      return rewriter.notifyMatchFailure(
-          op, "this operation only support float types");
-    }
-    return success();
-  }
+template <>
+struct TOSADialectOp<ONNXNegOp> {
+  using Op = mlir::tosa::NegateOp;
 };
 
 struct IsIntOrFloat {
@@ -146,6 +138,11 @@ public:
     rewriter.replaceOpWithNewOp<mlir::tosa::MulOp>(
         op, op.getType(), lhs, rhs, /*shift =*/0);
 
+<<<<<<< HEAD
+=======
+    rewriter.replaceOpWithNewOp<mlir::tosa::FloorOp>(
+        op, op.getType(), adaptor.getX());
+>>>>>>> d19a991
     return success();
   }
 };

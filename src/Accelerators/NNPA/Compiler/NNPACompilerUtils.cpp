@@ -40,7 +40,6 @@
 
 #define DEBUG_TYPE "NNPACompilerUtils"
 
-using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
@@ -63,7 +62,7 @@ void addONNXToZHighPasses(
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
         instrumentOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
-  pm.addPass(onnx_mlir::createShapeInferencePass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
   pm.addNestedPass<func::FuncOp>(
@@ -72,7 +71,7 @@ void addONNXToZHighPasses(
   // Layout propagation at ZHighIR.
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::zhigh::createZHighLayoutPropagationPass());
-  pm.addPass(onnx_mlir::createShapeInferencePass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   // Constant propagation at ZHighIR: constant stickify.
   // Only support BE machines.
