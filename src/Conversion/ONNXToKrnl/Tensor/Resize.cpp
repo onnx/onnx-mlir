@@ -39,15 +39,20 @@ struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
     MemRefType memRefType = convertedType.cast<MemRefType>();
     int64_t rank = memRefType.getShape().size();
 
-    // Check implementation constraints
+    // Check limitation imposed by implementation
     // Resize Op is either lowered to loop nests or a function call.
-    // In either case, only the default value for some of the attributes are 
+    // In either case, only the default value for some of the attributes are
     // allowed.
-    if (resizeOp.getAntialias() != 0 || resizeOp.getExcludeOutside() != 0 ||
+    // In the library for Resize, src/Runtime/OMResize.inc, it seems that
+    // it is easy to support some other values, but not tested.
+    if (resizeOp.getAntialias() != 0 ||
+        resizeOp.getCubicCoeffA().convertToDouble() != -0.75 ||
+        resizeOp.getExcludeOutside() != 0 ||
         resizeOp.getExtrapolationValue().convertToDouble() != 0. ||
         resizeOp.getExcludeOutside() != 0 ||
         resizeOp.getKeepAspectRatioPolicy() != "stretch") {
-      return emitError(loc, "not implemented yet");
+      return emitError(
+          loc, "attribute value not supported by current implementation#1");
     }
 
     // When getMode() is "nearest", Resize is lowered to loops.
@@ -55,14 +60,16 @@ struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
     if (resizeOp.getMode() == "nearest") {
       if (resizeOp.getCoordinateTransformationMode() != "asymmetric" &&
           resizeOp.getCoordinateTransformationMode() != "half_pixel") {
-        return emitError(loc, "not implemented yet");
+        return emitError(
+            loc, "attribute value not supported by current implementation#2");
       }
     } else {
       // Resize is lowered to a library call.
       // The library assumes that getCoordinateTransformationMode()
       // is "half_pixel"
       if (resizeOp.getCoordinateTransformationMode() != "half_pixel") {
-        return emitError(loc, "not implemented yet");
+        return emitError(
+            loc, "attribute value not supported by current implementation#3");
       }
     }
 
