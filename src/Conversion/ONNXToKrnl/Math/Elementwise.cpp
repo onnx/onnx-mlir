@@ -1608,18 +1608,14 @@ typedef mlir::Value (*EmitScalarFunc)(mlir::ConversionPatternRewriter &rewriter,
 // are deleted.
 // ToFix: fusion for a graph structure, not just line, could be added in future.
 class OpFusionHelper {
-private:
-  mlir::Operation *rootOp_;
-  mlir::ConversionPatternRewriter &rewriter_;
-  llvm::SmallVector<mlir::Operation *, 2> fusibleOps_;
-  llvm::SmallVector<EmitScalarFunc, 2> fuseEmitFunctions_;
-
 public:
   // Constructor
   OpFusionHelper(
       mlir::ConversionPatternRewriter &rewriter, mlir::Operation *rootOp)
-      : rootOp_(rootOp), rewriter_(rewriter), fusibleOps_(),
-        fuseEmitFunctions_() {}
+      : rootOp(rootOp), rewriter(rewriter), fusibleOps(), fuseEmitFuctions() {}
+
+  // Fusion should not break any control depenendence
+  static bool isControlFlowValidForFusion(Operation *useOp, Operation *defOp);
 
   // Check whether the inputs of the useOp are valid for useOp to be fused
   // with the defOp. The defOp defines one of useOp's inputs.
@@ -1634,7 +1630,7 @@ public:
   // Find the fusible op chain from the root op
   void findFusibleOps();
 
-  bool isFusibleListEmpty() { return fusibleOps_.size() == 0; }
+  bool isFusibleListEmpty() { return fusibleOps.size() == 0; }
 
   // The final output type after fusion.
   // The element type of an elementwise op may be different from its inputs.
@@ -1644,6 +1640,12 @@ public:
   Value emitFuseOps(Value producerResult, ValueRange loopInd = {});
 
   void replaceOrEraseONNXOps(Value alloc);
+
+private:
+  mlir::Operation *rootOp;
+  mlir::ConversionPatternRewriter &rewriter;
+  llvm::SmallVector<mlir::Operation *, 2> fusibleOps;
+  llvm::SmallVector<EmitScalarFunc, 2> fuseEmitFuctions;
 }; // End of OpFusionHelper Declaration
 
 // Check a node with type T is fusible or not.
@@ -1653,7 +1655,8 @@ bool enqueueFusibleOpImpl(Operation *useOp, Operation *defOp,
     SmallVector<Operation *, 2> &fusibleOps,
     SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
   if (isa<T>(useOp)) {
-    if (OpFusionHelper::areInputsValidForFusion(useOp, defOp)) {
+    if (OpFusionHelper::isControlFlowValidForFusion(useOp, defOp) &&
+        OpFusionHelper::areInputsValidForFusion(useOp, defOp)) {
       fusibleOps.emplace_back(useOp);
       fuseEmitFunctions.emplace_back(emitScalarOpFor<T>);
       return true;
@@ -1719,6 +1722,15 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       useOp, defOp, fusibleOps, fuseEmitFunctions);
 }
 
+// Only operations are in the same block are allowed to fuse.
+// ToFix: This requirement may be too conversative.
+bool OpFusionHelper::isControlFlowValidForFusion(
+    Operation *useOp, Operation *defOp) {
+  if (useOp->getBlock() != defOp->getBlock())
+    return false;
+  return true;
+}
+
 // Check whether the inputs of the useOp are valid for useOp to be fused
 // with the defOp. The defOp defines one of useOp's inputs.
 // If fused, the two ops will use the same loop nests and the iteration space
@@ -1754,7 +1766,7 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
 // function by fold function.
 bool OpFusionHelper::areInputsValidForFusion(
     Operation *useOp, Operation *defOp) {
-  // Elementwise nary operation is always fusible
+  // Elementwise unary operation is always fusible
   if (useOp->getOperands().size() == 1)
     return true;
 
@@ -1770,8 +1782,8 @@ bool OpFusionHelper::areInputsValidForFusion(
   if (!hasStaticShape(defOp->getResults()[0].getType()))
     return false;
 
-  auto defShape = getShape(defOp->getResults()[0].getType());
-  auto useShape = getShape(useOp->getResults()[0].getType());
+  ArrayRef<int64_t> defShape = getShape(defOp->getResults()[0].getType());
+  ArrayRef<int64_t> useShape = getShape(useOp->getResults()[0].getType());
   if (defShape != useShape) {
     return false;
   }
@@ -1792,7 +1804,7 @@ bool OpFusionHelper::areInputsValidForFusion(
     // to generate load in future.
     if (!hasStaticShape(useOp->getOperand(i).getType()))
       return false;
-    auto inputShape = getShape(useOp->getOperand(i).getType());
+    ArrayRef<int64_t> inputShape = getShape(useOp->getOperand(i).getType());
     if (inputShape != defShape)
       return false;
   }
@@ -1800,15 +1812,15 @@ bool OpFusionHelper::areInputsValidForFusion(
   return true;
 }
 
-// The seach for fusible ops starts from the rootOp_, an elementwise operation.
+// The seach for fusible ops starts from the rootOp, an elementwise operation.
 // A successor op (user) is fusible if it is the only user, it is in the
 // fusible elementwise op list, and its inputs are valid for fusion.
 void OpFusionHelper::findFusibleOps() {
-  Operation *defOp = rootOp_;
+  Operation *defOp = rootOp;
   while (defOp->hasOneUse()) {
     // the possible ONNX Ops.
     Operation *useOp = *defOp->getUsers().begin();
-    if (!checkFusibleOp(useOp, defOp, fusibleOps_, fuseEmitFunctions_))
+    if (!checkFusibleOp(useOp, defOp, fusibleOps, fuseEmitFuctions))
       break;
 
     // Current useOp becomes the defOp for the next Op
@@ -1816,10 +1828,10 @@ void OpFusionHelper::findFusibleOps() {
   }
 
   LLVM_DEBUG({
-    llvm::dbgs() << "op fusion: fusible ops " << fusibleOps_.size() << "\n";
-    rootOp_->dump();
+    llvm::dbgs() << "op fusion: fusible ops " << fusibleOps.size() << "\n";
+    rootOp->dump();
     llvm::dbgs() << "begin fusible op list\n";
-    for (auto op : fusibleOps_)
+    for (auto op : fusibleOps)
       op->dump();
     llvm::dbgs() << "end fusible op list\n";
   });
@@ -1829,7 +1841,7 @@ void OpFusionHelper::findFusibleOps() {
 // Therefore, the allocation should be the output of the last Op
 MemRefType OpFusionHelper::getOutputType(MemRefType outputType) {
   if (!isFusibleListEmpty()) {
-    Operation *lastOp = fusibleOps_[fusibleOps_.size() - 1];
+    Operation *lastOp = fusibleOps[fusibleOps.size() - 1];
     return MemRefType::get(outputType.getShape(),
         getElementType(lastOp->getResults()[0].getType()));
   }
@@ -1842,15 +1854,15 @@ Value OpFusionHelper::emitFuseOps(Value defOpResult, ValueRange loopInd) {
     return defOpResult;
 
   // Handle the fused Ops
-  Operation *defOp = rootOp_;
-  for (size_t i = 0; i < fusibleOps_.size(); i++) {
-    Operation *useOp = fusibleOps_[i];
-    auto emitScalar = fuseEmitFunctions_[i];
+  Operation *defOp = rootOp;
+  for (size_t i = 0; i < fusibleOps.size(); i++) {
+    Operation *useOp = fusibleOps[i];
+    auto emitScalar = fuseEmitFuctions[i];
     // ToFix: use the ONNX location(ONNXLoc) of each Op.
     // The current obstacle is that no easy way to know the type of Op,
     // which is needed by ONNXLoc<T>(op).
     Location loc = useOp->getLoc();
-    MDBuilder create(rewriter_, loc);
+    MDBuilder create(rewriter, loc);
     Type currentElementType = getElementType(useOp->getResults()[0].getType());
 
     // Prepare Values for EmitScalarOpFor<T>
@@ -1864,10 +1876,10 @@ Value OpFusionHelper::emitFuseOps(Value defOpResult, ValueRange loopInd) {
     SmallVector<Value, 4> useOperands;
     for (auto oper : useOp->getOperands()) {
       if (oper.getDefiningOp() != defOp)
-        useOperands.emplace_back(rewriter_.getRemappedValue(oper));
+        useOperands.emplace_back(rewriter.getRemappedValue(oper));
     }
     LogicalResult res =
-        rewriter_.getRemappedValues(useOp->getOperands(), useOperands);
+        rewriter.getRemappedValues(useOp->getOperands(), useOperands);
     assert(succeeded(res) && "Could not remap value for rewriter");
     ONNXBroadcastOpShapeHelper shapeHelper(
         useOp, useOperands, &create.krnlIE, nullptr, false);
@@ -1891,12 +1903,12 @@ Value OpFusionHelper::emitFuseOps(Value defOpResult, ValueRange loopInd) {
 #endif
         // The shape is guaranteed to be the same.
         Value load =
-            create.krnl.load(rewriter_.getRemappedValue(inputValue), loopInd);
+            create.krnl.load(rewriter.getRemappedValue(inputValue), loopInd);
         inputValues.emplace_back(load);
       }
     }
     defOpResult =
-        emitScalar(rewriter_, loc, useOp, currentElementType, inputValues);
+        emitScalar(rewriter, loc, useOp, currentElementType, inputValues);
     defOp = useOp;
   }
   return defOpResult;
@@ -1906,16 +1918,16 @@ Value OpFusionHelper::emitFuseOps(Value defOpResult, ValueRange loopInd) {
 // When the fusible list is empty, the starting Op is the last.
 void OpFusionHelper::replaceOrEraseONNXOps(Value alloc) {
   if (isFusibleListEmpty()) {
-    rewriter_.replaceOp(rootOp_, alloc);
+    rewriter.replaceOp(rootOp, alloc);
     return;
   }
 
-  Operation *previous = rootOp_;
-  for (Operation *fusedOp : fusibleOps_) {
-    rewriter_.eraseOp(previous);
+  Operation *previous = rootOp;
+  for (Operation *fusedOp : fusibleOps) {
+    rewriter.eraseOp(previous);
     previous = fusedOp;
   }
-  rewriter_.replaceOp(previous, alloc);
+  rewriter.replaceOp(previous, alloc);
 }
 
 //===----------------------------------------------------------------------===//
