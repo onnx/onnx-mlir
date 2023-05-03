@@ -1,0 +1,93 @@
+// RUN: onnx-mlir --functions-to-decompose=CastLike --EmitONNXBasic --printIR %s | FileCheck %s
+
+// test_castlike_decomp.json is an onnx model from the onnx backend test
+// third_party/onnx/onnx/backend/test/case/node/castlike.py
+
+// json is generated with:
+// utils/onnx2json.py third_party/onnx/onnx/backend/test/data/node/test_castlike_FLOAT16_to_FLOAT/model.onnx
+
+{
+  "irVersion": "8",
+  "producerName": "backend-test",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "input",
+          "like"
+        ],
+        "output": [
+          "output"
+        ],
+        "opType": "CastLike"
+      }
+    ],
+    "name": "test_castlike_FLOAT16_to_FLOAT",
+    "input": [
+      {
+        "name": "input",
+        "type": {
+          "tensorType": {
+            "elemType": 10,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "4"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "like",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "output",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "4"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "domain": "",
+      "version": "15"
+    }
+  ]
+}
+// CHECK: "func.func"() ({
+// CHECK:   ^bb0(%arg0: tensor<3x4xf16>, %arg1: tensor<1xf32>):
+// CHECK:     %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<3x4xf16>) -> tensor<*xf32>
+// CHECK:     "func.return"(%0) : (tensor<*xf32>) -> ()
+// CHECK:   }) {function_type = (tensor<3x4xf16>, tensor<1xf32>) -> tensor<3x4xf32>, sym_name = "CastLike"} : () -> ()

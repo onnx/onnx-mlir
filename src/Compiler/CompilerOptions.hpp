@@ -91,6 +91,7 @@ extern llvm::cl::opt<bool> disableSimdOption;
 extern llvm::cl::opt<bool> enableSimdDataLayout;
 extern llvm::cl::opt<bool> enablePatternShapeInference;
 extern llvm::cl::opt<bool> enableONNXHybridPass;
+extern llvm::cl::list<std::string> functionsToDecompose;
 
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,

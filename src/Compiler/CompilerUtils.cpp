@@ -679,6 +679,8 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     options.shapeInformation = shapeInformation;
     options.allowSorting = allowSorting;
     options.externalDataDir = dirName(inputFilename);
+    options.functionsToDecompose.insert(options.functionsToDecompose.end(),
+        functionsToDecompose.begin(), functionsToDecompose.end());
     return ImportFrontendModelFile(
         inputFilename, context, module, errorMessage, options);
   } else if (inputIsMLIR)
