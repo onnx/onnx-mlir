@@ -326,41 +326,15 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   bool detectNeg = detectNegAttribute == 1 && detectPosAttribute == 0;
   bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
 
-  Value zero = create.math.constant(inputElemType, 0);
-  Value one = create.math.constant(inputElemType, 1);
-
   if (detectPos) {
     // If positive infinity return true else false
-    result = create.math.select(posInf, one, zero);
+    result = create.math.select(posInf, "true", "false");
   }
   if (detectNeg) {
     // If negative infinity return true else false
-    result = create.math.select(negInf, one, zero);
+    result = create.math.select(negInf, "true", "false");
   }
-
   return result;
-
-  // // Negative Infinity, when detect_positive = 0 and detect_negative = 1
-  // Value cond = detectNeg && !detectPos ;
-
-  // // Return negative infinity if condition is true else postive infinity.
-  // return create.math.select(cond, negInf, posInf);
-
-  // if (detectPos) {
-  //   // Check if input == posInf
-  //   Value posInfinity = rewriter.create<arith::CmpFOp>(
-  //       loc, arith::CmpFPredicate::OEQ, x, posInf);
-  //   result = create.math.select(posInfinity, posInf, negInf);
-  // } else if (detectNeg) {
-  //   // Check if input == negInf
-  //     // Return lhs if cond is true else rhs.
-  //   Value result = rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);
-
-  //   Value negInfinity = rewriter.create<arith::CmpFOp>(
-  //       loc, arith::CmpFPredicate::OEQ, x, negInf);
-  //   result = create.math.select(negInfinity, negInf, posInf);
-  // } else
-  //   llvm_unreachable("unsupported element type");
 }
 
 //===----------------------------------------------------------------------===//
