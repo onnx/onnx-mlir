@@ -907,5 +907,6 @@ void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
 
 void ONNXPowOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
-  result.insert<PowToMulRewritePattern>(context, 16);
+  // Is 64 necessary? Maybe too high?
+  result.insert<PowToMulRewritePattern>(context, 64);
 }
