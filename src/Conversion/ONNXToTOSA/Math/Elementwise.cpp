@@ -138,11 +138,6 @@ public:
     rewriter.replaceOpWithNewOp<mlir::tosa::MulOp>(
         op, op.getType(), lhs, rhs, /*shift =*/0);
 
-<<<<<<< HEAD
-=======
-    rewriter.replaceOpWithNewOp<mlir::tosa::FloorOp>(
-        op, op.getType(), adaptor.getX());
->>>>>>> d19a991
     return success();
   }
 };
@@ -215,8 +210,6 @@ public:
   }
 };
 
-} // namespace
-
 static void populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
@@ -232,19 +225,19 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp,
                       mlir::tosa::NegateOp, IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXCeilOp, mlir::tosa::CeilOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXFloorOp, mlir::tosa::FloorOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXExpOp, mlir::tosa::ExpOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXLogOp, mlir::tosa::LogOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXReciprocalOp,
-          mlir::tosa::ReciprocalOp, IsFloat, IsFloat>,
+          mlir::tosa::ReciprocalOp, IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXTanhOp, mlir::tosa::TanhOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXSigmoidOp, mlir::tosa::SigmoidOp,
-          IsFloat, IsFloat>>(typeConverter, ctx);
+          IsIntOrFloat, IsIntOrFloat>>(typeConverter, ctx);
 }
 
 void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,

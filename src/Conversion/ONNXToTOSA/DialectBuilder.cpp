@@ -96,15 +96,6 @@ Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
   return constOp;
 }
 
-Value TosaBuilder::reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape) {
-  auto shapeAttr = rewriter().getDenseI64ArrayAttr(shape);
-  auto valueType = value.getType().cast<ShapedType>();
-  Type newValueType =
-      RankedTensorType::get(llvm::SmallVector<int64_t, 4>(shape.size(), ShapedType::kDynamic),
-          valueType.getElementType());
-  return tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(
-      rewriter(), loc(), newValueType, value, shapeAttr);
-}
 
 Value TosaBuilder::transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm) {
   int64_t valueRank = value.getType().cast<RankedTensorType>().getRank();
