@@ -180,36 +180,10 @@ bool isUniBroadcatableFirstToSecond(Value A, Value B) {
 
 /// Check a value is defined by ONNXConstantOp or not.
 bool isDefinedByONNXConstantOp(Value v) {
+  // @Tung: why does it matters? Isn't a constant a constant?
   if (v.isa<BlockArgument>())
     return false;
   return isa<ONNXConstantOp>(v.getDefiningOp());
-}
-
-bool CanExpandPowOpToMul(ONNXPowOp op) {
-  Value exponent = op.getY();
-  if (!isDefinedByONNXConstantOp(exponent))
-    return false;
-
-  auto constOp = dyn_cast<ONNXConstantOp>(exponent.getDefiningOp());
-  if (DenseElementsAttr dataAttr =
-          constOp.getValueAttr().dyn_cast<DenseElementsAttr>()) {
-    if (dataAttr.getNumElements() == 1) {
-      Type elementType = dataAttr.getElementType();
-      if (elementType.isa<FloatType>()) {
-        auto valueIt = dataAttr.getValues<APFloat>().begin();
-        double val = (*valueIt).convertToDouble();
-        if (ceil(val) == val && val >= 0 && val <= 64)
-          return true;
-      }
-      if (elementType.isa<IntegerType>()) {
-        auto valueIt = dataAttr.getValues<APInt>().begin();
-        int64_t val = (*valueIt).getSExtValue();
-        if (val >= 0 && val <= 64)
-          return true;
-      }
-    }
-  }
-  return false;
 }
 
 //
@@ -316,70 +290,6 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
 
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
-
-struct ExpandPowToMulPattern : public ConversionPattern {
-  ExpandPowToMulPattern(MLIRContext *context)
-      : ConversionPattern(ONNXPowOp::getOperationName(), 1, context) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-    auto powOp = llvm::dyn_cast<ONNXPowOp>(op);
-    Location loc = powOp.getLoc();
-    // Illegal conditions must be satisfied at this point.
-    assert(CanExpandPowOpToMul(powOp) && "Illegal conditions failed");
-
-    // Rewrite
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    Value input = powOp.getX();
-    int64_t exponent;
-
-    // Get the scalar integer exponent.
-    // powOp.getY() is exponent that must be a scalar integer tensor by the
-    // Match phase.
-    auto constOp = dyn_cast<ONNXConstantOp>(powOp.getY().getDefiningOp());
-    auto dataAttr = constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
-    Type elementType = dataAttr.getElementType();
-    if (elementType.isa<FloatType>()) {
-      auto valueIt = dataAttr.getValues<APFloat>().begin();
-      exponent = (*valueIt).convertToDouble();
-      assert((ceil(exponent) == exponent && exponent <= 64) &&
-             "Exponent must be an integer and <= 64");
-    } else if (elementType.isa<IntegerType>()) {
-      auto valueIt = dataAttr.getValues<APInt>().begin();
-      exponent = (*valueIt).getSExtValue();
-      assert(exponent <= 64 && "Exponent must be an integer and <= 64");
-    } else
-      return failure();
-
-    Value result;
-    Type resultType = powOp.getZ().getType();
-    if (exponent == 0) {
-      DenseElementsAttr valAttr;
-      if (elementType.isa<FloatType>())
-        valAttr = DenseElementsAttr::get(resultType, ArrayRef<float>({1.0}));
-      else if (elementType.isa<IntegerType>())
-        valAttr = DenseElementsAttr::get(resultType, ArrayRef<int64_t>({1}));
-      else
-        llvm_unreachable("Unsupported type");
-      result = create.onnx.constant(valAttr);
-    } else {
-      // calculate pow(input,exponent) with "exponentiation by squaring" method
-      bool result_initialized = false;
-      while (exponent > 0) {
-        if (exponent & 1) {
-          result = result_initialized
-                       ? create.onnx.mul(resultType, result, input)
-                       : input;
-          result_initialized = true;
-        }
-        input = create.onnx.mul(resultType, input, input);
-        exponent >>= 1;
-      }
-    }
-
-    rewriter.replaceOp(op, {result});
-    return success();
-  };
-};
 
 struct RewriteONNXForZHighPass
     : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {
@@ -489,13 +399,6 @@ void RewriteONNXForZHighPass::runOnOperation() {
     return true;
   });
 
-  // Illegalize PowOp if
-  // - exponent is a scalar integer, and
-  // - exponent is <= 64.
-  // This PowOp will be rewritten by using multiple MulOp.
-  target.addDynamicallyLegalOp<ONNXPowOp>(
-      [](ONNXPowOp op) { return !CanExpandPowOpToMul(op); });
-
   // Illegalize SoftmaxOp if
   // - axis is the last dimension.
   // This SoftmaxOp will be rewritten in which its input is reshaped to 3D.
@@ -519,7 +422,6 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
   populateWithGenerated(patterns);
-  patterns.insert<ExpandPowToMulPattern>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

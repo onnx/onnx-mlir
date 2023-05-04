@@ -5497,6 +5497,7 @@ def ONNXPadV2Op:ONNX_Op<"PadV2",
 
 def ONNXPowOp:ONNX_Op<"Pow",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Pow operation";
   let description = [{
   Pow takes input data (Tensor<T>) and exponent Tensor, and

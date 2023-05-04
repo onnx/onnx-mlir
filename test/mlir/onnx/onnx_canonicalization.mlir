@@ -1012,3 +1012,34 @@ func.func @shape_transform_identity_map(%arg0: tensor<128x128xf32>) -> tensor<12
 // CHECK:           return [[PARAM_0_]] : tensor<128x128xf32>
 // CHECK:         }
 }
+
+// -----
+
+// COM: Expand Pow into multiple Mul if exponent is an integer and <= 64.
+func.func @expand_pow_into_mul(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+    %cst = onnx.Constant dense<5.0> : tensor<f32>
+    %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
+    return %0 : tensor<3x4x5xf32>
+
+// CHECK-LABEL:  func.func @expand_pow_into_mul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_0_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[VAR_1_]], [[VAR_1_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_2_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           return [[VAR_3_]] : tensor<3x4x5xf32>
+// CHECK:        }
+}
+
+// -----
+
+func.func @expand_pow_into_constant(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+    %cst = onnx.Constant dense<0.0> : tensor<f32>
+    %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
+    return %0 : tensor<3x4x5xf32>
+
+// CHECK-LABEL:  func.func @expand_pow_into_constant
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<3x4x5xf32>
+// CHECK:           return [[VAR_0_]] : tensor<3x4x5xf32>
+// CHECK:         }
+}
