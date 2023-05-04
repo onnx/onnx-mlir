@@ -161,6 +161,24 @@ struct ScalarOp<ONNXXorOp> {
 };
 
 template <>
+struct ScalarOp<ONNXBitwiseAndOp> {
+  using FOp = arith::AndIOp; // Not used.
+  using IOp = arith::AndIOp;
+};
+
+template <>
+struct ScalarOp<ONNXBitwiseOrOp> {
+  using FOp = arith::OrIOp; // Not used.
+  using IOp = arith::OrIOp;
+};
+
+template <>
+struct ScalarOp<ONNXBitwiseXorOp> {
+  using FOp = arith::XOrIOp; // Not used.
+  using IOp = arith::XOrIOp;
+};
+
+template <>
 struct ScalarOp<ONNXExpOp> {
   using FOp = math::ExpOp;
   using IOp = NotSuportedScalarOp;
@@ -2494,6 +2512,9 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseAndOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseOrOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseXorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
