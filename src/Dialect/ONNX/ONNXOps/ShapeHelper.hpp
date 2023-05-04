@@ -598,6 +598,7 @@ struct ONNXCommonSplitOpShapeHelper : public ONNXOpShapeHelper {
 // clang-format off
 using ONNXSplitOpShapeHelper = ONNXCommonSplitOpShapeHelper<mlir::ONNXSplitOp>;
 using ONNXSplitV11OpShapeHelper = ONNXCommonSplitOpShapeHelper<mlir::ONNXSplitV11Op>;
+using ONNXSplitV13OpShapeHelper = ONNXCommonSplitOpShapeHelper<mlir::ONNXSplitV13Op>;
 // clang-format on
 
 //===----------------------------------------------------------------------===//
