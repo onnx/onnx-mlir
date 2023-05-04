@@ -351,7 +351,7 @@ struct ExpandPowToMulPattern : public ConversionPattern {
       return failure();
 
     Value result;
-    Type resultType = powOp.getZ().getType();
+    auto resultType = powOp.getZ().getType().cast<ShapedType>();
     if (exponent == 0) {
       DenseElementsAttr valAttr;
       if (elementType.isa<FloatType>())

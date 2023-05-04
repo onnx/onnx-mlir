@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
 
   mlir::DialectRegistry registry;
   registry.insert<mlir::linalg::LinalgDialect>();
-  registry.insert<mlir::AffineDialect>();
+  registry.insert<mlir::affine::AffineDialect>();
   registry.insert<mlir::LLVM::LLVMDialect>();
   registry.insert<mlir::scf::SCFDialect>();
   registry.insert<mlir::func::FuncDialect>();
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
     accel->registerDialects(registry);
 
   registerTransformsPasses();
-  registerAffinePasses();
+  affine::registerAffinePasses();
   func::registerFuncPasses();
   registerLinalgPasses();
   memref::registerMemRefPasses();
@@ -199,12 +199,18 @@ int main(int argc, char **argv) {
     };
     return passPipeline.addToPipeline(pm, errorHandler);
   };
-  // TODO(imaihal): Change preloadDialectsInContext to false.
+
+  MlirOptMainConfig config;
+  config.setPassPipelineSetupFn(passManagerSetupFn)
+      .splitInputFile(split_input_file)
+      .verifyDiagnostics(verify_diagnostics)
+      .verifyPasses(verify_passes)
+      .allowUnregisteredDialects(allowUnregisteredDialects)
+      .emitBytecode(false)
+      .useExplicitModule(false);
+
   if (failed(
-          mlir::MlirOptMain(output->os(), std::move(file), passManagerSetupFn,
-              registry, split_input_file, verify_diagnostics, verify_passes,
-              allowUnregisteredDialects, /*preloadDialectsInContext*/ true,
-              /*emitBytecode*/ false, /*explicitModule*/ false)))
+          mlir::MlirOptMain(output->os(), std::move(file), registry, config)))
     return mlir::asMainReturnCode(failure());
 
   output->keep();

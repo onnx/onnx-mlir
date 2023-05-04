@@ -97,7 +97,7 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
   // used to set the output tensor value and datatype.
   if (getValue().has_value()) {
     elementType =
-        getValueAttr().cast<ElementsAttr>().getType().getElementType();
+        getValueAttr().cast<ElementsAttr>().getShapedType().getElementType();
   } else {
     // If 'value' attribute is not specified, it defaults to a tensor of
     // value 0 and datatype float32.

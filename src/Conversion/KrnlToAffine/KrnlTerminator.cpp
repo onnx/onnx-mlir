@@ -37,7 +37,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<AffineYieldOp>(op);
+    rewriter.replaceOpWithNewOp<affine::AffineYieldOp>(op);
     return success();
   }
 };
