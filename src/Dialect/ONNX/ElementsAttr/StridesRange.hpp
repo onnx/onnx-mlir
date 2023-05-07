@@ -36,9 +36,11 @@ struct StridesIndexOffsets {
   uint64_t flattenedIndex;
   llvm::SmallVector<uint64_t, 6> index;
   std::array<int64_t, N> offsets;
-  // idxoffs[i] is convenient shorthand for idxoffs.offsets[i]
-  int64_t operator[](int i) const { return offsets[i]; }
-  int64_t at(int i) const { return offsets[i]; }
+  int64_t at(size_t i) const {
+    assert(i < N && "index out of range");
+    return offsets[i];
+  }
+  int64_t operator[](size_t i) const { return at(i); }
 };
 
 // Suppose (array0,strides0),...,(arrayN,stridesN) are all strided tensors with
