@@ -3609,7 +3609,7 @@ func.func @test_custom1(%arg0: tensor<1024xf32>, %arg1: tensor<4xf32>) -> tensor
 // CHECK:         }
 }
 
-//-----
+// -----
 
 func.func @test_custom2(%arg0: tensor<1024xf32>, %arg1: tensor<4x1024xf32>) -> tensor<*xf32> {
   %0 = "onnx.Custom"(%arg0, %arg1) {function_name = "testcall", shape_infer_pattern = "MDBroadcast" } : (tensor<1024xf32>, tensor<4x1024xf32>) -> tensor<*xf32>
