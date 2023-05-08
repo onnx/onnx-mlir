@@ -78,13 +78,13 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
       axis = axis < 0 ? axis + rank : axis;
       assert(axis >= 0 && axis < rank && "axis is out of bound");
     }
-
+#if 0
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType resMemRefType = convertedType.cast<MemRefType>();
-
+#endif
     // Count unique subtensors of X along axis.
     Type indexTy = rewriter.getIndexType();
     Value iZero = create.math.constantIndex(0);
@@ -92,7 +92,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value uniqueCount = create.mem.alloca(MemRefType::get({}, indexTy));
     create.krnl.store(iZero, uniqueCount, {});
     Value noneValue;
-    printf("XXXX calling emitArgUnique(count): uniqueCount=%p, X=%p, axis=%p, sorted=%p\n", uniqueCount, X, axis, sorted); fflush(stdout);
+    // printf("XXXX calling emitArgUnique(count): uniqueCount=%p, X=%p, axis=%ld, sorted=%ld\n", (void *) uniqueCount, (void *) X, axis, sorted); fflush(stdout);
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         noneValue, noneValue, noneValue, noneValue, /*count_only=*/true);
     // Calculate output shapes for ouputs according to the results
@@ -131,11 +131,14 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
     // Compute argUnique of X along axis.
     create.krnl.store(iZero, uniqueCount, {});
-    printf("XXXX calling emitArgUnique(uniqueCount=%p, X=%p, axis=%p, sorted=%p, outputY=%p, indices=%p, inverse_indices=%p, counts=%p\n", uniqueCount, X, axis, sorted, outputY, indices, inverse_indices, counts); fflush(stdout);
+    // printf("XXXX calling emitArgUnique(uniqueCount=%p, X=%p, axis=%p, sorted=%p, outputY=%p, indices=%p, inverse_indices=%p, counts=%p\n", uniqueCount, X, axis, sorted, outputY, indices, inverse_indices, counts); fflush(stdout);
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         outputY, indices, inverse_indices, counts);
-    llvm::dbgs() << "XXXX AFTER calling emitArgUnique: [\noutputY=" << outputY << ",\n indices=" << indices <<
-      ",\n inverse_indices=" << inverse_indices << ",\n counts=" << counts << "]\n";
+#if 0
+    llvm::dbgs() << "XXXX AFTER calling emitArgUnique: [\noutputY=" << outputY <<
+      ",\n indices=" << indices << ",\n inverse_indices=" << inverse_indices <<
+      ",\n counts=" << counts << "]\n";
+#endif
     rewriter.replaceOp(op, {outputY, indices, inverse_indices, counts});
     return success();
   }
