@@ -140,16 +140,50 @@ def ONNXCustomOp:ONNX_Op<"Custom",
      DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Custom operation";
   let description = [{
+    This operation is not part of the standard and was added to support call
+    to any user defined external function.
     Allow call-out to a user defined operation. A single attribute
-    is a string which names the operation, other inputs are
-    passed to the user operation.
+    is a string which names the operation, other inputs are passed to the user
+    operation.
     The number of inputs and outputs can vary.
-
-    This operation is not part of the standard and was added to assist onnx-mlir.
+    Since the semantics of this op is not defined to compiler, some attributes
+    are introduced to guide shape inference:
+      'output_type':
+           the element type for the output tensor. Optional. If not
+           specified, follow the shape infer.
+      'shape_infer_pattern':
+           how to propagate the shape info from input to output. 
+           Supported patterns are `SameAs`, `MDBroadcast`.
+      'inputs_for_infer':
+           which inputs are used for shape inference. When mulitple
+           inputs are specified for 'SameAs', all these inputs should
+           have the same shape, and element type if output_type is
+           not specified. When this optional attribute is not specified,
+           all the inputs will be used for shape inference.
+    Some attributes are introduced to control the lowering of CustomOp:
+      'call_convention':
+           specify how the tensor will be passed to external function.
+           'OMTensor' will use OMTensor structure. refer to
+           src/Runtime/OMTensor.inc. This data structure contains data pointer
+           and shape info.
+           'DataPointer' will pass only the data pointer. User has to manage
+           the shape explicitly. Possibly, SizeOp or ShapeOp may be used and
+           pass the result as extra parameters of CustomOp.
+      'output_position':
+           To simply the memory management, the memory object for the output
+           of CustomOp will be allocated by onnx-mlir, and then passed to the
+           extern function to write.  This attribute specify the position of
+           the output. '0', the default value, the output will be the first
+           parameter in the function call. -1 will be the last. 
   }];
 
-  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$input,
-                       StrAttr:$function_name);
+  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$inputs,
+        StrAttr:$function_name,
+        OptionalAttr<TypeAttr>:$output_element_type,
+        DefaultValuedStrAttr<StrAttr, "SameAs">:$shape_infer_pattern,
+        OptionalAttr<I64ArrayAttr >:$inputs_for_infer,
+        DefaultValuedStrAttr<StrAttr, "OMTensor">:$call_convention,
+        DefaultValuedAttr<SI64Attr, "0">:$output_position);
   let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$outputs);
 
   let extraClassDeclaration = [{
