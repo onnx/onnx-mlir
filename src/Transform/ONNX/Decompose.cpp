@@ -776,6 +776,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXReduceLogSumOp>();
   target.addIllegalOp<ONNXReduceLogSumExpOp>();
   target.addIllegalOp<ONNXReduceSumSquareOp>();
+  target.addIllegalOp<ONNXResizeV13Op>();
   target.addIllegalOp<ONNXResizeV11Op>();
   target.addIllegalOp<ONNXResizeV10Op>();
   target.addIllegalOp<ONNXScalerOp>();

@@ -295,6 +295,20 @@ def ResizeV11Pattern: Pat<
                     $mode, $nearest_mode)
 >;
 
+def ResizeV13Pattern: Pat<
+   (ONNXResizeV13Op:$res $x, $roi, $scales, $size,
+                    $coordinate_transformation_node, $cubic_coeff_a,
+                    $exclude_outside, $extrapolation_value, $mode,
+                    $nearest_mode),
+   (ONNXResizeOp    $x, $roi, $scales, $size,
+                    /*antialias*/(GetNullIntegerAttr),
+                    /*axes*/(GetNullArrayAttr),
+                    $coordinate_transformation_node, $cubic_coeff_a,
+                    $exclude_outside, $extrapolation_value,
+                    /*keep_aspect_ratio_policy*/(GetNullStringAttr),
+                    $mode, $nearest_mode)
+>;
+
 def SequenceConstructPattern1: Pat<
     (ONNXSequenceConstructOp:$res $x1),
     (createSequenceConstructOp
