@@ -337,14 +337,19 @@ def ClipV12Pattern : Pat<
 
 def SplitV11PatternNoAttr : Pat<
   (ONNXSplitV11Op $x, $axis, $split),
-  (ONNXSplitOp $x, (CreateNoneValue), $axis, (GetNullIntegerAttr)),
+  (ONNXSplitV13Op $x, (CreateNoneValue), $axis),
   [(AttributeIsNull:$split)], (addBenefit 1)
 >;
 
 def SplitV11Pattern : Pat<
   (ONNXSplitV11Op $x, $axis, $split),
-  (ONNXSplitOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $split)), $axis, (GetNullIntegerAttr)),
+  (ONNXSplitV13Op $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $split)), $axis),
   [], (addBenefit 0)
+>;
+
+def SplitV13Pattern : Pat<
+  (ONNXSplitV13Op $x, $split, $axis),
+  (ONNXSplitOp $x, $split, $axis, (GetNullIntegerAttr))
 >;
 
 def SqueezeV11PatternNoAttr : Pat<
