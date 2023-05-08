@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-krnl-to-llvm="use-opaque-pointers=true" --canonicalize %s -split-input-file | FileCheck %s
 
 module {
 // Check that output OMTensor does not own the data pointer because data is a constant.
@@ -11,7 +11,7 @@ module {
   // CHECK-LABEL: return_constant
   // CHECK: [[OWNING:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK: llvm.call @_mlir_ciface_return_constant
-  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr<i8>, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
+  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr, i64, !llvm.ptr, !llvm.ptr) -> ()
 }
 
 // -----
@@ -27,7 +27,7 @@ module {
   // CHECK-LABEL: return_view_of_constant
   // CHECK: [[OWNING:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK: llvm.call @_mlir_ciface_return_view_of_constant
-  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr<i8>, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
+  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr, i64, !llvm.ptr, !llvm.ptr) -> ()
 }
 
 // -----
@@ -43,7 +43,7 @@ module {
   // CHECK: [[OWNING:%.+]] = llvm.mlir.constant(1 : i64) : i64
   // CHECK: llvm.call @_mlir_ciface_return_view_of_argument
   // CHECK: llvm.call @omTensorCreateUntyped
-  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr<i8>, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
+  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr, i64, !llvm.ptr, !llvm.ptr) -> ()
 }
 
 // -----
@@ -58,5 +58,5 @@ module {
   // CHECK: [[OWNING:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK: llvm.call @_mlir_ciface_return_argument
   // CHECK: llvm.call @omTensorCreateUntyped
-  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr<i8>, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
+  // CHECK: llvm.call @omTensorSetDataPtr({{.*}}, [[OWNING]], {{.*}}, {{.*}}) : (!llvm.ptr, i64, !llvm.ptr, !llvm.ptr) -> ()
 }

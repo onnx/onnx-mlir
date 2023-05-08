@@ -186,8 +186,8 @@ void restrideArrayImpl(unsigned elementBytewidth, ArrayRef<int64_t> shape,
   assert(sizeof(T) == elementBytewidth && "dispatch safety check");
   ArrayRef<T> srcT = castArrayRef<T>(src);
   MutableArrayRef<T> dstT = castMutableArrayRef<T>(dst);
-  for (auto &idxpos : StridesRange<1>(shape, {srcStrides}))
-    dstT[idxpos.flattenedIndex] = srcT[idxpos[0]];
+  for (auto &idxoffs : StridesRange<1>(shape, {srcStrides}))
+    dstT[idxoffs.flattenedIndex] = srcT[idxoffs[0]];
 }
 } // namespace
 

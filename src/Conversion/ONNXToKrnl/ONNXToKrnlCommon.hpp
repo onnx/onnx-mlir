@@ -317,7 +317,8 @@ void populateLoweringONNXHardmaxOpPattern(
 void populateLoweringONNXLRNOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXMatMulOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *,
+    bool enableTiling);
 void populateLoweringONNXMatMulIntegerOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXRandomNormalOpPattern(

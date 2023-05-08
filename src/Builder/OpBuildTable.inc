@@ -188,7 +188,7 @@ op_dialect_version_map_["SoftmaxCrossEntropyLoss"] = {13};
 op_dialect_version_map_["Softplus"] = {1};
 op_dialect_version_map_["Softsign"] = {1};
 op_dialect_version_map_["SpaceToDepth"] = {13};
-op_dialect_version_map_["Split"] = {13, 11};
+op_dialect_version_map_["Split"] = {18, 13, 11};
 op_dialect_version_map_["SplitToSequence"] = {11};
 op_dialect_version_map_["Sqrt"] = {13};
 op_dialect_version_map_["Squeeze"] = {13, 11};
@@ -586,6 +586,8 @@ import_handler_map_["SpaceToDepth"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSpaceToDepthOp>;
 import_handler_map_["Split"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitOp>;
+import_handler_map_["SplitV13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitV13Op>;
 import_handler_map_["SplitV11"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitV11Op>;
 import_handler_map_["SplitToSequence"] = 
