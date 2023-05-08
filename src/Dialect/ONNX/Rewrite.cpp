@@ -706,7 +706,8 @@ void ONNXAddOp::getCanonicalizationPatterns(
 void ONNXCastOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<CastEliminationPattern>(context);
-  result.insert<FuseCastCastPattern>(context);
+  // TODO: Reintroduce pattern for sound type combinations, see issue #2210.
+  // result.insert<FuseCastCastPattern>(context);
 }
 
 /// on the ONNXConstantOp.

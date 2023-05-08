@@ -14,13 +14,13 @@ inline auto StridesIterator<N>::operator++() -> StridesIterator<N> & {
     --axis;
     uint64_t dim = shape[axis];
     for (unsigned i = 0; i < N; ++i)
-      value.pos[i] += strides[i][axis];
+      value.offsets[i] += strides[i][axis];
     if (++(value.index[axis]) < dim)
       break;
     // axis overflowed: rewind the axis and carry over to axis-1 by doing
     // the next iteration of the loop
     for (unsigned i = 0; i < N; ++i)
-      value.pos[i] -= dim * strides[i][axis];
+      value.offsets[i] -= dim * strides[i][axis];
     value.index[axis] = 0;
   }
   return *this;
@@ -35,8 +35,8 @@ template <>
 inline auto StridesIterator<2>::operator++() -> StridesIterator<2> & {
   ++(value.flattenedIndex);
   uint64_t *index = value.index.data();
-  size_t pos0 = value.pos[0];
-  size_t pos1 = value.pos[1];
+  int64_t offset0 = value.offsets[0];
+  int64_t offset1 = value.offsets[1];
   const int64_t *strides0 = strides[0].data();
   const int64_t *strides1 = strides[1].data();
   for (size_t axis = shape.size();;) {
@@ -45,17 +45,17 @@ inline auto StridesIterator<2>::operator++() -> StridesIterator<2> & {
     }
     --axis;
     uint64_t dim = shape[axis];
-    pos0 += strides0[axis];
-    pos1 += strides1[axis];
+    offset0 += strides0[axis];
+    offset1 += strides1[axis];
     if (++(index[axis]) < dim)
       break;
     // axis overflowed: rewind the axis and carry over to axis-1 by doing
     // the next iteration of the loop
-    pos0 -= dim * strides0[axis];
-    pos1 -= dim * strides1[axis];
+    offset0 -= dim * strides0[axis];
+    offset1 -= dim * strides1[axis];
     index[axis] = 0;
   }
-  value.pos[0] = pos0;
-  value.pos[1] = pos1;
+  value.offsets[0] = offset0;
+  value.offsets[1] = offset1;
   return *this;
 }
