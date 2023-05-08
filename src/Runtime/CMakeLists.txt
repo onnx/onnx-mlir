@@ -18,6 +18,7 @@ add_onnx_mlir_library(cruntime STATIC
   OMSort.c
   OMTensor.c
   OMTensorList.c
+  OMUnique.c
   OnnxDataType.c
 
   DEPENDS
@@ -42,6 +43,7 @@ add_onnx_mlir_library(OMTensorUtils
   OMSort.cpp
   OMTensor.cpp
   OMTensorList.cpp
+  OMUnique.cpp
   OnnxDataType.cpp
 
   DEPENDS 
