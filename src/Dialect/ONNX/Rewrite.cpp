@@ -623,7 +623,7 @@ public:
 
     Value result = nullptr;
     ShapedType resultType = powOp.getZ().getType().cast<ShapedType>();
-    Type elementType = getElementTypeOrSelf(resultType);
+    Type elementType = getElementType(resultType);
     if (exponent == 0) {
       Attribute one = isa<FloatType>(elementType)
                           ? (Attribute)rewriter.getFloatAttr(elementType, 1.0)
