@@ -730,12 +730,13 @@ struct DecomposeONNXToONNXPass
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
 
   DecomposeONNXToONNXPass(const std::string &target) { this->target = target; }
+#if 1
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
       : mlir::PassWrapper<DecomposeONNXToONNXPass,
             OperationPass<func::FuncOp>>() {
     this->target = pass.target;
   }
-
+#endif
   StringRef getArgument() const override { return "decompose-onnx"; }
 
   StringRef getDescription() const override {
