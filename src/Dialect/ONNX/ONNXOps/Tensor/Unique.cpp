@@ -26,7 +26,7 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   Optional<int64_t> optionalAxis = operandAdaptor.getAxis();
   // Generate the output dims.
   DimsExpr outputDims;
-  if (!optionalAxis.has_value()) {                    // if no axis given
+  if (!optionalAxis.has_value()) { // if no axis given
 #if 0
     outputDims.emplace_back(QuestionmarkIndexExpr()); // return 1D array
 #else
@@ -40,7 +40,7 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
     }
     outputDims.emplace_back(firstDim); // return 1D array
 #endif
-  } else {                                            // if axis given
+  } else { // if axis given
     int64_t axis = optionalAxis.value();
     for (int64_t i = 0; i < rank; i++) {
 #if 0
