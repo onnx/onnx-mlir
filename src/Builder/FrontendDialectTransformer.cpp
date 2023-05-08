@@ -31,6 +31,7 @@
 #include "src/Builder/ImportONNXUtils.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
 #include "src/Builder/SymbolTable.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
@@ -80,6 +81,15 @@ public:
     modelInputShaper_.setShapeInformation(options_.shapeInformation);
     SetOpSetImport(model); // Determines which opsets to use.
     importGraph(model.graph());
+    if (VerboseOutput) {
+      llvm::outs()
+          << "The ONNX model has " << num_of_parameters_
+          << "elements in its initializers. This value would be close to and "
+             "greater than the number of parameters in the model. Because "
+             "there is no way to exactly count the number of parameters, this "
+             "value can be used to have a rough idea of the number of "
+             "parameters in the model.\n";
+    }
     return module_;
   }
 
@@ -103,6 +113,10 @@ private:
       const onnx::NodeProto &);
 
   std::map<std::string, ImportHandlerType> import_handler_map_;
+
+  // The total number of elements in all initializers. This value is a rough
+  // counter of the number of parameters in a model.
+  int64_t num_of_parameters_ = 0;
 
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
@@ -150,9 +164,13 @@ private:
 
   Value ImportTensor(const onnx::TensorProto &tensor) {
     // Use the tensor name as Location.
-    return EmitInitializerForInputTensor(
+    Value initializer = EmitInitializerForInputTensor(
         NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name())),
         builder_, options_.externalDataDir, tensor);
+    ShapedType tensorType = initializer.getType();
+    int64_t size = ShapedType::getNumElements(tensorType.getShape());
+    num_of_parameters_ += size;
+    return initializer;
   }
 
   /*!
