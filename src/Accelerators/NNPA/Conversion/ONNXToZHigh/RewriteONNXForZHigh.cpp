@@ -181,9 +181,7 @@ bool isUniBroadcatableFirstToSecond(Value A, Value B) {
 /// Check a value is defined by ONNXConstantOp or not.
 bool isDefinedByONNXConstantOp(Value v) {
   // @Tung: why does it matters? Isn't a constant a constant?
-  if (v.isa<BlockArgument>())
-    return false;
-  return isa<ONNXConstantOp>(v.getDefiningOp());
+  return isa_and_present<ONNXConstantOp>(v.getDefiningOp());
 }
 
 //

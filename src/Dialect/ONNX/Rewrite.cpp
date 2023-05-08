@@ -621,31 +621,25 @@ public:
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     Value input = powOp.getX();
 
-    Value result;
-    Type resultType = powOp.getZ().getType();
+    Value result = nullptr;
+    ShapedType resultType = powOp.getZ().getType().cast<ShapedType>();
     Type elementType = getElementTypeOrSelf(resultType);
     if (exponent == 0) {
-      DenseElementsAttr valAttr;
-      if (elementType.isa<FloatType>())
-        valAttr = DenseElementsAttr::get(resultType, ArrayRef<float>({1.0}));
-      else if (elementType.isa<IntegerType>())
-        valAttr = DenseElementsAttr::get(resultType, ArrayRef<int64_t>({1}));
-      else
-        llvm_unreachable("Unsupported type");
-      result = create.onnx.constant(valAttr);
+      Attribute one = isa<FloatType>(elementType)
+                          ? (Attribute)rewriter.getFloatAttr(elementType, 1.0)
+                          : (Attribute)rewriter.getIntegerAttr(elementType, 1);
+      result = create.onnx.constant(DenseElementsAttr::get(resultType, one));
     } else {
       // calculate pow(input,exponent) with "exponentiation by squaring" method
-      bool result_initialized = false;
-      while (exponent > 0) {
-        if (exponent & 1) {
-          result = result_initialized
-                       ? create.onnx.mul(resultType, result, input)
-                       : input;
-          result_initialized = true;
-        }
-        input = create.onnx.mul(resultType, input, input);
+      while (true) {
+        if (exponent & 1)
+          result = result ? create.onnx.mul(resultType, result, input) : input;
         exponent >>= 1;
+        if (exponent == 0)
+          break;
+        input = create.onnx.mul(resultType, input, input);
       }
+      assert(result && "should have a result here");
     }
 
     rewriter.replaceOp(op, {result});

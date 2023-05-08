@@ -1032,6 +1032,27 @@ func.func @expand_pow_into_mul(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
 
 // -----
 
+// COM: Expand Pow into multiple Mul if exponent is an integer and <= 64.
+
+func.func @expand_pow_into_mul13(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+    %cst = onnx.Constant dense<13.0> : tensor<f32>
+    %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
+    return %0 : tensor<3x4x5xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @expand_pow_into_mul13
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_0_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[VAR_0_]], [[VAR_0_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Mul"([[VAR_1_]], [[VAR_1_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_3_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+// CHECK:           return [[VAR_4_]] : tensor<3x4x5xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func @expand_pow_into_constant(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
     %cst = onnx.Constant dense<0.0> : tensor<f32>
     %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
