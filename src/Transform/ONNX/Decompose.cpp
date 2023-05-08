@@ -730,13 +730,16 @@ struct DecomposeONNXToONNXPass
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
 
   DecomposeONNXToONNXPass(const std::string &target) { this->target = target; }
-#if 1
+
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
       : mlir::PassWrapper<DecomposeONNXToONNXPass,
             OperationPass<func::FuncOp>>() {
-    this->target = pass.target;
+    /* None of the other passes that use PassWrapper AND options copy their
+     * options; assume this should be the case here too to avoid warnings. See
+     * ONNXToZHighLoweringPass in ONNXToZHigh.cpp, for example. */
+    /* this->target = pass.target; */
   }
-#endif
+
   StringRef getArgument() const override { return "decompose-onnx"; }
 
   StringRef getDescription() const override {
