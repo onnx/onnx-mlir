@@ -467,27 +467,34 @@ void DimAnalysis::visitDim(
   ////////////////////////////////////////////////////
   // Special/additional cases.
 
-  // BinaryOp (alphabetical list, same as under ONNXBroadcastOpShapeHelper).
-  // MatMul uses the same broadcasting rule as BinaryOp, include it here.
-  // If we know by this analysis that two dynamic dims at the same index
-  // (counting from the innermost dim back) are the same, then the output dim
-  // must be the same too.
+  // Variadic/non-variadic BinaryOp (alphabetical list, same as under
+  // ONNXBroadcastOpShapeHelper).
+  // MatMul uses the same broadcasting rule as BinaryOp, include it here. If we
+  // know by this analysis that two dynamic dims at the same index (counting
+  // from the innermost dim back) are the same, then the output dim must be the
+  // same too.
   if (isa<ONNXAddOp, ONNXAndOp, ONNXBitShiftOp, ONNXBitwiseAndOp,
           ONNXBitwiseOrOp, ONNXBitwiseXorOp, ONNXBitShiftOp, ONNXDivOp,
           ONNXEqualOp, ONNXGreaterOp, ONNXGreaterOrEqualOp, ONNXLessOp,
           ONNXLessOrEqualOp, ONNXMatMulOp, ONNXMeanOp, ONNXMinOp, ONNXModOp,
           ONNXMulOp, ONNXOrOp, ONNXPowOp, ONNXSubOp, ONNXSumOp, ONNXWhereOp,
           ONNXXorOp>(op)) {
-    Value A = op->getOperands()[0];
-    Value B = op->getOperands()[1];
-    uint64_t aRank = getRank(A.getType());
-    uint64_t bRank = getRank(B.getType());
-    if ((aRank != 0) && (bRank != 0)) {
-      // aDim == bDim (dynamic), there is no broadcasting and aDim == outputDim.
-      uint64_t maxRank = std::max(aRank, bRank);
-      int64_t negativeIndex = dimIndex - maxRank;
-      if (sameDim(A, negativeIndex, B, negativeIndex))
-        sameDims.insert(DimAnalysis::DimT(A, aRank + negativeIndex));
+    OperandRange operands = op->getOperands();
+    for (size_t i = 0; i < operands.size() - 1; ++i) {
+      Value A = op->getOperands()[i];
+      for (size_t k = i; k < operands.size(); ++k) {
+        Value B = op->getOperands()[k];
+        uint64_t aRank = getRank(A.getType());
+        uint64_t bRank = getRank(B.getType());
+        if ((aRank != 0) && (bRank != 0)) {
+          // aDim == bDim (dynamic), there is no broadcasting and aDim ==
+          // outputDim.
+          uint64_t maxRank = std::max(aRank, bRank);
+          int64_t negativeIndex = dimIndex - maxRank;
+          if (sameDim(A, negativeIndex, B, negativeIndex))
+            sameDims.insert(DimAnalysis::DimT(A, aRank + negativeIndex));
+        }
+      }
     }
     return;
   }
