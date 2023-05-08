@@ -1306,3 +1306,35 @@ func.func @test_constant_of_shape_empty_tensor() -> tensor<f32> {
 // CHECK:           return [[VAR_0_]] : tensor<f32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_range_int() -> tensor<8xi16> {
+  %start = onnx.Constant dense<2> : tensor<i16>
+  %limit = onnx.Constant dense<10> : tensor<i16>
+  %delta = onnx.Constant dense<1> : tensor<i16>
+  %1 = "onnx.Range"(%start, %limit, %delta) : (tensor<i16>, tensor<i16>, tensor<i16>) -> tensor<8xi16>
+  return %1 : tensor<8xi16>
+
+// CHECK-LABEL:  func.func @test_range_int
+// CHECK-SAME:   () -> tensor<8xi16> {
+// CHECK:           [[VAR:%.+]] = onnx.Constant dense<[2, 3, 4, 5, 6, 7, 8, 9]> : tensor<8xi16>
+// CHECK:           return [[VAR]] : tensor<8xi16>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_range_fp() -> tensor<3xf32> {
+  %start = onnx.Constant dense<0.2> : tensor<f32>
+  %limit = onnx.Constant dense<0.5> : tensor<f32>
+  %delta = onnx.Constant dense<0.1> : tensor<f32>
+  %1 = "onnx.Range"(%start, %limit, %delta) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<3xf32>
+  return %1 : tensor<3xf32>
+
+// CHECK-LABEL:  func.func @test_range_fp
+// CHECK-SAME:   () -> tensor<3xf32> {
+// CHECK:           [[VAR:%.+]] = onnx.Constant dense<[2.000000e-01, 3.000000e-01, 4.000000e-01]> : tensor<3xf32>
+// CHECK:           return [[VAR]] : tensor<3xf32>
+// CHECK:         }
+}

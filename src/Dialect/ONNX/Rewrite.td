@@ -142,7 +142,7 @@ def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 
 def NotNoneType : Constraint<CPred<"!($0.getType().isa<NoneType>())">>;
 
-def HasShapeAndRank : Constraint<CPred<"onnx_mlir::hasShapeAndRank($0)">>;
+def HasShapeAndRank : Constraint<CPred<"onnx_mlir::hasShapeAndRank($_self)">>;
 
 def HasSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
@@ -304,7 +304,8 @@ def FuseAddConvNullBiasPattern: Pat<
         (createArrayAttrOfOneToRankOf $y)),
      // unchanged operands and attributes.
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
-  [(HasNoneType $b),
+  [(HasShapeAndRank:$res),
+   (HasNoneType $b),
    (AttributeIsNotNull:$denseAttr),
    (AllDimsFromAxisToEndAre<1, 1>:$y),
    (RankXMinusRankYIs<1> $res, $y)]
@@ -325,7 +326,8 @@ def FuseAddConvPattern: Pat<
            (createArrayAttrOfOneToRankOf $y))),
      // unchanged operands and attributes.
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
-  [(NotNoneType $b),
+  [(HasShapeAndRank:$res),
+   (NotNoneType $b),
    (AttributeIsNotNull:$denseAttr),
    (AllDimsFromAxisToEndAre<1, 1>:$y),
    (RankXMinusRankYIs<1> $res, $y)]
@@ -407,10 +409,11 @@ def CastEliminationPattern : Pat<
 	(replaceWithValue $arg),
   [(HasSameElementType $arg, $type)]>;
 
-// onnx.Cast (onnx.Cast (%X, $type1)), $type2 = onnx.Cast (%X, $typ2)
-def FuseCastCastPattern : Pat<
-	(ONNXCastOp (ONNXCastOp $arg, $_), $type),
-	(ONNXCastOp $arg, $type)>;
+// TODO: Reintroduce pattern for sound type combinations, see issue #2210.
+//// onnx.Cast (onnx.Cast (%X, $type1)), $type2 = onnx.Cast (%X, $type2)
+//def FuseCastCastPattern : Pat<
+//  (ONNXCastOp (ONNXCastOp $arg, $_), $type),
+//  (ONNXCastOp $arg, $type)>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXLayoutTransformOp

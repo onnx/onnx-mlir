@@ -232,16 +232,18 @@ def LogSoftmaxPattern
 def UpsamplePattern : Pat<
   (ONNXUpsampleOp $x, $scales, $mode),
   (ONNXResizeOp $x, (CreateNoneValue), $scales, (CreateNoneValue),
-     (GetNullStringAttr), (GetNullFloatAttr), (GetNullIntegerAttr),
-     (GetNullFloatAttr), $mode, (GetNullFloatAttr))
+     (GetNullIntegerAttr), (GetNullArrayAttr), (GetNullStringAttr),
+     (GetNullFloatAttr), (GetNullIntegerAttr), (GetNullFloatAttr), (GetNullStringAttr), 
+     $mode, (GetNullFloatAttr))
 >;
 
 def UpsampleV7Pattern : Pat<
   (ONNXUpsampleV7Op $x, $mode, $scales),
   (ONNXResizeOp $x, (CreateNoneValue),
      (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scales)),
-     (CreateNoneValue), (GetNullStringAttr), (GetNullFloatAttr),
-     (GetNullIntegerAttr), (GetNullFloatAttr), $mode, (GetNullFloatAttr))
+     (CreateNoneValue), (GetNullIntegerAttr), (GetNullArrayAttr), (GetNullStringAttr),
+     (GetNullFloatAttr), (GetNullIntegerAttr), (GetNullFloatAttr), (GetNullStringAttr), 
+     $mode, (GetNullFloatAttr))
 >;
 
 // Express PadV2 using the latest Pad version.
@@ -249,23 +251,32 @@ def PadV2Pattern : Pat<
   (ONNXPadV2Op $x, $modeAttr, $padsAttr, $valueAttr),
   (ONNXPadOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $padsAttr)),
      (ONNXConstantOpFromDenseAttr(createDenseArrayAttrFromSingleAttr $valueAttr)),
+     (CreateNoneValue),
      $modeAttr)
 >;
 
 // Express PadV11 using the latest Pad version.
 def PadV11Pattern : Pat<
   (ONNXPadV11Op $x, $pads, $mode, $value),
-  (ONNXPadOp $x, $pads, $mode, $value)
+  (ONNXPadOp $x, $pads, $mode, (CreateNoneValue), $value)
+>;
+
+def PadV13Pattern : Pat<
+  (ONNXPadV13Op $x, $pads, $value, $mode),
+  (ONNXPadOp $x, $pads, $value, (CreateNoneValue), $mode)
 >;
 
 def ResizeV10Pattern: Pat<
    (ONNXResizeV10Op:$res $x, $scales, $mode),
    (ONNXResizeOp $x, (CreateNoneValue),
         $scales, (CreateNoneValue),
+       /*antialias*/(GetNullIntegerAttr),
+       /*axes*/(GetNullArrayAttr),
        /*coordinate_transformation_mode*/(GetNullStringAttr),
        /*cubic_coeff_a*/(GetNullFloatAttr),
        /*exclude_outside*/(GetNullIntegerAttr),
        /*extrapolation_value*/(GetNullFloatAttr),
+       /*keep_aspect_ratio_policy*/(GetNullStringAttr),
        /*mode*/$mode,
        /*nearest_mode*/(GetNullStringAttr))
 >;
@@ -276,9 +287,12 @@ def ResizeV11Pattern: Pat<
                     $exclude_outside, $extrapolation_value, $mode,
                     $nearest_mode),
    (ONNXResizeOp    $x, $roi, $scales, $size,
+                    /*antialias*/(GetNullIntegerAttr),
+                    /*axes*/(GetNullArrayAttr),
                     $coordinate_transformation_node, $cubic_coeff_a,
-                    $exclude_outside, $extrapolation_value, $mode,
-                    $nearest_mode)
+                    $exclude_outside, $extrapolation_value,
+                    /*keep_aspect_ratio_policy*/(GetNullStringAttr),
+                    $mode, $nearest_mode)
 >;
 
 def SequenceConstructPattern1: Pat<
@@ -309,13 +323,13 @@ def ClipV12Pattern : Pat<
 
 def SplitV11PatternNoAttr : Pat<
   (ONNXSplitV11Op $x, $axis, $split),
-  (ONNXSplitOp $x, (CreateNoneValue), $axis),
+  (ONNXSplitOp $x, (CreateNoneValue), $axis, (GetNullIntegerAttr)),
   [(AttributeIsNull:$split)], (addBenefit 1)
 >;
 
 def SplitV11Pattern : Pat<
   (ONNXSplitV11Op $x, $axis, $split),
-  (ONNXSplitOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $split)), $axis),
+  (ONNXSplitOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $split)), $axis, (GetNullIntegerAttr)),
   [], (addBenefit 0)
 >;
 

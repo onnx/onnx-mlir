@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --convert-krnl-to-llvm="use-opaque-pointers=true" %s -split-input-file | FileCheck %s
 
 // -----
 
@@ -21,52 +21,47 @@ func.func @test_stick() -> () {
   return
 
   // CHECK-LABEL: test_stick
-  // CHECK: [[UNSTICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[STICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 3] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
+  // CHECK: [[UNSTICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[STICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 3] : !llvm.struct<(ptr, ptr, i64, array<4 x i64>, array<4 x i64>)>
 
-  // CHECK: [[ALIGNED_BUFFER:%.+]] = llvm.extractvalue [[STICKIFIED_MEMREF]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
-  // CHECK: [[ALIGNED_BUFFER_I8PTR:%.+]] = llvm.bitcast [[ALIGNED_BUFFER]] : !llvm.ptr<f32> to !llvm.ptr<i8>
+  // CHECK: [[ALIGNED_BUFFER:%.+]] = llvm.extractvalue [[STICKIFIED_MEMREF]][1] : !llvm.struct<(ptr, ptr, i64, array<4 x i64>, array<4 x i64>)>
+  // CHECK: [[ALIGNED_BUFFER_I8PTR:%.+]] = llvm.bitcast [[ALIGNED_BUFFER]] : !llvm.ptr to !llvm.ptr
 
-  // CHECK: [[PRE_TRANSFORMED_DESC:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(i32, i32, i32, i32, i32, i32, i32)> : (i64) -> !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>
+  // CHECK: [[PRE_TRANSFORMED_DESC:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(i32, i32, i32, i32, i32, i32, i32)> : (i64) -> !llvm.ptr
   // CHECK: [[DATA_LAYOUT:%.+]] = llvm.mlir.constant(1 : i64) : i64
   // CHECK: [[DATA_TYPE:%.+]] = llvm.mlir.constant(255 : i64) : i64
-  // CHECK: [[PRE_TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[PRE_TRANSFORMED_DESC]] : !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>> to !llvm.ptr<i8>
-  // CHECK: llvm.call @zdnn_init_pre_transformed_desc([[DATA_LAYOUT]], [[DATA_TYPE]], [[PRE_TRANSFORMED_DESC_I8PTR]], {{.*}}, {{.*}}) : (i64, i64, !llvm.ptr<i8>, i64, i64) -> ()
+  // CHECK: [[PRE_TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[PRE_TRANSFORMED_DESC]] : !llvm.ptr to !llvm.ptr
+  // CHECK: llvm.call @zdnn_init_pre_transformed_desc([[DATA_LAYOUT]], [[DATA_TYPE]], [[PRE_TRANSFORMED_DESC_I8PTR]], {{.*}}, {{.*}}) : (i64, i64, !llvm.ptr, i64, i64) -> ()
 
-  // CHECK: [[TRANSFORMED_DESC:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(i32, i32, i32, i32, i32, i32, i32)> : (i64) -> !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>
-  // CHECK: [[PRE_TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[PRE_TRANSFORMED_DESC]] : !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>> to !llvm.ptr<i8>
-  // CHECK: [[TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[TRANSFORMED_DESC]] : !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>> to !llvm.ptr<i8>
-  // CHECK: {{.*}} = llvm.call @zdnn_generate_transformed_desc([[PRE_TRANSFORMED_DESC_I8PTR]], [[TRANSFORMED_DESC_I8PTR]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: [[TRANSFORMED_DESC:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(i32, i32, i32, i32, i32, i32, i32)> : (i64) -> !llvm.ptr
+  // CHECK: [[PRE_TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[PRE_TRANSFORMED_DESC]] : !llvm.ptr to !llvm.ptr
+  // CHECK: [[TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[TRANSFORMED_DESC]] : !llvm.ptr to !llvm.ptr
+  // CHECK: {{.*}} = llvm.call @zdnn_generate_transformed_desc([[PRE_TRANSFORMED_DESC_I8PTR]], [[TRANSFORMED_DESC_I8PTR]]) : (!llvm.ptr, !llvm.ptr) -> i32
 
-  // CHECK: [[ZTENSOR:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)> : (i64) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
-  // CHECK: [[TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[TRANSFORMED_DESC]] : !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>> to !llvm.ptr<i8>
-  // CHECK: [[BUFFER_SIZE:%.+]] = llvm.call @zdnn_getsize_ztensor([[TRANSFORMED_DESC_I8PTR]]) : (!llvm.ptr<i8>) -> i64
-  // CHECK: [[C0:%.+]] = llvm.mlir.constant(0 : i32) : i32
-  // CHECK: [[C1:%.+]] = llvm.mlir.constant(1 : i32) : i32
-  // CHECK: [[C2:%.+]] = llvm.mlir.constant(2 : i32) : i32
-  // CHECK: [[C3:%.+]] = llvm.mlir.constant(3 : i32) : i32
-  // CHECK: [[C4:%.+]] = llvm.mlir.constant(4 : i32) : i32
-  // CHECK: [[ZTENSOR_PRE_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}[[C0]], 0] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>, i32) -> !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
-  // CHECK: llvm.store [[PRE_TRANSFORMED_DESC]], [[ZTENSOR_PRE_TRANSFORMED_DESC]] : !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
+  // CHECK: [[ZTENSOR:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)> : (i64) -> !llvm.ptr
+  // CHECK: [[TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[TRANSFORMED_DESC]] : !llvm.ptr to !llvm.ptr
+  // CHECK: [[BUFFER_SIZE:%.+]] = llvm.call @zdnn_getsize_ztensor([[TRANSFORMED_DESC_I8PTR]]) : (!llvm.ptr) -> i64
+  // CHECK: [[ZTENSOR_PRE_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 0] : (!llvm.ptr) -> !llvm.ptr, !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)>
+  // CHECK: llvm.store [[PRE_TRANSFORMED_DESC]], [[ZTENSOR_PRE_TRANSFORMED_DESC]] : !llvm.ptr, !llvm.ptr
 
-  // CHECK: [[ZTENSOR_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}[[C0]], 1] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>, i32) -> !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
-  // CHECK: llvm.store [[TRANSFORMED_DESC]], [[ZTENSOR_TRANSFORMED_DESC]] : !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
+  // CHECK: [[ZTENSOR_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 1] : (!llvm.ptr) -> !llvm.ptr, !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)>
+  // CHECK: llvm.store [[TRANSFORMED_DESC]], [[ZTENSOR_TRANSFORMED_DESC]] : !llvm.ptr, !llvm.ptr 
 
-  // CHECK: [[ZTENSOR_BUFFER_SIZE:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}[[C0]], 2] :  (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>, i32) -> !llvm.ptr<i64>
-  // CHECK: llvm.store [[BUFFER_SIZE]], [[ZTENSOR_BUFFER_SIZE]] : !llvm.ptr<i64>
+  // CHECK: [[ZTENSOR_BUFFER_SIZE:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 2] : (!llvm.ptr) -> !llvm.ptr, !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)>
+  // CHECK: llvm.store [[BUFFER_SIZE]], [[ZTENSOR_BUFFER_SIZE]] : i64, !llvm.ptr 
 
-  // CHECK: [[ZTENSOR_BUFFER:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}[[C0]], 3] :  (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>, i32) -> !llvm.ptr<ptr<i8>>
-  // CHECK: llvm.store [[ALIGNED_BUFFER_I8PTR]], [[ZTENSOR_BUFFER]] : !llvm.ptr<ptr<i8>>
+  // CHECK: [[ZTENSOR_BUFFER:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 3] : (!llvm.ptr) -> !llvm.ptr, !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)>
+  // CHECK: llvm.store [[ALIGNED_BUFFER_I8PTR]], [[ZTENSOR_BUFFER]] : !llvm.ptr, !llvm.ptr 
 
   // CHECK: [[FALSE:%.+]] = llvm.mlir.constant(false) : i1
 
-  // CHECK: [[IS_TRANSFORMED:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}[[C0]], 4] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>, i32) -> !llvm.ptr<i1>
-  // CHECK: llvm.store [[FALSE]], [[IS_TRANSFORMED]] : !llvm.ptr<i1>
+  // CHECK: [[IS_TRANSFORMED:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 4] : (!llvm.ptr) -> !llvm.ptr, !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)>
+  // CHECK: llvm.store [[FALSE]], [[IS_TRANSFORMED]] : i1, !llvm.ptr 
 
-  // CHECK: [[UNSTICKIFIED:%.+]] = llvm.extractvalue [[UNSTICKIFIED_MEMREF]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[UNSTICKIFIED_I8PTR:%.+]] = llvm.bitcast [[UNSTICKIFIED]] : !llvm.ptr<f32> to !llvm.ptr<i8>
-  // CHECK: [[ZTENSOR_I8PTR:%.+]] = llvm.bitcast [[ZTENSOR]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>> to !llvm.ptr<i8>
-  // CHECK: {{.*}} = llvm.call @zdnn_transform_ztensor([[ZTENSOR_I8PTR]], [[UNSTICKIFIED_I8PTR]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: [[UNSTICKIFIED:%.+]] = llvm.extractvalue [[UNSTICKIFIED_MEMREF]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[UNSTICKIFIED_I8PTR:%.+]] = llvm.bitcast [[UNSTICKIFIED]] : !llvm.ptr to !llvm.ptr
+  // CHECK: [[ZTENSOR_I8PTR:%.+]] = llvm.bitcast [[ZTENSOR]] : !llvm.ptr to !llvm.ptr
+  // CHECK: {{.*}} = llvm.call @zdnn_transform_ztensor([[ZTENSOR_I8PTR]], [[UNSTICKIFIED_I8PTR]]) : (!llvm.ptr, !llvm.ptr) -> i32
 
   // CHECK: llvm.return
 }
@@ -80,52 +75,47 @@ func.func @test_unstick() -> () {
   return
 
   // CHECK-LABEL: test_unstick
-  // CHECK: [[STICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 3] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
-  // CHECK: [[UNSTICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[STICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 3] : !llvm.struct<(ptr, ptr, i64, array<4 x i64>, array<4 x i64>)>
+  // CHECK: [[UNSTICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 
-  // CHECK: [[ALIGNED_BUFFER:%.+]] = llvm.extractvalue [[STICKIFIED_MEMREF]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<4 x i64>, array<4 x i64>)>
-  // CHECK: [[ALIGNED_BUFFER_I8PTR:%.+]] = llvm.bitcast [[ALIGNED_BUFFER]] : !llvm.ptr<f32> to !llvm.ptr<i8>
+  // CHECK: [[ALIGNED_BUFFER:%.+]] = llvm.extractvalue [[STICKIFIED_MEMREF]][1] : !llvm.struct<(ptr, ptr, i64, array<4 x i64>, array<4 x i64>)>
+  // CHECK: [[ALIGNED_BUFFER_I8PTR:%.+]] = llvm.bitcast [[ALIGNED_BUFFER]] : !llvm.ptr to !llvm.ptr
 
-  // CHECK: [[PRE_TRANSFORMED_DESC:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(i32, i32, i32, i32, i32, i32, i32)> : (i64) -> !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>
+  // CHECK: [[PRE_TRANSFORMED_DESC:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(i32, i32, i32, i32, i32, i32, i32)> : (i64) -> !llvm.ptr
   // CHECK: [[DATA_LAYOUT:%.+]] = llvm.mlir.constant(1 : i64) : i64
   // CHECK: [[DATA_TYPE:%.+]] = llvm.mlir.constant(255 : i64) : i64
-  // CHECK: [[PRE_TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[PRE_TRANSFORMED_DESC]] : !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>> to !llvm.ptr<i8>
-  // CHECK: llvm.call @zdnn_init_pre_transformed_desc([[DATA_LAYOUT]], [[DATA_TYPE]], [[PRE_TRANSFORMED_DESC_I8PTR]], {{.*}}, {{.*}}) : (i64, i64, !llvm.ptr<i8>, i64, i64) -> ()
+  // CHECK: [[PRE_TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[PRE_TRANSFORMED_DESC]] : !llvm.ptr to !llvm.ptr
+  // CHECK: llvm.call @zdnn_init_pre_transformed_desc([[DATA_LAYOUT]], [[DATA_TYPE]], [[PRE_TRANSFORMED_DESC_I8PTR]], {{.*}}, {{.*}}) : (i64, i64, !llvm.ptr, i64, i64) -> ()
 
-  // CHECK: [[TRANSFORMED_DESC:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(i32, i32, i32, i32, i32, i32, i32)> : (i64) -> !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>
-  // CHECK: [[PRE_TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[PRE_TRANSFORMED_DESC]] : !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>> to !llvm.ptr<i8>
-  // CHECK: [[TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[TRANSFORMED_DESC]] : !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>> to !llvm.ptr<i8>
-  // CHECK: {{.*}} = llvm.call @zdnn_generate_transformed_desc([[PRE_TRANSFORMED_DESC_I8PTR]], [[TRANSFORMED_DESC_I8PTR]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: [[TRANSFORMED_DESC:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(i32, i32, i32, i32, i32, i32, i32)> : (i64) -> !llvm.ptr
+  // CHECK: [[PRE_TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[PRE_TRANSFORMED_DESC]] : !llvm.ptr to !llvm.ptr
+  // CHECK: [[TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[TRANSFORMED_DESC]] : !llvm.ptr to !llvm.ptr
+  // CHECK: {{.*}} = llvm.call @zdnn_generate_transformed_desc([[PRE_TRANSFORMED_DESC_I8PTR]], [[TRANSFORMED_DESC_I8PTR]]) : (!llvm.ptr, !llvm.ptr) -> i32
 
-  // CHECK: [[ZTENSOR:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)> : (i64) -> !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>
-  // CHECK: [[TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[TRANSFORMED_DESC]] : !llvm.ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>> to !llvm.ptr<i8>
-  // CHECK: [[BUFFER_SIZE:%.+]] = llvm.call @zdnn_getsize_ztensor([[TRANSFORMED_DESC_I8PTR]]) : (!llvm.ptr<i8>) -> i64
-  // CHECK: [[C0:%.+]] = llvm.mlir.constant(0 : i32) : i32
-  // CHECK: [[C1:%.+]] = llvm.mlir.constant(1 : i32) : i32
-  // CHECK: [[C2:%.+]] = llvm.mlir.constant(2 : i32) : i32
-  // CHECK: [[C3:%.+]] = llvm.mlir.constant(3 : i32) : i32
-  // CHECK: [[C4:%.+]] = llvm.mlir.constant(4 : i32) : i32
-  // CHECK: [[ZTENSOR_PRE_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}[[C0]], 0] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>, i32) -> !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
-  // CHECK: llvm.store [[PRE_TRANSFORMED_DESC]], [[ZTENSOR_PRE_TRANSFORMED_DESC]] : !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
+  // CHECK: [[ZTENSOR:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)> : (i64) -> !llvm.ptr
+  // CHECK: [[TRANSFORMED_DESC_I8PTR:%.+]] = llvm.bitcast [[TRANSFORMED_DESC]] : !llvm.ptr to !llvm.ptr
+  // CHECK: [[BUFFER_SIZE:%.+]] = llvm.call @zdnn_getsize_ztensor([[TRANSFORMED_DESC_I8PTR]]) : (!llvm.ptr) -> i64
+  // CHECK: [[ZTENSOR_PRE_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 0] : (!llvm.ptr) -> !llvm.ptr, !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)>
+  // CHECK: llvm.store [[PRE_TRANSFORMED_DESC]], [[ZTENSOR_PRE_TRANSFORMED_DESC]] : !llvm.ptr, !llvm.ptr
 
-  // CHECK: [[ZTENSOR_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}[[C0]], 1] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>, i32) -> !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
-  // CHECK: llvm.store [[TRANSFORMED_DESC]], [[ZTENSOR_TRANSFORMED_DESC]] : !llvm.ptr<ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>>
+  // CHECK: [[ZTENSOR_TRANSFORMED_DESC:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 1] : (!llvm.ptr) -> !llvm.ptr, !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)>
+  // CHECK: llvm.store [[TRANSFORMED_DESC]], [[ZTENSOR_TRANSFORMED_DESC]] : !llvm.ptr, !llvm.ptr
 
-  // CHECK: [[ZTENSOR_BUFFER_SIZE:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}[[C0]], 2] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>, i32) -> !llvm.ptr<i64>
-  // CHECK: llvm.store [[BUFFER_SIZE]], [[ZTENSOR_BUFFER_SIZE]] : !llvm.ptr<i64>
+  // CHECK: [[ZTENSOR_BUFFER_SIZE:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 2] : (!llvm.ptr) -> !llvm.ptr, !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)>
+  // CHECK: llvm.store [[BUFFER_SIZE]], [[ZTENSOR_BUFFER_SIZE]] : i64, !llvm.ptr
 
-  // CHECK: [[ZTENSOR_BUFFER:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}[[C0]], 3] :  (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>, i32) -> !llvm.ptr<ptr<i8>>
-  // CHECK: llvm.store [[ALIGNED_BUFFER_I8PTR]], [[ZTENSOR_BUFFER]] : !llvm.ptr<ptr<i8>>
+  // CHECK: [[ZTENSOR_BUFFER:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 3] : (!llvm.ptr) -> !llvm.ptr, !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)>
+  // CHECK: llvm.store [[ALIGNED_BUFFER_I8PTR]], [[ZTENSOR_BUFFER]] : !llvm.ptr, !llvm.ptr
 
   // CHECK: [[TRUE:%.+]] = llvm.mlir.constant(true) : i1
 
-  // CHECK: [[IS_TRANSFORMED:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}[[C0]], 4] : (!llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>>, i32) -> !llvm.ptr<i1>
-  // CHECK: llvm.store [[TRUE]], [[IS_TRANSFORMED]] : !llvm.ptr<i1>
+  // CHECK: [[IS_TRANSFORMED:%.+]] = llvm.getelementptr [[ZTENSOR]]{{\[}}0, 4] : (!llvm.ptr) -> !llvm.ptr, !llvm.struct<(ptr, ptr, i64, ptr, i1, array<32 x i8>)>
+  // CHECK: llvm.store [[TRUE]], [[IS_TRANSFORMED]] : i1, !llvm.ptr
 
-  // CHECK: [[UNSTICKIFIED:%.+]] = llvm.extractvalue [[UNSTICKIFIED_MEMREF]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[UNSTICKIFIED_I8PTR:%.+]] = llvm.bitcast [[UNSTICKIFIED]] : !llvm.ptr<f32> to !llvm.ptr<i8>
-  // CHECK: [[ZTENSOR_I8PTR:%.+]] = llvm.bitcast [[ZTENSOR]] : !llvm.ptr<struct<(ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, ptr<struct<(i32, i32, i32, i32, i32, i32, i32)>>, i64, ptr<i8>, i1, array<32 x i8>)>> to !llvm.ptr<i8>
-  // CHECK: {{.*}} = llvm.call @zdnn_transform_origtensor([[ZTENSOR_I8PTR]], [[UNSTICKIFIED_I8PTR]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: [[UNSTICKIFIED:%.+]] = llvm.extractvalue [[UNSTICKIFIED_MEMREF]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[UNSTICKIFIED_I8PTR:%.+]] = llvm.bitcast [[UNSTICKIFIED]] : !llvm.ptr to !llvm.ptr
+  // CHECK: [[ZTENSOR_I8PTR:%.+]] = llvm.bitcast [[ZTENSOR]] : !llvm.ptr to !llvm.ptr
+  // CHECK: {{.*}} = llvm.call @zdnn_transform_origtensor([[ZTENSOR_I8PTR]], [[UNSTICKIFIED_I8PTR]]) : (!llvm.ptr, !llvm.ptr) -> i32
 
   // CHECK: llvm.return
 }
@@ -141,7 +131,7 @@ func.func @test_call_zdnn_relu() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_relu
-  // CHECK: {{.*}} = llvm.call @zdnn_relu({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_relu({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -155,7 +145,7 @@ func.func @test_call_zdnn_tanh() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_tanh
-  // CHECK: {{.*}} = llvm.call @zdnn_tanh({{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_tanh({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -169,7 +159,7 @@ func.func @test_call_zdnn_sigmoid() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_sigmoid
-  // CHECK: {{.*}} = llvm.call @zdnn_sigmoid({{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_sigmoid({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -184,7 +174,7 @@ func.func @test_call_zdnn_add() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_add
-  // CHECK: {{.*}} = llvm.call @zdnn_add({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_add({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -199,7 +189,7 @@ func.func @test_call_zdnn_sub() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_sub
-  // CHECK: {{.*}} = llvm.call @zdnn_sub({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_sub({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -214,7 +204,7 @@ func.func @test_call_zdnn_mul() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_mul
-  // CHECK: {{.*}} = llvm.call @zdnn_mul({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_mul({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -229,7 +219,7 @@ func.func @test_call_zdnn_div() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_div
-  // CHECK: {{.*}} = llvm.call @zdnn_div({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_div({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -244,7 +234,7 @@ func.func @test_call_zdnn_softmax() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_softmax
-  // CHECK: {{.*}} = llvm.call @zdnn_softmax({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_softmax({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -261,7 +251,7 @@ func.func @test_stick_for_lstm() -> () {
   return
 
   // CHECK-LABEL: test_stick_for_lstm
-  // CHECK: call @zdnn_transform_ztensor({{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: call @zdnn_transform_ztensor({{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -277,7 +267,7 @@ func.func @test_stick_for_gru() -> () {
   return
 
   // CHECK-LABEL: test_stick_for_gru
-  // CHECK: call @zdnn_transform_ztensor({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: call @zdnn_transform_ztensor({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -292,7 +282,7 @@ func.func @test_call_zdnn_min() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_min
-  // CHECK: {{.*}} = llvm.call @zdnn_min({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_min({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -307,7 +297,7 @@ func.func @test_call_zdnn_max() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_max
-  // CHECK: {{.*}} = llvm.call @zdnn_max({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_max({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -321,7 +311,7 @@ func.func @test_call_zdnn_exp() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_exp
-  // CHECK: {{.*}} = llvm.call @zdnn_exp({{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_exp({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -335,7 +325,7 @@ func.func @test_call_zdnn_log() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_log
-  // CHECK: {{.*}} = llvm.call @zdnn_log({{.*}}, {{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_log({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -346,7 +336,7 @@ func.func @test_matmul_no_bcast_unstacked(%x: memref<2048xf32>,%y: memref<2048xf
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast = 0 : si64, is_stacked = 0 : si64} : (memref<2048xf32>, memref<2048xf32>, memref<2048xf32>, memref<3xi64>, memref<2048xf32>) -> ()
   return %res : memref<2048xf32>
   // CHECK-LABEL: test_matmul_no_bcast_unstacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>, i64, !llvm.ptr<i8>) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -357,7 +347,7 @@ func.func @test_matmul_no_bcast_stacked(%x: memref<2048xf32>,%y: memref<2048xf32
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast = 0 : si64, is_stacked = -1 : si64} : (memref<2048xf32>, memref<2048xf32>, memref<2048xf32>, memref<3xi64>, memref<2048xf32>) -> ()
   return %res : memref<2048xf32>
   // CHECK-LABEL: test_matmul_no_bcast_stacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>, i64, !llvm.ptr<i8>) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -368,7 +358,7 @@ func.func @test_matmul_bcast_stacked(%x: memref<2048xf32>,%y: memref<2048xf32>,%
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast = -1 : si64, is_stacked = -1 : si64} : (memref<2048xf32>, memref<2048xf32>, memref<2048xf32>, memref<3xi64>, memref<2048xf32>) -> ()
   return %res : memref<2048xf32>
   // CHECK-LABEL: test_matmul_bcast_stacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_bcast_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>, i64, !llvm.ptr<i8>) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_bcast_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -379,7 +369,7 @@ func.func @test_matmul_bcast_unstacked(%x: memref<2048xf32>,%y: memref<2048xf32>
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast = -1 : si64, is_stacked = 0 : si64} : (memref<2048xf32>, memref<2048xf32>, memref<2048xf32>, memref<3xi64>, memref<2048xf32>) -> ()
   return %res : memref<2048xf32>
   // CHECK-LABEL: test_matmul_bcast_unstacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_bcast_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>, i64, !llvm.ptr<i8>) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_bcast_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -395,7 +385,7 @@ func.func @test_call_zdnn_cond2d() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_cond2d
-  // CHECK: {{.*}} = llvm.call @zdnn_conv2d(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>, i64, i64, i64, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32 
+  // CHECK: {{.*}} = llvm.call @zdnn_conv2d(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, i64, i64, i64, !llvm.ptr, !llvm.ptr) -> i32 
 }
 
 // -----
@@ -411,7 +401,7 @@ func.func @test_call_zdnn_cond2d_valid_padding() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_cond2d_valid_padding
-  // CHECK: {{.*}} = llvm.call @zdnn_conv2d(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>, i64, i64, i64, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32 
+  // CHECK: {{.*}} = llvm.call @zdnn_conv2d(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, i64, i64, i64, !llvm.ptr, !llvm.ptr) -> i32 
 }
 
 // -----
@@ -427,7 +417,7 @@ func.func @test_call_zdnn_cond2d_relu_act() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_cond2d_relu_act
-  // CHECK: {{.*}} = llvm.call @zdnn_conv2d(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>, i64, i64, i64, i64, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32 
+  // CHECK: {{.*}} = llvm.call @zdnn_conv2d(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, i64, i64, i64, !llvm.ptr, !llvm.ptr) -> i32 
 }
 
 // -----
@@ -441,7 +431,7 @@ func.func @test_call_zdnn_avgpool2d() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_avgpool2d
-  // CHECK: {{.*}} = llvm.call @zdnn_avgpool2d(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, i64, i64, i64, i64, i64, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_avgpool2d(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, i64, i64, i64, i64, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -455,7 +445,7 @@ func.func @test_call_zdnn_maxpool2d() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_maxpool2d
-  // CHECK: {{.*}} = llvm.call @zdnn_maxpool2d(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, i64, i64, i64, i64, i64, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_maxpool2d(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, i64, i64, i64, i64, i64, !llvm.ptr) -> i32
 }
 
 
@@ -470,7 +460,7 @@ func.func @test_call_zdnn_meanreduce2d() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_meanreduce2d
-  // CHECK: {{.*}} = llvm.call @zdnn_meanreduce2d(%{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_meanreduce2d(%{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -486,5 +476,5 @@ func.func @test_call_zdnn_batchnorm() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_batchnorm
-  // CHECK: {{.*}} = llvm.call @zdnn_batchnorm(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<i8>) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_batchnorm(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }

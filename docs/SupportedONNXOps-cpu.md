@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python documentOps.py --arch cpu --input ../test/backend/inference_backend.py --path . --notes --unsupported -->
+<!--- python3 documentOps.py --arch cpu --input ../test/backend/inference_backend.py --path . --notes --unsupported -->
 
 # Supported ONNX Operation for Target *cpu*.
 
@@ -30,10 +30,10 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **Bernoulli** | |unsupported | |
 | **Binarizer** | |unsupported | |
 | **BitShift** | |unsupported | |
-| **BitwiseAnd** | |unsupported | |
+| **BitwiseAnd** |18 | | |
 | **BitwiseNot** | |unsupported | |
-| **BitwiseOr** | |unsupported | |
-| **BitwiseXor** | |unsupported | |
+| **BitwiseOr** |18 | | |
+| **BitwiseXor** |18 | | |
 | **BlackmanWindow** | |unsupported | |
 | **Cast** |13 |Cast only between float and double types. | |
 | **CastLike** | |unsupported | |
@@ -112,7 +112,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **LpNormalization** | |unsupported | |
 | **LpPool** | |unsupported | |
 | **MatMul** |13 | | |
-| **MatMulInteger** | |unsupported | |
+| **MatMulInteger** |10 | | |
 | **Max** |13 |No support for short floats and unsigned int. | |
 | **MaxPool** |12 |Does not support argmax and short ints. Support single output only. | |
 | **MaxRoiPool** | |unsupported | |
@@ -139,7 +139,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **OptionalHasElement** | |unsupported | |
 | **Or** |7 | | |
 | **PRelu** |16 | | |
-| **Pad** |13, 11, 2 | | |
+| **Pad** |18, 13, 11, 2 |axes input not supported. | |
 | **Pow** |15 |No support for power with integer types. | |
 | **QLinearConv** | |unsupported | |
 | **QLinearMatMul** | |unsupported | |
@@ -163,7 +163,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **ReduceSumSquare** |18, 13 |Default axis and do_not_keep_dim not supported. | |
 | **Relu** |14 | | |
 | **Reshape** |14 |allowzero not supported. | |
-| **Resize** |13, 11, 10 |Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. | |
+| **Resize** |18, 13, 11, 10 |Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported. | |
 | **ReverseSequence** |10 | | |
 | **RoiAlign** | |unsupported | |
 | **Round** |11 | | |

@@ -89,14 +89,15 @@ static void findAndAddSameDim(const onnx_mlir::QuestionmarkIndexExpr &qmOuputIE,
 bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
     mlir::Operation *op, onnx_mlir::DimAnalysis::DimSetT &sameDims) {
   // Has this op a ShapeHelper interface?
-  auto shape_op = llvm::dyn_cast<mlir::ShapeHelper>(*op);
+  auto shape_op = llvm::dyn_cast<ShapeHelperOpInterface>(*op);
   if (!shape_op)
     return false;
 
   // Get its shape interface.
   onnx_mlir::ONNXOpShapeHelper *shapeHelper =
       shape_op.getShapeHelper(op, {}, nullptr, nullptr);
-  if (!shapeHelper)
+  // If no shape helper, or unimplemented, just abort.
+  if (!shapeHelper || !shapeHelper->isImplemented())
     return false;
 
   // Compute shape.
@@ -163,18 +164,26 @@ void DimAnalysis::build(Value val) {
   }
 }
 
+static bool handleAndTestInBound(int64_t &axis, ShapedType type) {
+  int64_t rank = type.getRank();
+  if (axis < 0)
+    axis += rank;
+  return axis >= 0 && axis < rank;
+}
+
 bool DimAnalysis::sameDim(
-    Value tensor1, uint64_t dimAxis1, Value tensor2, uint64_t dimAxis2) const {
+    Value tensor1, int64_t dimAxis1, Value tensor2, int64_t dimAxis2) const {
+  // Handle negative axis and test if in bound.
+  ShapedType tensor1Type = tensor1.getType().cast<ShapedType>();
+  ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
+  if (!handleAndTestInBound(dimAxis1, tensor1Type) ||
+      !handleAndTestInBound(dimAxis2, tensor2Type))
+    return false;
   // Same tensor, same axis.
   if ((tensor1 == tensor2) && (dimAxis1 == dimAxis2))
     return true;
-
-  ShapedType tensor1Type = tensor1.getType().cast<ShapedType>();
-  ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
-  if (!tensor1Type.hasRank() || !tensor2Type.hasRank())
-    return false;
-  int64_t dim1 = tensor1Type.getShape()[dimAxis1];
-  int64_t dim2 = tensor2Type.getShape()[dimAxis2];
+  int64_t dim1 = tensor1Type.getShape()[(uint64_t)dimAxis1];
+  int64_t dim2 = tensor2Type.getShape()[(uint64_t)dimAxis2];
   // Both dims are static.
   if (!ShapedType::isDynamic(dim1) && !ShapedType::isDynamic(dim2))
     return (dim1 == dim2);
@@ -186,13 +195,18 @@ bool DimAnalysis::sameDim(
 }
 
 bool DimAnalysis::sameDynDim(
-    Value tensor1, uint64_t dimAxis1, Value tensor2, uint64_t dimAxis2) const {
+    Value tensor1, int64_t dimAxis1, Value tensor2, int64_t dimAxis2) const {
+  // Handle negative axis and test if in bound.
+  ShapedType tensor1Type = tensor1.getType().cast<ShapedType>();
+  ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
+  if (!handleAndTestInBound(dimAxis1, tensor1Type) ||
+      !handleAndTestInBound(dimAxis2, tensor2Type))
+    return false;
   // Same tensor, same axis.
   if ((tensor1 == tensor2) && (dimAxis1 == dimAxis2))
     return true;
-
-  DimT dim1(tensor1, dimAxis1);
-  DimT dim2(tensor2, dimAxis2);
+  DimT dim1(tensor1, (uint64_t)dimAxis1);
+  DimT dim2(tensor2, (uint64_t)dimAxis2);
   // Two dims are the same if they are in the same set.
   for (auto &entry : dimSetMap) {
     DimSetT dims = entry.second;
@@ -237,7 +251,6 @@ bool DimAnalysis::broadcastLastDim(Value tensor1, Value tensor2) const {
   if (!sameRank(tensor1, tensor2))
     return false;
   ArrayRef<int64_t> shape1 = tensor1.getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> shape2 = tensor2.getType().cast<ShapedType>().getShape();
   unsigned rank = shape1.size();
   // The last dimension of tensor1 must be 1, so that tensor1 is broadcasting
   // to tensor2.
@@ -483,6 +496,20 @@ void DimAnalysis::visitDim(
     if (reshapeOp.getAllowzero() != 0)
       return;
 
+    Value data = reshapeOp.getData();
+    Value shape = reshapeOp.getShape();
+    Value output = reshapeOp.getReshaped();
+
+    // Get the dynamic dimension from shape. Use this to update the current
+    // dimension.
+    if (areDimsFromConcat(shape)) {
+      SmallVector<Value, 4> shapeDims;
+      getDims(shape, shapeDims);
+      Value dimFromShape = shapeDims[dimIndex];
+      DimT newSameDim(dimFromShape, dimIndex);
+      sameDims.insert(newSameDim);
+    }
+
     // The output dimension i can be from
     // - shape[i] or,
     // - data[j] if
@@ -495,21 +522,9 @@ void DimAnalysis::visitDim(
     // we can say that arg0[ii] == arg1[jj], that can be used to verify user
     // inputs.
 
-    // Get the dynamic dimension from shape. Use this to update the current
-    // dimension.
-    if (areDimsFromConcat(reshapeOp.getShape())) {
-      SmallVector<Value, 4> shapeDims;
-      getDims(reshapeOp.getShape(), shapeDims);
-      Value dimFromShape = shapeDims[dimIndex];
-      DimT newSameDim(dimFromShape, dimIndex);
-      sameDims.insert(newSameDim);
-    }
-
     // Get the dynamic dimension from data.
-    RankedTensorType dataType =
-        reshapeOp.getData().getType().dyn_cast<RankedTensorType>();
-    RankedTensorType outputType =
-        reshapeOp.getReshaped().getType().dyn_cast<RankedTensorType>();
+    RankedTensorType dataType = data.getType().dyn_cast<RankedTensorType>();
+    RankedTensorType outputType = output.getType().dyn_cast<RankedTensorType>();
     // Check if there is only one dynamic dimension in the data and output.
     bool isDataOK =
         (llvm::count(dataType.getShape(), ShapedType::kDynamic) == 1);
@@ -536,6 +551,34 @@ void DimAnalysis::visitDim(
       DimT newSameDim(reshapeOp.getData(), *dynamicDimIndexInData);
       sameDims.insert(newSameDim);
     }
+
+    // Special case: input and output have the same rank of 2, if one output dim
+    // is from an input dim, the other output dim must be from the remaining
+    // input dim.
+    //
+    // clang-format off
+    // ```mlir
+    // %cst_minus1 = onnx.Constant dense<-1> : tensor<1xi64>
+    // %0 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    // %1 = "onnx.Concat"(%cst_minus1, %0) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+    // %2 = "onnx.Reshape"(%arg0, %1) {allowzero = 0 : si64} : (tensor<?x?xi64>, tensor<2xi64>) -> tensor<?x?xi64>
+    // ```
+    // clang-format on
+    int64_t dataRank = dataType.getRank();
+    int64_t outputRank = outputType.getRank();
+    if ((dataRank == 2) && (outputRank == 2)) {
+      // Find if the output dim is from an input dim.
+      int64_t iDim = -1;
+      for (int64_t i = 0; i < dataRank; ++i) {
+        if (sameDynDim(data, i, output, 1 - dimIndex)) {
+          iDim = i;
+          // The other output dim must be the same as the other input dim.
+          DimT newSameDim(data, 1 - iDim);
+          sameDims.insert(newSameDim);
+          break;
+        }
+      }
+    }
     return;
   }
 
@@ -561,6 +604,33 @@ void DimAnalysis::visitDim(
       sameDims.insert(DimT(reduceMeanOp.getData(), dim.second));
     }
     return;
+  }
+
+  // TileOp
+  if (auto tileOp = dyn_cast<ONNXTileOp>(op)) {
+    // Special case:
+    // output_dim[i] = input_dim[i] * repeats[i]
+    //
+    // If input dimension i (input_dim[i]) is 1, output dimension i
+    // (output_dim[i]) and repeats i (repeats[i]) are equal.
+    //
+    // clang-format off
+    // ```mlir
+    // %0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    // %1 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+    // %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+    // %3 = "onnx.Tile"(%arg1, %2) : (tensor<1x1xi64>, tensor<2xi64>) -> tensor<?x?xi64>
+    // ```
+    // clang-format on
+    Type inputType = tileOp.getInput().getType();
+    ArrayRef<int64_t> inputShape = onnx_mlir::getShape(inputType);
+    if (areDimsFromConcat(tileOp.getRepeats()) && inputShape[dimIndex] == 1) {
+      SmallVector<Value, 4> repeats;
+      getDims(tileOp.getRepeats(), repeats);
+      DimT newSameDim(repeats[dimIndex], dimIndex);
+      sameDims.insert(newSameDim);
+      return;
+    }
   }
 
   ////////////////////////////////////////////////////

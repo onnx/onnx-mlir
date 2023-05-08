@@ -127,8 +127,10 @@ public:
           auto apf = i.getSplatValue<APFloat>();
           assert(near(apf.convertToDouble(), static_cast<double>(one)));
         } else {
+          bool isSigned = isSignedIntBType(btype);
           auto api = i.getSplatValue<APInt>();
-          auto x = WideNum::fromAPInt(btype, api).template to<cpptype>(btype);
+          auto x =
+              WideNum::fromAPInt(api, isSigned).template to<cpptype>(btype);
           assert(eq<cpptype>(x, one));
         }
 

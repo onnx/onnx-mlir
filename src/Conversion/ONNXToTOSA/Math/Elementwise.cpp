@@ -21,7 +21,7 @@ namespace onnx_mlir {
 
 template <>
 struct TOSADialectOp<ONNXNegOp> {
-  using Op = tosa::NegateOp;
+  using Op = mlir::tosa::NegateOp;
 };
 
 namespace {
@@ -87,7 +87,7 @@ public:
       return rewriter.notifyMatchFailure(
           op, "`tosa.floor` only supports float types");
 
-    rewriter.replaceOpWithNewOp<tosa::FloorOp>(
+    rewriter.replaceOpWithNewOp<mlir::tosa::FloorOp>(
         op, op.getType(), adaptor.getX());
     return success();
   }
@@ -104,7 +104,7 @@ public:
     // Quantized types are not supported right now (in type conversion).
     // Once they are, the input should be rescaled for quantized types. (TBD)
     // Maps to `tosa.clamp` which has both int and fp limits.
-    rewriter.replaceOpWithNewOp<tosa::ClampOp>(op, op.getType(), input,
+    rewriter.replaceOpWithNewOp<mlir::tosa::ClampOp>(op, op.getType(), input,
         rewriter.getI64IntegerAttr(0),
         rewriter.getI64IntegerAttr(std::numeric_limits<int32_t>::max()),
         rewriter.getF32FloatAttr(0.0f),

@@ -169,7 +169,8 @@ Value OnnxBuilder::pad(
                        ? constantValue
                        : toTensor(constantValue);
   return createTypedOpAndInferShapes<ONNXPadOp>(toTensor(outputType),
-      toTensor(input), toTensor(pads), constant, b().getStringAttr(mode));
+      toTensor(input), toTensor(pads), constant,
+      b().createOrFold<ONNXNoneOp>(loc()), b().getStringAttr(mode));
 }
 
 Value OnnxBuilder::padZero(Value input, Value pads) const {
@@ -254,8 +255,8 @@ ValueRange OnnxBuilder::split(
   IntegerAttr axisAttr =
       IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
           APInt(64, axis, /*isSigned=*/true));
-  return createOpAndInferShapes<ONNXSplitOp>(
-      toTensors(outputTypes), toTensor(input), toTensor(split), axisAttr)
+  return createOpAndInferShapes<ONNXSplitOp>(toTensors(outputTypes),
+      toTensor(input), toTensor(split), axisAttr, IntegerAttr())
       .getResults();
 }
 
