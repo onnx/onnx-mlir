@@ -149,11 +149,11 @@ def ONNXCustomOp:ONNX_Op<"Custom",
     Since the semantics of this op is not defined to compiler, some attributes
     are introduced to guide shape inference:
       'output_type':
-           the element type for the output tensor. Optional. If not
+           Optional. The element type for the output tensor. Optional. If not
            specified, follow the shape infer.
       'shape_infer_pattern':
-           how to propagate the shape info from input to output. 
-           Supported patterns are `SameAs`, `MDBroadcast`.
+           Optional. Specify how to propagate the shape info from inputs to
+           output. Supported patterns are `SameAs`, `MDBroadcast`.
       'inputs_for_infer':
            which inputs are used for shape inference. When mulitple
            inputs are specified for 'SameAs', all these inputs should
@@ -173,17 +173,18 @@ def ONNXCustomOp:ONNX_Op<"Custom",
            To simply the memory management, the memory object for the output
            of CustomOp will be allocated by onnx-mlir, and then passed to the
            extern function to write.  This attribute specify the position of
-           the output. '0', the default value, the output will be the first
-           parameter in the function call. -1 will be the last. 
+           the output. 0 means that  the output will be the first
+           parameter in the function call, while  -1 means after the last. 
+    All these attributes are optional to make them less intrusive.
   }];
 
   let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$inputs,
         StrAttr:$function_name,
         OptionalAttr<TypeAttr>:$output_element_type,
-        DefaultValuedStrAttr<StrAttr, "SameAs">:$shape_infer_pattern,
+        OptionalAttr<StrAttr>:$shape_infer_pattern,
         OptionalAttr<I64ArrayAttr >:$inputs_for_infer,
-        DefaultValuedStrAttr<StrAttr, "OMTensor">:$call_convention,
-        DefaultValuedAttr<SI64Attr, "0">:$output_position);
+        OptionalAttr<StrAttr>:$call_convention,
+        OptionalAttr<SI64Attr>:$output_position);
   let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$outputs);
 
   let extraClassDeclaration = [{

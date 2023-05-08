@@ -33,29 +33,35 @@ LogicalResult ONNXCustomOp::inferShapes(
 
   std::optional<ArrayAttr> inputIndexAttrs = getInputsForInfer();
   // Use the first input because their element type should be same
-  //int64_t inputIdx = (inputIndexAttrs.getValue()[0]).cast<IntegerAttr>().getInt();
+  // int64_t inputIdx =
+  // (inputIndexAttrs.getValue()[0]).cast<IntegerAttr>().getInt();
   int64_t inputIdx = 0;
-  Type elementType = getOutputElementType().value_or(getElementType(getInputs()[inputIdx].getType()));
+  if (inputIndexAttrs.has_value())
+    (inputIndexAttrs->getValue()[0]).cast<IntegerAttr>().getInt();
 
-  ValueRange operands = getInputs(); // All the inputs, not other parameter
+  Type elementType = getOutputElementType().value_or(
+      getElementType(getInputs()[inputIdx].getType()));
+
+  ValueRange operands;
   if (inputIndexAttrs.has_value()) {
     SmallVector<Value, 4> specifiedInputs;
-    for(auto indexAttr : inputIndexAttrs.value()) {
-      specifiedInputs.emplace_back(getInputs()[indexAttr.cast<IntegerAttr>().getInt()]);
+    for (auto indexAttr : inputIndexAttrs.value()) {
+      specifiedInputs.emplace_back(
+          getInputs()[indexAttr.cast<IntegerAttr>().getInt()]);
     }
     operands = specifiedInputs;
   }
-  if (getShapeInferPattern() == "SameAs") {
+  if (!getShapeInferPattern().has_value()) {
+    // No shape inference pattern provided. Simply return.
+    return success();
+  } else if (getShapeInferPattern() == "SameAs") {
     ONNXUnaryOpShapeHelper shapeHelper(getOperation(), operands);
     return shapeHelper.computeShapeAndUpdateType(elementType);
+  } else if (getShapeInferPattern() == "MDBroadcast") {
+    ONNXBroadcastOpShapeHelper shapeHelper(getOperation(), operands);
+    return shapeHelper.computeShapeAndUpdateType(elementType);
+  } else {
+    return emitOpError("The specified shape_infer_pattern is not supported"
+                       "Error encountered in shape inference.");
   }
-    
-  // TODO: This does not appear to be implemented, set to return an error.
-  // getResult().setType(getOperand().getType());
-  // return success();
-  return emitOpError(
-      "op is not supported at this time. Please open an issue on "
-      "https://github.com/onnx/onnx-mlir and/or consider contributing "
-      "code. "
-      "Error encountered in shape inference.");
 }
