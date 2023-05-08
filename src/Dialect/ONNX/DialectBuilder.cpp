@@ -255,8 +255,8 @@ ValueRange OnnxBuilder::split(
   IntegerAttr axisAttr =
       IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
           APInt(64, axis, /*isSigned=*/true));
-  return createOpAndInferShapes<ONNXSplitOp>(
-      toTensors(outputTypes), toTensor(input), toTensor(split), axisAttr)
+  return createOpAndInferShapes<ONNXSplitOp>(toTensors(outputTypes),
+      toTensor(input), toTensor(split), axisAttr, IntegerAttr())
       .getResults();
 }
 
