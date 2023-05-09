@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file provides definition of ONNX dialect  operation.
+// This file provides definition of ONNX dialect Custom operation.
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,21 +19,11 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
-// Verify
-//===----------------------------------------------------------------------===//
-
-//===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCustomOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  // TODO: This does not appear to be implemented, set to return an error.
-  // getResult().setType(getOperand().getType());
-  // return success();
-  return emitOpError(
-      "op is not supported at this time. Please open an issue on "
-      "https://github.com/onnx/onnx-mlir and/or consider contributing "
-      "code. "
-      "Error encountered in shape inference.");
+  // TODO: Figure out a way to infer shapes for custom ops. See issue #2203.
+  return success();
 }
