@@ -323,6 +323,7 @@ OpsWithCanonicalizer = [
     'Loop',
     'LSTM',
     'Mul',
+    'Pow',
     'Reshape',
     'RNN',
     'Shape',

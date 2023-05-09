@@ -9,6 +9,9 @@
 // Defines language-specific pattern match optimizations for ONNX using
 // Declarative Rewrite Rules (DRR) specified using TableGen records.
 //
+// When adding a canonicalizer for a new operation, please add that operation to
+// the OpsWithCanonicalizer list in utils/gen_onnx_mlir.py
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_REWRITE
