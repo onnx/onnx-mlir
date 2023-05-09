@@ -167,9 +167,11 @@ private:
     Value initializer = EmitInitializerForInputTensor(
         NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name())),
         builder_, options_.externalDataDir, tensor);
-    ShapedType tensorType = initializer.getType();
-    int64_t size = ShapedType::getNumElements(tensorType.getShape());
-    num_of_parameters_ += size;
+    if (!isNoneValue(initializer)) {
+      ShapedType tensorType = initializer.getType();
+      int64_t size = ShapedType::getNumElements(tensorType.getShape());
+      num_of_parameters_ += size;
+    }
     return initializer;
   }
 
