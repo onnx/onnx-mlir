@@ -358,6 +358,19 @@ func.func @test_splitV11_no_split(%arg0 : tensor<*xf32>) -> () {
 
 // -----
 
+func.func @test_splitV13(%arg0 : tensor<*xf32>) -> () {
+  %0 = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = "onnx.SplitV13"(%arg0, %0) {axis = 1 : si64} : (tensor<*xf32>, tensor<1xi64>) -> tensor<*xf32>
+  return
+
+  // CHECK-LABEL:  func @test_splitV13
+  // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.Split"(%arg0, %0) {axis = 1 : si64} : (tensor<*xf32>, tensor<1xi64>) -> tensor<*xf32>
+  // CHECK:           return
+}
+
+// -----
+
 func.func @test_squeezeV11(%arg0 : tensor<*xf32>) -> () {
   %0 = "onnx.SqueezeV11"(%arg0) {axes = [1]} : (tensor<*xf32>) -> tensor<*xf32>
   return
