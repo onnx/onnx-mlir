@@ -158,7 +158,7 @@ template <typename KrnlScalarMathOp>
 class KrnlUnaryMathOpLowering : public ConversionPattern {
 public:
   explicit KrnlUnaryMathOpLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConversionPattern(
             typeConverter, KrnlScalarMathOp::getOperationName(), 1, context) {}
 
@@ -227,7 +227,7 @@ private:
   }
 };
 
-void populateLoweringKrnlUnaryMathOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlUnaryMathOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(typeConverter, ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlIsInfOp>>(typeConverter, ctx);

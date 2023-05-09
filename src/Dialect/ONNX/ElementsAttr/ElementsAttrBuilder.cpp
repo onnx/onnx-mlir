@@ -127,10 +127,10 @@ bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
   StridesRange<2> range(combinedShape, {xpLhsStrides, xpRhsStrides});
   return dispatchByBType(btypeOfMlirType(elementType), [&](auto btype) {
     using cpptype = CppType<btype>;
-    return llvm::all_of(range, [&](StridesIndexPos<2> idxpos) {
+    return llvm::all_of(range, [&](StridesIndexOffsets<2> idxoffs) {
       constexpr BType TAG = toBType<cpptype>;
-      return lhsNums.get()[idxpos[0]].narrow<TAG>() ==
-             rhsNums.get()[idxpos[1]].narrow<TAG>();
+      return lhsNums.get()[idxoffs[0]].narrow<TAG>() ==
+             rhsNums.get()[idxoffs[1]].narrow<TAG>();
     });
   });
 }
@@ -212,10 +212,10 @@ ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
     WideNum *dst = dstNums.data();
     const WideNum *lhsSrc = lhsNums.get().data();
     const WideNum *rhsSrc = rhsNums.get().data();
-    for (auto &idxpos :
+    for (auto &idxoffs :
         StridesRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides})) {
-      dst[idxpos.flattenedIndex] =
-          combiner(lhsSrc[idxpos[0]], rhsSrc[idxpos[1]]);
+      dst[idxoffs.flattenedIndex] =
+          combiner(lhsSrc[idxoffs[0]], rhsSrc[idxoffs[1]]);
     }
   });
 }
@@ -263,10 +263,10 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
     WideNum *dst = dstNums.data();
     const WideNum *lhsSrc = lhsNums.get().data();
     const WideNum *rhsSrc = rhsNums.get().data();
-    for (auto &idxpos :
+    for (auto &idxoffs :
         StridesRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides})) {
-      WideNum &res = dst[idxpos.flattenedIndex];
-      res = res.u64 ? lhsSrc[idxpos[0]] : rhsSrc[idxpos[1]];
+      WideNum &res = dst[idxoffs.flattenedIndex];
+      res = res.u64 ? lhsSrc[idxoffs[0]] : rhsSrc[idxoffs[1]];
     }
   });
 }
@@ -492,7 +492,7 @@ ElementsAttr ElementsAttrBuilder::concat(
       auto it = range.begin();
       for (size_t offset = start; offset < dst.size(); offset += outBlockLen) {
         for (size_t pos = 0; pos < inputBlockLen; ++pos) {
-          dst[offset + pos] = src.get()[it->pos[0]];
+          dst[offset + pos] = src.get()[it->at(0)];
           ++it;
         }
       }
@@ -514,8 +514,8 @@ ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
       start += starts[axis] * strides[axis];
       strides[axis] *= steps[axis];
     }
-    for (auto &idxpos : StridesRange<1>(shape, {strides}))
-      dst[idxpos.flattenedIndex] = *(start + idxpos[0]);
+    for (auto &idxoffs : StridesRange<1>(shape, {strides}))
+      dst[idxoffs.flattenedIndex] = *(start + idxoffs[0]);
   });
 }
 
@@ -586,7 +586,7 @@ ElementsAttr ElementsAttrBuilder::scatterND(
           castArrayRef<uint64_t>(ArrayRef(indicesIter, indices_nd));
       int64_t pos = getStridesPosition(idxs, sliceStrides);
       for (int64_t j = 0; j < slice_size; ++j) {
-        dst[pos] = updatesData.get()[updatesIter->pos[0]];
+        dst[pos] = updatesData.get()[updatesIter->at(0)];
         ++pos;
         ++updatesIter;
       }
@@ -641,18 +641,18 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
   ShapedType reducedType = type.clone(reducedShape);
   return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
     // Traverse and populate each element d in dstNums.
-    for (auto &idxpos : StridesRange<1>(reducedShape, {reducedStrides})) {
-      WideNum &d = dstNums[idxpos.flattenedIndex];
-      auto srcPos = idxpos[0];
+    for (auto &idxoffs : StridesRange<1>(reducedShape, {reducedStrides})) {
+      WideNum &d = dstNums[idxoffs.flattenedIndex];
+      int64_t srcPos = idxoffs[0];
       // Traverse all the elements that reduce together into d.
       // srcNums elements may be repeated if there are zeros in axesStrides.
       StridesRange<1> axesRange(axesShape, {axesStrides});
       auto axesIter = axesRange.begin();
       auto axesEnd = axesRange.end();
-      assert(axesIter->pos[0] == 0 && "initial src offset must be zero");
+      assert(axesIter->at(0) == 0 && "initial src offset must be zero");
       d = srcNums.get()[srcPos];
       while (++axesIter != axesEnd) {
-        auto srcOffset = axesIter->pos[0];
+        int64_t srcOffset = axesIter->at(0);
         d = reducer(d, srcNums.get()[srcPos + srcOffset]);
       }
     }
@@ -754,20 +754,20 @@ ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
       using cpptype = decltype(wideZero);
       constexpr BType TAG = toBType<cpptype>;
       // Traverse and populate each element d in dstNums.
-      for (auto &idxpos :
+      for (auto &idxoffs :
           StridesRange<2>(matMulShape, {lhsRedStrides, rhsRedStrides})) {
         // Traverse all the elements that reduce together into d.
         // srcNums elements may be repeated if there are zeros in axesStrides.
         cpptype accumulator = 0;
-        auto lhsPos = idxpos[0];
-        auto rhsPos = idxpos[1];
+        int64_t lhsPos = idxoffs[0];
+        int64_t rhsPos = idxoffs[1];
         for (int64_t i = 0; i < K; ++i) {
           accumulator += lhsNums.get()[lhsPos].narrow<TAG>() *
                          rhsNums.get()[rhsPos].narrow<TAG>();
           lhsPos += matMulAxisLhsStride;
           rhsPos += matMulAxisRhsStride;
         }
-        dstNums[idxpos.flattenedIndex] = WideNum::widen<TAG>(accumulator);
+        dstNums[idxoffs.flattenedIndex] = WideNum::widen<TAG>(accumulator);
       }
     });
   });

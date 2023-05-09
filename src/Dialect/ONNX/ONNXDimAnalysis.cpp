@@ -103,7 +103,8 @@ static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
   // Get its shape interface.
   ONNXOpShapeHelper *shapeHelper =
       shape_op.getShapeHelper(op, {}, nullptr, nullptr);
-  if (!shapeHelper)
+  // If no shape helper, or unimplemented, just abort.
+  if (!shapeHelper || !shapeHelper->isImplemented())
     return false;
 
   // Compute shape.

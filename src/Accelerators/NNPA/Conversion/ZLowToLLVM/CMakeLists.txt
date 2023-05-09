@@ -7,6 +7,7 @@ add_onnx_mlir_library(OMZLowToLLVM
 
   LINK_LIBS PUBLIC
   MLIRLLVMCommonConversion
+  OMKrnlToLLVM
   OMLayoutHelper
   OMZLowOps
   OMMlirDialects
