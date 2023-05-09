@@ -1,6 +1,8 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh %s -split-input-file | FileCheck %s
 // RUN: onnx-mlir-opt --maccel=NNPA --rewrite-onnx-for-zhigh --shape-inference --canonicalize --constprop-onnx --shape-inference %s --split-input-file | FileCheck --check-prefix=CONSTPROP %s
 
+// -----
+
 func.func @test_batchnorm_epsilon(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>, %arg3: tensor<3xf32>, %arg4: tensor<3xf32>) -> tensor<2x3x4x5xf32> {
   %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5xf32>
   return %0 : tensor<2x3x4x5xf32>
@@ -480,37 +482,6 @@ func.func @test_matmul_unknown_batch_dim(%arg0: tensor<?x?x256x256xf32>) -> (ten
 // CHECK:           [[VAR_28_:%.+]] = "onnx.Concat"([[VAR_26_]], [[VAR_27_]]) {axis = 0 : si64} : (tensor<3xi64>, tensor<1xi64>) -> tensor<4xi64>
 // CHECK:           [[VAR_29_:%.+]] = "onnx.Reshape"([[VAR_18_]], [[VAR_28_]]) {allowzero = 0 : si64} : (tensor<?x256x256xf32>, tensor<4xi64>) -> tensor<?x?x256x256xf32>
 // CHECK:           return [[VAR_29_]] : tensor<?x?x256x256xf32>
-// CHECK:         }
-}
-
-// -----
-
-// COM: Expand Pow into multiple Mul if exponent is an integer and <= 64.
-func.func @expand_pow_into_mul(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
-    %cst = onnx.Constant dense<5.0> : tensor<f32>
-    %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
-    return %0 : tensor<3x4x5xf32>
-
-// CHECK-LABEL:  func.func @expand_pow_into_mul
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
-// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_0_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[VAR_1_]], [[VAR_1_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
-// CHECK:           [[VAR_3_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_2_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
-// CHECK:           return [[VAR_3_]] : tensor<3x4x5xf32>
-// CHECK:        }
-}
-
-// -----
-
-func.func @expand_pow_into_constant(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
-    %cst = onnx.Constant dense<0.0> : tensor<f32>
-    %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
-    return %0 : tensor<3x4x5xf32>
-
-// CHECK-LABEL:  func.func @expand_pow_into_constant
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
-// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<3x4x5xf32>
-// CHECK:           return [[VAR_0_]] : tensor<3x4x5xf32>
 // CHECK:         }
 }
 
