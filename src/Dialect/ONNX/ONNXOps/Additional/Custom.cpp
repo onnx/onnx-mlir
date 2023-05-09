@@ -43,8 +43,8 @@ LogicalResult ONNXCustomOp::inferShapes(
       getElementType(getInputs()[inputIdx].getType()));
 
   ValueRange operands;
+  SmallVector<Value, 4> specifiedInputs;
   if (inputIndexAttrs.has_value()) {
-    SmallVector<Value, 4> specifiedInputs;
     for (auto indexAttr : inputIndexAttrs.value()) {
       specifiedInputs.emplace_back(
           getInputs()[indexAttr.cast<IntegerAttr>().getInt()]);
