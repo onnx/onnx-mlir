@@ -432,7 +432,7 @@ bool areDims(Value val) {
 
   // Dim must be i64.
   Type elmTy = getElementType(vType);
-  if (!isa<IntegerType>(elmTy) || (elmTy.getIntOrFloatBitWidth() != 64))
+  if (!elmTy.isSignlessInteger(64))
     return false;
 
   // Base case.
