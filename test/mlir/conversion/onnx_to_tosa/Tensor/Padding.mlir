@@ -31,7 +31,8 @@ func.func @test_novalue_pad(%arg0: tensor<20x16x44x32xf32>) ->  tensor<20x16x45x
     return %2 :   tensor<20x16x45x33xf32> 
 // CHECK-LABEL: test_novalue_pad
 // CHECK: %[[VAR0:.*]] = "tosa.const"() {value = dense<[{{\[}}0, 0], [0, 0], [1, 0], [1, 0]]> : tensor<4x2xi64>} : () -> tensor<4x2xi64>
-// CHECK: %[[VAR1:.*]] = "tosa.pad"(%arg0, %[[VAR0]])
+// CHECK: %[[VAR1:.*]] = "tosa.const"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
+// CHECK: "tosa.pad"(%arg0, %[[VAR0]], %[[VAR1]])
 }
 
 // -----
