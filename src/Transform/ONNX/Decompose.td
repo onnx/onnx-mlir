@@ -295,6 +295,20 @@ def ResizeV11Pattern: Pat<
                     $mode, $nearest_mode)
 >;
 
+def ResizeV13Pattern: Pat<
+   (ONNXResizeV13Op:$res $x, $roi, $scales, $size,
+                    $coordinate_transformation_node, $cubic_coeff_a,
+                    $exclude_outside, $extrapolation_value, $mode,
+                    $nearest_mode),
+   (ONNXResizeOp    $x, $roi, $scales, $size,
+                    /*antialias*/(GetNullIntegerAttr),
+                    /*axes*/(GetNullArrayAttr),
+                    $coordinate_transformation_node, $cubic_coeff_a,
+                    $exclude_outside, $extrapolation_value,
+                    /*keep_aspect_ratio_policy*/(GetNullStringAttr),
+                    $mode, $nearest_mode)
+>;
+
 def SequenceConstructPattern1: Pat<
     (ONNXSequenceConstructOp:$res $x1),
     (createSequenceConstructOp
@@ -323,14 +337,19 @@ def ClipV12Pattern : Pat<
 
 def SplitV11PatternNoAttr : Pat<
   (ONNXSplitV11Op $x, $axis, $split),
-  (ONNXSplitOp $x, (CreateNoneValue), $axis),
+  (ONNXSplitV13Op $x, (CreateNoneValue), $axis),
   [(AttributeIsNull:$split)], (addBenefit 1)
 >;
 
 def SplitV11Pattern : Pat<
   (ONNXSplitV11Op $x, $axis, $split),
-  (ONNXSplitOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $split)), $axis),
+  (ONNXSplitV13Op $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $split)), $axis),
   [], (addBenefit 0)
+>;
+
+def SplitV13Pattern : Pat<
+  (ONNXSplitV13Op $x, $split, $axis),
+  (ONNXSplitOp $x, $split, $axis, (GetNullIntegerAttr))
 >;
 
 def SqueezeV11PatternNoAttr : Pat<

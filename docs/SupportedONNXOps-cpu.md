@@ -30,10 +30,10 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **Bernoulli** | |unsupported | |
 | **Binarizer** | |unsupported | |
 | **BitShift** | |unsupported | |
-| **BitwiseAnd** | |unsupported | |
+| **BitwiseAnd** |18 | | |
 | **BitwiseNot** | |unsupported | |
-| **BitwiseOr** | |unsupported | |
-| **BitwiseXor** | |unsupported | |
+| **BitwiseOr** |18 | | |
+| **BitwiseXor** |18 | | |
 | **BlackmanWindow** | |unsupported | |
 | **Cast** |13 |Cast only between float and double types. | |
 | **CastLike** | |unsupported | |

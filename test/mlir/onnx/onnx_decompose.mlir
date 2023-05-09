@@ -268,15 +268,25 @@ func.func @test_resizev10(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<4xf32>) -> t
 
 // -----
 
-func.func @test_resizev11(%arg0: tensor<*xf32>, %arg1: tensor<*xi64>) -> tensor<*xf32> {
-  %0 = "onnx.NoValue"() {value} : () -> none
-  %1 = "onnx.Resize"(%arg0, %0, %0, %arg1) {coordinate_transformation_mode = "half_pixel", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize__697"} : (tensor<*xf32>, none, none, tensor<*xi64>) -> tensor<*xf32>
-  return %1 : tensor<*xf32>
+func.func @test_resizev11(%arg0: tensor<*xf32>, %arg1: tensor<*xf32>, %arg2: tensor<*xf32>, %arg3: tensor<*xi64>) -> tensor<*xf32> {
+  %0 = "onnx.ResizeV11"(%arg0, %arg1, %arg2, %arg3) {coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "nearest", nearest_mode = "floor"} : (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xi64>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
   // CHECK-LABEL:  func @test_resizev11
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<*xf32>, [[PARAM_2_:%.+]]: tensor<*xf32>, [[PARAM_3_:%.+]]: tensor<*xi64>) -> tensor<*xf32> {
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.Resize"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) {antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"} : (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>, tensor<*xi64>) -> tensor<*xf32>
+  // CHECK:           return [[VAR_1_]] : tensor<*xf32>
+}
+
+// -----
+
+func.func @test_resizev13(%arg0: tensor<*xf32>, %arg1: tensor<*xi64>) -> tensor<*xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.ResizeV13"(%arg0, %0, %0, %arg1) {coordinate_transformation_mode = "half_pixel", mode = "nearest", nearest_mode = "floor"} : (tensor<*xf32>, none, none, tensor<*xi64>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+  // CHECK-LABEL:  func @test_resizev13
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<*xi64>) -> tensor<*xf32> {
   // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"
-  // CHECK:           [[VAR_1_:%.+]] = "onnx.Resize"([[PARAM_0_]], [[VAR_0_]], [[VAR_0_]], [[PARAM_1_]]) {antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize__697"} : (tensor<*xf32>, none, none, tensor<*xi64>) -> tensor<*xf32>
-  // CHECK:           return [[VAR_1_]] : tensor<*xf32>
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.Resize"([[PARAM_0_]], [[VAR_0_]], [[VAR_0_]], [[PARAM_1_]])  {antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"} : (tensor<*xf32>, none, none, tensor<*xi64>) -> tensor<*xf32>
 }
 
 // -----
@@ -343,6 +353,19 @@ func.func @test_splitV11_no_split(%arg0 : tensor<*xf32>) -> () {
   // CHECK-LABEL:  func @test_splitV11_no_split
   // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK:           [[VAR_1_:%.+]] = "onnx.Split"(%arg0, %0) {axis = 1 : si64} : (tensor<*xf32>, none) -> tensor<*xf32>
+  // CHECK:           return
+}
+
+// -----
+
+func.func @test_splitV13(%arg0 : tensor<*xf32>) -> () {
+  %0 = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = "onnx.SplitV13"(%arg0, %0) {axis = 1 : si64} : (tensor<*xf32>, tensor<1xi64>) -> tensor<*xf32>
+  return
+
+  // CHECK-LABEL:  func @test_splitV13
+  // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.Split"(%arg0, %0) {axis = 1 : si64} : (tensor<*xf32>, tensor<1xi64>) -> tensor<*xf32>
   // CHECK:           return
 }
 
