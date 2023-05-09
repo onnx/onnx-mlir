@@ -15,6 +15,23 @@ func.func @test_div(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> ten
 
 // -----
 
+// COM: Binary ops use 3DS by default for rank 3.
+func.func @test_div_3ds(%arg0 : tensor<10x10x10xf32>, %arg1 : tensor<10x10x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Div"(%arg0, %arg1) : (tensor<10x10x10xf32>, tensor<10x10x10xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func @test_div_3ds
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10x10xf32>, [[PARAM_1_:%.+]]: tensor<10x10x10xf32>) -> tensor<10x10x10xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "3DS"} : (tensor<10x10x10xf32>) -> tensor<10x10x10xf32, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) {layout = "3DS"} : (tensor<10x10x10xf32>) -> tensor<10x10x10xf32, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_2_:%.+]] = "zhigh.Div"([[VAR_0_]], [[VAR_1_]]) : (tensor<10x10x10xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<10x10x10xf32, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<10x10x10xf32, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<10x10x10xf32, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<10x10x10xf32>
+// CHECK:           return [[VAR_3_]] : tensor<10x10x10xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM:  Do not lower broadcasting onnx.Div to zHigh.
 func.func @test_div_not_lowered_diff_shape(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Div"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10xf32>) -> tensor<*xf32>
