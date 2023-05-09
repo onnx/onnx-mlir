@@ -59,14 +59,25 @@ LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
   } else {
     // If split parameter is not specified, the dimension is split to
     // equal-sized parts.
+    bool hasNumOutputsAttr = std::is_same_v<OP_TYPE, ONNXSplitOp>;
+    // TODO figure out how to handle when numResults is determined by
+    // num_outputs attribute introduced for Split in opset 18
+    // Currently the whole graph depends on the number of outputs being
+    // determined at the ONNX to ONNX-MLIR ingestion stage.
     IndexExpr splitInputDim = createIE->getShapeAsDim(input, axisIndex);
     LiteralIndexExpr numOfPartitions(numOfResults);
     if (splitInputDim.isLiteral() &&
-        (splitInputDim.getLiteral() % numOfResults != 0))
+        (splitInputDim.getLiteral() % numOfResults != 0) && !hasNumOutputsAttr)
       return op->emitError("The dimension at the split axis is "
                            "expected to be divisible by the number of results");
+
+    unsigned numBiggerChunks = splitInputDim.isLiteral()
+                                   ? splitInputDim.getLiteral() % numOfResults
+                                   : numOfResults;
     for (unsigned int i = 0; i < numOfResults; ++i) {
-      IndexExpr splitDim = splitInputDim.ceilDiv(numOfPartitions);
+      IndexExpr splitDim = (i < numBiggerChunks)
+                               ? splitInputDim.ceilDiv(numOfPartitions)
+                               : splitInputDim.floorDiv(numOfPartitions);
       splitDims.emplace_back(splitDim);
     }
   }
@@ -90,6 +101,22 @@ LogicalResult ONNXCommonSplitOpShapeHelper<OP_TYPE>::customComputeShape(
 // Code for SplitOp compute shape.
 template <>
 LogicalResult ONNXSplitOpShapeHelper::computeShape() {
+  ONNXSplitOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  Value split = operandAdaptor.getSplit();
+  SmallVector<IndexExpr, 4> indexExprArray;
+  if (isNoneValue(split)) {
+    // None is fine, indexExprArray will be empty.
+  } else {
+    createIE->getIntFromArrayAsSymbols(split, indexExprArray);
+    assert(IndexExpr::isLiteral(indexExprArray) &&
+           "dynamic split not yet supported");
+  }
+  return customComputeShape(indexExprArray);
+}
+
+// Code for SplitV13Op compute shape.
+template <>
+LogicalResult ONNXSplitV13OpShapeHelper::computeShape() {
   ONNXSplitOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   Value split = operandAdaptor.getSplit();
   SmallVector<IndexExpr, 4> indexExprArray;
@@ -157,6 +184,19 @@ LogicalResult ONNXSplitOp::inferShapes(
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
+LogicalResult ONNXSplitV13Op::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  // Cannot infer the output shape if the input shape isn't known yet.
+  if (!hasShapeAndRank(getInput()))
+    return success();
+
+  auto inputType = getInput().getType().cast<ShapedType>();
+  Type elementType = inputType.getElementType();
+  ONNXSplitV13OpShapeHelper shapeHelper(getOperation(), {});
+  // Same time for all results.
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+}
+
 LogicalResult ONNXSplitV11Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape isn't known yet.
@@ -180,5 +220,6 @@ LogicalResult ONNXSplitV11Op::inferShapes(
 
 namespace onnx_mlir {
 template struct ONNXCommonSplitOpShapeHelper<ONNXSplitOp>;
+template struct ONNXCommonSplitOpShapeHelper<ONNXSplitV13Op>;
 template struct ONNXCommonSplitOpShapeHelper<ONNXSplitV11Op>;
 } // namespace onnx_mlir

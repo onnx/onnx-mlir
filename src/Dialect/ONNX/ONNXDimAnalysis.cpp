@@ -96,7 +96,8 @@ bool exploreSameInputDims(const onnx_mlir::DimAnalysis::DimT &dim,
   // Get its shape interface.
   onnx_mlir::ONNXOpShapeHelper *shapeHelper =
       shape_op.getShapeHelper(op, {}, nullptr, nullptr);
-  if (!shapeHelper)
+  // If no shape helper, or unimplemented, just abort.
+  if (!shapeHelper || !shapeHelper->isImplemented())
     return false;
 
   // Compute shape.
@@ -163,18 +164,26 @@ void DimAnalysis::build(Value val) {
   }
 }
 
+static bool handleAndTestInBound(int64_t &axis, ShapedType type) {
+  int64_t rank = type.getRank();
+  if (axis < 0)
+    axis += rank;
+  return axis >= 0 && axis < rank;
+}
+
 bool DimAnalysis::sameDim(
-    Value tensor1, uint64_t dimAxis1, Value tensor2, uint64_t dimAxis2) const {
+    Value tensor1, int64_t dimAxis1, Value tensor2, int64_t dimAxis2) const {
+  // Handle negative axis and test if in bound.
+  ShapedType tensor1Type = tensor1.getType().cast<ShapedType>();
+  ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
+  if (!handleAndTestInBound(dimAxis1, tensor1Type) ||
+      !handleAndTestInBound(dimAxis2, tensor2Type))
+    return false;
   // Same tensor, same axis.
   if ((tensor1 == tensor2) && (dimAxis1 == dimAxis2))
     return true;
-
-  ShapedType tensor1Type = tensor1.getType().cast<ShapedType>();
-  ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
-  if (!tensor1Type.hasRank() || !tensor2Type.hasRank())
-    return false;
-  int64_t dim1 = tensor1Type.getShape()[dimAxis1];
-  int64_t dim2 = tensor2Type.getShape()[dimAxis2];
+  int64_t dim1 = tensor1Type.getShape()[(uint64_t)dimAxis1];
+  int64_t dim2 = tensor2Type.getShape()[(uint64_t)dimAxis2];
   // Both dims are static.
   if (!ShapedType::isDynamic(dim1) && !ShapedType::isDynamic(dim2))
     return (dim1 == dim2);
@@ -186,13 +195,18 @@ bool DimAnalysis::sameDim(
 }
 
 bool DimAnalysis::sameDynDim(
-    Value tensor1, uint64_t dimAxis1, Value tensor2, uint64_t dimAxis2) const {
+    Value tensor1, int64_t dimAxis1, Value tensor2, int64_t dimAxis2) const {
+  // Handle negative axis and test if in bound.
+  ShapedType tensor1Type = tensor1.getType().cast<ShapedType>();
+  ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
+  if (!handleAndTestInBound(dimAxis1, tensor1Type) ||
+      !handleAndTestInBound(dimAxis2, tensor2Type))
+    return false;
   // Same tensor, same axis.
   if ((tensor1 == tensor2) && (dimAxis1 == dimAxis2))
     return true;
-
-  DimT dim1(tensor1, dimAxis1);
-  DimT dim2(tensor2, dimAxis2);
+  DimT dim1(tensor1, (uint64_t)dimAxis1);
+  DimT dim2(tensor2, (uint64_t)dimAxis2);
   // Two dims are the same if they are in the same set.
   for (auto &entry : dimSetMap) {
     DimSetT dims = entry.second;

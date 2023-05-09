@@ -34,6 +34,7 @@ namespace test {
 //    ONNXAddOp
 //    ONNXDivOp
 //    ONNXHardSigmoidOp
+//    ONNXErFop
 
 const float alphaVal = 2.0;
 const float betaVal = 0.5;
@@ -41,7 +42,10 @@ const float betaVal = 0.5;
 Elementwise2DLibBuilder::Elementwise2DLibBuilder(const std::string &modelName,
     const std::string &onnxOpName, const int I, const int J)
     : ModelLibBuilder(modelName), onnxOpName(onnxOpName), I(I), J(J),
-      inputNum((onnxOpName.compare("ONNXHardSigmoidOp") == 0) ? 1 : 2) {}
+      inputNum(((onnxOpName.compare("ONNXHardSigmoidOp") == 0) ||
+                   (onnxOpName.compare("ONNXErfOp") == 0))
+                   ? 1
+                   : 2) {}
 
 bool Elementwise2DLibBuilder::build() {
   llvm::SmallVector<int64_t, 4> shape = {I, J};
@@ -69,6 +73,10 @@ bool Elementwise2DLibBuilder::build() {
       FloatAttr beta = builder.getFloatAttr(elementType, betaVal);
       auto op =
           builder.create<ONNXHardSigmoidOp>(loc, yType, aVal, alpha, beta);
+      results.emplace_back(op.getResult());
+    } else if (onnxOpName.compare("ONNXErfOp") == 0) {
+      // Erf.
+      auto op = builder.create<ONNXErfOp>(loc, yType, aVal);
       results.emplace_back(op.getResult());
     } else
       llvm_unreachable("unsupported unary elementwise op");
@@ -164,6 +172,11 @@ bool Elementwise2DLibBuilder::verifyOutputs() {
         float val = a * alphaVal + betaVal;
         val = (val > 0.0) ? val : 0.0;
         val = (val < 1.0) ? val : 1.0;
+        return val;
+      };
+    else if (onnxOpName.compare("ONNXErfOp") == 0)
+      fct = [](float a) -> float {
+        float val = erf(a);
         return val;
       };
     else

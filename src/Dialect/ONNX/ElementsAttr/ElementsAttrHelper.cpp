@@ -60,7 +60,12 @@ ArrayBuffer<WideNum> getElementsWideNums(ElementsAttr elms) {
   if (auto disposable = elms.dyn_cast<DisposableElementsAttr>())
     return disposable.getWideNums();
 
-  // TODO: If elms is DenseElementsAttr and elm type is wide, return raw data.
+  // Return raw data if non-splat DenseElementsAttr and element type is wide.
+  if (auto dense = elms.dyn_cast<DenseElementsAttr>()) {
+    auto isWideType = [](Type t) { return t.isInteger(64) || t.isF64(); };
+    if (isWideType(dense.getElementType()) && !dense.isSplat())
+      return castArrayRef<WideNum>(dense.getRawData());
+  }
 
   ArrayBuffer<WideNum>::Vector dst;
   dst.resize_for_overwrite(elms.size());

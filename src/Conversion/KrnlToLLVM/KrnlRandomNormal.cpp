@@ -17,6 +17,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -32,7 +33,7 @@ namespace krnl {
 class KrnlRandomNormalOpLowering : public ConversionPattern {
 public:
   explicit KrnlRandomNormalOpLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConversionPattern(typeConverter, KrnlRandomNormalOp::getOperationName(),
             1, context) {}
 
@@ -81,10 +82,10 @@ private:
     //  (memref<3x4x5xf64>, index, f64, f64, f64)
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
     Type llvmOptionsTy = FloatType::getF32(context);
-    Type llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
+    Type llvmOutputTy = getPointerType(context, llvmOptionsTy);
     if (inType.isF64()) {
       llvmOptionsTy = FloatType::getF64(context);
-      llvmOutputTy = LLVM::LLVMPointerType::get(llvmOptionsTy);
+      llvmOutputTy = getPointerType(context, llvmOptionsTy);
     }
     Type llvmI64Ty = IntegerType::get(context, 64);
     return create.llvm.getOrInsertSymbolRef(module, functionName, llvmVoidTy,
@@ -92,7 +93,7 @@ private:
   }
 };
 
-void populateLoweringKrnlRandomNormalOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlRandomNormalOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlRandomNormalOpLowering>(typeConverter, ctx);
 }
