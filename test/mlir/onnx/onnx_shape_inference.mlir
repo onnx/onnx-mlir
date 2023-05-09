@@ -1363,6 +1363,32 @@ func.func @test_split_5(%arg0 : tensor<16x?x64xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func @test_split_6(%arg0 : tensor<16x39x64xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0, %1 = "onnx.Split"(%arg0, %cst) { axis = 1 : si64, num_outputs = 2 : si64} : (tensor<16x39x64xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_split_6
+  // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK-NEXT: [[RES:%.+]]:2 = "onnx.Split"(%arg0, [[CST]]) {axis = 1 : si64, num_outputs = 2 : si64} : (tensor<16x39x64xf32>, none) -> (tensor<16x20x64xf32>, tensor<16x19x64xf32>)
+  // CHECK: return [[RES]]#0 : tensor<16x20x64xf32>
+}
+
+// -----
+
+func.func @test_split_7(%arg0 : tensor<16x38x64xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0, %1, %2 = "onnx.Split"(%arg0, %cst) { axis = 1 : si64, num_outputs = 3 : si64} : (tensor<16x38x64xf32>, none) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_split_7
+  // CHECK: [[CST:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK-NEXT: [[RES:%.+]]:3 = "onnx.Split"(%arg0, [[CST]]) {axis = 1 : si64, num_outputs = 3 : si64} : (tensor<16x38x64xf32>, none) -> (tensor<16x13x64xf32>, tensor<16x13x64xf32>, tensor<16x12x64xf32>)
+  // CHECK: return [[RES]]#0 : tensor<16x13x64xf32>
+}
+
+// -----
+
 func.func @test_splitv11_1(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
   %0, %1 = "onnx.SplitV11"(%arg0) { axis = 1 : si64} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -3547,3 +3573,25 @@ module {
 // CHECK:         }
   }
 }
+
+// -----
+
+// Check that ClipV6 operation shape inference goes through shape inference smoothly.
+// ClipV6 has no shape inference as it is supposed to be first updated to the latest ClipOp.
+// Using the latest shape inference, the default is to let unimplemented ops go through shape
+// inference without asserts/failures. Asserts only occurs when the results of the shape
+// inference is used.
+// The output shoudl be the same as the input, as no shape inference is expected to be performed.
+
+func.func @test_clipv6(%arg0: tensor<*xf32>) {
+  %0 = "onnx.ClipV6"(%arg0) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<*xf32>) -> tensor<*xf32>
+  return
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_clipv6
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ClipV6"([[PARAM_0_]]) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           return
+// CHECK:         }
+}
+

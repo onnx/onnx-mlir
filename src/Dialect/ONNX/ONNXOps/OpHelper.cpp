@@ -559,7 +559,8 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
 }
 
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(ONNXConstantOp constantOp, Type type) {
+RESULT_TYPE getScalarValue(ONNXConstantOp constantOp) {
+  Type type = constantOp.getType();
   ElementsAttr attr = constantOp.getValueAttr().dyn_cast<ElementsAttr>();
   if (!attr)
     constantOp.emitError("ElementsAttr expected");
@@ -568,8 +569,8 @@ RESULT_TYPE getScalarValue(ONNXConstantOp constantOp, Type type) {
 
 // Template instantiation for getScalarValue
 
-template double getScalarValue<double>(ONNXConstantOp constantOp, Type type);
-template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp, Type type);
+template double getScalarValue<double>(ONNXConstantOp constantOp);
+template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp);
 
 // Convert type to MLIR type.
 // A complete list of types can be found in:
@@ -620,6 +621,8 @@ Type convertONNXTypeToMLIRType(
 // Convert an MLIR type to the corresponding ONNX type.
 int64_t mlirTypeToOnnxType(Type elemType) {
   onnx::TensorProto::DataType onnxType = onnx::TensorProto::UNDEFINED;
+  if (!elemType)
+    return onnxType;
 
   TypeSwitch<Type>(elemType)
       .Case<BFloat16Type>(

@@ -9,6 +9,9 @@
 // Defines language-specific pattern match optimizations for ONNX using
 // Declarative Rewrite Rules (DRR) specified using TableGen records.
 //
+// When adding a canonicalizer for a new operation, please add that operation to
+// the OpsWithCanonicalizer list in utils/gen_onnx_mlir.py
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_REWRITE
@@ -409,10 +412,11 @@ def CastEliminationPattern : Pat<
 	(replaceWithValue $arg),
   [(HasSameElementType $arg, $type)]>;
 
-// onnx.Cast (onnx.Cast (%X, $type1)), $type2 = onnx.Cast (%X, $typ2)
-def FuseCastCastPattern : Pat<
-	(ONNXCastOp (ONNXCastOp $arg, $_), $type),
-	(ONNXCastOp $arg, $type)>;
+// TODO: Reintroduce pattern for sound type combinations, see issue #2210.
+//// onnx.Cast (onnx.Cast (%X, $type1)), $type2 = onnx.Cast (%X, $type2)
+//def FuseCastCastPattern : Pat<
+//  (ONNXCastOp (ONNXCastOp $arg, $_), $type),
+//  (ONNXCastOp $arg, $type)>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXLayoutTransformOp

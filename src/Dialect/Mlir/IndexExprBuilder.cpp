@@ -38,6 +38,7 @@ namespace {
 
 // Get scalar value regardless of the type.
 // Code adapted from src/Dialect/ONNX/ONNXOps/OpHelper.cpp file.
+// Take here the ith value; in OpHelper.cpp, it was taking the first only.
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(ElementsAttr &elementsAttr, Type type, uint64_t i) {
   Type elementaryType = getElementTypeOrSelf(type);

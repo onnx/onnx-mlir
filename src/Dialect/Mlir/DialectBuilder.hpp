@@ -114,8 +114,9 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value exp2(mlir::Value val) const;                      // Float only.
   mlir::Value floor(mlir::Value val) const;                     // Float only.
   mlir::Value floorDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
-  mlir::Value log(mlir::Value val) const;                       // Float only.
-  mlir::Value log2(mlir::Value val) const;                      // Float only.
+  mlir::Value fma(mlir::Value lhs, mlir::Value rhs, mlir::Value acc) const;
+  mlir::Value log(mlir::Value val) const;  // Float only.
+  mlir::Value log2(mlir::Value val) const; // Float only.
   mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value neg(mlir::Value val) const;
   mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
@@ -284,8 +285,10 @@ struct MemRefBuilder final : DialectBuilder {
   // Reshapes.
   mlir::memref::ReshapeOp reshape(mlir::MemRefType destType,
       mlir::Value valToReshape, mlir::Value destShapeStoredInMem) const;
-  mlir::memref::ReshapeOp reshapeToFlat(mlir::Value valToReshape,
-      llvm::SmallVectorImpl<IndexExpr> &nDims, mlir::Value &size1D) const;
+  // Flatten dimsToFlatten innermost dimensions, -1 means all.
+  mlir::Value reshapeToFlat(mlir::Value valToReshape,
+      llvm::SmallVectorImpl<IndexExpr> &nDims, mlir::Value &flattenedSize,
+      int64_t dimsToFlatten = -1) const;
   mlir::memref::ReshapeOp reshapeFromFlat(mlir::Value valToReshape,
       llvm::SmallVectorImpl<IndexExpr> &nDims,
       mlir::MemRefType outputType) const;
@@ -494,13 +497,11 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value addressOf(mlir::LLVM::GlobalOp op) const;
 
   // AllocaOp
-  mlir::Value _alloca(
-      mlir::Type resultType, mlir::Value size, int64_t alignment) const;
+  mlir::Value _alloca(mlir::Type resultType, mlir::Type elementType,
+      mlir::Value size, int64_t alignment) const;
 
   // BitcastOp
   mlir::Value bitcast(mlir::Type type, mlir::Value val) const;
-  mlir::Value bitcastI8Ptr(mlir::Value val) const;
-  mlir::Value bitcastI8PtrPtr(mlir::Value val) const;
 
   // BrOp
   void br(
@@ -530,8 +531,8 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type) const;
 
   // GEPOp
-  mlir::Value getElemPtr(mlir::Type resultType, mlir::Value base,
-      llvm::ArrayRef<mlir::Value> indices) const;
+  mlir::Value getElemPtr(mlir::Type resultType, mlir::Type elemType,
+      mlir::Value base, llvm::ArrayRef<mlir::LLVM::GEPArg> indices) const;
 
   // GlobalOp
   mlir::LLVM::GlobalOp globalOp(mlir::Type resultType, bool isConstant,
@@ -550,14 +551,13 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value inttoptr(mlir::Type type, mlir::Value val) const;
 
   // LoadOp
-  mlir::Value load(mlir::Value addr) const;
+  mlir::Value load(mlir::Type elementType, mlir::Value addr) const;
 
   // MulOp
   mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
 
   // NullOp
   mlir::Value null(mlir::Type type) const;
-  mlir::Value nullI8Ptr() const;
 
   // Ptrtoint
   mlir::Value ptrtoint(mlir::Type type, mlir::Value val) const;
