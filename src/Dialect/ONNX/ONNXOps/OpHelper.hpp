@@ -225,7 +225,7 @@ template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
 
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp, mlir::Type type);
+RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp);
 
 mlir::Type convertONNXTypeToMLIRType(
     mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);

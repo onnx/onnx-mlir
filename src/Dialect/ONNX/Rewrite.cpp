@@ -11,12 +11,16 @@
 // This file implements a set of rewriters for operations in the ONNX dialect
 // that can be rewritten by using other ONNX operations.
 //
+// When adding a canonicalizer for a new operation, please add that operation to
+// the OpsWithCanonicalizer list in utils/gen_onnx_mlir.py
+//
 //===----------------------------------------------------------------------===//
 
 #include <math.h>
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/SmallSet.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -479,6 +483,10 @@ private:
   }
 };
 
+// =============================================================================
+// Rewrite pattern for RNNs
+// =============================================================================
+
 namespace {
 // RNNOpRewriteLayoutPattern helper functions and classes.
 
@@ -587,6 +595,81 @@ public:
 
     return success();
   }
+};
+
+// =============================================================================
+// Rewrite pattern for Power
+// =============================================================================
+
+class PowToMulRewritePattern : public OpRewritePattern<ONNXPowOp> {
+public:
+  using OpRewritePattern<ONNXPowOp>::OpRewritePattern;
+
+  PowToMulRewritePattern(MLIRContext *context, int64_t maxPower)
+      : OpRewritePattern(context), maxPower(maxPower) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXPowOp powOp, PatternRewriter &rewriter) const override {
+    Operation *op = powOp.getOperation();
+    Location loc = powOp.getLoc();
+    int64_t exponent;
+    // Test legality
+    if (!CanExpandPowOpToMul(powOp, exponent))
+      return failure();
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value input = powOp.getX();
+
+    Value result = nullptr;
+    ShapedType resultType = powOp.getZ().getType().cast<ShapedType>();
+    Type elementType = getElementType(resultType);
+    if (exponent == 0) {
+      Attribute one = isa<FloatType>(elementType)
+                          ? (Attribute)rewriter.getFloatAttr(elementType, 1.0)
+                          : (Attribute)rewriter.getIntegerAttr(elementType, 1);
+      result = create.onnx.constant(DenseElementsAttr::get(resultType, one));
+    } else {
+      // calculate pow(input,exponent) with "exponentiation by squaring" method
+      while (true) {
+        if (exponent & 1)
+          result = result ? create.onnx.mul(resultType, result, input) : input;
+        exponent >>= 1;
+        if (exponent == 0)
+          break;
+        input = create.onnx.mul(resultType, input, input);
+      }
+      assert(result && "should have a result here");
+    }
+
+    rewriter.replaceOp(op, {result});
+    return success();
+  };
+
+private:
+  // Check if a Pow can be simply rewritten as a sequence of multiply ops.
+  bool CanExpandPowOpToMul(ONNXPowOp op, int64_t &powVal) const {
+    Value exponent = op.getY();
+    ElementsAttr elementAttr = getElementAttributeFromONNXValue(exponent);
+    if (!elementAttr)
+      return false;
+    if (elementAttr.getNumElements() != 1)
+      return false;
+    Type elementType = elementAttr.getElementType();
+    if (elementType.isa<FloatType>()) {
+      double floatVal = getScalarValue<double>(elementAttr, elementType);
+      powVal = ceil(floatVal);
+      if (powVal == floatVal && powVal >= 0 && powVal <= maxPower)
+        return true;
+    } else if (elementType.isa<IntegerType>()) {
+      powVal = getScalarValue<int64_t>(elementAttr, elementType);
+      if (powVal >= 0 && powVal <= maxPower)
+        return true;
+    }
+    return false;
+  }
+  // Data.
+  int64_t maxPower;
 };
 
 // =============================================================================
@@ -815,4 +898,10 @@ void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeV11SqueezeV11Pattern>(context);
   result.insert<RemoveUnsqueezeV11CastSqueezeV11Pattern>(context);
+}
+
+void ONNXPowOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  // Is 64 necessary? Maybe too high?
+  result.insert<PowToMulRewritePattern>(context, 64);
 }
