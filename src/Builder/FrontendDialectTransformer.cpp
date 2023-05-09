@@ -84,7 +84,7 @@ public:
     if (VerboseOutput) {
       llvm::outs()
           << "The ONNX model has " << num_of_parameters_
-          << "elements in its initializers. This value would be close to and "
+          << " elements in its initializers. This value would be close to and "
              "greater than the number of parameters in the model. Because "
              "there is no way to exactly count the number of parameters, this "
              "value can be used to have a rough idea of the number of "
