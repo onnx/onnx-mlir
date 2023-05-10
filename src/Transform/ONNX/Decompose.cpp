@@ -768,8 +768,11 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXPadV2Op>();
   target.addIllegalOp<ONNXPadV11Op>();
+  target.addIllegalOp<ONNXPadV13Op>();
   target.addIllegalOp<ONNXReduceL1Op>();
+  target.addIllegalOp<ONNXReduceL1V13Op>();
   target.addIllegalOp<ONNXReduceL2Op>();
+  target.addIllegalOp<ONNXReduceL2V13Op>();
   target.addIllegalOp<ONNXReduceLogSumOp>();
   target.addIllegalOp<ONNXReduceLogSumExpOp>();
   target.addIllegalOp<ONNXReduceSumSquareOp>();

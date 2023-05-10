@@ -92,23 +92,21 @@ public:
     mlir::Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
 
+    float valueFloat = 0.0F;
     if (!constValue.getType().dyn_cast<NoneType>()) {
       auto valueAttr =
           tosa::getValueFromTosaConst<ElementsAttr>(constValue);
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
       // Need float for F32 Type
-      float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
-      auto constType = RankedTensorType::get({}, rewriter.getF32Type());
-      auto constAttr = DenseElementsAttr::get(constType, valueFloat);
-      Value constTosaTensor = rewriter.create<mlir::tosa::ConstOp>(
-          op->getLoc(), constType, constAttr);
-
-      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
-          op, resultType, data, padsList1, constTosaTensor);
-    } else {
-      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
-          op, resultType, data, padsList1);
+      valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
     }
+    auto constType = RankedTensorType::get({}, rewriter.getF32Type());
+    auto constAttr = DenseElementsAttr::get(constType, valueFloat);
+    Value constTosaTensor = rewriter.create<mlir::tosa::ConstOp>(
+        op->getLoc(), constType, constAttr);
+
+    rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
+        op, resultType, data, padsList1, constTosaTensor);
 
     return success();
   }

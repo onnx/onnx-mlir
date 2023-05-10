@@ -22,7 +22,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
-#include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -799,9 +799,8 @@ void ConstPropSliceImpl(ShapedType outputType,
     start += shapeHelper.starts[axis].getLiteral() * inputStrides[axis];
     steps[axis] = shapeHelper.steps[axis].getLiteral() * inputStrides[axis];
   }
-  for (StridesIterator<1> it(outputShape, {steps}), end(outputShape); it != end;
-       ++it)
-    outputData[it->flattenedIndex] = *(start + it->pos[0]);
+  for (auto &idxpos : StridesRange<1>(outputShape, {steps}))
+    outputData[idxpos.flattenedIndex] = *(start + idxpos[0]);
 }
 
 Value ConstPropSlice(
@@ -966,9 +965,8 @@ Value ConstPropReshape(
 Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
     Value shape, Attribute value) {
   ConstPropCounters::count("ConstantOfShape", {shape});
-  ElementsAttr shapeAttr =
-      getONNXConstantOp(shape).getValueAttr().cast<ElementsAttr>();
-  llvm::SmallVector<int64_t, 4> shapeVector(shapeAttr.getValues<int64_t>());
+  ElementsAttr shapeElements = getConstValueElements(shape);
+  llvm::SmallVector<int64_t, 4> shapeVector(shapeElements.getValues<int64_t>());
 
   // ONNXConstantOfShapeOp::inferShapes() makes sure that the 'value' attribute
   // here is specified
@@ -979,6 +977,35 @@ Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
       shapeVector.empty() ? elementsBuilder.reshape(constElements, shapeVector)
                           : elementsBuilder.expand(constElements, shapeVector);
   return createReplacingConstantOp(rewriter, replacingValue, expandedElements);
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for Range.
+//===----------------------------------------------------------------------===//
+
+WideNum getScalarNum(Value constValue) {
+  ElementsAttr elements = getConstValueElements(constValue);
+  Type elementType = elements.getElementType();
+  if (isa<FloatType>(elementType)) {
+    APFloat f = *elements.value_begin<APFloat>();
+    return WideNum::fromAPFloat(f);
+  } else if (auto itype = dyn_cast<IntegerType>(elementType)) {
+    APInt i = *elements.value_begin<APInt>();
+    return WideNum::fromAPInt(i, !itype.isUnsigned());
+  } else {
+    llvm_unreachable("Only integer and float types are supported");
+  }
+}
+
+Value ConstPropRange(PatternRewriter &rewriter, Value replacingValue,
+    Value start, Value limit, Value delta) {
+  ConstPropCounters::count("Range", {start});
+  ShapedType replacingType = replacingValue.getType().cast<ShapedType>();
+
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr rangeElements = elementsBuilder.range(
+      replacingType, getScalarNum(start), getScalarNum(delta));
+  return createReplacingConstantOp(rewriter, replacingValue, rangeElements);
 }
 
 //===----------------------------------------------------------------------===//

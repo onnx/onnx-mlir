@@ -25,17 +25,9 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-namespace {
-
-struct IsFloat {
-  static LogicalResult checkType(
-      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!isTOSAFloat(scalarType)) {
-      return rewriter.notifyMatchFailure(
-          op, "this operation only support float types");
-    }
-    return success();
-  }
+template <>
+struct TOSADialectOp<ONNXNegOp> {
+  using Op = mlir::tosa::NegateOp;
 };
 
 struct IsIntOrFloat {
@@ -218,8 +210,6 @@ public:
   }
 };
 
-} // namespace
-
 static void populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
@@ -235,19 +225,19 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp,
                       mlir::tosa::NegateOp, IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXCeilOp, mlir::tosa::CeilOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXFloorOp, mlir::tosa::FloorOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXExpOp, mlir::tosa::ExpOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXLogOp, mlir::tosa::LogOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXReciprocalOp,
-          mlir::tosa::ReciprocalOp, IsFloat, IsFloat>,
+          mlir::tosa::ReciprocalOp, IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXTanhOp, mlir::tosa::TanhOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXSigmoidOp, mlir::tosa::SigmoidOp,
-          IsFloat, IsFloat>>(typeConverter, ctx);
+          IsIntOrFloat, IsIntOrFloat>>(typeConverter, ctx);
 }
 
 void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,

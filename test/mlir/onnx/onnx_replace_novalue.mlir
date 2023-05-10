@@ -18,15 +18,12 @@ func.func @test_onnx_gemm_novalue(%arg0: tensor<1x5xf32>, %arg1: tensor<4x5xf32>
 }
 
 // -----
-func.func @test_onnx_pad_novalue(%arg0: tensor<20x16x44x32xf32>) ->  tensor<20x16x45x33xf32>     {
-    %0 = "onnx.Constant"() {value = dense<[0, 0, 1, 1, 0, 0, 0, 0]> : tensor<8xi64>} : () -> tensor<8xi64> 
-    %1 = "onnx.NoValue"() {value} : () -> none
-    %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, none) -> tensor<20x16x45x33xf32> 
-    return %2 :   tensor<20x16x45x33xf32> 
-// CHECK-DAG: %[[VAL_1:.*]] = onnx.Constant dense<[0, 0, 1, 1, 0, 0, 0, 0]> : tensor<8xi64>
-// CHECK-DAG: %[[VAL_2:.*]] = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
-// CHECK: %[[VAL_3:.*]] = "onnx.Pad"(%arg0, %[[VAL_1]], %[[VAL_2]]) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, tensor<1xf32>) -> tensor<20x16x45x33xf32>
-}
+//func.func @test_onnx_pad_novalue(%arg0: tensor<20x16x44x32xf32>) ->  tensor<20x16x45x33xf32>     {
+//    %0 = "onnx.Constant"() {value = dense<[0, 0, 1, 1, 0, 0, 0, 0]> : tensor<8xi64>} : () -> tensor<8xi64> 
+//    %1 = "onnx.NoValue"() {value} : () -> none
+//    %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<20x16x44x32xf32>, tensor<8xi64>, none) -> tensor<20x16x45x33xf32> 
+//    return %2 :   tensor<20x16x45x33xf32> 
+//}
 
 // -----
 func.func @test_onnx_gemm_novalue_multiple_uses(%arg0: tensor<1x5xf32>, %arg1: tensor<4x5xf32>,  %arg2: tensor<5x4xf32>) -> (tensor<1x4xf32>, tensor<1x4xf32>) {

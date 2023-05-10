@@ -39,6 +39,7 @@ int64_t convertNegativeAxis(int64_t axis, int64_t inputRank);
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding = {});
 
+// Returns the value TOSA ConstOp
 template <typename T>
 T getValueFromTosaConst(mlir::Value &val) {
   return val.getDefiningOp<mlir::tosa::ConstOp>().getValue().cast<T>();
