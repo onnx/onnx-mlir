@@ -83,6 +83,33 @@ llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
   return llvm::SmallVector<int64_t>{xAxis, yAxis};
 }
 
+// Create an ArrayAttr of pad from \p shapeHelper using \p padIndexOrder.
+// Values are calculated considering \p ceilMode.
+template <typename ShapeHelperType>
+mlir::ArrayAttr createOrderedPadAttr(mlir::PatternRewriter &rewriter,
+    const llvm::ArrayRef<int64_t> inputShape,
+    const ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
+    const int64_t ceilMode, const llvm::ArrayRef<int64_t> padIndexOrder) {
+
+  // When ceil mode is 1, we need to add values to the padding
+  const llvm::SmallVector<int64_t, 4> ceilConstants =
+      getCeilConstants<ShapeHelperType>(inputShape, shapeHelper, ceilMode);
+
+  // Convert padding to an array
+  llvm::SmallVector<int64_t, 4> pads =
+      tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
+
+  // Create the right order for the pad according to padIndexOrder
+  llvm::SmallVector<int64_t, 4> padOrder;
+  for (auto idx : padIndexOrder) {
+    padOrder.push_back(pads[idx]);
+  }
+
+  // reorder padding according to the passed order and considering ceilMode.
+  return rewriter.getI64ArrayAttr({padOrder[0], padOrder[1] + ceilConstants[0],
+      padOrder[2], padOrder[3] + ceilConstants[1]});
+}
+
 // Lower MaxPool and AveragePool to TOSA ops.
 template <typename ONNXPoolOp, typename TOSAPoolOp>
 llvm::Optional<mlir::Value> convertPoolOp(
@@ -105,7 +132,6 @@ llvm::Optional<mlir::Value> convertPoolOp(
   }
 
   mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
-  const int64_t ceilMode = adaptor.ceil_mode();
 
   // Construct the transposed type for the new Pool OP
   mlir::Type newResultType = mlir::RankedTensorType::get(
@@ -116,15 +142,9 @@ llvm::Optional<mlir::Value> convertPoolOp(
   // transpose to change the format
   input = tosaBuilder.transpose(input, {0, 2, 3, 1});
 
-  // When ceil mode is 1, we need to add values to the padding
-  const llvm::SmallVector<int64_t, 4> ceilConstants =
-      getCeilConstants<ONNXPoolOp>(inputType.getShape(), shapeHelper, ceilMode);
-  llvm::SmallVector<int64_t, 4> pads =
-      tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
-
   // reorder padding values
-  mlir::ArrayAttr newPads = rewriter.getI64ArrayAttr({pads[0],
-      pads[2] + ceilConstants[0], pads[1], pads[3] + ceilConstants[1]});
+  mlir::ArrayAttr newPads = createOrderedPadAttr(rewriter,
+      inputType.getShape(), shapeHelper, adaptor.ceil_mode(), {0, 2, 1, 3});
 
   mlir::ArrayAttr strides = rewriter.getI64ArrayAttr(shapeHelper.strides);
 
