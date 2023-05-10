@@ -192,6 +192,10 @@ int main(int argc, char **argv) {
 
   auto passManagerSetupFn = [&](PassManager &pm) {
     mlir::MLIRContext *ctx = pm.getContext();
+    registerDialects(*ctx);
+    ctx->getOrLoadDialect<mlir::tosa::TosaDialect>();
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
+      accel->getOrLoadDialects(*ctx);
     pm.addInstrumentation(std::make_unique<DisposableGarbageCollector>(ctx));
     auto errorHandler = [ctx](const Twine &msg) {
       emitError(UnknownLoc::get(ctx)) << msg;
@@ -199,11 +203,10 @@ int main(int argc, char **argv) {
     };
     return passPipeline.addToPipeline(pm, errorHandler);
   };
-  // TODO(imaihal): Change preloadDialectsInContext to false.
   if (failed(
           mlir::MlirOptMain(output->os(), std::move(file), passManagerSetupFn,
               registry, split_input_file, verify_diagnostics, verify_passes,
-              allowUnregisteredDialects, /*preloadDialectsInContext*/ true,
+              allowUnregisteredDialects, /*preloadDialectsInContext*/ false,
               /*emitBytecode*/ false, /*explicitModule*/ false)))
     return mlir::asMainReturnCode(failure());
 
