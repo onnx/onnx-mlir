@@ -203,7 +203,6 @@ int main(int argc, char **argv) {
     };
     return passPipeline.addToPipeline(pm, errorHandler);
   };
-  // TODO(imaihal): Change preloadDialectsInContext to false.
   if (failed(
           mlir::MlirOptMain(output->os(), std::move(file), passManagerSetupFn,
               registry, split_input_file, verify_diagnostics, verify_passes,
