@@ -13,8 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <filesystem>
-
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -73,8 +71,7 @@ public:
         if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
           name += nameLocIt.getName().str() + "-";
         else if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
-          std::filesystem::path p = fileLineColLoc.getFilename().str();
-          name += p.filename().string() + ":" +
+          name += getFileName(fileLineColLoc.getFilename().str()) + ":" +
                   std::to_string(fileLineColLoc.getLine()) + "-";
         }
       }
@@ -85,8 +82,7 @@ public:
       loc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(loc).getName();
     } else if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
-      std::filesystem::path p = fileLineColLoc.getFilename().str();
-      std::string name = p.filename().string() + ":" +
+      std::string name = getFileName(fileLineColLoc.getFilename().str()) + ":" +
                          std::to_string(fileLineColLoc.getLine());
       loc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(loc).getName();
@@ -114,6 +110,21 @@ private:
     return create.llvm.getOrInsertSymbolRef(module,
         StringRef("OMInstrumentPoint"), llvmVoidTy,
         {opaquePtrTy, llvmI64Ty, opaquePtrTy});
+  }
+
+  // Extract file name from path
+  // Using std::filesystem::path::filename in C++17 is smart, but C++17 not
+  // supported in Jenkins test on some platforms now.
+  std::string getFileName(std::string path) const {
+    char separator = '/';
+#ifdef _WIN32
+    separator = '\\';
+#endif
+    size_t i = path.rfind(separator);
+    if (i != std::string::npos) {
+      return path.substr(i + 1, path.length() - i);
+    }
+    return path;
   }
 };
 
