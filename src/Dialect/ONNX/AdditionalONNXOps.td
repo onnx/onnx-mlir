@@ -150,7 +150,7 @@ def ONNXCustomOp:ONNX_Op<"Custom",
 
   let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$input,
                        StrAttr:$function_name);
-  let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$outputs);
+  let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$outputs);
 
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {

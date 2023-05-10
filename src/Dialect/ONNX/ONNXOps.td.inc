@@ -1314,13 +1314,13 @@ def ONNXConstantOp:ONNX_Op<"Constant",
       } else if (auto attr = getSparseValueAttr()) {
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
       } else if (auto attr = getValueFloatAttr()) {
-        resultTypes.push_back(FloatType::getF32(attr.getContext()));
+        resultTypes.push_back(attr.cast<TypedAttr>().getType());
       } else if (auto attr = getValueFloatsAttr()) {
         SmallVector<int64_t> shape;
         shape.push_back(attr.size());
         resultTypes.push_back(RankedTensorType::get(shape, FloatType::getF32(attr.getContext())));
       } else if (auto attr = getValueIntAttr()) {
-        resultTypes.push_back(IntegerType::get(attr.getContext(), 64));
+        resultTypes.push_back(attr.cast<TypedAttr>().getType());
       } else if (auto attr = getValueIntsAttr()) {
         SmallVector<int64_t> shape;
         shape.push_back(attr.size());
