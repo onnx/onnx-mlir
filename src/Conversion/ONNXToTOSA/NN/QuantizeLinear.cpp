@@ -67,8 +67,8 @@ public:
     
     // Quantization formula is ((x / y_scale) + y_zero_point)
     // Replace the division by a reciprocal followed by a mul
-    Value recOp = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(rewriter, loc, xType, x).getResult();
-    Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, xType, recOp, scaleFactorConst, 0).getResult();
+    Value recOp = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(rewriter, loc, scaleFactorConst.getType(), scaleFactorConst).getResult();
+    Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, xType, x, recOp, 0).getResult();
     // Cast into the result type
     Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc, resultType, mulOp).getResult();
     Value addOp = tosa::CreateOpAndInfer<mlir::tosa::AddOp>(rewriter, loc, resultType, castOp, zpConst).getResult();
