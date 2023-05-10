@@ -80,7 +80,7 @@ RUN git clone https://github.com/onnx/tutorials.git
 RUN apt-get install -y lsb-release wget software-properties-common
 RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 # For development
-RUN apt-get install ssh-client
+RUN apt-get install -y ssh-client
 
 # 3) When using vscode, copy your .vscode in the Dockerfile dir and
 #    uncomment the two lines below.
@@ -122,11 +122,32 @@ These steps are summarized here.
 # Starting in the onnx-mlir directory, copy the Docker example directory.
 cp -prf docs/docker-example ~/DockerOnnxMlir
 cd ~/DockerOnnxMlir
-# Edit the Docker file.
+# Edit the Dockerfile.
 vi Dockerfile
 # Build the Docker image.
 docker build --tag onnx-mlir-dev .
 # Start a container using the Docker dashboard or a docker run command.
+docker run -it onnx-mlir-dev
+```
+
+**NOTE:** If you are using a MacBook with the Apple M1 chip, please follow the steps below for configuration:
+``` shell
+# Starting in the onnx-mlir directory, copy the Docker example directory.
+cp -prf docs/docker-example ~/DockerOnnxMlir
+cd ~/DockerOnnxMlir
+# Edit the Dockerfile.
+vi Dockerfile
+# Pull the Docker image with the specified platform
+docker pull --platform linux/amd64 onnxmlirczar/onnx-mlir-dev
+# Build the Docker image.
+docker build --platform linux/amd64 --tag onnx-mlir-dev .
+# Start a container using the Docker dashboard or a docker run command.
+docker run --platform linux/amd64 -it onnx-mlir-dev
+```
+
+Tip: Instead of adding the platform flag for every docker pull, build, and run command. You can set the environment variable `DOCKER_DEFAULT_PLATFORM` and use the first set of steps:
+```
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
 ```
 
 ### Developing with Docker in VSCode
