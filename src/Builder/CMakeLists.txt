@@ -11,6 +11,7 @@ add_onnx_mlir_library(OMBuilder
   ModelInputShaper.cpp
 
   LINK_LIBS PUBLIC
+  OMCompilerOptions
   OMHasOnnxSubgraphOpInterface
   OMONNXOps
   OMResultTypeInferenceOpInterface
