@@ -23,6 +23,7 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Path.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
 
@@ -71,7 +72,9 @@ public:
         if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
           name += nameLocIt.getName().str() + "-";
         else if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
-          name += getFileName(fileLineColLoc.getFilename().str()) + ":" +
+          StringRef filename =
+              llvm::sys::path::filename(fileLineColLoc.getFilename().str());
+          name += filename.str() + ":" +
                   std::to_string(fileLineColLoc.getLine()) + "-";
         }
       }
@@ -82,8 +85,10 @@ public:
       loc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(loc).getName();
     } else if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
-      std::string name = getFileName(fileLineColLoc.getFilename().str()) + ":" +
-                         std::to_string(fileLineColLoc.getLine());
+      StringRef filename =
+          llvm::sys::path::filename(fileLineColLoc.getFilename().str());
+      std::string name =
+          filename.str() + ":" + std::to_string(fileLineColLoc.getLine());
       loc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(loc).getName();
     } else
@@ -110,21 +115,6 @@ private:
     return create.llvm.getOrInsertSymbolRef(module,
         StringRef("OMInstrumentPoint"), llvmVoidTy,
         {opaquePtrTy, llvmI64Ty, opaquePtrTy});
-  }
-
-  // Extract file name from path
-  // Using std::filesystem::path::filename in C++17 is smart, but C++17 not
-  // supported in Jenkins test on some platforms now.
-  std::string getFileName(std::string path) const {
-    char separator = '/';
-#ifdef _WIN32
-    separator = '\\';
-#endif
-    size_t i = path.rfind(separator);
-    if (i != std::string::npos) {
-      return path.substr(i + 1, path.length() - i);
-    }
-    return path;
   }
 };
 
