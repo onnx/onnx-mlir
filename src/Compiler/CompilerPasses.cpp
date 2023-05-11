@@ -62,6 +62,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
     // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
   } else {
+    pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
