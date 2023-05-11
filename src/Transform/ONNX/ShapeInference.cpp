@@ -137,7 +137,8 @@ void getShapeInferencePatterns(RewritePatternSet &set) {
   set.insert<YieldShapesPattern>(set.getContext(), highPriority);
 }
 
-// TODO: Consider whether to do this in a Func::ReturnOp pattern.
+// TODO: Consider whether to do this in a ONNXFuncReturnOp pattern
+//       once lit tests are converted to use onnx.FuncReturn.
 void inferFunctionReturnShapes(func::FuncOp f) {
   Operation *returnOp = f.getBody().back().getTerminator();
   assert(returnOp && "function must return");

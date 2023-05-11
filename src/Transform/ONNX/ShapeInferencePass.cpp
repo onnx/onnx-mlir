@@ -121,8 +121,11 @@ public:
   }
 
   static bool isUsedByReturnOp(Operation &op) {
-    return llvm::any_of(op.getUsers(),
-        [](Operation *user) { return isa<func::ReturnOp>(user); });
+    return llvm::any_of(op.getUsers(), [](Operation *user) {
+      // TODO: Only test for ONNXReturnOp once lit tests are converted
+      //       to use onnx.FuncReturn.
+      return isa<func::ReturnOp, ONNXFuncReturnOp>(user);
+    });
   }
 
   // Op needs shape inference when contains a subgraph
