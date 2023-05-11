@@ -337,8 +337,8 @@ private:
    * @param region region to import computation graph to.
    * @param op operations whose attributes will be updated to contain
    * input/output names.
-   * @param useFuncReturn if set to true, will emit standard return op as
-   * terminator, otherwise, will use ONNXYield op as terminator.
+   * @param useFuncReturn if set to true, will emit ONNXFuncReturnOp as
+   * terminator, otherwise, will use ONNXYieldOp as terminator.
    * @return function type corresponding to the subgraph input/output signature.
    */
   FunctionType importGraph(const onnx::GraphProto &graph, Region &region,
