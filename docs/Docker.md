@@ -185,7 +185,7 @@ The [`Dockerfile`](devcontainer-example/Dockerfile.llvm-project) is a simple Doc
 
 The [`devcontainer.json`](devcontainer-example/devcontainer.json) preinstalls extensions and defines settings for the VS Code server running inside the container. This way you don't have to setup VS Code everytime you enter the container. In `postAttachCommand` ONNX is installed.
 
-To use this setup you first clone onnx-mlir and all submodules (for example with` git clone --recursive https://github.com/onnx/onnx-mlir.git`). You then create a new folder named `.devcontainer` in the source root. After that you copy the two files in `docs/devcontainer-example` into that folder. Now simply press `CTRL+SHIFT+P` and execute `Dev Containers: Reopen in Container`. VS Code will now create the docker image and mount the source folder.
+To use this setup you first clone onnx-mlir and all submodules (for example with` git clone --recursive https://github.com/onnx/onnx-mlir.git`). You then create a new folder named `.devcontainer` in the source root. After that you copy the two files in `docs/devcontainer-example` into that folder. Now simply press `CTRL+SHIFT+P` and execute `Dev Containers: Reopen in Container`. VSCode will now create the docker image and mount the source folder.
 
 You can now configure onnx-mlir as described in [BuildOnLinuxOSX](BuildOnLinuxOSX.md). `MLIR_DIR` is already set for you, so you can skip that step.
 
