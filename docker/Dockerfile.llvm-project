@@ -1,4 +1,4 @@
-# By default, use ubuntu:jammy
+# By default, use ubuntu:jammy, remember to change Jenkins build script as well
 ARG BASE_IMAGE="ubuntu:jammy"
 FROM ${BASE_IMAGE}
 
