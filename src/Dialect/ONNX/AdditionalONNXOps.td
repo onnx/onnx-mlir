@@ -138,7 +138,6 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
   }];
 }
 
-
 //===----------------------------------------------------------------------===//
 // ONNX FuncReturnOp
 def ONNXFuncReturnOp : ONNX_Op<"FuncReturn",
@@ -153,10 +152,6 @@ def ONNXFuncReturnOp : ONNX_Op<"FuncReturn",
   }];
 
   let arguments = (ins Variadic<AnyType>:$operands);
-
-  let builders = [OpBuilder<(ins), [{
-    build($_builder, $_state, std::nullopt);
-  }]>];
 
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
   let hasVerifier = 1;
