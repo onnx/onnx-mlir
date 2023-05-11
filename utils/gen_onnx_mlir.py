@@ -448,23 +448,20 @@ OpsWithResultTypeInference = {
       } else if (auto attr = getSparseValueAttr()) {
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
       } else if (auto attr = getValueFloatAttr()) {
-        resultTypes.push_back(attr.cast<TypedAttr>().getType());
+        resultTypes.push_back(RankedTensorType::get({}, FloatType::getF32(attr.getContext())));
       } else if (auto attr = getValueFloatsAttr()) {
-        SmallVector<int64_t> shape;
-        shape.push_back(attr.size());
-        resultTypes.push_back(RankedTensorType::get(shape, FloatType::getF32(attr.getContext())));
+        int64_t size = attr.size();
+        resultTypes.push_back(RankedTensorType::get({size}, FloatType::getF32(attr.getContext())));
       } else if (auto attr = getValueIntAttr()) {
-        resultTypes.push_back(attr.cast<TypedAttr>().getType());
+        resultTypes.push_back(RankedTensorType::get({}, IntegerType::get(attr.getContext(), 64)));
       } else if (auto attr = getValueIntsAttr()) {
-        SmallVector<int64_t> shape;
-        shape.push_back(attr.size());
-        resultTypes.push_back(RankedTensorType::get(shape, IntegerType::get(attr.getContext(), 64)));
+        int64_t size = attr.size();
+        resultTypes.push_back(RankedTensorType::get({size}, IntegerType::get(attr.getContext(), 64)));
       } else if (auto attr = getValueStringAttr()) {
-        resultTypes.push_back(ONNXStringType::get(attr.getContext()));
+        resultTypes.push_back(RankedTensorType::get({}, ONNXStringType::get(attr.getContext())));
       } else if (auto attr = getValueStringsAttr()) {
-        SmallVector<int64_t> shape;
-        shape.push_back(attr.size());
-        resultTypes.push_back(RankedTensorType::get(shape, ONNXStringType::get(attr.getContext())));
+        int64_t size = attr.size();
+        resultTypes.push_back(RankedTensorType::get({size}, ONNXStringType::get(attr.getContext())));
       } else {
         llvm_unreachable("Unexpected attributes for Constant Op");
       }''',

@@ -146,9 +146,11 @@ def ONNXCustomOp:ONNX_Op<"Custom",
     The number of inputs and outputs can vary.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
+    NoneType is allowed for input and output since the CustomOp may want
+    the fixed number of input/output for external function call.
   }];
 
-  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$input,
+  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$input,
                        StrAttr:$function_name);
   let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$outputs);
 
