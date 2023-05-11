@@ -16,5 +16,5 @@ test_abs (float[3,4,5] x) => (float[3,4,5] y) {
 // CHECK-LABEL:  func.func @main_graph
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {{.*}} {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Abs"([[PARAM_0_]]) : (tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
-// CHECK:           return [[VAR_0_]] : tensor<3x4x5xf32>
+// CHECK:           onnx.FuncReturn [[VAR_0_]] : tensor<3x4x5xf32>
 // CHECK:         }

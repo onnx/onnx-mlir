@@ -138,6 +138,30 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
   }];
 }
 
+
+//===----------------------------------------------------------------------===//
+// ONNX FuncReturnOp
+def ONNXFuncReturnOp : ONNX_Op<"FuncReturn",
+    [Pure, HasParent<"func::FuncOp">, ReturnLike, Terminator]> {
+  let summary = "Function return operation";
+  let description = [{
+    The `onnx.FuncReturn` operation represents a return operation within a function.
+    The operation takes variable number of operands and produces no results.
+    The operand number and types must match the signature of the function
+    that contains the operation, with the exception that shaped types may have
+    more specific shapes than the function signature return types.
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$operands);
+
+  let builders = [OpBuilder<(ins), [{
+    build($_builder, $_state, std::nullopt);
+  }]>];
+
+  let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
+  let hasVerifier = 1;
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX CustomOp
 def ONNXCustomOp:ONNX_Op<"Custom",

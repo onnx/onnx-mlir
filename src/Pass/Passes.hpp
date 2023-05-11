@@ -60,6 +60,9 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
     bool report = false);
 
+/// Pass for replacing ONNXFuncReturnOp with func::ReturnOp.
+std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
+
 /// Pass that combines multiple ONNX dialect transformations,
 /// including shape inference.
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass();
