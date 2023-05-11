@@ -338,10 +338,10 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<KrnlDialect, AffineDialect, arith::ArithDialect,
-      func::FuncDialect, linalg::LinalgDialect, math::MathDialect,
-      vector::VectorDialect, memref::MemRefDialect, shape::ShapeDialect,
-      scf::SCFDialect>();
+  target.addLegalDialect<KrnlDialect, affine::AffineDialect,
+      arith::ArithDialect, func::FuncDialect, linalg::LinalgDialect,
+      math::MathDialect, vector::VectorDialect, memref::MemRefDialect,
+      shape::ShapeDialect, scf::SCFDialect>();
   // Needed to support unsigned int computations. To be removed if we use a
   // scheme that does not rely on the UnrealizedConversionCastOp.
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
@@ -354,7 +354,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // krnl.load/store will be lowered to std.load/store and affine.load/store by
   // `convert-krnl-to-affine` pass.
   target.addIllegalOp<mlir::memref::LoadOp>();
-  target.addIllegalOp<mlir::AffineLoadOp>();
+  target.addIllegalOp<mlir::affine::AffineLoadOp>();
   target.addIllegalOp<mlir::memref::StoreOp>();
   // Memref builder can use affine stores, it would be awkward for it to
   // generate Krnl stores as mem builder is part of MLIR. Thus the affine
@@ -362,7 +362,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // the regular krnl lowering will most likely trigger errors if non krnl mem
   // ops where generally used.
   //
-  // target.addIllegalOp<mlir::AffineStoreOp>();
+  // target.addIllegalOp<mlir::affine::AffineStoreOp>();
 
   // Option`emitDealloc` is deprecated and turned off, make sure we don't have
   // buffer deallocation at this level. Will use MLIR buffer-deallocation for

@@ -200,8 +200,8 @@ LogicalResult ONNXMatMulIntegerOp::verify() {
   Value A = operandAdaptor.getA();
   Value aZeroPoint = this->getAZeroPoint();
   if (!isNoneValue(aZeroPoint)) {
-    ShapedType aType = A.getType();
-    ShapedType aZeroPointType = aZeroPoint.getType();
+    auto aType = A.getType().cast<ShapedType>();
+    auto aZeroPointType = aZeroPoint.getType().cast<ShapedType>();
     uint64_t aRank = aType.getRank();
     uint64_t aZeroPointRank = aZeroPointType.getRank();
     ArrayRef<int64_t> aShape = aType.getShape();

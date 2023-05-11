@@ -622,7 +622,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
   });
 
   addConversion([](SeqType seqType) {
-    ShapedType seqElementType = seqType.getElementType();
+    auto seqElementType = seqType.getElementType().cast<ShapedType>();
     Type elementType = seqElementType.getElementType();
     Type seqElementConvertedType;
     if (seqElementType.hasRank()) {

@@ -177,7 +177,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
         RankedTensorType::get(shape, rewriter.getF32Type(),
             ZTensorEncodingAttr::get(op->getContext(), layout));
     ZMemRefType zMemRefType = convertZTensorToMemRefType(tensorType);
-    MemRefType resType = normalizeMemRefType(
+    MemRefType resType = affine::normalizeMemRefType(
         zMemRefType.value.cast<MemRefType>(), /*numSymbolicOperands=*/0);
 
     // Create a ZHighStickifiedConstantOp.
@@ -188,7 +188,8 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
 
     // Use an dense resource attribute to store stickified data.
     // Attribute type: tensor<sizeInBytes x i8>
-    int64_t sizeInBytes = getIntOrFloatMemRefSizeInBytes(resType).value();
+    int64_t sizeInBytes =
+        affine::getIntOrFloatMemRefSizeInBytes(resType).value();
     char *rawData = (char *)malloc(sizeInBytes);
     memset(rawData, 0, sizeInBytes);
     DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
@@ -659,7 +660,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     // Normalize MemRefType to get a static shape.
     assert(zMemRefType.value.cast<MemRefType>().getNumDynamicDims() == 0 &&
            "MemRefType has dynamic dimensions");
-    MemRefType normalizedType = normalizeMemRefType(
+    MemRefType normalizedType = affine::normalizeMemRefType(
         zMemRefType.value.cast<MemRefType>(), /*numSymbolicOperands=*/0);
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 

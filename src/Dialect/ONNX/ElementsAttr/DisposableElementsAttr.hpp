@@ -82,8 +82,8 @@ struct DisposableElementsAttributeStorage;
 //
 class DisposableElementsAttr
     : public Attribute::AttrBase<DisposableElementsAttr, Attribute,
-          DisposableElementsAttributeStorage, ElementsAttr::Trait,
-          TypedAttr::Trait> {
+          DisposableElementsAttributeStorage, TypedAttr::Trait,
+          ElementsAttr::Trait> {
   using Base::Base;
 
   // BType and WideNum are ubiquitous in the class definition and these using
