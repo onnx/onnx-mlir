@@ -1,2 +1,4 @@
-torch~=1.13.0
-torchvision~=1.14.0
+numpy~=1.22.1
+pillow~=9.3.0
+torch~=1.13.1
+torchvision~=0.14.1
