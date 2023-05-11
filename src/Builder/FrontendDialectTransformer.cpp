@@ -168,7 +168,7 @@ private:
         NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name())),
         builder_, options_.externalDataDir, tensor);
     if (!isNoneValue(initializer)) {
-      ShapedType tensorType = initializer.getType();
+      auto tensorType = cast<ShapedType>(initializer.getType());
       int64_t size = ShapedType::getNumElements(tensorType.getShape());
       num_of_parameters_ += size;
     }

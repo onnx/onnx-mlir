@@ -364,7 +364,7 @@ private:
         });
     if (unrollJam && J.isLiteral()) {
       UnrollAndJamRecord record(
-          getForInductionVarOwner(jSaved), J.getLiteral());
+          affine::getForInductionVarOwner(jSaved), J.getLiteral());
       getUnrollAndJamList(op)->emplace_back(record);
     }
   }
@@ -554,7 +554,8 @@ private:
         if (kUnroll > 1) {
           LLVM_DEBUG(
               llvm::dbgs() << "Matmul: unroll k by " << kUnroll << "\n";);
-          UnrollAndJamRecord record(getForInductionVarOwner(kSaved), kUnroll);
+          UnrollAndJamRecord record(
+              affine::getForInductionVarOwner(kSaved), kUnroll);
           list->emplace_back(record);
         }
       }
@@ -562,7 +563,7 @@ private:
         LLVM_DEBUG(llvm::dbgs()
                    << "Matmul: unroll i by " << (int)I.getLiteral() << "\n");
         UnrollAndJamRecord record(
-            getForInductionVarOwner(iSaved), I.getLiteral());
+            affine::getForInductionVarOwner(iSaved), I.getLiteral());
         list->emplace_back(record);
       }
     }

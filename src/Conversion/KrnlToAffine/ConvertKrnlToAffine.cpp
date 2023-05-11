@@ -37,6 +37,7 @@
 #define DEBUG_TYPE "krnl_to_affine"
 
 using namespace mlir;
+using namespace mlir::affine;
 
 namespace onnx_mlir {
 namespace krnl {
@@ -685,7 +686,7 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<KrnlVectorTypeCastOp>();
   target.addLegalOp<UnrealizedConversionCastOp>();
-  target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithDialect,
+  target.addLegalDialect<mlir::affine::AffineDialect, mlir::arith::ArithDialect,
       mlir::memref::MemRefDialect, mlir::func::FuncDialect,
       mlir::vector::VectorDialect>();
 

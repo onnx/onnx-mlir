@@ -32,9 +32,9 @@ static LogicalResult verifyShapeForBroadcastingOps(
   if (!hasShapeAndRank(op))
     return success();
 
-  auto resultTy = op->getOperand(0).getType().template cast<ShapedType>();
+  Type resultTy = op->getOperand(0).getType();
   for (unsigned i = 1; i < op->getNumOperands(); ++i) {
-    auto nextTy = op->getOperand(i).getType().template cast<ShapedType>();
+    Type nextTy = op->getOperand(i).getType();
     resultTy = getBroadcastedType(resultTy, nextTy, elementType);
     if (resultTy == nullptr)
       op->emitError("Broadcast op with incompatible dimensions");

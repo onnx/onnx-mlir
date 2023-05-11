@@ -75,8 +75,8 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forIE(IndexExpr lb,
   lb.getAffineMapAndOperands(lbMap, lbOperands);
   ub.getAffineMapAndOperands(ubMap, ubOperands);
   // Create affine for.
-  b().template create<mlir::AffineForOp>(loc(), lbOperands, lbMap, ubOperands,
-      ubMap, step, mlir::ValueRange{},
+  b().template create<mlir::affine::AffineForOp>(loc(), lbOperands, lbMap,
+      ubOperands, ubMap, step, mlir::ValueRange{},
       [&](mlir::OpBuilder &b, mlir::Location loc, mlir::Value index,
           mlir::ValueRange args) {
         GenericAffineBuilder createAffine(b, loc);
@@ -125,7 +125,7 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElse(
       scope.getNumDims(), scope.getNumSymbols(), affineCond, isEq);
   llvm::SmallVector<mlir::Value, 8> dimAndSymbolList;
   scope.getDimAndSymbolList(dimAndSymbolList);
-  auto ifOp = b().template create<mlir::AffineIfOp>(
+  auto ifOp = b().template create<mlir::affine::AffineIfOp>(
       loc(), inset, dimAndSymbolList, true);
   mlir::Block *thenBlock = ifOp.getThenBlock();
   mlir::Block *elseBlock = ifOp.getElseBlock();
@@ -145,7 +145,7 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::ifThenElse(
 
 template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::yield() const {
-  b().template create<mlir::AffineYieldOp>(loc());
+  b().template create<mlir::affine::AffineYieldOp>(loc());
 }
 
 // Support for multiple forIE loops.
@@ -188,6 +188,6 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::appendToBlock(
 
 template <class LOAD_OP, class STORE_OP>
 mlir::Value GenericAffineBuilder<LOAD_OP, STORE_OP>::apply(
-  mlir::AffineMap map, mlir::ValueRange operands) const {
-  return b().template create<mlir::AffineApplyOp>(loc(), map, operands);
+    mlir::AffineMap map, mlir::ValueRange operands) const {
+  return b().template create<mlir::affine::AffineApplyOp>(loc(), map, operands);
 }
