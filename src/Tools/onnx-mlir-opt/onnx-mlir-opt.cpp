@@ -192,6 +192,10 @@ int main(int argc, char **argv) {
 
   auto passManagerSetupFn = [&](PassManager &pm) {
     mlir::MLIRContext *ctx = pm.getContext();
+    registerDialects(*ctx);
+    ctx->getOrLoadDialect<mlir::tosa::TosaDialect>();
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
+      accel->getOrLoadDialects(*ctx);
     pm.addInstrumentation(std::make_unique<DisposableGarbageCollector>(ctx));
     auto errorHandler = [ctx](const Twine &msg) {
       emitError(UnknownLoc::get(ctx)) << msg;

@@ -256,7 +256,7 @@ version_dict = {
  'Softplus': [1],
  'Softsign': [1],
  'SpaceToDepth': [13],
- 'Split': [13, 11],
+ 'Split': [18, 13, 11],
  'SplitToSequence': [11],
  'Sqrt': [13],
  'Squeeze': [13, 11],
@@ -323,6 +323,7 @@ OpsWithCanonicalizer = [
     'Loop',
     'LSTM',
     'Mul',
+    'Pow',
     'Reshape',
     'RNN',
     'Shape',
@@ -500,6 +501,7 @@ custom_builder_unranked_ops_list = [
     'ReduceSumV11',
     'Softmax',
     'Split',
+    'SplitV13',
     'Sqrt',
     'Squeeze',
     'SqueezeV11',
@@ -1280,15 +1282,6 @@ def gen_op_versions(file) :
         s += "{" +  "{}".format(", ".join(str(x) for x in item)) + "};\n"
     file.write(s)
 
-# Create the top opset value of each op for current onnx.
-def gen_op_new_version(file, new_version_dict) :
-    indent = inc_indent()
-    s = ""
-    for key, item in new_version_dict.items() :
-        s += indent + 'op_dialect_top_version_map_["' + key +'"] = '
-        s +=  "{}".format(", ".join(str(x) for x in item)) + ";\n"
-    file.write(s)
-
 """
 special cases:
 * Split: attr split default value: sizeof(output1) namely 1
@@ -1440,7 +1433,6 @@ def main(args):  # type: (Type[Args]) -> None
                     op_def.write(r)
                     previous_name = schema.name
 
-    gen_op_new_version(op_importer, new_version_dict)
     if check_operation_version :
         for key in version_dict :
             if not key in new_version_dict :

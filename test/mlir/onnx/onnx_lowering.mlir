@@ -187,6 +187,60 @@ func.func private @test_xor(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) 
 
 // -----
 
+func.func private @test_bitwise_and(%arg0 : tensor<10x10xi8>, %arg1 : tensor<10x10xi8>) -> tensor<*xi8> {
+  %0 = "onnx.BitwiseAnd"(%arg0, %arg1) : (tensor<10x10xi8>, tensor<10x10xi8>) -> tensor<*xi8>
+  "func.return"(%0) : (tensor<*xi8>) -> ()
+
+  // CHECK-LABEL: test_bitwise_and
+  // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xi8>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10){
+  // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+  // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xi8>
+  // CHECK: [[LOAD2:%.+]] = krnl.load %arg1[[[IV]]#0, [[IV]]#1] : memref<10x10xi8>
+  // CHECK: [[AND:%.+]] = arith.andi [[LOAD1]], [[LOAD2]] : i8
+  // CHECK: krnl.store [[AND]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<10x10xi8>
+  // CHECK: return [[RES]] : memref<10x10xi8>
+}
+
+// -----
+
+func.func private @test_bitwise_or(%arg0 : tensor<10x10xi16>, %arg1 : tensor<10x10xi16>) -> tensor<*xi16> {
+  %0 = "onnx.BitwiseOr"(%arg0, %arg1) : (tensor<10x10xi16>, tensor<10x10xi16>) -> tensor<*xi16>
+  "func.return"(%0) : (tensor<*xi16>) -> ()
+
+  // CHECK-LABEL: test_bitwise_or
+  // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xi16>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10){
+  // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+  // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xi16>
+  // CHECK: [[LOAD2:%.+]] = krnl.load %arg1[[[IV]]#0, [[IV]]#1] : memref<10x10xi16>
+  // CHECK: [[OR:%.+]] = arith.ori [[LOAD1]], [[LOAD2]] : i16
+  // CHECK: krnl.store [[OR]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<10x10xi16>
+  // CHECK: return [[RES]] : memref<10x10xi16>
+}
+
+// -----
+
+func.func private @test_bitwise_xor(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*xi32> {
+  %0 = "onnx.BitwiseXor"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<*xi32>
+  "func.return"(%0) : (tensor<*xi32>) -> ()
+
+  // CHECK-LABEL: test_bitwise_xor
+  // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xi32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10){
+  // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+  // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xi32>
+  // CHECK: [[LOAD2:%.+]] = krnl.load %arg1[[[IV]]#0, [[IV]]#1] : memref<10x10xi32>
+  // CHECK: [[XOR:%.+]] = arith.xori [[LOAD1]], [[LOAD2]] : i32
+  // CHECK: krnl.store [[XOR]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<10x10xi32>
+  // CHECK: return [[RES]] : memref<10x10xi32>
+}
+
+// -----
+
 func.func private @test_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Exp"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()

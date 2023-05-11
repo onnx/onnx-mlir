@@ -76,7 +76,9 @@ ZTensorEncodingAttr::DataLayout getZTensorDataLayoutByRank(int64_t rank) {
   else if (rank == 2)
     return ZTensorEncodingAttr::DataLayout::_2D;
   else if (rank == 3)
-    return ZTensorEncodingAttr::DataLayout::_3D;
+    // Use 3DS instead of 3D since important ops like LSTM/MatMul/Softmax use
+    // 3DS, which reduces the number of layout transformations.
+    return ZTensorEncodingAttr::DataLayout::_3DS;
   else if (rank == 4)
     return ZTensorEncodingAttr::DataLayout::_4D;
   else
