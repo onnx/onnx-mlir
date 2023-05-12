@@ -614,7 +614,7 @@ static int compileModuleToJniJar(
 
 void registerDialects(mlir::MLIRContext &context) {
   // Load our Dialect in this MLIR Context.
-  context.getOrLoadDialect<mlir::AffineDialect>();
+  context.getOrLoadDialect<mlir::affine::AffineDialect>();
   context.getOrLoadDialect<mlir::vector::VectorDialect>();
   context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
   context.getOrLoadDialect<mlir::scf::SCFDialect>();

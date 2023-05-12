@@ -50,7 +50,7 @@ public:
 };
 
 // To assist unroll and jam
-using UnrollAndJamRecord = std::pair<mlir::AffineForOp, int64_t>;
+using UnrollAndJamRecord = std::pair<mlir::affine::AffineForOp, int64_t>;
 using UnrollAndJamList = llvm::SmallVector<UnrollAndJamRecord, 4>;
 using UnrollAndJamMap = std::map<mlir::Operation *, UnrollAndJamList *>;
 
