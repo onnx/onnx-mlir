@@ -89,7 +89,6 @@ extern llvm::cl::opt<bool> onnxConstPropReport;
 extern llvm::cl::opt<bool> enableParallel;
 extern llvm::cl::opt<bool> disableSimdOption;
 extern llvm::cl::opt<bool> enableSimdDataLayout;
-extern llvm::cl::opt<bool> enablePatternShapeInference;
 extern llvm::cl::opt<bool> enableONNXHybridPass;
 
 // The customEnvFlags must be scanned before the normal options.
