@@ -105,8 +105,8 @@ DenseElementsAttr ElementsAttrBuilder::toDenseElementsAttr(
 
 /*static*/
 bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
-  auto lhsType = lhs.getType();
-  auto rhsType = rhs.getType();
+  auto lhsType = lhs.getShapedType();
+  auto rhsType = rhs.getShapedType();
   auto elementType = lhsType.getElementType();
   assert(elementType == rhsType.getElementType() &&
          "equal() requires identical element types");
@@ -316,7 +316,7 @@ ElementsAttr ElementsAttrBuilder::castElementType(
 
   ElementsProperties props = getElementsProperties(elms);
 
-  ShapedType newType = elms.getType().clone(newElementType);
+  ShapedType newType = elms.getShapedType().clone(newElementType);
   BType newBType = btypeOfMlirType(newElementType);
   BType oldBType = btypeOfMlirType(oldElementType);
   BType newWideType = wideBTypeOfBType(newBType);
@@ -348,7 +348,7 @@ ElementsAttr ElementsAttrBuilder::transpose(
 
   ElementsProperties props = getElementsProperties(elms);
 
-  ShapedType type = elms.getType();
+  ShapedType type = elms.getShapedType();
   auto transposedShape = transposeDims(type.getShape(), perm);
   ShapedType transposedType = type.clone(transposedShape);
   auto transposedStrides = transposeDims(props.strides, perm);
@@ -358,7 +358,7 @@ ElementsAttr ElementsAttrBuilder::transpose(
 
 ElementsAttr ElementsAttrBuilder::reshape(
     ElementsAttr elms, ArrayRef<int64_t> reshapedShape) {
-  ShapedType type = elms.getType();
+  ShapedType type = elms.getShapedType();
   auto shape = type.getShape();
   if (reshapedShape == shape)
     return elms;
@@ -390,7 +390,7 @@ ElementsAttr ElementsAttrBuilder::reshape(
 
 ElementsAttr ElementsAttrBuilder::expand(
     ElementsAttr elms, ArrayRef<int64_t> expandedShape) {
-  ShapedType type = elms.getType();
+  ShapedType type = elms.getShapedType();
   if (expandedShape == type.getShape())
     return elms;
 
@@ -415,7 +415,7 @@ void splitImpl(ArrayRef<WideNum> data, size_t start, size_t len, size_t stride,
 
 std::vector<ElementsAttr> ElementsAttrBuilder::split(
     ElementsAttr elms, unsigned axis, ArrayRef<int64_t> sizes) {
-  auto type = elms.getType();
+  auto type = elms.getShapedType();
   auto shape = type.getShape();
   assert(axis < shape.size());
   auto axisSize = shape[axis];
@@ -455,7 +455,7 @@ ElementsAttr ElementsAttrBuilder::concat(
   assert(elms.size() >= 1 && "concat tensors must be non-empty");
 
   ElementsAttr first = elms.front();
-  ArrayRef<int64_t> firstShape = first.getType().getShape();
+  ArrayRef<int64_t> firstShape = first.getShapedType().getShape();
   size_t rank = firstShape.size();
   assert(axis < rank && "concat axis out of range");
   if (elms.size() == 1)
@@ -467,7 +467,7 @@ ElementsAttr ElementsAttrBuilder::concat(
     ElementsAttr next = elms[i];
     assert(next.getElementType() == first.getElementType() &&
            "concat tensors element types must agree");
-    ArrayRef<int64_t> nextShape = next.getType().getShape();
+    ArrayRef<int64_t> nextShape = next.getShapedType().getShape();
     assert(nextShape.size() == rank && "concat tensors ranks must agree");
     for (unsigned a = 0; a < rank; ++a) {
       assert((a == axis || nextShape[a] == firstShape[a]) &&
@@ -476,7 +476,7 @@ ElementsAttr ElementsAttrBuilder::concat(
     outShape[axis] += nextShape[axis];
   }
 
-  ShapedType outType = first.getType().clone(outShape);
+  ShapedType outType = first.getShapedType().clone(outShape);
   return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
     auto postAxisShape = ArrayRef(outShape).drop_front(axis + 1);
     size_t postAxisNumElements = ShapedType::getNumElements(postAxisShape);
@@ -484,7 +484,7 @@ ElementsAttr ElementsAttrBuilder::concat(
     size_t outBlockLen = outShape[axis] * postAxisNumElements;
     size_t start = 0;
     for (ElementsAttr input : elms) {
-      ArrayRef<int64_t> inputShape = input.getType().getShape();
+      ArrayRef<int64_t> inputShape = input.getShapedType().getShape();
       size_t inputBlockLen = inputShape[axis] * postAxisNumElements;
       SmallVector<int64_t> strides;
       ArrayBuffer<WideNum> src = getWideNumsAndStrides(input, strides);
@@ -505,7 +505,7 @@ ElementsAttr ElementsAttrBuilder::concat(
 ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
     ArrayRef<int64_t> shape, ArrayRef<int64_t> starts,
     ArrayRef<int64_t> steps) {
-  ShapedType outType = elms.getType().clone(shape);
+  ShapedType outType = elms.getShapedType().clone(shape);
   return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
     SmallVector<int64_t> strides;
     ArrayBuffer<WideNum> src = getWideNumsAndStrides(elms, strides);
@@ -521,11 +521,11 @@ ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
 
 ElementsAttr ElementsAttrBuilder::gather(
     ElementsAttr input, ElementsAttr indices, unsigned axis) {
-  ShapedType inputType = input.getType();
+  ShapedType inputType = input.getShapedType();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   assert(axis < inputShape.size() && "gather axis out of range");
   auto postAxisShape = inputShape.drop_front(axis + 1);
-  ArrayRef<int64_t> indicesShape = indices.getType().getShape();
+  ArrayRef<int64_t> indicesShape = indices.getShapedType().getShape();
   SmallVector<int64_t> outShape(inputShape.take_front(axis));
   outShape.append(indicesShape.begin(), indicesShape.end());
   outShape.append(postAxisShape.begin(), postAxisShape.end());
@@ -553,7 +553,7 @@ ElementsAttr ElementsAttrBuilder::gather(
 
 ElementsAttr ElementsAttrBuilder::scatterND(
     ElementsAttr input, ElementsAttr indices, ElementsAttr updates) {
-  return fromWideNums(input.getType(), [&](MutableArrayRef<WideNum> dst) {
+  return fromWideNums(input.getShapedType(), [&](MutableArrayRef<WideNum> dst) {
     // numpy implementation:
     //
     //   dst = np.copy(input)
@@ -561,9 +561,9 @@ ElementsAttr ElementsAttrBuilder::scatterND(
     //   for idx in np.ndindex(outer):
     //     dst[indices[idx]] = updates[idx]
 
-    ArrayRef<int64_t> inputShape = input.getType().getShape();
-    ArrayRef<int64_t> indicesShape = indices.getType().getShape();
-    ArrayRef<int64_t> updatesShape = updates.getType().getShape();
+    ArrayRef<int64_t> inputShape = input.getShapedType().getShape();
+    ArrayRef<int64_t> indicesShape = indices.getShapedType().getShape();
+    ArrayRef<int64_t> updatesShape = updates.getShapedType().getShape();
 
     int64_t indices_nd = indicesShape.back();
     auto outer = indicesShape.drop_back();
@@ -610,7 +610,7 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
       std::unique(sortedAxes.begin(), sortedAxes.end()) == sortedAxes.end() &&
       "axes must be unique");
 
-  ShapedType type = elms.getType();
+  ShapedType type = elms.getShapedType();
   auto shape = type.getShape();
 
   SmallVector<int64_t, 4> strides;
@@ -660,8 +660,8 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
 }
 
 ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
-  ShapedType lhsType = lhs.getType();
-  ShapedType rhsType = rhs.getType();
+  ShapedType lhsType = lhs.getShapedType();
+  ShapedType rhsType = rhs.getShapedType();
   Type elementType = lhsType.getElementType();
   assert(elementType == rhsType.getElementType() &&
          "matMul() requires identical element types");
@@ -827,7 +827,7 @@ ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
     expandedStrides = getSplatStrides(expandedShape);
     return ArrayBuffer<WideNum>::Vector(1, getElementsSplatWideNum(elms));
   } else {
-    auto strides = getDefaultStrides(elms.getType().getShape());
+    auto strides = getDefaultStrides(elms.getShapedType().getShape());
     expandedStrides = expandStrides(strides, expandedShape);
     return getElementsWideNums(elms);
   };
@@ -835,7 +835,8 @@ ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
 
 ElementsAttr ElementsAttrBuilder::doTransform(
     ElementsAttr elms, Type transformedElementType, Transformer transformer) {
-  ShapedType transformedType = elms.getType().clone(transformedElementType);
+  ShapedType transformedType =
+      elms.getShapedType().clone(transformedElementType);
 
   ElementsProperties props = getElementsProperties(elms);
 
