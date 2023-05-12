@@ -149,7 +149,8 @@ public:
   ZHighUnaryOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands = {},
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
-      : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {}
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope),
+        ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {}
 };
 
 //===----------------------------------------------------------------------===//
@@ -163,7 +164,8 @@ public:
   ZHighBinaryOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands = {},
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
-      : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {}
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope),
+        ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {}
 };
 
 } // namespace zhigh

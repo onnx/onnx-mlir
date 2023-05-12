@@ -89,7 +89,6 @@ struct ONNXUnimplementedOpShapeHelper : public ONNXOpShapeHelper {
 
 // clang-format off
 using ONNXCallOpShapeHelper = ONNXUnimplementedOpShapeHelper;
-using ONNXCustomOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXIfOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: recursive, Opt, Seq
 using ONNXLoopOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: recursive, Opt, Seq
 using ONNXOptionalGetElementOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Opt, Seq
@@ -111,13 +110,13 @@ using ONNXSplitToSequenceOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reas
 
 /// Compute an output shape for a unary element-wise operation. The output and
 /// input of an unary element-wise operation have the same shape.
-struct ONNXUnaryOpShapeHelper : public ONNXOpShapeHelper {
+struct ONNXUnaryOpShapeHelper : virtual public ONNXOpShapeHelper {
   ONNXUnaryOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXUnaryOpShapeHelper() {}
 
-  mlir::LogicalResult computeShape() final {
+  mlir::LogicalResult computeShape() override {
     return setOutputDimsFromOperand(operands[0]);
   }
 };
@@ -200,7 +199,7 @@ using ONNXTriluOpShapeHelper = ONNXUnaryOpShapeHelper;
 
 // Compute a broadcasted shape from the shapes of given operands. Operands must
 // be ranked in advance.
-struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
+struct ONNXBroadcastOpShapeHelper : virtual public ONNXOpShapeHelper {
   ONNXBroadcastOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr,
       bool hasUniBroadcasting = false)
@@ -338,7 +337,8 @@ using ONNXXorOpShapeHelper = ONNXBroadcastOpShapeHelper;
 struct ONNXExpandOpShapeHelper : public ONNXBroadcastOpShapeHelper {
   ONNXExpandOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
-      : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope) {}
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope),
+        ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXExpandOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
 };
@@ -347,8 +347,9 @@ struct ONNXExpandOpShapeHelper : public ONNXBroadcastOpShapeHelper {
 struct ONNXPReluOpShapeHelper : public ONNXBroadcastOpShapeHelper {
   ONNXPReluOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
-      : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope,
-            /*hasUniBroadcasting*/ true) {}
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope),
+        ONNXBroadcastOpShapeHelper(
+            op, operands, ieBuilder, scope, /*hasUniBroadcasting*/ true) {}
   virtual ~ONNXPReluOpShapeHelper() {}
   mlir::LogicalResult computeShape() final {
     return ONNXBroadcastOpShapeHelper::computeShape();
@@ -806,6 +807,29 @@ using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
 using ONNXUpsampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleOp>;
 // clang-format on
+
+//===----------------------------------------------------------------------===//
+// CustomOp Shape Helper.
+//===----------------------------------------------------------------------===//
+
+struct ONNXCustomOpShapeHelper : public ONNXUnaryOpShapeHelper,
+                                 public ONNXBroadcastOpShapeHelper {
+  ONNXCustomOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr,
+      bool hasUniBroadcasting = false);
+
+  // Default shape compute (every operands of the operation and no additional
+  // parameters).
+  mlir::LogicalResult computeShape() override;
+
+protected:
+  // The actual shape helper used for the CustomOp based on its
+  // shape_infer_pattern attribute
+  std::unique_ptr<ONNXOpShapeHelper> shapeHelper;
+  // The operands used for shape inference based on inputs_for_infer attribute
+  mlir::ValueRange relevantOperands;
+  int pattern;
+};
 
 //===----------------------------------------------------------------------===//
 // Setting a new constant or attribute value.

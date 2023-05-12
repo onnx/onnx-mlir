@@ -43,25 +43,6 @@ LogicalResult ONNXCustomOp::inferShapes(
   Type elementType = getOutputElementType().value_or(
       getElementType(getInputs()[inputIdx].getType()));
 
-  ValueRange operands;
-  SmallVector<Value, 4> specifiedInputs;
-  if (inputIndexAttrs.has_value()) {
-    for (auto indexAttr : inputIndexAttrs.value()) {
-      specifiedInputs.emplace_back(
-          getInputs()[indexAttr.cast<IntegerAttr>().getInt()]);
-    }
-    operands = specifiedInputs;
-  }
-
-  // getShapeInferPattern should have value due to previous check
-  if (getShapeInferPattern() == "SameAs") {
-    ONNXUnaryOpShapeHelper shapeHelper(getOperation(), operands);
-    return shapeHelper.computeShapeAndUpdateType(elementType);
-  } else if (getShapeInferPattern() == "MDBroadcast") {
-    ONNXBroadcastOpShapeHelper shapeHelper(getOperation(), operands);
-    return shapeHelper.computeShapeAndUpdateType(elementType);
-  } else {
-    return emitOpError("The specified shape_infer_pattern is not supported"
-                       "Error encountered in shape inference.");
-  }
+  ONNXCustomOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }

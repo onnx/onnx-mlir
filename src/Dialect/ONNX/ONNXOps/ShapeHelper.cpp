@@ -751,6 +751,39 @@ void resetTypesShapeToQuestionmarks(Operation *op) {
 }
 
 //===----------------------------------------------------------------------===//
+// ONNX Custom Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
+    ValueRange operands, IndexExprBuilder *ieBuilder, IndexExprScope *scope,
+    bool hasUniBroadcasting)
+    : ONNXOpShapeHelper(op, operands, ieBuilder, scope),
+      ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope),
+      ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {
+  ONNXCustomOp customOp = cast<ONNXCustomOp>(op);
+  if (!customOp.getShapeInferPattern().has_value()) {
+    pattern = 0;
+    return;
+  } else if (customOp.getShapeInferPattern() == "SameAs") {
+    pattern = 1;
+  } else if (customOp.getShapeInferPattern() == "MDBroadcast") {
+    pattern = 2;
+  } else {
+    // Or just use ShapeHelper?
+    llvm_unreachable("The specified shape_infer_pattern is not supported"
+                     "Error encountered in shape inference.");
+  }
+}
+
+LogicalResult ONNXCustomOpShapeHelper::computeShape() {
+  if (pattern == 1) {
+    return ONNXUnaryOpShapeHelper::computeShape();
+  } else if (pattern == 2) {
+    return ONNXBroadcastOpShapeHelper::computeShape();
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // Template instantiation (last).
 //===----------------------------------------------------------------------===//
 
