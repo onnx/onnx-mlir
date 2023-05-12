@@ -176,7 +176,8 @@ Value getMinusBcastConst(
   ShapedType xType = X.getType().cast<ShapedType>();
   assert(xType.hasStaticShape() && "expected static shape");
   float val = floatAttr.getValueAsDouble() * -1.0;
-  DenseElementsAttr denseAttr = DenseElementsAttr::get(X.getType(), val);
+  DenseElementsAttr denseAttr =
+      DenseElementsAttr::get(X.getType().cast<ShapedType>(), val);
   MultiDialectBuilder<OnnxBuilder> create(builder, loc);
   return create.onnx.constant(denseAttr);
 }

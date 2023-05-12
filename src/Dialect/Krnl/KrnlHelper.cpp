@@ -120,8 +120,8 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr, bool isLb) {
     pushAffineMapBound(map, list);
   } else {
     Value val = expr.getValue();
-    if ((val.getDefiningOp<AffineMinOp>() && !isLb) ||
-        (val.getDefiningOp<AffineMaxOp>() && isLb)) {
+    if ((val.getDefiningOp<affine::AffineMinOp>() && !isLb) ||
+        (val.getDefiningOp<affine::AffineMaxOp>() && isLb)) {
       // Have a Affine Min in an upper bound computation, or have an Affine Max
       // in a lower bound computation,  will extract the list of affine min/max
       // for the loop bounds.
