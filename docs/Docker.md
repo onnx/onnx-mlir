@@ -80,7 +80,7 @@ RUN git clone https://github.com/onnx/tutorials.git
 RUN apt-get install -y lsb-release wget software-properties-common
 RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 # For development
-RUN apt-get install ssh-client
+RUN apt-get install -y ssh-client
 
 # 3) When using vscode, copy your .vscode in the Dockerfile dir and
 #    uncomment the two lines below.
@@ -122,11 +122,32 @@ These steps are summarized here.
 # Starting in the onnx-mlir directory, copy the Docker example directory.
 cp -prf docs/docker-example ~/DockerOnnxMlir
 cd ~/DockerOnnxMlir
-# Edit the Docker file.
+# Edit the Dockerfile.
 vi Dockerfile
 # Build the Docker image.
 docker build --tag onnx-mlir-dev .
 # Start a container using the Docker dashboard or a docker run command.
+docker run -it onnx-mlir-dev
+```
+
+**NOTE:** If you are using a MacBook with the Apple M1 chip, please follow the steps below for configuration:
+``` shell
+# Starting in the onnx-mlir directory, copy the Docker example directory.
+cp -prf docs/docker-example ~/DockerOnnxMlir
+cd ~/DockerOnnxMlir
+# Edit the Dockerfile.
+vi Dockerfile
+# Pull the Docker image with the specified platform
+docker pull --platform linux/amd64 onnxmlirczar/onnx-mlir-dev
+# Build the Docker image.
+docker build --platform linux/amd64 --tag onnx-mlir-dev .
+# Start a container using the Docker dashboard or a docker run command.
+docker run --platform linux/amd64 -it onnx-mlir-dev
+```
+
+Tip: Instead of adding the platform flag for every docker pull, build, and run command. You can set the environment variable `DOCKER_DEFAULT_PLATFORM` and use the first set of steps:
+```
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
 ```
 
 ### Developing with Docker in VSCode
@@ -164,7 +185,7 @@ The [`Dockerfile`](devcontainer-example/Dockerfile.llvm-project) is a simple Doc
 
 The [`devcontainer.json`](devcontainer-example/devcontainer.json) preinstalls extensions and defines settings for the VS Code server running inside the container. This way you don't have to setup VS Code everytime you enter the container. In `postAttachCommand` ONNX is installed.
 
-To use this setup you first clone onnx-mlir and all submodules (for example with` git clone --recursive https://github.com/onnx/onnx-mlir.git`). You then create a new folder named `.devcontainer` in the source root. After that you copy the two files in `docs/devcontainer-example` into that folder. Now simply press `CTRL+SHIFT+P` and execute `Dev Containers: Reopen in Container`. VS Code will now create the docker image and mount the source folder.
+To use this setup you first clone onnx-mlir and all submodules (for example with` git clone --recursive https://github.com/onnx/onnx-mlir.git`). You then create a new folder named `.devcontainer` in the source root. After that you copy the two files in `docs/devcontainer-example` into that folder. Now simply press `CTRL+SHIFT+P` and execute `Dev Containers: Reopen in Container`. VSCode will now create the docker image and mount the source folder.
 
 You can now configure onnx-mlir as described in [BuildOnLinuxOSX](BuildOnLinuxOSX.md). `MLIR_DIR` is already set for you, so you can skip that step.
 

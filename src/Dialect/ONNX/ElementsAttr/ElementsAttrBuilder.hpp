@@ -193,7 +193,7 @@ private:
   static ArrayBuffer<WideNum> getWideNumsAndStrides(
       mlir::ElementsAttr elms, llvm::SmallVectorImpl<int64_t> &strides) {
     return getWideNumsAndExpandedStrides(
-        elms, elms.getType().getShape(), strides);
+        elms, elms.getShapedType().getShape(), strides);
   }
 
   static ArrayBuffer<WideNum> getWideNumsAndExpandedStrides(

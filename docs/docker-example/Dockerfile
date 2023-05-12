@@ -25,7 +25,7 @@ RUN git clone https://github.com/onnx/tutorials.git
 RUN apt-get install -y lsb-release wget software-properties-common
 RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 # For development
-RUN apt-get install ssh-client
+RUN apt-get install -y ssh-client
 
 # 3) When using vscode, copy your .vscode in the Dockerfile dir and
 #    uncomment the two lines below.
