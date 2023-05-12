@@ -1150,7 +1150,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     // Compute the min value out of this map.
     SmallVector<Value, 4> dimAndSymList;
     scope.getDimAndSymbolList(dimAndSymList);
-    Value minVal = scope.getRewriter().create<AffineMinOp>(
+    Value minVal = scope.getRewriter().create<affine::AffineMinOp>(
         vvals[0].getLoc(), map, dimAndSymList);
     res.getObj().initAsKind(minVal, IndexExprKind::NonAffine);
     return res;
@@ -1209,7 +1209,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     // Compute the min value out of this map.
     SmallVector<Value, 4> dimAndSymList;
     scope.getDimAndSymbolList(dimAndSymList);
-    Value minVal = scope.getRewriter().create<AffineMaxOp>(
+    Value minVal = scope.getRewriter().create<affine::AffineMaxOp>(
         vvals[0].getLoc(), map, dimAndSymList);
     res.getObj().initAsKind(minVal, IndexExprKind::NonAffine);
     return res;

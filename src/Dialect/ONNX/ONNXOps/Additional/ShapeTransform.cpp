@@ -48,7 +48,7 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
   MemRefType affineMemRefType =
       MemRefType::get(inputDims, elementType, AffineMapAttr::get(indexMap));
   MemRefType flatMemRefType =
-      normalizeMemRefType(affineMemRefType, /*numSymbols=*/0);
+      affine::normalizeMemRefType(affineMemRefType, /*numSymbols=*/0);
   assert((flatMemRefType.getRank() == outputRank) && "Normalization failed");
 
   DimsExpr outputIEs(outputRank);

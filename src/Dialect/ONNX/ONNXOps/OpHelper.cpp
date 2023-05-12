@@ -354,7 +354,7 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
   if (shapeAttr == nullptr)
     return false;
 
-  int64_t dimensionsOfShape = shapeAttr.getType().getShape()[0];
+  int64_t dimensionsOfShape = shapeAttr.getShapedType().getShape()[0];
   if ((int64_t)valueShape.size() != dimensionsOfShape)
     return false;
 
