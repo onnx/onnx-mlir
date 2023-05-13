@@ -104,6 +104,7 @@ add_onnx_mlir_library(OMONNXStandardFuncReturnPass
 
   LINK_LIBS PUBLIC
   MLIRTransformUtils
-  OMONNXOps
   MLIRFuncDialect
+  OMONNXOps
+  OMShapeInference
   )

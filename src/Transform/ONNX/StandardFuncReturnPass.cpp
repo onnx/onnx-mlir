@@ -17,6 +17,7 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Transform/ONNX/ShapeInference.hpp"
 
 using namespace mlir;
 
@@ -31,6 +32,11 @@ struct StandardFuncReturnPattern
   LogicalResult matchAndRewrite(ONNXFuncReturnOp funcReturnOp,
       ONNXFuncReturnOp::Adaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    // Propagate return types to the function signature in case
+    // they changed since last ShapeInferencePass.
+    func::FuncOp function = funcReturnOp.getParentOp();
+    inferFunctionReturnShapes(function);
+
     rewriter.create<func::ReturnOp>(
         funcReturnOp->getLoc(), funcReturnOp.getOperands());
     rewriter.eraseOp(funcReturnOp);
