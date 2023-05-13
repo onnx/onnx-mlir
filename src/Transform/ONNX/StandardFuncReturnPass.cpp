@@ -24,14 +24,16 @@ namespace onnx_mlir {
 
 namespace {
 
-struct StandardFuncReturnPattern : public ConversionPattern {
+struct StandardFuncReturnPattern
+    : public OpConversionPattern<ONNXFuncReturnOp> {
   StandardFuncReturnPattern(MLIRContext *context)
-      : ConversionPattern(ONNXFuncReturnOp::getOperationName(), 4, context) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      : OpConversionPattern(context) {}
+  LogicalResult matchAndRewrite(ONNXFuncReturnOp funcReturnOp,
+      ONNXFuncReturnOp::Adaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    assert(isa<ONNXFuncReturnOp>(op));
-    rewriter.create<func::ReturnOp>(op->getLoc(), op->getOperands());
-    rewriter.eraseOp(op);
+    rewriter.create<func::ReturnOp>(
+        funcReturnOp->getLoc(), funcReturnOp.getOperands());
+    rewriter.eraseOp(funcReturnOp);
     return success();
   }
 };
