@@ -794,6 +794,7 @@ ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
     llvm_unreachable("The specified shape_infer_pattern is not supported"
                      "Error encountered in shape inference.");
   }
+  return success();
 }
 
 LogicalResult ONNXCustomOpShapeHelper::computeShape() {
