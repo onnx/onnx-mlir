@@ -56,15 +56,66 @@ SUPPRESS_WARNINGS_POP
 
 #define DEBUG_TYPE "frontend_dialect_transformer"
 
-/// We consider opset < 6 is old. Users will see a warning if their model
-/// contains ops of old opset.
-static constexpr int32_t MINIMUM_SUPPORTED_OPSET = 6;
-
 using namespace mlir;
 
 namespace onnx_mlir {
 
 namespace detail {
+
+namespace {
+
+/// We consider opset < 6 is old. Users will see a warning if their model
+/// contains ops of old opset.
+constexpr int32_t MINIMUM_SUPPORTED_OPSET = 6;
+
+// -------------------------------------------------------------------------- //
+// Code from third_party/onnx/onnx/shape_inference/implementation.cc:
+
+using OpsetImportsMap = std::unordered_map<std::string, int64_t>;
+
+// Either ModelProto or FunctionProto.
+template <class T>
+OpsetImportsMap GetOpsetImportsFromProto(const T &proto) {
+  OpsetImportsMap opset_imports;
+  for (const auto &opset_import : proto.opset_import()) {
+    opset_imports[opset_import.domain()] = opset_import.version();
+  }
+  return opset_imports;
+}
+
+std::string GetModelLocalFunctionsMapIdentifier(
+    const std::string &domain, const std::string &func_name) {
+  return domain + ":" + func_name;
+}
+
+onnx::shape_inference::ModelLocalFunctionsMap GetModelLocalFunctions(
+    const onnx::ModelProto &m) {
+  onnx::shape_inference::ModelLocalFunctionsMap model_local_functions_by_id;
+  for (const auto &function_proto : m.functions()) {
+    model_local_functions_by_id.insert(
+        {GetModelLocalFunctionsMapIdentifier(
+             function_proto.domain(), function_proto.name()),
+            &function_proto});
+  }
+  return model_local_functions_by_id;
+}
+
+// End of copied code from third_party/onnx.
+// -------------------------------------------------------------------------- //
+
+void InferGraphShapes(onnx::GraphProto *g,
+    const std::unordered_map<std::string, int> &opset_imports,
+    const onnx::shape_inference::ModelLocalFunctionsMap &in_model_functions) {
+  onnx::shape_inference::InferShapes(g, opset_imports,
+      onnx::OpSchemaRegistry::Instance(),
+      /*options=*/{}, in_model_functions);
+}
+
+void InferModelShapes(onnx::ModelProto &m) {
+  onnx::shape_inference::InferShapes(m);
+}
+
+} // namespace
 
 using ValueSymbolMapping = SymbolMapping<Value>;
 using SymbolToOnnxTypeMapping = SymbolMapping<onnx::TypeProto>;
@@ -81,7 +132,7 @@ public:
       const onnx::ModelProto &model, ImportOptions options) {
     options_ = options;
     modelInputShaper_.setShapeInformation(options_.shapeInformation);
-    SetOpSetImport(model); // Determines which opsets to use.
+    opset_map_ = GetOpsetImportsFromProto(model); // Which opsets to use.
     importGraph(model.graph());
     if (VerboseOutput) {
       llvm::outs()
@@ -120,6 +171,14 @@ private:
   // counter of the number of parameters in a model.
   int64_t num_of_parameters_ = 0;
 
+  // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
+  SymbolToOnnxTypeMapping onnx_type_map;
+
+  // opset_map_ is the internal (map) representation of ModelProto::opset_import
+  // It maps each domain (e.g., "ai.onnx.ml") to the specific version of that
+  // opset used by this model.
+  OpsetImportsMap opset_map_;
+
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
   Location ImportLoc(const onnx::NodeProto &node) {
@@ -135,24 +194,10 @@ private:
     return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult();
   }
 
-  // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
-  SymbolToOnnxTypeMapping onnx_type_map;
-
   void AddValueInfo(const onnx::ValueInfoProto &vi, bool allowExist = false) {
     if (allowExist && onnx_type_map.ContainsKey(vi.name()))
       return;
     onnx_type_map.AddMapping(vi.name(), vi.type());
-  }
-
-  // opset_map_ is the internal (map) representation of ModelProto::opset_import
-  // It maps each domain (e.g., "ai.onnx") to the specific version of that opset
-  // used by this model.
-  std::map<std::string, int64_t> opset_map_;
-  void SetOpSetImport(const onnx::ModelProto &model) {
-    opset_map_.clear();
-    for (auto &binding : model.opset_import()) {
-      opset_map_[binding.domain()] = binding.version();
-    }
   }
 
   void BindOnnxName(const std::string &onnx_name, Value symbol) {
@@ -951,7 +996,11 @@ private:
   }
 
   std::string GetImportVersionOfNode(const onnx::NodeProto &node) {
-    auto current_opset = opset_map_.find(node.domain())->second;
+    auto current_opset_it = opset_map_.find(node.domain());
+    if (current_opset_it == opset_map_.end())
+      return "";
+
+    int64_t current_opset = current_opset_it->second;
 
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
                             << node.op_type() << " (" << node.name() << ")"
@@ -985,7 +1034,7 @@ private:
         return "V" + std::to_string(opset_list[i]);
       }
     }
-    return std::string("");
+    return "";
   }
 
   func::FuncOp CreateFuncOp(
@@ -1053,9 +1102,9 @@ private:
         inputOnnxTypes.emplace_back();
       } else {
         Value value = inputs.emplace_back(LookupOnnxName(input_name));
-        if (const onnx::TypeProto *onnxTypePtr =
+        if (const onnx::TypeProto *onnxType =
                 onnx_type_map.GetByOnnxName(input_name)) {
-          inputOnnxTypes.push_back(*onnxTypePtr);
+          inputOnnxTypes.push_back(*onnxType);
         } else {
           inputOnnxTypes.emplace_back(fromMlirToONNXType(value.getType()));
         }
@@ -1064,56 +1113,82 @@ private:
 
     // Get ONNX function body:
     onnx::FunctionProto functionProto;
-    // Try generating a context-independent function body:
-    const onnx::FunctionProto *pFunctionProto = schema.GetFunction();
-    if (!pFunctionProto) {
+    if (const onnx::FunctionProto *pFunctionProto = schema.GetFunction()) {
+      functionProto = *pFunctionProto; // Context-independent function body.
+    } else {
       assert(schema.HasContextDependentFunction() &&
-             "must have context "
-             "dependent function absent a context independent function");
+             "must have context dependent function absent a context "
+             "independent function");
       // Generate a context-dependent function body:
       onnx::FunctionBodyBuildContextImpl onnxFunContext(node, inputOnnxTypes);
       if (!schema.BuildContextDependentFunction(onnxFunContext, functionProto))
         llvm_unreachable("failed to generate context dependent function");
-      pFunctionProto = &functionProto;
     }
 
-    assert(pFunctionProto->output_size() == node.output_size() &&
-           "function must return as many results as caller's outputs");
+    assert(node.input_size() <= functionProto.input_size() &&
+           "more caller inputs than function arguments");
+    assert(node.output_size() <= functionProto.output_size() &&
+           "more caller outputs than function results");
 
-    const std::string &func_name_prefix =
-        node.name().empty() ? node.op_type() : node.name();
+    onnx::GraphProto graph;
+
+    for (int i = 0; i < functionProto.input_size(); ++i) {
+      onnx::ValueInfoProto *info = graph.add_input();
+      info->set_name(functionProto.input(i));
+      // Set type if known, otherwise it's uninitialized which means NoneType.
+      if (i < node.input_size())
+        *info->mutable_type() = inputOnnxTypes[i];
+    }
+
+    for (int i = 0; i < functionProto.output_size(); ++i) {
+      onnx::ValueInfoProto *info = graph.add_output();
+      info->set_name(functionProto.output(i));
+      // Set type if known, otherwise it's uninitialized which means NoneType.
+      if (i < node.output_size()) {
+        if (const onnx::TypeProto *onnxType =
+                onnx_type_map.GetByOnnxName(node.output(i))) {
+          *info->mutable_type() = *onnxType;
+        }
+      }
+    }
+
+    *graph.mutable_node() = std::move(functionProto.node());
+    // TODO: substitute attributes from caller node to graph nodes
+
+    std::string scopeName =
+        node.name() + ":" + node.op_type() + ":" + functionProto.name();
 
     // Save caller context, while generating function body.
     ValueSymbolMapping callerScope(std::move(frontend_symbols_));
-    frontend_symbols_.pushScope(func_name_prefix);
+    frontend_symbols_.pushScope(scopeName);
     SymbolToOnnxTypeMapping callerTypeMap(std::move(onnx_type_map));
-    onnx_type_map.pushScope(func_name_prefix);
+    onnx_type_map.pushScope(scopeName);
 
     // Due to missing trailing optional parameters,
-    // node.input_size() and pFunctionProto->input_size() may be unequal.
-    int num_formals = std::min(node.input_size(), pFunctionProto->input_size());
+    // node.input_size() and functionProto.input_size() may be unequal.
+    int num_formals = std::min(node.input_size(), functionProto.input_size());
     for (int i = 0; i < num_formals; ++i) {
-      const std::string &name = pFunctionProto->input(i);
+      const std::string &name = functionProto.input(i);
       Value value = inputs[i];
       BindOnnxName(name, value);
     }
 
     // Apply ONNX type inference to FunctionProto:
-    InferTypes(pFunctionProto, inputOnnxTypes);
+    InferTypes(&functionProto, inputOnnxTypes);
 
-    for (auto &fb_node : pFunctionProto->node()) {
+    for (auto &fb_node : functionProto.node()) {
       ImportNode(fb_node);
     }
 
     SmallVector<Value, 4> outputs;
-    for (auto &name : pFunctionProto->output()) {
+    for (auto &name : functionProto.output()) {
       outputs.push_back(LookupOnnxName(name));
     }
 
     // Restore caller context
-    frontend_symbols_.popScope(func_name_prefix);
+    frontend_symbols_.popScope(scopeName);
     frontend_symbols_ = std::move(callerScope);
-    onnx_type_map.popScope(func_name_prefix);
+    onnx_type_map.popScope(scopeName);
     onnx_type_map = std::move(callerTypeMap);
 
     for (size_t i = 0; i < outputs.size(); ++i) {
