@@ -754,33 +754,13 @@ void resetTypesShapeToQuestionmarks(Operation *op) {
 // ONNX Custom Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-static ValueRange extractOperands(Operation *op, ValueRange operands) {
-  ONNXCustomOp customOp = cast<ONNXCustomOp>(op);
-  std::optional<ArrayAttr> inputIndexAttrs = customOp.getInputsForInfer();
-  
-  ValueRange inputs = operands.empty() ? ValueRange(customOp.getInputs()) : operands;
-  if (!inputIndexAttrs.has_value())
-    return inputs;
-
-  // ToFix: It seems to me that the vector for ValueRange has to be alive 
-  // during the lifespan of the ValueRange. Using static definitely violates
-  // MLIR transformation requirement.
-  
-  static std::vector<Value> operandsVector;
-  operandsVector.clear();
-  ValueRange usedOperands;
-  for(auto indexAttr : inputIndexAttrs.value()) {
-    operandsVector.push_back(inputs[indexAttr.cast<IntegerAttr>().getInt()]);
-  }
-  return usedOperands = ArrayRef(operandsVector);
-}
-
 ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
     ValueRange operands, IndexExprBuilder *ieBuilder, IndexExprScope *scope,
     bool hasUniBroadcasting)
-    : ONNXOpShapeHelper(op, extractOperands(op, operands), ieBuilder, scope),
-      ONNXUnaryOpShapeHelper(op, extractOperands(op, operands), ieBuilder, scope),
-      ONNXBroadcastOpShapeHelper(op, extractOperands(op, operands), ieBuilder, scope) {
+    : ONNXOpShapeHelper(op, operands, ieBuilder, scope),
+      ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope),
+      ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope),
+      operandsVector() {
   ONNXCustomOp customOp = cast<ONNXCustomOp>(op);
   if (!customOp.getShapeInferPattern().has_value()) {
     pattern = 0;
@@ -794,7 +774,23 @@ ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
     llvm_unreachable("The specified shape_infer_pattern is not supported"
                      "Error encountered in shape inference.");
   }
-  return success();
+  std::optional<ArrayAttr> inputIndexAttrs = customOp.getInputsForInfer();
+
+  ValueRange inputs =
+      operands.empty() ? ValueRange(customOp.getInputs()) : operands;
+  if (!inputIndexAttrs.has_value()) {
+    return;
+  }
+
+  // ToFix: It seems to me that the vector for ValueRange has to be alive
+  // during the lifespan of the ValueRange. Using static definitely violates
+  // MLIR transformation requirement.
+
+  ValueRange usedOperands;
+  for (auto indexAttr : inputIndexAttrs.value()) {
+    operandsVector.push_back(inputs[indexAttr.cast<IntegerAttr>().getInt()]);
+  }
+  ONNXOpShapeHelper::operands = ArrayRef(operandsVector);
 }
 
 LogicalResult ONNXCustomOpShapeHelper::computeShape() {
@@ -803,6 +799,7 @@ LogicalResult ONNXCustomOpShapeHelper::computeShape() {
   } else if (pattern == 2) {
     return ONNXBroadcastOpShapeHelper::computeShape();
   }
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

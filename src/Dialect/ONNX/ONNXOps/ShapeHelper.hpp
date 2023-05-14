@@ -823,11 +823,9 @@ struct ONNXCustomOpShapeHelper : public ONNXUnaryOpShapeHelper,
   mlir::LogicalResult computeShape() override;
 
 protected:
-  // The actual shape helper used for the CustomOp based on its
-  // shape_infer_pattern attribute
-  std::unique_ptr<ONNXOpShapeHelper> shapeHelper;
-  // The operands used for shape inference based on inputs_for_infer attribute
-  mlir::ValueRange relevantOperands;
+  // Storage to generate ValueRange specified by inputs_for_infer
+  std::vector<mlir::Value> operandsVector;
+  // Shape inference pattern
   int pattern;
 };
 
