@@ -23,10 +23,12 @@ include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/IR/PatternBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
+include "src/Interface/HasOnnxSubgraphOpInterface.td"
+include "src/Interface/ONNXOperationTrait.td"
+include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/ShapeHelperOpInterface.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
-include "src/Interface/ResultTypeInferenceOpInterface.td"
-include "src/Interface/HasOnnxSubgraphOpInterface.td"
 include "src/IR/AttrBase.td"
 
 //===----------------------------------------------------------------------===//
@@ -248,7 +250,6 @@ class ONNX_Op<string mnemonic, list<Trait> traits = []> :
 //  4. type of string, complex64 and complex128 for input/output are ignored 
 //  5. unsigned int are treated as signed one
 
-include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Dialect/ONNX/ONNXOps.td.inc"
 include "src/Dialect/ONNX/AdditionalONNXOps.td"
 

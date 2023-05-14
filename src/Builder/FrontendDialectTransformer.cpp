@@ -47,10 +47,12 @@ SUPPRESS_WARNINGS_POP
 
 #include <google/protobuf/util/json_util.h>
 
+#include <algorithm>
 #include <array>
 #include <fstream>
-#include <map>
+#include <functional>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #define DEBUG_TYPE "frontend_dialect_transformer"
@@ -62,7 +64,8 @@ static constexpr int32_t MINIMUM_SUPPORTED_OPSET = 6;
 using namespace mlir;
 
 namespace onnx_mlir {
-namespace detail {
+
+namespace {
 
 using ValueSymbolMapping = SymbolMapping<Value>;
 using SymbolToOnnxTypeMapping = SymbolMapping<onnx::TypeProto>;
@@ -100,19 +103,16 @@ private:
   OpBuilder builder_;
 
   // onnxop: list of versions for dialect
-  std::map<std::string, std::vector<int>> op_dialect_version_map_;
-  // onnxop: the top version in third_part/onnx
-  std::map<std::string, int> op_dialect_top_version_map_;
+  std::unordered_map<std::string, std::vector<int>> op_dialect_version_map_;
 
   // mapping between string name and symbol
   ValueSymbolMapping frontend_symbols_;
 
   ModelInputShaper modelInputShaper_;
 
-  using ImportHandlerType = void (onnx_mlir::detail::FrontendGenImpl::*)(
-      const onnx::NodeProto &);
+  using ImportHandlerType = void (FrontendGenImpl::*)(const onnx::NodeProto &);
 
-  std::map<std::string, ImportHandlerType> import_handler_map_;
+  std::unordered_map<std::string, ImportHandlerType> import_handler_map_;
 
   // The total number of elements in all initializers. This value is a rough
   // counter of the number of parameters in a model.
@@ -145,12 +145,19 @@ private:
   // opset_map_ is the internal (map) representation of ModelProto::opset_import
   // It maps each domain (e.g., "ai.onnx") to the specific version of that opset
   // used by this model.
-  std::map<std::string, int64_t> opset_map_;
+  std::unordered_map<std::string, int64_t> opset_map_;
   void SetOpSetImport(const onnx::ModelProto &model) {
     opset_map_.clear();
     for (auto &binding : model.opset_import()) {
       opset_map_[binding.domain()] = binding.version();
     }
+  }
+
+  int64_t GetDomainVersion(const std::string &domain) {
+    auto it = opset_map_.find(domain);
+    if (it == opset_map_.end())
+      return 0;
+    return it->second;
   }
 
   void BindOnnxName(const std::string &onnx_name, Value symbol) {
@@ -683,7 +690,7 @@ private:
   }
 
   template <typename T>
-  void buildOperation(const onnx::NodeProto &node) {
+  void doBuildOperation(const onnx::NodeProto &node) {
     std::vector<Value> inputs;
     int expectedNumOperands = T::getNumberOfOperands();
     int expectedNumResults = T::getNumberOfResults();
@@ -691,6 +698,11 @@ private:
     auto attributes = ImportNodeAttributes(node);
     buildOutputAndOperation<T>(
         node, inputs, expectedNumOperands, expectedNumResults, attributes);
+  }
+
+  template <typename T>
+  void buildOperation(const onnx::NodeProto &node) {
+    doBuildOperation<T>(node);
   }
 
   // The output type of CategoryMapper needs special handling
@@ -787,9 +799,9 @@ private:
   void ImportNodeMaxPool(const onnx::NodeProto &node) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
-      buildOperation<ONNXMaxPoolSingleOutOp>(node);
+      doBuildOperation<ONNXMaxPoolSingleOutOp>(node);
     } else {
-      buildOperation<ONNXMaxPoolOp>(node);
+      doBuildOperation<ONNXMaxPoolOp>(node);
     }
   }
 
@@ -800,10 +812,10 @@ private:
     int nOuts = node.output().size();
     if (nOuts == 1) {
       // Inference mode with one output.
-      buildOperation<ONNXBatchNormalizationInferenceModeOp>(node);
+      doBuildOperation<ONNXBatchNormalizationInferenceModeOp>(node);
     } else {
       // Training mode with four trailing optional outputs. Not handled yet.
-      buildOperation<ONNXBatchNormalizationOp>(node);
+      doBuildOperation<ONNXBatchNormalizationOp>(node);
     }
   }
 
@@ -815,7 +827,7 @@ private:
     int nIn = ONNXDropoutOp::getNumberOfOperands();
     if (nOps == nIn) {
       // All inputs are specified
-      buildOperation<ONNXDropoutOp>(node);
+      doBuildOperation<ONNXDropoutOp>(node);
       return;
     }
 
@@ -899,7 +911,7 @@ private:
       auto attributes = ImportNodeAttributes(node);
       buildOutputAndOperation<ONNXPadOp>(node, inputs, nIn, nOut, attributes);
     } else {
-      buildOperation<ONNXPadOp>(node);
+      doBuildOperation<ONNXPadOp>(node);
     }
   }
 
@@ -960,20 +972,21 @@ private:
   }
 
   const onnx::OpSchema *GetOpSchema(const onnx::NodeProto &node) {
-    auto &domain = node.domain();
-    auto version_it = opset_map_.find(domain);
-    if (version_it == opset_map_.end())
+    int64_t version = GetDomainVersion(node.domain());
+    if (version == 0)
       return nullptr;
-    auto version = version_it->second;
-    return onnx::OpSchemaRegistry::Schema(node.op_type(), version, domain);
+    return onnx::OpSchemaRegistry::Schema(
+        node.op_type(), version, node.domain());
   }
 
   std::string GetImportVersionOfNode(const onnx::NodeProto &node) {
-    auto current_opset = opset_map_.find(node.domain())->second;
+    int64_t version = GetDomainVersion(node.domain());
+    if (version == 0)
+      return "";
 
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
                             << node.op_type() << " (" << node.name() << ")"
-                            << ", Opset: " << current_opset << "\n");
+                            << ", Opset: " << version << "\n");
 
     auto opset_list_it = op_dialect_version_map_.find(node.op_type());
 
@@ -989,21 +1002,20 @@ private:
     // It is the current opset when onnx-mlir project is started.
     // All opset lower than the last opset should use the last opset(version)
     if (node.domain().compare("ai.onnx.ml") != 0 &&
-        current_opset < opset_list.back() &&
-        current_opset < MINIMUM_SUPPORTED_OPSET)
+        version < opset_list.back() && version < MINIMUM_SUPPORTED_OPSET)
       llvm::outs() << "Warning: ONNX " << node.op_type()
-                   << " in your model is using Opset " << current_opset
+                   << " in your model is using Opset " << version
                    << ", which is quite old. Please consider regenerating your "
                       "model with a newer Opset.\n";
 
     for (int i = opset_list.size() - 1; i > 0; i--) {
-      if (current_opset < opset_list[i - 1]) {
+      if (version < opset_list[i - 1]) {
         LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ":   - use Opset "
                                 << opset_list[i] << "\n");
         return "V" + std::to_string(opset_list[i]);
       }
     }
-    return std::string("");
+    return "";
   }
 
   func::FuncOp CreateFuncOp(
@@ -1202,8 +1214,8 @@ private:
 
     // look up handler for the opName. If not found, create a node
     // for a custom op, and issue a warning.
-    auto handler =
-        import_handler_map_.find(node.op_type() + versionStr.c_str());
+    std::string versionedName = node.op_type() + versionStr;
+    auto handler = import_handler_map_.find(versionedName);
     if (handler != import_handler_map_.end()) {
       (this->*(handler->second))(node);
     } else {
@@ -1212,7 +1224,23 @@ private:
   }
 
   void InitHandlerMap() {
-#include "src/Builder/OpBuildTable.inc"
+    foreachONNXOp([this](auto nullOp) {
+      using T = decltype(nullOp);
+      if constexpr (std::is_base_of_v<ONNXOperationTrait<T>, T>) {
+        StringRef name = T::getONNXName();
+        int version = T::getONNXSinceVersion();
+        op_dialect_version_map_[name.str()].push_back(version);
+
+        StringRef versionedName = T::getOperationName();
+        bool hadOnnxPrefix = versionedName.consume_front("onnx.");
+        assert(hadOnnxPrefix);
+        import_handler_map_[versionedName.str()] =
+            &FrontendGenImpl::buildOperation<T>;
+      }
+    });
+    for (auto &[name, versions] : op_dialect_version_map_) {
+      std::sort(versions.begin(), versions.end(), std::greater<int>());
+    }
   }
 
   /*!
@@ -1266,9 +1294,52 @@ private:
     return mainFunc;
   }
 }; // class FrontendGenImpl
-} // namespace detail
-} // namespace onnx_mlir
-namespace onnx_mlir {
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXBatchNormalizationOp>(
+    const onnx::NodeProto &node) {
+  ImportNodeBatchNormalization(node);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXCastOp>(const onnx::NodeProto &node) {
+  ImportNodeCast(node);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXDropoutOp>(
+    const onnx::NodeProto &node) {
+  ImportNodeDropout(node);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXMaxPoolOp>(
+    const onnx::NodeProto &node) {
+  ImportNodeMaxPool(node);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXPadOp>(const onnx::NodeProto &node) {
+  ImportNodePad(node);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXScanOp>(const onnx::NodeProto &node) {
+  ImportScan(node);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXSliceOp>(const onnx::NodeProto &node) {
+  ImportNodeSlice(node);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXCategoryMapperOp>(
+    const onnx::NodeProto &node) {
+  ImportCategoryMapper(node);
+}
+
+} // namespace
 
 bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, ImportOptions options) {
@@ -1378,8 +1449,7 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, ImportOptions options) {
-
-  detail::FrontendGenImpl myONNXGen(context);
+  FrontendGenImpl myONNXGen(context);
   module = myONNXGen.ImportONNXModel(model, options);
 }
 

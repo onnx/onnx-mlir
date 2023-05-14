@@ -37,10 +37,6 @@ parser.add_argument("--dry-run-onnx-ops",
                     help="Output ONNXOps.td.inc content to stdout.",
                     action="store_true",
                     default=False)
-parser.add_argument("--dry-run-op-build-table",
-                    help="Output OpBuildTable.inc content to stdout.",
-                    action="store_true",
-                    default=False)
 parser.add_argument("--check-operation-version",
                     help="check whether the imported onnx package has new operation or "
                          " newer version of operation compared with version stored in  version_dicts",
@@ -290,18 +286,6 @@ special_attr_order = {
     ("then_branch", "else_branch"),
 }
 
-# Special operation importing handlers.
-special_op_handler = dict([
-    ("BatchNormalization", "ImportNodeBatchNormalization"),
-    ("CategoryMapper", "ImportCategoryMapper"),
-    ("Dropout", "ImportNodeDropout"),
-    ("Cast", "ImportNodeCast"),
-    ("MaxPool", "ImportNodeMaxPool"),
-    ("Pad", "ImportNodePad"),
-    ("Slice", "ImportNodeSlice"),
-    ("Scan", "ImportScan"),
-])
-
 # Operations with custom assembly format (alphabetical order).
 OpsWithCustomAssemblyFormat = [
     'Constant',
@@ -426,16 +410,14 @@ OpsWithConstantLike = [
 # Op with Helper functions
 # Here the functions are for data flow analysis.
 OpsWithHelpers = {
-  "Loop": """
-    mlir::Operation::result_range v_final();
-    mlir::Operation::result_range scan_outputs();
-  """,
-  "Scan": """
-    mlir::Operation::operand_range getVInitial();
-    mlir::Operation::result_range v_final();
-    mlir::Operation::operand_range scan_inputs();
-    mlir::Operation::result_range scan_outputs();
-  """
+  "Loop":
+    '{indent}mlir::Operation::result_range v_final();\n' +
+    '{indent}mlir::Operation::result_range scan_outputs();\n',
+  "Scan":
+    '{indent}mlir::Operation::operand_range getVInitial();\n' +
+    '{indent}mlir::Operation::result_range v_final();\n' +
+    '{indent}mlir::Operation::operand_range scan_inputs();\n' +
+    '{indent}mlir::Operation::result_range scan_outputs();\n'
 }
 
 # Type inference are usually done with the type string for Op definition
@@ -550,28 +532,29 @@ custom_builder_broadcast_ops_list = custom_builder_broadcast_to_same_type_ops_li
 custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broadcast_ops_list
 
 # A dictionary to add any special definition for an operation.
-custom_definition_misc = dict([ ('Constant',
- '''  let builders = [
-  OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
-   if (value) {
-    auto tensorType = value.cast<TypedAttr>().getType();
-    build($_builder, $_state, tensorType, sparse_value, value,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
-   } else {
-    auto tensorType = sparse_value.cast<TypedAttr>().getType();
-    build($_builder, $_state, tensorType, sparse_value, value,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
-   }
-  }]>
-  ];'''),
-  ('Cast',
- '''   let builders = [
-  OpBuilder<(ins "Value":$input, "TypeAttr":$to), [{
-   auto resultType = mlir::UnrankedTensorType::get(to.getValue());
-   build($_builder, $_state, resultType, input, to);
-  }] >
-  ];'''
- )])
+custom_definition_misc = dict([
+    ('Constant',
+    '{indent}let builders = [\n' + \
+    '{indent}  OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{{\n' + \
+    '{indent}  if (value) {{\n' + \
+    '{indent}    auto tensorType = value.cast<TypedAttr>().getType();\n' + \
+    '{indent}    build($_builder, $_state, tensorType, sparse_value, value,\n' + \
+    '{indent}      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());\n' + \
+    '{indent}  }} else {{\n' + \
+    '{indent}    auto tensorType = sparse_value.cast<TypedAttr>().getType();\n' + \
+    '{indent}    build($_builder, $_state, tensorType, sparse_value, value,\n' + \
+    '{indent}      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());\n' + \
+    '{indent}    }}\n' + \
+    '{indent}  }}]>\n' + \
+    '{indent}];\n'),
+    ('Cast',
+    '{indent}let builders = [\n' + \
+    '{indent}  OpBuilder<(ins "Value":$input, "TypeAttr":$to), [{{\n' + \
+    '{indent}    auto resultType = mlir::UnrankedTensorType::get(to.getValue());\n' + \
+    '{indent}    build($_builder, $_state, resultType, input, to);\n' + \
+    '{indent}  }}]>\n' + \
+    '{indent}];\n')
+])
 
 # Get this order from TensorProto in https://github.com/onnx/onnx/blob/main/onnx/onnx.in.proto#L481.
 # enum DataType {
@@ -929,9 +912,15 @@ def get_output_type_mapping(schema):
 
     return mapping
 
+def onnx_properties(indent, schema):
+    return (
+        '{indent}static constexpr StringRef onnxName = "{name}";\n' +
+        '{indent}static constexpr StringRef onnxDomain = "{domain}";\n' +
+        '{indent}static constexpr int onnxSinceVersion = {since_version};\n'
+    ).format(name=schema.name, domain=schema.domain, since_version=schema.since_version, indent=indent)
+
 def get_numberof_inout(s, indent, schema):
     expected_num_operands = get_numberof_list(schema.inputs)
-    indent = inc_indent(indent)
     s += indent + "static int getNumberOfOperands() {\n"
     indent = inc_indent(indent)
     s += indent + "return {};\n".format(expected_num_operands)
@@ -954,7 +943,6 @@ def get_numberof_inout(s, indent, schema):
 
     return s
 
-
 def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
     cpp_name_to_idx_literal = "{" + ", ".join([
         "{{\"{}\", {}}}".format(*name_to_idx)
@@ -974,8 +962,6 @@ def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
     return s
 
 def get_type_inference_func(s, indent, type_inference_code):
-    indent = inc_indent(indent)
-
     s += indent + "std::vector<mlir::Type> resultTypeInference() {" + "\n"
     indent = inc_indent(indent)
     s += indent + "std::vector<mlir::Type> resultTypes;" + "\n"
@@ -986,7 +972,6 @@ def get_type_inference_func(s, indent, type_inference_code):
     indent = dec_indent(indent)
     s += indent + "}" + "\n"
 
-    indent = dec_indent(indent)
     return s
 
 def parse_type_str(allowedType):
@@ -1103,7 +1088,7 @@ def gen_op_def(schema, with_version = False):
           regions[attr.name] = "AnyRegion"
 
     # Generate decl for op traits.
-    traits = ["Pure"]
+    traits = ["Pure", "ONNXOperationTrait"]
 
     # Generate ConstantLike traits.
     if opName in OpsWithConstantLike:
@@ -1122,14 +1107,6 @@ def gen_op_def(schema, with_version = False):
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
     indent = inc_indent(indent)
-
-    # Generate decl for custom assembly format.
-    if opName in OpsWithCustomAssemblyFormat:
-        s += indent + 'let hasCustomAssemblyFormat = 1;\n'
-
-    # Generate decl for canonicalizer.
-    if opName in OpsWithCanonicalizer:
-        s += indent + 'let hasCanonicalizer = 1;\n'
 
     # Generate decl for summary.
     s += indent + 'let summary = "ONNX {} operation";\n'.format(schema.name)
@@ -1241,14 +1218,17 @@ def gen_op_def(schema, with_version = False):
         s += resultType.format(*operands, indent=indent)
         s += indent + 'build($_builder, $_state, {resultType}, operands, attributes);\n'
         indent = dec_indent(indent)
-        s += indent + '}]>'
+        s += indent + '}]>\n'
 
-        s += '\n' + indent + '];\n'
+        indent = dec_indent(indent)
+        s += indent + '];\n'
 
     ###########################################
     # Generate extraClassDeclaration.
     s += indent + "let extraClassDeclaration = [{\n"
-    #indent = inc_indent(indent)
+    indent = inc_indent(indent)
+
+    s += onnx_properties(indent, schema)
 
     # Generate input/output number and output type mapping
     s = get_numberof_inout(s, indent, schema)
@@ -1258,7 +1238,7 @@ def gen_op_def(schema, with_version = False):
             s, indent, OpsWithResultTypeInference[opName])
 
     if opName in OpsWithHelpers:
-        s += OpsWithHelpers[opName]
+        s += OpsWithHelpers[opName].format(indent=indent)
 
     if len(regions):
         s += indent + "int64_t getSubgraphRegionIdx(const std::string& name) {\n"
@@ -1268,6 +1248,8 @@ def gen_op_def(schema, with_version = False):
         s += indent + "llvm_unreachable(\"region with the specified name does not exist\");\n"
         indent = dec_indent(indent)
         s += indent + "}\n"
+
+    indent = dec_indent(indent)
     s += indent + '}];\n'
 
     ###########################################
@@ -1280,25 +1262,27 @@ def gen_op_def(schema, with_version = False):
     s += indent + '}];\n'
 
     if ( opName in custom_definition_misc) :
-        s += custom_definition_misc[opName] + '\n'
+        s += custom_definition_misc[opName].format(indent=indent)
 
     ###########################################
     # Generate decl for verifier.
     if opName in OpsWithVerifier:
         s += indent + 'let hasVerifier = 1;\n'
+
     if opName in OpsWithFolder:
         s += indent + 'let hasFolder = 1;\n'
+
+    # Generate decl for canonicalizer.
+    if opName in OpsWithCanonicalizer:
+        s += indent + 'let hasCanonicalizer = 1;\n'
+
+    # Generate decl for custom assembly format.
+    if opName in OpsWithCustomAssemblyFormat:
+        s += indent + 'let hasCustomAssemblyFormat = 1;\n'
+
     s += '}\n\n'
     return s
 
-
-def gen_op_versions(file) :
-    indent = inc_indent()
-    s = ""
-    for key, item in version_dict.items() :
-        s += indent + 'op_dialect_version_map_["' + key +'"] = '
-        s += "{" +  "{}".format(", ".join(str(x) for x in item)) + "};\n"
-    file.write(s)
 
 """
 special cases:
@@ -1307,46 +1291,6 @@ special cases:
 * Conv: attr kernel_shape type is ints
 * Transpose: attr perm default value is {} empty int list
 """
-
-
-def gen_op_importer(schema, file, with_version=False):
-    indent = inc_indent()
-    if with_version :
-        opName = schema.name + "V"+str(schema.since_version)
-    else :
-        opName = schema.name
-    s = indent + 'import_handler_map_["' + opName +'"] = \n '
-
-    expected_num_operands = len(schema.inputs)
-    expected_num_results = len(schema.outputs)
-    for input in schema.inputs:
-        if OpSchema.FormalParameterOption.Variadic == input.option:
-            expected_num_operands = -1
-    for output in schema.outputs:
-        if OpSchema.FormalParameterOption.Variadic == output.option:
-            expected_num_results = -1
-
-    # Only support special op handler for the op without version.
-    if with_version:
-        handler_func = "buildOperation<mlir::ONNX{}Op>".format(opName)
-    else:
-        handler_func = special_op_handler.get(
-            schema.name, "buildOperation<mlir::ONNX{}Op>".format(opName))
-
-    # Special handlers currently require expected num operands/results to be specified.
-    # TODO: remove special handlers.
-    args = ["node"]
-    """
-    if expected_num_operands != -1 or expected_num_results != -1 or "buildOperation" not in handler_func:
-        args.append(
-            "/* expected_num_operands = */ {}".format(expected_num_operands))
-        args.append(
-            '/* expected_num_results = */ {}'.format(expected_num_results))
-    """
-    s += inc_indent(indent) + '&onnx_mlir::detail::FrontendGenImpl::'
-    s += handler_func+';\n'
-
-    file.write(s)
 
 
 def build_operator_schemas():
@@ -1433,10 +1377,6 @@ def main(args):  # type: (Type[Args]) -> None
     op_def = args.op_def
     op_def.write(autogen_warning)
 
-    op_importer = args.op_importer
-    op_importer.write(autogen_warning)
-    gen_op_versions(op_importer)
-
     new_version_dict = dict()
     for domain, support_map in build_operator_schemas():
         for _, name_map in support_map:
@@ -1446,7 +1386,6 @@ def main(args):  # type: (Type[Args]) -> None
                 new_version_dict[schema.name] = [schema.since_version]
                 if not check_operation_version :
                     with_version = previous_name == schema.name
-                    gen_op_importer(schema, op_importer, with_version)
                     r = gen_op_def(schema, with_version)
                     op_def.write(r)
                     previous_name = schema.name
@@ -1465,20 +1404,17 @@ if __name__ == '__main__':
     curr_dir = os.path.dirname(os.path.realpath(__file__))
 
     class Args(object):
-        dry_run = args.dry_run_onnx_ops or args.dry_run_op_build_table
+        dry_run = args.dry_run_onnx_ops
 
-        # If either dry_run_onnx_ops or dry_run_op_build_table is true, then treat
+        # If dry_run_onnx_ops is true, then treat
         # both of them as true. Otherwise, one of them runs as a dry-run and one
         # of them runs as a real run creating unnecessary artifacts in the wrong
         # locations in the build tree.
         if dry_run:
             op_def = StringIO()
-            op_importer = StringIO()
         else:
             op_def_file_path = os.path.join(curr_dir, 'ONNXOps.td.inc')
             op_def = io.open(op_def_file_path, 'w', newline='')
-            op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
-            op_importer = io.open(op_importer_file_path, 'w', newline='')
     main(Args)
 
     # This is based on diff.py from llvm-project (llvm\utils\lit\lit\builtin_commands\diff.py).
@@ -1497,5 +1433,3 @@ if __name__ == '__main__':
     # Only output the generated values for the specifically requested dry run.
     if args.dry_run_onnx_ops:
         sys.stdout.write(Args.op_def.getvalue())
-    if args.dry_run_op_build_table:
-        sys.stdout.write(Args.op_importer.getvalue())
