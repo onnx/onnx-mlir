@@ -58,7 +58,7 @@ LLVM_PROJECT_SHA1_FILE      = 'utils/clone-mlir.sh'
 LLVM_PROJECT_SHA1_REGEX     = 'git checkout ([0-9a-f]+)'
 LLVM_PROJECT_DOCKERFILE     = 'docker/Dockerfile.llvm-project'
 LLVM_PROJECT_GITHUB_URL     = 'https://api.github.com/repos/llvm/llvm-project'
-BASE_IMAGE                  = { 'static': 'ubuntu:focal',
+BASE_IMAGE                  = { 'static': 'ubuntu:jammy',
                                 'shared': 'registry.access.redhat.com/ubi8-minimal:latest' }
 LLVM_PROJECT_IMAGE          = { 'static': docker_static_image_name,
                                 'shared': docker_shared_image_name }

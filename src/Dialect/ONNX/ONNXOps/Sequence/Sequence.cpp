@@ -115,8 +115,8 @@ LogicalResult ONNXSequenceEmptyOp::verify() {
   }
 
   // Get element type for seq from the output
-  ShapedType outputSeqElementType =
-      getResult().getType().cast<SeqType>().getElementType();
+  auto outputSeqElementType =
+      getResult().getType().cast<SeqType>().getElementType().cast<ShapedType>();
   if (outputSeqElementType.getElementType() != elementType)
     return emitError("SequenceEmpty getDtype() does not match the output type");
   return success();

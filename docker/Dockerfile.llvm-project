@@ -1,4 +1,4 @@
-# By default, use ubuntu:jammy
+# By default, use ubuntu:jammy, remember to change Jenkins build script as well
 ARG BASE_IMAGE="ubuntu:jammy"
 FROM ${BASE_IMAGE}
 
@@ -89,6 +89,7 @@ RUN git clone -n https://github.com/llvm/llvm-project.git \
              -DCMAKE_BUILD_TYPE=Release \
              -DLLVM_ENABLE_ASSERTIONS=ON \
              -DLLVM_ENABLE_RTTI=ON \
+             -DLLVM_ENABLE_LIBEDIT=OFF \
              -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} \
     && cmake --build . --parallel ${NPROC} -- ${MAKEFLAGS} \
     && (cmake --build . --parallel ${NPROC} --target check-mlir || \

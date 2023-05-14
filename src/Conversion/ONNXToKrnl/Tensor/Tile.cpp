@@ -178,7 +178,7 @@ struct ONNXTileOpLoweringAlternative : public OpConversionPattern<ONNXTileOp> {
 
         auto dimMap =
             AffineMap::get(2, 1, inputDimAE * repeatsIndexAE + inputIndexAE);
-        auto dimExprVal = rewriter.create<AffineApplyOp>(loc, dimMap,
+        auto dimExprVal = rewriter.create<affine::AffineApplyOp>(loc, dimMap,
             ArrayRef<Value>{iterationBlock.getArguments()[2 * i],
                 iterationBlock.getArguments()[2 * i + 1], inputDimSizeVal});
         outputMemRefVal.emplace_back(dimExprVal);
