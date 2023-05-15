@@ -1313,6 +1313,23 @@ def ONNXConstantOp:ONNX_Op<"Constant",
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
       } else if (auto attr = getSparseValueAttr()) {
         resultTypes.push_back(attr.cast<TypedAttr>().getType());
+      } else if (auto attr = getValueFloatAttr()) {
+        resultTypes.push_back(RankedTensorType::get({}, FloatType::getF32(attr.getContext())));
+      } else if (auto attr = getValueFloatsAttr()) {
+        int64_t size = attr.size();
+        resultTypes.push_back(RankedTensorType::get({size}, FloatType::getF32(attr.getContext())));
+      } else if (auto attr = getValueIntAttr()) {
+        resultTypes.push_back(RankedTensorType::get({}, IntegerType::get(attr.getContext(), 64)));
+      } else if (auto attr = getValueIntsAttr()) {
+        int64_t size = attr.size();
+        resultTypes.push_back(RankedTensorType::get({size}, IntegerType::get(attr.getContext(), 64)));
+      } else if (auto attr = getValueStringAttr()) {
+        resultTypes.push_back(RankedTensorType::get({}, ONNXStringType::get(attr.getContext())));
+      } else if (auto attr = getValueStringsAttr()) {
+        int64_t size = attr.size();
+        resultTypes.push_back(RankedTensorType::get({size}, ONNXStringType::get(attr.getContext())));
+      } else {
+        llvm_unreachable("Unexpected attributes for Constant Op");
       }
       return resultTypes;
     }
