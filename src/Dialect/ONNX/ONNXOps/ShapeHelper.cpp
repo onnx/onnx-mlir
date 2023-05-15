@@ -199,7 +199,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
 
 // Use a distinct type for each of the output.
 LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
-    TypeRange elementTypeRange, mlir::ArrayRef<mlir::Attribute> encodingList) {
+    TypeRange elementTypeRange, ArrayRef<Attribute> encodingList) {
   uint64_t resNum = op->getNumResults();
   assert((elementTypeRange.size() == resNum) &&
          "Incorrect number of elementTypes");
@@ -659,6 +659,41 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     }
   }
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Unary Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXUnaryOpShapeHelper::getAccessExprs(Value operand, int64_t i,
+    const llvm::SmallVectorImpl<IndexExpr> &loopAccessExprs,
+    llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs,
+    bool flattenedInnerDims = false, bool ruledOutBroadcast = false) {}
+
+bool ONNXUnaryOpShapeHelper::hasNoBroadcast(
+    DimAnalysis *dimAnalysis = nullptr) {
+  // Unary op never have broadcast.
+  return true;
+}
+
+bool ONNXUnaryOpShapeHelper::hasManageableBroadcastForInnerDims(
+    int64_t &collapsedInnermostLoops, int64_t &collapsedLiteralSize,
+    IndexExpr &collapsedDynamicSize, DimAnalysis *dimAnalysis) {
+  // Unary op never have broadcast.
+  DimsExpr output = getOutputDims();
+  int64_t outputRank = output.size();
+  // Keep track of cumulative inner dim sizes.
+  collapsedLiteralSize = 1;
+  collapsedDynamicSize = LiteralIndexExpr(1);
+  for (int64_t r = 0; r < outputNum; ++r) {
+    if (output[r].isLiteral())
+      collapsedLiteralSize *= output[r].getLiteral();
+    else
+      collapsedDynamicSize *= output[r];
+  }
+  // every input dim can be collapsed.
+  collapsedInnermostLoops = outputRank;
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
