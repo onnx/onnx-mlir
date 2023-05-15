@@ -23,6 +23,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
@@ -281,6 +282,67 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
   return paddedType;
 }
 
+class SplitLargeMatMulPattern : public OpRewritePattern<ONNXMatMulOp> {
+public:
+  using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXMatMulOp matmulOp, PatternRewriter &rewriter) const override {
+    Location loc = matmulOp.getLoc();
+    Operation *op = matmulOp.getOperation();
+    Value A = matmulOp.getA(); // NxK
+    Value B = matmulOp.getB(); // KxM
+
+    Type aType = A.getType();
+    Type bType = B.getType();
+    int64_t aRank = getRank(aType);
+    int64_t bRank = getRank(bType);
+    int64_t outputRank = std::max(aRank, bRank);
+    ArrayRef<int64_t> bShape = getShape(bType);
+    Type elementTy = getElementType(bType);
+    Type outputTy = matmulOp.getY().getType();
+
+    if (!((aRank == 3) && (bRank = 2) &&
+            (bShape[1] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE)))
+      return failure();
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    // Split B along the second dim (M).
+    int64_t K = bShape[0];
+    int64_t M = bShape[1];
+    SmallVector<Type> splitTy;
+    SmallVector<int64_t> splitSizesI64;
+    int64_t m = M;
+    while (m > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE) {
+      auto ty = RankedTensorType::get(
+          {K, NNPA_MAXIMUM_DIMENSION_INDEX_SIZE}, elementTy);
+      splitTy.emplace_back(ty);
+      splitSizesI64.emplace_back(NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
+      m -= NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    }
+    // The last split.
+    auto ty = RankedTensorType::get({K, m}, elementTy);
+    splitTy.emplace_back(ty);
+    splitSizesI64.emplace_back(m);
+    Value splitSizes = create.onnx.constantInt64(splitSizesI64);
+    ValueRange splits = create.onnx.split(splitTy, B, splitSizes, /*axis=*/1);
+    // Emit sub matrix multiplication.
+    SmallVector<Value> subMatrices;
+    for (Value b : splits) {
+      Value sm =
+          create.onnx.matmul(UnrankedTensorType::get(elementTy), A, b, false);
+      subMatrices.emplace_back(sm);
+    }
+    // Concat sub results.
+    Value res =
+        create.onnx.concat(outputTy, subMatrices, /*axis=*/outputRank - 1);
+
+    rewriter.replaceOp(op, res);
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Rewrite ONNX ops to ZHigh ops and ONNX ops for ZHigh.
 //===----------------------------------------------------------------------===//
@@ -372,18 +434,21 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
     int64_t aRank = getRank(aType);
     int64_t bRank = getRank(bType);
+    ArrayRef<int64_t> aShape = getShape(aType);
+    ArrayRef<int64_t> bShape = getShape(bType);
 
     // - one input is N-D, N > 3 and the other is 2-D.
     if (aRank == 2 && bRank > 3)
       return false;
     if (bRank == 2 && aRank > 3)
       return false;
+    if ((aRank == 3) && (bRank = 2) &&
+        (bShape[1] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE))
+      return false;
 
     // - both inputs are *the same* N-D, N > 3 and there is no broadcasting
     if (aRank > 3 && (aRank == bRank)) {
       bool sameBatchDims = true;
-      ArrayRef<int64_t> aShape = getShape(aType);
-      ArrayRef<int64_t> bShape = getShape(bType);
       for (int64_t i = 0; i < aRank - 2; ++i) {
         sameBatchDims &= (aShape[i] == bShape[i]);
         if (sameBatchDims && ShapedType::isDynamic(aShape[i]))
@@ -419,6 +484,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
   populateWithGenerated(patterns);
+  patterns.insert<SplitLargeMatMulPattern>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
