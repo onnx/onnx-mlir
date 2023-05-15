@@ -45,7 +45,7 @@ LogicalResult ONNXScanOp::inferShapes(
   assert(!getScanOutputAxes() && "scan_output_axes are unsupported");
 
   assert(!scan_inputs().empty() && "there must be 1 or more scan inputs");
-  ShapedType firstScanInputType = scan_inputs().front().getType();
+  auto firstScanInputType = scan_inputs().front().getType().cast<ShapedType>();
   // Number of body iterations is the dim size of the scan input sequence axis,
   // which is also the dim size of the scan outputs concat axis.
   int64_t sequence_length = firstScanInputType.hasRank()

@@ -150,8 +150,8 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value constant(mlir::Type type, double val) const;
   mlir::Value constantIndex(int64_t val) const;
 
-  mlir::Attribute negativeInfAttr(mlir::Type type) const;
-  mlir::Attribute positiveInfAttr(mlir::Type type) const;
+  mlir::TypedAttr negativeInfAttr(mlir::Type type) const;
+  mlir::TypedAttr positiveInfAttr(mlir::Type type) const;
 
   /// Emit a negative infinity constant of a specific type. Supported types:
   /// F16, F32, F64, Int8, Int16, Int32, Int64. In case of Float, emit the
@@ -473,8 +473,8 @@ private:
 // definition of AffineBuilderKrnlMem will use Krnl load and store for memory
 // operations. We recommend to use AffineBuilderKrnlMem when converting the Krnl
 // dialect into the affine dialect.
-using AffineBuilder =
-    GenericAffineBuilder<mlir::AffineLoadOp, mlir::AffineStoreOp>;
+using AffineBuilder = GenericAffineBuilder<mlir::affine::AffineLoadOp,
+    mlir::affine::AffineStoreOp>;
 
 //===----------------------------------------------------------------------===//
 // LLVM Builder

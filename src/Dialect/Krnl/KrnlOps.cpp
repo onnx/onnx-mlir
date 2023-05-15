@@ -378,7 +378,7 @@ struct LoopParser {
     if (auto affineMapAttr = boundAttr.dyn_cast<AffineMapAttr>()) {
       unsigned currentNumOperands = result.operands.size();
       unsigned numDims = 0;
-      if (parseDimAndSymbolList(parser, result.operands, numDims))
+      if (affine::parseDimAndSymbolList(parser, result.operands, numDims))
         return failure();
 
       auto map = affineMapAttr.getValue();

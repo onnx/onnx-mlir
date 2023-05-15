@@ -34,8 +34,8 @@ struct ONNXConstantOpLoweringToMhlo : public ConversionPattern {
       return constantOp.emitWarning("Only support dense values at this time");
     assert(constantOp.getValue().has_value() && "Value is not set");
     auto attr = constantOp.getValue().value();
-    Value result = rewriter.create<mhlo::ConstantOp>(
-        loc, ElementsAttrBuilder::toDenseElementsAttr(attr));
+    Value result = rewriter.create<mhlo::ConstantOp>(loc,
+        ElementsAttrBuilder::toDenseElementsAttr(attr.cast<ElementsAttr>()));
     rewriter.replaceOp(op, result);
     return success();
   }

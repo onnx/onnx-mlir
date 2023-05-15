@@ -45,7 +45,7 @@ public:
     }
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     rewriter.replaceOpWithNewOp<mlir::tosa::ConstOp>(
-        op, resultType, currentAttr);
+        op, resultType, currentAttr.cast<ElementsAttr>());
     return success();
   }
 };
