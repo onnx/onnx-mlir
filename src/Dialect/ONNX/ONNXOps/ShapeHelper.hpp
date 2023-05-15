@@ -275,12 +275,10 @@ struct ONNXPReluOpShapeHelper : public ONNXBroadcastOpShapeHelper {
 struct ONNXUnaryOpShapeHelper : public ONNXBroadcastOpShapeHelper {
   ONNXUnaryOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
-      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+      : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXUnaryOpShapeHelper() {}
 
-  mlir::LogicalResult computeShape() final {
-    return setOutputDimsFromOperand(operands[0]);
-  }
+  mlir::LogicalResult computeShape() final;
 
   // Inherited methods that return trivial results
   mlir::LogicalResult getAccessExprs(mlir::Value operand, int64_t i,
