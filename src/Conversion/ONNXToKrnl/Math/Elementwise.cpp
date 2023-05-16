@@ -1353,121 +1353,8 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
 }
 
 //===----------------------------------------------------------------------===//
-// SIMD code gen for kernels where data can be fully flattened.
+// SIMD code gen for kernels where data can be partially or fully flattened.
 //===----------------------------------------------------------------------===//
-
-#if 1 /* hi alex */
-/*
- Take operations that have no broadcasting and do the following:
- inputs:
-   * non-scalar: get a flattened view to simdize it easily
-   * scalar: will splat
-  output:
-   * allocate with extra padding so that we may write past the logical end
-   * flatten view so that we may simdize it easily.
- */
-
-template <typename OP_TYPE>
-static LogicalResult getFullyFlattenedSimdCode(
-    ConversionPatternRewriter &rewriter, MDBuilder &create,
-    ONNXOpShapeHelper *shapeHelper, Operation *op, MemRefType outputMemRefType,
-    ValueRange operands, int64_t alignment, int64_t simdUnroll,
-    bool isUnaryOp) {
-  Type outputElementType = outputMemRefType.getElementType();
-  unsigned numArgs = op->getNumOperands();
-
-  LLVM_DEBUG(llvm::dbgs() << "  fully flattened SIMD code for elementwise op "
-                          << op->getName() << "\n");
-
-  // generate SIMD code of VL elements per vector.
-  IndexExprScope allocScope(create.vec, shapeHelper->getScope());
-  int64_t VL =
-      create.vec.getMachineVectorLength(outputElementType) * simdUnroll;
-  // Alloc memory with padding for SIMD.
-  Value alloc = create.mem.alignedAllocWithSimdPadding(
-      outputMemRefType, shapeHelper->getOutputDims(), simdUnroll, alignment);
-  // Create flat inputs.
-  llvm::SmallVector<Value, 4> flatOperands;
-  for (Value oper : operands) {
-    if (isNoneValue(oper) || isScalarValue(oper)) {
-      // If its a none / scalar, it is not meant to be flattened.
-      flatOperands.emplace_back(oper);
-      continue;
-    }
-    llvm::SmallVector<IndexExpr, 4> operDims;
-    Value operSize;
-    create.krnlIE.getShapeAsSymbols(oper, operDims);
-    Value flatOper = create.mem.reshapeToFlat(oper, operDims, operSize);
-    flatOperands.emplace_back(flatOper);
-  }
-  // Create flat output.
-  Value totOutputSize;
-  Value flatAlloc = create.mem.reshapeToFlat(
-      alloc, shapeHelper->getOutputDims(), totOutputSize);
-  IndexExpr totSize = SymbolIndexExpr(totOutputSize);
-  // Create loop iteration (flattened to one dim) and blocked by mVL.
-  ValueRange loopDef = create.krnl.defineLoops(1);
-  ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
-  SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
-  SmallVector<IndexExpr, 1> ubs(1, totSize);
-  // Create the vector type to operate over.
-  VectorType vecElementType = VectorType::get({VL}, outputElementType);
-  // Iterate only over the blocks.
-  create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, lbs, ubs,
-      [&](KrnlBuilder &ck, ValueRange loopInd) {
-        MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
-        llvm::SmallVector<Value, 4> loadedVals;
-        // Load all the values
-        for (Value flatOper : flatOperands) {
-          if (isNoneValue(flatOper)) {
-            // None, just pass it on unmodified.
-            loadedVals.emplace_back(flatOper);
-            continue;
-          }
-          MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
-          assert(memRefType && "expected memref");
-          VectorType vecType =
-              VectorType::get({VL}, memRefType.getElementType());
-          if (isScalarValue(flatOper)) {
-            // If its a scalar, do a scalar load and splat.
-            Value loadedVal = create.krnl.load(flatOper);
-            Value splatValue = create.vec.splat(vecType, loadedVal);
-            loadedVals.emplace_back(splatValue);
-          } else {
-            Value loadedVal = create.vec.load(vecType, flatOper, loopInd);
-            loadedVals.emplace_back(loadedVal);
-          }
-        }
-        Value finalResult;
-        if (isUnaryOp) {
-          // For unary op, we through all operands at once as the other ones are
-          // scalars / none values.
-          finalResult = emitScalarOpFor<OP_TYPE>(
-              rewriter, create.getLoc(), op, vecElementType, loadedVals);
-        } else {
-          // For non-unary ops, each op is a flattened array that need to be
-          // processed; process the two first ones, and then "accumulate" one
-          // value at a time. Use the first operand as temporary result.
-          Value accumulated = loadedVals[0];
-          // Iterate over the remaining operands.
-          for (unsigned i = 1; i < numArgs; ++i) {
-            Value next = loadedVals[i];
-            // Fold.
-            accumulated = emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(),
-                op, vecElementType, {accumulated, next});
-          }
-          // Postprocessing (dummy op if none).
-          finalResult = emitPostProcessingFor<OP_TYPE>(
-              rewriter, create.getLoc(), op, vecElementType, accumulated);
-        }
-        // Store result in the resulting array.
-        create.vec.store(finalResult, flatAlloc, loopInd);
-      });
-  rewriter.replaceOp(op, alloc);
-  return success();
-}
-
-#endif
 
 template <typename OP_TYPE>
 static LogicalResult getPartiallyFlattenedSimdCode(
@@ -1554,11 +1441,9 @@ static LogicalResult getPartiallyFlattenedSimdCode(
           VectorType vecType =
               VectorType::get({VL}, memRefType.getElementType());
           if (hasOneElementInInnermostDims(flatOper, 1)) {
-            fprintf(stderr, "hi alex one elem in innernost dim\n");
             // If its a scalar, do a scalar load and splat.
             llvm::SmallVector<IndexExpr, 4> scalarAccessFct;
             if (hasOneElement(flatOper)) {
-              fprintf(stderr, "  put one\n");
               // Not flattened, with only 1 dims, just put zeros as needed.
               int64_t scalarRank =
                   flatOper.getType().dyn_cast<ShapedType>().getRank();
@@ -1566,7 +1451,6 @@ static LogicalResult getPartiallyFlattenedSimdCode(
                 scalarAccessFct.emplace_back(LiteralIndexExpr(0));
 
             } else {
-            fprintf(stderr, " put access\n");
               // Was flattened, with non 1 dims, use get access expr.
               LogicalResult res =
                   shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
@@ -1577,7 +1461,6 @@ static LogicalResult getPartiallyFlattenedSimdCode(
             Value splatValue = create.vec.splat(vecType, loadedVal);
             loadedVals.emplace_back(splatValue);
           } else {
-            fprintf(stderr, "hi alex other case\n");
             llvm::SmallVector<IndexExpr, 4> loadAccessFct;
             LogicalResult res =
                 shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
@@ -2037,16 +1920,10 @@ struct ONNXElementwiseUnaryOpLowering
               shapeHelper, create, outputMemRefType, outputRank,
               /*collapsedInnermostLoops, ignored*/ 1);
       if (simdUnroll > 0)
-#if 1 /*hi alex*/
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             simdUnroll, /*collapsedInnermostLoop*/ outputRank,
             /*ruleOutBroadcast*/ true, /*unary*/ true);
-#else
-        return getFullyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter, create,
-            &shapeHelper, op, outputMemRefType, operands, alignment, simdUnroll,
-            /*unary*/ true);
-#endif
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
