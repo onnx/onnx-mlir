@@ -3594,4 +3594,3 @@ func.func @test_clipv6(%arg0: tensor<*xf32>) {
 // CHECK:           return
 // CHECK:         }
 }
-

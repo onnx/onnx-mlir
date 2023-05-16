@@ -275,12 +275,6 @@ double analyzeSimdFor<ONNXPowOp>(Type t, int64_t &von, int64_t &son) {
 }
 
 template <>
-struct ScalarOp<ONNXIsInfOp> {
-  using FOp = KrnlIsInfOp;
-  using IOp = NotSuportedScalarOp;
-};
-
-template <>
 struct ScalarOp<ONNXIsNaNOp> {
   using FOp = KrnlIsNaNOp;
   using IOp = NotSuportedScalarOp;
@@ -321,6 +315,55 @@ struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
   using IOp = NotSuportedScalarOp;
 };
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXIsInfOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXIsInfOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+template <>
+Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+
+  CheckIfCustomScalarOpIsSupported<ONNXIsInfOp>(elementType);
+  Value operand = scalarOperands[0];
+  Type inputElemType = getElementType(operand.getType());
+  Value result;
+
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value negInf = create.math.negativeInf(inputElemType);
+  Value posInf = create.math.positiveInf(inputElemType);
+
+  double detectNegAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
+  double detectPosAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
+
+  // Three different cases: Infinity, Negative Infinity and Positive Infinity
+  bool detectInf = detectPosAttribute == 1 && detectNegAttribute == 1;
+  bool detectNeg = detectNegAttribute == 1 && detectPosAttribute == 0;
+  bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
+
+  Value equPos = create.math.eq(operand, posInf);
+  Value equNeg = create.math.eq(operand, negInf);
+
+  if (detectInf) {
+    // If infinity return true for both positive and negative infinity
+    result = create.math.ori(equPos, equNeg);
+  }
+  if (detectPos) {
+    // If positive infinity return true else false
+    result = equPos;
+  }
+  if (detectNeg) {
+    // If negative infinity return true else false
+    result = equNeg;
+  }
+  return result;
+}
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp

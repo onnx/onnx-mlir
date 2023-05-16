@@ -281,6 +281,16 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// IsInf
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXIsInfOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  // Type elementType = getElementType(getTargetType().getType());
+  return inferShapeForUnaryOps(this->getOperation(), this->getResult().getType().cast<ShapedType>().getElementType());
+}
+
+//===----------------------------------------------------------------------===//
 // LeakyRelu
 //===----------------------------------------------------------------------===//
 
