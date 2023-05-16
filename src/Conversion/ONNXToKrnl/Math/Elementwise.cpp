@@ -333,7 +333,7 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   Value operand = scalarOperands[0];
   Type inputElemType = getElementType(operand.getType());
   Value result;
-  
+
   CheckIfCustomScalarOpIsSupported<ONNXIsInfOp>(inputElemType);
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   Value negInf = create.math.negativeInf(inputElemType);
