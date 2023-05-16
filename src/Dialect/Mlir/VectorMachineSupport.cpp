@@ -135,6 +135,7 @@ int64_t Z16VectorMachineSupport::getVectorLength(
     case GenericOps::ConversionGop:
     case GenericOps::CopySignGop:
     case GenericOps::DivGop:
+    case GenericOps::ErfGop:
     case GenericOps::FloorGop: /* Use load integer & rounding modes*/
     case GenericOps::FmaGop:
     case GenericOps::MinMaxGop:
