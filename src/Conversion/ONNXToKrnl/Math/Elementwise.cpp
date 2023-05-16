@@ -831,72 +831,13 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXErfOp> {
-  using FOp = CustomScalarOp;
+  using FOp = math::ErfOp;
   using IOp = NotSuportedScalarOp;
 };
 
 template <>
 double analyzeSimdFor<ONNXErfOp>(Type t, int64_t &von, int64_t &son) {
-  return simdAnalysis(
-      {GenericOps::ArithmeticGop, GenericOps::CompareGop, GenericOps::DivGop,
-          GenericOps::FmaGop, GenericOps::MulGop, GenericOps::SelectGop,
-          GenericOps::AbsGop, GenericOps::ExpGop},
-      {2, 1, 1, 6, 2, 1, 1, 1}, t, von, son);
-}
-
-template <>
-Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
-    Location loc, Operation *op, Type elementType,
-    ArrayRef<Value> scalarOperands) {
-  // Use numpy algorithm for rint as follows, according to
-  // https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/.
-  // ```
-  // def erf(x):
-  //   a1 =  0.254829592
-  //   a2 = -0.284496736
-  //   a3 =  1.421413741
-  //   a4 = -1.453152027
-  //   a5 =  1.061405429
-  //   p  =  0.3275911
-  //
-  //   t = 1.0 / (1.0 + p * abs(x))
-  //   y = 1.0 -
-  //       (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
-  //       exp(-abs(x)*abs(x))
-  //   return -y if x < 0.0 else y
-  // }
-  // ```
-  CheckIfCustomScalarOpIsSupported<ONNXErfOp>(elementType);
-  Value operand = scalarOperands[0];
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  Value zero = create.math.constant(elementType, 0);
-  Value one = create.math.constant(elementType, 1);
-  Value minusone = create.math.constant(elementType, -1);
-  Value a1 = create.math.constant(elementType, 0.254829592);
-  Value a2 = create.math.constant(elementType, -0.284496736);
-  Value a3 = create.math.constant(elementType, 1.421413741);
-  Value a4 = create.math.constant(elementType, -1.453152027);
-  Value a5 = create.math.constant(elementType, 1.061405429);
-  Value p = create.math.constant(elementType, 0.3275911);
-  Value absx = create.math.abs(operand);
-  Value t = create.math.div(one, create.math.fma(p, absx, one));
-  //   y = 1.0 -
-  //       (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
-  //       exp(-absx*absx)
-  //  minusy = (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t *
-  //            exp(-absx*absx)
-  //           + (-1.0)
-  Value minusy = create.math.fma(
-      create.math.mul(
-          create.math.fma(
-              create.math.fma(
-                  create.math.fma(create.math.fma(a5, t, a4), t, a3), t, a2),
-              t, a1),
-          t),
-      create.math.exp(create.math.mul(create.math.sub(zero, absx), absx)),
-      minusone);
-  Value sign = create.math.gt(operand, zero);
-  return create.math.select(sign, create.math.sub(zero, minusy), minusy);
+  return simdAnalysis({GenericOps::ErfGop}, {1}, t, von, son);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1319,6 +1260,10 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MemRefBuilder, VectorBuilder>;
 
 // Return SIMD unroll; no simd -> return 0;
+// collapsedLiteralSize is ignored when we can collapse every loop iterations as
+// we then rely on padding of the allocated memory to enable arbitrary output
+// array simdization. When partial simd is requested, then we must ensure that
+// the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     MemRefType memRefType, int64_t collapsedInnermostLoops,
@@ -1392,118 +1337,8 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
 }
 
 //===----------------------------------------------------------------------===//
-// SIMD code gen for kernels where data can be fully flattened.
+// SIMD code gen for kernels where data can be partially or fully flattened.
 //===----------------------------------------------------------------------===//
-
-/*
- Take operations that have no broadcasting and do the following:
- inputs:
-   * non-scalar: get a flattened view to simdize it easily
-   * scalar: will splat
-  output:
-   * allocate with extra padding so that we may write past the logical end
-   * flatten view so that we may simdize it easily.
- */
-
-template <typename OP_TYPE>
-static LogicalResult getFullyFlattenedSimdCode(
-    ConversionPatternRewriter &rewriter, MDBuilder &create,
-    ONNXOpShapeHelper *shapeHelper, Operation *op, MemRefType outputMemRefType,
-    ValueRange operands, int64_t alignment, int64_t simdUnroll,
-    bool isUnaryOp) {
-  Type outputElementType = outputMemRefType.getElementType();
-  unsigned numArgs = op->getNumOperands();
-
-  LLVM_DEBUG(llvm::dbgs() << "  fully flattened SIMD code for elementwise op "
-                          << op->getName() << "\n");
-
-  // generate SIMD code of VL elements per vector.
-  IndexExprScope allocScope(create.vec, shapeHelper->getScope());
-  int64_t VL =
-      create.vec.getMachineVectorLength(outputElementType) * simdUnroll;
-  // Alloc memory with padding for SIMD.
-  Value alloc = create.mem.alignedAllocWithSimdPadding(
-      outputMemRefType, shapeHelper->getOutputDims(), simdUnroll, alignment);
-  // Create flat inputs.
-  llvm::SmallVector<Value, 4> flatOperands;
-  for (Value oper : operands) {
-    if (isNoneValue(oper) || isScalarValue(oper)) {
-      // If its a none / scalar, it is not meant to be flattened.
-      flatOperands.emplace_back(oper);
-      continue;
-    }
-    llvm::SmallVector<IndexExpr, 4> operDims;
-    Value operSize;
-    create.krnlIE.getShapeAsSymbols(oper, operDims);
-    Value flatOper = create.mem.reshapeToFlat(oper, operDims, operSize);
-    flatOperands.emplace_back(flatOper);
-  }
-  // Create flat output.
-  Value totOutputSize;
-  Value flatAlloc = create.mem.reshapeToFlat(
-      alloc, shapeHelper->getOutputDims(), totOutputSize);
-  IndexExpr totSize = SymbolIndexExpr(totOutputSize);
-  // Create loop iteration (flattened to one dim) and blocked by mVL.
-  ValueRange loopDef = create.krnl.defineLoops(1);
-  ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
-  SmallVector<IndexExpr, 1> lbs(1, LiteralIndexExpr(0));
-  SmallVector<IndexExpr, 1> ubs(1, totSize);
-  // Create the vector type to operate over.
-  VectorType vecElementType = VectorType::get({VL}, outputElementType);
-  // Iterate only over the blocks.
-  create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, lbs, ubs,
-      [&](KrnlBuilder &ck, ValueRange loopInd) {
-        MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
-        llvm::SmallVector<Value, 4> loadedVals;
-        // Load all the values
-        for (Value flatOper : flatOperands) {
-          if (isNoneValue(flatOper)) {
-            // None, just pass it on unmodified.
-            loadedVals.emplace_back(flatOper);
-            continue;
-          }
-          MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
-          assert(memRefType && "expected memref");
-          VectorType vecType =
-              VectorType::get({VL}, memRefType.getElementType());
-          if (isScalarValue(flatOper)) {
-            // If its a scalar, do a scalar load and splat.
-            Value loadedVal = create.krnl.load(flatOper);
-            Value splatValue = create.vec.splat(vecType, loadedVal);
-            loadedVals.emplace_back(splatValue);
-          } else {
-            Value loadedVal = create.vec.load(vecType, flatOper, loopInd);
-            loadedVals.emplace_back(loadedVal);
-          }
-        }
-        Value finalResult;
-        if (isUnaryOp) {
-          // For unary op, we through all operands at once as the other ones are
-          // scalars / none values.
-          finalResult = emitScalarOpFor<OP_TYPE>(
-              rewriter, create.getLoc(), op, vecElementType, loadedVals);
-        } else {
-          // For non-unary ops, each op is a flattened array that need to be
-          // processed; process the two first ones, and then "accumulate" one
-          // value at a time. Use the first operand as temporary result.
-          Value accumulated = loadedVals[0];
-          // Iterate over the remaining operands.
-          for (unsigned i = 1; i < numArgs; ++i) {
-            Value next = loadedVals[i];
-            // Fold.
-            accumulated = emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(),
-                op, vecElementType, {accumulated, next});
-          }
-          // Postprocessing (dummy op if none).
-          finalResult = emitPostProcessingFor<OP_TYPE>(
-              rewriter, create.getLoc(), op, vecElementType, accumulated);
-        }
-        // Store result in the resulting array.
-        create.vec.store(finalResult, flatAlloc, loopInd);
-      });
-  rewriter.replaceOp(op, alloc);
-  return success();
-}
 
 template <typename OP_TYPE>
 static LogicalResult getPartiallyFlattenedSimdCode(
@@ -1661,8 +1496,8 @@ typedef mlir::Value (*EmitScalarFunc)(mlir::ConversionPatternRewriter &rewriter,
 // Utility class for Op fusion.
 // Start from the root op, which is being lowered as an Elementwise Op.
 // Following the def-use chain from the root op, a line of fusible ops are
-// idenitified. The fusible Ops have to be elementwise Op, and satisfy shape
-// and depedence requirement.
+// identified. The fusible Ops have to be elementwise Op, and satisfy shape
+// and dependence requirement.
 // The scalar operations of these fusible elementwise ops are fused into the
 // loop nest generated for the root Op.
 // Finally the last op is replaced with the allocated memref and the other ops
@@ -1675,7 +1510,7 @@ public:
       mlir::ConversionPatternRewriter &rewriter, mlir::Operation *rootOp)
       : rootOp(rootOp), rewriter(rewriter), fusibleOps(), fuseEmitFuctions() {}
 
-  // Fusion should not break any control depenendence
+  // Fusion should not break any control dependence
   static bool isControlFlowValidForFusion(Operation *useOp, Operation *defOp);
 
   // Check whether the inputs of the useOp are valid for useOp to be fused
@@ -1784,7 +1619,7 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
 }
 
 // Only operations are in the same block are allowed to fuse.
-// ToFix: This requirement may be too conversative.
+// ToFix: This requirement may be too conservative.
 bool OpFusionHelper::isControlFlowValidForFusion(
     Operation *useOp, Operation *defOp) {
   if (useOp->getBlock() != defOp->getBlock())
@@ -2067,11 +1902,12 @@ struct ONNXElementwiseUnaryOpLowering
       int64_t simdUnroll =
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
               shapeHelper, create, outputMemRefType, outputRank,
-              /*collapsedInnermostLoops*/ 1);
+              /*collapsedInnermostLoops, ignored*/ 1);
       if (simdUnroll > 0)
-        return getFullyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter, create,
-            &shapeHelper, op, outputMemRefType, operands, alignment, simdUnroll,
-            /*unary*/ true);
+        return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
+            create, &shapeHelper, op, outputMemRefType, operands, alignment,
+            simdUnroll, /*collapsedInnermostLoop*/ outputRank,
+            /*ruleOutBroadcast*/ true, /*unary*/ true);
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
