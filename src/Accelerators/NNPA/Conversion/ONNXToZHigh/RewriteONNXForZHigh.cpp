@@ -282,6 +282,17 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
   return paddedType;
 }
 
+/// This pattern is to split a large MatMul into smaller ones that fit into
+/// NNPA. Given (NxK) * (K*M), the pattern considers dimensions N and/or M to
+/// split, if N and/or M is greater than NNPA_MAXIMUM_DIMENSION_INDEX_SIZE.
+/// For example,
+///   (NxK) * (KxM) will be rewritten into
+///   (N1xK * KxM1 ++ N1xK * KxM2) ++ (N2xK * KxM1 ++ N2xK * KxM2)
+/// where N = N1 ++ N2, M = M1 ++ M2, and `++` is concatenation along an
+/// appropriate dimension.
+///
+/// Tensors are splitted into chunks of the equal size of
+/// NNPA_MAXIMUM_DIMENSION_INDEX_SIZE, except the last chunk.
 class SplitLargeMatMulPattern : public OpRewritePattern<ONNXMatMulOp> {
 public:
   using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
@@ -295,48 +306,64 @@ public:
 
     Type aType = A.getType();
     Type bType = B.getType();
+    Type outputType = matmulOp.getY().getType();
     int64_t aRank = getRank(aType);
     int64_t bRank = getRank(bType);
-    int64_t outputRank = std::max(aRank, bRank);
+    int64_t outputRank = getRank(outputType);
+    ArrayRef<int64_t> aShape = getShape(aType);
     ArrayRef<int64_t> bShape = getShape(bType);
-    Type elementTy = getElementType(bType);
-    Type outputTy = matmulOp.getY().getType();
+    ArrayRef<int64_t> outputShape = getShape(outputType);
+    Type elementType = getElementType(bType);
+    auto unrankedType = UnrankedTensorType::get(elementType);
 
-    if (!((aRank == 3) && (bRank = 2) &&
-            (bShape[1] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE)))
+    // Expect 2D or 3D input.
+    if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
+      return failure();
+
+    // Expect N or M exceeds NNPA limitation.
+    int64_t N = aShape[aRank - 2];
+    int64_t M = bShape[bRank - 1];
+    bool nExceeded = N > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    bool mExceeded = M > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    if (!(nExceeded || mExceeded))
       return failure();
 
     // Rewrite
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    // Split B along the second dim (M).
-    int64_t K = bShape[0];
-    int64_t M = bShape[1];
-    SmallVector<Type> splitTy;
-    SmallVector<int64_t> splitSizesI64;
-    int64_t m = M;
-    while (m > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE) {
-      auto ty = RankedTensorType::get(
-          {K, NNPA_MAXIMUM_DIMENSION_INDEX_SIZE}, elementTy);
-      splitTy.emplace_back(ty);
-      splitSizesI64.emplace_back(NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
-      m -= NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    ValueRange subAs(A), subBs(B);
+    if (nExceeded) {
+      // Split A along the dimension N.
+      subAs = splitAlongAxis(create, A, aRank - 2);
     }
-    // The last split.
-    auto ty = RankedTensorType::get({K, m}, elementTy);
-    splitTy.emplace_back(ty);
-    splitSizesI64.emplace_back(m);
-    Value splitSizes = create.onnx.constantInt64(splitSizesI64);
-    ValueRange splits = create.onnx.split(splitTy, B, splitSizes, /*axis=*/1);
+    if (mExceeded) {
+      // Split B along the dimension M.
+      subBs = splitAlongAxis(create, B, bRank - 1);
+    }
     // Emit sub matrix multiplication.
-    SmallVector<Value> subMatrices;
-    for (Value b : splits) {
-      Value sm =
-          create.onnx.matmul(UnrankedTensorType::get(elementTy), A, b, false);
-      subMatrices.emplace_back(sm);
+    SmallVector<Value> resSubAs;
+    for (Value a : subAs) {
+      ArrayRef<int64_t> subAShape = getShape(a.getType());
+      // For each matrix along dimension N, do MatMul for sub matrices along
+      // dimension M.
+      SmallVector<Value> subMatrices;
+      for (Value b : subBs) {
+        Value sm = create.onnx.matmul(unrankedType, a, b, false);
+        subMatrices.emplace_back(sm);
+      }
+      Value res = subMatrices[0];
+      if (subMatrices.size() > 1) {
+        // Concat sub results along dimension M of B.
+        SmallVector<int64_t> concatShape(outputShape);
+        concatShape[outputRank - 2] = subAShape[aRank - 2];
+        Type concatTy = RankedTensorType::get(concatShape, elementType);
+        res = create.onnx.concat(concatTy, subMatrices, outputRank - 1);
+      }
+      resSubAs.emplace_back(res);
     }
-    // Concat sub results.
-    Value res =
-        create.onnx.concat(outputTy, subMatrices, /*axis=*/outputRank - 1);
+    Value res = resSubAs[0];
+    if (resSubAs.size() > 1)
+      // Concat sub results along dimension N of A.
+      res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
 
     rewriter.replaceOp(op, res);
     return success();
@@ -422,10 +449,12 @@ void RewriteONNXForZHighPass::runOnOperation() {
   });
 
   // Illegalize MatMulOp if
-  // - both inputs are *the same* N-D, N > 3 and there is no broadcasting, or
-  // - one input is N-D, N > 3 and the other is 2-D.
+  // - both inputs are *the same* N-D (N > 3) and there is no broadcasting, or
+  // - one input is N-D (N > 3) and the other is 2-D, or
+  // - no input is N-D (N > 3) but dimension size exceeds NNPA limitation.
+  //
   // Rewrite patterns will be added to turn this MatMulOp into the one where N-D
-  // will become 3-D.
+  // will become 3-D or to split MatMul into smaller MatMuls.
   target.addDynamicallyLegalOp<ONNXMatMulOp>([&dimAnalysis](ONNXMatMulOp op) {
     Type aType = op.getA().getType();
     Type bType = op.getB().getType();
@@ -437,13 +466,16 @@ void RewriteONNXForZHighPass::runOnOperation() {
     ArrayRef<int64_t> aShape = getShape(aType);
     ArrayRef<int64_t> bShape = getShape(bType);
 
-    // - one input is N-D, N > 3 and the other is 2-D.
+    // - one input is N-D (N > 3) and the other is 2-D.
     if (aRank == 2 && bRank > 3)
       return false;
     if (bRank == 2 && aRank > 3)
       return false;
-    if ((aRank == 3) && (bRank = 2) &&
-        (bShape[1] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE))
+    // No input is N-D (N > 3) but dimension N or M (NxK * KxM) exceeds NNPA
+    // limitation.
+    if ((aRank == 3 || aRank == 3) && (bRank == 2 || bRank == 3) &&
+        ((aShape[aRank - 2] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE) ||
+            (bShape[bRank - 1] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE)))
       return false;
 
     // - both inputs are *the same* N-D, N > 3 and there is no broadcasting
