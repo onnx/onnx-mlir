@@ -1276,6 +1276,10 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MemRefBuilder, VectorBuilder>;
 
 // Return SIMD unroll; no simd -> return 0;
+// collapsedLiteralSize is ignored when we can collapse every loop iterations as
+// we then rely on padding of the allocated memory to enable arbitrary output
+// array simdization. When partial simd is requested, then we must ensure that
+// the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     MemRefType memRefType, int64_t collapsedInnermostLoops,
@@ -1352,6 +1356,7 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
 // SIMD code gen for kernels where data can be fully flattened.
 //===----------------------------------------------------------------------===//
 
+#if 1 /* hi alex */
 /*
  Take operations that have no broadcasting and do the following:
  inputs:
@@ -1462,6 +1467,8 @@ static LogicalResult getFullyFlattenedSimdCode(
   return success();
 }
 
+#endif
+
 template <typename OP_TYPE>
 static LogicalResult getPartiallyFlattenedSimdCode(
     ConversionPatternRewriter &rewriter, MDBuilder &create,
@@ -1547,9 +1554,11 @@ static LogicalResult getPartiallyFlattenedSimdCode(
           VectorType vecType =
               VectorType::get({VL}, memRefType.getElementType());
           if (hasOneElementInInnermostDims(flatOper, 1)) {
+            fprintf(stderr, "hi alex one elem in innernost dim\n");
             // If its a scalar, do a scalar load and splat.
             llvm::SmallVector<IndexExpr, 4> scalarAccessFct;
             if (hasOneElement(flatOper)) {
+              fprintf(stderr, "  put one\n");
               // Not flattened, with only 1 dims, just put zeros as needed.
               int64_t scalarRank =
                   flatOper.getType().dyn_cast<ShapedType>().getRank();
@@ -1557,6 +1566,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
                 scalarAccessFct.emplace_back(LiteralIndexExpr(0));
 
             } else {
+            fprintf(stderr, " put access\n");
               // Was flattened, with non 1 dims, use get access expr.
               LogicalResult res =
                   shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
@@ -1567,6 +1577,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
             Value splatValue = create.vec.splat(vecType, loadedVal);
             loadedVals.emplace_back(splatValue);
           } else {
+            fprintf(stderr, "hi alex other case\n");
             llvm::SmallVector<IndexExpr, 4> loadAccessFct;
             LogicalResult res =
                 shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
@@ -1618,8 +1629,8 @@ typedef mlir::Value (*EmitScalarFunc)(mlir::ConversionPatternRewriter &rewriter,
 // Utility class for Op fusion.
 // Start from the root op, which is being lowered as an Elementwise Op.
 // Following the def-use chain from the root op, a line of fusible ops are
-// idenitified. The fusible Ops have to be elementwise Op, and satisfy shape
-// and depedence requirement.
+// identified. The fusible Ops have to be elementwise Op, and satisfy shape
+// and dependence requirement.
 // The scalar operations of these fusible elementwise ops are fused into the
 // loop nest generated for the root Op.
 // Finally the last op is replaced with the allocated memref and the other ops
@@ -1632,7 +1643,7 @@ public:
       mlir::ConversionPatternRewriter &rewriter, mlir::Operation *rootOp)
       : rootOp(rootOp), rewriter(rewriter), fusibleOps(), fuseEmitFuctions() {}
 
-  // Fusion should not break any control depenendence
+  // Fusion should not break any control dependence
   static bool isControlFlowValidForFusion(Operation *useOp, Operation *defOp);
 
   // Check whether the inputs of the useOp are valid for useOp to be fused
@@ -1741,7 +1752,7 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
 }
 
 // Only operations are in the same block are allowed to fuse.
-// ToFix: This requirement may be too conversative.
+// ToFix: This requirement may be too conservative.
 bool OpFusionHelper::isControlFlowValidForFusion(
     Operation *useOp, Operation *defOp) {
   if (useOp->getBlock() != defOp->getBlock())
@@ -2024,11 +2035,18 @@ struct ONNXElementwiseUnaryOpLowering
       int64_t simdUnroll =
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
               shapeHelper, create, outputMemRefType, outputRank,
-              /*collapsedInnermostLoops*/ 1);
+              /*collapsedInnermostLoops, ignored*/ 1);
       if (simdUnroll > 0)
+#if 1 /*hi alex*/
+        return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
+            create, &shapeHelper, op, outputMemRefType, operands, alignment,
+            simdUnroll, /*collapsedInnermostLoop*/ outputRank,
+            /*ruleOutBroadcast*/ true, /*unary*/ true);
+#else
         return getFullyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter, create,
             &shapeHelper, op, outputMemRefType, operands, alignment, simdUnroll,
             /*unary*/ true);
+#endif
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 

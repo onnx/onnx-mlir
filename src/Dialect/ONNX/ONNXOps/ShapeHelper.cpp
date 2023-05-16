@@ -704,11 +704,17 @@ LogicalResult ONNXUnaryOpShapeHelper::getAccessExprs(Value operand,
     int64_t operandIndex, const SmallVectorImpl<IndexExpr> &loopAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs, bool flattenedInnerDims,
     bool hasNoBroadcast) {
-  // Assume we can return the broadcast version were we forcibly disable
-  // broadcasting as unary never has broadcast situations.
+
+#if 1
+  operandAccessExprs.clear();
+  for (IndexExpr l : loopAccessExprs)
+    operandAccessExprs.emplace_back(l);
+  return success();
+#else
   return ONNXBroadcastOpShapeHelper::getAccessExprs(operand, operandIndex,
       loopAccessExprs, operandAccessExprs, flattenedInnerDims,
       /*hasNoBroadcast*/ true);
+#endif
 }
 
 //===----------------------------------------------------------------------===//
