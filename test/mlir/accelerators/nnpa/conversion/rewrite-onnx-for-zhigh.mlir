@@ -487,6 +487,24 @@ func.func @test_matmul_unknown_batch_dim(%arg0: tensor<?x?x256x256xf32>) -> (ten
 
 // -----
 
+func.func @test_matmul_splitting(%arg0: tensor<?x?x768xf32>, %arg1: tensor<768x50257xf32>) -> (tensor<?x?x50257xf32>) {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?x768xf32>, tensor<768x50257xf32>) -> tensor<?x?x50257xf32>
+  return %0 : tensor<?x?x50257xf32>
+
+// mlir2FileCheck.py -a '["A","B"]'
+// CHECK-LABEL:  func.func @test_matmul_splitting
+// CHECK-SAME:   ([[A_:%.+]]: tensor<?x?x768xf32>, [[B_:%.+]]: tensor<768x50257xf32>) -> tensor<?x?x50257xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[32768, 17489]> : tensor<2xi64>
+// CHECK:           [[VAR_1_:%.+]]:2 = "onnx.Split"([[B_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<768x50257xf32>, tensor<2xi64>) -> (tensor<768x32768xf32>, tensor<768x17489xf32>)
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.MatMul"([[A_]], [[VAR_1_]]#0) : (tensor<?x?x768xf32>, tensor<768x32768xf32>) -> tensor<?x?x32768xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.MatMul"([[A_]], [[VAR_1_]]#1) : (tensor<?x?x768xf32>, tensor<768x17489xf32>) -> tensor<?x?x17489xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]]) {axis = 2 : si64} : (tensor<?x?x32768xf32>, tensor<?x?x17489xf32>) -> tensor<?x?x50257xf32>
+// CHECK:           return [[VAR_4_]] : tensor<?x?x50257xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: Rewrite N-D Softmax into 2-D softmax when axis is the last dim.
 
 func.func @softmax_nd_to_2d(%arg0: tensor<4x12x256x256xf32>) -> (tensor<4x12x256x256xf32>) {
