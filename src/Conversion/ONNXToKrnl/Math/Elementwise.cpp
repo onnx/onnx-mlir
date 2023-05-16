@@ -322,7 +322,7 @@ struct ScalarOp<ONNXTanOp> {
 template <>
 struct ScalarOp<ONNXIsInfOp> {
   using FOp = CustomScalarOp;
-  using IOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -330,11 +330,11 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
 
-  CheckIfCustomScalarOpIsSupported<ONNXIsInfOp>(elementType);
   Value operand = scalarOperands[0];
   Type inputElemType = getElementType(operand.getType());
   Value result;
-
+  
+  CheckIfCustomScalarOpIsSupported<ONNXIsInfOp>(inputElemType);
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   Value negInf = create.math.negativeInf(inputElemType);
   Value posInf = create.math.positiveInf(inputElemType);
