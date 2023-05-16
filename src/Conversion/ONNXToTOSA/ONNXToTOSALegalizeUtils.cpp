@@ -123,13 +123,10 @@ mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
   }
   tosaPads.insert(tosaPads.end(), lastVals.begin(), lastVals.end());
 
+  // TOSA format groups dimensions by 2.
   const unsigned int numberOfDims = tosaPads.size() / 2;
-  mlir::DenseElementsAttr paddingAttr = mlir::DenseIntElementsAttr::get(
-      mlir::RankedTensorType::get({numberOfDims, 2}, rewriter.getI64Type()),
-      tosaPads);
-
-  return rewriter.create<mlir::tosa::ConstOp>(
-      loc, paddingAttr.getType(), paddingAttr);
+  TosaBuilder tosaBuilder(rewriter, loc);
+  return tosaBuilder.getConst(tosaPads, {numberOfDims, 2});
 }
 
 } // namespace tosa
