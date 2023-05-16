@@ -31,4 +31,3 @@ LogicalResult ONNXIsInfOp::inferShapes(
   IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
   return inferShapeForUnaryOps(getOperation(), i1Type);
 }
-
