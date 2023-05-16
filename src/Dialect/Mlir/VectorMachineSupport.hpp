@@ -40,6 +40,7 @@ enum class GenericOps {
   CopySignGop,
   DivGop,
   ExpGop,
+  ErfGop,
   FloorDivGop,
   FloorGop,
   FmaGop,
