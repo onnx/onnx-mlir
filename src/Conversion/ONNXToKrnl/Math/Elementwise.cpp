@@ -354,7 +354,8 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
 
   if (detectInf) {
     // If infinity return true for both positive and negative infinity
-    result = create.math.ori(create.math.eq(operand, posInf), create.math.eq(operand, negInf));
+    result = create.math.ori(
+        create.math.eq(operand, posInf), create.math.eq(operand, negInf));
   }
   if (detectPos) {
     // If positive infinity return true else false
