@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
@@ -413,8 +413,8 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Type intType = rewriter.getIntegerType(64);
     Value valAxis = create.math.constant(intType, axis);
     Value valAscending = create.math.constant(intType, (int64_t)ascending);
-    SmallVector<Value, 4> operands = {input, valAxis, valAscending};
-    rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, operands);
+    SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
+    rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
     return order;
   }
   // Do sorting in the descending order of input and return their indices.
