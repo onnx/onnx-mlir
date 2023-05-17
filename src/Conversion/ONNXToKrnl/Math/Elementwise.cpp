@@ -327,7 +327,7 @@ struct ScalarOp<ONNXIsInfOp> {
 
 template <>
 double analyzeSimdFor<ONNXIsInfOp>(Type t, int64_t &von, int64_t &son) {
-  return simdAnalysis({GenericOps::IsInfGop}, {1}, t, von, son);
+  return simdAnalysis({GenericOps::LogicalGop}, {1}, t, von, son);
 }
 
 template <>

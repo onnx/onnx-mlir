@@ -3352,7 +3352,6 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
       return sh;
     }
   }];
-  let hasVerifier = 1;
 }
 
 def ONNXIsNaNOp:ONNX_Op<"IsNaN",
