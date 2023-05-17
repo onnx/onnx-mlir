@@ -326,6 +326,11 @@ struct ScalarOp<ONNXIsInfOp> {
 };
 
 template <>
+double analyzeSimdFor<ONNXIsInfOp>(Type t, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::IsInfGop}, {1}, t, von, son);
+}
+
+template <>
 Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
@@ -347,20 +352,17 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   bool detectNeg = detectNegAttribute == 1 && detectPosAttribute == 0;
   bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
 
-  Value equPos = create.math.eq(operand, posInf);
-  Value equNeg = create.math.eq(operand, negInf);
-
   if (detectInf) {
     // If infinity return true for both positive and negative infinity
-    result = create.math.ori(equPos, equNeg);
+    result = create.math.ori(create.math.eq(operand, posInf), create.math.eq(operand, negInf));
   }
   if (detectPos) {
     // If positive infinity return true else false
-    result = equPos;
+    result = create.math.eq(operand, posInf);
   }
   if (detectNeg) {
     // If negative infinity return true else false
-    result = equNeg;
+    result = create.math.eq(operand, negInf);
   }
   return result;
 }

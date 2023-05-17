@@ -44,6 +44,7 @@ enum class GenericOps {
   FloorDivGop,
   FloorGop,
   FmaGop,
+  IsInfGop,
   LogGop,
   LogicalGop, /* All logical ops: and, or, xor, not, nor, nand,... */
   MinMaxGop,
