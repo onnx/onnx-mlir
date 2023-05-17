@@ -3320,7 +3320,6 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
       return sh;
     }
   }];
-  let hasVerifier = 1;
 }
 
 def ONNXIsInfOp:ONNX_Op<"IsInf",
