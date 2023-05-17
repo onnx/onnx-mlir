@@ -73,6 +73,11 @@ void addONNXToZHighPasses(
       onnx_mlir::zhigh::createZHighLayoutPropagationPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
+  // After all optimizations, if there are still light-weight ops (e.g. add,
+  // sub, ...) that are of `stick -> light-weight op -> unstick`, it's better to
+  // use CPU instead of NNPA to avoid stick/unstick. CPU is efficient to handle
+  // these ops, e.g vectorize the computation.
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createZHighToONNXPass());
   // Constant propagation at ZHighIR: constant stickify.
   // Only support BE machines.
   bool isBE = llvm::support::endian::system_endianness() ==
