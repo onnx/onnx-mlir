@@ -31,7 +31,7 @@ def Krnl_Dialect : Dialect {
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
   let dependentDialects = [
-    "AffineDialect",
+    "affine::AffineDialect",
     "arith::ArithDialect",
     "func::FuncDialect",
     "linalg::LinalgDialect",
@@ -72,11 +72,14 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
 
   let arguments = (ins StrAttr:$funcName, AnyType:$result, Variadic<AnyType>:$parameters);
 
-  // builders to build KrnlCallOp from op and operands, helping conversion from onnx to krnl.
-  // The name of function can be determined by the op name and elemnt type of the return,
-  // or given to builder if the simple rule does not work
-  // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is true
+  // builders to build KrnlCallOp from op and operands, helping conversion from
+  // onnx to krnl.
+  // The name of function can be determined by the op name and elemnt type of
+  // the return, or given to builder if the simple rule does not work.
+  // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is
+  // true. Or the attribute names can be specified.
   let builders = [OpBuilder<(ins "mlir::Value":$result, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::Value":$result, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "std::vector<std::string>":$attributeNames)>,
       OpBuilder<(ins "std::string":$funcNameStr, "mlir::Value":$result, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
 }
 

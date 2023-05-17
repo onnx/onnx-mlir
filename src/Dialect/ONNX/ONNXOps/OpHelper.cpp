@@ -359,7 +359,7 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
   if (shapeAttr == nullptr)
     return false;
 
-  int64_t dimensionsOfShape = shapeAttr.getType().getShape()[0];
+  int64_t dimensionsOfShape = shapeAttr.getShapedType().getShape()[0];
   if ((int64_t)valueShape.size() != dimensionsOfShape)
     return false;
 
@@ -433,6 +433,11 @@ bool areDims(Value val) {
   // Value must be a 1D tensor.
   Type vType = val.getType();
   if (!(isRankedShapedType(vType) && (getRank(vType) == 1)))
+    return false;
+
+  // Dim must be i64.
+  Type elmTy = getElementType(vType);
+  if (!elmTy.isSignlessInteger(64))
     return false;
 
   // Base case.
@@ -564,7 +569,8 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
 }
 
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(ONNXConstantOp constantOp, Type type) {
+RESULT_TYPE getScalarValue(ONNXConstantOp constantOp) {
+  Type type = constantOp.getType();
   ElementsAttr attr = constantOp.getValueAttr().dyn_cast<ElementsAttr>();
   if (!attr)
     constantOp.emitError("ElementsAttr expected");
@@ -573,8 +579,8 @@ RESULT_TYPE getScalarValue(ONNXConstantOp constantOp, Type type) {
 
 // Template instantiation for getScalarValue
 
-template double getScalarValue<double>(ONNXConstantOp constantOp, Type type);
-template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp, Type type);
+template double getScalarValue<double>(ONNXConstantOp constantOp);
+template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp);
 
 // Convert type to MLIR type.
 // A complete list of types can be found in:

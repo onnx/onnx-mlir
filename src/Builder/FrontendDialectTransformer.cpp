@@ -31,6 +31,7 @@
 #include "src/Builder/ImportONNXUtils.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
 #include "src/Builder/SymbolTable.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
@@ -80,6 +81,15 @@ public:
     modelInputShaper_.setShapeInformation(options_.shapeInformation);
     SetOpSetImport(model); // Determines which opsets to use.
     importGraph(model.graph());
+    if (VerboseOutput) {
+      llvm::outs()
+          << "The ONNX model has " << num_of_parameters_
+          << " elements in its initializers. This value would be close to and "
+             "greater than the number of parameters in the model. Because "
+             "there is no way to exactly count the number of parameters, this "
+             "value can be used to have a rough idea of the number of "
+             "parameters in the model.\n";
+    }
     return module_;
   }
 
@@ -103,6 +113,10 @@ private:
       const onnx::NodeProto &);
 
   std::map<std::string, ImportHandlerType> import_handler_map_;
+
+  // The total number of elements in all initializers. This value is a rough
+  // counter of the number of parameters in a model.
+  int64_t num_of_parameters_ = 0;
 
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
@@ -150,9 +164,15 @@ private:
 
   Value ImportTensor(const onnx::TensorProto &tensor) {
     // Use the tensor name as Location.
-    return EmitInitializerForInputTensor(
+    Value initializer = EmitInitializerForInputTensor(
         NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name())),
         builder_, options_.externalDataDir, tensor);
+    if (!isNoneValue(initializer)) {
+      auto tensorType = cast<ShapedType>(initializer.getType());
+      int64_t size = ShapedType::getNumElements(tensorType.getShape());
+      num_of_parameters_ += size;
+    }
+    return initializer;
   }
 
   /*!
@@ -949,53 +969,38 @@ private:
   }
 
   std::string GetImportVersionOfNode(const onnx::NodeProto &node) {
-    auto schema = GetOpSchema(node);
-    // Assume the top version
-    if (schema == nullptr) {
-      return std::string("");
-    }
     auto current_opset = opset_map_.find(node.domain())->second;
 
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
                             << node.op_type() << " (" << node.name() << ")"
                             << ", Opset: " << current_opset << "\n");
 
+    auto opset_list_it = op_dialect_version_map_.find(node.op_type());
+
     // Custom ops may not be present in op_dialect_version_map_. If no version
     // info is found, treat as unversioned (no renaming).
-    auto opset_list_it = op_dialect_version_map_.find(node.op_type());
-    if (opset_list_it != op_dialect_version_map_.end()) {
-      auto opset_list = opset_list_it->second;
-      // A new opset is added to onnx-mlir when it becomes imcompactible.
-      // But the lowest opset in op_dialect_version_map_ is an exception.
-      // It is the current opset when onnx-mlir project is started.
-      // All opset lower than the last opset should use the last opset(version)
+    if (opset_list_it == op_dialect_version_map_.end())
+      return "";
 
-      if (node.domain().compare("ai.onnx.ml") != 0 &&
-          current_opset < opset_list[opset_list.size() - 1] &&
-          current_opset < MINIMUM_SUPPORTED_OPSET)
-        llvm::outs()
-            << "Warning: ONNX " << node.op_type()
-            << " in your model is using Opset " << current_opset
-            << ", which is quite old. Please consider regenerating your "
-               "model with a newer Opset.\n";
-      if (opset_list.size() == 1)
-        return std::string("");
-      for (int i = opset_list.size() - 1; i > 0; i--) {
-        if (current_opset < opset_list[i - 1]) {
-          LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ":   - use Opset "
-                                  << opset_list[i] << "\n");
-          return "V" + std::to_string(opset_list[i]);
-        }
-      }
-    } else {
-      llvm::errs() << node.op_type();
-      if (op_dialect_top_version_map_.find(node.op_type()) !=
-          op_dialect_top_version_map_.end()) {
-        llvm_unreachable(
-            " this Op is not found in the onnx version being used");
-      } else {
-        llvm_unreachable(
-            " this Op is not supported by onnx-mlir's onnx dialect");
+    auto opset_list = opset_list_it->second;
+
+    // A new opset is added to onnx-mlir when it becomes imcompactible.
+    // But the lowest opset in op_dialect_version_map_ is an exception.
+    // It is the current opset when onnx-mlir project is started.
+    // All opset lower than the last opset should use the last opset(version)
+    if (node.domain().compare("ai.onnx.ml") != 0 &&
+        current_opset < opset_list.back() &&
+        current_opset < MINIMUM_SUPPORTED_OPSET)
+      llvm::outs() << "Warning: ONNX " << node.op_type()
+                   << " in your model is using Opset " << current_opset
+                   << ", which is quite old. Please consider regenerating your "
+                      "model with a newer Opset.\n";
+
+    for (int i = opset_list.size() - 1; i > 0; i--) {
+      if (current_opset < opset_list[i - 1]) {
+        LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ":   - use Opset "
+                                << opset_list[i] << "\n");
+        return "V" + std::to_string(opset_list[i]);
       }
     }
     return std::string("");

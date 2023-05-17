@@ -89,7 +89,7 @@ def IsMatMulIntegerRhsZero: Constraint<
 // Creation helpers:
 
 def CreateZeroTensorOfType: NativeCodeCall<
-  "ConstZeroTensor($_builder, $_loc, $0.getType())"
+  "ConstZeroTensor($_builder, $_loc, $0.getType().cast<mlir::ShapedType>())"
 >;
 
 def CreateAddOfTwoConst :
