@@ -150,7 +150,7 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
   if (auto onnxOp = dyn_cast<ONNXCenterCropPadOp>(op)) {
     // `shape` stores shape information for dimensions specified by `axes`.
     // `outputDimIndex` must be in `axes` in order to get dim from `shape`.
-    ShapedType outputType = onnxOp.getResult().getType();
+    auto outputType = cast<ShapedType>(onnxOp.getResult().getType());
     SmallVector<int64_t, 4> axesInt;
     ArrayAttr axes = onnxOp.getAxesAttr();
     if (axes) {
@@ -497,7 +497,6 @@ void DimAnalysis::visitDim(
         }
       }
     }
-    return;
   }
 
   // ReshapeOp has some additional cases.
@@ -577,7 +576,6 @@ void DimAnalysis::visitDim(
         }
       }
     }
-    return;
   }
 }
 
