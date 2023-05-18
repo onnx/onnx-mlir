@@ -10,7 +10,7 @@
 //
 // When adding non-standard ONNX ops, please add them in AdditionalONNXOps.td.
 //
-// After changes that impact ONNX, run "make OMONNXOpsIncTranslation".
+// After changes that impact ONNX, run "make OMONNXOpsTableGenIncGen".
 // After changes that impact the documentation of the ops, run
 // "make onnx-mlir-docs".
 //

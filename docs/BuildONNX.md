@@ -2,7 +2,7 @@
 
 # Installing `third_party ONNX` for Backend Tests or Rebuilding ONNX Operations
 
-Backend tests are triggered by `make check-onnx-backend` in the build directory and require a few preliminary steps to run successfully. Similarly, rebuilding the ONNX operations in ONNX-MLIR from their ONNX descriptions is triggered by `make OMONNXOpsIncTranslation`.
+Backend tests are triggered by `make check-onnx-backend` in the build directory and require a few preliminary steps to run successfully. Similarly, rebuilding the ONNX operations in ONNX-MLIR from their ONNX descriptions is triggered by `make OMONNXOpsTableGenIncGen`.
 
 You will need to install python 3.x if its not default in your environment, and possibly set the cmake `PYTHON_EXECUTABLE` variable in your top cmake file.
 
@@ -24,7 +24,7 @@ Here are the steps taken to upgrade the ONNX version:
 
 6.	Build onnx in the `build/` directory using: set CMAKE_ARGS=-DONNX_USE_LITE_PROTO=ON
 
-7.	Run in the `build/` directory : make OMONNXOpsIncTranslation
+7.	Run in the `build/` directory : make OMONNXOpsTableGenIncGen
 
 8.	Run in `build/` directory : make onnx-mlir-docs
 

@@ -18,7 +18,7 @@
 //   of original ONNX ops. These ops may possibly be removed in the future.
 //   Example are ONNXBatchNormalizationInferenceModeOp, ...
 //
-// After changes that impact ONNX, run "make OMONNXOpsIncTranslation".
+// After changes that impact ONNX, run "make OMONNXOpsTableGenIncGen".
 // After changes that impact the documentation of the ops, run
 // "make onnx-mlir-docs".
 //

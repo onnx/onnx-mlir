@@ -2,7 +2,7 @@
 
 # After modifying this file, the script will need to run to rebuild the
 # onnx-mlir ONNX Dialect. This is performed by calling
-# `make OMONNXOpsIncTranslation` in the build dir.
+# `make OMONNXOpsTableGenIncGen` in the build dir.
 # If the changes are not seen, then you need to rebuild the entire onnx-mlir.
 
 # After changes that impact the documentation of the ops, run
