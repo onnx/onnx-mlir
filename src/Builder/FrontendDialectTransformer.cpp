@@ -440,32 +440,6 @@ private:
     return builder_.getFunctionType(argTypes, retTys);
   }
 
-  void ImportNodeGeneric(const onnx::NodeProto &node) {
-    std::vector<Value> inputs;
-    for (const auto &item : node.input()) {
-      if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
-        inputs.push_back(*valuePtr);
-      }
-    }
-    OperationState result(UnknownLoc(), "frontend." + node.op_type());
-    for (auto item : node.output()) {
-      result.addTypes(UnrankedTensorType::get(builder_.getF32Type()));
-    }
-    result.addOperands(inputs);
-    result.addAttributes(ImportNodeAttributes(node));
-    // Create corresponding regions for graph attributes.
-    for (const auto &attr : node.attribute())
-      // Ignore subgraph attributes, as they will be imported as regions.
-      if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH)
-        result.addRegion();
-
-    auto op = builder_.create(result);
-    for (int i = 0; i < node.output().size(); i++) {
-      auto r = op->getResult(i);
-      frontend_symbols_.AddMapping(node.output()[i], r);
-    }
-  }
-
   static constexpr int MAX_TYPE = 20;
 
   // Get these indices from TensorProto in
