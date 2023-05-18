@@ -325,10 +325,10 @@ struct ScalarOp<ONNXIsInfOp> {
   using IOp = NotSuportedScalarOp;
 };
 
-template <>
-double analyzeSimdFor<ONNXIsInfOp>(Type t, int64_t &von, int64_t &son) {
-  return simdAnalysis({GenericOps::LogicalGop}, {1}, t, von, son);
-}
+// template <>
+// double analyzeSimdFor<ONNXIsInfOp>(Type t, int64_t &von, int64_t &son) {
+//   return simdAnalysis({GenericOps::LogicalGop}, {1}, t, von, son);
+// }
 
 template <>
 Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
