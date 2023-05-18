@@ -369,7 +369,7 @@ OpsWithVerifier = [
     'GreaterOrEqual',
     'Hardmax',
     'If',
-    'IsInf'
+    'IsInf',
     'InstanceNormalization',
     'Less',
     'LessOrEqual',
