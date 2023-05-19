@@ -3583,15 +3583,14 @@ module {
 // inference is used.
 // The output shoudl be the same as the input, as no shape inference is expected to be performed.
 
-func.func @test_clipv6(%arg0: tensor<*xf32>) {
+func.func @test_clipv6(%arg0: tensor<*xf32>) -> tensor<*xf32> {
   %0 = "onnx.ClipV6"(%arg0) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<*xf32>) -> tensor<*xf32>
-  return
+  return %0 : tensor<*xf32>
 
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_clipv6
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>) {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>) -> tensor<*xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.ClipV6"([[PARAM_0_]]) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:           return
+// CHECK:           return [[VAR_0_]] : tensor<*xf32>
 // CHECK:         }
 }
-

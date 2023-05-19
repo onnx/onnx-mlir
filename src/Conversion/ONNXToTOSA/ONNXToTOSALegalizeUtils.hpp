@@ -55,8 +55,8 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
   llvm::SmallVector<mlir::ShapedTypeComponents> returnedShapes;
   if (shapeInterface
           .inferReturnTypeComponents(op.getContext(), op.getLoc(),
-              op->getOperands(), op->getAttrDictionary(), op->getRegions(),
-              returnedShapes)
+              op->getOperands(), op->getAttrDictionary(),
+              op->getPropertiesStorage(), op->getRegions(), returnedShapes)
           .failed())
     return op;
 
