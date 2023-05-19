@@ -84,7 +84,7 @@ parser.add_argument('--verify-with-softmax',
                     action='store_true',
                     help="Verify the result obtained by applying softmax "
                     "to the output. Axis can be specified by --verify-softmax-axis.")
-parser.add_argument('--verify-softmax-axis',
+parser.add_argument('--axis-for-verification-with-softmax',
                     type=int,
                     default=-1,
                     help="Axis used in verification with softmax")
@@ -237,7 +237,7 @@ def ordinal(n):
 
 
 def softmax(x):
-    return np.exp(x)/np.sum(np.exp(x), axis = args.verify_softmax_axis, keepdims = True)
+    return np.exp(x)/np.sum(np.exp(x), axis = args.axis_for_verification_with_softmax, keepdims = True)
 
 
 def execute_commands(cmds):
