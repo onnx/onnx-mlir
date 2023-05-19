@@ -58,6 +58,28 @@ static bool areOverlapping(
   return false;
 }
 
+static std::optional<DimAnalysis::DimT> insertDim(const Value tensor,
+    const uint64_t dimIndex, DimAnalysis::DimSetT &sameDims) {
+  auto tensorType = cast<ShapedType>(tensor.getType());
+
+  bool okToInsert = false;
+  if (tensor.isa<BlockArgument>()) {
+    okToInsert = true;
+  } else {
+    Operation *op = tensor.getDefiningOp();
+    if (isa<ONNXConstantOp, ONNXCastOp, ONNXDimOp>(op) ||
+        tensorType.isDynamicDim(dimIndex))
+      okToInsert = true;
+  }
+
+  if (okToInsert) {
+    DimAnalysis::DimT dim(tensor, dimIndex);
+    sameDims.insert(dim);
+    return dim;
+  }
+  return std::nullopt;
+}
+
 static bool handleAndTestInBound(int64_t &axis, ShapedType type) {
   int64_t rank = type.getRank();
   if (axis < 0)
@@ -85,10 +107,9 @@ static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
     createIE.getShapeAsDims(v, vDims);
     for (int64_t i = 0; i < rank; ++i) {
       if (qmOuputIE.sameQuestionmark(vDims[i])) {
-        DimAnalysis::DimT d(v, i);
-        sameDims.insert(d);
-        LLVM_DEBUG(llvm::dbgs() << "  - Added a new dim(" << d.first << ", "
-                                << d.second << ")\n");
+        if (auto d = insertDim(v, i, sameDims))
+          LLVM_DEBUG(llvm::dbgs() << "  - Added a new dim(" << d.value().first
+                                  << ", " << d.value().second << ")\n");
       }
     }
   }
@@ -209,10 +230,9 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
 
   SmallVector<Value, 4> dims;
   getDims(shapeInput, dims);
-  DimAnalysis::DimT d(dims[inputDimIndex], inputDimIndex);
-  sameDims.insert(d);
-  LLVM_DEBUG(llvm::dbgs() << "  - Added a new dim(" << d.first << ", "
-                          << d.second << ")\n");
+  if (auto d = insertDim(dims[inputDimIndex], inputDimIndex, sameDims))
+    LLVM_DEBUG(llvm::dbgs() << "  - Added a new dim(" << d.value().first << ", "
+                            << d.value().second << ")\n");
   return true;
 }
 
@@ -467,6 +487,13 @@ void DimAnalysis::visitDim(
     return;
   }
 
+  // CastOp
+  if (auto castOp = dyn_cast<ONNXCastOp>(op)) {
+    DimAnalysis::DimT newSameDim(castOp.getInput(), dimIndex);
+    sameDims.insert(newSameDim);
+    return;
+  }
+
   // All dimensions in the analysis must be dynamic. If not, something really
   // wrong happened.
   ShapedType ty = tensor.getType().cast<ShapedType>();
@@ -512,10 +539,10 @@ void DimAnalysis::visitDim(
           uint64_t maxRank = std::max(aRank, bRank);
           int64_t negativeIndex = dimIndex - maxRank;
           if (sameDim(A, negativeIndex, B, negativeIndex)) {
-            DimAnalysis::DimT d(A, aRank + negativeIndex);
-            sameDims.insert(d);
-            LLVM_DEBUG(llvm::dbgs() << "  - Added a new dim(" << d.first << ", "
-                                    << d.second << ")\n");
+            if (auto d = insertDim(A, aRank + negativeIndex, sameDims))
+              LLVM_DEBUG(llvm::dbgs()
+                         << "  - Added a new dim(" << d.value().first << ", "
+                         << d.value().second << ")\n");
           }
         }
       }
@@ -570,11 +597,11 @@ void DimAnalysis::visitDim(
         }
       assert(dynamicDimIndexInData.has_value() &&
              "Failed to obtain the index of the dynamic dimension in the data");
-      DimT newSameDim(reshapeOp.getData(), *dynamicDimIndexInData);
-      sameDims.insert(newSameDim);
-      LLVM_DEBUG(llvm::dbgs()
-                 << "  - Case 1: Added a new dim(" << newSameDim.first << ", "
-                 << newSameDim.second << ")\n");
+      if (auto d =
+              insertDim(reshapeOp.getData(), *dynamicDimIndexInData, sameDims))
+        LLVM_DEBUG(llvm::dbgs()
+                   << "  - Case 1: Added a new dim(" << d.value().first << ", "
+                   << d.value().second << ")\n");
     }
 
     // Special case 2: input and output have the same rank of 2, if one output
@@ -598,13 +625,13 @@ void DimAnalysis::visitDim(
         if (sameDynDim(data, i, output, 1 - dimIndex)) {
           iDim = i;
           // The other output dim must be the same as the other input dim.
-          DimT newSameDim(data, 1 - iDim);
-          sameDims.insert(newSameDim);
-          LLVM_DEBUG(llvm::dbgs()
-                     << "  - Case 2: Added a new dim(" << newSameDim.first
-                     << ", " << newSameDim.second << ")\n");
-          break;
+          // Only care about dynamic dim.
+          if (auto d = insertDim(data, 1 - iDim, sameDims))
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - Case 2: Added a new dim(" << d.value().first
+                       << ", " << d.value().second << ")\n");
         }
+        break;
       }
     }
   }

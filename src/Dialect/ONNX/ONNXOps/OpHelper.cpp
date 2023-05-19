@@ -435,10 +435,10 @@ bool areDims(Value val) {
   if (!(isRankedShapedType(vType) && (getRank(vType) == 1)))
     return false;
 
-  // Dim must be i64.
-  Type elmTy = getElementType(vType);
-  if (!elmTy.isSignlessInteger(64))
-    return false;
+  // // Dim must be i64.
+  // Type elmTy = getElementType(vType);
+  // if (!elmTy.isSignlessInteger(64))
+  //   return false;
 
   // Base case.
   if (definedBy<ONNXConstantOp>(val) || definedBy<ONNXDimOp>(val) ||
