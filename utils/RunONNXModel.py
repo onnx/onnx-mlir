@@ -83,7 +83,11 @@ parser.add_argument('--verify-all-ops',
 parser.add_argument('--verify-with-softmax',
                     action='store_true',
                     help="Verify the result obtained by applying softmax "
-                    "to the output")
+                    "to the output. Axis can be specified by --verify-softmax-axis.")
+parser.add_argument('--verify-softmax-axis',
+                    type=int,
+                    default=-1,
+                    help="Axis used in verification with softmax")
 parser.add_argument('--verify-every-value',
                     action='store_true',
                     help="Verify every value of the output using atol and rtol")
@@ -233,7 +237,7 @@ def ordinal(n):
 
 
 def softmax(x):
-    return np.exp(x)/sum(np.exp(x))
+    return np.exp(x)/np.sum(np.exp(x), axis = args.verify_softmax_axis, keepdims = True)
 
 
 def execute_commands(cmds):
@@ -628,8 +632,27 @@ def main():
                     print(
                         "Verifying using softmax for output {}:{}".format(name,
                                                           list(outs[i].shape)))
-                    np.testing.assert_allclose(softmax(outs[i]), softmax(ref_outs[i]))
-                    print("  correct.\n")
+                    total_elements = 0
+                    mismatched_elements = 0
+                    softmax_outs = softmax(outs[i])
+                    softmax_ref_outs = softmax(ref_outs[i])
+                    for index, actual_val in np.ndenumerate(softmax_outs):
+                        total_elements += 1
+                        ref_val = softmax_ref_outs[index]
+                        # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+                        diff = float(args.atol) + float(args.rtol) * abs(ref_val)
+                        if (abs(actual_val - ref_val) <= diff):
+                            continue
+                        mismatched_elements += 1
+                        print("  at {}".format(index),
+                              "mismatch {} (actual)".format(actual_val),
+                              "vs {} (reference)".format(ref_val))
+                    if mismatched_elements == 0:
+                        print("  correct.\n")
+                    else:
+                        raise AssertionError(
+                            "  mismatched elements {}/{}.\n".format(
+                                mismatched_elements, total_elements))
 
             # For each output tensor, compare every value.
             if (args.verify_every_value):
