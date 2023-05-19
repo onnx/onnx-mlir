@@ -58,6 +58,8 @@ static bool areOverlapping(
   return false;
 }
 
+/// Insert a dynamic dim into the analysis sets.
+/// Only care about dynamic dims or ones from DimOp, ConstantOp, and CastOp.
 static std::optional<DimAnalysis::DimT> insertDim(const Value tensor,
     const uint64_t dimIndex, DimAnalysis::DimSetT &sameDims) {
   auto tensorType = cast<ShapedType>(tensor.getType());
@@ -625,7 +627,6 @@ void DimAnalysis::visitDim(
         if (sameDynDim(data, i, output, 1 - dimIndex)) {
           iDim = i;
           // The other output dim must be the same as the other input dim.
-          // Only care about dynamic dim.
           if (auto d = insertDim(data, 1 - iDim, sameDims))
             LLVM_DEBUG(llvm::dbgs()
                        << "  - Case 2: Added a new dim(" << d.value().first
