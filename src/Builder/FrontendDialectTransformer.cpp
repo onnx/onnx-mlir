@@ -60,18 +60,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-namespace detail {
-
 namespace {
 
 /// We consider opset < 6 is old. Users will see a warning if their model
 /// contains ops of old opset.
 constexpr int32_t MINIMUM_SUPPORTED_OPSET = 6;
 
+using OpsetImportsMap = std::unordered_map<std::string, int>;
+
+using AttrMap = std::unordered_map<std::string, const onnx::AttributeProto *>;
+
 // -------------------------------------------------------------------------- //
 // Code from third_party/onnx/onnx/shape_inference/implementation.cc:
-
-using OpsetImportsMap = std::unordered_map<std::string, int64_t>;
 
 // Either ModelProto or FunctionProto.
 template <class T>
@@ -100,11 +100,48 @@ onnx::shape_inference::ModelLocalFunctionsMap GetModelLocalFunctions(
   return model_local_functions_by_id;
 }
 
+void replaceAttrRefs(onnx::GraphProto &graph, const AttrMap &attr_map);
+
+void replaceAttrRefs(onnx::NodeProto &n, const AttrMap &attr_map) {
+  auto &attributes = *n.mutable_attribute();
+  for (auto attr_iter = attributes.begin(); attr_iter != attributes.end();) {
+    auto &attr = *attr_iter;
+    if (!attr.ref_attr_name().empty()) {
+      // Attribute-references must be replaced by the corresponding
+      // attribute-value in the call-node if the call-node contains the
+      // attribute. Otherwise, this attribute must be removed.
+      auto entry = attr_map.find(attr.ref_attr_name());
+      if (entry != attr_map.cend()) {
+        // Copy value of attribute, but retain original name:
+        std::string name = attr.name();
+        attr = *(entry->second);
+        attr.set_name(name);
+      } else {
+        attr_iter = attributes.erase(attr_iter);
+        continue;
+      }
+    }
+    // Subgraphs must be recursively processed.
+    if (attr.has_g()) {
+      replaceAttrRefs(*attr.mutable_g(), attr_map);
+    }
+    for (auto &graph : *attr.mutable_graphs()) {
+      replaceAttrRefs(graph, attr_map);
+    }
+    ++attr_iter;
+  }
+}
+
+void replaceAttrRefs(onnx::GraphProto &graph, const AttrMap &attr_map) {
+  for (auto &n : *graph.mutable_node()) {
+    replaceAttrRefs(n, attr_map);
+  }
+}
+
 // End of copied code from third_party/onnx.
 // -------------------------------------------------------------------------- //
 
-void InferGraphShapes(onnx::GraphProto *g,
-    const std::unordered_map<std::string, int> &opset_imports,
+void InferGraphShapes(onnx::GraphProto *g, const OpsetImportsMap &opset_imports,
     const onnx::shape_inference::ModelLocalFunctionsMap &in_model_functions) {
   onnx::shape_inference::InferShapes(g, opset_imports,
       onnx::OpSchemaRegistry::Instance(),
@@ -116,6 +153,8 @@ void InferModelShapes(onnx::ModelProto &m) {
 }
 
 } // namespace
+
+namespace detail {
 
 using ValueSymbolMapping = SymbolMapping<Value>;
 using SymbolToOnnxTypeMapping = SymbolMapping<onnx::TypeProto>;
@@ -133,6 +172,7 @@ public:
     options_ = options;
     modelInputShaper_.setShapeInformation(options_.shapeInformation);
     opset_map_ = GetOpsetImportsFromProto(model); // Which opsets to use.
+    in_model_functions_ = GetModelLocalFunctions(model);
     importGraph(model.graph());
     if (VerboseOutput) {
       llvm::outs()
@@ -178,6 +218,8 @@ private:
   // It maps each domain (e.g., "ai.onnx.ml") to the specific version of that
   // opset used by this model.
   OpsetImportsMap opset_map_;
+
+  onnx::shape_inference::ModelLocalFunctionsMap in_model_functions_;
 
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
@@ -991,7 +1033,7 @@ private:
     auto version_it = opset_map_.find(domain);
     if (version_it == opset_map_.end())
       return nullptr;
-    auto version = version_it->second;
+    int version = version_it->second;
     return onnx::OpSchemaRegistry::Schema(node.op_type(), version, domain);
   }
 
@@ -1000,7 +1042,7 @@ private:
     if (current_opset_it == opset_map_.end())
       return "";
 
-    int64_t current_opset = current_opset_it->second;
+    int current_opset = current_opset_it->second;
 
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
                             << node.op_type() << " (" << node.name() << ")"
@@ -1090,8 +1132,6 @@ private:
   // dependent) function.
   void ImportFunctionCallNode(
       const onnx::NodeProto &node, const onnx::OpSchema &schema) {
-    // TODO: Handle optional function inputs/outputs.
-
     // Collect the input values and their onnx types:
     std::vector<Value> inputs;
     std::vector<onnx::TypeProto> inputOnnxTypes;
@@ -1153,42 +1193,67 @@ private:
     }
 
     *graph.mutable_node() = std::move(functionProto.node());
-    // TODO: substitute attributes from caller node to graph nodes
+
+    // Substitute caller attributes in graph nodes:
+    AttrMap caller_attr_map;
+    for (const onnx::AttributeProto &attr : node.attribute())
+      caller_attr_map[attr.name()] = &attr;
+    AttrMap attr_map;
+    for (const std::string &attrName : functionProto.attribute()) {
+      auto it = caller_attr_map.find(attrName);
+      if (it != caller_attr_map.end())
+        attr_map[attrName] = it->second;
+    }
+    replaceAttrRefs(graph, attr_map);
+
+    InferGraphShapes(
+        &graph, GetOpsetImportsFromProto(functionProto), in_model_functions_);
 
     std::string scopeName =
         node.name() + ":" + node.op_type() + ":" + functionProto.name();
 
     // Save caller context, while generating function body.
     ValueSymbolMapping callerScope(std::move(frontend_symbols_));
-    frontend_symbols_.pushScope(scopeName);
     SymbolToOnnxTypeMapping callerTypeMap(std::move(onnx_type_map));
-    onnx_type_map.pushScope(scopeName);
 
-    // Due to missing trailing optional parameters,
-    // node.input_size() and functionProto.input_size() may be unequal.
-    int num_formals = std::min(node.input_size(), functionProto.input_size());
-    for (int i = 0; i < num_formals; ++i) {
-      const std::string &name = functionProto.input(i);
-      Value value = inputs[i];
-      BindOnnxName(name, value);
+    std::vector<Value> outputs;
+
+    // TODO: Reuse importGraph() logic.
+    {
+      frontend_symbols_.pushScope(scopeName);
+      onnx_type_map.pushScope(scopeName);
+
+      for (const auto &input : graph.input())
+        AddValueInfo(input);
+      for (const auto &internal : graph.value_info())
+        AddValueInfo(internal, true);
+      for (const auto &output : graph.output()) {
+        // Output tensor may be in input list
+        AddValueInfo(output, true);
+      }
+
+      for (int i = 0; i < functionProto.input_size(); ++i) {
+        const std::string &name = functionProto.input(i);
+        // Due to missing trailing optional parameters
+        // node may have fewer inputs than functionProto.
+        Value value = i < node.input_size() ? inputs[i] : createNoneValue();
+        BindOnnxName(name, value);
+      }
+
+      for (auto &fb_node : functionProto.node()) {
+        ImportNode(fb_node);
+      }
+
+      for (auto &name : functionProto.output()) {
+        outputs.push_back(LookupOnnxName(name));
+      }
+
+      // Restore caller context.
+      frontend_symbols_.popScope(scopeName);
+      onnx_type_map.popScope(scopeName);
     }
 
-    // Apply ONNX type inference to FunctionProto:
-    InferTypes(&functionProto, inputOnnxTypes);
-
-    for (auto &fb_node : functionProto.node()) {
-      ImportNode(fb_node);
-    }
-
-    SmallVector<Value, 4> outputs;
-    for (auto &name : functionProto.output()) {
-      outputs.push_back(LookupOnnxName(name));
-    }
-
-    // Restore caller context
-    frontend_symbols_.popScope(scopeName);
     frontend_symbols_ = std::move(callerScope);
-    onnx_type_map.popScope(scopeName);
     onnx_type_map = std::move(callerTypeMap);
 
     for (size_t i = 0; i < outputs.size(); ++i) {
@@ -1321,11 +1386,11 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
     if (options.useOnnxModelTypes)
-      onnx::shape_inference::InferShapes(convertModel);
+      InferModelShapes(convertModel);
     ImportFrontendModel(convertModel, context, module, options);
   } else {
     if (options.useOnnxModelTypes)
-      onnx::shape_inference::InferShapes(model);
+      InferModelShapes(model);
     ImportFrontendModel(model, context, module, options);
   }
   return true;
