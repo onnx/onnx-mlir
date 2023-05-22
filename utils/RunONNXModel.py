@@ -628,8 +628,9 @@ def main():
             if (args.verify_with_softmax is not None):
                 for i, name in enumerate(output_names):
                     print(
-                        "Verifying using softmax for output {}:{}".format(name,
-                                                          list(outs[i].shape)))
+                        "Verifying using softmax along with"
+                        " axis {}".format(args.verify_with_softmax),
+                        " for output {}:{}".format(name, list(outs[i].shape)))
                     total_elements = 0
                     mismatched_elements = 0
                     softmax_outs = softmax(outs[i])
