@@ -70,6 +70,8 @@ using OpsetImportsMap = std::unordered_map<std::string, int>;
 
 using AttrMap = std::unordered_map<std::string, const onnx::AttributeProto *>;
 
+using onnx::shape_inference::ModelLocalFunctionsMap;
+
 // -------------------------------------------------------------------------- //
 // Code from third_party/onnx/onnx/shape_inference/implementation.cc:
 
@@ -88,9 +90,8 @@ std::string GetModelLocalFunctionsMapIdentifier(
   return domain + ":" + func_name;
 }
 
-onnx::shape_inference::ModelLocalFunctionsMap GetModelLocalFunctions(
-    const onnx::ModelProto &m) {
-  onnx::shape_inference::ModelLocalFunctionsMap model_local_functions_by_id;
+ModelLocalFunctionsMap GetModelLocalFunctions(const onnx::ModelProto &m) {
+  ModelLocalFunctionsMap model_local_functions_by_id;
   for (const auto &function_proto : m.functions()) {
     model_local_functions_by_id.insert(
         {GetModelLocalFunctionsMapIdentifier(
@@ -140,17 +141,6 @@ void replaceAttrRefs(onnx::GraphProto &graph, const AttrMap &attr_map) {
 
 // End of copied code from third_party/onnx.
 // -------------------------------------------------------------------------- //
-
-void InferGraphShapes(onnx::GraphProto *g, const OpsetImportsMap &opset_imports,
-    const onnx::shape_inference::ModelLocalFunctionsMap &in_model_functions) {
-  onnx::shape_inference::InferShapes(g, opset_imports,
-      onnx::OpSchemaRegistry::Instance(),
-      /*options=*/{}, in_model_functions);
-}
-
-void InferModelShapes(onnx::ModelProto &m) {
-  onnx::shape_inference::InferShapes(m);
-}
 
 } // namespace
 
@@ -219,7 +209,7 @@ private:
   // opset used by this model.
   OpsetImportsMap opset_map_;
 
-  onnx::shape_inference::ModelLocalFunctionsMap in_model_functions_;
+  ModelLocalFunctionsMap in_model_functions_;
 
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
@@ -1079,59 +1069,16 @@ private:
     return "";
   }
 
-  func::FuncOp CreateFuncOp(
-      std::string namePrefix, TypeRange operandTypes, TypeRange resultTypes) {
-    auto funcType = builder_.getFunctionType(operandTypes, resultTypes);
-    if (namePrefix.empty())
-      namePrefix = "fn";
-    std::string funcName = namePrefix;
-    // make name unique:
-    for (int suffix = 1; module_.lookupSymbol(funcName); ++suffix) {
-      funcName = namePrefix + "_" + std::to_string(suffix);
-    }
+  // Is called with either (1) a model local function or (2) an OpSchema with
+  // a function decomposition.
+  // Case 1: modelLocalFunction is the model local function, schema is null.
+  // Case 2: modelLocalFunction is null, schema has the function decomposition.
+  void ImportFunctionCallNode(const onnx::NodeProto &node,
+      const onnx::OpSchema *schema,
+      const onnx::FunctionProto *modelLocalFunction) {
+    assert((schema != nullptr) != (modelLocalFunction != nullptr) &&
+           "pass either schema or modelLocalFunction, not both");
 
-    auto funcOp = func::FuncOp::create(UnknownLoc(), funcName, funcType);
-    module_.insert(module_.begin(), funcOp);
-    return funcOp;
-  }
-
-  void InferTypes(const onnx::FunctionProto *func,
-      std::vector<onnx::TypeProto> &inputTypes) {
-    std::unordered_map<std::string, onnx::TypeProto *> typeMap;
-    // Initialize types and values (if available) of function inputs:
-    const auto num_inputs =
-        std::min(func->input_size(), static_cast<int>(inputTypes.size()));
-    for (int i = 0; i < num_inputs; ++i) {
-      const std::string &input_name = func->input(i);
-      onnx_type_map.AddMapping(input_name, inputTypes[i]);
-      typeMap[input_name] = const_cast<onnx::TypeProto *>(
-          onnx_type_map.GetByOnnxName(input_name));
-    }
-
-    for (const onnx::NodeProto &n : func->node()) {
-      const auto *schema = GetOpSchema(n);
-      if (!schema) {
-        continue; // TODO:
-      }
-
-      onnx::NodeProto tn(n);
-      onnx::shape_inference::InferenceContextImpl node_ctx(tn, typeMap, {}, {});
-      schema->GetTypeAndShapeInferenceFunction()(node_ctx);
-
-      // Update types:
-      for (int i = 0; i < n.output_size(); ++i) {
-        const std::string &output_name = n.output(i);
-        onnx_type_map.AddMapping(output_name, *node_ctx.getOutputType(i));
-        typeMap[output_name] = const_cast<onnx::TypeProto *>(
-            onnx_type_map.GetByOnnxName(output_name));
-      }
-    }
-  }
-
-  // Precondition: schema is the node's schema and has a (possibly context
-  // dependent) function.
-  void ImportFunctionCallNode(
-      const onnx::NodeProto &node, const onnx::OpSchema &schema) {
     // Collect the input values and their onnx types:
     std::vector<Value> inputs;
     std::vector<onnx::TypeProto> inputOnnxTypes;
@@ -1151,18 +1098,23 @@ private:
       }
     }
 
-    // Get ONNX function body:
+    // Get ONNX function:
     onnx::FunctionProto functionProto;
-    if (const onnx::FunctionProto *pFunctionProto = schema.GetFunction()) {
-      functionProto = *pFunctionProto; // Context-independent function body.
+    if (schema) { // Function decomposition.
+      if (schema->HasFunction()) {
+        functionProto = *schema->GetFunction(); // Context-independent function.
+      } else {
+        assert(schema->HasContextDependentFunction() &&
+               "must have context dependent function absent a context "
+               "independent function");
+        // Generate a context-dependent function body:
+        onnx::FunctionBodyBuildContextImpl onnxFunContext(node, inputOnnxTypes);
+        if (!schema->BuildContextDependentFunction(
+                onnxFunContext, functionProto))
+          llvm_unreachable("failed to generate context dependent function");
+      }
     } else {
-      assert(schema.HasContextDependentFunction() &&
-             "must have context dependent function absent a context "
-             "independent function");
-      // Generate a context-dependent function body:
-      onnx::FunctionBodyBuildContextImpl onnxFunContext(node, inputOnnxTypes);
-      if (!schema.BuildContextDependentFunction(onnxFunContext, functionProto))
-        llvm_unreachable("failed to generate context dependent function");
+      functionProto = *modelLocalFunction; // Model local function.
     }
 
     assert(node.input_size() <= functionProto.input_size() &&
@@ -1170,6 +1122,10 @@ private:
     assert(node.output_size() <= functionProto.output_size() &&
            "more caller outputs than function results");
 
+    // Construct a graph with the function parameters and body so that
+    // we can call onnx::shape_inference::InferShapes(&graph,..) which
+    // will populate grap.value_info() with more information than we can
+    // get from InferShapeForFunctionNode(functionProto,..).
     onnx::GraphProto graph;
 
     for (int i = 0; i < functionProto.input_size(); ++i) {
@@ -1206,13 +1162,24 @@ private:
     }
     replaceAttrRefs(graph, attr_map);
 
-    InferGraphShapes(
-        &graph, GetOpsetImportsFromProto(functionProto), in_model_functions_);
+    OpsetImportsMap function_opset_map =
+        GetOpsetImportsFromProto(functionProto);
+
+    // Populates graph.value_info().
+    onnx::shape_inference::InferShapes(&graph, function_opset_map,
+        onnx::OpSchemaRegistry::Instance(),
+        /*options=*/{}, in_model_functions_);
 
     std::string scopeName =
         node.name() + ":" + node.op_type() + ":" + functionProto.name();
 
     // Save caller context, while generating function body.
+    ModelLocalFunctionsMap callerModelFunctions;
+    if (schema) {
+      // Function decompositions cannot access model local functions.
+      callerModelFunctions = std::move(in_model_functions_);
+    }
+    OpsetImportsMap callerOpsetMap(std::move(opset_map_));
     ValueSymbolMapping callerScope(std::move(frontend_symbols_));
     SymbolToOnnxTypeMapping callerTypeMap(std::move(onnx_type_map));
 
@@ -1248,11 +1215,15 @@ private:
         outputs.push_back(LookupOnnxName(name));
       }
 
-      // Restore caller context.
       frontend_symbols_.popScope(scopeName);
       onnx_type_map.popScope(scopeName);
     }
 
+    // Restore caller context.
+    if (schema) {
+      callerModelFunctions = std::move(in_model_functions_);
+    }
+    opset_map_ = std::move(callerOpsetMap);
     frontend_symbols_ = std::move(callerScope);
     onnx_type_map = std::move(callerTypeMap);
 
@@ -1288,18 +1259,27 @@ private:
     if (handler != import_handler_map_.end()) {
       // It's a regular op with a registered handler.
       (this->*(handler->second))(node);
-    } else {
-      const onnx::OpSchema *schema = GetOpSchema(node);
-      if (schema &&
-          (schema->HasFunction() || schema->HasContextDependentFunction())) {
-        // The op has a function decomposition.
-        ImportFunctionCallNode(node, *schema);
-      } else {
-        emitWarning(UnknownLoc(), "Could not find op importer: assuming this "
-                                  "represents a custom operator.");
-        ImportCustomNode(node);
-      }
+      return;
     }
+
+    const onnx::OpSchema *schema = GetOpSchema(node);
+    if (schema &&
+        (schema->HasFunction() || schema->HasContextDependentFunction())) {
+      // The op has a function decomposition.
+      ImportFunctionCallNode(node, schema, /*modelLocalFunction=*/nullptr);
+      return;
+    }
+
+    auto model_function = in_model_functions_.find(
+        GetModelLocalFunctionsMapIdentifier(node.domain(), node.op_type()));
+    if (model_function != in_model_functions_.end()) {
+      ImportFunctionCallNode(node, /*schema=*/nullptr, model_function->second);
+      return;
+    }
+
+    emitWarning(UnknownLoc(), "Could not find op importer: assuming this "
+                              "represents a custom operator.");
+    ImportCustomNode(node);
   }
 
   void InitHandlerMap() {
@@ -1386,11 +1366,11 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
     if (options.useOnnxModelTypes)
-      InferModelShapes(convertModel);
+      onnx::shape_inference::InferShapes(convertModel);
     ImportFrontendModel(convertModel, context, module, options);
   } else {
     if (options.useOnnxModelTypes)
-      InferModelShapes(model);
+      onnx::shape_inference::InferShapes(model);
     ImportFrontendModel(model, context, module, options);
   }
   return true;
