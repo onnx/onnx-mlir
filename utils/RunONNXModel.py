@@ -81,9 +81,11 @@ parser.add_argument('--verify-all-ops',
                     action='store_true',
                     help="Verify all operation outputs when using onnxruntime")
 parser.add_argument('--verify-with-softmax',
-                    action='store_true',
-                    help="Verify the result obtained by applying softmax "
-                    "to the output. Axis can be specified by --verify-softmax-axis.")
+                    type=str,
+                    default=None,
+                    help="Verify the result obtained by applying softmax along with"
+                    " specific axis. The axis can be specified"
+                    " by --verify-softmax-axis=<axis>.")
 parser.add_argument('--axis-for-verification-with-softmax',
                     type=int,
                     default=-1,
@@ -142,10 +144,10 @@ parser.add_argument('--upper-bound',
                     " uint64, int64, float16, float32, float64")
 
 args = parser.parse_args()
-if (args.verify and not (args.verify_with_softmax or args.verify_every_value)):
+if (args.verify and (args.verify_with_softmax is None) and (not args.verify_every_value)):
     raise RuntimeError("Choose verification mode: --verify-with-softmax or "
                        "--verify-every-value or both")
-if (args.verify_with_softmax and (not args.verify)):
+if (args.verify_with_softmax is not None and (not args.verify)):
     raise RuntimeError("Must specify --verify to use --verify-with-softmax")
 if (args.verify_every_value and (not args.verify)):
     raise RuntimeError("Must specify --verify to use --verify-every-value")
@@ -237,7 +239,7 @@ def ordinal(n):
 
 
 def softmax(x):
-    return np.exp(x)/np.sum(np.exp(x), axis = args.axis_for_verification_with_softmax, keepdims = True)
+    return np.exp(x)/np.sum(np.exp(x), axis = int(args.verify_with_softmax), keepdims = True)
 
 
 def execute_commands(cmds):
@@ -627,7 +629,7 @@ def main():
                 exit(1)
 
             # Verify using softmax first.
-            if (args.verify_with_softmax):
+            if (args.verify_with_softmax is not None):
                 for i, name in enumerate(output_names):
                     print(
                         "Verifying using softmax for output {}:{}".format(name,
