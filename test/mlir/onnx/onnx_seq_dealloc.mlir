@@ -51,12 +51,12 @@ func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3x
 // CHECK-DAG:       [[VAR_16_:%.+]] = affine.apply {{#map.+}}(){{.}}{{.*}}, {{.*}}{{.}}
 // CHECK:           [[VAR_17_:%.+]] = arith.select [[VAR_15_]], [[VAR_16_]], [[VAR_14_]] : index
 // CHECK:           [[VAR_18_:%.+]] = "krnl.seqextract"([[VAR_3_]], [[VAR_17_]]) {copy = 1 : ui1} : (memref<?xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
-// CHECK:           "krnl.seqdealloc"([[VAR_3_]]) : (memref<?xmemref<?x4x5xf32>>) -> ()
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
 // CHECK-DAG:       [[VAR_c0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           [[VAR_20_:%.+]] = memref.dim [[VAR_18_]], [[VAR_c0_5_]] : memref<?x4x5xf32>
 // CHECK:           memref.dealloc [[VAR_18_]] : memref<?x4x5xf32>
+// CHECK:           "krnl.seqdealloc"([[VAR_3_]]) : (memref<?xmemref<?x4x5xf32>>) -> ()
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c5_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[VAR_21_:%.+]] = arith.index_cast [[VAR_20_]] : index to i64
