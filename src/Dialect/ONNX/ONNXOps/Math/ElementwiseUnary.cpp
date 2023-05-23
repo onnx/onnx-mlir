@@ -283,6 +283,7 @@ LogicalResult ONNXInstanceNormalizationOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // IsInf
 //===----------------------------------------------------------------------===//
+
 LogicalResult ONNXIsInfOp::verify() {
   ONNXIsInfOpAdaptor operandAdaptor(*this);
   if (!hasShapeAndRank(operandAdaptor.getX()))
