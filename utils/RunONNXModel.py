@@ -85,7 +85,7 @@ parser.add_argument('--verify-with-softmax',
                     default=None,
                     help="Verify the result obtained by applying softmax along with"
                     " specific axis. The axis can be specified"
-                    " by --verify-softmax-axis=<axis>.")
+                    " by --verify-with-softmax=<axis>.")
 parser.add_argument('--verify-every-value',
                     action='store_true',
                     help="Verify every value of the output using atol and rtol")
