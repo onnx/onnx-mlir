@@ -2,7 +2,7 @@
 
 // zipmap.json is an onnx model with a single ZipMap node.
 //
-// Parsing fails because equences of non-tensors are not supported by
+// Parsing fails because sequences of non-tensors are not supported by
 // the ONNX parser in
 // FrontendGenImpl::ImportSequenceType in FrontendDialectTransformer.cpp
 
