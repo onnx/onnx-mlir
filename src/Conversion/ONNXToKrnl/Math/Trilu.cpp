@@ -4,11 +4,15 @@
 
 //===---------------------- Trilu.cpp - TriluOp ---------------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2023- The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file lowers ONNX softmax operator to Krnl dialect.
+// This file lowers ONNX trilu operator to Krnl dialect.
+//
+// It looks like this operator can be lowered via the lowering pattern for unary
+// operators if the lowering pattern for unary operators is extended to take
+// loop indices as inputs in their scalar computation.
 //
 //===----------------------------------------------------------------------===//
 
@@ -30,7 +34,6 @@ struct ONNXTriluOpLowering : public OpConversionPattern<ONNXTriluOp> {
     Value input = adaptor.getInput();
     bool retainUpper = adaptor.getUpper() == 1;
 
-    // TODO: support k != 0.
     MultiDialectBuilder<MathBuilder, KrnlBuilder, IndexExprBuilderForKrnl,
         MemRefBuilder>
         create(rewriter, loc);
