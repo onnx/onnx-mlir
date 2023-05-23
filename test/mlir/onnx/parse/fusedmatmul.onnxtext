@@ -1,115 +1,22 @@
 // RUN: onnx-mlir --EmitONNXIR --printIR %s | FileCheck %s
 
-// fusedmatmul.json is an onnx model with a single FusedMatMul node.
+// fusedmatmul.onnxtext is an onnx model with a single FusedMatMul node.
 //
-// onnx-mlir --EmitONNXBasic outputs a custom op:
+// onnx-mlir --EmitONNXBasic --printIR fusedmatmul.onnxtext outputs a custom op:
 //   %0 = "onnx.Custom"(%arg0, %arg1) {alpha = 1.250000e-01 : f32, domain_name = "com.microsoft", function_name = "FusedMatMul", transA = 0 : si64, transB = 1 : si64} : (tensor<2x3xf32>, tensor<4x3xf32>) -> tensor<2x4xf32>
 //
-// onnx-mlir --EmitONNXIR decomposes the custom op:
+// onnx-mlir --EmitONNXIR --printIR fusedmatmul.onnxtext decomposes the custom op:
 //   %0 = onnx.Constant dense<1.250000e-01> : tensor<1xf32>
 //   %1 = "onnx.Transpose"(%arg1) {perm = [1, 0]} : (tensor<4x3xf32>) -> tensor<3x4xf32>
 //   %2 = "onnx.MatMul"(%arg0, %1) : (tensor<2x3xf32>, tensor<3x4xf32>) -> tensor<2x4xf32>
 //   %3 = "onnx.Mul"(%2, %0) : (tensor<2x4xf32>, tensor<1xf32>) -> tensor<2x4xf32>
 
-// json is generated with utils/testing/fusedmatmul.py
-{
-  "irVersion": "8",
-  "graph": {
-    "node": [
-      {
-        "input": [
-          "lhs",
-          "rhs"
-        ],
-        "output": [
-          "output"
-        ],
-        "opType": "FusedMatMul",
-        "attribute": [
-          {
-            "name": "alpha",
-            "f": 0.125,
-            "type": "FLOAT"
-          },
-          {
-            "name": "transA",
-            "i": "0",
-            "type": "INT"
-          },
-          {
-            "name": "transB",
-            "i": "1",
-            "type": "INT"
-          }
-        ],
-        "domain": "com.microsoft"
-      }
-    ],
-    "name": "fusedmatmuller",
-    "input": [
-      {
-        "name": "lhs",
-        "type": {
-          "tensorType": {
-            "elemType": 1,
-            "shape": {
-              "dim": [
-                {
-                  "dimValue": "2"
-                },
-                {
-                  "dimValue": "3"
-                }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "name": "rhs",
-        "type": {
-          "tensorType": {
-            "elemType": 1,
-            "shape": {
-              "dim": [
-                {
-                  "dimValue": "4"
-                },
-                {
-                  "dimValue": "3"
-                }
-              ]
-            }
-          }
-        }
-      }
-    ],
-    "output": [
-      {
-        "name": "output",
-        "type": {
-          "tensorType": {
-            "elemType": 1,
-            "shape": {
-              "dim": [
-                {
-                  "dimValue": "2"
-                },
-                {
-                  "dimValue": "4"
-                }
-              ]
-            }
-          }
-        }
-      }
-    ]
-  },
-  "opsetImport": [
-    {
-      "version": "18"
-    }
-  ]
+<
+   ir_version: 8,
+   opset_import: ["" : 18]
+>
+fusedmatmuller (float[2,3] lhs, float[4,3] rhs) => (float[2,4] output) {
+   output = com.microsoft.FusedMatMul <alpha = 0.125, transA = 0, transB = 1> (lhs, rhs)
 }
 // CHECK-LABEL: func.func @main_graph
 // CHECK-SAME:  ([[PARAM_0_:%.+]]: tensor<2x3xf32>, [[PARAM_1_:%.+]]: tensor<4x3xf32>) -> tensor<2x4xf32> {{.*}} {
