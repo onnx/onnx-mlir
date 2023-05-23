@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------- Hardmax.cpp - Hardmax Op ---------------------------===//
+//===---------------------- Trilu.cpp - TriluOp ---------------------------===//
 //
 // Copyright 2019-2023 The IBM Research Authors.
 //
@@ -46,10 +46,16 @@ struct ONNXTriluOpLowering : public OpConversionPattern<ONNXTriluOp> {
     Type elementType = memRefType.getElementType();
     Value zero = create.math.constant(elementType, 0.0);
 
-    SmallVector<IndexExpr, 4> ubs;
-    create.krnlIE.getShapeAsDims(input, ubs);
+    // Load k value.
+    Value k;
+    if (isNoneValue(triluOp.getK()))
+      k = create.math.constantIndex(0);
+    else
+      k = create.math.castToIndex(create.krnl.load(adaptor.getK(), {}));
 
     // Insert an allocation and deallocation for the result of this operation.
+    SmallVector<IndexExpr, 4> ubs;
+    create.krnlIE.getShapeAsDims(input, ubs);
     Value resMemRef = create.mem.alignedAlloc(memRefType, ubs);
 
     // Main loop.
@@ -59,15 +65,11 @@ struct ONNXTriluOpLowering : public OpConversionPattern<ONNXTriluOp> {
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder> create(
               createKrnl);
-          Value val = create.krnl.load(input, loopInd);
-          // Set value to 1 if the index is argmax. Otherwise, 0.
-          Value i = loopInd[rank - 2];
+          Value i = create.math.add(k, loopInd[rank - 2]);
           Value j = loopInd[rank - 1];
-          Value retainCond;
-          if (retainUpper)
-            retainCond = create.math.gt(i, j);
-          else
-            retainCond = create.math.lt(i, j);
+          Value retainCond =
+              retainUpper ? create.math.gt(i, j) : create.math.lt(i, j);
+
           create.scf.ifThenElse(
               retainCond, /*then*/
               [&](SCFBuilder &createSCF) {
@@ -77,6 +79,7 @@ struct ONNXTriluOpLowering : public OpConversionPattern<ONNXTriluOp> {
               /*else*/
               [&](SCFBuilder &createSCF) {
                 MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createSCF);
+                Value val = create.krnl.load(input, loopInd);
                 create.krnl.store(val, resMemRef, loopInd);
               });
         });
