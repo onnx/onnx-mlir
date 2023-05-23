@@ -5350,13 +5350,10 @@ func.func @test_trilu_lower(%arg0: tensor<4x5xi64>, %arg1: tensor<i64>) -> tenso
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 4, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 5){
 // CHECK:             [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             [[VAR_4_:%.+]] = arith.addi [[VAR_1_]], [[VAR_3_]]#0 : index
-// CHECK:             [[VAR_5_:%.+]] = arith.cmpi slt, [[VAR_4_]], [[VAR_3_]]#1 : index
-// CHECK:             scf.if [[VAR_5_]] {
-// CHECK:               krnl.store [[CST_0_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<4x5xi64>
-// CHECK:             } else {
-// CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<4x5xi64>
-// CHECK:               krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<4x5xi64>
-// CHECK:             }
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi slt, [[VAR_4_]], [[VAR_3_]]#1 : index
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<4x5xi64>
+// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_5_]], [[CST_0_]], [[LOAD_PARAM_0_MEM_]] : i64
+// CHECK:             krnl.store [[VAR_7_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<4x5xi64>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<4x5xi64>
 // CHECK:         }
@@ -5379,13 +5376,10 @@ func.func @test_trilu_upper(%arg0: tensor<4x5xi64>, %arg1: tensor<i64>) -> tenso
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 4, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 5){
 // CHECK:             [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             [[VAR_4_:%.+]] = arith.addi [[VAR_1_]], [[VAR_3_]]#0 : index
-// CHECK:             [[VAR_5_:%.+]] = arith.cmpi sgt, [[VAR_4_]], [[VAR_3_]]#1 : index
-// CHECK:             scf.if [[VAR_5_]] {
-// CHECK:               krnl.store [[CST_0_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<4x5xi64>
-// CHECK:             } else {
-// CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<4x5xi64>
-// CHECK:               krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<4x5xi64>
-// CHECK:             }
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi sgt, [[VAR_4_]], [[VAR_3_]]#1 : index
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<4x5xi64>
+// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_5_]], [[CST_0_]], [[LOAD_PARAM_0_MEM_]] : i64
+// CHECK:             krnl.store [[VAR_7_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<4x5xi64>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<4x5xi64>
 // CHECK:         }

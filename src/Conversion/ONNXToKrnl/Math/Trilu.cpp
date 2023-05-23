@@ -70,21 +70,12 @@ struct ONNXTriluOpLowering : public OpConversionPattern<ONNXTriluOp> {
               createKrnl);
           Value i = create.math.add(k, loopInd[rank - 2]);
           Value j = loopInd[rank - 1];
-          Value retainCond =
+          Value setToZero =
               retainUpper ? create.math.gt(i, j) : create.math.lt(i, j);
 
-          create.scf.ifThenElse(
-              retainCond, /*then*/
-              [&](SCFBuilder &createSCF) {
-                MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createSCF);
-                create.krnl.store(zero, resMemRef, loopInd);
-              },
-              /*else*/
-              [&](SCFBuilder &createSCF) {
-                MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createSCF);
-                Value val = create.krnl.load(input, loopInd);
-                create.krnl.store(val, resMemRef, loopInd);
-              });
+          Value loadVal = create.krnl.load(input, loopInd);
+          Value storeVal = create.math.select(setToZero, zero, loadVal);
+          create.krnl.store(storeVal, resMemRef, loopInd);
         });
 
     rewriter.replaceOp(op, resMemRef);
