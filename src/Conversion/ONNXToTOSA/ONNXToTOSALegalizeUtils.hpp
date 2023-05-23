@@ -102,6 +102,12 @@ mlir::Value buildRescaleToInt32(mlir::PatternRewriter &rewriter,
     mlir::Operation *op, mlir::Value input_val, double input_scale,
     int64_t input_zp);
 
+// Create a padding tosa::ConstOp from ONNX to Tosa format.
+mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
+    llvm::ArrayRef<int64_t> onnxPads, mlir::Location loc,
+    const std::initializer_list<int64_t> &initialVals = {},
+    const std::initializer_list<int64_t> &lastVals = {});
+
 } // namespace tosa
 } // namespace onnx_mlir
 

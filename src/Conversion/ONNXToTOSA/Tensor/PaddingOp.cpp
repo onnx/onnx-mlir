@@ -70,24 +70,8 @@ public:
       return success();
     }
 
-    // Create a new pad vec in the right format
-    // ONNX : [b1, b2, b3, b4, e1, e2, e3, e4]
-    // TOSA :[[b1, e1], [b2, e2], [b3, e3], [b4, e4]]
-    llvm::SmallVector<int64_t, 8> translatePadsList;
-
-    const unsigned int dimSize = intValues.size() / 2;
-    for (unsigned int i = 0; i < dimSize; i++) {
-      translatePadsList.push_back(intValues[i]);
-      translatePadsList.push_back(intValues[i + dimSize]);
-    }
-
-    const unsigned int numberOfDims = intValues.size() / 2;
-    DenseElementsAttr paddingAttr = DenseIntElementsAttr::get(
-        RankedTensorType::get({numberOfDims, 2}, rewriter.getI64Type()),
-        translatePadsList);
-
-    Value padsList1 = rewriter.create<mlir::tosa::ConstOp>(
-        loc, paddingAttr.getType(), paddingAttr);
+    Value padsList1 =
+        tosa::buildOnnxToTosaPaddingConstOp(rewriter, intValues, loc, {}, {});
 
     mlir::Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
@@ -98,10 +82,10 @@ public:
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
       // Need float for F32 Type
       float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
-      auto constType = RankedTensorType::get({}, rewriter.getF32Type());
-      auto constAttr = DenseElementsAttr::get(constType, valueFloat);
-      Value constTosaTensor = rewriter.create<mlir::tosa::ConstOp>(
-          op->getLoc(), constType, constAttr);
+
+      TosaBuilder tosaBuilder(rewriter, loc);
+      Value constTosaTensor =
+          tosaBuilder.getConst(valueFloat);
 
       rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
           op, resultType, data, padsList1, constTosaTensor);
