@@ -23,6 +23,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
@@ -281,6 +282,112 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
   return paddedType;
 }
 
+/// This pattern is to split a large MatMul into smaller ones that fit into
+/// NNPA. Given (NxK) * (K*M), the pattern considers dimensions N and/or M to
+/// split, if N and/or M is greater than NNPA_MAXIMUM_DIMENSION_INDEX_SIZE
+/// (MDIS).
+/// For example, given A(NxK) * B(KxM), we will split A and B as follows.
+// clang-format off
+///
+///                   K                            MDIS        MDIS    M-2*MDIS
+///           <----------------------->        <----------><----------><----->
+///           +------------------------+       +-----------+-----------+-----+
+///         ^ |                        |     ^ |           |           |     |
+///    MDIS | |                        |     | |           |           |     |
+///         | |       A1               |     | |           |           |     |
+///         v |                        |   K | |  B1       |  B2       |  B3 |
+///           +------------------------+     | |           |           |     |
+///         ^ |       A2               |     | |           |           |     |
+///  N-MDIS | |                        |     v |           |           |     |
+///         v +------------------------+       +-----------+-----------+-----+
+///                                                         
+/// Then,
+/// - for A1, do (A1 * B1), (A1 * B2), (A1 * B3), and concat the results to get (A1*B)
+/// - for A2, do (A2 * B1), (A2 * B2), (A2 * B3), and concat the results to get (A2*B)
+/// - finally, concat (A1*B) and (A2*B) to get (A*B)
+///
+///
+// clang-format on
+//
+/// Tensors are splitted into chunks of the equal size of MDIS, except the last
+/// chunk.
+class SplitLargeMatMulPattern : public OpRewritePattern<ONNXMatMulOp> {
+public:
+  using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXMatMulOp matmulOp, PatternRewriter &rewriter) const override {
+    Location loc = matmulOp.getLoc();
+    Operation *op = matmulOp.getOperation();
+    Value A = matmulOp.getA(); // NxK
+    Value B = matmulOp.getB(); // KxM
+
+    Type aType = A.getType();
+    Type bType = B.getType();
+    Type outputType = matmulOp.getY().getType();
+    int64_t aRank = getRank(aType);
+    int64_t bRank = getRank(bType);
+    int64_t outputRank = getRank(outputType);
+    ArrayRef<int64_t> aShape = getShape(aType);
+    ArrayRef<int64_t> bShape = getShape(bType);
+    ArrayRef<int64_t> outputShape = getShape(outputType);
+    Type elementType = getElementType(bType);
+    auto unrankedType = UnrankedTensorType::get(elementType);
+
+    // Expect 2D or 3D input.
+    if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
+      return failure();
+
+    // Expect N or M exceeds NNPA limitation.
+    int64_t N = aShape[aRank - 2];
+    int64_t M = bShape[bRank - 1];
+    bool nExceeded = N > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    bool mExceeded = M > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    if (!(nExceeded || mExceeded))
+      return failure();
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    ValueRange subAs(A), subBs(B);
+    if (nExceeded) {
+      // Split A along the dimension N.
+      subAs = splitAlongAxis(create, A, aRank - 2);
+    }
+    if (mExceeded) {
+      // Split B along the dimension M.
+      subBs = splitAlongAxis(create, B, bRank - 1);
+    }
+    // Emit sub matrix multiplication.
+    SmallVector<Value> resSubAs;
+    for (Value a : subAs) {
+      ArrayRef<int64_t> subAShape = getShape(a.getType());
+      // For each matrix along dimension N, do MatMul for sub matrices along
+      // dimension M.
+      SmallVector<Value> subMatrices;
+      for (Value b : subBs) {
+        Value sm = create.onnx.matmul(unrankedType, a, b, false);
+        subMatrices.emplace_back(sm);
+      }
+      Value res = subMatrices[0];
+      if (subMatrices.size() > 1) {
+        // Concat sub results along dimension M of B.
+        SmallVector<int64_t> concatShape(outputShape);
+        concatShape[outputRank - 2] = subAShape[aRank - 2];
+        Type concatTy = RankedTensorType::get(concatShape, elementType);
+        res = create.onnx.concat(concatTy, subMatrices, outputRank - 1);
+      }
+      resSubAs.emplace_back(res);
+    }
+    Value res = resSubAs[0];
+    if (resSubAs.size() > 1)
+      // Concat sub results along dimension N of A.
+      res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
+
+    rewriter.replaceOp(op, res);
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Rewrite ONNX ops to ZHigh ops and ONNX ops for ZHigh.
 //===----------------------------------------------------------------------===//
@@ -359,11 +466,14 @@ void RewriteONNXForZHighPass::runOnOperation() {
                  isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
   });
 
-  // Illegalize MatMulOp if
-  // - both inputs are *the same* N-D, N > 3 and there is no broadcasting, or
-  // - one input is N-D, N > 3 and the other is 2-D.
-  // Rewrite patterns will be added to turn this MatMulOp into the one where N-D
-  // will become 3-D.
+  // Determine if MatMulOp is already legal (no need to rewrite) or need to
+  // rewrite. The following cases must be rewritten:
+  // - both inputs are *the same* N-D (N > 3) and there is no broadcasting, or
+  // - one input is N-D (N > 3) and the other is 2-D, or
+  // - no input is N-D (N > 3) but dimension size exceeds NNPA limitation.
+  //
+  // For such cases, rewrite patterns will be added to turn MatMulOp into the
+  // one where N-D will become 3-D or to split MatMul into smaller MatMuls.
   target.addDynamicallyLegalOp<ONNXMatMulOp>([&dimAnalysis](ONNXMatMulOp op) {
     Type aType = op.getA().getType();
     Type bType = op.getB().getType();
@@ -372,18 +482,24 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
     int64_t aRank = getRank(aType);
     int64_t bRank = getRank(bType);
+    ArrayRef<int64_t> aShape = getShape(aType);
+    ArrayRef<int64_t> bShape = getShape(bType);
 
-    // - one input is N-D, N > 3 and the other is 2-D.
+    // - one input is N-D (N > 3) and the other is 2-D.
     if (aRank == 2 && bRank > 3)
       return false;
     if (bRank == 2 && aRank > 3)
+      return false;
+    // No input is N-D (N > 3) but dimension N or M (NxK * KxM) is dynamic or
+    // exceeds NNPA limitation.
+    if ((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3) &&
+        ((aShape[aRank - 2] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE) ||
+            (bShape[bRank - 1] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE)))
       return false;
 
     // - both inputs are *the same* N-D, N > 3 and there is no broadcasting
     if (aRank > 3 && (aRank == bRank)) {
       bool sameBatchDims = true;
-      ArrayRef<int64_t> aShape = getShape(aType);
-      ArrayRef<int64_t> bShape = getShape(bType);
       for (int64_t i = 0; i < aRank - 2; ++i) {
         sameBatchDims &= (aShape[i] == bShape[i]);
         if (sameBatchDims && ShapedType::isDynamic(aShape[i]))
@@ -424,6 +540,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
   populateWithGenerated(patterns);
+  patterns.insert<SplitLargeMatMulPattern>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
