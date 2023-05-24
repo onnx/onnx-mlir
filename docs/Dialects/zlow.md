@@ -154,13 +154,13 @@ Traits: MemRefsNormalizable
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | memref of any type values
+| `input` | any type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | memref of any type values
+| `output` | any type
 
 ### `zlow.exp` (::onnx_mlir::zlow::ZLowExpOp)
 
