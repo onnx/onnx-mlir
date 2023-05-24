@@ -47,10 +47,12 @@ SUPPRESS_WARNINGS_POP
 
 #include <google/protobuf/util/json_util.h>
 
+#include <algorithm>
 #include <array>
 #include <fstream>
-#include <map>
+#include <functional>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #define DEBUG_TYPE "frontend_dialect_transformer"
@@ -62,7 +64,8 @@ static constexpr int32_t MINIMUM_SUPPORTED_OPSET = 6;
 using namespace mlir;
 
 namespace onnx_mlir {
-namespace detail {
+
+namespace {
 
 using ValueSymbolMapping = SymbolMapping<Value>;
 using SymbolToOnnxTypeMapping = SymbolMapping<onnx::TypeProto>;
@@ -99,20 +102,24 @@ private:
   ModuleOp module_;
   OpBuilder builder_;
 
-  // onnxop: list of versions for dialect
-  std::map<std::string, std::vector<int>> op_dialect_version_map_;
-  // onnxop: the top version in third_part/onnx
-  std::map<std::string, int> op_dialect_top_version_map_;
+  using ImportHandlerType = void (FrontendGenImpl::*)(const onnx::NodeProto &);
+
+  struct VersionedHandler {
+    int version;
+    ImportHandlerType handler;
+  };
+
+  using ONNXOpVersions = SmallVector<VersionedHandler, 1>;
+
+  // Maps NodeProto::op_type() to sorted vector of (version, handler) pairs.
+  // TODO: Key by (domain, op_type) pair so we don't rely on names being unique
+  //       across all domains.
+  std::unordered_map<std::string, ONNXOpVersions> onnx_ops_map_;
 
   // mapping between string name and symbol
   ValueSymbolMapping frontend_symbols_;
 
   ModelInputShaper modelInputShaper_;
-
-  using ImportHandlerType = void (onnx_mlir::detail::FrontendGenImpl::*)(
-      const onnx::NodeProto &);
-
-  std::map<std::string, ImportHandlerType> import_handler_map_;
 
   // The total number of elements in all initializers. This value is a rough
   // counter of the number of parameters in a model.
@@ -145,12 +152,19 @@ private:
   // opset_map_ is the internal (map) representation of ModelProto::opset_import
   // It maps each domain (e.g., "ai.onnx") to the specific version of that opset
   // used by this model.
-  std::map<std::string, int64_t> opset_map_;
+  std::unordered_map<std::string, int64_t> opset_map_;
   void SetOpSetImport(const onnx::ModelProto &model) {
     opset_map_.clear();
     for (auto &binding : model.opset_import()) {
       opset_map_[binding.domain()] = binding.version();
     }
+  }
+
+  int64_t GetDomainVersion(const std::string &domain) {
+    auto it = opset_map_.find(domain);
+    if (it == opset_map_.end())
+      return 0;
+    return it->second;
   }
 
   void BindOnnxName(const std::string &onnx_name, Value symbol) {
@@ -432,32 +446,6 @@ private:
     return builder_.getFunctionType(argTypes, retTys);
   }
 
-  void ImportNodeGeneric(const onnx::NodeProto &node) {
-    std::vector<Value> inputs;
-    for (const auto &item : node.input()) {
-      if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
-        inputs.push_back(*valuePtr);
-      }
-    }
-    OperationState result(UnknownLoc(), "frontend." + node.op_type());
-    for (auto item : node.output()) {
-      result.addTypes(UnrankedTensorType::get(builder_.getF32Type()));
-    }
-    result.addOperands(inputs);
-    result.addAttributes(ImportNodeAttributes(node));
-    // Create corresponding regions for graph attributes.
-    for (const auto &attr : node.attribute())
-      // Ignore subgraph attributes, as they will be imported as regions.
-      if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH)
-        result.addRegion();
-
-    auto op = builder_.create(result);
-    for (int i = 0; i < node.output().size(); i++) {
-      auto r = op->getResult(i);
-      frontend_symbols_.AddMapping(node.output()[i], r);
-    }
-  }
-
   static constexpr int MAX_TYPE = 20;
 
   // Get these indices from TensorProto in
@@ -682,7 +670,7 @@ private:
   }
 
   template <typename T>
-  void buildOperation(const onnx::NodeProto &node) {
+  void doBuildOperation(const onnx::NodeProto &node) {
     std::vector<Value> inputs;
     int expectedNumOperands = T::getNumberOfOperands();
     int expectedNumResults = T::getNumberOfResults();
@@ -692,317 +680,12 @@ private:
         node, inputs, expectedNumOperands, expectedNumResults, attributes);
   }
 
-  // The output type of CategoryMapper needs special handling
-  // If the input is I64, the output is string.
-  // If the input is string, the output is I64.
-  void ImportCategoryMapper(const onnx::NodeProto &node) {
-    std::vector<Value> inputs;
-    int expectedNumOperands = ONNXCategoryMapperOp::getNumberOfOperands();
-    int expectedNumResults = ONNXCategoryMapperOp::getNumberOfResults();
-    getNodeInputs(node, inputs);
-    auto attributes = ImportNodeAttributes(node);
-    std::vector<Type> outputTypes;
-    auto inputType = inputs[0].getType().cast<TensorType>();
-    if (inputType.getElementType().isInteger(64)) {
-      outputTypes.emplace_back(
-          mlir::ONNXStringType::get(builder_.getContext()));
-    } else {
-      outputTypes.emplace_back(builder_.getIntegerType(64));
-    }
-    buildOutputAndOperation<ONNXCategoryMapperOp>(node, inputs,
-        expectedNumOperands, expectedNumResults, attributes, outputTypes);
-  }
-
-  // The output type of Scan needs special handling
-  // The final_stete_and_scan_outputs of Scan shows final values of loop's
-  // N state variables followed by K scan_outputs.
-  void ImportScan(const onnx::NodeProto &node) {
-    int expectedNumOperands = ONNXScanOp::getNumberOfOperands();
-    int expectedNumResults = ONNXScanOp::getNumberOfResults();
-    std::vector<Value> inputs;
-    getNodeInputs(node, inputs);
-    auto attributes = ImportNodeAttributes(node);
-    int num_scan_inputs = -1;
-    int i;
-    for (i = 0; i < node.attribute_size(); ++i) {
-      auto attr = node.attribute(i);
-      if (attr.name() == "num_scan_inputs") {
-        num_scan_inputs = attr.i();
-        break;
-      }
-    }
-    assert((i < node.attribute_size()) &&
-           "mandatory num_scan_inputs attr not in onnx.Scan");
-    buildOutputAndOperation<ONNXScanOp>(node, inputs, expectedNumOperands,
-        expectedNumResults, attributes,
-        /*givenOutputTypes=*/std::vector<Type>(),
-        /*num_use_inference_outputs=*/num_scan_inputs);
-    return;
-  }
-
-  std::vector<NamedAttribute> ImportCastAttributes(
-      const onnx::NodeProto &node) {
-    std::vector<NamedAttribute> attributes;
-    for (int i = 0; i < node.attribute_size(); ++i) {
-      auto attr = node.attribute(i);
-      auto mlir_type = convertONNXTypeToMLIRType(
-          builder_, static_cast<onnx::TensorProto_DataType>(attr.i()));
-      Attribute mlirAttr = TypeAttr::get(mlir_type);
-      attributes.push_back(builder_.getNamedAttr(attr.name(), mlirAttr));
-    }
-
-    // If the node has a name, then import it.
-    if (node.has_name()) {
-      attributes.push_back(builder_.getNamedAttr(
-          "onnx_node_name", builder_.getStringAttr(node.name())));
-    }
-    return attributes;
-  }
-
-  /*!
-   * Special handle for Cast operations.
-   */
-  void ImportNodeCast(const onnx::NodeProto &node) {
-    std::vector<Value> inputs;
-    int expectedNumOperands = ONNXCastOp::getNumberOfOperands();
-    int expectedNumResults = ONNXCastOp::getNumberOfResults();
-    for (const auto &item : node.input())
-      if (item.empty()) {
-        // Optional inputs using empty string will be imported as NoneType.
-        inputs.emplace_back(createNoneValue());
-      } else {
-        if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
-          inputs.push_back(*valuePtr);
-        }
-      }
-    auto attributes = ImportCastAttributes(node);
-    buildOutputAndOperation<ONNXCastOp>(
-        node, inputs, expectedNumOperands, expectedNumResults, attributes);
-  }
-
-  /*!
-   * Special handle for MaxPool operations.
-   */
-  void ImportNodeMaxPool(const onnx::NodeProto &node) {
-    int nOuts = node.output().size();
-    if (nOuts == 1) {
-      buildOperation<ONNXMaxPoolSingleOutOp>(node);
-    } else {
-      buildOperation<ONNXMaxPoolOp>(node);
-    }
-  }
-
-  /*!
-   * Special handle for BatchNormalization operations.
-   */
-  void ImportNodeBatchNormalization(const onnx::NodeProto &node) {
-    int nOuts = node.output().size();
-    if (nOuts == 1) {
-      // Inference mode with one output.
-      buildOperation<ONNXBatchNormalizationInferenceModeOp>(node);
-    } else {
-      // Training mode with four trailing optional outputs. Not handled yet.
-      buildOperation<ONNXBatchNormalizationOp>(node);
-    }
-  }
-
-  /*!
-   * Special handle for Dropout operations.
-   */
-  void ImportNodeDropout(const onnx::NodeProto &node) {
-    int nOps = node.input().size();
-    int nIn = ONNXDropoutOp::getNumberOfOperands();
-    if (nOps == nIn) {
-      // All inputs are specified
-      buildOperation<ONNXDropoutOp>(node);
-      return;
-    }
-
-    // Add the default value for optional input
-    // Copy the provided inputs first
-    std::vector<Value> inputs;
-    for (const auto &item : node.input()) {
-      if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
-        inputs.push_back(*valuePtr);
-      }
-    }
-
-    // If ratio is not specified, the default value is 0.5
-    if (nOps < 2) {
-      llvm::SmallVector<int64_t, 1> dims;
-      dims.push_back(1);
-      llvm::SmallVector<float, 1> values;
-      values.push_back(0.5);
-      Type elementType = builder_.getF32Type();
-      llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
-      auto tensorType = RankedTensorType::get(tensorDims, elementType);
-      auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
-      auto constantOp = builder_.create<ONNXConstantOp>(
-          UnknownLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = *(constantOp.getODSResults(0).begin());
-      inputs.push_back(constantResult);
-    }
-
-    // If training_mode is not specified, the default value is false
-    if (nOps < 3) {
-      llvm::SmallVector<int64_t, 1> dims;
-      dims.push_back(1);
-      llvm::SmallVector<bool, 1> values;
-      values.push_back(false);
-      Type elementType = builder_.getIntegerType(1);
-      llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
-      auto tensorType = RankedTensorType::get(tensorDims, elementType);
-      auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
-      auto constantOp = builder_.create<ONNXConstantOp>(
-          UnknownLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = *(constantOp.getODSResults(0).begin());
-      inputs.push_back(constantResult);
-    }
-    int nOut = ONNXDropoutOp::getNumberOfResults();
-    auto attributes = ImportNodeAttributes(node);
-    buildOutputAndOperation<ONNXDropoutOp>(node, inputs, nIn, nOut, attributes);
-  }
-
-  /*!
-   * Special handle for Pad operations.
-   */
-  void ImportNodePad(const onnx::NodeProto &node) {
-    int nOps = node.input().size();
-    if (nOps == 2) {
-      llvm::SmallVector<int64_t, 2> dims;
-      dims.push_back(1);
-
-      std::vector<Value> inputs;
-      getNodeInputs(node, inputs);
-      Type elementType =
-          inputs[0].getType().cast<TensorType>().getElementType();
-
-      llvm::SmallVector<Attribute, 2> values(
-          1, builder_.getZeroAttr(elementType));
-
-      llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
-      auto tensorType = RankedTensorType::get(tensorDims, elementType);
-      auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
-
-      // Use the special builder defined in ONNXOp.td.inc.
-      auto constantOp = builder_.create<ONNXConstantOp>(
-          UnknownLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = *(constantOp.getODSResults(0).begin());
-      inputs.push_back(constantResult);
-
-      int nIn = ONNXPadOp::getNumberOfOperands();
-      int nOut = ONNXPadOp::getNumberOfResults();
-      auto attributes = ImportNodeAttributes(node);
-      buildOutputAndOperation<ONNXPadOp>(node, inputs, nIn, nOut, attributes);
-    } else {
-      buildOperation<ONNXPadOp>(node);
-    }
-  }
-
-  void ImportNodeSlice(const onnx::NodeProto &node) {
-    std::array<Value, 5> inVals = {
-        nullptr,
-    };
-
-    for (const auto &item : llvm::enumerate(node.input())) {
-      if (const Value *valuePtr =
-              frontend_symbols_.GetByOnnxName(item.value())) {
-        inVals[item.index()] = *valuePtr;
-      } else {
-        assert(false && "Unknown input");
-      }
-    }
-
-    // Data input is imported but starts, ends, axes, and steps may come from
-    // attributes, and need to be created as constant ops.
-    const Type elementType = builder_.getIntegerType(64);
-    const auto attributes = ImportNodeAttributes(node);
-    for (auto attr : attributes) {
-      if (auto arrayAttr = attr.getValue().dyn_cast<ArrayAttr>()) {
-        const auto tensorType =
-            RankedTensorType::get({(int64_t)arrayAttr.size()}, elementType);
-        auto constantDenseAttribute =
-            DenseElementsAttr::get(tensorType, arrayAttr.getValue());
-        auto constantOp = builder_.create<ONNXConstantOp>(
-            UnknownLoc(), Attribute(), constantDenseAttribute);
-        Value constantValue = constantOp.getOutput();
-
-        // Map from ONNX attributes to indices, which are
-        // matched with ONNXSliceOp::build ordering.
-        auto inputIdx = llvm::StringSwitch<int>(attr.getName())
-                            .Case("starts", 1)
-                            .Case("ends", 2)
-                            .Case("axes", 3)
-                            .Case("steps", 4)
-                            .Default(-1);
-        if (inputIdx < 0)
-          continue;
-        assert(inVals[inputIdx] == nullptr &&
-               "This input has already been filled in");
-        inVals[inputIdx] = constantValue;
-      }
-    }
-
-    assert(inVals[1] != nullptr && "Slice requires a starts attribute");
-    assert(inVals[2] != nullptr && "Slice requires an ends attribute");
-    inVals[3] = inVals[3] == nullptr ? createNoneValue() : inVals[3];
-    inVals[4] = inVals[4] == nullptr ? createNoneValue() : inVals[4];
-
-    int nIn = ONNXSliceOp::getNumberOfOperands();
-    int nOut = ONNXSliceOp::getNumberOfResults();
-    const auto in = std::vector<Value>(inVals.begin(), inVals.end());
-
-    buildOutputAndOperation<ONNXSliceOp>(node, in, nIn, nOut, attributes);
-  }
-
   const onnx::OpSchema *GetOpSchema(const onnx::NodeProto &node) {
-    auto &domain = node.domain();
-    auto version_it = opset_map_.find(domain);
-    if (version_it == opset_map_.end())
+    int64_t version = GetDomainVersion(node.domain());
+    if (version == 0)
       return nullptr;
-    auto version = version_it->second;
-    return onnx::OpSchemaRegistry::Schema(node.op_type(), version, domain);
-  }
-
-  std::string GetImportVersionOfNode(const onnx::NodeProto &node) {
-    auto current_opset = opset_map_.find(node.domain())->second;
-
-    LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
-                            << node.op_type() << " (" << node.name() << ")"
-                            << ", Opset: " << current_opset << "\n");
-
-    auto opset_list_it = op_dialect_version_map_.find(node.op_type());
-
-    // Custom ops may not be present in op_dialect_version_map_. If no version
-    // info is found, treat as unversioned (no renaming).
-    if (opset_list_it == op_dialect_version_map_.end())
-      return "";
-
-    auto opset_list = opset_list_it->second;
-
-    // A new opset is added to onnx-mlir when it becomes imcompactible.
-    // But the lowest opset in op_dialect_version_map_ is an exception.
-    // It is the current opset when onnx-mlir project is started.
-    // All opset lower than the last opset should use the last opset(version)
-    if (node.domain().compare("ai.onnx.ml") != 0 &&
-        current_opset < opset_list.back() &&
-        current_opset < MINIMUM_SUPPORTED_OPSET)
-      llvm::outs() << "Warning: ONNX " << node.op_type()
-                   << " in your model is using Opset " << current_opset
-                   << ", which is quite old. Please consider regenerating your "
-                      "model with a newer Opset.\n";
-
-    for (int i = opset_list.size() - 1; i > 0; i--) {
-      if (current_opset < opset_list[i - 1]) {
-        LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ":   - use Opset "
-                                << opset_list[i] << "\n");
-        return "V" + std::to_string(opset_list[i]);
-      }
-    }
-    return std::string("");
+    return onnx::OpSchemaRegistry::Schema(
+        node.op_type(), version, node.domain());
   }
 
   func::FuncOp CreateFuncOp(
@@ -1196,22 +879,78 @@ private:
     }
   }
 
-  void ImportNode(const onnx::NodeProto &node) {
-    std::string versionStr = GetImportVersionOfNode(node);
+  bool TryImportONNXNode(const onnx::NodeProto &node) {
+    int64_t version = GetDomainVersion(node.domain());
+    if (version == 0) {
+      // Unknown domain.
+      return false;
+    }
 
-    // look up handler for the opName. If not found, create a node
-    // for a custom op, and issue a warning.
-    auto handler =
-        import_handler_map_.find(node.op_type() + versionStr.c_str());
-    if (handler != import_handler_map_.end()) {
-      (this->*(handler->second))(node);
-    } else {
+    LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing ONNX"
+                            << node.op_type() << " (" << node.name() << ")"
+                            << ", Opset: " << version << "\n");
+
+    auto versions_it = onnx_ops_map_.find(node.op_type());
+    if (versions_it == onnx_ops_map_.end()) {
+      // Unknown op_type.
+      llvm::outs() << "Warning: ONNX " << node.op_type() << " from domain '"
+                   << node.domain() << ","
+                   << " in your model is unsupported.\n";
+      return false;
+    }
+
+    const ONNXOpVersions &opVersions = versions_it->second;
+
+    // A new opset is added to onnx-mlir when it becomes imcompatible.
+    // But the lowest opset in op_dialect_version_map_ is an exception.
+    // It is the current opset when onnx-mlir project is started.
+    // All opset lower than the last opset should use the last opset(version)
+    if (node.domain().compare("ai.onnx.ml") != 0 &&
+        version < opVersions.back().version &&
+        version < MINIMUM_SUPPORTED_OPSET)
+      llvm::outs() << "Warning: ONNX " << node.op_type()
+                   << " in your model is using Opset " << version
+                   << ", which is quite old. Please consider regenerating your "
+                      "model with a newer Opset.\n";
+
+    ImportHandlerType handler = opVersions.front().handler;
+    for (int i = opVersions.size() - 1; i > 0; --i) {
+      if (version < opVersions[i - 1].version) {
+        LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ":   - use Opset "
+                                << opVersions[i].version << "\n");
+        handler = opVersions[i].handler;
+      }
+    }
+    (this->*handler)(node);
+    return true;
+  }
+
+  void ImportNode(const onnx::NodeProto &node) {
+    bool imported = TryImportONNXNode(node);
+    if (!imported) {
+      LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << ": Importing Custom op "
+                              << node.op_type() << " (" << node.name() << ")"
+                              << ", domain: '" << node.domain() << "'\n");
       ImportCustomNode(node);
     }
   }
 
   void InitHandlerMap() {
-#include "src/Builder/OpBuildTable.inc"
+    foreachONNXOp([this](auto nullOp) {
+      using T = decltype(nullOp);
+      if constexpr (std::is_base_of_v<ONNXOperationTrait<T>, T>) {
+        StringRef name = T::getONNXName();
+        int version = T::getONNXSinceVersion();
+        ImportHandlerType handler = &FrontendGenImpl::buildOperation<T>;
+        ONNXOpVersions &opVersions = onnx_ops_map_[name.str()];
+        // Insert in descending version order:
+        auto it = opVersions.begin();
+        while (it != opVersions.end() && it->version > version) {
+          ++it; // Skip past larger versions.
+        }
+        opVersions.insert(it, {version, handler});
+      }
+    });
   }
 
   /*!
@@ -1264,10 +1003,270 @@ private:
 
     return mainFunc;
   }
+
+  template <typename T>
+  void buildOperation(const onnx::NodeProto &node);
 }; // class FrontendGenImpl
-} // namespace detail
-} // namespace onnx_mlir
-namespace onnx_mlir {
+
+template <typename T>
+void FrontendGenImpl::buildOperation(const onnx::NodeProto &node) {
+  doBuildOperation<T>(node);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXBatchNormalizationOp>(
+    const onnx::NodeProto &node) {
+  int nOuts = node.output().size();
+  if (nOuts == 1) {
+    // Inference mode with one output.
+    doBuildOperation<ONNXBatchNormalizationInferenceModeOp>(node);
+  } else {
+    // Training mode with four trailing optional outputs. Not handled yet.
+    doBuildOperation<ONNXBatchNormalizationOp>(node);
+  }
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXCastOp>(const onnx::NodeProto &node) {
+  std::vector<Value> inputs;
+  int expectedNumOperands = ONNXCastOp::getNumberOfOperands();
+  int expectedNumResults = ONNXCastOp::getNumberOfResults();
+  for (const auto &item : node.input()) {
+    if (item.empty()) {
+      // Optional inputs using empty string will be imported as NoneType.
+      inputs.emplace_back(createNoneValue());
+    } else {
+      if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
+        inputs.push_back(*valuePtr);
+      }
+    }
+  }
+
+  std::vector<NamedAttribute> attributes;
+  for (int i = 0; i < node.attribute_size(); ++i) {
+    auto attr = node.attribute(i);
+    auto mlir_type = convertONNXTypeToMLIRType(
+        builder_, static_cast<onnx::TensorProto_DataType>(attr.i()));
+    Attribute mlirAttr = TypeAttr::get(mlir_type);
+    attributes.push_back(builder_.getNamedAttr(attr.name(), mlirAttr));
+  }
+  // If the node has a name, then import it.
+  if (node.has_name()) {
+    attributes.push_back(builder_.getNamedAttr(
+        "onnx_node_name", builder_.getStringAttr(node.name())));
+  }
+
+  buildOutputAndOperation<ONNXCastOp>(
+      node, inputs, expectedNumOperands, expectedNumResults, attributes);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXDropoutOp>(
+    const onnx::NodeProto &node) {
+  int nOps = node.input().size();
+  int nIn = ONNXDropoutOp::getNumberOfOperands();
+  if (nOps == nIn) {
+    // All inputs are specified
+    doBuildOperation<ONNXDropoutOp>(node);
+    return;
+  }
+
+  // Add the default value for optional input
+  // Copy the provided inputs first
+  std::vector<Value> inputs;
+  for (const auto &item : node.input()) {
+    if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
+      inputs.push_back(*valuePtr);
+    }
+  }
+
+  // If ratio is not specified, the default value is 0.5
+  if (nOps < 2) {
+    llvm::SmallVector<int64_t, 1> dims;
+    dims.push_back(1);
+    llvm::SmallVector<float, 1> values;
+    values.push_back(0.5);
+    Type elementType = builder_.getF32Type();
+    llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
+    auto tensorType = RankedTensorType::get(tensorDims, elementType);
+    auto constantDenseAttribute =
+        DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
+    auto constantOp = builder_.create<ONNXConstantOp>(
+        UnknownLoc(), Attribute(), constantDenseAttribute);
+    Value constantResult = *(constantOp.getODSResults(0).begin());
+    inputs.push_back(constantResult);
+  }
+
+  // If training_mode is not specified, the default value is false
+  if (nOps < 3) {
+    llvm::SmallVector<int64_t, 1> dims;
+    dims.push_back(1);
+    llvm::SmallVector<bool, 1> values;
+    values.push_back(false);
+    Type elementType = builder_.getIntegerType(1);
+    llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
+    auto tensorType = RankedTensorType::get(tensorDims, elementType);
+    auto constantDenseAttribute =
+        DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
+    auto constantOp = builder_.create<ONNXConstantOp>(
+        UnknownLoc(), Attribute(), constantDenseAttribute);
+    Value constantResult = *(constantOp.getODSResults(0).begin());
+    inputs.push_back(constantResult);
+  }
+  int nOut = ONNXDropoutOp::getNumberOfResults();
+  auto attributes = ImportNodeAttributes(node);
+  buildOutputAndOperation<ONNXDropoutOp>(node, inputs, nIn, nOut, attributes);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXMaxPoolOp>(
+    const onnx::NodeProto &node) {
+  int nOuts = node.output().size();
+  if (nOuts == 1) {
+    doBuildOperation<ONNXMaxPoolSingleOutOp>(node);
+  } else {
+    doBuildOperation<ONNXMaxPoolOp>(node);
+  }
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXPadOp>(const onnx::NodeProto &node) {
+  int nOps = node.input().size();
+  if (nOps == 2) {
+    llvm::SmallVector<int64_t, 2> dims;
+    dims.push_back(1);
+
+    std::vector<Value> inputs;
+    getNodeInputs(node, inputs);
+    Type elementType = inputs[0].getType().cast<TensorType>().getElementType();
+
+    llvm::SmallVector<Attribute, 2> values(
+        1, builder_.getZeroAttr(elementType));
+
+    llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
+    auto tensorType = RankedTensorType::get(tensorDims, elementType);
+    auto constantDenseAttribute =
+        DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
+
+    // Use the special builder defined in ONNXOp.td.inc.
+    auto constantOp = builder_.create<ONNXConstantOp>(
+        UnknownLoc(), Attribute(), constantDenseAttribute);
+    Value constantResult = *(constantOp.getODSResults(0).begin());
+    inputs.push_back(constantResult);
+
+    int nIn = ONNXPadOp::getNumberOfOperands();
+    int nOut = ONNXPadOp::getNumberOfResults();
+    auto attributes = ImportNodeAttributes(node);
+    buildOutputAndOperation<ONNXPadOp>(node, inputs, nIn, nOut, attributes);
+  } else {
+    doBuildOperation<ONNXPadOp>(node);
+  }
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXScanOp>(const onnx::NodeProto &node) {
+  // The final_stete_and_scan_outputs of Scan shows final values of loop's
+  // N state variables followed by K scan_outputs.
+  int expectedNumOperands = ONNXScanOp::getNumberOfOperands();
+  int expectedNumResults = ONNXScanOp::getNumberOfResults();
+  std::vector<Value> inputs;
+  getNodeInputs(node, inputs);
+  auto attributes = ImportNodeAttributes(node);
+  int num_scan_inputs = -1;
+  int i;
+  for (i = 0; i < node.attribute_size(); ++i) {
+    auto attr = node.attribute(i);
+    if (attr.name() == "num_scan_inputs") {
+      num_scan_inputs = attr.i();
+      break;
+    }
+  }
+  assert((i < node.attribute_size()) &&
+         "mandatory num_scan_inputs attr not in onnx.Scan");
+  buildOutputAndOperation<ONNXScanOp>(node, inputs, expectedNumOperands,
+      expectedNumResults, attributes,
+      /*givenOutputTypes=*/std::vector<Type>(),
+      /*num_use_inference_outputs=*/num_scan_inputs);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXSliceOp>(const onnx::NodeProto &node) {
+  std::array<Value, 5> inVals = {
+      nullptr,
+  };
+
+  for (const auto &item : llvm::enumerate(node.input())) {
+    if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item.value())) {
+      inVals[item.index()] = *valuePtr;
+    } else {
+      assert(false && "Unknown input");
+    }
+  }
+
+  // Data input is imported but starts, ends, axes, and steps may come from
+  // attributes, and need to be created as constant ops.
+  const Type elementType = builder_.getIntegerType(64);
+  const auto attributes = ImportNodeAttributes(node);
+  for (auto attr : attributes) {
+    if (auto arrayAttr = attr.getValue().dyn_cast<ArrayAttr>()) {
+      const auto tensorType =
+          RankedTensorType::get({(int64_t)arrayAttr.size()}, elementType);
+      auto constantDenseAttribute =
+          DenseElementsAttr::get(tensorType, arrayAttr.getValue());
+      auto constantOp = builder_.create<ONNXConstantOp>(
+          UnknownLoc(), Attribute(), constantDenseAttribute);
+      Value constantValue = constantOp.getOutput();
+
+      // Map from ONNX attributes to indices, which are
+      // matched with ONNXSliceOp::build ordering.
+      auto inputIdx = llvm::StringSwitch<int>(attr.getName())
+                          .Case("starts", 1)
+                          .Case("ends", 2)
+                          .Case("axes", 3)
+                          .Case("steps", 4)
+                          .Default(-1);
+      if (inputIdx < 0)
+        continue;
+      assert(inVals[inputIdx] == nullptr &&
+             "This input has already been filled in");
+      inVals[inputIdx] = constantValue;
+    }
+  }
+
+  assert(inVals[1] != nullptr && "Slice requires a starts attribute");
+  assert(inVals[2] != nullptr && "Slice requires an ends attribute");
+  inVals[3] = inVals[3] == nullptr ? createNoneValue() : inVals[3];
+  inVals[4] = inVals[4] == nullptr ? createNoneValue() : inVals[4];
+
+  int nIn = ONNXSliceOp::getNumberOfOperands();
+  int nOut = ONNXSliceOp::getNumberOfResults();
+  const auto in = std::vector<Value>(inVals.begin(), inVals.end());
+
+  buildOutputAndOperation<ONNXSliceOp>(node, in, nIn, nOut, attributes);
+}
+
+template <>
+void FrontendGenImpl::buildOperation<ONNXCategoryMapperOp>(
+    const onnx::NodeProto &node) {
+  // If the input is I64, the output is string.
+  // If the input is string, the output is I64.
+  std::vector<Value> inputs;
+  int expectedNumOperands = ONNXCategoryMapperOp::getNumberOfOperands();
+  int expectedNumResults = ONNXCategoryMapperOp::getNumberOfResults();
+  getNodeInputs(node, inputs);
+  auto attributes = ImportNodeAttributes(node);
+  std::vector<Type> outputTypes;
+  auto inputType = inputs[0].getType().cast<TensorType>();
+  if (inputType.getElementType().isInteger(64)) {
+    outputTypes.emplace_back(mlir::ONNXStringType::get(builder_.getContext()));
+  } else {
+    outputTypes.emplace_back(builder_.getIntegerType(64));
+  }
+  buildOutputAndOperation<ONNXCategoryMapperOp>(node, inputs,
+      expectedNumOperands, expectedNumResults, attributes, outputTypes);
+}
+
+} // namespace
 
 bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, ImportOptions options) {
@@ -1377,8 +1376,7 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
 
 void ImportFrontendModel(const onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, ImportOptions options) {
-
-  detail::FrontendGenImpl myONNXGen(context);
+  FrontendGenImpl myONNXGen(context);
   module = myONNXGen.ImportONNXModel(model, options);
 }
 

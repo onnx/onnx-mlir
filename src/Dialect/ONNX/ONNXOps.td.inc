@@ -5,7 +5,7 @@
 //********************************************************
 
 def ONNXAbsOp:ONNX_Op<"Abs",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Abs operation";
   let description = [{
   Absolute takes one input data (Tensor<T>) and produces one output data
@@ -23,30 +23,33 @@ def ONNXAbsOp:ONNX_Op<"Abs",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAbsOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Abs";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAbsOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXAcosOp:ONNX_Op<"Acos",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Acos operation";
   let description = [{
   Calculates the arccosine (inverse of cosine) of the given input tensor, element-wise.
@@ -54,6 +57,9 @@ def ONNXAcosOp:ONNX_Op<"Acos",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Acos";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 7;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -75,7 +81,7 @@ def ONNXAcosOp:ONNX_Op<"Acos",
 }
 
 def ONNXAcoshOp:ONNX_Op<"Acosh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Acosh operation";
   let description = [{
   Calculates the hyperbolic arccosine of the given input tensor element-wise.
@@ -83,6 +89,9 @@ def ONNXAcoshOp:ONNX_Op<"Acosh",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Acosh";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 9;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -104,8 +113,7 @@ def ONNXAcoshOp:ONNX_Op<"Acosh",
 }
 
 def ONNXAddOp:ONNX_Op<"Add",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Add operation";
   let description = [{
   Performs element-wise binary addition (with Numpy-style broadcasting support).
@@ -136,31 +144,35 @@ def ONNXAddOp:ONNX_Op<"Add",
         resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAddOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Add";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAddOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def ONNXAndOp:ONNX_Op<"And",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX And operation";
   let description = [{
   Returns the tensor resulted from performing the `and` logical operation
@@ -190,31 +202,34 @@ def ONNXAndOp:ONNX_Op<"And",
         resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {9};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAndOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "And";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 7;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAndOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
 }
 
 def ONNXArgMaxOp:ONNX_Op<"ArgMax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ArgMax operation";
   let description = [{
   Computes the indices of the max elements of the input tensor's element along the
@@ -231,6 +246,9 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
     DefaultValuedAttr<SI64Attr, "0">:$select_last_index);
   let results = (outs TensorOf<[I64]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ArgMax";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -253,7 +271,7 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
 }
 
 def ONNXArgMinOp:ONNX_Op<"ArgMin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ArgMin operation";
   let description = [{
   Computes the indices of the min elements of the input tensor's element along the
@@ -270,6 +288,9 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
     DefaultValuedAttr<SI64Attr, "0">:$select_last_index);
   let results = (outs TensorOf<[I64]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ArgMin";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -292,7 +313,7 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
 }
 
 def ONNXAsinOp:ONNX_Op<"Asin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Asin operation";
   let description = [{
   Calculates the arcsine (inverse of sine) of the given input tensor, element-wise.
@@ -300,6 +321,9 @@ def ONNXAsinOp:ONNX_Op<"Asin",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Asin";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 7;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -321,7 +345,7 @@ def ONNXAsinOp:ONNX_Op<"Asin",
 }
 
 def ONNXAsinhOp:ONNX_Op<"Asinh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Asinh operation";
   let description = [{
   Calculates the hyperbolic arcsine of the given input tensor element-wise.
@@ -329,6 +353,9 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Asinh";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 9;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -350,7 +377,7 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
 }
 
 def ONNXAtanOp:ONNX_Op<"Atan",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Atan operation";
   let description = [{
   Calculates the arctangent (inverse of tangent) of the given input tensor, element-wise.
@@ -358,6 +385,9 @@ def ONNXAtanOp:ONNX_Op<"Atan",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Atan";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 7;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -379,7 +409,7 @@ def ONNXAtanOp:ONNX_Op<"Atan",
 }
 
 def ONNXAtanhOp:ONNX_Op<"Atanh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Atanh operation";
   let description = [{
   Calculates the hyperbolic arctangent of the given input tensor element-wise.
@@ -387,6 +417,9 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Atanh";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 9;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -408,7 +441,7 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
 }
 
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX AveragePool operation";
   let description = [{
   AveragePool consumes an input tensor X and applies average pooling across
@@ -450,6 +483,9 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "AveragePool";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -472,7 +508,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
 }
 
 def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BatchNormalization operation";
   let description = [{
   Carries out batch normalization as described in the paper
@@ -529,6 +565,9 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$running_mean,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$running_var);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "BatchNormalization";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 15;
     static int getNumberOfOperands() {
       return 5;
     }
@@ -550,7 +589,7 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
 }
 
 def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Bernoulli operation";
   let description = [{
   Draws binary random numbers (0 or 1) from a Bernoulli distribution. The input tensor should be a tensor
@@ -565,6 +604,9 @@ def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
     OptionalAttr<F32Attr>:$seed);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[I1]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Bernoulli";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 15;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -586,7 +628,7 @@ def ONNXBernoulliOp:ONNX_Op<"Bernoulli",
 }
 
 def ONNXBitShiftOp:ONNX_Op<"BitShift",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BitShift operation";
   let description = [{
   Bitwise shift operator performs element-wise operation. For each input element, if the
@@ -607,6 +649,9 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
     StrAttr:$direction);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>]>:$Z);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "BitShift";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -629,7 +674,7 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
 }
 
 def ONNXBitwiseAndOp:ONNX_Op<"BitwiseAnd",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BitwiseAnd operation";
   let description = [{
   Returns the tensor resulting from performing the bitwise `and` operation
@@ -641,6 +686,9 @@ def ONNXBitwiseAndOp:ONNX_Op<"BitwiseAnd",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$C);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "BitwiseAnd";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -663,7 +711,7 @@ def ONNXBitwiseAndOp:ONNX_Op<"BitwiseAnd",
 }
 
 def ONNXBitwiseNotOp:ONNX_Op<"BitwiseNot",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BitwiseNot operation";
   let description = [{
   Returns the bitwise not of the input tensor element-wise.
@@ -671,6 +719,9 @@ def ONNXBitwiseNotOp:ONNX_Op<"BitwiseNot",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "BitwiseNot";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -692,7 +743,7 @@ def ONNXBitwiseNotOp:ONNX_Op<"BitwiseNot",
 }
 
 def ONNXBitwiseOrOp:ONNX_Op<"BitwiseOr",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BitwiseOr operation";
   let description = [{
   Returns the tensor resulting from performing the bitwise `or` operation
@@ -704,6 +755,9 @@ def ONNXBitwiseOrOp:ONNX_Op<"BitwiseOr",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$C);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "BitwiseOr";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -726,7 +780,7 @@ def ONNXBitwiseOrOp:ONNX_Op<"BitwiseOr",
 }
 
 def ONNXBitwiseXorOp:ONNX_Op<"BitwiseXor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BitwiseXor operation";
   let description = [{
   Returns the tensor resulting from performing the bitwise `xor` operation
@@ -738,6 +792,9 @@ def ONNXBitwiseXorOp:ONNX_Op<"BitwiseXor",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$C);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "BitwiseXor";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -760,7 +817,7 @@ def ONNXBitwiseXorOp:ONNX_Op<"BitwiseXor",
 }
 
 def ONNXBlackmanWindowOp:ONNX_Op<"BlackmanWindow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BlackmanWindow operation";
   let description = [{
   Generates a Blackman window as described in the paper https://ieeexplore.ieee.org/document/1455106.
@@ -770,6 +827,9 @@ def ONNXBlackmanWindowOp:ONNX_Op<"BlackmanWindow",
     DefaultValuedAttr<SI64Attr, "1">:$periodic);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "BlackmanWindow";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 17;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -791,8 +851,7 @@ def ONNXBlackmanWindowOp:ONNX_Op<"BlackmanWindow",
 }
 
 def ONNXCastOp:ONNX_Op<"Cast",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX Cast operation";
   let description = [{
   The operator casts the elements of a given input tensor to a data type
@@ -835,6 +894,9 @@ def ONNXCastOp:ONNX_Op<"Cast",
     TypeAttr:$to);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Cast";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -858,16 +920,17 @@ def ONNXCastOp:ONNX_Op<"Cast",
       return sh;
     }
   }];
-   let builders = [
-  OpBuilder<(ins "Value":$input, "TypeAttr":$to), [{
-   auto resultType = mlir::UnrankedTensorType::get(to.getValue());
-   build($_builder, $_state, resultType, input, to);
-  }] >
+  let builders = [
+    OpBuilder<(ins "Value":$input, "TypeAttr":$to), [{
+      auto resultType = mlir::UnrankedTensorType::get(to.getValue());
+      build($_builder, $_state, resultType, input, to);
+    }]>
   ];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXCastLikeOp:ONNX_Op<"CastLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX CastLike operation";
   let description = [{
   The operator casts the elements of a given input tensor (the first input) to
@@ -878,6 +941,9 @@ def ONNXCastLikeOp:ONNX_Op<"CastLike",
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$target_type);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "CastLike";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 15;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -899,7 +965,7 @@ def ONNXCastLikeOp:ONNX_Op<"CastLike",
 }
 
 def ONNXCeilOp:ONNX_Op<"Ceil",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Ceil operation";
   let description = [{
   Ceil takes one input data (Tensor<T>) and produces one output data
@@ -909,6 +975,9 @@ def ONNXCeilOp:ONNX_Op<"Ceil",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Ceil";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -930,7 +999,7 @@ def ONNXCeilOp:ONNX_Op<"Ceil",
 }
 
 def ONNXCeluOp:ONNX_Op<"Celu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Celu operation";
   let description = [{
   Continuously Differentiable Exponential Linear Units:
@@ -945,6 +1014,9 @@ def ONNXCeluOp:ONNX_Op<"Celu",
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
   let results = (outs TensorOf<[F32]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Celu";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 12;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -966,7 +1038,7 @@ def ONNXCeluOp:ONNX_Op<"Celu",
 }
 
 def ONNXCenterCropPadOp:ONNX_Op<"CenterCropPad",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX CenterCropPad operation";
   let description = [{
   Center crop or pad an input to given dimensions.
@@ -983,6 +1055,9 @@ def ONNXCenterCropPadOp:ONNX_Op<"CenterCropPad",
     OptionalAttr<I64ArrayAttr>:$axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output_data);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "CenterCropPad";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -1004,7 +1079,7 @@ def ONNXCenterCropPadOp:ONNX_Op<"CenterCropPad",
 }
 
 def ONNXClipOp:ONNX_Op<"Clip",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -1016,6 +1091,9 @@ def ONNXClipOp:ONNX_Op<"Clip",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$max);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Clip";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -1037,7 +1115,7 @@ def ONNXClipOp:ONNX_Op<"Clip",
 }
 
 def ONNXClipV12Op:ONNX_Op<"ClipV12",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -1049,6 +1127,9 @@ def ONNXClipV12Op:ONNX_Op<"ClipV12",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$max);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Clip";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 12;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -1070,7 +1151,7 @@ def ONNXClipV12Op:ONNX_Op<"ClipV12",
 }
 
 def ONNXClipV11Op:ONNX_Op<"ClipV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -1082,6 +1163,9 @@ def ONNXClipV11Op:ONNX_Op<"ClipV11",
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$max);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Clip";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -1103,7 +1187,7 @@ def ONNXClipV11Op:ONNX_Op<"ClipV11",
 }
 
 def ONNXClipV6Op:ONNX_Op<"ClipV6",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   Clip operator limits the given input within an interval. The interval is
@@ -1115,6 +1199,9 @@ def ONNXClipV6Op:ONNX_Op<"ClipV6",
     DefaultValuedAttr<F32Attr, "(-3.402823e+38)">:$min);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Clip";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 6;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -1136,7 +1223,7 @@ def ONNXClipV6Op:ONNX_Op<"ClipV6",
 }
 
 def ONNXCol2ImOp:ONNX_Op<"Col2Im",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Col2Im operation";
   let description = [{
   The operator rearranges column blocks back into a multidimensional image
@@ -1158,6 +1245,9 @@ def ONNXCol2ImOp:ONNX_Op<"Col2Im",
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Col2Im";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -1179,7 +1269,7 @@ def ONNXCol2ImOp:ONNX_Op<"Col2Im",
 }
 
 def ONNXCompressOp:ONNX_Op<"Compress",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Compress operation";
   let description = [{
   Selects slices from an input tensor along a given axis where condition evaluates to True for each axis index.
@@ -1192,6 +1282,9 @@ def ONNXCompressOp:ONNX_Op<"Compress",
     OptionalAttr<SI64Attr>:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Compress";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -1214,7 +1307,7 @@ def ONNXCompressOp:ONNX_Op<"Compress",
 }
 
 def ONNXConcatOp:ONNX_Op<"Concat",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Concat operation";
   let description = [{
   Concatenate a list of tensors into a single tensor. All input tensors must have the same shape, except for the dimension size of the axis to concatenate on.
@@ -1223,6 +1316,9 @@ def ONNXConcatOp:ONNX_Op<"Concat",
     SI64Attr:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$concat_result);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Concat";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -1245,7 +1341,7 @@ def ONNXConcatOp:ONNX_Op<"Concat",
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ConcatFromSequence operation";
   let description = [{
   Concatenate a sequence of tensors into a single tensor.
@@ -1258,6 +1354,9 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
     DefaultValuedAttr<SI64Attr, "0">:$new_axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$concat_result);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ConcatFromSequence";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -1280,9 +1379,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
-  [Pure, ConstantLike, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
-  let hasCustomAssemblyFormat = 1;
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, ConstantLike, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX Constant operation";
   let description = [{
   This operator produces a constant tensor. Exactly one of the provided attributes, either value, sparse_value,
@@ -1298,6 +1395,9 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     OptionalAttr<StrArrayAttr>:$value_strings);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Constant";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 0;
     }
@@ -1343,24 +1443,25 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     }
   }];
   let builders = [
-  OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
-   if (value) {
-    auto tensorType = value.cast<TypedAttr>().getType();
-    build($_builder, $_state, tensorType, sparse_value, value,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
-   } else {
-    auto tensorType = sparse_value.cast<TypedAttr>().getType();
-    build($_builder, $_state, tensorType, sparse_value, value,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
-   }
-  }]>
+    OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
+    if (value) {
+      auto tensorType = value.cast<TypedAttr>().getType();
+      build($_builder, $_state, tensorType, sparse_value, value,
+        FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+    } else {
+      auto tensorType = sparse_value.cast<TypedAttr>().getType();
+      build($_builder, $_state, tensorType, sparse_value, value,
+        FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+      }
+    }]>
   ];
   let hasFolder = 1;
+  let hasCanonicalizer = 1;
+  let hasCustomAssemblyFormat = 1;
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
-  let hasCustomAssemblyFormat = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX ConstantOfShape operation";
   let description = [{
   Generate a tensor with given value and shape.
@@ -1369,6 +1470,9 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
     OptionalAttr<AnyAttr>:$value);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ConstantOfShape";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 9;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -1399,10 +1503,11 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
     }
   }];
   let hasVerifier = 1;
+  let hasCustomAssemblyFormat = 1;
 }
 
 def ONNXConvOp:ONNX_Op<"Conv",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Conv operation";
   let description = [{
   The convolution operator consumes an input tensor and a filter, and
@@ -1427,31 +1532,34 @@ def ONNXConvOp:ONNX_Op<"Conv",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 3;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConvOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Conv";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXConvOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ConvInteger operation";
   let description = [{
   The integer convolution operator consumes an input tensor, its zero-point, a filter, and its zero-point,
@@ -1469,6 +1577,9 @@ def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs TensorOf<[I32]>:$y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ConvInteger";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 10;
     static int getNumberOfOperands() {
       return 4;
     }
@@ -1490,7 +1601,7 @@ def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
 }
 
 def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ConvTranspose operation";
   let description = [{
   The convolution transpose operator consumes an input tensor and a filter,
@@ -1521,6 +1632,9 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ConvTranspose";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -1543,7 +1657,7 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
 }
 
 def ONNXCosOp:ONNX_Op<"Cos",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Cos operation";
   let description = [{
   Calculates the cosine of the given input tensor, element-wise.
@@ -1551,6 +1665,9 @@ def ONNXCosOp:ONNX_Op<"Cos",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Cos";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 7;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -1572,7 +1689,7 @@ def ONNXCosOp:ONNX_Op<"Cos",
 }
 
 def ONNXCoshOp:ONNX_Op<"Cosh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Cosh operation";
   let description = [{
   Calculates the hyperbolic cosine of the given input tensor element-wise.
@@ -1580,6 +1697,9 @@ def ONNXCoshOp:ONNX_Op<"Cosh",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Cosh";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 9;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -1601,7 +1721,7 @@ def ONNXCoshOp:ONNX_Op<"Cosh",
 }
 
 def ONNXCumSumOp:ONNX_Op<"CumSum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX CumSum operation";
   let description = [{
   Performs cumulative sum of the input elements along the given axis.
@@ -1631,6 +1751,9 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
     DefaultValuedAttr<SI64Attr, "0">:$reverse);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "CumSum";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -1652,7 +1775,7 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
 }
 
 def ONNXDFTOp:ONNX_Op<"DFT",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX DFT operation";
   let description = [{
   Computes the discrete Fourier transform of input.
@@ -1664,6 +1787,9 @@ def ONNXDFTOp:ONNX_Op<"DFT",
     DefaultValuedAttr<SI64Attr, "0">:$onesided);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "DFT";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 17;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -1685,8 +1811,7 @@ def ONNXDFTOp:ONNX_Op<"DFT",
 }
 
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX DepthToSpace operation";
   let description = [{
   DepthToSpace rearranges (permutes) data from depth into blocks of spatial data.
@@ -1722,6 +1847,9 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
     DefaultValuedStrAttr<StrAttr, "DCR">:$mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "DepthToSpace";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -1741,10 +1869,11 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
     }
   }];
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX DequantizeLinear operation";
   let description = [{
   The linear dequantization operator. It consumes a quantized tensor, a scale, and a zero point to compute the full precision tensor.
@@ -1759,6 +1888,9 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
     DefaultValuedAttr<SI64Attr, "1">:$axis);
   let results = (outs TensorOf<[F32]>:$y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "DequantizeLinear";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -1781,7 +1913,7 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
 }
 
 def ONNXDetOp:ONNX_Op<"Det",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Det operation";
   let description = [{
   Det calculates determinant of a square matrix or batches of square matrices.
@@ -1793,6 +1925,9 @@ def ONNXDetOp:ONNX_Op<"Det",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Det";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -1814,7 +1949,7 @@ def ONNXDetOp:ONNX_Op<"Det",
 }
 
 def ONNXDivOp:ONNX_Op<"Div",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Div operation";
   let description = [{
   Performs element-wise binary division (with Numpy-style broadcasting support).
@@ -1845,32 +1980,34 @@ def ONNXDivOp:ONNX_Op<"Div",
         resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDivOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Div";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDivOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
 }
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Dropout operation";
   let description = [{
   Dropout takes an input floating-point tensor, an optional input ratio (floating-point scalar) and an optional input training_mode (boolean scalar). It produces two tensor outputs,
@@ -1893,6 +2030,9 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output,
     AnyTypeOf<[TensorOf<[I1]>, NoneType]>:$mask);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Dropout";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -1911,10 +2051,11 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX DynamicQuantizeLinear operation";
   let description = [{
   A Function to fuse calculation for Scale, Zero Point and FP32->8Bit convertion of FP32 Input data.
@@ -1945,6 +2086,9 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
     TensorOf<[F32]>:$y_scale,
     TensorOf<[UI8]>:$y_zero_point);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "DynamicQuantizeLinear";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -1966,7 +2110,7 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
 }
 
 def ONNXEinsumOp:ONNX_Op<"Einsum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Einsum operation";
   let description = [{
   An einsum of the form ```term1, term2 -> output-term``` produces an output tensor using the following equation
@@ -1997,6 +2141,9 @@ def ONNXEinsumOp:ONNX_Op<"Einsum",
     StrAttr:$equation);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Einsum";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 12;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -2019,7 +2166,7 @@ def ONNXEinsumOp:ONNX_Op<"Einsum",
 }
 
 def ONNXEluOp:ONNX_Op<"Elu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Elu operation";
   let description = [{
   Elu takes one input data (Tensor<T>) and produces one output data
@@ -2031,6 +2178,9 @@ def ONNXEluOp:ONNX_Op<"Elu",
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Elu";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 6;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -2052,7 +2202,7 @@ def ONNXEluOp:ONNX_Op<"Elu",
 }
 
 def ONNXEqualOp:ONNX_Op<"Equal",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Equal operation";
   let description = [{
   Returns the tensor resulted from performing the `equal` logical operation
@@ -2084,31 +2234,34 @@ def ONNXEqualOp:ONNX_Op<"Equal",
         resultType = UnrankedTensorType::get(elTy);
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {9};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXEqualOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Equal";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXEqualOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
 }
 
 def ONNXErfOp:ONNX_Op<"Erf",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Erf operation";
   let description = [{
   Computes the error function of the given input tensor element-wise.
@@ -2116,6 +2269,9 @@ def ONNXErfOp:ONNX_Op<"Erf",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Erf";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -2137,7 +2293,7 @@ def ONNXErfOp:ONNX_Op<"Erf",
 }
 
 def ONNXExpOp:ONNX_Op<"Exp",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Exp operation";
   let description = [{
   Calculates the exponential of the given input tensor, element-wise.
@@ -2153,30 +2309,33 @@ def ONNXExpOp:ONNX_Op<"Exp",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXExpOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Exp";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXExpOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXExpandOp:ONNX_Op<"Expand",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Expand operation";
   let description = [{
   Broadcast the input tensor following the given shape and the broadcast rule.
@@ -2192,6 +2351,9 @@ def ONNXExpandOp:ONNX_Op<"Expand",
     TensorOf<[I64]>:$shape);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Expand";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -2214,7 +2376,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX EyeLike operation";
   let description = [{
   Generate a 2D tensor (matrix) with ones on the diagonal and zeros everywhere else. Only 2D
@@ -2230,6 +2392,9 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
     DefaultValuedAttr<SI64Attr, "0">:$k);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "EyeLike";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 9;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -2251,7 +2416,7 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
 }
 
 def ONNXFlattenOp:ONNX_Op<"Flatten",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Flatten operation";
   let description = [{
   Flattens the input tensor into a 2D matrix. If input tensor has shape
@@ -2262,6 +2427,9 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
     DefaultValuedAttr<SI64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Flatten";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -2284,7 +2452,7 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
 }
 
 def ONNXFloorOp:ONNX_Op<"Floor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Floor operation";
   let description = [{
   Floor takes one input data (Tensor<T>) and produces one output data
@@ -2294,6 +2462,9 @@ def ONNXFloorOp:ONNX_Op<"Floor",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Floor";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -2315,8 +2486,7 @@ def ONNXFloorOp:ONNX_Op<"Floor",
 }
 
 def ONNXGRUOp:ONNX_Op<"GRU",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GRU operation";
   let description = [{
   Computes an one-layer GRU. This operator is usually supported via some custom
@@ -2410,6 +2580,9 @@ def ONNXGRUOp:ONNX_Op<"GRU",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_h);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "GRU";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
     static int getNumberOfOperands() {
       return 6;
     }
@@ -2428,10 +2601,11 @@ def ONNXGRUOp:ONNX_Op<"GRU",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXGatherOp:ONNX_Op<"Gather",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Gather operation";
   let description = [{
   Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather
@@ -2495,6 +2669,9 @@ def ONNXGatherOp:ONNX_Op<"Gather",
     DefaultValuedAttr<SI64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Gather";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -2517,7 +2694,7 @@ def ONNXGatherOp:ONNX_Op<"Gather",
 }
 
 def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GatherElements operation";
   let description = [{
   GatherElements takes two inputs `data` and `indices` of the same rank r >= 1
@@ -2577,6 +2754,9 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
     DefaultValuedAttr<SI64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "GatherElements";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -2599,7 +2779,7 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
 }
 
 def ONNXGatherNDOp:ONNX_Op<"GatherND",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GatherND operation";
   let description = [{
   Given `data` tensor of rank `r` >= 1, `indices` tensor of rank `q` >= 1, and `batch_dims` integer `b`, this operator gathers
@@ -2699,6 +2879,9 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
     DefaultValuedAttr<SI64Attr, "0">:$batch_dims);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "GatherND";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -2721,7 +2904,7 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
 }
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Gemm operation";
   let description = [{
   General Matrix multiplication:
@@ -2747,6 +2930,9 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
     DefaultValuedAttr<SI64Attr, "0">:$transB);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Gemm";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -2768,8 +2954,7 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
 }
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GlobalAveragePool operation";
   let description = [{
   GlobalAveragePool consumes an input tensor X and applies average pooling across
@@ -2779,6 +2964,9 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "GlobalAveragePool";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -2797,10 +2985,11 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GlobalLpPool operation";
   let description = [{
   GlobalLpPool consumes an input tensor X and applies lp pool pooling across
@@ -2811,6 +3000,9 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
     DefaultValuedAttr<SI64Attr, "2">:$p);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "GlobalLpPool";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 2;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -2832,8 +3024,7 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
 }
 
 def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GlobalMaxPool operation";
   let description = [{
   GlobalMaxPool consumes an input tensor X and applies max pooling across
@@ -2843,6 +3034,9 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "GlobalMaxPool";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -2861,10 +3055,11 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXGreaterOp:ONNX_Op<"Greater",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Greater operation";
   let description = [{
   Returns the tensor resulted from performing the `greater` logical operation
@@ -2896,31 +3091,34 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
         resultType = UnrankedTensorType::get(elTy);
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {9};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGreaterOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Greater";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGreaterOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
 }
 
 def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GreaterOrEqual operation";
   let description = [{
   Returns the tensor resulted from performing the `greater_equal` logical operation
@@ -2932,6 +3130,9 @@ def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$B);
   let results = (outs TensorOf<[I1]>:$C);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "GreaterOrEqual";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 16;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -2954,7 +3155,7 @@ def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
 }
 
 def ONNXGridSampleOp:ONNX_Op<"GridSample",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GridSample operation";
   let description = [{
   Given an input `X` and a flow-field `grid`, computes the output `Y` using `X` values and pixel locations from `grid`.
@@ -2978,6 +3179,9 @@ def ONNXGridSampleOp:ONNX_Op<"GridSample",
     DefaultValuedStrAttr<StrAttr, "zeros">:$padding_mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "GridSample";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 16;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -2999,7 +3203,7 @@ def ONNXGridSampleOp:ONNX_Op<"GridSample",
 }
 
 def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX GroupNormalization operation";
   let description = [{
   A GroupNormalization function. Carries out group normalization as described in 
@@ -3025,6 +3229,9 @@ def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
     SI64Attr:$num_groups);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "GroupNormalization";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -3046,7 +3253,7 @@ def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
 }
 
 def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX HammingWindow operation";
   let description = [{
   Generates a Hamming window as described in the paper https://ieeexplore.ieee.org/document/1455106.
@@ -3056,6 +3263,9 @@ def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",
     DefaultValuedAttr<SI64Attr, "1">:$periodic);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "HammingWindow";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 17;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3077,7 +3287,7 @@ def ONNXHammingWindowOp:ONNX_Op<"HammingWindow",
 }
 
 def ONNXHannWindowOp:ONNX_Op<"HannWindow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX HannWindow operation";
   let description = [{
   Generates a Hann window as described in the paper https://ieeexplore.ieee.org/document/1455106.
@@ -3087,6 +3297,9 @@ def ONNXHannWindowOp:ONNX_Op<"HannWindow",
     DefaultValuedAttr<SI64Attr, "1">:$periodic);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "HannWindow";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 17;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3108,7 +3321,7 @@ def ONNXHannWindowOp:ONNX_Op<"HannWindow",
 }
 
 def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX HardSigmoid operation";
   let description = [{
   HardSigmoid takes one input data (Tensor<T>) and produces one output data
@@ -3120,6 +3333,9 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
     DefaultValuedAttr<F32Attr, "0.5">:$beta);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "HardSigmoid";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 6;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3141,7 +3357,7 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
 }
 
 def ONNXHardSwishOp:ONNX_Op<"HardSwish",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX HardSwish operation";
   let description = [{
   HardSwish takes one input data (Tensor<T>) and produces one output data (Tensor<T>) where
@@ -3151,6 +3367,9 @@ def ONNXHardSwishOp:ONNX_Op<"HardSwish",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "HardSwish";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3172,7 +3391,7 @@ def ONNXHardSwishOp:ONNX_Op<"HardSwish",
 }
 
 def ONNXHardmaxOp:ONNX_Op<"Hardmax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Hardmax operation";
   let description = [{
   The operator computes the hardmax values for the given input:
@@ -3187,6 +3406,9 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
     DefaultValuedAttr<SI64Attr, "-1">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Hardmax";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3209,8 +3431,7 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
 }
 
 def ONNXIdentityOp:ONNX_Op<"Identity",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Identity operation";
   let description = [{
   Identity operator
@@ -3226,30 +3447,34 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXIdentityOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Identity";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 16;
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXIdentityOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXIfOp:ONNX_Op<"If",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX If operation";
   let description = [{
   If conditional
@@ -3259,6 +3484,9 @@ def ONNXIfOp:ONNX_Op<"If",
   let regions = (region SizedRegion<1>:$then_branch,
     SizedRegion<1>:$else_branch);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "If";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 16;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3268,11 +3496,11 @@ def ONNXIfOp:ONNX_Op<"If",
     static std::vector<int> getTypeMap() {
       return {-1};
     }
-  int64_t getSubgraphRegionIdx(const std::string& name) {
-    if (name == "then_branch") return 0;
-    if (name == "else_branch") return 1;
-    llvm_unreachable("region with the specified name does not exist");
-  }
+    int64_t getSubgraphRegionIdx(const std::string& name) {
+      if (name == "then_branch") return 0;
+      if (name == "else_branch") return 1;
+      llvm_unreachable("region with the specified name does not exist");
+    }
   }];
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
@@ -3286,7 +3514,7 @@ def ONNXIfOp:ONNX_Op<"If",
 }
 
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX InstanceNormalization operation";
   let description = [{
   Carries out instance normalization as described in the paper
@@ -3302,6 +3530,9 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
     DefaultValuedAttr<F32Attr, "1e-05">:$epsilon);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "InstanceNormalization";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 6;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -3324,7 +3555,7 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
 }
 
 def ONNXIsInfOp:ONNX_Op<"IsInf",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX IsInf operation";
   let description = [{
   Map infinity to true and other values to false.
@@ -3334,6 +3565,9 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
     DefaultValuedAttr<SI64Attr, "1">:$detect_positive);
   let results = (outs TensorOf<[I1]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "IsInf";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 10;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3355,7 +3589,7 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
 }
 
 def ONNXIsNaNOp:ONNX_Op<"IsNaN",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX IsNaN operation";
   let description = [{
   Returns which elements of the input are NaN.
@@ -3363,6 +3597,9 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
   let results = (outs TensorOf<[I1]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "IsNaN";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3384,7 +3621,7 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
 }
 
 def ONNXLRNOp:ONNX_Op<"LRN",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LRN operation";
   let description = [{
   Local Response Normalization proposed in the [AlexNet paper](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf).
@@ -3405,6 +3642,9 @@ def ONNXLRNOp:ONNX_Op<"LRN",
     SI64Attr:$size);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "LRN";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3426,8 +3666,7 @@ def ONNXLRNOp:ONNX_Op<"LRN",
 }
 
 def ONNXLSTMOp:ONNX_Op<"LSTM",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LSTM operation";
   let description = [{
   Computes an one-layer LSTM. This operator is usually supported via some
@@ -3532,6 +3771,9 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_h,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_c);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "LSTM";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
     static int getNumberOfOperands() {
       return 8;
     }
@@ -3550,10 +3792,11 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LayerNormalization operation";
   let description = [{
   This is layer normalization defined in ONNX as function.
@@ -3606,6 +3849,9 @@ def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, NoneType]>:$Mean,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, NoneType]>:$InvStdDev);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "LayerNormalization";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 17;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -3627,7 +3873,7 @@ def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
 }
 
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LeakyRelu operation";
   let description = [{
   LeakyRelu takes input data (Tensor<T>) and an argument alpha, and produces one
@@ -3641,6 +3887,9 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
     DefaultValuedAttr<F32Attr, "0.01">:$alpha);
   let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "LeakyRelu";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 16;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3662,8 +3911,7 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
 }
 
 def ONNXLessOp:ONNX_Op<"Less",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Less operation";
   let description = [{
   Returns the tensor resulted from performing the `less` logical operation
@@ -3695,31 +3943,35 @@ def ONNXLessOp:ONNX_Op<"Less",
         resultType = UnrankedTensorType::get(elTy);
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {9};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLessOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Less";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLessOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LessOrEqual operation";
   let description = [{
   Returns the tensor resulted from performing the `less_equal` logical operation
@@ -3731,6 +3983,9 @@ def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$B);
   let results = (outs TensorOf<[I1]>:$C);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "LessOrEqual";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 16;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -3753,7 +4008,7 @@ def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
 }
 
 def ONNXLogOp:ONNX_Op<"Log",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Log operation";
   let description = [{
   Calculates the natural log of the given input tensor, element-wise.
@@ -3761,6 +4016,9 @@ def ONNXLogOp:ONNX_Op<"Log",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Log";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3782,7 +4040,7 @@ def ONNXLogOp:ONNX_Op<"Log",
 }
 
 def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LogSoftmax operation";
   let description = [{
   The operator computes the log of softmax values for the given input:
@@ -3797,6 +4055,9 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
     DefaultValuedAttr<SI64Attr, "-1">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "LogSoftmax";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -3819,8 +4080,7 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX Loop operation";
   let description = [{
   Generic Looping construct. This loop has multiple termination conditions:
@@ -3965,6 +4225,9 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>>:$v_final_and_scan_outputs);
   let regions = (region SizedRegion<1>:$body);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Loop";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 16;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -3974,13 +4237,12 @@ def ONNXLoopOp:ONNX_Op<"Loop",
     static std::vector<int> getTypeMap() {
       return {22};
     }
-
     mlir::Operation::result_range v_final();
     mlir::Operation::result_range scan_outputs();
     int64_t getSubgraphRegionIdx(const std::string& name) {
-    if (name == "body") return 0;
-    llvm_unreachable("region with the specified name does not exist");
-  }
+      if (name == "body") return 0;
+      llvm_unreachable("region with the specified name does not exist");
+    }
   }];
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
@@ -3990,10 +4252,11 @@ def ONNXLoopOp:ONNX_Op<"Loop",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LpNormalization operation";
   let description = [{
   Given a matrix, apply Lp-normalization along the provided axis.
@@ -4003,6 +4266,9 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
     DefaultValuedAttr<SI64Attr, "2">:$p);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "LpNormalization";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -4024,7 +4290,7 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
 }
 
 def ONNXLpPoolOp:ONNX_Op<"LpPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LpPool operation";
   let description = [{
   LpPool consumes an input tensor X and applies Lp pooling across
@@ -4065,6 +4331,9 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "LpPool";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -4086,7 +4355,7 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
 }
 
 def ONNXMatMulOp:ONNX_Op<"MatMul",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MatMul operation";
   let description = [{
   Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html
@@ -4095,6 +4364,9 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "MatMul";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -4116,7 +4388,7 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
 }
 
 def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MatMulInteger operation";
   let description = [{
   Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html.
@@ -4128,6 +4400,9 @@ def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, NoneType]>:$b_zero_point);
   let results = (outs TensorOf<[I32]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "MatMulInteger";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 10;
     static int getNumberOfOperands() {
       return 4;
     }
@@ -4150,7 +4425,7 @@ def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
 }
 
 def ONNXMaxOp:ONNX_Op<"Max",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Max operation";
   let description = [{
   Element-wise max of each of the input tensors (with Numpy-style broadcasting support).
@@ -4160,6 +4435,9 @@ def ONNXMaxOp:ONNX_Op<"Max",
   let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>>:$data_0);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$max);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Max";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -4182,7 +4460,7 @@ def ONNXMaxOp:ONNX_Op<"Max",
 }
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MaxPool operation";
   let description = [{
   MaxPool consumes an input tensor X and applies max pooling across
@@ -4226,6 +4504,9 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[UI8]>]>:$Y,
     AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$Indices);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "MaxPool";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 12;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -4247,7 +4528,7 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
 }
 
 def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MaxRoiPool operation";
   let description = [{
   ROI max pool consumes an input tensor X and region of interests (RoIs) to
@@ -4260,6 +4541,9 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
     DefaultValuedAttr<F32Attr, "1.0">:$spatial_scale);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "MaxRoiPool";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -4281,7 +4565,7 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
 }
 
 def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MaxUnpool operation";
   let description = [{
   MaxUnpool essentially computes the partial inverse of the MaxPool op.
@@ -4311,6 +4595,9 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "MaxUnpool";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -4332,7 +4619,7 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
 }
 
 def ONNXMeanOp:ONNX_Op<"Mean",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Mean operation";
   let description = [{
   Element-wise mean of each of the input tensors (with Numpy-style broadcasting support).
@@ -4342,6 +4629,9 @@ def ONNXMeanOp:ONNX_Op<"Mean",
   let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>>:$data_0);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$mean);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Mean";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -4364,7 +4654,7 @@ def ONNXMeanOp:ONNX_Op<"Mean",
 }
 
 def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MeanVarianceNormalization operation";
   let description = [{
   A MeanVarianceNormalization Function: Perform mean variance normalization
@@ -4374,6 +4664,9 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
     DefaultValuedAttr<I64ArrayAttr, "{0, 2, 3}">:$axes);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "MeanVarianceNormalization";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -4395,7 +4688,7 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
 }
 
 def ONNXMelWeightMatrixOp:ONNX_Op<"MelWeightMatrix",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MelWeightMatrix operation";
   let description = [{
   Generate a MelWeightMatrix that can be used to re-weight a Tensor containing a linearly sampled frequency spectra (from DFT or STFT) into num_mel_bins frequency information based on the [lower_edge_hertz, upper_edge_hertz] range on the mel scale.
@@ -4415,6 +4708,9 @@ def ONNXMelWeightMatrixOp:ONNX_Op<"MelWeightMatrix",
     DefaultValuedAttr<SI64Attr, "1">:$output_datatype);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "MelWeightMatrix";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 17;
     static int getNumberOfOperands() {
       return 5;
     }
@@ -4436,7 +4732,7 @@ def ONNXMelWeightMatrixOp:ONNX_Op<"MelWeightMatrix",
 }
 
 def ONNXMinOp:ONNX_Op<"Min",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Min operation";
   let description = [{
   Element-wise min of each of the input tensors (with Numpy-style broadcasting support).
@@ -4446,6 +4742,9 @@ def ONNXMinOp:ONNX_Op<"Min",
   let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>>:$data_0);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$min);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Min";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -4468,7 +4767,7 @@ def ONNXMinOp:ONNX_Op<"Min",
 }
 
 def ONNXMishOp:ONNX_Op<"Mish",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Mish operation";
   let description = [{
   Mish: A Self Regularized Non-Monotonic Neural Activation Function.
@@ -4482,6 +4781,9 @@ def ONNXMishOp:ONNX_Op<"Mish",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Mish";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -4503,7 +4805,7 @@ def ONNXMishOp:ONNX_Op<"Mish",
 }
 
 def ONNXModOp:ONNX_Op<"Mod",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Mod operation";
   let description = [{
   Performs element-wise binary modulus (with Numpy-style broadcasting support).
@@ -4525,6 +4827,9 @@ def ONNXModOp:ONNX_Op<"Mod",
     DefaultValuedAttr<SI64Attr, "0">:$fmod);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$C);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Mod";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -4547,8 +4852,7 @@ def ONNXModOp:ONNX_Op<"Mod",
 }
 
 def ONNXMulOp:ONNX_Op<"Mul",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Mul operation";
   let description = [{
   Performs element-wise binary multiplication (with Numpy-style broadcasting support).
@@ -4579,31 +4883,35 @@ def ONNXMulOp:ONNX_Op<"Mul",
         resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMulOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Mul";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXMulOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def ONNXMultinomialOp:ONNX_Op<"Multinomial",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Multinomial operation";
   let description = [{
   Generate a tensor of samples from a multinomial distribution according to the probabilities
@@ -4615,6 +4923,9 @@ def ONNXMultinomialOp:ONNX_Op<"Multinomial",
     OptionalAttr<F32Attr>:$seed);
   let results = (outs AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Multinomial";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 7;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -4636,7 +4947,7 @@ def ONNXMultinomialOp:ONNX_Op<"Multinomial",
 }
 
 def ONNXNegOp:ONNX_Op<"Neg",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Neg operation";
   let description = [{
   Neg takes one input data (Tensor<T>) and produces one output data
@@ -4654,30 +4965,33 @@ def ONNXNegOp:ONNX_Op<"Neg",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNegOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Neg";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXNegOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXNegativeLogLikelihoodLossOp:ONNX_Op<"NegativeLogLikelihoodLoss",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX NegativeLogLikelihoodLoss operation";
   let description = [{
   A NegativeLogLikelihoodLoss operator computes (weighted) negative log likelihood loss.
@@ -4774,6 +5088,9 @@ def ONNXNegativeLogLikelihoodLossOp:ONNX_Op<"NegativeLogLikelihoodLoss",
     DefaultValuedStrAttr<StrAttr, "mean">:$reduction);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$loss);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "NegativeLogLikelihoodLoss";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -4795,7 +5112,7 @@ def ONNXNegativeLogLikelihoodLossOp:ONNX_Op<"NegativeLogLikelihoodLoss",
 }
 
 def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX NonMaxSuppression operation";
   let description = [{
   Filter out boxes that have high intersection-over-union (IOU) overlap with previously selected boxes.
@@ -4814,6 +5131,9 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
     DefaultValuedAttr<SI64Attr, "0">:$center_point_box);
   let results = (outs TensorOf<[I64]>:$selected_indices);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "NonMaxSuppression";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 5;
     }
@@ -4836,7 +5156,7 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
 }
 
 def ONNXNonZeroOp:ONNX_Op<"NonZero",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX NonZero operation";
   let description = [{
   Returns the indices of the elements that are non-zero
@@ -4848,6 +5168,9 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$X);
   let results = (outs TensorOf<[I64]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "NonZero";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -4869,7 +5192,7 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
 }
 
 def ONNXNotOp:ONNX_Op<"Not",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Not operation";
   let description = [{
   Returns the negation of the input tensor element-wise.
@@ -4877,6 +5200,9 @@ def ONNXNotOp:ONNX_Op<"Not",
   let arguments = (ins TensorOf<[I1]>:$X);
   let results = (outs TensorOf<[I1]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Not";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -4898,7 +5224,7 @@ def ONNXNotOp:ONNX_Op<"Not",
 }
 
 def ONNXOneHotOp:ONNX_Op<"OneHot",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX OneHot operation";
   let description = [{
   Produces a one-hot tensor based on inputs.
@@ -4927,6 +5253,9 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
     DefaultValuedAttr<SI64Attr, "-1">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "OneHot";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -4949,7 +5278,7 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
 }
 
 def ONNXOptionalOp:ONNX_Op<"Optional",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Optional operation";
   let description = [{
   Constructs an optional-type value containing either an empty optional of a certain type specified by the attribute,
@@ -4959,6 +5288,9 @@ def ONNXOptionalOp:ONNX_Op<"Optional",
     OptionalAttr<TypeAttr>:$type);
   let results = (outs AnyTypeOf<[OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Optional";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 15;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -4981,7 +5313,7 @@ def ONNXOptionalOp:ONNX_Op<"Optional",
 }
 
 def ONNXOptionalGetElementOp:ONNX_Op<"OptionalGetElement",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX OptionalGetElement operation";
   let description = [{
   If the input is a tensor or sequence type, it returns the input.
@@ -4991,6 +5323,9 @@ def ONNXOptionalGetElementOp:ONNX_Op<"OptionalGetElement",
   let arguments = (ins AnyTypeOf<[OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "OptionalGetElement";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -5013,7 +5348,7 @@ def ONNXOptionalGetElementOp:ONNX_Op<"OptionalGetElement",
 }
 
 def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX OptionalHasElement operation";
   let description = [{
   Returns true if (1) the input is an optional-type and contains an element,
@@ -5023,6 +5358,9 @@ def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",
   let arguments = (ins AnyTypeOf<[OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, NoneType]>:$input);
   let results = (outs TensorOf<[I1]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "OptionalHasElement";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -5045,7 +5383,7 @@ def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",
 }
 
 def ONNXOrOp:ONNX_Op<"Or",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Or operation";
   let description = [{
   Returns the tensor resulted from performing the `or` logical operation
@@ -5075,31 +5413,34 @@ def ONNXOrOp:ONNX_Op<"Or",
         resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {9};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOrOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Or";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 7;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXOrOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
 }
 
 def ONNXPReluOp:ONNX_Op<"PRelu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX PRelu operation";
   let description = [{
   PRelu takes input data (Tensor<T>) and slope tensor as input, and produces one
@@ -5114,6 +5455,9 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
     AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$slope);
   let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "PRelu";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 16;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -5136,7 +5480,7 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
 }
 
 def ONNXPadOp:ONNX_Op<"Pad",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Pad operation";
   let description = [{
   Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
@@ -5230,31 +5574,34 @@ def ONNXPadOp:ONNX_Op<"Pad",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 4;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPadOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Pad";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPadOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
 }
 
 def ONNXPadV13Op:ONNX_Op<"PadV13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Pad operation";
   let description = [{
   Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
@@ -5339,6 +5686,9 @@ def ONNXPadV13Op:ONNX_Op<"PadV13",
     DefaultValuedStrAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Pad";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -5360,7 +5710,7 @@ def ONNXPadV13Op:ONNX_Op<"PadV13",
 }
 
 def ONNXPadV11Op:ONNX_Op<"PadV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Pad operation";
   let description = [{
   Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
@@ -5445,6 +5795,9 @@ def ONNXPadV11Op:ONNX_Op<"PadV11",
     DefaultValuedStrAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Pad";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -5466,7 +5819,7 @@ def ONNXPadV11Op:ONNX_Op<"PadV11",
 }
 
 def ONNXPadV2Op:ONNX_Op<"PadV2",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Pad operation";
   let description = [{
   Given `data` tensor, pads, mode, and value.
@@ -5492,6 +5845,9 @@ def ONNXPadV2Op:ONNX_Op<"PadV2",
     DefaultValuedAttr<F32Attr, "0.0">:$value);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Pad";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 2;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -5513,8 +5869,7 @@ def ONNXPadV2Op:ONNX_Op<"PadV2",
 }
 
 def ONNXPowOp:ONNX_Op<"Pow",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Pow operation";
   let description = [{
   Pow takes input data (Tensor<T>) and exponent Tensor, and
@@ -5544,31 +5899,35 @@ def ONNXPowOp:ONNX_Op<"Pow",
         resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPowOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Pow";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 15;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPowOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX QLinearConv operation";
   let description = [{
   The convolution operator consumes a quantized input tensor, its scale and zero point,
@@ -5596,6 +5955,9 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "QLinearConv";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 10;
     static int getNumberOfOperands() {
       return 9;
     }
@@ -5617,7 +5979,7 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
 }
 
 def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX QLinearMatMul operation";
   let description = [{
   Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html.
@@ -5642,6 +6004,9 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$y_zero_point);
   let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "QLinearMatMul";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 10;
     static int getNumberOfOperands() {
       return 8;
     }
@@ -5663,7 +6028,7 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
 }
 
 def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX QuantizeLinear operation";
   let description = [{
   The linear quantization operator. It consumes a high precision tensor, a scale, and a zero point to compute the low precision / quantized tensor.
@@ -5678,6 +6043,9 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
     DefaultValuedAttr<SI64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "QuantizeLinear";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -5699,8 +6067,7 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
 }
 
 def ONNXRNNOp:ONNX_Op<"RNN",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RNN operation";
   let description = [{
   Computes an one-layer simple RNN. This operator is usually supported
@@ -5781,6 +6148,9 @@ def ONNXRNNOp:ONNX_Op<"RNN",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y_h);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "RNN";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
     static int getNumberOfOperands() {
       return 6;
     }
@@ -5799,10 +6169,11 @@ def ONNXRNNOp:ONNX_Op<"RNN",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX RandomNormal operation";
   let description = [{
   Generate a tensor with random values drawn from a normal distribution. The shape
@@ -5820,6 +6191,9 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
     I64ArrayAttr:$shape);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "RandomNormal";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 0;
     }
@@ -5862,7 +6236,7 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
 }
 
 def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RandomNormalLike operation";
   let description = [{
   Generate a tensor with random values drawn from a normal distribution.
@@ -5880,6 +6254,9 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
     OptionalAttr<F32Attr>:$seed);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "RandomNormalLike";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -5902,7 +6279,7 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RandomUniform operation";
   let description = [{
   Generate a tensor with random values drawn from a uniform distribution. The shape
@@ -5919,6 +6296,9 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
     I64ArrayAttr:$shape);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "RandomUniform";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 0;
     }
@@ -5940,7 +6320,7 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
 }
 
 def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RandomUniformLike operation";
   let description = [{
   Generate a tensor with random values drawn from a uniform distribution.
@@ -5958,6 +6338,9 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
     OptionalAttr<F32Attr>:$seed);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "RandomUniformLike";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -5979,7 +6362,7 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
 }
 
 def ONNXRangeOp:ONNX_Op<"Range",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Range operation";
   let description = [{
   Generate a tensor containing a sequence of numbers that begin at `start` and extends by increments of `delta`
@@ -6013,6 +6396,9 @@ def ONNXRangeOp:ONNX_Op<"Range",
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$delta);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Range";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -6035,7 +6421,7 @@ def ONNXRangeOp:ONNX_Op<"Range",
 }
 
 def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Reciprocal operation";
   let description = [{
   Reciprocal takes one input data (Tensor<T>) and produces one output data
@@ -6045,6 +6431,9 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Reciprocal";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -6066,7 +6455,7 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
 }
 
 def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceL1 operation";
   let description = [{
   Computes the L1 norm of the input tensor's element along the provided axes. The resulting
@@ -6082,6 +6471,9 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
     DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceL1";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -6103,7 +6495,7 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
 }
 
 def ONNXReduceL1V13Op:ONNX_Op<"ReduceL1V13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceL1 operation";
   let description = [{
   Computes the L1 norm of the input tensor's element along the provided axes. The resulting
@@ -6118,6 +6510,9 @@ def ONNXReduceL1V13Op:ONNX_Op<"ReduceL1V13",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceL1";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -6139,7 +6534,7 @@ def ONNXReduceL1V13Op:ONNX_Op<"ReduceL1V13",
 }
 
 def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceL2 operation";
   let description = [{
   Computes the L2 norm of the input tensor's element along the provided axes. The resulting
@@ -6155,6 +6550,9 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
     DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceL2";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -6176,7 +6574,7 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
 }
 
 def ONNXReduceL2V13Op:ONNX_Op<"ReduceL2V13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceL2 operation";
   let description = [{
   Computes the L2 norm of the input tensor's element along the provided axes. The resulting
@@ -6191,6 +6589,9 @@ def ONNXReduceL2V13Op:ONNX_Op<"ReduceL2V13",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceL2";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -6212,7 +6613,7 @@ def ONNXReduceL2V13Op:ONNX_Op<"ReduceL2V13",
 }
 
 def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceLogSum operation";
   let description = [{
   Computes the log sum of the input tensor's element along the provided axes. The resulting
@@ -6236,30 +6637,33 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceLogSum";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceLogSumOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceLogSumV13Op:ONNX_Op<"ReduceLogSumV13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceLogSum operation";
   let description = [{
   Computes the log sum of the input tensor's element along the provided axes. The resulting
@@ -6274,6 +6678,9 @@ def ONNXReduceLogSumV13Op:ONNX_Op<"ReduceLogSumV13",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceLogSum";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -6295,7 +6702,7 @@ def ONNXReduceLogSumV13Op:ONNX_Op<"ReduceLogSumV13",
 }
 
 def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceLogSumExp operation";
   let description = [{
   Computes the log sum exponent of the input tensor's element along the provided axes. The resulting
@@ -6311,6 +6718,9 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
     DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceLogSumExp";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -6332,7 +6742,7 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
 }
 
 def ONNXReduceLogSumExpV13Op:ONNX_Op<"ReduceLogSumExpV13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceLogSumExp operation";
   let description = [{
   Computes the log sum exponent of the input tensor's element along the provided axes. The resulting
@@ -6347,6 +6757,9 @@ def ONNXReduceLogSumExpV13Op:ONNX_Op<"ReduceLogSumExpV13",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceLogSumExp";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -6368,7 +6781,7 @@ def ONNXReduceLogSumExpV13Op:ONNX_Op<"ReduceLogSumExpV13",
 }
 
 def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMax operation";
   let description = [{
   Computes the max of the input tensor's element along the provided axes. The resulting
@@ -6392,30 +6805,33 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceMax";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceMaxV13Op:ONNX_Op<"ReduceMaxV13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMax operation";
   let description = [{
   Computes the max of the input tensor's element along the provided axes. The resulting
@@ -6438,30 +6854,33 @@ def ONNXReduceMaxV13Op:ONNX_Op<"ReduceMaxV13",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxV13OpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceMax";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxV13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMean operation";
   let description = [{
   Computes the mean of the input tensor's element along the provided axes. The resulting
@@ -6477,6 +6896,9 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
     DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceMean";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -6498,7 +6920,7 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
 }
 
 def ONNXReduceMeanV13Op:ONNX_Op<"ReduceMeanV13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMean operation";
   let description = [{
   Computes the mean of the input tensor's element along the provided axes. The resulting
@@ -6513,6 +6935,9 @@ def ONNXReduceMeanV13Op:ONNX_Op<"ReduceMeanV13",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceMean";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -6534,7 +6959,7 @@ def ONNXReduceMeanV13Op:ONNX_Op<"ReduceMeanV13",
 }
 
 def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMin operation";
   let description = [{
   Computes the min of the input tensor's element along the provided axes. The resulting
@@ -6550,6 +6975,9 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
     DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceMin";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -6571,7 +6999,7 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
 }
 
 def ONNXReduceMinV13Op:ONNX_Op<"ReduceMinV13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceMin operation";
   let description = [{
   Computes the min of the input tensor's element along the provided axes. The resulting
@@ -6586,6 +7014,9 @@ def ONNXReduceMinV13Op:ONNX_Op<"ReduceMinV13",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceMin";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -6607,7 +7038,7 @@ def ONNXReduceMinV13Op:ONNX_Op<"ReduceMinV13",
 }
 
 def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceProd operation";
   let description = [{
   Computes the product of the input tensor's element along the provided axes. The resulting
@@ -6623,6 +7054,9 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
     DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceProd";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -6644,7 +7078,7 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
 }
 
 def ONNXReduceProdV13Op:ONNX_Op<"ReduceProdV13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceProd operation";
   let description = [{
   Computes the product of the input tensor's element along the provided axes. The resulting
@@ -6659,6 +7093,9 @@ def ONNXReduceProdV13Op:ONNX_Op<"ReduceProdV13",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceProd";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -6680,7 +7117,7 @@ def ONNXReduceProdV13Op:ONNX_Op<"ReduceProdV13",
 }
 
 def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceSum operation";
   let description = [{
   Computes the sum of the input tensor's element along the provided axes. The resulting
@@ -6704,30 +7141,33 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceSum";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceSum operation";
   let description = [{
   Computes the sum of the input tensor's element along the provided axes. The resulting
@@ -6750,30 +7190,33 @@ def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumV11OpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceSum";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceSumSquare operation";
   let description = [{
   Computes the sum square of the input tensor's element along the provided axes. The resulting
@@ -6797,30 +7240,33 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumSquareOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceSumSquare";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumSquareOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXReduceSumSquareV13Op:ONNX_Op<"ReduceSumSquareV13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReduceSumSquare operation";
   let description = [{
   Computes the sum square of the input tensor's element along the provided axes. The resulting
@@ -6835,6 +7281,9 @@ def ONNXReduceSumSquareV13Op:ONNX_Op<"ReduceSumSquareV13",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$reduced);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReduceSumSquare";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -6856,7 +7305,7 @@ def ONNXReduceSumSquareV13Op:ONNX_Op<"ReduceSumSquareV13",
 }
 
 def ONNXReluOp:ONNX_Op<"Relu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Relu operation";
   let description = [{
   Relu takes one input data (Tensor<T>) and produces one output data
@@ -6866,6 +7315,9 @@ def ONNXReluOp:ONNX_Op<"Relu",
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[I32]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[I32]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Relu";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -6887,8 +7339,7 @@ def ONNXReluOp:ONNX_Op<"Relu",
 }
 
 def ONNXReshapeOp:ONNX_Op<"Reshape",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Reshape operation";
   let description = [{
   Reshape the input tensor similar to numpy.reshape.
@@ -6910,6 +7361,9 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
     DefaultValuedAttr<SI64Attr, "0">:$allowzero);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$reshaped);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Reshape";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -6928,10 +7382,11 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXResizeOp:ONNX_Op<"Resize",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
@@ -6954,6 +7409,9 @@ def ONNXResizeOp:ONNX_Op<"Resize",
     DefaultValuedStrAttr<StrAttr, "round_prefer_floor">:$nearest_mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Resize";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 4;
     }
@@ -6976,7 +7434,7 @@ def ONNXResizeOp:ONNX_Op<"Resize",
 }
 
 def ONNXResizeV13Op:ONNX_Op<"ResizeV13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
@@ -6995,6 +7453,9 @@ def ONNXResizeV13Op:ONNX_Op<"ResizeV13",
     DefaultValuedStrAttr<StrAttr, "round_prefer_floor">:$nearest_mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Resize";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 4;
     }
@@ -7016,7 +7477,7 @@ def ONNXResizeV13Op:ONNX_Op<"ResizeV13",
 }
 
 def ONNXResizeV11Op:ONNX_Op<"ResizeV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
@@ -7035,6 +7496,9 @@ def ONNXResizeV11Op:ONNX_Op<"ResizeV11",
     DefaultValuedStrAttr<StrAttr, "round_prefer_floor">:$nearest_mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Resize";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 4;
     }
@@ -7056,7 +7520,7 @@ def ONNXResizeV11Op:ONNX_Op<"ResizeV11",
 }
 
 def ONNXResizeV10Op:ONNX_Op<"ResizeV10",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor.
@@ -7068,6 +7532,9 @@ def ONNXResizeV10Op:ONNX_Op<"ResizeV10",
     DefaultValuedStrAttr<StrAttr, "nearest">:$mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Resize";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 10;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -7089,7 +7556,7 @@ def ONNXResizeV10Op:ONNX_Op<"ResizeV10",
 }
 
 def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ReverseSequence operation";
   let description = [{
   Reverse batch of sequences having different lengths specified by `sequence_lens`.
@@ -7132,6 +7599,9 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
     DefaultValuedAttr<SI64Attr, "0">:$time_axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ReverseSequence";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 10;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -7154,7 +7624,7 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
 }
 
 def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX RoiAlign operation";
   let description = [{
   Region of Interest (RoI) align operation described in the
@@ -7180,6 +7650,9 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
     DefaultValuedAttr<F32Attr, "1.0">:$spatial_scale);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "RoiAlign";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 16;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -7202,7 +7675,7 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Round operation";
   let description = [{
   Round takes one input Tensor and rounds the values, element-wise, meaning
@@ -7222,6 +7695,9 @@ def ONNXRoundOp:ONNX_Op<"Round",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Round";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -7243,7 +7719,7 @@ def ONNXRoundOp:ONNX_Op<"Round",
 }
 
 def ONNXSTFTOp:ONNX_Op<"STFT",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX STFT operation";
   let description = [{
   Computes the Short-time Fourier Transform of the signal.
@@ -7255,6 +7731,9 @@ def ONNXSTFTOp:ONNX_Op<"STFT",
     DefaultValuedAttr<SI64Attr, "1">:$onesided);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "STFT";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 17;
     static int getNumberOfOperands() {
       return 4;
     }
@@ -7276,7 +7755,7 @@ def ONNXSTFTOp:ONNX_Op<"STFT",
 }
 
 def ONNXScanOp:ONNX_Op<"Scan",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX Scan operation";
   let description = [{
   Scan can be used to iterate over one or more scan_input tensors,
@@ -7410,6 +7889,9 @@ def ONNXScanOp:ONNX_Op<"Scan",
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>>:$final_state_and_scan_outputs);
   let regions = (region SizedRegion<1>:$body);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Scan";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 16;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -7419,15 +7901,14 @@ def ONNXScanOp:ONNX_Op<"Scan",
     static std::vector<int> getTypeMap() {
       return {20};
     }
-
     mlir::Operation::operand_range getVInitial();
     mlir::Operation::result_range v_final();
     mlir::Operation::operand_range scan_inputs();
     mlir::Operation::result_range scan_outputs();
     int64_t getSubgraphRegionIdx(const std::string& name) {
-    if (name == "body") return 0;
-    llvm_unreachable("region with the specified name does not exist");
-  }
+      if (name == "body") return 0;
+      llvm_unreachable("region with the specified name does not exist");
+    }
   }];
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
@@ -7440,7 +7921,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
 }
 
 def ONNXScatterOp:ONNX_Op<"Scatter",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Scatter operation";
   let description = [{
   This operator is deprecated. Please use ScatterElements, which provides the same functionality.
@@ -7503,6 +7984,9 @@ def ONNXScatterOp:ONNX_Op<"Scatter",
     DefaultValuedAttr<SI64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Scatter";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -7524,7 +8008,7 @@ def ONNXScatterOp:ONNX_Op<"Scatter",
 }
 
 def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ScatterElements operation";
   let description = [{
   ScatterElements takes three inputs `data`, `updates`, and `indices` of the same
@@ -7598,6 +8082,9 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
     DefaultValuedStrAttr<StrAttr, "none">:$reduction);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ScatterElements";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -7620,7 +8107,7 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
 }
 
 def ONNXScatterNDOp:ONNX_Op<"ScatterND",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ScatterND operation";
   let description = [{
   ScatterND takes three inputs `data` tensor of rank r >= 1, `indices` tensor of rank q >= 1,
@@ -7701,6 +8188,9 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
     DefaultValuedStrAttr<StrAttr, "none">:$reduction);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ScatterND";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -7723,7 +8213,7 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
 }
 
 def ONNXSeluOp:ONNX_Op<"Selu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Selu operation";
   let description = [{
   Selu takes one input data (Tensor<T>) and produces one output data
@@ -7736,6 +8226,9 @@ def ONNXSeluOp:ONNX_Op<"Selu",
     DefaultValuedAttr<F32Attr, "1.0507">:$gamma);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Selu";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 6;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -7757,7 +8250,7 @@ def ONNXSeluOp:ONNX_Op<"Selu",
 }
 
 def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceAt operation";
   let description = [{
   Outputs a tensor copy from the tensor at 'position' in 'input_sequence'.
@@ -7768,6 +8261,9 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$position);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$tensor);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SequenceAt";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -7789,7 +8285,7 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
 }
 
 def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceConstruct operation";
   let description = [{
   Construct a tensor sequence containing 'inputs' tensors.
@@ -7798,6 +8294,9 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
   let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>>:$inputs);
   let results = (outs AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>:$output_sequence);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SequenceConstruct";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -7819,7 +8318,7 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
 }
 
 def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceEmpty operation";
   let description = [{
   Construct an empty tensor sequence, with given data type.
@@ -7827,6 +8326,9 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
   let arguments = (ins OptionalAttr<SI64Attr>:$dtype);
   let results = (outs AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SequenceEmpty";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 0;
     }
@@ -7849,7 +8351,7 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
 }
 
 def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceErase operation";
   let description = [{
   Outputs a tensor sequence that removes the tensor at 'position' from 'input_sequence'.
@@ -7861,6 +8363,9 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, NoneType]>:$position);
   let results = (outs AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>:$output_sequence);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SequenceErase";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -7882,7 +8387,7 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
 }
 
 def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceInsert operation";
   let description = [{
   Outputs a tensor sequence that inserts 'tensor' into 'input_sequence' at 'position'.
@@ -7896,6 +8401,9 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, NoneType]>:$position);
   let results = (outs AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>:$output_sequence);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SequenceInsert";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -7918,7 +8426,7 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
 }
 
 def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SequenceLength operation";
   let description = [{
   Produces a scalar(tensor of empty shape) containing the number of tensors in 'input_sequence'.
@@ -7926,6 +8434,9 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
   let arguments = (ins AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>:$input_sequence);
   let results = (outs TensorOf<[I64]>:$length);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SequenceLength";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -7947,7 +8458,7 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
 }
 
 def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX SequenceMap operation";
   let description = [{
   Applies a sub-graph to each sample in the input sequence(s).
@@ -7970,6 +8481,9 @@ def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
   let results = (outs Variadic<AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>>:$out_sequence);
   let regions = (region SizedRegion<1>:$body);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SequenceMap";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 17;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -7979,10 +8493,10 @@ def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
     static std::vector<int> getTypeMap() {
       return {20};
     }
-  int64_t getSubgraphRegionIdx(const std::string& name) {
-    if (name == "body") return 0;
-    llvm_unreachable("region with the specified name does not exist");
-  }
+    int64_t getSubgraphRegionIdx(const std::string& name) {
+      if (name == "body") return 0;
+      llvm_unreachable("region with the specified name does not exist");
+    }
   }];
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
@@ -7995,8 +8509,7 @@ def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
 }
 
 def ONNXShapeOp:ONNX_Op<"Shape",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Shape operation";
   let description = [{
   Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor.
@@ -8034,6 +8547,9 @@ def ONNXShapeOp:ONNX_Op<"Shape",
     DefaultValuedAttr<SI64Attr, "0">:$start);
   let results = (outs TensorOf<[I64]>:$shape);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Shape";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 15;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8053,10 +8569,11 @@ def ONNXShapeOp:ONNX_Op<"Shape",
     }
   }];
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def ONNXShrinkOp:ONNX_Op<"Shrink",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Shrink operation";
   let description = [{
   Shrink takes one input data (Tensor<numeric>) and produces one Tensor output,
@@ -8069,6 +8586,9 @@ def ONNXShrinkOp:ONNX_Op<"Shrink",
     DefaultValuedAttr<F32Attr, "0.5">:$lambd);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Shrink";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 9;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8090,7 +8610,7 @@ def ONNXShrinkOp:ONNX_Op<"Shrink",
 }
 
 def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sigmoid operation";
   let description = [{
   Sigmoid takes one input data (Tensor<T>) and produces one output data
@@ -8100,6 +8620,9 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Sigmoid";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8121,7 +8644,7 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
 }
 
 def ONNXSignOp:ONNX_Op<"Sign",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sign operation";
   let description = [{
   Calculate the sign of the given input tensor element-wise.
@@ -8130,6 +8653,9 @@ def ONNXSignOp:ONNX_Op<"Sign",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Sign";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8151,7 +8677,7 @@ def ONNXSignOp:ONNX_Op<"Sign",
 }
 
 def ONNXSinOp:ONNX_Op<"Sin",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sin operation";
   let description = [{
   Calculates the sine of the given input tensor, element-wise.
@@ -8159,6 +8685,9 @@ def ONNXSinOp:ONNX_Op<"Sin",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Sin";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 7;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8180,7 +8709,7 @@ def ONNXSinOp:ONNX_Op<"Sin",
 }
 
 def ONNXSinhOp:ONNX_Op<"Sinh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sinh operation";
   let description = [{
   Calculates the hyperbolic sine of the given input tensor element-wise.
@@ -8188,6 +8717,9 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Sinh";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 9;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8209,8 +8741,7 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
 }
 
 def ONNXSizeOp:ONNX_Op<"Size",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Size operation";
   let description = [{
   Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor.
@@ -8218,6 +8749,9 @@ def ONNXSizeOp:ONNX_Op<"Size",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data);
   let results = (outs TensorOf<[I64]>:$size);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Size";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8236,10 +8770,11 @@ def ONNXSizeOp:ONNX_Op<"Size",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXSliceOp:ONNX_Op<"Slice",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Slice operation";
   let description = [{
   Produces a slice of the input tensor along multiple axes. Similar to numpy:
@@ -8305,6 +8840,9 @@ def ONNXSliceOp:ONNX_Op<"Slice",
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, NoneType]>:$steps);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Slice";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 5;
     }
@@ -8326,7 +8864,7 @@ def ONNXSliceOp:ONNX_Op<"Slice",
 }
 
 def ONNXSoftmaxOp:ONNX_Op<"Softmax",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Softmax operation";
   let description = [{
   The operator computes the normalized exponential values for the given input:
@@ -8349,31 +8887,33 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftmaxOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Softmax";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSoftmaxOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Softmax operation";
   let description = [{
   The operator computes the softmax (normalized exponential) values for each layer in the batch
@@ -8395,6 +8935,9 @@ def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
     DefaultValuedAttr<SI64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Softmax";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8413,10 +8956,11 @@ def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXSoftmaxCrossEntropyLossOp:ONNX_Op<"SoftmaxCrossEntropyLoss",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SoftmaxCrossEntropyLoss operation";
   let description = [{
   Loss function that measures the softmax cross entropy
@@ -8459,6 +9003,9 @@ def ONNXSoftmaxCrossEntropyLossOp:ONNX_Op<"SoftmaxCrossEntropyLoss",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$log_prob);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SoftmaxCrossEntropyLoss";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -8480,7 +9027,7 @@ def ONNXSoftmaxCrossEntropyLossOp:ONNX_Op<"SoftmaxCrossEntropyLoss",
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Softplus operation";
   let description = [{
   Softplus takes one input data (Tensor<T>) and produces one output data
@@ -8490,6 +9037,9 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Softplus";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8511,7 +9061,7 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
 }
 
 def ONNXSoftsignOp:ONNX_Op<"Softsign",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Softsign operation";
   let description = [{
   Calculates the softsign (x/(1+|x|)) of the given input tensor element-wise.
@@ -8519,6 +9069,9 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Softsign";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8540,8 +9093,7 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
 }
 
 def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SpaceToDepth operation";
   let description = [{
   SpaceToDepth rearranges blocks of spatial data into depth. More specifically,
@@ -8552,6 +9104,9 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
     SI64Attr:$blocksize);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SpaceToDepth";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8571,10 +9126,11 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
     }
   }];
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def ONNXSplitOp:ONNX_Op<"Split",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Split operation";
   let description = [{
   Split a tensor into a list of tensors, along the specified 'axis'.
@@ -8597,31 +9153,34 @@ def ONNXSplitOp:ONNX_Op<"Split",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return -1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSplitOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Split";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 18;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSplitOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
 }
 
 def ONNXSplitV13Op:ONNX_Op<"SplitV13",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Split operation";
   let description = [{
   Split a tensor into a list of tensors, along the specified
@@ -8641,30 +9200,33 @@ def ONNXSplitV13Op:ONNX_Op<"SplitV13",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return -1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSplitV13OpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Split";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSplitV13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSplitV11Op:ONNX_Op<"SplitV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Split operation";
   let description = [{
   Split a tensor into a list of tensors, along the specified
@@ -8676,6 +9238,9 @@ def ONNXSplitV11Op:ONNX_Op<"SplitV11",
     OptionalAttr<I64ArrayAttr>:$split);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>>:$outputs);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Split";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8697,7 +9262,7 @@ def ONNXSplitV11Op:ONNX_Op<"SplitV11",
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SplitToSequence operation";
   let description = [{
   Split a tensor into a sequence of tensors, along the specified
@@ -8717,6 +9282,9 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>]>:$output_sequence);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SplitToSequence";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -8739,7 +9307,7 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
 }
 
 def ONNXSqrtOp:ONNX_Op<"Sqrt",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sqrt operation";
   let description = [{
   Square root takes one input data (Tensor<T>) and produces one output data
@@ -8757,31 +9325,33 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqrtOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Sqrt";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqrtOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Squeeze operation";
   let description = [{
   Remove single-dimensional entries from the shape of a tensor.
@@ -8801,32 +9371,35 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqueezeOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasFolder = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Squeeze";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqueezeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasFolder = 1;
+  let hasCanonicalizer = 1;
 }
 
 def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Squeeze operation";
   let description = [{
   Remove single-dimensional entries from the shape of a tensor.
@@ -8846,31 +9419,35 @@ def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqueezeV11OpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasFolder = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Squeeze";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSqueezeV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasFolder = 1;
+  let hasCanonicalizer = 1;
 }
 
 def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX StringNormalizer operation";
   let description = [{
   StringNormalization performs string operations for basic cleaning.
@@ -8890,6 +9467,9 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
     OptionalAttr<StrArrayAttr>:$stopwords);
   let results = (outs TensorOf<[StringType]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "StringNormalizer";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 10;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -8911,7 +9491,7 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
 }
 
 def ONNXSubOp:ONNX_Op<"Sub",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sub operation";
   let description = [{
   Performs element-wise binary subtraction (with Numpy-style broadcasting support).
@@ -8942,31 +9522,34 @@ def ONNXSubOp:ONNX_Op<"Sub",
         resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSubOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Sub";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXSubOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
 }
 
 def ONNXSumOp:ONNX_Op<"Sum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Sum operation";
   let description = [{
   Element-wise sum of each of the input tensors (with Numpy-style broadcasting support).
@@ -8976,6 +9559,9 @@ def ONNXSumOp:ONNX_Op<"Sum",
   let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>>:$data_0);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$sum);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Sum";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -8998,7 +9584,7 @@ def ONNXSumOp:ONNX_Op<"Sum",
 }
 
 def ONNXTanOp:ONNX_Op<"Tan",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Tan operation";
   let description = [{
   Calculates the tangent of the given input tensor, element-wise.
@@ -9006,6 +9592,9 @@ def ONNXTanOp:ONNX_Op<"Tan",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Tan";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 7;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9027,7 +9616,7 @@ def ONNXTanOp:ONNX_Op<"Tan",
 }
 
 def ONNXTanhOp:ONNX_Op<"Tanh",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Tanh operation";
   let description = [{
   Calculates the hyperbolic tangent of the given input tensor element-wise.
@@ -9035,6 +9624,9 @@ def ONNXTanhOp:ONNX_Op<"Tanh",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Tanh";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9056,7 +9648,7 @@ def ONNXTanhOp:ONNX_Op<"Tanh",
 }
 
 def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TfIdfVectorizer operation";
   let description = [{
   This transform extracts n-grams from the input sequence and save them as a vector. Input can
@@ -9099,6 +9691,9 @@ def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
     OptionalAttr<F32ArrayAttr>:$weights);
   let results = (outs TensorOf<[F32]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "TfIdfVectorizer";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 9;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9120,7 +9715,7 @@ def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
 }
 
 def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ThresholdedRelu operation";
   let description = [{
   ThresholdedRelu takes one input data (Tensor<T>) and produces one output data
@@ -9131,6 +9726,9 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ThresholdedRelu";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 10;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9152,7 +9750,7 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
 }
 
 def ONNXTileOp:ONNX_Op<"Tile",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Tile operation";
   let description = [{
   Constructs a tensor by tiling a given tensor.
@@ -9163,6 +9761,9 @@ def ONNXTileOp:ONNX_Op<"Tile",
     TensorOf<[I64]>:$repeats);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Tile";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -9184,7 +9785,7 @@ def ONNXTileOp:ONNX_Op<"Tile",
 }
 
 def ONNXTopKOp:ONNX_Op<"TopK",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TopK operation";
   let description = [{
   Retrieve the top-K largest or smallest elements along a specified axis. Given an input tensor of
@@ -9210,6 +9811,9 @@ def ONNXTopKOp:ONNX_Op<"TopK",
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Values,
     TensorOf<[I64]>:$Indices);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "TopK";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -9232,8 +9836,7 @@ def ONNXTopKOp:ONNX_Op<"TopK",
 }
 
 def ONNXTransposeOp:ONNX_Op<"Transpose",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Transpose operation";
   let description = [{
   Transpose the input tensor similar to numpy.transpose. For example, when
@@ -9244,6 +9847,9 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
     OptionalAttr<I64ArrayAttr>:$perm);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$transposed);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Transpose";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9262,10 +9868,11 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXTriluOp:ONNX_Op<"Trilu",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Trilu operation";
   let description = [{
   Given a 2-D matrix or batches of 2-D matrices, returns the upper or lower triangular part of the tensor(s).
@@ -9286,6 +9893,9 @@ def ONNXTriluOp:ONNX_Op<"Trilu",
     DefaultValuedAttr<SI64Attr, "1">:$upper);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Trilu";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 14;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -9307,7 +9917,7 @@ def ONNXTriluOp:ONNX_Op<"Trilu",
 }
 
 def ONNXUniqueOp:ONNX_Op<"Unique",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Unique operation";
   let description = [{
   Find the unique elements of a tensor. When an optional attribute 'axis' is provided, unique subtensors sliced along the 'axis' are returned.
@@ -9394,6 +10004,9 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
     AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$inverse_indices,
     AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$counts);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Unique";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9416,8 +10029,7 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Unsqueeze operation";
   let description = [{
   Insert single-dimensional entries to the shape of an input tensor (`data`).
@@ -9437,6 +10049,9 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
     TensorOf<[I64]>:$axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$expanded);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Unsqueeze";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 13;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -9455,11 +10070,11 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
       return sh;
     }
   }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXUnsqueezeV11Op:ONNX_Op<"UnsqueezeV11",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Unsqueeze operation";
   let description = [{
   Insert single-dimensional entries to the shape of an input tensor (`data`).
@@ -9487,30 +10102,34 @@ def ONNXUnsqueezeV11Op:ONNX_Op<"UnsqueezeV11",
       auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 1;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {20};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUnsqueezeV11OpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Unsqueeze";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 11;
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUnsqueezeV11OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasCanonicalizer = 1;
 }
 
 def ONNXUpsampleOp:ONNX_Op<"Upsample",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Upsample operation";
   let description = [{
   Upsample the input tensor.
@@ -9522,6 +10141,9 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
     DefaultValuedStrAttr<StrAttr, "nearest">:$mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Upsample";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 9;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -9544,7 +10166,7 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
 }
 
 def ONNXUpsampleV7Op:ONNX_Op<"UpsampleV7",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Upsample operation";
   let description = [{
   Upsample the input tensor.
@@ -9556,6 +10178,9 @@ def ONNXUpsampleV7Op:ONNX_Op<"UpsampleV7",
     F32ArrayAttr:$scales);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Upsample";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 7;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9577,7 +10202,7 @@ def ONNXUpsampleV7Op:ONNX_Op<"UpsampleV7",
 }
 
 def ONNXWhereOp:ONNX_Op<"Where",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Where operation";
   let description = [{
   Return elements, either from X or Y, depending on condition.
@@ -9595,6 +10220,9 @@ def ONNXWhereOp:ONNX_Op<"Where",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Where";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 16;
     static int getNumberOfOperands() {
       return 3;
     }
@@ -9617,7 +10245,7 @@ def ONNXWhereOp:ONNX_Op<"Where",
 }
 
 def ONNXXorOp:ONNX_Op<"Xor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Xor operation";
   let description = [{
   Returns the tensor resulted from performing the `xor` logical operation
@@ -9647,31 +10275,34 @@ def ONNXXorOp:ONNX_Op<"Xor",
         resultType = UnrankedTensorType::get(lhsTy.cast<ShapedType>().getElementType());
       build($_builder, $_state, {resultType}, operands, attributes);
     }]>
-    ];
-    let extraClassDeclaration = [{
-      static int getNumberOfOperands() {
-        return 2;
-      }
-      static int getNumberOfResults() {
-        return 1;
-      }
-      static std::vector<int> getTypeMap() {
-        return {9};
-      }
-    }];
-    let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXXorOpShapeHelper(op, oper, ieb, scope);
-        assert(sh && "failed to allocate shape helper");
-        return sh;
-      }
-    }];
-    let hasVerifier = 1;
+  ];
+  let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Xor";
+    static constexpr StringRef onnxDomain = "";
+    static constexpr int onnxSinceVersion = 7;
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXXorOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
 }
 
 def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ArrayFeatureExtractor operation";
   let description = [{
   Select elements of the input tensor based on the indices passed.<br>
@@ -9681,6 +10312,9 @@ def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
     TensorOf<[I64]>:$Y);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I64]>, TensorOf<[I32]>, TensorOf<[StringType]>]>:$Z);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ArrayFeatureExtractor";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 2;
     }
@@ -9702,7 +10336,7 @@ def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
 }
 
 def ONNXBinarizerOp:ONNX_Op<"Binarizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Binarizer operation";
   let description = [{
   Maps the values of the input tensor to either 0 or 1, element-wise, based on the outcome of a comparison against a threshold value.
@@ -9711,6 +10345,9 @@ def ONNXBinarizerOp:ONNX_Op<"Binarizer",
     DefaultValuedAttr<F32Attr, "0.0">:$threshold);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I64]>, TensorOf<[I32]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Binarizer";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9732,7 +10369,7 @@ def ONNXBinarizerOp:ONNX_Op<"Binarizer",
 }
 
 def ONNXCastMapOp:ONNX_Op<"CastMap",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX CastMap operation";
   let description = [{
   Converts a map to a tensor.<br>The map key must be an int64 and the values will be ordered
@@ -9745,6 +10382,9 @@ def ONNXCastMapOp:ONNX_Op<"CastMap",
     DefaultValuedAttr<SI64Attr, "1">:$max_map);
   let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[F32]>, TensorOf<[I64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "CastMap";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9766,7 +10406,7 @@ def ONNXCastMapOp:ONNX_Op<"CastMap",
 }
 
 def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX CategoryMapper operation";
   let description = [{
   Converts strings to integers and vice versa.<br>
@@ -9785,6 +10425,9 @@ def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
     DefaultValuedStrAttr<StrAttr, "_Unused">:$default_string);
   let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "CategoryMapper";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9807,7 +10450,7 @@ def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
 }
 
 def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX DictVectorizer operation";
   let description = [{
   Uses an index mapping to convert a dictionary to an array.<br>
@@ -9828,6 +10471,9 @@ def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",
     OptionalAttr<StrArrayAttr>:$string_vocabulary);
   let results = (outs AnyTypeOf<[TensorOf<[I64]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "DictVectorizer";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9849,7 +10495,7 @@ def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",
 }
 
 def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX FeatureVectorizer operation";
   let description = [{
   Concatenates input tensors into one continuous output.<br>
@@ -9861,6 +10507,9 @@ def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
     OptionalAttr<I64ArrayAttr>:$inputdimensions);
   let results = (outs TensorOf<[F32]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "FeatureVectorizer";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -9882,7 +10531,7 @@ def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
 }
 
 def ONNXImputerOp:ONNX_Op<"Imputer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Imputer operation";
   let description = [{
   Replaces inputs that equal one value with another, leaving all other elements alone.<br>
@@ -9901,6 +10550,9 @@ def ONNXImputerOp:ONNX_Op<"Imputer",
     DefaultValuedAttr<SI64Attr, "0">:$replaced_value_int64);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I64]>, TensorOf<[I32]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Imputer";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9922,7 +10574,7 @@ def ONNXImputerOp:ONNX_Op<"Imputer",
 }
 
 def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LabelEncoder operation";
   let description = [{
   Maps each element in the input tensor to another value.<br>
@@ -9955,6 +10607,9 @@ def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
     OptionalAttr<StrArrayAttr>:$values_strings);
   let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>, TensorOf<[F32]>]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "LabelEncoder";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 2;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -9976,7 +10631,7 @@ def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
 }
 
 def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LinearClassifier operation";
   let description = [{
   Linear classifier
@@ -9991,6 +10646,9 @@ def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
   let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>]>:$Y,
     TensorOf<[F32]>:$Z);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "LinearClassifier";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -10012,7 +10670,7 @@ def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
 }
 
 def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LinearRegressor operation";
   let description = [{
   Generalized linear regression evaluation.<br>
@@ -10029,6 +10687,9 @@ def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
     DefaultValuedAttr<SI64Attr, "1">:$targets);
   let results = (outs TensorOf<[F32]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "LinearRegressor";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -10050,7 +10711,7 @@ def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
 }
 
 def ONNXNormalizerOp:ONNX_Op<"Normalizer",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Normalizer operation";
   let description = [{
   Normalize the input.  There are three normalization modes, which have the corresponding formulas,
@@ -10068,6 +10729,9 @@ def ONNXNormalizerOp:ONNX_Op<"Normalizer",
     DefaultValuedStrAttr<StrAttr, "MAX">:$norm);
   let results = (outs TensorOf<[F32]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Normalizer";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -10089,7 +10753,7 @@ def ONNXNormalizerOp:ONNX_Op<"Normalizer",
 }
 
 def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX OneHotEncoder operation";
   let description = [{
   Replace each input element with an array of ones and zeros, where a single
@@ -10107,6 +10771,9 @@ def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
     DefaultValuedAttr<SI64Attr, "1">:$zeros);
   let results = (outs TensorOf<[F32]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "OneHotEncoder";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -10129,7 +10796,7 @@ def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
 }
 
 def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SVMClassifier operation";
   let description = [{
   Support Vector Machine classifier
@@ -10149,6 +10816,9 @@ def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
   let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>]>:$Y,
     TensorOf<[F32]>:$Z);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SVMClassifier";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -10170,7 +10840,7 @@ def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
 }
 
 def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX SVMRegressor operation";
   let description = [{
   Support Vector Machine regression prediction and one-class SVM anomaly detection.
@@ -10186,6 +10856,9 @@ def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
     OptionalAttr<F32ArrayAttr>:$support_vectors);
   let results = (outs TensorOf<[F32]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "SVMRegressor";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -10207,7 +10880,7 @@ def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
 }
 
 def ONNXScalerOp:ONNX_Op<"Scaler",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Scaler operation";
   let description = [{
   Rescale input data, for example to standardize features by removing the mean and scaling to unit variance.
@@ -10217,6 +10890,9 @@ def ONNXScalerOp:ONNX_Op<"Scaler",
     OptionalAttr<F32ArrayAttr>:$scale);
   let results = (outs TensorOf<[F32]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Scaler";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -10238,7 +10914,7 @@ def ONNXScalerOp:ONNX_Op<"Scaler",
 }
 
 def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TreeEnsembleClassifier operation";
   let description = [{
   Tree Ensemble classifier.  Returns the top class for each of N inputs.<br>
@@ -10272,6 +10948,9 @@ def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
   let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>]>:$Y,
     TensorOf<[F32]>:$Z);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "TreeEnsembleClassifier";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -10293,7 +10972,7 @@ def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
 }
 
 def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TreeEnsembleRegressor operation";
   let description = [{
   Tree Ensemble regressor.  Returns the regressed values for each input in N.<br>
@@ -10327,6 +11006,9 @@ def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
     OptionalAttr<F32ArrayAttr>:$target_weights);
   let results = (outs TensorOf<[F32]>:$Y);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "TreeEnsembleRegressor";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -10348,7 +11030,7 @@ def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
 }
 
 def ONNXZipMapOp:ONNX_Op<"ZipMap",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX ZipMap operation";
   let description = [{
   Creates a map from the input and the attributes.<br>
@@ -10361,6 +11043,9 @@ def ONNXZipMapOp:ONNX_Op<"ZipMap",
     OptionalAttr<StrArrayAttr>:$classlabels_strings);
   let results = (outs AnyTypeOf<[SeqOf<[TupleOf<[StringType, F32]>]>, SeqOf<[TupleOf<[I64, F32]>]>]>:$Z);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "ZipMap";
+    static constexpr StringRef onnxDomain = "ai.onnx.ml";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return 1;
     }
@@ -10382,7 +11067,7 @@ def ONNXZipMapOp:ONNX_Op<"ZipMap",
 }
 
 def ONNXAdagradOp:ONNX_Op<"Adagrad",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Adagrad operation";
   let description = [{
   Compute one iteration of ADAGRAD, a stochastic gradient based optimization
@@ -10444,6 +11129,9 @@ def ONNXAdagradOp:ONNX_Op<"Adagrad",
     DefaultValuedAttr<F32Attr, "0.0">:$norm_coefficient);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>]>>:$outputs);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Adagrad";
+    static constexpr StringRef onnxDomain = "ai.onnx.preview.training";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -10465,7 +11153,7 @@ def ONNXAdagradOp:ONNX_Op<"Adagrad",
 }
 
 def ONNXAdamOp:ONNX_Op<"Adam",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Adam operation";
   let description = [{
   Compute one iteration of Adam, a stochastic gradient based optimization
@@ -10540,6 +11228,9 @@ def ONNXAdamOp:ONNX_Op<"Adam",
     DefaultValuedAttr<F32Attr, "0.0">:$norm_coefficient_post);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>]>>:$outputs);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Adam";
+    static constexpr StringRef onnxDomain = "ai.onnx.preview.training";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -10561,7 +11252,7 @@ def ONNXAdamOp:ONNX_Op<"Adam",
 }
 
 def ONNXGradientOp:ONNX_Op<"Gradient",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Gradient operation";
   let description = [{
   Gradient operator computes the partial derivatives of a specific tensor w.r.t.
@@ -10694,6 +11385,9 @@ def ONNXGradientOp:ONNX_Op<"Gradient",
     OptionalAttr<StrArrayAttr>:$zs);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>>:$Outputs);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Gradient";
+    static constexpr StringRef onnxDomain = "ai.onnx.preview.training";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return -1;
     }
@@ -10715,7 +11409,7 @@ def ONNXGradientOp:ONNX_Op<"Gradient",
 }
 
 def ONNXMomentumOp:ONNX_Op<"Momentum",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, ONNXOperationTrait, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Momentum operation";
   let description = [{
   Compute one iteration of stochastic gradient update with momentum.
@@ -10788,6 +11482,9 @@ def ONNXMomentumOp:ONNX_Op<"Momentum",
     F32Attr:$norm_coefficient);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>]>>:$outputs);
   let extraClassDeclaration = [{
+    static constexpr StringRef onnxName = "Momentum";
+    static constexpr StringRef onnxDomain = "ai.onnx.preview.training";
+    static constexpr int onnxSinceVersion = 1;
     static int getNumberOfOperands() {
       return -1;
     }

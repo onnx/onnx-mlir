@@ -14,17 +14,6 @@ add_custom_target(OMONNXOpsTableGenIncGen
         ${ONNX_MLIR_SRC_ROOT}/src/Dialect/ONNX/ONNXOps.td.inc
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ONNXOps.td.inc)
 
-# OpBuildTable.inc -> src/Builder/OpBuildTable.inc
-add_custom_target(OMONNXOpsBuildTableIncGen
-        COMMAND ${CMAKE_COMMAND} -E rename
-        ${CMAKE_CURRENT_SOURCE_DIR}/OpBuildTable.inc
-        ${ONNX_MLIR_SRC_ROOT}/src/Builder/OpBuildTable.inc
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/OpBuildTable.inc)
-
-add_custom_target(OMONNXOpsIncTranslation
-        DEPENDS OMONNXOpsTableGenIncGen
-        OMONNXOpsBuildTableIncGen)
-
 add_custom_target(OMONNXCheckVersion
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/gen_onnx_mlir.py --check-operation-version)
 

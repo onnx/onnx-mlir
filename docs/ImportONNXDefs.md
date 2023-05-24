@@ -104,7 +104,7 @@ the code in the dictionary `custom_definition_misc`. The key is the operation na
 In order to run gen_onnx_mlir.py, ONNX has to be installed. Refer to Readme.
 In your build directory, execute the following command.
  ```
- make OMONNXOpsIncTranslation
+ make OMONNXOpsTableGenIncGen
  ```
 This command will generate those two files (src/Dialect/ONNX/ONNXOps.td.inc and
 OpBuilderTable.inc), and copy them to the right place in src directory.
