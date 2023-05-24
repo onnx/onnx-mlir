@@ -400,7 +400,9 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // - axis is the last dimension.
   // This SoftmaxOp will be rewritten in which its input is reshaped to 3D.
   /**
-  * Disable this rule for now since we see NNAP Softmax produces NaNs for very small values that are out of range of DLFLoat16.
+  * Disable this rule for now since we see NNAP Softmax produces NaNs for very
+  small values that are out of range of DLFLoat16.
+
   target.addDynamicallyLegalOp<ONNXSoftmaxOp>([](ONNXSoftmaxOp op) {
     Value input = op.getInput();
     if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
