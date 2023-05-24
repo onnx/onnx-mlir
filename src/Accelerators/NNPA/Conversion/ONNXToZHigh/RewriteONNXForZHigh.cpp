@@ -284,15 +284,33 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
 
 /// This pattern is to split a large MatMul into smaller ones that fit into
 /// NNPA. Given (NxK) * (K*M), the pattern considers dimensions N and/or M to
-/// split, if N and/or M is greater than NNPA_MAXIMUM_DIMENSION_INDEX_SIZE.
-/// For example,
-///   (NxK) * (KxM) will be rewritten into
-///   (N1xK * KxM1 ++ N1xK * KxM2) ++ (N2xK * KxM1 ++ N2xK * KxM2)
-/// where N = N1 ++ N2, M = M1 ++ M2, and `++` is concatenation along an
-/// appropriate dimension.
+/// split, if N and/or M is greater than NNPA_MAXIMUM_DIMENSION_INDEX_SIZE
+/// (MDIS).
+/// For example, given A(NxK) * B(KxM), we will split A and B as follows.
+// clang-format off
 ///
-/// Tensors are splitted into chunks of the equal size of
-/// NNPA_MAXIMUM_DIMENSION_INDEX_SIZE, except the last chunk.
+///                   K                            MDIS        MDIS    M-2*MDIS
+///           <----------------------->        <----------><----------><----->
+///           +------------------------+       +-----------+-----------+-----+
+///         ^ |                        |     ^ |           |           |     |
+///    MDIS | |                        |     | |           |           |     |
+///         | |       A1               |     | |           |           |     |
+///         v |                        |   K | |  B1       |  B2       |  B3 |
+///           +------------------------+     | |           |           |     |
+///         ^ |       A2               |     | |           |           |     |
+///  N-MDIS | |                        |     v |           |           |     |
+///         v +------------------------+       +-----------+-----------+-----+
+///                                                         
+/// Then,
+/// - for A1, do (A1 * B1), (A1 * B2), (A1 * B3), and concat the results to get (A1*B)
+/// - for A2, do (A2 * B1), (A2 * B2), (A2 * B3), and concat the results to get (A2*B)
+/// - finally, concat (A1*B) and (A2*B) to get (A*B)
+///
+///
+// clang-format on
+//
+/// Tensors are splitted into chunks of the equal size of MDIS, except the last
+/// chunk.
 class SplitLargeMatMulPattern : public OpRewritePattern<ONNXMatMulOp> {
 public:
   using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
@@ -448,13 +466,14 @@ void RewriteONNXForZHighPass::runOnOperation() {
                  isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
   });
 
-  // Illegalize MatMulOp if
+  // Determine if MatMulOp is already legal (no need to rewrite) or need to
+  // rewrite. The following cases must be rewritten:
   // - both inputs are *the same* N-D (N > 3) and there is no broadcasting, or
   // - one input is N-D (N > 3) and the other is 2-D, or
   // - no input is N-D (N > 3) but dimension size exceeds NNPA limitation.
   //
-  // Rewrite patterns will be added to turn this MatMulOp into the one where N-D
-  // will become 3-D or to split MatMul into smaller MatMuls.
+  // For such cases, rewrite patterns will be added to turn MatMulOp into the
+  // one where N-D will become 3-D or to split MatMul into smaller MatMuls.
   target.addDynamicallyLegalOp<ONNXMatMulOp>([&dimAnalysis](ONNXMatMulOp op) {
     Type aType = op.getA().getType();
     Type bType = op.getB().getType();
@@ -471,9 +490,9 @@ void RewriteONNXForZHighPass::runOnOperation() {
       return false;
     if (bRank == 2 && aRank > 3)
       return false;
-    // No input is N-D (N > 3) but dimension N or M (NxK * KxM) exceeds NNPA
-    // limitation.
-    if ((aRank == 3 || aRank == 3) && (bRank == 2 || bRank == 3) &&
+    // No input is N-D (N > 3) but dimension N or M (NxK * KxM) is dynamic or
+    // exceeds NNPA limitation.
+    if ((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3) &&
         ((aShape[aRank - 2] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE) ||
             (bShape[bRank - 1] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE)))
       return false;
