@@ -435,6 +435,32 @@ def generate_random_input(input_signature, input_shapes):
     return inputs
 
 
+def verify_outs(actual_outs, ref_outs):
+    total_elements = 0
+    mismatched_elements = 0
+    for index, actual_val in np.ndenumerate(actual_outs):
+        total_elements += 1
+        ref_val = ref_outs[index]
+        if (np.issubdtype(actual_outs.dtype, np.dtype(bool).type)):
+            if ref_val == actual_val:
+                continue
+        else:
+            # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+            diff = float(args.atol) + float(args.rtol) * abs(ref_val)
+            if (abs(actual_val - ref_val) <= diff):
+                continue
+        mismatched_elements += 1
+        print("  at {}".format(index),
+              "mismatch {} (actual)".format(actual_val),
+              "vs {} (reference)".format(ref_val))
+    if mismatched_elements == 0:
+        print("  correct.\n")
+    else:
+        raise AssertionError(
+            "  mismatched elements {}/{}.\n".format(
+                mismatched_elements, total_elements))
+
+
 def warning(msg):
     print("Warning:", msg)
 
@@ -628,30 +654,13 @@ def main():
             if (args.verify_with_softmax is not None):
                 for i, name in enumerate(output_names):
                     print(
-                        "Verifying using softmax along with"
-                        " axis {}".format(args.verify_with_softmax),
-                        " for output {}:{}".format(name, list(outs[i].shape)))
-                    total_elements = 0
-                    mismatched_elements = 0
+                        "Verifying using softmax along with "
+                        "axis {}".format(args.verify_with_softmax),
+                        "for output {}:{}".format(name, list(outs[i].shape)),
+                        "using atol={}, rtol={} ...".format(args.atol, args.rtol))
                     softmax_outs = softmax(outs[i])
                     softmax_ref_outs = softmax(ref_outs[i])
-                    for index, actual_val in np.ndenumerate(softmax_outs):
-                        total_elements += 1
-                        ref_val = softmax_ref_outs[index]
-                        # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                        diff = float(args.atol) + float(args.rtol) * abs(ref_val)
-                        if (abs(actual_val - ref_val) <= diff):
-                            continue
-                        mismatched_elements += 1
-                        print("  at {}".format(index),
-                              "mismatch {} (actual)".format(actual_val),
-                              "vs {} (reference)".format(ref_val))
-                    if mismatched_elements == 0:
-                        print("  correct.\n")
-                    else:
-                        raise AssertionError(
-                            "  mismatched elements {}/{}.\n".format(
-                                mismatched_elements, total_elements))
+                    verify_outs(softmax_outs, softmax_ref_outs)
 
             # For each output tensor, compare every value.
             if (args.verify_every_value):
@@ -660,29 +669,7 @@ def main():
                         "Verifying value of {}:{}".format(name,
                                                           list(outs[i].shape)),
                         "using atol={}, rtol={} ...".format(args.atol, args.rtol))
-                    total_elements = 0
-                    mismatched_elements = 0
-                    for index, actual_val in np.ndenumerate(outs[i]):
-                        total_elements += 1
-                        ref_val = ref_outs[i][index]
-                        if (np.issubdtype(outs[i].dtype, np.dtype(bool).type)):
-                            if ref_val == actual_val:
-                                continue
-                        else:
-                            # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                            diff = float(args.atol) + float(args.rtol) * abs(ref_val)
-                            if (abs(actual_val - ref_val) <= diff):
-                                continue
-                        mismatched_elements += 1
-                        print("  at {}".format(index),
-                              "mismatch {} (actual)".format(actual_val),
-                              "vs {} (reference)".format(ref_val))
-                    if mismatched_elements == 0:
-                        print("  correct.\n")
-                    else:
-                        raise AssertionError(
-                            "  mismatched elements {}/{}.\n".format(
-                                mismatched_elements, total_elements))
+                    verify_outs(outs[i], ref_outs[i])
 
 
 if __name__ == '__main__':
