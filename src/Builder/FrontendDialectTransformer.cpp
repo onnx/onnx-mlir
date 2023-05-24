@@ -163,15 +163,14 @@ private:
   }
 
   Value ImportTensor(const onnx::TensorProto &tensor) {
+    mlir::ElementsAttr mlirAttr =
+        onnxTensorProtoToElmAttr(&context_, options_.externalDataDir, tensor);
     // Use the tensor name as Location.
-    Value initializer = EmitInitializerForInputTensor(
-        NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name())),
-        builder_, options_.externalDataDir, tensor);
-    if (!isNoneValue(initializer)) {
-      auto tensorType = cast<ShapedType>(initializer.getType());
-      int64_t size = ShapedType::getNumElements(tensorType.getShape());
-      num_of_parameters_ += size;
-    }
+    auto loc =
+        NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name()));
+    Value initializer =
+        builder_.create<ONNXConstantOp>(loc, Attribute(), mlirAttr);
+    num_of_parameters_ += mlirAttr.getShapedType().getNumElements();
     return initializer;
   }
 
@@ -287,7 +286,7 @@ private:
       break;
     case onnx::AttributeProto::TENSOR:
       mlirAttr = onnxTensorProtoToElmAttr(
-          builder_, options_.externalDataDir, attr.t());
+          &context_, options_.externalDataDir, attr.t());
       break;
     case onnx::AttributeProto::STRINGS: {
       llvm::SmallVector<StringRef, 4> vectorStringRef;
