@@ -74,7 +74,7 @@ RUN apt-get install -y libeigen3-dev
 RUN apt-get install -y clang-format
 RUN python -m pip install wheel
 RUN python -m pip install numpy
-RUN python -m pip install torch==1.13.0+cpu torchvision==0.14.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+RUN python -m pip install torch==2.0.0+cpu torchvision==0.15.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
 RUN git clone https://github.com/onnx/tutorials.git
 # Install clang
 RUN apt-get install -y lsb-release wget software-properties-common
