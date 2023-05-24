@@ -121,6 +121,11 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
     CallInterfaceCallable getCallableForCallee() {
       return (*this)->getAttrOfType<SymbolRefAttr>("callee");
     }
+
+    /// Set the callee for this operation.
+    void setCalleeFromCallable(CallInterfaceCallable callee) {
+      (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
+    }
   }];
 
   let extraClassDefinition = [{
@@ -146,11 +151,13 @@ def ONNXCustomOp:ONNX_Op<"Custom",
     The number of inputs and outputs can vary.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
+    NoneType is allowed for input and output since the CustomOp may want
+    the fixed number of input/output for external function call.
   }];
 
-  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$input,
+  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$input,
                        StrAttr:$function_name);
-  let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$outputs);
+  let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$outputs);
 
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
