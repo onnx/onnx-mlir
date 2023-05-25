@@ -388,7 +388,7 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
   if (detectNeg)
     // If negative infinity return true else false
     return create.math.eq(operand, negInf);
-  llvm_unreachable("unsupported case for this op");
+  llvm_unreachable("unsupported case for this particular op.");
 }
 
 //===----------------------------------------------------------------------===//
@@ -1313,14 +1313,14 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 // the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
-    MemRefType memRefType, int64_t collapsedInnermostLoops,
+    MemRefType memRefType, Operation *op, int64_t collapsedInnermostLoops,
     int64_t collapsedLiteralSize) {
   int64_t simdUnroll = 0;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
   int64_t vectorizedOpNum, scalarOpNum;
-  double avgSimdWidth =
-      analyzeSimdFor<ElementwiseOp>(elementType, vectorizedOpNum, scalarOpNum);
+  double avgSimdWidth = analyzeSimdFor<ElementwiseOp>(
+      elementType, op, vectorizedOpNum, scalarOpNum);
   if (avgSimdWidth < 1.5) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: avg simd width  "
                             << avgSimdWidth << " too small\n");
