@@ -470,7 +470,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
   // Check whether scf.While has to be used to Loop instead of krnl loop
   // krnl loop can be used only when the condition for LoopOp iteration
   // is a loop invariant. In LoopOp structure, the condition at the end
-  // of loop body (the first operand in returnOp) is the condition passed to
+  // of loop body (the first operand in yieldOp) is the condition passed to
   // loop body at the beginning (the second argument of loop body)
 
   // If there is a seq in the loop carried variable list, scf.while is
@@ -494,16 +494,16 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     if (!loopBody.hasOneBlock())
       return true;
 
-    // Get ReturnOp of the body block.
+    // Get YieldOp of the body block.
     Block &bodyBlock = loopBody.front();
-    Operation *returnOp = bodyBlock.getTerminator();
-    if (!isa<ONNXReturnOp>(returnOp))
+    Operation *yieldOp = bodyBlock.getTerminator();
+    if (!isa<ONNXYieldOp>(yieldOp))
       return true;
 
-    // The break condition is the first argument of ReturnOp.
-    // `ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)`
+    // The break condition is the first argument of YieldOp.
+    // `ONNXYieldOp (cond, ..., ubValue, ..., newCounterValue, ...)`
     // which means the condition is loop invariant.
-    Value breakCond = returnOp->getOperands()[0];
+    Value breakCond = yieldOp->getOperands()[0];
     if (breakCond.isa<BlockArgument>() &&
         breakCond.cast<BlockArgument>().getArgNumber() == 1) {
     } else
@@ -748,7 +748,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
         emitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
             std::get<1>(vIntermediateToFinal));
 
-      // Erase the returnOp of loopBody
+      // Erase the yieldOp of loopBody
       rewriter.eraseOp(loopBodyTerminator);
       // Move the Ops in loopBody into the afterBlock of while
       firstBlock.getOperations().splice(
