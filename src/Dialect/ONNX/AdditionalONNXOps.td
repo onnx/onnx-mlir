@@ -12,7 +12,7 @@
 // Ops are listed in alphabetical order, in 2 sections.
 //
 // * First are ops that are used to assist the processing of ONNX dialect.
-//   Example are CallOp, ReturnOp,...
+//   Example are CallOp, YieldOp,...
 //
 // * Second are ops that are used to handle optional arguments/special cases
 //   of original ONNX ops. These ops may possibly be removed in the future.
@@ -347,12 +347,11 @@ def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
 }
 
 //===----------------------------------------------------------------------===//
-// ONNX ReturnOp
-def ONNXReturnOp : ONNX_Op<"Return", [Pure,
-                                ReturnLike, Terminator]> {
-  let summary = "ONNX return operation";
+// ONNX YieldOp
+def ONNXYieldOp : ONNX_Op<"Yield", [Pure, ReturnLike, Terminator]> {
+  let summary = "ONNX yield operation";
   let description = [{
-    The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
+    The `onnx.Yield` operation represents a yield operation within an ONNX subgraph.
     The operation takes variable number of operands and produces no results.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
