@@ -338,7 +338,7 @@ private:
    * @param op operations whose attributes will be updated to contain
    * input/output names.
    * @param useStdReturn if set to true, will emit standard return op as
-   * terminator, otherwise, will use OnnxReturn op as terminator.
+   * terminator, otherwise, will use ONNXYield op as terminator.
    * @return function type corresponding to the subgraph input/output signature.
    */
   FunctionType importGraph(const onnx::GraphProto &graph, Region &region,
@@ -423,7 +423,7 @@ private:
       builder_.create<func::ReturnOp>(UnknownLoc(), retVals);
     else
       // Create a return operation to return all ONNX output tensors.
-      builder_.create<ONNXReturnOp>(UnknownLoc(), retVals);
+      builder_.create<ONNXYieldOp>(UnknownLoc(), retVals);
 
     op->setAttr("input_names", builder_.getStrArrayAttr(inputNames));
     op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));

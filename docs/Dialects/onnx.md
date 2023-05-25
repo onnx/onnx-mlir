@@ -7572,34 +7572,6 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
-### `onnx.Return` (::mlir::ONNXReturnOp)
-
-ONNX return operation
-
-
-Syntax:
-
-```
-operation ::= `onnx.Return` attr-dict ($operands^ `:` type($operands))?
-```
-
-The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
-The operation takes variable number of operands and produces no results.
-
-This operation is not part of the standard and was added to assist onnx-mlir.
-
-Traits: AlwaysSpeculatableImplTrait, ReturnLike, Terminator
-
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
-
-Effects: MemoryEffects::Effect{}
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `operands` | any type
-
 ### `onnx.ReverseSequence` (::mlir::ONNXReverseSequenceOp)
 
 ONNX ReverseSequence operation
@@ -10176,6 +10148,34 @@ Effects: MemoryEffects::Effect{}
 | Result | Description |
 | :----: | ----------- |
 | `C` | tensor of 1-bit signless integer values
+
+### `onnx.Yield` (::mlir::ONNXYieldOp)
+
+ONNX yield operation
+
+
+Syntax:
+
+```
+operation ::= `onnx.Yield` attr-dict ($operands^ `:` type($operands))?
+```
+
+The `onnx.Yield` operation represents a yield operation within an ONNX subgraph.
+The operation takes variable number of operands and produces no results.
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+Traits: AlwaysSpeculatableImplTrait, ReturnLike, Terminator
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
+
+Effects: MemoryEffects::Effect{}
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `operands` | any type
 
 ### `onnx.ZipMap` (::mlir::ONNXZipMapOp)
 
