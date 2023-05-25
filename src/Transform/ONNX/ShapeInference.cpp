@@ -49,20 +49,20 @@ struct InferShapesPattern
   }
 };
 
-// Shape inference pattern for ONNXReturnOp which terminates
+// Shape inference pattern for ONNXYieldOp which terminates
 // if/loop/scan subgraphs.
-struct ReturnShapesPattern : public OpRewritePattern<ONNXReturnOp> {
-  using OpRewritePattern<ONNXReturnOp>::OpRewritePattern;
+struct YieldShapesPattern : public OpRewritePattern<ONNXYieldOp> {
+  using OpRewritePattern<ONNXYieldOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      ONNXReturnOp returnOp, PatternRewriter &rewriter) const override {
-    Operation *parent = returnOp->getParentOp();
-    assert(parent && "every onnx.Return op has a parent");
+      ONNXYieldOp yieldOp, PatternRewriter &rewriter) const override {
+    Operation *parent = yieldOp->getParentOp();
+    assert(parent && "every onnx.Yield op has a parent");
     if (auto shapeInfOp = dyn_cast<ShapeInferenceOpInterface>(parent)) {
       if (failed(shapeInfOp.inferShapes([](Region &region) {})))
         return shapeInfOp.emitOpError("shape inference failed");
     } else {
-      llvm_unreachable("onnx.Return always has if/loop/scan parent");
+      llvm_unreachable("onnx.Yield always has if/loop/scan parent");
     }
     return success();
   }
@@ -76,7 +76,7 @@ void getShapeInferencePatterns(RewritePatternSet &set) {
   // work best after shapes are inferred.
   PatternBenefit highPriority(10000);
   set.insert<InferShapesPattern>(set.getContext(), highPriority);
-  set.insert<ReturnShapesPattern>(set.getContext(), highPriority);
+  set.insert<YieldShapesPattern>(set.getContext(), highPriority);
 }
 
 // TODO: Consider whether to do this in a Func::ReturnOp pattern.
