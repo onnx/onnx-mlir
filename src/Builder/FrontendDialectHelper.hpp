@@ -14,18 +14,15 @@
 
 #pragma once
 
-#include "mlir/IR/Builders.h"
-#include "mlir/IR/Location.h"
+#include "mlir/IR/BuiltinAttributeInterfaces.h"
 
 #include "onnx/onnx_pb.h"
 
+#include <string>
+
 namespace onnx_mlir {
 
-mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
-    mlir::OpBuilder &builder, const std::string &externalDataDir,
-    const onnx::TensorProto &initializer);
-
-mlir::ElementsAttr onnxTensorProtoToElmAttr(mlir::OpBuilder &builder,
+mlir::ElementsAttr onnxTensorProtoToElmAttr(mlir::MLIRContext *ctx,
     const std::string &externalDataDir, const onnx::TensorProto &initializer);
 
 } // namespace onnx_mlir
