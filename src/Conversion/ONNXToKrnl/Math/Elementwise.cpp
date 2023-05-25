@@ -100,7 +100,7 @@ struct ScalarOp<ONNXAddOp> {
 };
 template <>
 double analyzeSimdFor<ONNXAddOp>(
-    Type t, Operation op, int64_t &von, int64_t &son) {
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
 }
 
@@ -111,7 +111,7 @@ struct ScalarOp<ONNXAbsOp> {
 };
 template <>
 double analyzeSimdFor<ONNXAbsOp>(
-    Type t, Operation op, int64_t &von, int64_t &son) {
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::AbsGop}, {1}, t, von, son);
 }
 
@@ -122,7 +122,7 @@ struct ScalarOp<ONNXMulOp> {
 };
 template <>
 double analyzeSimdFor<ONNXMulOp>(
-    Type t, Operation op, int64_t &von, int64_t &son) {
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::MulGop}, {1}, t, von, son);
 }
 
@@ -133,7 +133,7 @@ struct ScalarOp<ONNXDivOp> {
 };
 template <>
 double analyzeSimdFor<ONNXDivOp>(
-    Type t, Operation op, int64_t &von, int64_t &son) {
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::DivGop}, {1}, t, von, son);
 }
 
@@ -1320,7 +1320,7 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
   Type elementType = memRefType.getElementType();
   int64_t vectorizedOpNum, scalarOpNum;
   double avgSimdWidth = analyzeSimdFor<ElementwiseOp>(
-      elementType, *op, vectorizedOpNum, scalarOpNum);
+      elementType, vectorizedOpNum, scalarOpNum);
   if (avgSimdWidth < 1.5) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: avg simd width  "
                             << avgSimdWidth << " too small\n");
