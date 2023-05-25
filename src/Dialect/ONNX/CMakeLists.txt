@@ -32,7 +32,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Additional/Custom.cpp
   ONNXOps/Additional/Dim.cpp
   ONNXOps/Additional/EntryPoint.cpp
-  ONNXOps/Additional/FuncReturn.cpp
+  ONNXOps/Additional/Return.cpp
   ONNXOps/Additional/LayoutTransform.cpp
   ONNXOps/Additional/None.cpp
   ONNXOps/Additional/ShapeTransform.cpp

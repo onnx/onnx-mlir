@@ -139,12 +139,12 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
 }
 
 //===----------------------------------------------------------------------===//
-// ONNX FuncReturnOp
-def ONNXFuncReturnOp : ONNX_Op<"FuncReturn",
+// ONNX ReturnOp
+def ONNXReturnOp : ONNX_Op<"Return",
     [Pure, HasParent<"func::FuncOp">, ReturnLike, Terminator]> {
   let summary = "Function return operation";
   let description = [{
-    The `onnx.FuncReturn` operation represents a return operation within a function.
+    The `onnx.Return` operation represents a return operation within a function.
     The operation takes variable number of operands and produces no results.
     The operand number and types must match the signature of the function
     that contains the operation, with the exception that shaped types may have

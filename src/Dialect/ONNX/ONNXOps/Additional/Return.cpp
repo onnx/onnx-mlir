@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------- FuncReturn.cpp - ONNX Operations -------------------===//
+//===----------------- Return.cpp - ONNX Operations -------------------===//
 //
-// This file provides definition of ONNX dialect FuncReturn operation.
+// This file provides definition of ONNX dialect Return operation.
 //
 //===----------------------------------------------------------------------===//
 
@@ -66,7 +66,7 @@ bool typeIsSameOrMoreSpecific(Type lhs, Type rhs) {
 
 // Implementation is adapted from mlir/lib/Dialect/Func/IR/FuncOps.cpp
 // relaxing the type check to allow more specific shapes.
-LogicalResult ONNXFuncReturnOp::verify() {
+LogicalResult ONNXReturnOp::verify() {
   auto function = cast<func::FuncOp>((*this)->getParentOp());
 
   // The operand number and types must match the function signature.

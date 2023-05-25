@@ -337,12 +337,12 @@ private:
    * @param region region to import computation graph to.
    * @param op operations whose attributes will be updated to contain
    * input/output names.
-   * @param useFuncReturn if set to true, will emit ONNXFuncReturnOp as
+   * @param useReturn if set to true, will emit ONNXReturnOp as
    * terminator, otherwise, will use ONNXYieldOp as terminator.
    * @return function type corresponding to the subgraph input/output signature.
    */
   FunctionType importGraph(const onnx::GraphProto &graph, Region &region,
-      Operation *op, bool useFuncReturn) {
+      Operation *op, bool useReturn) {
     frontend_symbols_.pushScope(graph.name());
     onnx_type_map.pushScope(graph.name());
     Block *entryBlock = &region.back();
@@ -419,8 +419,8 @@ private:
       ImportOutputTensor(output, retTys, retVals);
     }
 
-    if (useFuncReturn)
-      builder_.create<ONNXFuncReturnOp>(UnknownLoc(), retVals);
+    if (useReturn)
+      builder_.create<ONNXReturnOp>(UnknownLoc(), retVals);
     else
       // Create a return operation to return all ONNX output tensors.
       builder_.create<ONNXYieldOp>(UnknownLoc(), retVals);
@@ -1152,7 +1152,7 @@ private:
     for (auto &v : pFunctionProto->output()) {
       ret_vals.push_back(LookupOnnxName(v));
     }
-    builder_.create<ONNXFuncReturnOp>(UnknownLoc(), ret_vals);
+    builder_.create<ONNXReturnOp>(UnknownLoc(), ret_vals);
 
     // Restore caller context
     frontend_symbols_.popScope(func_name_prefix);
@@ -1256,7 +1256,7 @@ private:
     builder_.setInsertionPointToStart(&mainFunc.getBody().back());
 
     auto funcType = importGraph(graph, /*region=*/mainFunc.getBody(),
-        /*op=*/mainFunc.getOperation(), /*useFuncReturn=*/true);
+        /*op=*/mainFunc.getOperation(), /*useReturn=*/true);
     mainFunc.setType(funcType);
 
     // Emit entry point op describing inference function signature.

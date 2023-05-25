@@ -4,7 +4,7 @@
 
 //===------------------- StandardFuncReturnPass.cpp -----------------------===//
 //
-// Replaces each ONNXFuncReturnOp with a func::ReturnOp.
+// Replaces each ONNXReturnOp with a func::ReturnOp.
 // Assumes that shape inference has matched the operand types with the
 // parent function signature return types.
 //
@@ -25,21 +25,18 @@ namespace onnx_mlir {
 
 namespace {
 
-struct StandardFuncReturnPattern
-    : public OpConversionPattern<ONNXFuncReturnOp> {
-  StandardFuncReturnPattern(MLIRContext *context)
-      : OpConversionPattern(context) {}
-  LogicalResult matchAndRewrite(ONNXFuncReturnOp funcReturnOp,
-      ONNXFuncReturnOp::Adaptor adaptor,
+struct StandardReturnPattern : public OpConversionPattern<ONNXReturnOp> {
+  StandardReturnPattern(MLIRContext *context) : OpConversionPattern(context) {}
+  LogicalResult matchAndRewrite(ONNXReturnOp ReturnOp,
+      ONNXReturnOp::Adaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Propagate return types to the function signature in case
     // they changed since last ShapeInferencePass.
-    func::FuncOp function = funcReturnOp.getParentOp();
+    func::FuncOp function = ReturnOp.getParentOp();
     inferFunctionReturnShapes(function);
 
-    rewriter.create<func::ReturnOp>(
-        funcReturnOp->getLoc(), funcReturnOp.getOperands());
-    rewriter.eraseOp(funcReturnOp);
+    rewriter.create<func::ReturnOp>(ReturnOp->getLoc(), ReturnOp.getOperands());
+    rewriter.eraseOp(ReturnOp);
     return success();
   }
 };
@@ -57,10 +54,10 @@ struct StandardFuncReturnPass
     ConversionTarget target(*context);
     target
         .addLegalDialect<ONNXDialect, arith::ArithDialect, func::FuncDialect>();
-    target.addIllegalOp<ONNXFuncReturnOp>();
+    target.addIllegalOp<ONNXReturnOp>();
 
     RewritePatternSet patterns(context);
-    patterns.insert<StandardFuncReturnPattern>(context);
+    patterns.insert<StandardReturnPattern>(context);
 
     if (failed(applyPartialConversion(function, target, std::move(patterns))))
       signalPassFailure();

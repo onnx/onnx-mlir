@@ -123,8 +123,8 @@ public:
   static bool isUsedByReturnOp(Operation &op) {
     return llvm::any_of(op.getUsers(), [](Operation *user) {
       // TODO: Only test for ONNXReturnOp once lit tests are converted
-      //       to use onnx.FuncReturn.
-      return isa<func::ReturnOp, ONNXFuncReturnOp>(user);
+      //       to use onnx.Return.
+      return isa<func::ReturnOp, ONNXReturnOp>(user);
     });
   }
 
