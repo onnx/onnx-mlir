@@ -1313,12 +1313,11 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 // the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
-    MemRefType memRefType, int64_t collapsedInnermostLoops,
+    Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops,
     int64_t collapsedLiteralSize) {
   int64_t simdUnroll = 0;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
-  Operation *op = getOperation();
   int64_t vectorizedOpNum, scalarOpNum;
   double avgSimdWidth = analyzeSimdFor<ElementwiseOp>(
       elementType, op, vectorizedOpNum, scalarOpNum);
@@ -1949,7 +1948,7 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, create, outputMemRefType, outputRank,
+              shapeHelper, create, op, outputMemRefType, outputRank,
               /*collapsedInnermostLoops, ignored*/ 1);
       if (simdUnroll > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
@@ -2098,8 +2097,8 @@ struct ONNXElementwiseBinaryOpLowering
         !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
-              shapeHelper, create, outputMemRefType, collapsedInnermostLoops,
-              collapsedLiteralSize);
+              shapeHelper, create, op, outputMemRefType,
+              collapsedInnermostLoops, collapsedLiteralSize);
       if (simdUnroll > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
@@ -2239,8 +2238,8 @@ struct ONNXElementwiseVariadicOpLowering
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
-              shapeHelper, create, outputMemRefType, collapsedInnermostLoops,
-              collapsedLiteralSize);
+              shapeHelper, create, op, outputMemRefType,
+              collapsedInnermostLoops, collapsedLiteralSize);
       if (simdUnroll > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
