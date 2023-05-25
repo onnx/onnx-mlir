@@ -1319,8 +1319,8 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
   int64_t vectorizedOpNum, scalarOpNum;
-  double avgSimdWidth = analyzeSimdFor<ElementwiseOp>(
-      elementType, vectorizedOpNum, scalarOpNum);
+  double avgSimdWidth =
+      analyzeSimdFor<ElementwiseOp>(elementType, vectorizedOpNum, scalarOpNum);
   if (avgSimdWidth < 1.5) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: avg simd width  "
                             << avgSimdWidth << " too small\n");
