@@ -1313,11 +1313,12 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 // the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
-    MemRefType memRefType, Operation *op, int64_t collapsedInnermostLoops,
+    MemRefType memRefType, int64_t collapsedInnermostLoops,
     int64_t collapsedLiteralSize) {
   int64_t simdUnroll = 0;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
+  Operation *op = getOperation();
   int64_t vectorizedOpNum, scalarOpNum;
   double avgSimdWidth = analyzeSimdFor<ElementwiseOp>(
       elementType, op, vectorizedOpNum, scalarOpNum);
