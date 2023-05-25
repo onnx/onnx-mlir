@@ -148,7 +148,11 @@ def ONNXReturnOp : ONNX_Op<"Return",
     The operation takes variable number of operands and produces no results.
     The operand number and types must match the signature of the function
     that contains the operation, with the exception that shaped types may have
-    more specific shapes than the function signature return types.
+    more specific shapes than the function signature result types, which allows
+    rewrites of defining ops of operands to make their result shapes more specific.
+    This operation terminates a func::FuncOp in the ONNX dialect and is replaced
+    by func::ReturnOp in StandardFuncReturnPass before lowering to Krnl or other
+    dialects.
   }];
 
   let arguments = (ins Variadic<AnyType>:$operands);
@@ -374,6 +378,7 @@ def ONNXYieldOp : ONNX_Op<"Yield", [Pure, ReturnLike, Terminator]> {
     The operation takes variable number of operands and produces no results.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
+    It terminates a ONNXLoop/Scan/IfOp region.
   }];
 
   let arguments = (ins Variadic<AnyType>:$operands);
