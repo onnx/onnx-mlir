@@ -56,11 +56,12 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
 
 // Helper for function that support SIMD.
 static double simdAnalysis(ArrayRef<GenericOps> Gops, ArrayRef<int64_t> GopsNum,
-    Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
+    Type elementType, Operation *op, int64_t &vectorizedOpNum,
+    int64_t &scalarOpNum) {
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
   return vms->getAvgVectorLength(
-      Gops, GopsNum, elementType, vectorizedOpNum, scalarOpNum);
+      Gops, GopsNum, elementType, op, vectorizedOpNum, scalarOpNum);
 }
 
 // Default template for ops that do not support SIMD. For the ones that support
