@@ -106,8 +106,8 @@ public:
         llvm::SmallVector<int64_t, 4>(inputRank, ShapedType::kDynamic),
         outputType.getElementType());
 
-    Value op2ReducesumOp1 = computeReduceSum<SoftmaxOp>(
-        rewriter, op, rsumType, op1ExpIn, axis);
+    Value op2ReducesumOp1 =
+        computeReduceSum<SoftmaxOp>(rewriter, op, rsumType, op1ExpIn, axis);
 
     Value op3ReciprocalOp2 = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(
         rewriter, loc, op2ReducesumOp1.getType(), op2ReducesumOp1);
