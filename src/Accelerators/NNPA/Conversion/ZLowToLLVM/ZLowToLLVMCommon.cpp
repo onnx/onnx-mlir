@@ -20,6 +20,7 @@
 
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVMCommon.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "zdnn.h"
 
@@ -88,6 +89,70 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
   }
 
   return registry;
+}
+
+#define CASE_FOR_APIIDSTR(apiId)                                               \
+  case API::apiId:                                                             \
+    return #apiId
+std::string apiIdStr(API apiId) {
+  switch (apiId) {
+    CASE_FOR_APIIDSTR(NULL_API);
+    CASE_FOR_APIIDSTR(ZDNN_INIT_PRE_TRANSFORMED_DESC);
+    CASE_FOR_APIIDSTR(ZDNN_GENERATE_TRANSFORMED_DESC);
+    CASE_FOR_APIIDSTR(ZDNN_GENERATE_TRANSFORMED_DESC_CONCATENATED);
+    CASE_FOR_APIIDSTR(ZDNN_GETSIZE_ZTENSOR);
+    CASE_FOR_APIIDSTR(ZDNN_TRANSFORM_ZTENSOR);
+    CASE_FOR_APIIDSTR(ZDNN_TRANSFORM_ORIGTENSOR);
+    CASE_FOR_APIIDSTR(ZDNN_ADD);
+    CASE_FOR_APIIDSTR(ZDNN_SUB);
+    CASE_FOR_APIIDSTR(ZDNN_MUL);
+    CASE_FOR_APIIDSTR(ZDNN_DIV);
+    CASE_FOR_APIIDSTR(ZDNN_MIN);
+    CASE_FOR_APIIDSTR(ZDNN_MAX);
+    CASE_FOR_APIIDSTR(ZDNN_LOG);
+    CASE_FOR_APIIDSTR(ZDNN_EXP);
+    CASE_FOR_APIIDSTR(ZDNN_RELU);
+    CASE_FOR_APIIDSTR(ZDNN_TANH);
+    CASE_FOR_APIIDSTR(ZDNN_SIGMOID);
+    CASE_FOR_APIIDSTR(ZDNN_SOFTMAX);
+    CASE_FOR_APIIDSTR(ZDNN_LSTM);
+    CASE_FOR_APIIDSTR(ZDNN_GRU);
+    CASE_FOR_APIIDSTR(ZDNN_MATMUL_OP);
+    CASE_FOR_APIIDSTR(ZDNN_MATMUL_BCAST_OP);
+    CASE_FOR_APIIDSTR(ZDNN_CONV2D);
+    CASE_FOR_APIIDSTR(ZDNN_AVGPOOL2D);
+    CASE_FOR_APIIDSTR(ZDNN_MAXPOOL2D);
+    CASE_FOR_APIIDSTR(ZDNN_MEANREDUCE2D);
+    CASE_FOR_APIIDSTR(ZDNN_BATCHNORM);
+  default:
+    break;
+  }
+  return "INVALID_APIID";
+}
+
+// Copyied from "src/Conversion/KrnlToLLVM/KrnlEntryPoint.cpp" for debugging.
+// Emit code for `IF lhs != rhs THEN return null ELSE do nothing`
+void equalOrFailed(ModuleOp &module, PatternRewriter &rewriter, Location loc,
+    Value lhs, Value rhs, std::string errorMsg = "", bool appendRHS = true) {
+  MLIRContext *context = rewriter.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+  create.llvm.ifThenElse(/*cond=*/
+      [&](LLVMBuilder &createLLVM) {
+        return createLLVM.icmp(LLVM::ICmpPredicate::ne, lhs, rhs);
+      }, /*then=*/
+      [&](LLVMBuilder &createLLVM) {
+        MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(createLLVM);
+        // Print an error message.
+        if (appendRHS)
+          create.krnl.printf(StringRef(errorMsg), rhs, rhs.getType(), true);
+        else
+          create.krnl.printf(StringRef(errorMsg + "\n"));
+        // Set errno.
+        krnl::emitErrNo(module, rewriter, loc, EINVAL);
+        // Return NULL.
+        create.llvm._return(
+            create.llvm.null(onnx_mlir::krnl::getI8PointerType(context)));
+      });
 }
 
 ZTensorHelper::ZTensorHelper(PatternRewriter &rewriter, Location loc,
@@ -283,6 +348,24 @@ Value callApi(PatternRewriter &rewriter, Location loc, ModuleOp module,
     outputTys.emplace_back(outputTy);
   return create.llvm.call(
       ArrayRef<Type>(outputTys), symbolRef, ArrayRef<Value>(params));
+}
+
+// Call a registered API, and check if the return code is zero.
+Value callApiAndCheckReturnCode(PatternRewriter &rewriter, Location loc,
+    ModuleOp module, ApiRegistry registry, API apiId, ArrayRef<Value> params,
+    Value ref) {
+  MultiDialectBuilder<LLVMBuilder, MathBuilder> create(rewriter, loc);
+  Value ret = callApi(rewriter, loc, module, registry, apiId, params);
+  if (ref == nullptr) { // if ref is not given, set zero
+    MLIRContext *context = module.getContext();
+    auto int32Ty = IntegerType::get(context, 32);
+    ref = create.math.constant(int32Ty, 0);
+  }
+  std::string error_message =
+      "Error in zDNN call(" + apiIdStr(apiId) + "): returned %ld";
+  // compare the return value with ref
+  equalOrFailed(module, rewriter, loc, ref, ret, error_message);
+  return ret;
 }
 
 size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {

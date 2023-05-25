@@ -939,7 +939,8 @@ public:
         zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWorkArea());
 
     // Call zDNN softmax.
-    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_SOFTMAX,
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+        API::ZDNN_SOFTMAX,
         {
             toOpaquePtr(rewriter, loc, module, inputZTensor.val),
             workArea,
