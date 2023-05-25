@@ -1728,9 +1728,9 @@ func.func private @test_pown(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>)
 // COM: Check simple if lowering.
 func.func @test_if_simple(%arg0: tensor<i1>, %arg1: tensor<i64>, %arg2: tensor<i64>) -> tensor<i64> {
   %0 = "onnx.If"(%arg0) ({
-    onnx.Return %arg1 : tensor<i64>
+    onnx.Yield %arg1 : tensor<i64>
   }, {
-    onnx.Return %arg2 : tensor<i64>
+    onnx.Yield %arg2 : tensor<i64>
   }) : (tensor<i1>) -> tensor<i64>
   return %0 : tensor<i64>
 // CHECK-LABEL:  @test_if_simple
@@ -1753,7 +1753,7 @@ func.func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor
   %0 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
     ^bb0(%body_arg0: tensor<i64>, %body_arg1: tensor<i1>, %body_arg2: tensor<1xi64>):
     %1 = "onnx.Add"(%body_arg2, %body_arg0) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
-    onnx.Return %body_arg1, %1 : tensor<i1>, tensor<1xi64>
+    onnx.Yield %body_arg1, %1 : tensor<i1>, tensor<1xi64>
   }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> tensor<1xi64>
   return %0 : tensor<1xi64>
 
@@ -1829,7 +1829,7 @@ func.func @test_loop(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<?xf32>
   %0 = "onnx.Loop"(%arg0, %arg1) ({
   ^bb0(%arg3: tensor<i64>, %arg4: tensor<i1>):
     %7 = "onnx.Add"(%arg2, %arg2) : (tensor<?xf32>, tensor<?xf32>) -> (tensor<?xf32>)
-    onnx.Return %arg4,  %7 : tensor<i1>, tensor<?xf32>
+    onnx.Yield %arg4,  %7 : tensor<i1>, tensor<?xf32>
   }) : (tensor<i64>, tensor<i1>) -> tensor<?x?xf32>
   return  %0 : tensor<?x?xf32>
 

@@ -164,15 +164,15 @@ func.func @test_if_sign(%arg0: tensor<f32>) -> tensor<i32> {
   %0 = onnx.Constant {value = dense<0.0> : tensor<f32>} : tensor<f32>
   %1 = "onnx.Less"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
   %2 = "onnx.If"(%1) ({
-    onnx.Return %minus : tensor<i32>
+    onnx.Yield %minus : tensor<i32>
   }, {
     %3 = "onnx.Greater"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
     %4 = "onnx.If"(%3) ({
-      onnx.Return %plus : tensor<i32>
+      onnx.Yield %plus : tensor<i32>
     }, {
-      onnx.Return %zero : tensor<i32>
+      onnx.Yield %zero : tensor<i32>
     }) : (tensor<i1>) -> tensor<i32>
-    onnx.Return %4 : tensor<i32>
+    onnx.Yield %4 : tensor<i32>
   }) : (tensor<i1>) -> tensor<i32>
   return %2 : tensor<i32>
 // mlir2FileCheck.py
@@ -3839,7 +3839,7 @@ func.func @test_loop_tiny_yolo() -> tensor<?xi32> {
     ^bb0(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<i32>):  // no predecessors
       %4 = onnx.Constant dense<1> : tensor<i32>
       %5 = "onnx.Add"(%arg2, %4) : (tensor<i32>, tensor<i32>) -> tensor<i32>
-      onnx.Return %arg1, %5, %arg2 : tensor<i1>, tensor<i32>, tensor<i32>
+      onnx.Yield %arg1, %5, %arg2 : tensor<i1>, tensor<i32>, tensor<i32>
     }) {input_names = ["i", "cond", "prev"], output_names = ["cond_out", "current", "range"]} : (tensor<i64>, tensor<i1>, tensor<i32>) -> (tensor<i32>, tensor<?xi32>)
     return %3#1 : tensor<?xi32>
 
