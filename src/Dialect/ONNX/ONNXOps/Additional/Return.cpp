@@ -85,6 +85,4 @@ LogicalResult ONNXReturnOp::verify() {
                          << " in function @" << function.getName();
 
   return success();
-
-  return success();
 }
