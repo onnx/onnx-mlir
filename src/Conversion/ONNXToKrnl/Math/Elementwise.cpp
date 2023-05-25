@@ -56,8 +56,7 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
 
 // Helper for function that support SIMD.
 static double simdAnalysis(ArrayRef<GenericOps> Gops, ArrayRef<int64_t> GopsNum,
-    Type elementType, int64_t &vectorizedOpNum,
-    int64_t &scalarOpNum) {
+    Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
   return vms->getAvgVectorLength(
@@ -113,7 +112,7 @@ struct ScalarOp<ONNXAbsOp> {
 template <>
 double analyzeSimdFor<ONNXAbsOp>(
     Type t, Operation op, int64_t &von, int64_t &son) {
-  return simdAnalysis({GenericOps::AbsGop}, {1}, t,von, son);
+  return simdAnalysis({GenericOps::AbsGop}, {1}, t, von, son);
 }
 
 template <>
