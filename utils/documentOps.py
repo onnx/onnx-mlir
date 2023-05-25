@@ -145,7 +145,7 @@ def print_row(array):
 def print_md():
     # Header.
     print("<!--- Automatically generated, do not edit. -->")
-    print("<!---", input_command, "-->")
+    print("<!--- To update, run `make onnx_mlir_supported_ops` -->")
     # Title
     print("\n# Supported ONNX Operation for Target *" + target_arch + "*.\n")
     # Top paragraph.
