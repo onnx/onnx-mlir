@@ -19,6 +19,8 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 namespace {
+// True if rhs has the same shape as lhs or less specific shape than lhs:
+// either no rank or dimensions with dynamic size where lhs has static size.
 bool shapeIsSameOrMoreSpecific(ShapedType lhs, ShapedType rhs) {
   // Unranked is the least specific:
   if (!rhs.hasRank())
@@ -32,26 +34,29 @@ bool shapeIsSameOrMoreSpecific(ShapedType lhs, ShapedType rhs) {
 
   for (auto [lhsDimSize, rhsDimSize] :
       llvm::zip(lhs.getShape(), rhs.getShape())) {
-    // Dim size is less specific or incompatible unless they are
-    // identical or rhs is dynamic ("?").
-    if (!ShapedType::isDynamic(rhsDimSize) && lhsDimSize != rhsDimSize)
+    // rhs dim size is more specific or incompatible unless it's dynamic ("?")
+    // or identical to lhs dim size
+    if (!(ShapedType::isDynamic(rhsDimSize) || lhsDimSize == rhsDimSize))
       return false;
   }
   return true;
 }
 
+// True if the types are the same up to shape specificity.
 bool typeIsSameOrMoreSpecific(Type lhs, Type rhs) {
   ShapedType lhsShaped = dyn_cast<ShapedType>(lhs);
   ShapedType rhsShaped = dyn_cast<ShapedType>(rhs);
 
   if (!lhsShaped && !rhsShaped) {
-    // TODO: Check types are same or lhs is more specific than rhs
-    //       when they are not shaped types.
-    return true;
+    return lhs == rhs;
   }
 
   if (!lhsShaped || !rhsShaped) {
     // lhs and rhs must agree on whether they are ShapedType.
+    return false;
+  }
+
+  if (lhsShaped.getElementType() != rhsShaped.getElementType()) {
     return false;
   }
 
