@@ -32,7 +32,7 @@ module {
     ^bb0(%body_arg0: tensor<i64>, %body_arg1: tensor<i1>, %body_arg2: tensor<1xi64>):
       %body_0 = "onnx.Identity"(%body_arg1) : (tensor<i1>) -> tensor<i1>
       %body_1 = "onnx.Add"(%body_arg0, %body_arg2) : (tensor<i64>, tensor<1xi64>) -> tensor<1xi64>
-      onnx.Return %body_0, %body_1, %body_1 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
+      onnx.Yield %body_0, %body_1, %body_1 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
   }
@@ -50,7 +50,7 @@ module {
       %0 = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
       %1 = "onnx.Less"(%body_arg0, %0) : (tensor<i64>, tensor<i64>) -> tensor<i1>
       %2 = "onnx.Add"(%body_arg2, %body_arg0) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
-    onnx.Return %1, %2, %2 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
+    onnx.Yield %1, %2, %2 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
   }
@@ -65,7 +65,7 @@ module {
       %0 = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
       %1 = "onnx.Less"(%body_arg0, %0) : (tensor<i64>, tensor<i64>) -> tensor<i1>
       %2 = "onnx.Add"(%body_arg2, %body_arg0) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
-    onnx.Return %1, %2 : tensor<i1>, tensor<1xi64>
+    onnx.Yield %1, %2 : tensor<i1>, tensor<1xi64>
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> tensor<1xi64>
     return %0 : tensor<1xi64>
   }
@@ -81,7 +81,7 @@ module {
     ^bb0(%i: tensor<i64>, %body_cond: tensor<i1>, %y_prev: tensor<1xi64>):
       %2 = "onnx.Add"(%y_prev, %i) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
       %3 = "onnx.Add"(%2, %const_offset) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
-      onnx.Return %body_cond, %3, %3 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
+      onnx.Yield %body_cond, %3, %3 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %y_final, %y_scan : tensor<1xi64>, tensor<?x1xi64>
   }

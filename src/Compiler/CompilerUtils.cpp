@@ -637,21 +637,22 @@ std::string dirName(StringRef inputFilename) {
 // Return 0 on success, error number on failure.
 int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
-  // Decide if the input file is an ONNX model (either ONNX protobuf or JSON) or
-  // a model specified in MLIR. The extension of the file is the decider.
+  // Decide if the input file is an ONNX model (either ONNX protobuf, ONNX text,
+  // or JSON) or a model specified in MLIR.
+  // The extension of the file is the decider.
   bool inputIsONNX = inputFilename.endswith(".onnx");
+  bool inputIsONNXText = inputFilename.endswith(".onnxtext");
   bool inputIsJSON = inputFilename.endswith(".json");
   bool inputIsMLIR = inputFilename.endswith(".mlir");
 
-  if (!inputIsONNX && !inputIsJSON && !inputIsMLIR) {
+  if (!inputIsONNX && !inputIsONNXText && !inputIsJSON && !inputIsMLIR) {
     *errorMessage = "Invalid input file '" + inputFilename.str() +
-                    "': Either an ONNX model (.onnx or .json or '-'), or an "
-                    "MLIR file (.mlir) "
-                    "needs to be provided.";
+                    "': Either an ONNX model (.onnx or .onnxtext or .json "
+                    "or '-'), or an MLIR file (.mlir) needs to be provided.";
     return InvalidInputFile;
   }
 
-  if (inputIsONNX || inputIsJSON) {
+  if (inputIsONNX || inputIsONNXText || inputIsJSON) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;

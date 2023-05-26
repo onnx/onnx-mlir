@@ -224,9 +224,9 @@ llvm::cl::opt<bool> enableSimdDataLayout("simd-data-layout",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> enablePatternShapeInference("pattern-shape-inference",
-    llvm::cl::desc("Enable pattern based shape inference (default=true)\n"
-                   "Set to 'false' to disable."),
-    llvm::cl::init(true), llvm::cl::cat(OnnxMlirCommonOptions));
+    llvm::cl::desc("Enable pattern based shape inference (default=false)\n"
+                   "Set to 'true' to enable."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<bool> enableONNXHybridPass("onnx-hybrid-pass",
     llvm::cl::desc("Enable ONNX hybrid pass (default=false)\n"
