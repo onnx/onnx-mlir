@@ -25,19 +25,21 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 namespace {
+bool isEmptyTensor(Value input) {
+  if (ShapedType shapedType = dyn_cast<ShapedType>(input.getType())) {
+    return shapedType.hasStaticShape() && shapedType.getNumElements() == 0;
+  } else {
+    return false;
+  }
+}
+
 // The yolo4 model uses a float tensor with shape [0] to represent that roi
 // or scales is absent (in violation of the spec which says that empty string
 // inputs represents absent arguments in the protobuf model representation).
-// We work around this by interpreting tensors with shape [0] as an alternative
-// way to express that an input is absent.
+// We work around this by interpreting a tensor with empty shape as an
+// alternative way to express that an input is absent.
 bool isAbsent(Value input) {
-  Type type = input.getType();
-  if (ShapedType shapedType = dyn_cast<ShapedType>(type)) {
-    return shapedType.hasStaticShape({0});
-  } else {
-    assert(isa<NoneType>(type));
-    return true;
-  }
+  return isa<NoneType>(input.getType()) || isEmptyTensor(input);
 }
 } // namespace
 
