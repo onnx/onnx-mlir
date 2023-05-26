@@ -111,7 +111,7 @@ std::unique_ptr<mlir::Pass> createLowerKrnlRegionPass();
 /// Pass for lowering Krnl dialect to LLVM dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(
-    bool verifyInputTensors, bool useOpaquePointer);
+    bool verifyInputTensors, bool useOpaquePointer, bool useLRODATA);
 
 } // namespace krnl
 

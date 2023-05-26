@@ -1635,12 +1635,8 @@ Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
 LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
     LLVM::Linkage linkage, StringRef name, Attribute valueAttr,
     uint64_t alignment) const {
-  LLVM::GlobalOp gop = b().create<LLVM::GlobalOp>(loc(), resultType,
+  return b().create<LLVM::GlobalOp>(loc(), resultType,
       /*isConstant=*/isConstant, linkage, name, valueAttr);
-  // Put all constants into `.lrodata` instead of `.rodata` because AI workloads
-  // often have a large amount of constants, especially large language models.
-  gop.getOperation()->setAttr("section", b().getStringAttr(".lrodata"));
-  return gop;
 }
 
 Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
