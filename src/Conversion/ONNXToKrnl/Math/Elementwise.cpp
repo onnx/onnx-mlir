@@ -355,7 +355,8 @@ struct ScalarOp<ONNXIsInfOp> {
 //     return simdAnalysis({GenericOps::CompareGop}, {1}, t, von, son);
 //   } else {
 //     return simdAnalysis(
-//         {GenericOps::CompareGop, GenericOps::LogicalGop}, {2, 1}, t, von, son);
+//         {GenericOps::CompareGop, GenericOps::LogicalGop}, {2, 1}, t, von,
+//         son);
 //   }
 // }
 
