@@ -340,22 +340,24 @@ struct ScalarOp<ONNXIsInfOp> {
   using IOp = NotSuportedScalarOp;
 };
 
-template <>
-double analyzeSimdFor<ONNXIsInfOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  double detectNegAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
-  double detectPosAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
+// For now we will disbale SIMD for IsInf because it is not working correctly.
 
-  bool detectNeg = detectPosAttribute == 0 && detectNegAttribute == 1;
-  bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
+// template <>
+// double analyzeSimdFor<ONNXIsInfOp>(
+//     Type t, Operation *op, int64_t &von, int64_t &son) {
+//   double detectNegAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
+//   double detectPosAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
 
-  if (detectPos || detectNeg) {
-    return simdAnalysis({GenericOps::CompareGop}, {1}, t, von, son);
-  } else {
-    return simdAnalysis(
-        {GenericOps::CompareGop, GenericOps::LogicalGop}, {2, 1}, t, von, son);
-  }
-}
+//   bool detectNeg = detectPosAttribute == 0 && detectNegAttribute == 1;
+//   bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
+
+//   if (detectPos || detectNeg) {
+//     return simdAnalysis({GenericOps::CompareGop}, {1}, t, von, son);
+//   } else {
+//     return simdAnalysis(
+//         {GenericOps::CompareGop, GenericOps::LogicalGop}, {2, 1}, t, von, son);
+//   }
+// }
 
 template <>
 Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
