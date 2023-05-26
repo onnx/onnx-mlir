@@ -24,14 +24,31 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
+namespace {
+// The yolo4 model uses a float tensor with shape [0] to represent that roi
+// or scales is absent (in violation of the spec which says that empty string
+// inputs represents absent arguments in the protobuf model representation).
+// We work around this by interpreting tensors with shape [0] as an alternative
+// way to express that an input is absent.
+bool isAbsent(Value input) {
+  Type type = input.getType();
+  if (ShapedType shapedType = dyn_cast<ShapedType>(type)) {
+    return shapedType.hasStaticShape({0});
+  } else {
+    assert(isa<NoneType>(type));
+    return true;
+  }
+}
+} // namespace
+
 LogicalResult ONNXResizeOpShapeHelper::computeShape() {
   ONNXResizeOpAdaptor operandAdaptor(operands);
   uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.getX());
   DimsExpr inputDims, outputDims;
   createIE->getShapeAsDims(operandAdaptor.getX(), inputDims);
-  bool scalesFromNone = isNoneValue(operandAdaptor.getScales());
+  bool scalesIsAbsent = isAbsent(operandAdaptor.getScales());
 
-  if (!scalesFromNone) {
+  if (!scalesIsAbsent) {
     // Read and save scales as float.
     createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getScales(), scales);
     if (inputDims.size() != scales.size())
@@ -73,19 +90,14 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXResizeOp::verify() {
-  if (!hasShapeAndRank(getX())) {
-    return success();
-  }
+  bool scalesIsAbsent = isAbsent(getScales());
+  bool sizesIsAbsent = isAbsent(getSizes());
+  if (scalesIsAbsent && sizesIsAbsent)
+    return emitError("scales() and sizes() cannot both be absent");
+  if (!scalesIsAbsent && !sizesIsAbsent)
+    return emitError("scales() and sizes() cannot both be defined");
 
-  bool scalesFromNone = isNoneValue(getScales());
-  bool sizesFromNone = isNoneValue(getSizes());
-  if (scalesFromNone == sizesFromNone) {
-    if (scalesFromNone)
-      return emitError("scales() and sizes() can not be both None");
-    else
-      return emitError("scales() and getSizes() can not be both defined");
-  }
-  // Should test the sizes of scales or size to be the same as the rank of X.
+  // TODO: Test the sizes of scales or size to be the same as the rank of X.
   return success();
 }
 
