@@ -111,7 +111,7 @@ LogicalResult ONNXCompressOp::verify() {
 LogicalResult ONNXCompressOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer the output shape if the input shape is not yet knwon.
-  if (!hasShapeAndRank(getInput()))
+  if (!hasShapeAndRank(getOperation()))
     return success();
 
   Type elementType = getInput().getType().cast<ShapedType>().getElementType();

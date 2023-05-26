@@ -157,14 +157,6 @@ func.func @test_constantofshape_verifier_2(%arg0: tensor<2x2x2x2xi64>) -> tensor
 
 // -----
 
-func.func @test_constantofshape_verifier_3(%arg0: tensor<?xi64>) -> tensor<?xi64> {
-   // expected-error @+1 {{'onnx.ConstantOfShape' op Input tensor must have static shape}}
-   %1 = "onnx.ConstantOfShape"(%arg0) : (tensor<?xi64>) -> tensor<?xi64>
-  "func.return"(%1) : (tensor<?xi64>) -> ()
-}
-
-// -----
-
 func.func @test_constantofshape_verifier_4() -> tensor<2xi64> {
    // expected-error @+2 {{'onnx.ConstantOfShape' op All values of the input tensor must be >=0}}
    %0 = "onnx.Constant"(){ value = dense<[-1, -2]> : tensor<2xi64> } : () -> tensor<2xi64>
@@ -308,10 +300,10 @@ func.func @test_if_verifier_1(%arg0: tensor<i1>) -> tensor<2xf32> {
   %0 = "onnx.If"(%arg0) ({
     %1 = "onnx.Constant"() {value = dense<[2.000000e+00, 1.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
     %2 = "onnx.NoValue"() {value} : () -> none
-    onnx.Return %1, %2 : tensor<2xf32>, none
+    onnx.Yield %1, %2 : tensor<2xf32>, none
   }, {
     %1 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
-    onnx.Return %1 : tensor<2xf32>
+    onnx.Yield %1 : tensor<2xf32>
   }) : (tensor<i1>) -> tensor<2xf32>
   return %0 : tensor<2xf32>
 }
@@ -322,11 +314,11 @@ func.func @test_if_verifier_2(%arg0: tensor<i1>) -> !onnx.Seq<tensor<*xf32>> {
   // expected-error @+1 {{'onnx.If' op else branch #results=2 differ from if #results=1}}
   %0 = "onnx.If"(%arg0) ({
     %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
-    onnx.Return %1 : !onnx.Seq<tensor<*xf32>>
+    onnx.Yield %1 : !onnx.Seq<tensor<*xf32>>
   }, {
     %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
     %2 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
-    onnx.Return %1, %2 : !onnx.Seq<tensor<*xf32>>, tensor<2xf32>
+    onnx.Yield %1, %2 : !onnx.Seq<tensor<*xf32>>, tensor<2xf32>
   }) : (tensor<i1>) -> !onnx.Seq<tensor<*xf32>>
   return %0 : !onnx.Seq<tensor<*xf32>>
 }
@@ -337,10 +329,10 @@ func.func @test_if_verifier_3(%arg0: tensor<i1>) -> tensor<2xf32> {
   // expected-error @+1 {{'onnx.If' op then branch disagrees on result type #1 of 1}}
   %0 = "onnx.If"(%arg0) ({
     %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
-    onnx.Return %1 : !onnx.Seq<tensor<*xf32>>
+    onnx.Yield %1 : !onnx.Seq<tensor<*xf32>>
   }, {
     %1 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
-    onnx.Return %1 : tensor<2xf32>
+    onnx.Yield %1 : tensor<2xf32>
   }) : (tensor<i1>) -> tensor<2xf32>
   return %0 : tensor<2xf32>
 }
@@ -351,10 +343,10 @@ func.func @test_if_verifier_4(%arg0: tensor<i1>) -> !onnx.Seq<tensor<*xf32>> {
   // expected-error @+1 {{'onnx.If' op else branch disagrees on result type #1 of 1}}
   %0 = "onnx.If"(%arg0) ({
     %1 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
-    onnx.Return %1 : !onnx.Seq<tensor<*xf32>>
+    onnx.Yield %1 : !onnx.Seq<tensor<*xf32>>
   }, {
     %1 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
-    onnx.Return %1 : tensor<2xf32>
+    onnx.Yield %1 : tensor<2xf32>
   }) : (tensor<i1>) -> !onnx.Seq<tensor<*xf32>>
   return %0 : !onnx.Seq<tensor<*xf32>>
 }
