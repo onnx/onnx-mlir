@@ -40,6 +40,7 @@
 
 SUPPRESS_WARNINGS_PUSH
 #include "onnx/checker.h"
+#include "onnx/defs/parser.h"
 #include "onnx/defs/schema.h"
 #include "onnx/shape_inference/implementation.h"
 #include "onnx/version_converter/convert.h"
@@ -163,15 +164,14 @@ private:
   }
 
   Value ImportTensor(const onnx::TensorProto &tensor) {
+    mlir::ElementsAttr mlirAttr =
+        onnxTensorProtoToElmAttr(&context_, options_.externalDataDir, tensor);
     // Use the tensor name as Location.
-    Value initializer = EmitInitializerForInputTensor(
-        NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name())),
-        builder_, options_.externalDataDir, tensor);
-    if (!isNoneValue(initializer)) {
-      auto tensorType = cast<ShapedType>(initializer.getType());
-      int64_t size = ShapedType::getNumElements(tensorType.getShape());
-      num_of_parameters_ += size;
-    }
+    auto loc =
+        NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name()));
+    Value initializer =
+        builder_.create<ONNXConstantOp>(loc, Attribute(), mlirAttr);
+    num_of_parameters_ += mlirAttr.getShapedType().getNumElements();
     return initializer;
   }
 
@@ -287,7 +287,7 @@ private:
       break;
     case onnx::AttributeProto::TENSOR:
       mlirAttr = onnxTensorProtoToElmAttr(
-          builder_, options_.externalDataDir, attr.t());
+          &context_, options_.externalDataDir, attr.t());
       break;
     case onnx::AttributeProto::STRINGS: {
       llvm::SmallVector<StringRef, 4> vectorStringRef;
@@ -338,7 +338,7 @@ private:
    * @param op operations whose attributes will be updated to contain
    * input/output names.
    * @param useStdReturn if set to true, will emit standard return op as
-   * terminator, otherwise, will use OnnxReturn op as terminator.
+   * terminator, otherwise, will use ONNXYield op as terminator.
    * @return function type corresponding to the subgraph input/output signature.
    */
   FunctionType importGraph(const onnx::GraphProto &graph, Region &region,
@@ -423,7 +423,7 @@ private:
       builder_.create<func::ReturnOp>(UnknownLoc(), retVals);
     else
       // Create a return operation to return all ONNX output tensors.
-      builder_.create<ONNXReturnOp>(UnknownLoc(), retVals);
+      builder_.create<ONNXYieldOp>(UnknownLoc(), retVals);
 
     op->setAttr("input_names", builder_.getStrArrayAttr(inputNames));
     op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));
@@ -1321,32 +1321,57 @@ int ImportFrontendModelArray(const void *onnxBuffer, int size,
   return CompilerSuccess;
 }
 
+namespace {
+int readAndStripComments(
+    StringRef fname, std::string *errorMessage, std::string &contents) {
+  contents.clear();
+  auto buf = openInputFile(fname, errorMessage);
+  if (!buf) {
+    return InvalidInputFileAccess;
+  }
+  // Remove // comments, which are non-standard json and onnx text
+  // but appear in lit tests in test/mlir/onnx/parse.
+  for (llvm::line_iterator line(*buf, /*SkipBlanks=*/false), end; line != end;
+       ++line) {
+    if (line->ltrim(" \t").startswith("//"))
+      continue; // omit comment lines beginning with (whitespace and) //
+    if (line->contains("//")) {
+      // Not stripping end-of-line comments because there's no robust way to
+      // distinguish them from valid uses of // in the json itself.
+      llvm::errs() << "Warning: possible invalid end-of-line // comment in "
+                      "json input file "
+                   << fname.str() << ":" << line.line_number() << "\n";
+    }
+    contents.append(*line);
+  }
+  return CompilerSuccess;
+}
+} // namespace
+
 // Return 0 on success, error otherwise.
 int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, std::string *errorMessage,
     ImportOptions options) {
   onnx::ModelProto model;
-  if (model_fname.endswith(".json")) {
-    auto buf = openInputFile(model_fname, errorMessage);
-    if (!buf) {
-      return InvalidInputFileAccess;
+  if (model_fname.endswith(".onnxtext")) {
+    std::string text;
+    int ret = readAndStripComments(model_fname, errorMessage, text);
+    if (ret != CompilerSuccess)
+      return ret;
+
+    onnx::OnnxParser parser(text.c_str());
+    auto status = parser.Parse(model);
+    if (!status.IsOK()) {
+      *errorMessage = "ONNX Text Model Parsing Failed on " + model_fname.str() +
+                      " with error '" + status.ErrorMessage() + "'";
+      return InvalidOnnxFormat;
     }
-    // Remove // comments, which are non-standard json but appear in lit tests
-    // in test/mlir/onnx/parse.
+  } else if (model_fname.endswith(".json")) {
     std::string json;
-    for (llvm::line_iterator line(*buf, /*SkipBlanks=*/false), end; line != end;
-         ++line) {
-      if (line->ltrim(" \t").startswith("//"))
-        continue; // omit comment lines beginning with (whitespace and) //
-      if (line->contains("//")) {
-        // Not stripping end-of-line comments because there's no robust way to
-        // distinguish them from valid uses of // in the json itself.
-        llvm::errs() << "Warning: possible invalid end-of-line // comment in "
-                        "json input file "
-                     << model_fname.str() << ":" << line.line_number() << "\n";
-      }
-      json.append(*line);
-    }
+    int ret = readAndStripComments(model_fname, errorMessage, json);
+    if (ret != CompilerSuccess)
+      return ret;
+
     auto status = google::protobuf::util::JsonStringToMessage(json, &model);
     if (!status.ok()) {
       *errorMessage = "Json Model Parsing Failed on " + model_fname.str() +

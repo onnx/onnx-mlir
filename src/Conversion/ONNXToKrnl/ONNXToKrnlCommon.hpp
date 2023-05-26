@@ -322,6 +322,8 @@ void populateLoweringONNXSoftmaxOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTopKOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXTriluOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
 // `ML` directory methods:
 void populateLoweringONNXCategoryMapperOpPattern(
