@@ -34,7 +34,7 @@ typedef enum {
   // clang-format on
 } InstrumentStages;
 
-typedef enum {small, medium, large} MCModel;
+typedef enum { small, medium, large } MCModel;
 
 // Options for onnx-mlir only.
 extern llvm::cl::OptionCategory OnnxMlirOptions;
