@@ -92,6 +92,16 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXResizeOp::verify() {
+  // Cannot verify if scales or sizes have unknown shapes.
+  if (auto scalesShapedType = dyn_cast<ShapedType>(getScales().getType())) {
+    if (!scalesShapedType.hasStaticShape())
+      return success();
+  }
+  if (auto sizesShapedType = dyn_cast<ShapedType>(getSizes().getType())) {
+    if (!sizesShapedType.hasStaticShape())
+      return success();
+  }
+
   bool scalesIsAbsent = isAbsent(getScales());
   bool sizesIsAbsent = isAbsent(getSizes());
   if (scalesIsAbsent && sizesIsAbsent)
@@ -99,7 +109,7 @@ LogicalResult ONNXResizeOp::verify() {
   if (!scalesIsAbsent && !sizesIsAbsent)
     return emitError("scales() and sizes() cannot both be defined");
 
-  // TODO: Test the sizes of scales or size to be the same as the rank of X.
+  // TODO: Test the size of scales or sizes to be the same as the rank of X.
   return success();
 }
 
