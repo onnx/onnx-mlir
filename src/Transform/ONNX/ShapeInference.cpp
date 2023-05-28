@@ -11,6 +11,7 @@
 #include "ShapeInference.hpp"
 
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
@@ -21,6 +22,47 @@ namespace onnx_mlir {
 
 namespace {
 
+bool hasDynamicOrUnknownShape(Type type) {
+  if (auto tensorType = dyn_cast<TensorType>(type))
+    return !tensorType.hasStaticShape();
+
+  if (type.isa<NoneType>())
+    return false;
+
+  if (auto seqType = dyn_cast<SeqType>(type))
+    return ShapedType::isDynamic(seqType.getLength()) ||
+           hasDynamicOrUnknownShape(seqType.getElementType());
+
+  if (auto optType = dyn_cast<OptType>(type))
+    return hasDynamicOrUnknownShape(optType.getElementType());
+
+  llvm_unreachable("unknown type");
+}
+
+// Returns failure if the op can be verified and failed verification.
+LogicalResult verifyOp(Operation *op) {
+  if (auto info = op->getName().getRegisteredInfo()) {
+    return info->verifyInvariants(op);
+  } else {
+    return success(); // Unregistered ops are unverifiable.
+  }
+}
+
+// Returns failure if the op and its results are unchanged,
+// like RewritePattern::matchAndRewrite().
+// Calls shapeInfOp.emitOpError() if there is any actual failure.
+LogicalResult inferShapes(ShapeInferenceOpInterface shapeInfOp) {
+  OperationFingerPrint before(shapeInfOp.getOperation());
+  if (failed(shapeInfOp.inferShapes([](Region &region) {})))
+    return shapeInfOp.emitOpError("shape inference failed");
+  OperationFingerPrint after(shapeInfOp.getOperation());
+  if (after == before) {
+    return failure(); // Operation and its result types are unchanged.
+  } else {
+    return success(); // Operation or its result types changed.
+  }
+}
+
 // Shape inference pattern for regular ONNX ops from the ONNX specification,
 // which all implement the ShapeInference interface.
 struct InferShapesPattern
@@ -28,24 +70,22 @@ struct InferShapesPattern
   using OpInterfaceRewritePattern<
       ShapeInferenceOpInterface>::OpInterfaceRewritePattern;
 
+  // Returns success if shapeInfOp or its result types changed.
   LogicalResult matchAndRewrite(ShapeInferenceOpInterface shapeInfOp,
       PatternRewriter &rewriter) const override {
-    // TODO: check if it's necessary to skip ops that satisfy
-    // !returnsDynamicOrUnknownShape (see ShapeInferencePass.cpp)
+    // Optimization: Don't (re)infer shapes if shapeInfOp is simple (has no
+    // subgraphs) and its result shapes are known and static.
+    if (!isa<HasOnnxSubgraphOpInterface>(shapeInfOp.getOperation()) &&
+        !returnsDynamicOrUnknownShape(shapeInfOp))
+      return failure();
 
     // Verify the operation before attempting to infer the shape of the
     // produced output(s).
-    Optional<RegisteredOperationName> registeredInfo =
-        shapeInfOp->getName().getRegisteredInfo();
-    if (registeredInfo &&
-        failed(registeredInfo->verifyInvariants(&*shapeInfOp)))
+    if (failed(verifyOp(shapeInfOp)))
       return shapeInfOp.emitOpError("verification failed");
 
     // Infer the results shapes.
-    if (failed(shapeInfOp.inferShapes([](Region &region) {})))
-      return shapeInfOp.emitOpError("shape inference failed");
-
-    return success();
+    return inferShapes(shapeInfOp);
   }
 };
 
@@ -54,21 +94,21 @@ struct InferShapesPattern
 struct YieldShapesPattern : public OpRewritePattern<ONNXYieldOp> {
   using OpRewritePattern<ONNXYieldOp>::OpRewritePattern;
 
+  // Returns success if parent op or parent result types changed.
   LogicalResult matchAndRewrite(
       ONNXYieldOp yieldOp, PatternRewriter &rewriter) const override {
     Operation *parent = yieldOp->getParentOp();
-    assert(parent && "every onnx.Yield op has a parent");
-    if (auto shapeInfOp = dyn_cast<ShapeInferenceOpInterface>(parent)) {
-      if (failed(shapeInfOp.inferShapes([](Region &region) {})))
-        return shapeInfOp.emitOpError("shape inference failed");
-    } else {
-      llvm_unreachable("onnx.Yield always has if/loop/scan parent");
-    }
-    return success();
+    assert((isa<ONNXIfOp, ONNXLoopOp, ONNXScanOp>(parent)) &&
+           "onnx.Yield has if/loop/scan parent");
+    return inferShapes(cast<ShapeInferenceOpInterface>(parent));
   }
 };
 
 } // namespace
+
+bool returnsDynamicOrUnknownShape(Operation *op) {
+  return llvm::any_of(op->getResultTypes(), hasDynamicOrUnknownShape);
+}
 
 void getShapeInferencePatterns(RewritePatternSet &set) {
   // Bump up the pattern benefit of the shape inference patterns to run them
