@@ -423,9 +423,11 @@ struct ConvertKrnlToLLVMPass
   ConvertKrnlToLLVMPass() = default;
   ConvertKrnlToLLVMPass(const ConvertKrnlToLLVMPass &pass)
       : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
-  ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useOpaquePointers) {
+  ConvertKrnlToLLVMPass(
+      bool verifyInputTensors, bool useOpaquePointers, bool useLRODATA) {
     this->verifyInputTensors = verifyInputTensors;
     this->useOpaquePointers = useOpaquePointers;
+    this->useLRODATA = useLRODATA;
   }
 
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
@@ -446,6 +448,11 @@ struct ConvertKrnlToLLVMPass
           "Verify input tensors whenever the entry point function is called.\n"
           "Data type and shape are verified. Enable this may introduce "
           "overhead in inferencing."),
+      llvm::cl::init(false)};
+
+  Option<bool> useLRODATA{*this, "use-lrodata-section",
+      llvm::cl::desc("Put global constants into the large read-only data "
+                     "section. This is for linking large object files"),
       llvm::cl::init(false)};
 };
 
@@ -530,6 +537,18 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   if (entryGlobalOps.size() >= 1)
     genSignatureFunction(
         module, entryGlobalOps, inSigGlobalOps, outSigGlobalOps);
+
+  // Annotate global constants with `.lrodata` section if required.
+  // Make sure this is always called at the end of this pass.
+  if (useLRODATA) {
+    module->walk([&](LLVM::GlobalOp gop) -> WalkResult {
+      // Put all global constants into `.lrodata` instead of `.rodata` because
+      // AI workloads often have a large amount of constants, especially large
+      // language models.
+      gop.getOperation()->setAttr("section", StringAttr::get(ctx, ".lrodata"));
+      return WalkResult::advance();
+    });
+  }
 }
 
 /// Create the pass for lowering `Krnl`, `Affine` and `Std` dialects to LLVM.
@@ -537,9 +556,9 @@ std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
   return std::make_unique<ConvertKrnlToLLVMPass>();
 }
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass(
-    bool verifyInputTensors, bool useOpaquePointers) {
+    bool verifyInputTensors, bool useOpaquePointers, bool useLRODATA) {
   return std::make_unique<ConvertKrnlToLLVMPass>(
-      verifyInputTensors, useOpaquePointers);
+      verifyInputTensors, useOpaquePointers, useLRODATA);
 }
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,

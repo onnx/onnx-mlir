@@ -95,6 +95,19 @@ llvm::cl::opt<std::string> march("march",
     llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
+llvm::cl::opt<ModelSize> modelSize("modelSize",
+    llvm::cl::desc("Model to generate code"),
+    llvm::cl::value_desc("Only support small or large"),
+    llvm::cl::values(
+        clEnumVal(small, "Generate code for the small model. "
+                         "No special treament at this moment. This is the "
+                         "default code model"),
+        clEnumVal(large,
+            "Generate code for the large model. "
+            "Global constants are put into large read-only data section.")),
+    llvm::cl::init(small), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::ValueRequired);
+
 llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
     llvm::cl::desc("Specify an accelerator to generate code for"),
     // clang-format off
