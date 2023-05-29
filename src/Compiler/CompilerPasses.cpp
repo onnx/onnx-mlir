@@ -189,7 +189,7 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE) {
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
       /*useOpaquePointers=*/true,
-      /*useLRODATA=*/(mcmodel == MCModel::large)));
+      /*useLRODATA=*/(modelSize == ModelSize::large)));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }

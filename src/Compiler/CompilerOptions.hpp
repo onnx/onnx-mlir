@@ -34,7 +34,14 @@ typedef enum {
   // clang-format on
 } InstrumentStages;
 
-typedef enum { small, medium, large } MCModel;
+typedef enum {
+  // clang-format off
+  small,
+  medium,   // reserve for future
+  large,
+  huge      // reserve for future
+  // clang-format on
+} ModelSize;
 
 // Options for onnx-mlir only.
 extern llvm::cl::OptionCategory OnnxMlirOptions;
@@ -55,7 +62,7 @@ extern llvm::cl::opt<std::string> customEnvFlags;
 extern llvm::cl::opt<std::string> mtriple;
 extern llvm::cl::opt<std::string> mcpu;
 extern llvm::cl::opt<std::string> march;
-extern llvm::cl::opt<MCModel> mcmodel;
+extern llvm::cl::opt<ModelSize> modelSize;
 extern llvm::cl::list<onnx_mlir::accel::Accelerator::Kind> maccel;
 extern llvm::cl::opt<bool> VerboseOutput;
 extern llvm::cl::list<std::string> Xopt;

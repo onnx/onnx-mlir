@@ -95,15 +95,13 @@ llvm::cl::opt<std::string> march("march",
     llvm::cl::value_desc("Target a specific architecture type"),
     llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
-llvm::cl::opt<MCModel> mcmodel("mcmodel",
+llvm::cl::opt<ModelSize> modelSize("modelSize",
     llvm::cl::desc("Model to generate code"),
     llvm::cl::value_desc("Only support small or large"),
     llvm::cl::values(
         clEnumVal(small, "Generate code for the small model. "
                          "No special treament at this moment. This is the "
                          "default code model"),
-        clEnumVal(medium, "Generate code for the medium model. "
-                          "Same as the small model at this moment."),
         clEnumVal(large,
             "Generate code for the large model. "
             "Global constants are put into large read-only data section.")),
