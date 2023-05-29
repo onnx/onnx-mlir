@@ -59,8 +59,9 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
   auto inputShape = input.getType().cast<RankedTensorType>().getShape();
   if (inputShape.size() != 1)
     return emitOpError("Input tensor must be a 1D tensor");
+
   if (ShapedType::isDynamic(inputShape[0]))
-    return emitOpError("Input tensor must have static shape");
+    return success();
 
   // Calculate output dimensions.
   SmallVector<int64_t, 4> outputDims(inputShape[0], ShapedType::kDynamic);
@@ -91,6 +92,10 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
 
 LogicalResult ONNXConstantOfShapeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  ShapedType inputType = cast<ShapedType>(getInput().getType());
+  if (!inputType.hasStaticShape())
+    return success();
+
   Type elementType;
 
   // 'value' attribute is a one-element tensor whose value and datatype are

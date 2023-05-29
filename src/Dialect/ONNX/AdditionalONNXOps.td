@@ -12,7 +12,7 @@
 // Ops are listed in alphabetical order, in 2 sections.
 //
 // * First are ops that are used to assist the processing of ONNX dialect.
-//   Example are CallOp, ReturnOp,...
+//   Example are CallOp, YieldOp,...
 //
 // * Second are ops that are used to handle optional arguments/special cases
 //   of original ONNX ops. These ops may possibly be removed in the future.
@@ -121,6 +121,11 @@ def ONNXCallOp : ONNX_Op<"ONNX_Call",
     CallInterfaceCallable getCallableForCallee() {
       return (*this)->getAttrOfType<SymbolRefAttr>("callee");
     }
+
+    /// Set the callee for this operation.
+    void setCalleeFromCallable(CallInterfaceCallable callee) {
+      (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
+    }
   }];
 
   let extraClassDefinition = [{
@@ -176,16 +181,19 @@ def ONNXCustomOp:ONNX_Op<"Custom",
            the output. 0 means that  the output will be the first
            parameter in the function call, while  -1 means after the last. 
     All these attributes are optional to make them less intrusive.
+
+    NoneType is allowed for input and output since the CustomOp may want
+    number of input/output to be fixed for external function call.
   }];
 
-  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$inputs,
+  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$inputs,
         StrAttr:$function_name,
         OptionalAttr<TypeAttr>:$output_element_type,
         OptionalAttr<StrAttr>:$shape_infer_pattern,
         OptionalAttr<I64ArrayAttr >:$inputs_for_infer,
         OptionalAttr<StrAttr>:$call_convention,
         OptionalAttr<SI64Attr>:$output_position);
-  let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef]>>:$outputs);
+  let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$outputs);
 
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -375,12 +383,11 @@ def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
 }
 
 //===----------------------------------------------------------------------===//
-// ONNX ReturnOp
-def ONNXReturnOp : ONNX_Op<"Return", [Pure,
-                                ReturnLike, Terminator]> {
-  let summary = "ONNX return operation";
+// ONNX YieldOp
+def ONNXYieldOp : ONNX_Op<"Yield", [Pure, ReturnLike, Terminator]> {
+  let summary = "ONNX yield operation";
   let description = [{
-    The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
+    The `onnx.Yield` operation represents a yield operation within an ONNX subgraph.
     The operation takes variable number of operands and produces no results.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
