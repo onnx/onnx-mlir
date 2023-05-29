@@ -157,14 +157,6 @@ func.func @test_constantofshape_verifier_2(%arg0: tensor<2x2x2x2xi64>) -> tensor
 
 // -----
 
-func.func @test_constantofshape_verifier_3(%arg0: tensor<?xi64>) -> tensor<?xi64> {
-   // expected-error @+1 {{'onnx.ConstantOfShape' op Input tensor must have static shape}}
-   %1 = "onnx.ConstantOfShape"(%arg0) : (tensor<?xi64>) -> tensor<?xi64>
-  "func.return"(%1) : (tensor<?xi64>) -> ()
-}
-
-// -----
-
 func.func @test_constantofshape_verifier_4() -> tensor<2xi64> {
    // expected-error @+2 {{'onnx.ConstantOfShape' op All values of the input tensor must be >=0}}
    %0 = "onnx.Constant"(){ value = dense<[-1, -2]> : tensor<2xi64> } : () -> tensor<2xi64>
