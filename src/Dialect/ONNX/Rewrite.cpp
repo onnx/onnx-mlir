@@ -253,8 +253,9 @@ public:
 // =============================================================================
 
 // The yolo4 model uses a float tensor with shape [0] to represent that roi
-// or scales is absent (in violation of the spec which says that empty string
-// inputs represents absent arguments in the protobuf model representation).
+// or scales is absent in accordance with the Resize v11 spec. This violates
+// the spec from v13 onwards which says that empty string
+// inputs represents absent arguments in the protobuf model representation.
 // We work around this by interpreting a tensor with empty shape as an
 // alternative way to express that an input is absent.
 class EmptyTensorInputsResizePattern : public OpRewritePattern<ONNXResizeOp> {
