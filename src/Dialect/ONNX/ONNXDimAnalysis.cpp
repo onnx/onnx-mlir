@@ -58,9 +58,14 @@ static bool areOverlapping(
   return false;
 }
 
-/// Insert a dynamic dim into the analysis sets.
-/// Only care about dynamic dims or ones from DimOp, ConstantOp, and CastOp.
-static std::optional<DimAnalysis::DimT> insertDim(const Value tensor,
+/// Insert a dynamic dimension into the analysis sets.
+/// It is expected that the shape-related operations were simplified by
+/// `simplify-shape-related-ops-onnx` pass before this analysis pass. Thus,
+/// operations that are related to dynamic dimensions include DimOp, ConstantOp,
+/// and CastOp.
+/// Also, by `simplify-shape-related-ops-onnx`, static dimensions would be
+/// propagated well, so we care about dynamic dimensions in this analysis only.
+static std::optional<DimAnalysis::DimT> insertDimWhenUseful(const Value tensor,
     const uint64_t dimIndex, DimAnalysis::DimSetT &sameDims) {
   auto tensorType = cast<ShapedType>(tensor.getType());
 
@@ -74,12 +79,12 @@ static std::optional<DimAnalysis::DimT> insertDim(const Value tensor,
       okToInsert = true;
   }
 
-  if (okToInsert) {
-    DimAnalysis::DimT dim(tensor, dimIndex);
-    sameDims.insert(dim);
-    return dim;
-  }
-  return std::nullopt;
+  if (!okToInsert)
+    return std::nullopt;
+
+  DimAnalysis::DimT dim(tensor, dimIndex);
+  sameDims.insert(dim);
+  return dim;
 }
 
 static bool handleAndTestInBound(int64_t &axis, ShapedType type) {
@@ -109,7 +114,7 @@ static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
     createIE.getShapeAsDims(v, vDims);
     for (int64_t i = 0; i < rank; ++i) {
       if (qmOuputIE.sameQuestionmark(vDims[i])) {
-        if (auto d = insertDim(v, i, sameDims))
+        if (auto d = insertDimWhenUseful(v, i, sameDims))
           LLVM_DEBUG(llvm::dbgs() << "  - Added a new dim(" << d.value().first
                                   << ", " << d.value().second << ")\n");
       }
@@ -163,6 +168,25 @@ static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
   return true;
 }
 
+// clang-format off
+/// Given a dynamic dimension in the output, find the same dynamic dimensions in
+/// the inputs. This function is used for operations whose one of the input
+/// tensors defines the output shape. For example, ConstantOfShape:
+/// ```
+//  %d1    = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
+//  %d2    = "onnx.Dim"(%arg1) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
+//  %d3    = "onnx.Dim"(%arg2) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
+//  %shape = "onnx.Concat"(%d1, %d2, %d3) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+/// %c     = "onnx.ConstantOfShape"(%shape) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<?x?x?xf32>
+/// ```
+/// It is expected that the shape tensor is produced by concatenation of
+/// dimensions (done by `simplify-shape-related-ops-onnx` pass in advance).
+/// Otherwise, there is no information for analyzing further.
+///
+/// By this analyis, we know that the 1st, 2nd, and 3rd dim of `%c` is `%d1`,
+/// `%d2`, and `%d3` respectively.
+///
+// clang-format on
 static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
     mlir::Operation *op, DimAnalysis::DimSetT &sameDims) {
   LLVM_DEBUG(llvm::dbgs() << "Explore using shape input\n");
@@ -232,7 +256,8 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
 
   SmallVector<Value, 4> dims;
   getDims(shapeInput, dims);
-  if (auto d = insertDim(dims[inputDimIndex], inputDimIndex, sameDims))
+  if (auto d =
+          insertDimWhenUseful(dims[inputDimIndex], inputDimIndex, sameDims))
     LLVM_DEBUG(llvm::dbgs() << "  - Added a new dim(" << d.value().first << ", "
                             << d.value().second << ")\n");
   return true;
@@ -541,7 +566,8 @@ void DimAnalysis::visitDim(
           uint64_t maxRank = std::max(aRank, bRank);
           int64_t negativeIndex = dimIndex - maxRank;
           if (sameDim(A, negativeIndex, B, negativeIndex)) {
-            if (auto d = insertDim(A, aRank + negativeIndex, sameDims))
+            if (auto d =
+                    insertDimWhenUseful(A, aRank + negativeIndex, sameDims))
               LLVM_DEBUG(llvm::dbgs()
                          << "  - Added a new dim(" << d.value().first << ", "
                          << d.value().second << ")\n");
@@ -599,8 +625,8 @@ void DimAnalysis::visitDim(
         }
       assert(dynamicDimIndexInData.has_value() &&
              "Failed to obtain the index of the dynamic dimension in the data");
-      if (auto d =
-              insertDim(reshapeOp.getData(), *dynamicDimIndexInData, sameDims))
+      if (auto d = insertDimWhenUseful(
+              reshapeOp.getData(), *dynamicDimIndexInData, sameDims))
         LLVM_DEBUG(llvm::dbgs()
                    << "  - Case 1: Added a new dim(" << d.value().first << ", "
                    << d.value().second << ")\n");
@@ -627,7 +653,7 @@ void DimAnalysis::visitDim(
         if (sameDynDim(data, i, output, 1 - dimIndex)) {
           iDim = i;
           // The other output dim must be the same as the other input dim.
-          if (auto d = insertDim(data, 1 - iDim, sameDims))
+          if (auto d = insertDimWhenUseful(data, 1 - iDim, sameDims))
             LLVM_DEBUG(llvm::dbgs()
                        << "  - Case 2: Added a new dim(" << d.value().first
                        << ", " << d.value().second << ")\n");
