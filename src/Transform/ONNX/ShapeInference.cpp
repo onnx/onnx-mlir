@@ -51,14 +51,21 @@ LogicalResult verifyOp(Operation *op) {
 // Returns failure if the op and its results are unchanged,
 // like RewritePattern::matchAndRewrite().
 // Calls shapeInfOp.emitOpError() if there is any actual failure.
-LogicalResult inferShapes(ShapeInferenceOpInterface shapeInfOp) {
-  OperationFingerPrint before(shapeInfOp.getOperation());
-  if (failed(shapeInfOp.inferShapes([](Region &region) {})))
+LogicalResult inferShapes(
+    ShapeInferenceOpInterface shapeInfOp, PatternRewriter &rewriter) {
+  Operation *op = shapeInfOp.getOperation();
+  OperationFingerPrint before(op);
+  rewriter.startRootUpdate(op);
+  if (failed(shapeInfOp.inferShapes([](Region &region) {}))) {
+    rewriter.cancelRootUpdate(op);
     return shapeInfOp.emitOpError("shape inference failed");
+  }
   OperationFingerPrint after(shapeInfOp.getOperation());
   if (after == before) {
+    rewriter.cancelRootUpdate(op);
     return failure(); // Operation and its result types are unchanged.
   } else {
+    rewriter.finalizeRootUpdate(op);
     return success(); // Operation or its result types changed.
   }
 }
@@ -85,7 +92,7 @@ struct InferShapesPattern
       return shapeInfOp.emitOpError("verification failed");
 
     // Infer the results shapes.
-    return inferShapes(shapeInfOp);
+    return inferShapes(shapeInfOp, rewriter);
   }
 };
 
@@ -100,7 +107,7 @@ struct YieldShapesPattern : public OpRewritePattern<ONNXYieldOp> {
     Operation *parent = yieldOp->getParentOp();
     assert((isa<ONNXIfOp, ONNXLoopOp, ONNXScanOp>(parent)) &&
            "onnx.Yield has if/loop/scan parent");
-    return inferShapes(cast<ShapeInferenceOpInterface>(parent));
+    return inferShapes(cast<ShapeInferenceOpInterface>(parent), rewriter);
   }
 };
 
