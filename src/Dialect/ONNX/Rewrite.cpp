@@ -246,7 +246,7 @@ public:
     //     stepValue = ONNXConstantOp() {value = ...}
     //     newCounterValue = ONNXAddOp(counterValue, stepValue).
     //     cond_new = cond
-    //     ONNXReturnOp (cond_new, ..., ubValue, ..., newCounterValue, ...)
+    //     ONNXYieldOp (cond_new, ..., ubValue, ..., newCounterValue, ...)
     // ```
     bool matched;
     Value newMaxTripCountValue;
@@ -282,28 +282,27 @@ private:
 
   // A helper function to check whether an block argument is invariant to
   // iterations or not. By the definition of LoopOp, input block arguments are
-  // shifted by 1 to the left in ReturnOp. If a block argument is unchanged when
-  // being shifted in ReturnOp, then it is invariant to iterations.
-  bool isInvariantBlockArg(Value v, Operation *returnOp) const {
+  // shifted by 1 to the left in YieldOp. If a block argument is unchanged when
+  // being shifted in YieldOp, then it is invariant to iterations.
+  bool isInvariantBlockArg(Value v, Operation *yieldOp) const {
     return v.isa<BlockArgument>() &&
-           (v ==
-               returnOp
-                   ->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1]);
+           (v == yieldOp->getOperands()[v.cast<BlockArgument>().getArgNumber() -
+                                        1]);
   }
 
   // A helper function to check whether a value is defined by ONNXConstantOp in
   // the same block or an invariant block argument.
-  bool isIntConstantOrInvariantBlockArg(Value v, Operation *returnOp) const {
-    return ((v.isa<BlockArgument>() && isInvariantBlockArg(v, returnOp)) ||
+  bool isIntConstantOrInvariantBlockArg(Value v, Operation *yieldOp) const {
+    return ((v.isa<BlockArgument>() && isInvariantBlockArg(v, yieldOp)) ||
             (!v.isa<BlockArgument>() && isDefinedByIntegerConstantOp(v)));
   }
 
   // A helper function to check whether an block argument is updated by a Value
   // inside the loop or not.
-  bool isUpdatedArgByValue(Value v, Value newV, Operation *returnOp) const {
+  bool isUpdatedArgByValue(Value v, Value newV, Operation *yieldOp) const {
     return v.isa<BlockArgument>() &&
            (newV ==
-               returnOp
+               yieldOp
                    ->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1]);
   }
 
@@ -334,7 +333,7 @@ private:
   //     stepValue = ONNXConstantOp() {value = ...}
   //     newCounterValue = ONNXAddOp(counterValue, stepValue).
   //     cond = LessOp(newCounterValue, ubValue)
-  //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
+  //     ONNXYieldOp (cond, ..., ubValue, ..., newCounterValue, ...)
   // ```
   std::pair<bool, Value> matchOp(
       PatternRewriter &rewriter, Location loc, ONNXLoopOp onnxLoopOp) const {
@@ -352,18 +351,18 @@ private:
     if (!loopBody.hasOneBlock())
       return std::make_pair(false, maxTripCountValue);
 
-    // Get ReturnOp of the body block.
+    // Get YieldOp of the body block.
     Block &bodyBlock = loopBody.front();
-    Operation *returnOp = bodyBlock.getTerminator();
-    if (!isa<ONNXReturnOp>(returnOp))
+    Operation *yieldOp = bodyBlock.getTerminator();
+    if (!isa<ONNXYieldOp>(yieldOp))
       return std::make_pair(false, maxTripCountValue);
 
     // Analyze the break condition of the loop body to see if we can derive a
     // new maximum trip count or not.
 
-    // The break condition is the first argument of ReturnOp.
-    // `ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)`
-    Value breakCond = returnOp->getOperands()[0];
+    // The break condition is the first argument of YieldOp.
+    // `ONNXYieldOp (cond, ..., ubValue, ..., newCounterValue, ...)`
+    Value breakCond = yieldOp->getOperands()[0];
     if (breakCond.isa<BlockArgument>())
       return std::make_pair(false, maxTripCountValue);
     Operation *breakCondOp = breakCond.getDefiningOp();
@@ -395,15 +394,15 @@ private:
     //     stepValue = ONNXConstantOp() {value = ...}
     //     newCounterValue = ONNXAddOp(counterValue, stepValue).
     //     cond = LessOp(newCounterValue, ubValue)
-    //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
+    //     ONNXYieldOp (cond, ..., ubValue, ..., newCounterValue, ...)
     Operation *addOp = cast<ONNXAddOp>(newCounterValue.getDefiningOp());
     Value counterValue = addOp->getOperands()[0];
     Value stepValue = addOp->getOperands()[1];
     // Counter is a block argument and updated at each iteration.
-    if (!isUpdatedArgByValue(counterValue, newCounterValue, returnOp))
+    if (!isUpdatedArgByValue(counterValue, newCounterValue, yieldOp))
       return std::make_pair(false, maxTripCountValue);
     // Step must be a constant inside the loop or an invariant argument.
-    if (!isIntConstantOrInvariantBlockArg(stepValue, returnOp))
+    if (!isIntConstantOrInvariantBlockArg(stepValue, yieldOp))
       return std::make_pair(false, maxTripCountValue);
 
     // Check the lower bound of the break condition.
@@ -412,17 +411,17 @@ private:
 
     // Check the upper bound of the break condition.
     // UpperBound must be a constant inside the loop or an invariant argument.
-    if (!isIntConstantOrInvariantBlockArg(ubValue, returnOp))
+    if (!isIntConstantOrInvariantBlockArg(ubValue, yieldOp))
       return std::make_pair(false, maxTripCountValue);
 
     // Get values for upper bound and step if they are invariant arguments.
     // Otherwise, clone them to location outside the loop.
-    if (isInvariantBlockArg(ubValue, returnOp))
+    if (isInvariantBlockArg(ubValue, yieldOp))
       ubValue = getFedValue(ubValue, loopOp);
     else
       ubValue = cast<ONNXConstantOp>(rewriter.clone(*ubValue.getDefiningOp()))
                     .getResult();
-    if (isInvariantBlockArg(stepValue, returnOp))
+    if (isInvariantBlockArg(stepValue, yieldOp))
       stepValue = getFedValue(stepValue, loopOp);
     else
       stepValue =
