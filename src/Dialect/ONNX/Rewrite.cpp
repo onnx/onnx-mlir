@@ -264,18 +264,23 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXResizeOp onnxResizeOp, PatternRewriter &rewriter) const override {
-    OnnxBuilder createONNX(rewriter, onnxResizeOp.getLoc());
-
-    if (isEmptyTensor(onnxResizeOp.getRoi()))
-      onnxResizeOp.getRoiMutable().assign(createONNX.none());
-
-    if (isEmptyTensor(onnxResizeOp.getScales()))
-      onnxResizeOp.getScalesMutable().assign(createONNX.none());
-
-    if (isEmptyTensor(onnxResizeOp.getSizes()))
-      onnxResizeOp.getSizesMutable().assign(createONNX.none());
-
-    return success();
+    bool emptyRoi = isEmptyTensor(onnxResizeOp.getRoi());
+    bool emptyScales = isEmptyTensor(onnxResizeOp.getScales());
+    bool emptySizes = isEmptyTensor(onnxResizeOp.getSizes());
+    if (emptyRoi || emptyScales || emptySizes) {
+      rewriter.updateRootInPlace(onnxResizeOp, [&] {
+        OnnxBuilder createONNX(rewriter, onnxResizeOp.getLoc());
+        if (emptyRoi)
+          onnxResizeOp.getRoiMutable().assign(createONNX.none());
+        if (emptyScales)
+          onnxResizeOp.getScalesMutable().assign(createONNX.none());
+        if (emptySizes)
+          onnxResizeOp.getSizesMutable().assign(createONNX.none());
+      });
+      return success();
+    } else {
+      return failure(); // pattern didn't apply and onnxResizeOp is unchanged
+    }
   }
 
 private:
