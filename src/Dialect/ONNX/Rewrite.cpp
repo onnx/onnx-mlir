@@ -225,12 +225,12 @@ public:
     }
 
     rewriter.updateRootInPlace(op, [&] {
-      if (rhsRank <= lhsRank - axis) {
+      if (rhsRank < lhsRank - axis) {
         OnnxBuilder createONNX(rewriter, op->getLoc());
         SmallVector<int64_t> axesArray;
         SmallVector<int64_t> unsqueezedShape(rhsType.getShape());
-        for (int64_t axis = rhsRank; axis <= lhsRank - axis; ++axis) {
-          axesArray.push_back(axis);
+        for (int64_t x = rhsRank; x < lhsRank - axis; ++x) {
+          axesArray.push_back(x);
           unsqueezedShape.push_back(1);
         }
         Value axes = createONNX.constantInt64(axesArray);
