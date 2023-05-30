@@ -48,26 +48,37 @@ LogicalResult verifyOp(Operation *op) {
   }
 }
 
+// Variant of RewriterBase::updateRootInPlace(op) which finalizes/cancels the
+// root update if the callback succeeds/fails.
+template <typename Callback = std::function<LogicalResult()>>
+LogicalResult tryUpdateRootInPlace(
+    Operation *op, PatternRewriter &rewriter, Callback &&callback) {
+  rewriter.startRootUpdate(op);
+  if (failed(callback())) {
+    rewriter.cancelRootUpdate(op);
+    return failure();
+  } else {
+    rewriter.finalizeRootUpdate(op);
+    return success();
+  }
+}
+
 // Returns failure if the op and its results are unchanged,
 // like RewritePattern::matchAndRewrite().
 // Calls shapeInfOp.emitOpError() if there is any actual failure.
 LogicalResult inferShapes(
     ShapeInferenceOpInterface shapeInfOp, PatternRewriter &rewriter) {
-  Operation *op = shapeInfOp.getOperation();
-  OperationFingerPrint before(op);
-  rewriter.startRootUpdate(op);
-  if (failed(shapeInfOp.inferShapes([](Region &region) {}))) {
-    rewriter.cancelRootUpdate(op);
-    return shapeInfOp.emitOpError("shape inference failed");
-  }
-  OperationFingerPrint after(shapeInfOp.getOperation());
-  if (after == before) {
-    rewriter.cancelRootUpdate(op);
-    return failure(); // Operation and its result types are unchanged.
-  } else {
-    rewriter.finalizeRootUpdate(op);
-    return success(); // Operation or its result types changed.
-  }
+  return tryUpdateRootInPlace(shapeInfOp, rewriter, [&]() -> LogicalResult {
+    OperationFingerPrint before(shapeInfOp);
+    LogicalResult outcome = shapeInfOp.inferShapes([](Region &region) {});
+    OperationFingerPrint after(shapeInfOp);
+    if (failed(outcome)) {
+      assert(after == before && "op must be unchanged on failure");
+      return shapeInfOp.emitOpError("shape inference failed");
+    }
+    // succeed only shapeInfOp or its result types changed
+    return after == before ? failure() : success();
+  });
 }
 
 // Shape inference pattern for regular ONNX ops from the ONNX specification,
