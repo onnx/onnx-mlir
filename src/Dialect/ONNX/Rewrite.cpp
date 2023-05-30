@@ -186,6 +186,8 @@ bool AreTheSameAxesConstant(int64_t rank, Value lhs, Value rhs) {
 // Rewrites v1-v6 binary op with legacy axis and broadcast attributes set
 // by unsqueezing the rhs shape as needed and removing the axis attribute,
 // provided that the operand shapes' ranks are known.
+// The v1-v6 binary ops with axis and broadcast attributes are:
+// Add, And, Div, Equal, Greater, Less, Or, Pow, Sub, Xor.
 template <typename OP_TYPE>
 class BinaryOpBroadcastAxisPattern : public OpRewritePattern<OP_TYPE> {
 public:
@@ -222,7 +224,7 @@ public:
              << rhsType;
     }
 
-    rewriter.updateRootInPlace(op, [&]{
+    rewriter.updateRootInPlace(op, [&] {
       OnnxBuilder createONNX(rewriter, op->getLoc());
       SmallVector<int64_t> axesArray;
       SmallVector<int64_t> unsqueezedShape(rhsType.getShape());
