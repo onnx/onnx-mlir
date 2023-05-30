@@ -822,7 +822,7 @@ struct ONNXCustomOpShapeHelper : public ONNXUnaryOpShapeHelper {
   ONNXCustomOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr,
       bool hasUniBroadcasting = false);
-  
+
   // Default shape compute (every operands of the operation and no additional
   // parameters).
   mlir::LogicalResult computeShape() override;

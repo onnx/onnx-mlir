@@ -806,8 +806,7 @@ void resetTypesShapeToQuestionmarks(Operation *op) {
 ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
     ValueRange operands, IndexExprBuilder *ieBuilder, IndexExprScope *scope,
     bool hasUniBroadcasting)
-    : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope),
-      operandsVector() {
+    : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope), operandsVector() {
   ONNXCustomOp customOp = cast<ONNXCustomOp>(op);
   if (!customOp.getShapeInferPattern().has_value()) {
     pattern = 0;
