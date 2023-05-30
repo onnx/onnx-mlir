@@ -58,7 +58,7 @@ struct TosaBuilder : DialectBuilder {
   mlir::Value getSplattedConst(float val, llvm::ArrayRef<int64_t> shape = {});
 
   // Adds reshape ops to expand the rank to the max rank of the values.
-  mlir::ValueRange equalizeRanks(mlir::ValueRange valueRange);
+  llvm::SmallVector<mlir::Value, 4> equalizeRanks(mlir::ValueRange valueRange);
 
 protected:
   template <typename T>

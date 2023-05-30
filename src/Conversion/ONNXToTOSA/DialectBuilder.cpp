@@ -78,7 +78,7 @@ Value TosaBuilder::expandRank(Value input, int64_t rank) {
   return this->reshape(input, newShape);
 }
 
-ValueRange TosaBuilder::equalizeRanks(ValueRange valueRange) {
+llvm::SmallVector<Value, 4> TosaBuilder::equalizeRanks(ValueRange valueRange) {
   // Get highest rank from the operands.
   int64_t maxRank = 0;
   for (auto type : valueRange.getTypes()) {
@@ -170,9 +170,9 @@ Value TosaBuilder::reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape) {
 
 Value TosaBuilder::mul(mlir::Value &lhs, mlir::Value &rhs, int32_t shift) {
   if (needsRankBroadcast({lhs, rhs})) {
-    ValueRange valueRange = equalizeRanks({lhs, rhs});
-    lhs = valueRange[0];
-    rhs = valueRange[1];
+    llvm::SmallVector<Value, 4> valueVec = equalizeRanks({lhs, rhs});
+    lhs = valueVec[0];
+    rhs = valueVec[1];
   }
   auto lhsType = lhs.getType().cast<ShapedType>();
   Type newValueType = RankedTensorType::get(
@@ -185,9 +185,9 @@ Value TosaBuilder::mul(mlir::Value &lhs, mlir::Value &rhs, int32_t shift) {
 template <typename T>
 Value TosaBuilder::binaryOp(mlir::Value &lhs, mlir::Value &rhs) {
   if (needsRankBroadcast({lhs, rhs})) {
-    ValueRange valueRange = equalizeRanks({lhs, rhs});
-    lhs = valueRange[0];
-    rhs = valueRange[1];
+    llvm::SmallVector<Value, 4> valueVec = equalizeRanks({lhs, rhs});
+    lhs = valueVec[0];
+    rhs = valueVec[1];
   }
   auto lhsType = lhs.getType().cast<ShapedType>();
   Type newValueType = RankedTensorType::get(
