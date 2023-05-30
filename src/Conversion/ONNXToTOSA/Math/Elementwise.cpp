@@ -79,7 +79,8 @@ public:
 
       if (shapeHelper.hasRankBroadcast()) {
         TosaBuilder tosaBuilder(rewriter, loc);
-        llvm::SmallVector<Value, 4> newValues = tosaBuilder.equalizeRanks({lhs, rhs});
+        llvm::SmallVector<Value, 4> newValues =
+            tosaBuilder.equalizeRanks({lhs, rhs});
         lhs = newValues[0];
         rhs = newValues[1];
       }
