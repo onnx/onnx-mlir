@@ -1076,7 +1076,7 @@ func.func @mul_broadcast_axis_unsqueeze(%279: tensor<1x64x112x112xf32>, %138: te
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64x112x112xf32>, [[PARAM_1_:%.+]]: tensor<64xf32>) -> tensor<*xf32> {
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[1, 2]> : tensor<2xi64>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Unsqueeze"([[PARAM_1_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_1_]]) {broadcast = 1 : si64, onnx_node_name = ""} : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_1_]]) {onnx_node_name = ""} : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<*xf32>
 // CHECK:           return [[VAR_2_]] : tensor<*xf32>
 // CHECK:         }
 }

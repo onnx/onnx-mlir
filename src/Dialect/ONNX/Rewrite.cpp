@@ -184,8 +184,8 @@ bool AreTheSameAxesConstant(int64_t rank, Value lhs, Value rhs) {
 // =============================================================================
 
 // Rewrites v1-v6 binary op with legacy axis and broadcast attributes set
-// by unsqueezing the rhs shape as needed and removing the axis attribute,
-// provided that the operand shapes' ranks are known.
+// by unsqueezing the rhs shape as needed and removing the axis and broadcast
+// attributes, provided that the operand shapes' ranks are known.
 // The v1-v6 binary ops with axis and broadcast attributes are:
 // Add, And, Div, Equal, Greater, Less, Or, Pow, Sub, Xor.
 template <typename OP_TYPE>
@@ -239,8 +239,10 @@ public:
         Value unsqueezed = createONNX.unsqueeze(unsqueezedType, rhs, axes);
         op->setOperand(1, unsqueezed);
       }
-      Attribute removed = op->removeAttr("axis");
-      assert(removed && "axis was removed");
+      Attribute removedAxisAttr = op->removeAttr("axis");
+      assert(removedAxisAttr && "axis should be removed");
+      Attribute removedBroadcastAttr = op->removeAttr("broadcast");
+      assert(removedBroadcastAttr && "broadcast should be removed");
     });
     return success();
   }
