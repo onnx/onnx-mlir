@@ -225,18 +225,20 @@ public:
     }
 
     rewriter.updateRootInPlace(op, [&] {
-      OnnxBuilder createONNX(rewriter, op->getLoc());
-      SmallVector<int64_t> axesArray;
-      SmallVector<int64_t> unsqueezedShape(rhsType.getShape());
-      for (int64_t axis = rhsRank; axis < lhsRank - axis + 1; ++axis) {
-        axesArray.push_back(axis);
-        unsqueezedShape.push_back(1);
+      if (rhsRank <= lhsRank - axis) {
+        OnnxBuilder createONNX(rewriter, op->getLoc());
+        SmallVector<int64_t> axesArray;
+        SmallVector<int64_t> unsqueezedShape(rhsType.getShape());
+        for (int64_t axis = rhsRank; axis <= lhsRank - axis; ++axis) {
+          axesArray.push_back(axis);
+          unsqueezedShape.push_back(1);
+        }
+        Value axes = createONNX.constantInt64(axesArray);
+        auto unsqueezedType =
+            RankedTensorType::get(unsqueezedShape, rhsType.getElementType());
+        Value unsqueezed = createONNX.unsqueeze(unsqueezedType, rhs, axes);
+        op->setOperand(1, unsqueezed);
       }
-      Value axes = createONNX.constantInt64(axesArray);
-      auto unsqueezedType =
-          RankedTensorType::get(unsqueezedShape, rhsType.getElementType());
-      Value unsqueezed = createONNX.unsqueeze(unsqueezedType, rhs, axes);
-      op->setOperand(1, unsqueezed);
       Attribute removed = op->removeAttr("axis");
       assert(removed && "axis was removed");
     });
