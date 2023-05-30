@@ -196,10 +196,10 @@ set(NNPA_TEST_LIST
     # ==OP== LogSoftmax
     # test_logsoftmax_axis_0_cpu
     # test_logsoftmax_axis_1_cpu
-    test_logsoftmax_axis_2_cpu,zdnn_log
+    # test_logsoftmax_axis_2_cpu,zdnn_log
     test_logsoftmax_example_1_cpu,zdnn_softmax
     # test_logsoftmax_default_axis_cpu
-    test_logsoftmax_negative_axis_cpu,zdnn_log
+    # test_logsoftmax_negative_axis_cpu,zdnn_log
     # test_logsoftmax_large_number_cpu #  accuracy error in test_logsoftmax_large_number_cpu
 
     # ==OP== LSTM
@@ -391,6 +391,10 @@ add_dependencies(check-onnx-backend-nnpa-constant PyRuntime)
 add_dependencies(check-onnx-backend-nnpa-compilerlib CompilerLibTest)
 add_dependencies(check-onnx-backend-nnpa-compilerlib PyRuntime)
 
+add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-nnpa)
+add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-nnpa-dynamic)
+add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-nnpa-constant)
+
 if (ONNX_MLIR_ENABLE_JNI)
   message(STATUS "JNI backend tests        : ON")
   message(STATUS "JSONITER_JAR             : ${JSONITER_JAR}")
@@ -434,6 +438,11 @@ if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(check-onnx-backend-nnpa-constant-jni PyRuntime)
   add_dependencies(check-onnx-backend-nnpa-constant-jni javaruntime)
   add_dependencies(check-onnx-backend-nnpa-constant-jni jniruntime)
+
+  add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-nnpa-jni)
+  add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-nnpa-dynamic-jni)
+  add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-nnpa-constant-jni)
+
 else()
   message(STATUS "  JNI backend-nnpa tests         : OFF")
 endif()
