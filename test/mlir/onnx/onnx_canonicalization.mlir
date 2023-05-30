@@ -1064,3 +1064,19 @@ func.func @expand_pow_into_constant(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf3
 // CHECK:           return [[VAR_0_]] : tensor<3x4x5xf32>
 // CHECK:         }
 }
+
+// -----
+
+// Check BinaryOpBroadcastAxisPattern. Example from inception-v2-6 model.
+func.func @mul_broadcast_axis_unsqueeze(%279: tensor<1x64x112x112xf32>, %138: tensor<64xf32>) -> tensor<*xf32> {
+  %280 = "onnx.Mul"(%279, %138) {axis = 1 : si64, broadcast = 1 : si64, onnx_node_name = ""} : (tensor<1x64x112x112xf32>, tensor<64xf32>) -> tensor<*xf32>
+  return %280 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @mul_broadcast_axis_unsqueeze
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64x112x112xf32>, [[PARAM_1_:%.+]]: tensor<64xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[1, 2]> : tensor<2xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Unsqueeze"([[PARAM_1_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_1_]]) {broadcast = 1 : si64, onnx_node_name = ""} : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<*xf32>
+// CHECK:           return [[VAR_2_]] : tensor<*xf32>
+// CHECK:         }
+}
