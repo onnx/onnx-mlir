@@ -299,7 +299,6 @@ special_op_handler = dict([
     ("MaxPool", "ImportNodeMaxPool"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
-    ("Scan", "ImportScan"),
 ])
 
 # Operations with custom assembly format (alphabetical order).
@@ -454,7 +453,10 @@ OpsWithResultTypeInference = [
     'Constant',
     'Cast',
     'ConstantOfShape',
-    'RandomNormal'
+    'If',
+    'Loop',
+    'RandomNormal',
+    'Scan'
 ]
 
 # Add an Op in this list if the Op needs result type deduction which is required

@@ -553,8 +553,7 @@ private:
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<Value> inputs, int expectedNumOperands,
       int expectedNumResults, const std::vector<NamedAttribute> &attributes,
-      std::vector<Type> givenOutputTypes = std::vector<Type>(),
-      int num_use_inference_outputs = -1) {
+      std::vector<Type> givenOutputTypes = std::vector<Type>()) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -616,38 +615,25 @@ private:
         outputTypes.emplace_back(builder_.getNoneType());
 
     // TODO: Handle optional inputs.
-    auto op =
-        builder_.create<T>(ImportLoc(node), outputTypes, inputs, attributes);
+    T op = builder_.create<T>(ImportLoc(node), outputTypes, inputs, attributes);
     Operation *genericOp = op.getOperation();
     // Type inference for results.
     for (const auto &attr : node.attribute()) {
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH) {
-        if (auto opWithSubgraph =
-                dyn_cast<HasOnnxSubgraphOpInterface>(op.getOperation())) {
-          auto regionIdx = opWithSubgraph.getSubgraphRegionIdx(attr.name());
-          auto &region = op->getRegion(regionIdx);
-          region.push_back(new Block);
-          OpBuilder::InsertionGuard guard(builder_);
-          builder_.setInsertionPointToStart(&region.back());
-          auto funcType =
-              importGraph(attr.g(), region, op.getOperation(), false);
-          // Use type info from graph to reset type of output for current op
-          for (int i = 0; i < node.output().size(); i++) {
-            Type type = funcType.getResults()[i];
-            if ((num_use_inference_outputs < 0) ||
-                (i < num_use_inference_outputs)) {
-              genericOp->getOpResult(i).setType(type);
-            } else {
-              TensorType tensorType = type.cast<TensorType>();
-              Type extendedType =
-                  UnrankedTensorType::get(tensorType.getElementType());
-              genericOp->getOpResult(i).setType(extendedType);
-            }
-          }
-        } else {
-          llvm_unreachable("Op contains subgraph attributes but does not "
-                           "implement HasOnnxSubgraphOpInterface interface.");
-        }
+        assert(genericOp->hasTrait<HasOnnxSubgraphOpInterface::Trait>() &&
+               "Op contains subgraph attributes but does not "
+               "implement HasOnnxSubgraphOpInterface interface.");
+        auto opWithSubgraph = cast<HasOnnxSubgraphOpInterface>(genericOp);
+        auto regionIdx = opWithSubgraph.getSubgraphRegionIdx(attr.name());
+        auto &region = genericOp->getRegion(regionIdx);
+        region.push_back(new Block);
+        OpBuilder::InsertionGuard guard(builder_);
+        builder_.setInsertionPointToStart(&region.back());
+        auto funcType = importGraph(attr.g(), region, genericOp, false);
+        // Output types are propagated from region terminator to op results
+        // in opWithTypeInference logic below.
+        assert(genericOp->hasTrait<ResultTypeInferenceOpInterface::Trait>() &&
+               "Subgraph ops must implement ResultTypeInferenceOpInterface");
       }
     }
     if (auto opWithTypeInference =
@@ -712,33 +698,6 @@ private:
     }
     buildOutputAndOperation<ONNXCategoryMapperOp>(node, inputs,
         expectedNumOperands, expectedNumResults, attributes, outputTypes);
-  }
-
-  // The output type of Scan needs special handling
-  // The final_state_and_scan_outputs of Scan shows final values of loop's
-  // N state variables followed by K scan_outputs.
-  void ImportScan(const onnx::NodeProto &node) {
-    int expectedNumOperands = ONNXScanOp::getNumberOfOperands();
-    int expectedNumResults = ONNXScanOp::getNumberOfResults();
-    std::vector<Value> inputs;
-    getNodeInputs(node, inputs);
-    auto attributes = ImportNodeAttributes(node);
-    int num_scan_inputs = -1;
-    int i;
-    for (i = 0; i < node.attribute_size(); ++i) {
-      auto attr = node.attribute(i);
-      if (attr.name() == "num_scan_inputs") {
-        num_scan_inputs = attr.i();
-        break;
-      }
-    }
-    assert((i < node.attribute_size()) &&
-           "mandatory num_scan_inputs attr not in onnx.Scan");
-    buildOutputAndOperation<ONNXScanOp>(node, inputs, expectedNumOperands,
-        expectedNumResults, attributes,
-        /*givenOutputTypes=*/std::vector<Type>(),
-        /*num_use_inference_outputs=*/num_scan_inputs);
-    return;
   }
 
   std::vector<NamedAttribute> ImportCastAttributes(
