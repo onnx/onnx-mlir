@@ -616,43 +616,43 @@ private:
 
     // TODO: Handle optional inputs.
     T op = builder_.create<T>(ImportLoc(node), outputTypes, inputs, attributes);
-    Operation *genericOp = op.getOperation();
     // Type inference for results.
     for (const auto &attr : node.attribute()) {
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH) {
-        assert(genericOp->hasTrait<HasOnnxSubgraphOpInterface::Trait>() &&
+        OperationName opName = op->getName();
+        assert(opName.hasInterface<HasOnnxSubgraphOpInterface>() &&
                "Op contains subgraph attributes but does not "
                "implement HasOnnxSubgraphOpInterface interface.");
-        auto opWithSubgraph = cast<HasOnnxSubgraphOpInterface>(genericOp);
+        auto opWithSubgraph =
+            cast<HasOnnxSubgraphOpInterface>(op.getOperation());
         auto regionIdx = opWithSubgraph.getSubgraphRegionIdx(attr.name());
-        auto &region = genericOp->getRegion(regionIdx);
+        auto &region = op->getRegion(regionIdx);
         region.push_back(new Block);
         OpBuilder::InsertionGuard guard(builder_);
         builder_.setInsertionPointToStart(&region.back());
-        auto funcType = importGraph(attr.g(), region, genericOp, false);
+        importGraph(attr.g(), region, op, false);
         // Output types are propagated from region terminator to op results
         // in opWithTypeInference logic below.
-        assert(genericOp->hasTrait<ResultTypeInferenceOpInterface::Trait>() &&
+        assert(opName.hasTrait<ResultTypeInferenceOpInterface::Trait>() &&
                "Subgraph ops must implement ResultTypeInferenceOpInterface");
       }
     }
     if (auto opWithTypeInference =
-            dyn_cast<ResultTypeInferenceOpInterface>(genericOp)) {
+            dyn_cast<ResultTypeInferenceOpInterface>(op.getOperation())) {
       auto outTypes = opWithTypeInference.resultTypeInference();
       for (int i = 0; i < node.output().size(); i++) {
-        auto result = genericOp->getOpResult(i);
-        if (!options_.useOnnxModelTypes || result.getType().isa<NoneType>())
-          genericOp->getOpResult(i).setType(outTypes[i]);
+        OpResult result = op->getResult(i);
+        if (!options_.useOnnxModelTypes || isa<NoneType>(result.getType()))
+          result.setType(outTypes[i]);
       }
     }
 
-    for (const auto &output : llvm::enumerate(node.output())) {
+    for (const auto &[i, output] : llvm::enumerate(node.output())) {
       // Skip the output with empty name, which is used as a placeholder
       // in multiple outputs.
       // Found in models. Not sure about the specification.
-      if (output.value() != "")
-        frontend_symbols_.AddMapping(
-            output.value(), genericOp->getOpResult(output.index()));
+      if (output != "")
+        frontend_symbols_.AddMapping(output, op->getResult(i));
     }
   }
 
