@@ -263,7 +263,7 @@ llvm::cl::opt<std::string> reportHeapAfter("report-heap-after",
 std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
 // Must match ModelSize enum
-const std::string modelSizeStr[] = { "small", "medium", "large", "huge" };
+const std::string modelSizeStr[] = {"small", "medium", "large", "huge"};
 
 // =============================================================================
 // Methods for setting and getting compiler variables.
