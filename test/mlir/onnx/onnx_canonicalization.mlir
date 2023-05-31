@@ -229,6 +229,19 @@ func.func @test_reshape_should_not_remove(%arg0: tensor<3x5x10x20xf32>, %arg1: t
 
 // -----
 
+// Check EmptyTensorInputsResizePattern. Example from yolov4 model after --decompose-onnx.
+func.func @test_resize_empty_tensor_inputs(%8: tensor<0xf32>, %714: tensor<*xf32>, %719: tensor<*xi64>) -> tensor<*xf32> {
+  %720 = "onnx.Resize"(%714, %8, %8, %719) {antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"} : (tensor<*xf32>, tensor<0xf32>, tensor<0xf32>, tensor<*xi64>) -> tensor<*xf32>
+  return %720 : tensor<*xf32>
+  // CHECK-LABEL: func @test_resize_empty_tensor_inputs
+  // CHECK-SAME:  ([[PARAM_0:%.+]]: tensor<0xf32>, [[PARAM_1:%.+]]: tensor<*xf32>, [[PARAM_2:%.+]]: tensor<*xi64>) -> tensor<*xf32> {
+  // CHECK:         [[NONE:%.+]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK:         [[RES:%.+]] = "onnx.Resize"([[PARAM_1]], [[NONE]], [[NONE]], [[PARAM_2]]) {antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"} : (tensor<*xf32>, none, none, tensor<*xi64>) -> tensor<*xf32>
+  // CHECK:         return [[RES]] : tensor<*xf32>
+}
+
+// -----
+
 // Check the combining of transposes into a simple transpose.
 // CHECK-LABEL: func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
 func.func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
