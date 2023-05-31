@@ -311,18 +311,23 @@ OpsWithCustomAssemblyFormat = [
 # Operations supporting canonicalization (alphabetical order).
 OpsWithCanonicalizer = [
     'Add',
+    'And',
     'Cast',
     'Constant',
     'DepthToSpace',
+    'Div',
     'Dropout',
+    'Equal',
     'GlobalAveragePool',
     'GlobalMaxPool',
+    'Greater',
     'GRU',
     'Identity',
     'Less',
     'Loop',
     'LSTM',
     'Mul',
+    'Or',
     'Pow',
     'Reshape',
     'RNN',
@@ -332,9 +337,11 @@ OpsWithCanonicalizer = [
     'SpaceToDepth',
     'Squeeze',
     'SqueezeV11',
+    'Sub',
     'Transpose',
     'Unsqueeze',
     'UnsqueezeV11',
+    'Xor',
 ]
 
 # Operations with custom verifiers (alphabetical order).
