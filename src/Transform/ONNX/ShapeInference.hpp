@@ -15,6 +15,10 @@
 
 namespace onnx_mlir {
 
+// Returns false if the rank or any dimension of any result types is unknown or
+// dynamic.
+bool returnsDynamicOrUnknownShape(mlir::Operation *op);
+
 void getShapeInferencePatterns(mlir::RewritePatternSet &set);
 
 void inferFunctionReturnShapes(mlir::func::FuncOp f);
