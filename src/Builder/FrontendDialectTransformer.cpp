@@ -662,7 +662,7 @@ private:
 
     for (const auto &output : llvm::enumerate(node.output())) {
       // Skip the output with empty name, which is used as a placeholder
-      // in mulitple outputs.
+      // in multiple outputs.
       // Found in models. Not sure about the specification.
       if (output.value() != "")
         frontend_symbols_.AddMapping(
@@ -715,7 +715,7 @@ private:
   }
 
   // The output type of Scan needs special handling
-  // The final_stete_and_scan_outputs of Scan shows final values of loop's
+  // The final_state_and_scan_outputs of Scan shows final values of loop's
   // N state variables followed by K scan_outputs.
   void ImportScan(const onnx::NodeProto &node) {
     int expectedNumOperands = ONNXScanOp::getNumberOfOperands();
