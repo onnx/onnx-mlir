@@ -792,7 +792,7 @@ def ONNXBlackmanWindowOp:ONNX_Op<"BlackmanWindow",
 }
 
 def ONNXCastOp:ONNX_Op<"Cast",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Cast operation";
   let description = [{
@@ -844,11 +844,6 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
-    }
-    std::vector<mlir::Type> resultTypeInference() {
-      std::vector<mlir::Type> resultTypes;
-      resultTypes.push_back(mlir::UnrankedTensorType::get(getTo()));
-      return resultTypes;
     }
   }];
   let extraClassDefinition = [{
@@ -1281,7 +1276,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
-  [Pure, ConstantLike, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [Pure, ConstantLike, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let hasCustomAssemblyFormat = 1;
   let hasCanonicalizer = 1;
   let summary = "ONNX Constant operation";
@@ -1307,32 +1302,6 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
-    }
-    std::vector<mlir::Type> resultTypeInference() {
-      std::vector<mlir::Type> resultTypes;
-      if (auto attr = getValueAttr()) {
-        resultTypes.push_back(attr.cast<TypedAttr>().getType());
-      } else if (auto attr = getSparseValueAttr()) {
-        resultTypes.push_back(attr.cast<TypedAttr>().getType());
-      } else if (auto attr = getValueFloatAttr()) {
-        resultTypes.push_back(RankedTensorType::get({}, FloatType::getF32(attr.getContext())));
-      } else if (auto attr = getValueFloatsAttr()) {
-        int64_t size = attr.size();
-        resultTypes.push_back(RankedTensorType::get({size}, FloatType::getF32(attr.getContext())));
-      } else if (auto attr = getValueIntAttr()) {
-        resultTypes.push_back(RankedTensorType::get({}, IntegerType::get(attr.getContext(), 64)));
-      } else if (auto attr = getValueIntsAttr()) {
-        int64_t size = attr.size();
-        resultTypes.push_back(RankedTensorType::get({size}, IntegerType::get(attr.getContext(), 64)));
-      } else if (auto attr = getValueStringAttr()) {
-        resultTypes.push_back(RankedTensorType::get({}, ONNXStringType::get(attr.getContext())));
-      } else if (auto attr = getValueStringsAttr()) {
-        int64_t size = attr.size();
-        resultTypes.push_back(RankedTensorType::get({size}, ONNXStringType::get(attr.getContext())));
-      } else {
-        llvm_unreachable("Unexpected attributes for Constant Op");
-      }
-      return resultTypes;
     }
   }];
   let extraClassDefinition = [{
@@ -1360,7 +1329,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let hasCustomAssemblyFormat = 1;
   let summary = "ONNX ConstantOfShape operation";
   let description = [{
@@ -1378,17 +1347,6 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
-    }
-    std::vector<mlir::Type> resultTypeInference() {
-      std::vector<mlir::Type> resultTypes;
-      if (auto attr = getValueAttr()) {
-        resultTypes.push_back(mlir::UnrankedTensorType::get(
-          attr.cast<TypedAttr>().getType().cast<ShapedType>().getElementType()));
-      } else {
-        resultTypes.push_back(mlir::UnrankedTensorType::get(
-          FloatType::getF32(getContext())));
-      }
-      return resultTypes;
     }
   }];
   let extraClassDefinition = [{
@@ -5808,7 +5766,7 @@ def ONNXRNNOp:ONNX_Op<"RNN",
 }
 
 def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX RandomNormal operation";
   let description = [{
   Generate a tensor with random values drawn from a normal distribution. The shape
@@ -5834,27 +5792,6 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
-    }
-    std::vector<mlir::Type> resultTypeInference() {
-      std::vector<mlir::Type> resultTypes;
-      if (auto attr = getDtypeAttr()) {
-      if (getDtype() == 0) {
-        resultTypes.push_back(mlir::UnrankedTensorType::get(
-            FloatType::getF16(getContext())));
-      } else if (getDtype() == 1) {
-        resultTypes.push_back(mlir::UnrankedTensorType::get(
-            FloatType::getF32(getContext())));
-      } else if (getDtype() == 2) {
-        resultTypes.push_back(mlir::UnrankedTensorType::get(
-            FloatType::getF64(getContext())));
-      } else {
-        llvm_unreachable("dtype not supported for RandomNormal");
-      }
-    } else {
-        resultTypes.push_back(mlir::UnrankedTensorType::get(
-            FloatType::getF32(getContext())));
-    }
-      return resultTypes;
     }
   }];
   let extraClassDefinition = [{
