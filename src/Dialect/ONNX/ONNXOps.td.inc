@@ -161,6 +161,7 @@ def ONNXAddOp:ONNX_Op<"Add",
 
 def ONNXAndOp:ONNX_Op<"And",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX And operation";
   let description = [{
   Returns the tensor resulted from performing the `and` logical operation
@@ -1815,6 +1816,7 @@ def ONNXDetOp:ONNX_Op<"Det",
 
 def ONNXDivOp:ONNX_Op<"Div",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Div operation";
   let description = [{
   Performs element-wise binary division (with Numpy-style broadcasting support).
@@ -2053,6 +2055,7 @@ def ONNXEluOp:ONNX_Op<"Elu",
 
 def ONNXEqualOp:ONNX_Op<"Equal",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Equal operation";
   let description = [{
   Returns the tensor resulted from performing the `equal` logical operation
@@ -2865,6 +2868,7 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
 
 def ONNXGreaterOp:ONNX_Op<"Greater",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Greater operation";
   let description = [{
   Returns the tensor resulted from performing the `greater` logical operation
@@ -5047,6 +5051,7 @@ def ONNXOptionalHasElementOp:ONNX_Op<"OptionalHasElement",
 
 def ONNXOrOp:ONNX_Op<"Or",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Or operation";
   let description = [{
   Returns the tensor resulted from performing the `or` logical operation
@@ -8913,6 +8918,7 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
 
 def ONNXSubOp:ONNX_Op<"Sub",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Sub operation";
   let description = [{
   Performs element-wise binary subtraction (with Numpy-style broadcasting support).
@@ -9619,6 +9625,7 @@ def ONNXWhereOp:ONNX_Op<"Where",
 
 def ONNXXorOp:ONNX_Op<"Xor",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Xor operation";
   let description = [{
   Returns the tensor resulted from performing the `xor` logical operation
