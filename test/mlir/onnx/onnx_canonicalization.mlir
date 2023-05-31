@@ -232,12 +232,12 @@ func.func @test_reshape_should_not_remove(%arg0: tensor<3x5x10x20xf32>, %arg1: t
 // Check EmptyTensorInputsResizePattern. Example from yolov4 model after --decompose-onnx.
 func.func @test_resize_empty_tensor_inputs(%8: tensor<0xf32>, %714: tensor<*xf32>, %719: tensor<*xi64>) -> tensor<*xf32> {
   %720 = "onnx.Resize"(%714, %8, %8, %719) {antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"} : (tensor<*xf32>, tensor<0xf32>, tensor<0xf32>, tensor<*xi64>) -> tensor<*xf32>
-  return %720 : tensor<*xf32>
+  onnx.Return %720 : tensor<*xf32>
   // CHECK-LABEL: func @test_resize_empty_tensor_inputs
   // CHECK-SAME:  ([[PARAM_0:%.+]]: tensor<0xf32>, [[PARAM_1:%.+]]: tensor<*xf32>, [[PARAM_2:%.+]]: tensor<*xi64>) -> tensor<*xf32> {
   // CHECK:         [[NONE:%.+]] = "onnx.NoValue"() {value} : () -> none
   // CHECK:         [[RES:%.+]] = "onnx.Resize"([[PARAM_1]], [[NONE]], [[NONE]], [[PARAM_2]]) {antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"} : (tensor<*xf32>, none, none, tensor<*xi64>) -> tensor<*xf32>
-  // CHECK:         return [[RES]] : tensor<*xf32>
+  // CHECK:         onnx.Return [[RES]] : tensor<*xf32>
 }
 
 // -----
@@ -1083,13 +1083,13 @@ func.func @expand_pow_into_constant(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf3
 // Check BinaryOpBroadcastAxisPattern. Example from inception-v2-6 model.
 func.func @mul_broadcast_axis_unsqueeze(%279: tensor<1x64x112x112xf32>, %138: tensor<64xf32>) -> tensor<*xf32> {
   %280 = "onnx.Mul"(%279, %138) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<1x64x112x112xf32>, tensor<64xf32>) -> tensor<*xf32>
-  return %280 : tensor<*xf32>
+  onnx.Return %280 : tensor<*xf32>
 
 // CHECK-LABEL:  func.func @mul_broadcast_axis_unsqueeze
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64x112x112xf32>, [[PARAM_1_:%.+]]: tensor<64xf32>) -> tensor<*xf32> {
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[1, 2]> : tensor<2xi64>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Unsqueeze"([[PARAM_1_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<*xf32>
-// CHECK:           return [[VAR_2_]] : tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<*xf32>
 // CHECK:         }
 }
