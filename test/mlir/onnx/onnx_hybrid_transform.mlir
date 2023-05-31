@@ -64,39 +64,39 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
     %488 = "onnx.BatchNormalizationInferenceMode"(%487, %1, %2, %3, %4) {epsilon = 9.99999974E-6 : f32, is_test = 1 : si64, momentum = 0.899999976 : f32} : (tensor<*xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<*xf32>
     %489 = "onnx.Mul"(%488, %5) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
     %490 = "onnx.Add"(%489, %6) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
-    %491 = "onnx.Relu"(%490) {onnx_node_name = ""} : (tensor<*xf32>) -> tensor<*xf32>
+    %491 = "onnx.Relu"(%490) : (tensor<*xf32>) -> tensor<*xf32>
     %492 = "onnx.MaxPoolSingleOut"(%491) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]} : (tensor<*xf32>) -> tensor<*xf32>
     %494 = "onnx.Conv"(%492, %7, %0) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<*xf32>, tensor<64x64x1x1xf32>, none) -> tensor<*xf32>
     %495 = "onnx.BatchNormalizationInferenceMode"(%494, %8, %9, %10, %11) {epsilon = 9.99999974E-6 : f32, is_test = 1 : si64, momentum = 0.899999976 : f32} : (tensor<*xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<*xf32>
     %496 = "onnx.Mul"(%495, %12) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
     %497 = "onnx.Add"(%496, %13) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
-    %498 = "onnx.Relu"(%497) {onnx_node_name = ""} : (tensor<*xf32>) -> tensor<*xf32>
+    %498 = "onnx.Relu"(%497) : (tensor<*xf32>) -> tensor<*xf32>
     %500 = "onnx.Conv"(%498, %14, %0) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<*xf32>, tensor<192x64x3x3xf32>, none) -> tensor<*xf32>
     %501 = "onnx.BatchNormalizationInferenceMode"(%500, %15, %16, %17, %18) {epsilon = 9.99999974E-6 : f32, is_test = 1 : si64, momentum = 0.899999976 : f32} : (tensor<*xf32>, tensor<192xf32>, tensor<192xf32>, tensor<192xf32>, tensor<192xf32>) -> tensor<*xf32>
     %502 = "onnx.Mul"(%501, %19) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<192xf32>) -> tensor<*xf32>
     %503 = "onnx.Add"(%502, %20) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<192xf32>) -> tensor<*xf32>
-    %504 = "onnx.Relu"(%503) {onnx_node_name = ""} : (tensor<*xf32>) -> tensor<*xf32>
+    %504 = "onnx.Relu"(%503) : (tensor<*xf32>) -> tensor<*xf32>
     %505 = "onnx.MaxPoolSingleOut"(%504) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]} : (tensor<*xf32>) -> tensor<*xf32>
     %507 = "onnx.Conv"(%505, %21, %0) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<*xf32>, tensor<64x192x1x1xf32>, none) -> tensor<*xf32>
     %508 = "onnx.BatchNormalizationInferenceMode"(%507, %22, %23, %24, %25) {epsilon = 9.99999974E-6 : f32, is_test = 1 : si64, momentum = 0.899999976 : f32} : (tensor<*xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<*xf32>
     %509 = "onnx.Mul"(%508, %26) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
     %510 = "onnx.Add"(%509, %27) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
-    %511 = "onnx.Relu"(%510) {onnx_node_name = ""} : (tensor<*xf32>) -> tensor<*xf32>
+    %511 = "onnx.Relu"(%510) : (tensor<*xf32>) -> tensor<*xf32>
     %513 = "onnx.Conv"(%505, %28, %0) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<*xf32>, tensor<64x192x1x1xf32>, none) -> tensor<*xf32>
     %514 = "onnx.BatchNormalizationInferenceMode"(%513, %29, %30, %31, %32) {epsilon = 9.99999974E-6 : f32, is_test = 1 : si64, momentum = 0.899999976 : f32} : (tensor<*xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<*xf32>
     %515 = "onnx.Mul"(%514, %33) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
     %516 = "onnx.Add"(%515, %34) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
-    %517 = "onnx.Relu"(%516) {onnx_node_name = ""} : (tensor<*xf32>) -> tensor<*xf32>
+    %517 = "onnx.Relu"(%516) : (tensor<*xf32>) -> tensor<*xf32>
     %519 = "onnx.Conv"(%517, %35, %0) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<*xf32>, tensor<64x64x3x3xf32>, none) -> tensor<*xf32>
     %520 = "onnx.BatchNormalizationInferenceMode"(%519, %36, %37, %38, %39) {epsilon = 9.99999974E-6 : f32, is_test = 1 : si64, momentum = 0.899999976 : f32} : (tensor<*xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<*xf32>
     %521 = "onnx.Mul"(%520, %40) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
     %522 = "onnx.Add"(%521, %41) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
-    %523 = "onnx.Relu"(%522) {onnx_node_name = ""} : (tensor<*xf32>) -> tensor<*xf32>
+    %523 = "onnx.Relu"(%522) : (tensor<*xf32>) -> tensor<*xf32>
     %525 = "onnx.Conv"(%505, %42, %0) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [1, 1], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<*xf32>, tensor<64x192x1x1xf32>, none) -> tensor<*xf32>
     %526 = "onnx.BatchNormalizationInferenceMode"(%525, %43, %44, %45, %46) {epsilon = 9.99999974E-6 : f32, is_test = 1 : si64, momentum = 0.899999976 : f32} : (tensor<*xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<*xf32>
     %527 = "onnx.Mul"(%526, %47) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
     %528 = "onnx.Add"(%527, %48) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
-    %529 = "onnx.Relu"(%528) {onnx_node_name = ""} : (tensor<*xf32>) -> tensor<*xf32>
+    %529 = "onnx.Relu"(%528) : (tensor<*xf32>) -> tensor<*xf32>
     return %529 : tensor<*xf32>
 
 // CHECK-LABEL:  func.func @test_inception_v2_6_snippet
@@ -144,7 +144,7 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // CHECK-DAG:       [[VAR_39_:%.+]] = "onnx.Mul"([[VAR_37_]], [[VAR_38_]]) : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<1x64x112x112xf32>
 // CHECK-DAG:       [[VAR_40_:%.+]] = "onnx.Unsqueeze"([[VAR_7_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // CHECK:           [[VAR_41_:%.+]] = "onnx.Add"([[VAR_39_]], [[VAR_40_]]) : (tensor<1x64x112x112xf32>, tensor<64x1x1xf32>) -> tensor<1x64x112x112xf32>
-// CHECK:           [[VAR_42_:%.+]] = "onnx.Relu"([[VAR_41_]]) {onnx_node_name = ""} : (tensor<1x64x112x112xf32>) -> tensor<1x64x112x112xf32>
+// CHECK:           [[VAR_42_:%.+]] = "onnx.Relu"([[VAR_41_]]) : (tensor<1x64x112x112xf32>) -> tensor<1x64x112x112xf32>
 // CHECK-DAG:       [[VAR_43_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_42_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x112x112xf32>) -> tensor<1x64x56x56xf32>
 // CHECK-DAG:       [[VAR_44_:%.+]] = "onnx.Add"([[VAR_12_]], [[VAR_1_]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
 // CHECK:           [[VAR_45_:%.+]] = "onnx.Sqrt"([[VAR_44_]]) : (tensor<64xf32>) -> tensor<64xf32>
@@ -160,7 +160,7 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // CHECK-DAG:       [[VAR_54_:%.+]] = "onnx.Mul"([[VAR_52_]], [[VAR_53_]]) : (tensor<1x64x56x56xf32>, tensor<64x1x1xf32>) -> tensor<1x64x56x56xf32>
 // CHECK-DAG:       [[VAR_55_:%.+]] = "onnx.Unsqueeze"([[VAR_14_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // CHECK:           [[VAR_56_:%.+]] = "onnx.Add"([[VAR_54_]], [[VAR_55_]]) : (tensor<1x64x56x56xf32>, tensor<64x1x1xf32>) -> tensor<1x64x56x56xf32>
-// CHECK-DAG:       [[VAR_57_:%.+]] = "onnx.Relu"([[VAR_56_]]) {onnx_node_name = ""} : (tensor<1x64x56x56xf32>) -> tensor<1x64x56x56xf32>
+// CHECK-DAG:       [[VAR_57_:%.+]] = "onnx.Relu"([[VAR_56_]]) : (tensor<1x64x56x56xf32>) -> tensor<1x64x56x56xf32>
 // CHECK-DAG:       [[VAR_58_:%.+]] = "onnx.Add"([[VAR_19_]], [[VAR_1_]]) : (tensor<192xf32>, tensor<1xf32>) -> tensor<192xf32>
 // CHECK:           [[VAR_59_:%.+]] = "onnx.Sqrt"([[VAR_58_]]) : (tensor<192xf32>) -> tensor<192xf32>
 // CHECK:           [[VAR_60_:%.+]] = "onnx.Div"([[VAR_16_]], [[VAR_59_]]) : (tensor<192xf32>, tensor<192xf32>) -> tensor<192xf32>
@@ -175,7 +175,7 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // CHECK-DAG:       [[VAR_68_:%.+]] = "onnx.Mul"([[VAR_66_]], [[VAR_67_]]) : (tensor<1x192x56x56xf32>, tensor<192x1x1xf32>) -> tensor<1x192x56x56xf32>
 // CHECK-DAG:       [[VAR_69_:%.+]] = "onnx.Unsqueeze"([[VAR_21_]], [[VAR_0_]]) : (tensor<192xf32>, tensor<2xi64>) -> tensor<192x1x1xf32>
 // CHECK:           [[VAR_70_:%.+]] = "onnx.Add"([[VAR_68_]], [[VAR_69_]]) : (tensor<1x192x56x56xf32>, tensor<192x1x1xf32>) -> tensor<1x192x56x56xf32>
-// CHECK:           [[VAR_71_:%.+]] = "onnx.Relu"([[VAR_70_]]) {onnx_node_name = ""} : (tensor<1x192x56x56xf32>) -> tensor<1x192x56x56xf32>
+// CHECK:           [[VAR_71_:%.+]] = "onnx.Relu"([[VAR_70_]]) : (tensor<1x192x56x56xf32>) -> tensor<1x192x56x56xf32>
 // CHECK-DAG:       [[VAR_72_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_71_]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 1, 1], storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x192x56x56xf32>) -> tensor<1x192x28x28xf32>
 // CHECK-DAG:       [[VAR_73_:%.+]] = "onnx.Add"([[VAR_26_]], [[VAR_1_]]) : (tensor<64xf32>, tensor<1xf32>) -> tensor<64xf32>
 // CHECK:           [[VAR_74_:%.+]] = "onnx.Sqrt"([[VAR_73_]]) : (tensor<64xf32>) -> tensor<64xf32>
@@ -191,7 +191,7 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // CHECK-DAG:       [[VAR_83_:%.+]] = "onnx.Mul"([[VAR_81_]], [[VAR_82_]]) : (tensor<1x64x28x28xf32>, tensor<64x1x1xf32>) -> tensor<1x64x28x28xf32>
 // CHECK-DAG:       [[VAR_84_:%.+]] = "onnx.Unsqueeze"([[VAR_28_]], [[VAR_0_]]) : (tensor<64xf32>, tensor<2xi64>) -> tensor<64x1x1xf32>
 // CHECK:           [[VAR_85_:%.+]] = "onnx.Add"([[VAR_83_]], [[VAR_84_]]) : (tensor<1x64x28x28xf32>, tensor<64x1x1xf32>) -> tensor<1x64x28x28xf32>
-// CHECK:           [[VAR_86_:%.+]] = "onnx.Relu"([[VAR_85_]]) {onnx_node_name = ""} : (tensor<1x64x28x28xf32>) -> tensor<1x64x28x28xf32>
+// CHECK:           [[VAR_86_:%.+]] = "onnx.Relu"([[VAR_85_]]) : (tensor<1x64x28x28xf32>) -> tensor<1x64x28x28xf32>
 // CHECK:           return [[VAR_86_]] : tensor<1x64x28x28xf32>
 // CHECK:         }
 }
