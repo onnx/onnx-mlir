@@ -249,6 +249,51 @@ public:
 };
 
 // =============================================================================
+// Rewrite pattern for Resize (not handled in Rewrite.td).
+// =============================================================================
+
+// The yolo4 model uses a float tensor with shape [0] to represent that roi
+// or scales is absent in accordance with the Resize v11 spec. This violates
+// the spec from v13 onwards which says that empty string
+// inputs represents absent arguments in the protobuf model representation.
+// We work around this by interpreting a tensor with empty shape as an
+// alternative way to express that an input is absent.
+class EmptyTensorInputsResizePattern : public OpRewritePattern<ONNXResizeOp> {
+public:
+  using OpRewritePattern<ONNXResizeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXResizeOp onnxResizeOp, PatternRewriter &rewriter) const override {
+    bool emptyRoi = isEmptyTensor(onnxResizeOp.getRoi());
+    bool emptyScales = isEmptyTensor(onnxResizeOp.getScales());
+    bool emptySizes = isEmptyTensor(onnxResizeOp.getSizes());
+    if (emptyRoi || emptyScales || emptySizes) {
+      rewriter.updateRootInPlace(onnxResizeOp, [&] {
+        OnnxBuilder createONNX(rewriter, onnxResizeOp.getLoc());
+        if (emptyRoi)
+          onnxResizeOp.getRoiMutable().assign(createONNX.none());
+        if (emptyScales)
+          onnxResizeOp.getScalesMutable().assign(createONNX.none());
+        if (emptySizes)
+          onnxResizeOp.getSizesMutable().assign(createONNX.none());
+      });
+      return success();
+    } else {
+      return failure(); // pattern didn't apply and onnxResizeOp is unchanged
+    }
+  }
+
+private:
+  bool isEmptyTensor(Value input) const {
+    if (ShapedType shapedType = dyn_cast<ShapedType>(input.getType())) {
+      return shapedType.hasStaticShape() && shapedType.getNumElements() == 0;
+    } else {
+      return false;
+    }
+  }
+};
+
+// =============================================================================
 // Rewrite pattern for loop (not handled in Rewrite.td).
 // =============================================================================
 
@@ -895,6 +940,12 @@ void ONNXReshapeOp::getCanonicalizationPatterns(
   result.insert<FuseReshapePattern>(context);
   result.insert<RemoveIdentityReshapePattern>(context);
   result.insert<SwapReshapeMatMulPattern>(context);
+}
+
+/// on the ONNXResizeOp.
+void ONNXResizeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<EmptyTensorInputsResizePattern>(context);
 }
 
 /// on the ONNXRNNOp.

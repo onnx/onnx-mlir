@@ -330,6 +330,7 @@ OpsWithCanonicalizer = [
     'Or',
     'Pow',
     'Reshape',
+    'Resize',
     'RNN',
     'Shape',
     'Size',
