@@ -99,7 +99,7 @@ public:
       // However, shape inference is still needed on these ops to infer optional
       // attributes.
       if (!containSubgraph(op) && !isUsedByReturnOp(op) &&
-          !returnsDynamicOrUnknownShape(op))
+          !returnsDynamicOrUnknownShape(&op))
         continue;
 
       if (auto shape_op = llvm::dyn_cast<ShapeInferenceOpInterface>(op)) {
@@ -128,19 +128,6 @@ public:
   // Op needs shape inference when contains a subgraph
   // Temporary fix: only LoopOp is checked
   static bool containSubgraph(Operation &op) { return isa<ONNXLoopOp>(op); }
-
-  /*!
-   *  Check if the given operation has a dynamically shaped result.
-   */
-  static bool returnsDynamicOrUnknownShape(Operation &op) {
-    return llvm::any_of(op.getResultTypes(), [](Type result_type) {
-      if (result_type.isa<RankedTensorType>())
-        return llvm::any_of(result_type.dyn_cast<RankedTensorType>().getShape(),
-            [](int64_t dim) { return dim < 0; });
-      else
-        return !result_type.isa<NoneType>();
-    });
-  }
 };
 } // end anonymous namespace
 
