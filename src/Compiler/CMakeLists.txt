@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# Include "Tools" before "Compiler" so that LRODATA_SCRIPT
+# is set before ExternalUtil.hpp.in is processed.
+if (LRODATA_SCRIPT)
+  file(READ ${LRODATA_SCRIPT} ONNX_MLIR_LRODATA_SCRIPT)
+else()
+  set(ONNX_MLIR_LRODATA_SCRIPT "")
+endif()
+
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg

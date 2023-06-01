@@ -43,6 +43,8 @@ typedef enum {
   // clang-format on
 } ModelSize;
 
+extern const std::string modelSizeStr[];
+
 // Options for onnx-mlir only.
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 // Common options shared between onnx-mlir and onnx-mlir-opt.
