@@ -1349,7 +1349,6 @@ func.func @test_nonzero() -> tensor<2x?xi64> {
   //
   //   error: type of return operand 0 ('tensor<2x4xi64>') doesn't match function result type ('tensor<2x?xi64>') in function @test_nonzero
   //
-  // Therefore we use onnx.Return instead, although it isn't meant for function return.
   onnx.Return %1 : tensor<2x?xi64>
 
 // CHECK-LABEL:  func.func @test_nonzero
