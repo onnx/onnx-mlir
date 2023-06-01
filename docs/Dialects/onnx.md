@@ -7572,6 +7572,39 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
+### `onnx.Return` (::mlir::ONNXReturnOp)
+
+Function return operation
+
+
+Syntax:
+
+```
+operation ::= `onnx.Return` attr-dict ($operands^ `:` type($operands))?
+```
+
+The `onnx.Return` operation represents a return operation within a function.
+The operation takes variable number of operands and produces no results.
+The operand number and types must match the signature of the function
+that contains the operation, with the exception that shaped types may have
+more specific shapes than the function signature result types, which allows
+rewrites of defining ops of operands to make their result shapes more specific.
+This operation terminates a func::FuncOp in the ONNX dialect and is replaced
+by func::ReturnOp in StandardFuncReturnPass before lowering to Krnl or other
+dialects.
+
+Traits: AlwaysSpeculatableImplTrait, HasParent<func::FuncOp>, ReturnLike, Terminator
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
+
+Effects: MemoryEffects::Effect{}
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `operands` | any type
+
 ### `onnx.ReverseSequence` (::mlir::ONNXReverseSequenceOp)
 
 ONNX ReverseSequence operation
@@ -10164,6 +10197,7 @@ The `onnx.Yield` operation represents a yield operation within an ONNX subgraph.
 The operation takes variable number of operands and produces no results.
 
 This operation is not part of the standard and was added to assist onnx-mlir.
+It terminates a ONNXLoop/Scan/IfOp region.
 
 Traits: AlwaysSpeculatableImplTrait, ReturnLike, Terminator
 
