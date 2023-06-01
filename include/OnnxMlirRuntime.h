@@ -80,6 +80,7 @@
  *
  * ```c
  * #include <OnnxMlirRuntime.h>
+ * #include <stdio.h>
  *
  * OMTensorList *run_main_graph(OMTensorList *);
  *
