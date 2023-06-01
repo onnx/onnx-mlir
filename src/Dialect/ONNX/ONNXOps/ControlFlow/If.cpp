@@ -124,6 +124,25 @@ LogicalResult ONNXIfOp::verify() {
 }
 
 //===----------------------------------------------------------------------===//
+// Type Inference
+//===----------------------------------------------------------------------===//
+
+std::vector<Type> ONNXIfOp::resultTypeInference() {
+  auto thenResultTypes =
+      getThenBranch().back().getTerminator()->getOperandTypes();
+  auto elseResultTypes =
+      getElseBranch().back().getTerminator()->getOperandTypes();
+  // assert is checked in verify()
+  assert(getNumResults() == thenResultTypes.size() &&
+         getNumResults() == elseResultTypes.size() &&
+         "if #results and branches #results differ");
+  std::vector<Type> resultTypes;
+  for (auto [thenTy, elseTy] : llvm::zip(thenResultTypes, elseResultTypes))
+    resultTypes.push_back(unionOfIfTypes(thenTy, elseTy));
+  return resultTypes;
+}
+
+//===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
@@ -131,18 +150,7 @@ LogicalResult ONNXIfOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   doShapeInference(getThenBranch());
   doShapeInference(getElseBranch());
-  size_t ifNumResults = getNumResults();
-  auto thenResultTypes =
-      getThenBranch().back().getTerminator()->getOperandTypes();
-  auto elseResultTypes =
-      getElseBranch().back().getTerminator()->getOperandTypes();
-  // assert is checked in verify()
-  assert(ifNumResults == thenResultTypes.size() &&
-         ifNumResults == elseResultTypes.size() &&
-         "if #results and branches #results differ");
-  for (size_t i = 0; i < ifNumResults; ++i) {
-    getResult(i).setType(
-        unionOfIfTypes(thenResultTypes[i], elseResultTypes[i]));
-  }
+  for (auto [i, ty] : llvm::enumerate(resultTypeInference()))
+    getResult(i).setType(ty);
   return success();
 }
