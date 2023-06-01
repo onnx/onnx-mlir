@@ -30,7 +30,7 @@ func.func @test_dim_analysis_with_bert(%arg0: tensor<?x256xi64>, %arg1: tensor<?
   %20 = "onnx.Sub"(%19, %18) {onnx_node_name = "bert/encoder/layer_0/attention/self/sub"} : (tensor<f32>, tensor<?x1x256x256xf32>) -> tensor<?x1x256x256xf32>
   %21 = onnx.Constant dense<-1.000000e+04> : tensor<f32>
   %22 = "onnx.Mul"(%20, %21) {onnx_node_name = "bert/encoder/layer_0/attention/self/mul_1"} : (tensor<?x1x256x256xf32>, tensor<f32>) -> tensor<?x1x256x256xf32>
-  return %22, %20, %16 : tensor<?x1x256x256xf32>, tensor<?x1x256x256xf32>, tensor<?x1x256x256xf32>
+  onnx.Return %22, %20, %16 : tensor<?x1x256x256xf32>, tensor<?x1x256x256xf32>, tensor<?x1x256x256xf32>
 
 // CHECK-LABEL:  func.func @test_dim_analysis_with_bert
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x256xi64>, [[PARAM_1_:%.+]]: tensor<?x256xi64>) -> (tensor<?x1x256x256xf32>, tensor<?x1x256x256xf32>, tensor<?x1x256x256xf32>) {
@@ -80,7 +80,7 @@ func.func @test_dim_analysis_with_bert(%arg0: tensor<?x256xi64>, %arg1: tensor<?
 // CHECK:           [[VAR_22_:%.+]] = "onnx.Mul"([[VAR_20_]], [[VAR_21_]]) {onnx_node_name = "bert/encoder/layer_0/attention/self/mul_1"} : (tensor<?x1x256x256xf32>, tensor<f32>) -> tensor<?x1x256x256xf32>
 // CHECK:           "onnx.DimGroup"([[VAR_22_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x1x256x256xf32>) -> ()
 
-// CHECK:           return [[VAR_22_]], [[VAR_20_]], [[VAR_16_]] : tensor<?x1x256x256xf32>, tensor<?x1x256x256xf32>, tensor<?x1x256x256xf32>
+// CHECK:           onnx.Return [[VAR_22_]], [[VAR_20_]], [[VAR_16_]] : tensor<?x1x256x256xf32>, tensor<?x1x256x256xf32>, tensor<?x1x256x256xf32>
 // CHECK:         }
 }
 
@@ -88,7 +88,7 @@ func.func @test_dim_analysis_with_bert(%arg0: tensor<?x256xi64>, %arg1: tensor<?
 
 func.func @test_unary_elementwise(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x3x?xf32>) -> tensor<?x3x?xf32>
-  "func.return"(%0) : (tensor<?x3x?xf32>) -> ()
+  "onnx.Return"(%0) : (tensor<?x3x?xf32>) -> ()
 
 // CHECK-LABEL:  func.func @test_unary_elementwise
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
@@ -99,7 +99,7 @@ func.func @test_unary_elementwise(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?xf32
 // CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = 1 : si64} : (tensor<?x3x?xf32>) -> ()
 // CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
 
-// CHECK:           return [[VAR_0_]] : tensor<?x3x?xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<?x3x?xf32>
 // CHECK:         }
 }
 
@@ -108,7 +108,7 @@ func.func @test_unary_elementwise(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?xf32
 func.func @test_binary_elementwise(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x3x?xf32>) -> tensor<?x3x?xf32>
   %1 = "onnx.Add"(%0, %arg0) : (tensor<?x3x?xf32>, tensor<?x3x?xf32>) -> tensor<?x3x?xf32>
-  "func.return"(%1) : (tensor<?x3x?xf32>) -> ()
+  "onnx.Return"(%1) : (tensor<?x3x?xf32>) -> ()
 
 // CHECK-LABEL:  func.func @test_binary_elementwise
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
@@ -122,7 +122,7 @@ func.func @test_binary_elementwise(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?xf3
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_0_]]) : (tensor<?x3x?xf32>, tensor<?x3x?xf32>) -> tensor<?x3x?xf32>
 // CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = 1 : si64} : (tensor<?x3x?xf32>) -> ()
 // CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK:           return [[VAR_1_]] : tensor<?x3x?xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<?x3x?xf32>
 // CHECK:         }
 }
 
@@ -133,7 +133,7 @@ func.func @test_expand_from_concat_dims(%arg0: tensor<1x256xi64>, %arg1: tensor<
   %1 = "onnx.Dim"(%arg1) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
   %2 = "onnx.Concat"(%1, %0) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
   %3 = "onnx.Expand"(%arg0, %2) {onnx_node_name = "Expand_30"} : (tensor<1x256xi64>, tensor<2xi64>) -> tensor<?x256xi64>
-  return %3: tensor<?x256xi64>
+  onnx.Return %3: tensor<?x256xi64>
 
 // CHECK-LABEL:  func.func @test_expand_from_concat_dims
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x256xi64>, [[PARAM_1_:%.+]]: tensor<?x256xi64>) -> tensor<?x256xi64> {
@@ -144,7 +144,7 @@ func.func @test_expand_from_concat_dims(%arg0: tensor<1x256xi64>, %arg1: tensor<
 // CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Expand"([[PARAM_0_]], [[VAR_2_]]) {onnx_node_name = "Expand_30"} : (tensor<1x256xi64>, tensor<2xi64>) -> tensor<?x256xi64>
 // CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x256xi64>) -> ()
-// CHECK:           return [[VAR_3_]] : tensor<?x256xi64>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<?x256xi64>
 // CHECK:         }
 }
 
@@ -158,7 +158,7 @@ func.func @test_reshape_rank_2(%arg0: tensor<?x?xi64>) -> tensor<?x?xi64> {
   %0 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
   %1 = "onnx.Concat"(%0, %cst_minus1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
   %2 = "onnx.Reshape"(%arg0, %1) {allowzero = 0 : si64} : (tensor<?x?xi64>, tensor<2xi64>) -> tensor<?x?xi64>
-  return %2: tensor<?x?xi64>
+  onnx.Return %2: tensor<?x?xi64>
 
 // CHECK-LABEL:  func.func @test_reshape_rank_2
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi64>) -> tensor<?x?xi64> {
@@ -172,7 +172,7 @@ func.func @test_reshape_rank_2(%arg0: tensor<?x?xi64>) -> tensor<?x?xi64> {
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_2_]]) {allowzero = 0 : si64} : (tensor<?x?xi64>, tensor<2xi64>) -> tensor<?x?xi64>
 // CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<?x?xi64>) -> ()
 // CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xi64>) -> ()
-// CHECK:           return [[VAR_3_]] : tensor<?x?xi64>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<?x?xi64>
 // CHECK:         }
 }
 
@@ -187,7 +187,7 @@ func.func @test_tile_input_dim_1(%arg0: tensor<?x?xi64>, %arg1: tensor<1x1xi64>)
   %1 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
   %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
   %3 = "onnx.Tile"(%arg1, %2) : (tensor<1x1xi64>, tensor<2xi64>) -> tensor<?x?xi64>
-  return %3: tensor<?x?xi64>
+  onnx.Return %3: tensor<?x?xi64>
 
 // CHECK-LABEL:  func.func @test_tile_input_dim_1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi64>, [[PARAM_1_:%.+]]: tensor<1x1xi64>) -> tensor<?x?xi64> {
@@ -201,6 +201,6 @@ func.func @test_tile_input_dim_1(%arg0: tensor<?x?xi64>, %arg1: tensor<1x1xi64>)
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Tile"([[PARAM_1_]], [[VAR_2_]]) : (tensor<1x1xi64>, tensor<2xi64>) -> tensor<?x?xi64>
 // CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<?x?xi64>) -> ()
 // CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xi64>) -> ()
-// CHECK:           return [[VAR_3_]] : tensor<?x?xi64>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<?x?xi64>
 // CHECK:         }
 }

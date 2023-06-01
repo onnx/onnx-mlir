@@ -21,6 +21,8 @@ bool returnsDynamicOrUnknownShape(mlir::Operation *op);
 
 void getShapeInferencePatterns(mlir::RewritePatternSet &set);
 
+// Propagates return op's operand types to f's return types.
+// Works for both func::ReturnOp and ONNXReturnOp.
 void inferFunctionReturnShapes(mlir::func::FuncOp f);
 
 } // namespace onnx_mlir
