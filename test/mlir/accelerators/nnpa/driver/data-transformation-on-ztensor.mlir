@@ -8,7 +8,7 @@ func.func @transpose_on_ztensor(%arg0: tensor<3x5xf32>) -> tensor<5x3xf32> {
   %0 = "onnx.Relu" (%arg0) : (tensor<3x5xf32>) -> tensor<3x5xf32>
   %1 = "onnx.Transpose"(%0) {perm = [1,0]} : (tensor<3x5xf32>) -> tensor<5x3xf32>
   %2 = "onnx.Relu" (%1) : (tensor<5x3xf32>) -> tensor<5x3xf32>
-  return %2 : tensor<5x3xf32>
+  onnx.Return %2 : tensor<5x3xf32>
 
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @transpose_on_ztensor
