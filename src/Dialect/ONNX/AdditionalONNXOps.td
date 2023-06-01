@@ -12,7 +12,7 @@
 // Ops are listed in alphabetical order, in 2 sections.
 //
 // * First are ops that are used to assist the processing of ONNX dialect.
-//   Example are CallOp, YieldOp,...
+//   Examples are NoneOp, YieldOp,...
 //
 // * Second are ops that are used to handle optional arguments/special cases
 //   of original ONNX ops. These ops may possibly be removed in the future.
@@ -52,91 +52,6 @@ include "src/IR/AttrBase.td"
   should also be defined accordingly. Using ONNXxxxOpShapeHelper as an alias
   for ONNXUnimplementedOpShapeHelper is always a possibility.
 */
-
-//===----------------------------------------------------------------------===//
-// ONNX CallOp
-def ONNXCallOp : ONNX_Op<"ONNX_Call",
-    [CallOpInterface, MemRefsNormalizable,
-     DeclareOpInterfaceMethods<SymbolUserOpInterface>,
-     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let summary = "call operation";
-  let description = [{
-    The `call` operation represents a direct call to a function that is within
-    the same symbol scope as the call. The operands and result types of the
-    call must match the specified function type. The callee is encoded as a
-    symbol reference attribute named "callee".
-
-    Example:
-
-    ```mlir
-    %2 = call @my_add(%0, %1) : (f32, f32) -> f32
-    ```
-
-    This operation is not part of the standard and was added to assist onnx-mlir.
-  }];
-
-  let arguments = (ins FlatSymbolRefAttr:$callee, Variadic<AnyType>:$operands);
-  // TODO I would rather have <anyTypeOf<AnyTensor>> here, but the testcase for
-  // CustomOps supplies an empty parameter which fails that test.
-  let results = (outs Variadic<AnyTypeOf<[AnyTensor]>>);
-
-  let builders = [
-    OpBuilder<(ins "func::FuncOp":$callee, CArg<"ValueRange", "{}">:$operands), [{
-      $_state.addOperands(operands);
-      $_state.addAttribute("callee", SymbolRefAttr::get(callee));
-      $_state.addTypes(callee.getFunctionType().getResults());
-    }]>,
-    OpBuilder<(ins "SymbolRefAttr":$callee, "TypeRange":$results,
-      CArg<"ValueRange", "{}">:$operands), [{
-      $_state.addOperands(operands);
-      $_state.addAttribute("callee", callee);
-      $_state.addTypes(results);
-    }]>,
-    OpBuilder<(ins "StringAttr":$callee, "TypeRange":$results,
-      CArg<"ValueRange", "{}">:$operands), [{
-      build($_builder, $_state, SymbolRefAttr::get(callee), results, operands);
-    }]>,
-    OpBuilder<(ins "StringRef":$callee, "TypeRange":$results,
-      CArg<"ValueRange", "{}">:$operands), [{
-      build($_builder, $_state, StringAttr::get($_builder.getContext(), callee),
-            results, operands);
-    }]>];
-
-  let assemblyFormat = [{
-    $callee `(` $operands `)` attr-dict `:` functional-type($operands, results)
-  }];
-
-  let extraClassDeclaration = [{
-    FunctionType getCalleeType();
-
-    /// Get the argument operands to the called function.
-    operand_range getArgOperands() {
-      return {arg_operand_begin(), arg_operand_end()};
-    }
-
-    operand_iterator arg_operand_begin() { return operand_begin(); }
-    operand_iterator arg_operand_end() { return operand_end(); }
-
-    /// Return the callee of this operation.
-    CallInterfaceCallable getCallableForCallee() {
-      return (*this)->getAttrOfType<SymbolRefAttr>("callee");
-    }
-
-    /// Set the callee for this operation.
-    void setCalleeFromCallable(CallInterfaceCallable callee) {
-      (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
-    }
-  }];
-
-  let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * ONNXCallOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
-        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCallOpShapeHelper(op, oper, ieb, scope);
-      assert(sh && "failed to allocate shape helper");
-      return sh;
-    }
-  }];
-}
 
 //===----------------------------------------------------------------------===//
 // ONNX ReturnOp
@@ -329,7 +244,7 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [Pure,
 }
 
 //===----------------------------------------------------------------------===//
-// NoValueOp.
+// NoneOp.
 def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, Pure]> {
   let summary = "An operation representing the absence of a value.";
   let description = [{
