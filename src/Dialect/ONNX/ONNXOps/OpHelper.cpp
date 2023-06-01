@@ -19,6 +19,7 @@
 #include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 // Identity affine
@@ -628,6 +629,9 @@ int64_t mlirTypeToOnnxType(Type elemType) {
   onnx::TensorProto::DataType onnxType = onnx::TensorProto::UNDEFINED;
   if (!elemType)
     return onnxType;
+  if (elemType.isa<ONNXStringType>() ||
+      elemType.isa<onnx_mlir::krnl::StringType>())
+    return onnx::TensorProto::STRING;
 
   TypeSwitch<Type>(elemType)
       .Case<BFloat16Type>(
