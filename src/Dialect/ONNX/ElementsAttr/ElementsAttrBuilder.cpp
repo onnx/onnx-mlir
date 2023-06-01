@@ -800,7 +800,8 @@ template <typename AP_TYPE>
 SmallVector<int64_t> nonZeroIndices(ElementsAttr elms) {
   SmallVector<int64_t> indices;
   auto values = elms.getValues<AP_TYPE>();
-  for (const auto &idxpos : StridesRange<0>(elms.getType().getShape(), {})) {
+  for (const auto &idxpos :
+      StridesRange<0>(elms.getShapedType().getShape(), {})) {
     if (!values[idxpos.flattenedIndex].isZero())
       indices.append(idxpos.index.begin(), idxpos.index.end());
   }
@@ -812,7 +813,7 @@ ElementsAttr ElementsAttrBuilder::nonZero(ElementsAttr elms) {
   SmallVector<int64_t> indices = isa<FloatType>(elms.getElementType())
                                      ? nonZeroIndices<APFloat>(elms)
                                      : nonZeroIndices<APInt>(elms);
-  int64_t rank = elms.getType().getRank();
+  int64_t rank = elms.getShapedType().getRank();
   assert(indices.size() % rank == 0);
   int64_t count = indices.size() / rank;
   Type I64 = IntegerType::get(elms.getContext(), 64);
