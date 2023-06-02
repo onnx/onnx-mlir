@@ -945,52 +945,6 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
 
-### `onnx.ONNX_Call` (::mlir::ONNXCallOp)
-
-call operation
-
-
-Syntax:
-
-```
-operation ::= `onnx.ONNX_Call` $callee `(` $operands `)` attr-dict `:` functional-type($operands, results)
-```
-
-The `call` operation represents a direct call to a function that is within
-the same symbol scope as the call. The operands and result types of the
-call must match the specified function type. The callee is encoded as a
-symbol reference attribute named "callee".
-
-Example:
-
-```mlir
-%2 = call @my_add(%0, %1) : (f32, f32) -> f32
-```
-
-This operation is not part of the standard and was added to assist onnx-mlir.
-
-Traits: MemRefsNormalizable
-
-Interfaces: CallOpInterface, ShapeHelperOpInterface, SymbolUserOpInterface
-
-#### Attributes:
-
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `callee` | ::mlir::FlatSymbolRefAttr | flat symbol reference attribute
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `operands` | any type
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-&laquo;unnamed&raquo; | tensor of any type values
-
 ### `onnx.CastLike` (::mlir::ONNXCastLikeOp)
 
 ONNX CastLike operation
@@ -3628,7 +3582,7 @@ If conditional
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeHelperOpInterface, ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -4481,7 +4435,7 @@ The input/output of subgraph (produced by loop node) matching is based on order 
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeHelperOpInterface, ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -8022,7 +7976,7 @@ values are computed in the outer graph, they need to be passed in as extra state
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: ConditionallySpeculatable, HasOnnxSubgraphOpInterface, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeHelperOpInterface, ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 

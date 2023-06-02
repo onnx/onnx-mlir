@@ -533,7 +533,7 @@ import_handler_map_["Round"] =
 import_handler_map_["STFT"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSTFTOp>;
 import_handler_map_["Scan"] = 
-   &onnx_mlir::detail::FrontendGenImpl::ImportScan;
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXScanOp>;
 import_handler_map_["Scatter"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXScatterOp>;
 import_handler_map_["ScatterElements"] = 
