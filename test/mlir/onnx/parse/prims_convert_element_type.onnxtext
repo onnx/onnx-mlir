@@ -25,4 +25,3 @@ prims_convert_element_type <dtype>(tensor) => (return_val)
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {to = f32} : (tensor<i64>) -> tensor<f32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<f32>
 // CHECK:         }
-// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
