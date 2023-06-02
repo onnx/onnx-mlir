@@ -149,11 +149,11 @@
  * In general, if a caller creates a tensor object (omTensorCreate), they are
  * responsible for deallocating the data buffer separately after the tensor is
  * destroyed. If onnx-mlir creates the tensor (run_main_graph), then the
- * tensor object owns the data buffer and its freed automatically when the
+ * tensor object owns the data buffer and it is freed automatically when the
  * tensor is destroyed.
  *
  * This default behavior can be changed. When creating a tensor, a user may use
- * omTensorCreateWithOwnership to explicitly set data buffer ownership. Otherwise,
+ * omTensorCreateWithOwnership to explicitly set data buffer ownership. Additionally,
  * after a tenor is created, omTensorSetOwning can be used to change
  * the ownership setting.
  *
@@ -162,6 +162,12 @@
  * memory. If the ownership flag is set to "false", then the user is responsible
  * for freeing the data buffer memory after destroying the tensor.
  *
+ * For tensor list objects, when omTensorListDestory is called, omTensorDestory
+ * is called on all tensors the list contained. The data buffer of each tensor
+ * is freed based on each tensor's ownership setting.
+ *
+ * To destroy a TensorList without automatically destorying the tensors it
+ * contained, use omTensorListDestroyShallow.
  *
  * \subsection reference Reference
  *
