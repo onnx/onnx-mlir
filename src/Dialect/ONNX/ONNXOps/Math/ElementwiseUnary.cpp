@@ -139,6 +139,10 @@ LogicalResult ONNXBitwiseNotOp::inferShapes(
 // Cast
 //===----------------------------------------------------------------------===//
 
+std::vector<Type> ONNXCastOp::resultTypeInference() {
+  return {UnrankedTensorType::get(getTo())};
+}
+
 LogicalResult ONNXCastOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(getInput()))

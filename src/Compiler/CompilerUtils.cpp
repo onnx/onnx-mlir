@@ -37,6 +37,7 @@
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
 
+#include <fstream>
 #include <regex>
 
 #define DEBUG_TYPE "compiler_utils"
@@ -428,6 +429,7 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   // Use the LLVM's 'opt' command to optimize the bitcode.
   std::string optPath = getToolPath("opt", kOptPath);
   Command optBitcode(/*exePath=*/optPath);
+  setXoptOption({"--code-model", modelSizeStr[modelSize]});
   int rc = optBitcode.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
@@ -447,6 +449,7 @@ static int genModelObject(
 
   std::string llcPath = getToolPath("llc", kLlcPath);
   Command llvmToObj(/*exePath=*/llcPath);
+  setXllcOption({"--code-model", modelSizeStr[modelSize]});
   int rc = llvmToObj.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
@@ -497,6 +500,23 @@ static int genSharedLib(std::string sharedLibNameWithExt,
   std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
   llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });
+#ifdef __s390x__
+  llvm::SmallString<64> lds;
+  if (modelSize == ModelSize::large) {
+    if (auto ec =
+            llvm::sys::fs::createTemporaryFile("s390x-lrodata", "ld", lds)) {
+      llvm::errs() << ec.message() << "\n";
+      return CompilerFailureInObjToLib;
+    }
+
+    std::string ldScript = std::string(lds);
+    std::ofstream ofs(ldScript);
+    ofs << kLrodataScript;
+    ofs.close();
+    sharedLibOpts.push_back("-Wl,-T," + ldScript);
+  }
+  llvm::FileRemover ldsRemover(lds);
+#endif
 #endif
 
   Command link(kCxxPath);
