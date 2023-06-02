@@ -93,7 +93,7 @@ public:
   }
 
   // End iterator: ends after the given number of iterations.
-  StridesIterator(size_t iterations) : value{0, iterations} {}
+  StridesIterator(size_t iterations) : strides{}, value{0, iterations} {}
 
   // End iterator: ends after one traversal of shape.
   StridesIterator(llvm::ArrayRef<int64_t> shape)

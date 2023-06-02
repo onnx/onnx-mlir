@@ -1338,3 +1338,17 @@ func.func @test_range_fp() -> tensor<3xf32> {
 // CHECK:           onnx.Return [[VAR]] : tensor<3xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_nonzero() -> tensor<2x?xi64> {
+  %0 = "onnx.Constant"() {value = dense<[[2, 1], [0, 2], [0, 1]]> : tensor<3x2xi8>} : () -> tensor<3x2xi8>
+  %1 = "onnx.NonZero"(%0) : (tensor<3x2xi8>) -> tensor<2x?xi64>
+  onnx.Return %1 : tensor<2x?xi64>
+
+// CHECK-LABEL:  func.func @test_nonzero
+// CHECK-SAME:   () -> tensor<2x?xi64> {
+// CHECK:           [[VAR:%.+]] = onnx.Constant dense<{{\[}}[0, 0, 1, 2], [0, 1, 1, 1]{{\]}}> : tensor<2x4xi64>
+// CHECK:           onnx.Return [[VAR]] : tensor<2x4xi64>
+// CHECK:         }
+}
