@@ -36,9 +36,10 @@ static OMTensor *createOMTensor(const ArrayRef<T> array, int64_t shape[],
 
 template <typename T1, typename T2>
 bool CategoryMapperLibBuilder<T1, T2>::build() {
-  int64_t shape[1] = {static_cast<int64_t>(input.size())};
-
   RankedTensorType inputType, outputType;
+  llvm::SmallVector<long int> shape;
+  for (int i = 0; i < inputRank; i++)
+    shape.push_back(inputShape[i]);
 
   if (std::is_same<T1, int64_t>::value) {
     inputType = RankedTensorType::get(shape, builder.getI64Type());
@@ -54,12 +55,11 @@ bool CategoryMapperLibBuilder<T1, T2>::build() {
 
 template <typename T1, typename T2>
 bool CategoryMapperLibBuilder<T1, T2>::prepareInputs() {
-  constexpr int num = 1;
-  OMTensor* list[num];
-  int64_t shape[1] = {static_cast<int64_t>(input.size())};
-  list[0] = createOMTensor<T1>(input, shape, 1,
+  OMTensor* list[inputRank];
+
+  list[0] = createOMTensor<T1>(input, inputShape, inputRank,
       (std::is_same<T1, int64_t>::value) ? ONNX_TYPE_INT64 : ONNX_TYPE_STRING);
-  inputs = omTensorListCreate(list, num);
+  inputs = omTensorListCreate(list, 1);
 
   return inputs && list[0];
 }
@@ -68,10 +68,8 @@ template <typename T1, typename T2>
 bool CategoryMapperLibBuilder<T1, T2>::verifyOutputs() {
   if (!inputs || !outputs)
     return false;
-
-  int64_t shape[1] = {static_cast<int64_t>(expOutput.size())};
   auto expOutputOMT = onnx_mlir::OMTensorUniquePtr(
-      createOMTensor<T2>(expOutput, shape, 1 /*rank*/,
+      createOMTensor<T2>(expOutput, inputShape, inputRank,
           (std::is_same<T2, int64_t>::value) ? ONNX_TYPE_INT64
                                              : ONNX_TYPE_STRING),
       omTensorDestroy);
