@@ -10,7 +10,7 @@
 
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x5x5xf32>
-    return %1 : tensor<1x2x5x5xf32>
+    onnx.Return %1 : tensor<1x2x5x5xf32>
 
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [2, 3, 0, 1]} : (tensor<1x2x3x3xf32>) -> tensor<3x3x1x2xf32>
@@ -31,7 +31,7 @@
 // CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_16_:%.+]] = "onnx.Pad"([[VAR_12_]], [[VAR_13_]], [[VAR_14_]], [[VAR_15_]]) {mode = "constant"} : (tensor<1x2x5x5xf32>, tensor<8xi64>, none, none) -> tensor<1x2x5x5xf32>
-// CHECK:           return [[VAR_16_]] : tensor<1x2x5x5xf32>
+// CHECK:           onnx.Return [[VAR_16_]] : tensor<1x2x5x5xf32>
 
   }
 
@@ -45,7 +45,7 @@
 
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x1x3xf32>, tensor<1x2x3xf32>, none) -> tensor<1x2x5xf32>
-    return %1 : tensor<1x2x5xf32>
+    onnx.Return %1 : tensor<1x2x5xf32>
 
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [2, 0, 1]} : (tensor<1x2x3xf32>) -> tensor<3x1x2xf32>
@@ -58,7 +58,7 @@
 // CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_10_:%.+]] = "onnx.Pad"([[VAR_6_]], [[VAR_7_]], [[VAR_8_]], [[VAR_9_]]) {mode = "constant"} : (tensor<1x2x5xf32>, tensor<6xi64>, none, none) -> tensor<1x2x5xf32>
-// CHECK:           return [[VAR_10_]] : tensor<1x2x5xf32>
+// CHECK:           onnx.Return [[VAR_10_]] : tensor<1x2x5xf32>
   }
 
 // -----
@@ -71,7 +71,7 @@
 
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x1x3x4x5xf32>, tensor<1x2x3x3x3xf32>, none) -> tensor<1x2x5x6x7xf32>
-    return %1 : tensor<1x2x5x6x7xf32>
+    onnx.Return %1 : tensor<1x2x5x6x7xf32>
 
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [2, 3, 4, 0, 1]} : (tensor<1x2x3x3x3xf32>) -> tensor<3x3x3x1x2xf32>
@@ -100,7 +100,7 @@
 // CHECK-DAG:       [[VAR_21_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_22_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_23_:%.+]] = "onnx.Pad"([[VAR_19_]], [[VAR_20_]], [[VAR_21_]], [[VAR_22_]]) {mode = "constant"} : (tensor<1x2x5x6x7xf32>, tensor<10xi64>, none, none) -> tensor<1x2x5x6x7xf32>
-// CHECK:           return [[VAR_23_]] : tensor<1x2x5x6x7xf32>
+// CHECK:           onnx.Return [[VAR_23_]] : tensor<1x2x5x6x7xf32>
   }
 
 // -----
@@ -113,7 +113,7 @@
 
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64, pads = [1, 2, 1, 2], strides = [3, 2]} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x7x3xf32>
-    return %1 : tensor<1x2x7x3xf32>
+    onnx.Return %1 : tensor<1x2x7x3xf32>
 
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [2, 3, 0, 1]} : (tensor<1x2x3x3xf32>) -> tensor<3x3x1x2xf32>
@@ -160,7 +160,7 @@
 // CHECK-DAG:       [[VAR_36_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_37_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_38_:%.+]] = "onnx.Pad"([[VAR_34_]], [[VAR_35_]], [[VAR_36_]], [[VAR_37_]]) {mode = "constant"} : (tensor<1x2x7x3xf32>, tensor<8xi64>, none, none) -> tensor<1x2x7x3xf32>
-// CHECK:           return [[VAR_38_]] : tensor<1x2x7x3xf32>
+// CHECK:           onnx.Return [[VAR_38_]] : tensor<1x2x7x3xf32>
   }
 
 // -----
@@ -173,7 +173,7 @@
 
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64, output_shape = [10, 8], strides = [3, 2]} : (tensor<1x1x3x3xf32>, tensor<1x2x3x3xf32>, none) -> tensor<1x2x10x8xf32>
-    return %1 : tensor<1x2x10x8xf32>
+    onnx.Return %1 : tensor<1x2x10x8xf32>
 
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [2, 3, 0, 1]} : (tensor<1x2x3x3xf32>) -> tensor<3x3x1x2xf32>
@@ -220,7 +220,7 @@
 // CHECK-DAG:       [[VAR_36_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_37_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_38_:%.+]] = "onnx.Pad"([[VAR_34_]], [[VAR_35_]], [[VAR_36_]], [[VAR_37_]]) {mode = "constant"} : (tensor<1x2x10x7xf32>, tensor<8xi64>, none, none) -> tensor<1x2x10x8xf32>
-// CHECK:           return [[VAR_38_]] : tensor<1x2x10x8xf32>
+// CHECK:           onnx.Return [[VAR_38_]] : tensor<1x2x10x8xf32>
   }
 
 // -----
@@ -232,7 +232,7 @@
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3x3xf32>, [[PARAM_1_:%.+]]: tensor<?x?x3x3xf32>)
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.ConvTranspose"(%arg0, %arg1, %0) {auto_pad = "NOTSET", group = 1 : si64, kernel_shape = [3, 3], onnx_node_name = "test", output_padding = [1, 1], output_shape = [10, 8], strides = [3, 2]} : (tensor<?x?x3x3xf32>, tensor<?x?x3x3xf32>, none) -> tensor<?x?x10x8xf32>
-    return %1 : tensor<?x?x10x8xf32>
+    onnx.Return %1 : tensor<?x?x10x8xf32>
 
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [2, 3, 0, 1]} : (tensor<?x?x3x3xf32>) -> tensor<3x3x?x?xf32>
@@ -279,5 +279,5 @@
 // CHECK-DAG:       [[VAR_36_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_37_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_38_:%.+]] = "onnx.Pad"([[VAR_34_]], [[VAR_35_]], [[VAR_36_]], [[VAR_37_]]) {mode = "constant"} : (tensor<?x?x10x7xf32>, tensor<8xi64>, none, none) -> tensor<?x?x10x8xf32>
-// CHECK:           return [[VAR_38_]] : tensor<?x?x10x8xf32>
+// CHECK:           onnx.Return [[VAR_38_]] : tensor<?x?x10x8xf32>
   }

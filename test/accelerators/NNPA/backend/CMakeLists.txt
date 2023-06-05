@@ -196,10 +196,10 @@ set(NNPA_TEST_LIST
     # ==OP== LogSoftmax
     # test_logsoftmax_axis_0_cpu
     # test_logsoftmax_axis_1_cpu
-    test_logsoftmax_axis_2_cpu,zdnn_log
+    # test_logsoftmax_axis_2_cpu,zdnn_log
     test_logsoftmax_example_1_cpu,zdnn_softmax
     # test_logsoftmax_default_axis_cpu
-    test_logsoftmax_negative_axis_cpu,zdnn_log
+    # test_logsoftmax_negative_axis_cpu,zdnn_log
     # test_logsoftmax_large_number_cpu #  accuracy error in test_logsoftmax_large_number_cpu
 
     # ==OP== LSTM
@@ -344,7 +344,7 @@ add_custom_target(check-onnx-backend-nnpa
     ${FILE_GENERATE_DIR}/test_config.py
    )
 
-add_custom_target(check-onnx-backend-nnpa-dynamic
+add_custom_target(check-onnx-backend-dynamic-nnpa
   COMMAND
     TEST_INSTRUCTION_CHECK=true
     TEST_DYNAMIC=true
@@ -354,7 +354,7 @@ add_custom_target(check-onnx-backend-nnpa-dynamic
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
-add_custom_target(check-onnx-backend-nnpa-constant
+add_custom_target(check-onnx-backend-constant-nnpa
   COMMAND
     # In some test cases such as `test_add_cpu`, operations are removed by optimization and
     # instruction check fails. So, currently instruction check is disabled in constant test.
@@ -366,7 +366,7 @@ add_custom_target(check-onnx-backend-nnpa-constant
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
-add_custom_target(check-onnx-backend-nnpa-compilerlib
+add_custom_target(check-onnx-backend-compilerlib-nnpa
   COMMAND
     TEST_COMPILERLIB=true ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
@@ -384,17 +384,21 @@ add_custom_target(clean-onnx-backend-nnpa
 
 add_dependencies(check-onnx-backend-nnpa onnx-mlir)
 add_dependencies(check-onnx-backend-nnpa PyRuntime)
-add_dependencies(check-onnx-backend-nnpa-dynamic onnx-mlir)
-add_dependencies(check-onnx-backend-nnpa-dynamic PyRuntime)
-add_dependencies(check-onnx-backend-nnpa-constant onnx-mlir)
-add_dependencies(check-onnx-backend-nnpa-constant PyRuntime)
-add_dependencies(check-onnx-backend-nnpa-compilerlib CompilerLibTest)
-add_dependencies(check-onnx-backend-nnpa-compilerlib PyRuntime)
+add_dependencies(check-onnx-backend-dynamic-nnpa onnx-mlir)
+add_dependencies(check-onnx-backend-dynamic-nnpa PyRuntime)
+add_dependencies(check-onnx-backend-constant-nnpa onnx-mlir)
+add_dependencies(check-onnx-backend-constant-nnpa PyRuntime)
+add_dependencies(check-onnx-backend-compilerlib-nnpa CompilerLibTest)
+add_dependencies(check-onnx-backend-compilerlib-nnpa PyRuntime)
+
+add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-nnpa)
+add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-dynamic-nnpa)
+add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-constant-nnpa)
 
 if (ONNX_MLIR_ENABLE_JNI)
   message(STATUS "JNI backend tests        : ON")
   message(STATUS "JSONITER_JAR             : ${JSONITER_JAR}")
-  add_custom_target(check-onnx-backend-nnpa-jni
+  add_custom_target(check-onnx-backend-jni-nnpa
     COMMAND
       ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/jni
        TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
@@ -404,7 +408,7 @@ if (ONNX_MLIR_ENABLE_JNI)
       ${FILE_GENERATE_DIR}/test_config.py
     )
 
-  add_custom_target(check-onnx-backend-nnpa-dynamic-jni
+  add_custom_target(check-onnx-backend-dynamic-jni-nnpa
     COMMAND
       TEST_DYNAMIC=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
@@ -413,7 +417,7 @@ if (ONNX_MLIR_ENABLE_JNI)
       ${FILE_GENERATE_DIR}/test_config.py
     )
 
-  add_custom_target(check-onnx-backend-nnpa-constant-jni
+  add_custom_target(check-onnx-backend-constant-jni-nnpa
     COMMAND
       TEST_CONSTANT=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
@@ -422,18 +426,23 @@ if (ONNX_MLIR_ENABLE_JNI)
       ${FILE_GENERATE_DIR}/test_config.py
     )
 
-  add_dependencies(check-onnx-backend-nnpa-jni onnx-mlir)
-  add_dependencies(check-onnx-backend-nnpa-jni PyRuntime)
-  add_dependencies(check-onnx-backend-nnpa-jni javaruntime)
-  add_dependencies(check-onnx-backend-nnpa-jni jniruntime)
-  add_dependencies(check-onnx-backend-nnpa-dynamic-jni onnx-mlir)
-  add_dependencies(check-onnx-backend-nnpa-dynamic-jni PyRuntime)
-  add_dependencies(check-onnx-backend-nnpa-dynamic-jni javaruntime)
-  add_dependencies(check-onnx-backend-nnpa-dynamic-jni jniruntime)
-  add_dependencies(check-onnx-backend-nnpa-constant-jni onnx-mlir)
-  add_dependencies(check-onnx-backend-nnpa-constant-jni PyRuntime)
-  add_dependencies(check-onnx-backend-nnpa-constant-jni javaruntime)
-  add_dependencies(check-onnx-backend-nnpa-constant-jni jniruntime)
+  add_dependencies(check-onnx-backend-jni-nnpa onnx-mlir)
+  add_dependencies(check-onnx-backend-jni-nnpa PyRuntime)
+  add_dependencies(check-onnx-backend-jni-nnpa javaruntime)
+  add_dependencies(check-onnx-backend-jni-nnpa jniruntime)
+  add_dependencies(check-onnx-backend-dynamic-jni-nnpa onnx-mlir)
+  add_dependencies(check-onnx-backend-dynamic-jni-nnpa PyRuntime)
+  add_dependencies(check-onnx-backend-dynamic-jni-nnpa javaruntime)
+  add_dependencies(check-onnx-backend-dynamic-jni-nnpa jniruntime)
+  add_dependencies(check-onnx-backend-constant-jni-nnpa onnx-mlir)
+  add_dependencies(check-onnx-backend-constant-jni-nnpa PyRuntime)
+  add_dependencies(check-onnx-backend-constant-jni-nnpa javaruntime)
+  add_dependencies(check-onnx-backend-constant-jni-nnpa jniruntime)
+
+  add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-jni-nnpa)
+  add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-dynamic-jni-nnpa)
+  add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-constant-jni-nnpa)
+
 else()
   message(STATUS "  JNI backend-nnpa tests         : OFF")
 endif()

@@ -110,25 +110,6 @@ Value emitConcatOpForDims(MultiDialectBuilder<OnnxBuilder> create,
   return concatOutput;
 }
 
-/// Update the function signature if the op's output is the return value.
-void updateFunctionSignature(Operation *op) {
-  assert(op->getResults().size() == 1 && "Only support single result ops");
-  Operation *parentOp = op->getParentOp();
-  if (auto f = dyn_cast<func::FuncOp>(parentOp)) {
-    if (!f.back().empty() && f.back().back().hasTrait<OpTrait::IsTerminator>())
-      if (auto terminator = f.getBody().back().getTerminator()) {
-        for (Operation *user : op->getResults()[0].getUsers()) {
-          if (user == terminator) {
-            auto results = user->getOperandTypes();
-            f.setType(FunctionType::get(f.getContext(),
-                f.getFunctionType().getInputs(),
-                std::vector<Type>(results.begin(), results.end())));
-          }
-        }
-      }
-  }
-}
-
 /// Update the output shape using userDims.
 /// Return success if the output shape is updated. Otherwise, return failure.
 LogicalResult updateOutputType(
@@ -142,8 +123,6 @@ LogicalResult updateOutputType(
   if (newOutputType == oldOutputType)
     return failure();
 
-  // Update the function signature if the output type changed.
-  updateFunctionSignature(output.getDefiningOp());
   return success();
 }
 

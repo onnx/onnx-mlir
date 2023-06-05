@@ -180,6 +180,120 @@ bool AreTheSameAxesConstant(int64_t rank, Value lhs, Value rhs) {
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
 
 // =============================================================================
+// Rewrite pattern for elementwise binary ops (not handled in Rewrite.td).
+// =============================================================================
+
+// Rewrites v1-v6 binary op with legacy axis and broadcast attributes set
+// by unsqueezing the rhs shape as needed and removing the axis and broadcast
+// attributes, provided that the operand shapes' ranks are known.
+// The v1-v6 binary ops with axis and broadcast attributes are:
+// Add, And, Div, Equal, Greater, Less, Or, Pow, Sub, Xor.
+template <typename OP_TYPE>
+class BinaryOpBroadcastAxisPattern : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE binaryOp, PatternRewriter &rewriter) const override {
+    Operation *op = binaryOp.getOperation();
+
+    IntegerAttr bcast = op->getAttrOfType<IntegerAttr>("broadcast");
+    IntegerAttr axisAttr = op->getAttrOfType<IntegerAttr>("axis");
+    if (!bcast || bcast.getValue().getSExtValue() != 1 || !axisAttr) {
+      return failure(); // Pattern only applies when broadcast and axis are set.
+    }
+    int64_t axis = axisAttr.getValue().getSExtValue();
+
+    assert(op->getNumOperands() == 2 && "op must be binary");
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    ShapedType lhsType = cast<ShapedType>(lhs.getType());
+    ShapedType rhsType = cast<ShapedType>(rhs.getType());
+    if (!lhsType.hasRank() || !rhsType.hasRank()) {
+      return failure(); // Cannot apply pattern until ranks are known.
+    }
+    int64_t lhsRank = lhsType.getRank();
+    int64_t rhsRank = rhsType.getRank();
+    if (axis > lhsRank) {
+      return op->emitOpError("broadcast axis out of range: ")
+             << "axis " << axis << ", lhs type " << lhsType;
+    }
+    if (rhsRank > lhsRank - axis) {
+      return op->emitOpError("broadcast rhs shape too long: ")
+             << "axis " << axis << ", lhs type " << lhsType << ", rhs type "
+             << rhsType;
+    }
+
+    rewriter.updateRootInPlace(op, [&] {
+      if (rhsRank < lhsRank - axis) {
+        OnnxBuilder createONNX(rewriter, op->getLoc());
+        SmallVector<int64_t> axesArray;
+        SmallVector<int64_t> unsqueezedShape(rhsType.getShape());
+        for (int64_t x = rhsRank; x < lhsRank - axis; ++x) {
+          axesArray.push_back(x);
+          unsqueezedShape.push_back(1);
+        }
+        Value axes = createONNX.constantInt64(axesArray);
+        auto unsqueezedType =
+            RankedTensorType::get(unsqueezedShape, rhsType.getElementType());
+        Value unsqueezed = createONNX.unsqueeze(unsqueezedType, rhs, axes);
+        op->setOperand(1, unsqueezed);
+      }
+      Attribute removedAxisAttr = op->removeAttr("axis");
+      assert(removedAxisAttr && "axis should be removed");
+      Attribute removedBroadcastAttr = op->removeAttr("broadcast");
+      assert(removedBroadcastAttr && "broadcast should be removed");
+    });
+    return success();
+  }
+};
+
+// =============================================================================
+// Rewrite pattern for Resize (not handled in Rewrite.td).
+// =============================================================================
+
+// The yolo4 model uses a float tensor with shape [0] to represent that roi
+// or scales is absent in accordance with the Resize v11 spec. This violates
+// the spec from v13 onwards which says that empty string
+// inputs represents absent arguments in the protobuf model representation.
+// We work around this by interpreting a tensor with empty shape as an
+// alternative way to express that an input is absent.
+class EmptyTensorInputsResizePattern : public OpRewritePattern<ONNXResizeOp> {
+public:
+  using OpRewritePattern<ONNXResizeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXResizeOp onnxResizeOp, PatternRewriter &rewriter) const override {
+    bool emptyRoi = isEmptyTensor(onnxResizeOp.getRoi());
+    bool emptyScales = isEmptyTensor(onnxResizeOp.getScales());
+    bool emptySizes = isEmptyTensor(onnxResizeOp.getSizes());
+    if (emptyRoi || emptyScales || emptySizes) {
+      rewriter.updateRootInPlace(onnxResizeOp, [&] {
+        OnnxBuilder createONNX(rewriter, onnxResizeOp.getLoc());
+        if (emptyRoi)
+          onnxResizeOp.getRoiMutable().assign(createONNX.none());
+        if (emptyScales)
+          onnxResizeOp.getScalesMutable().assign(createONNX.none());
+        if (emptySizes)
+          onnxResizeOp.getSizesMutable().assign(createONNX.none());
+      });
+      return success();
+    } else {
+      return failure(); // pattern didn't apply and onnxResizeOp is unchanged
+    }
+  }
+
+private:
+  bool isEmptyTensor(Value input) const {
+    if (ShapedType shapedType = dyn_cast<ShapedType>(input.getType())) {
+      return shapedType.hasStaticShape() && shapedType.getNumElements() == 0;
+    } else {
+      return false;
+    }
+  }
+};
+
+// =============================================================================
 // Rewrite pattern for loop (not handled in Rewrite.td).
 // =============================================================================
 
@@ -693,6 +807,13 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseGemmFollowedByAddition>(context);
   results.insert<FuseAddConvPattern>(context);
   results.insert<FuseAddConvNullBiasPattern>(context);
+  results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
+}
+
+/// on the ONNXAndOp.
+void ONNXAndOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXAndOp>>(context);
 }
 
 /// on the ONNXCastOp.
@@ -720,6 +841,12 @@ void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
   results.insert<RemoveDepthToSpaceSpaceToDepthPattern>(context);
 }
 
+/// on the ONNXDivOp.
+void ONNXDivOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
+}
+
 /// on the ONNXDropoutOp.
 void ONNXDropoutOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
@@ -732,6 +859,12 @@ void ONNXDimOp::getCanonicalizationPatterns(
   results.insert<DimOpToConstantPattern>(context);
 }
 
+/// on the ONNXEqualOp.
+void ONNXEqualOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXEqualOp>>(context);
+}
+
 /// on the ONNXGlobalAveragePoolOp.
 void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
@@ -742,6 +875,12 @@ void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
 void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<GlobalMaxPoolPattern>(context);
+}
+
+/// on the ONNXGreaterOp.
+void ONNXGreaterOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXGreaterOp>>(context);
 }
 
 /// on the ONNXGRUOp.
@@ -766,6 +905,7 @@ void ONNXLayoutTransformOp::getCanonicalizationPatterns(
 void ONNXLessOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<LessOpSameCastPattern>(context);
+  results.insert<BinaryOpBroadcastAxisPattern<ONNXLessOp>>(context);
 }
 
 /// on the ONNXLoopOp.
@@ -785,6 +925,13 @@ void ONNXMulOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NormalizeMulPattern>(context);
   results.insert<FuseMulConvNullBiasPattern>(context);
+  results.insert<BinaryOpBroadcastAxisPattern<ONNXMulOp>>(context);
+}
+
+/// on the ONNXOrOp.
+void ONNXOrOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXOrOp>>(context);
 }
 
 /// on the ONNXReshapeOp.
@@ -793,6 +940,12 @@ void ONNXReshapeOp::getCanonicalizationPatterns(
   result.insert<FuseReshapePattern>(context);
   result.insert<RemoveIdentityReshapePattern>(context);
   result.insert<SwapReshapeMatMulPattern>(context);
+}
+
+/// on the ONNXResizeOp.
+void ONNXResizeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<EmptyTensorInputsResizePattern>(context);
 }
 
 /// on the ONNXRNNOp.
@@ -805,6 +958,12 @@ void ONNXRNNOp::getCanonicalizationPatterns(
 void ONNXShapeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ShapeToConstantPattern>(context);
+}
+
+/// on the ONNXSubOp.
+void ONNXSubOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXSubOp>>(context);
 }
 
 /// on ONNXShapeTransformOp
@@ -903,4 +1062,11 @@ void ONNXPowOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   // Is 64 necessary? Maybe too high?
   result.insert<PowToMulRewritePattern>(context, 64);
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXPowOp>>(context);
+}
+
+/// on the ONNXXorOp.
+void ONNXXorOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXXorOp>>(context);
 }

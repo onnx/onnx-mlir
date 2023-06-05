@@ -262,6 +262,9 @@ llvm::cl::opt<std::string> reportHeapAfter("report-heap-after",
 // replaced by a class of its own.
 std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
+// Must match ModelSize enum
+const std::string modelSizeStr[] = {"small", "medium", "large", "huge"};
+
 // =============================================================================
 // Methods for setting and getting compiler variables.
 
@@ -430,7 +433,7 @@ std::string getOptimizationLevelOption() {
 // Support for Xopt.
 void setXoptOption(const std::vector<std::string> &flags) {
   for (const std::string &flag : flags)
-    Xllc.addValue(flag);
+    Xopt.addValue(flag);
 }
 
 void clearXoptOption() { Xopt.clear(); }

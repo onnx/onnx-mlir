@@ -87,6 +87,20 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
 }
 
 //===----------------------------------------------------------------------===//
+// Type Inference
+//===----------------------------------------------------------------------===//
+
+std::vector<Type> ONNXConstantOfShapeOp::resultTypeInference() {
+  Type elementType;
+  if (auto attr = getValueAttr()) {
+    elementType = cast<ElementsAttr>(attr).getElementType();
+  } else {
+    elementType = FloatType::getF32(getContext());
+  }
+  return {UnrankedTensorType::get(elementType)};
+}
+
+//===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
 

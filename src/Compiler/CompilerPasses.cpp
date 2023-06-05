@@ -95,6 +95,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(onnxConstPropReport));
 
+  // Replace ONNXReturnOp with func::ReturnOp.
+  pm.addPass(onnx_mlir::createStandardFuncReturnPass());
+
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
 
