@@ -72,10 +72,11 @@ public:
         if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
           name += nameLocIt.getName().str() + "-";
         else if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
-          StringRef filename =
-              llvm::sys::path::filename(fileLineColLoc.getFilename().str());
-          name += filename.str() + ":" +
-                  std::to_string(fileLineColLoc.getLine()) + "-";
+          std::string filename =
+              llvm::sys::path::filename(fileLineColLoc.getFilename().str())
+                  .str();
+          name +=
+              filename + ":" + std::to_string(fileLineColLoc.getLine()) + "-";
         }
       }
       if (name.empty())
@@ -85,14 +86,16 @@ public:
       loc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(loc).getName();
     } else if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
-      StringRef filename =
-          llvm::sys::path::filename(fileLineColLoc.getFilename().str());
+      std::string filename =
+          llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
       std::string name =
-          filename.str() + ":" + std::to_string(fileLineColLoc.getLine());
+          filename + ":" + std::to_string(fileLineColLoc.getLine());
       loc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(loc).getName();
     } else
       nodeName = StringRef("NOTSET");
+    LLVM_DEBUG(
+        llvm::dbgs() << "Instrumentation_nodeName: " << nodeName << "\n");
     LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
         nodeName, loc, rewriter, parentModule, typeConverter);
     Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);

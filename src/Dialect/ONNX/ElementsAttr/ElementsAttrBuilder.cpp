@@ -789,6 +789,44 @@ ElementsAttr ElementsAttrBuilder::range(
   });
 }
 
+namespace {
+// Returns indices with non-zero values. The indices are placed back to back,
+// lexicographically sorted. Can be viewed as a [count, rank] shaped matrix
+// linearized in row-major order, where rank is the rank of elms' shape and
+// count is the number of non-zero values. AP_TYPE should be APFloat or APInt.
+// TODO: If this is too slow then reimplement in the style of allEqual()
+//       with WideNum instead of APFloat/APInt.
+template <typename AP_TYPE>
+SmallVector<int64_t> nonZeroIndices(ElementsAttr elms) {
+  SmallVector<int64_t> indices;
+  auto values = elms.getValues<AP_TYPE>();
+  for (const auto &idxpos :
+      StridesRange<0>(elms.getShapedType().getShape(), {})) {
+    if (!values[idxpos.flattenedIndex].isZero())
+      indices.append(idxpos.index.begin(), idxpos.index.end());
+  }
+  return indices;
+}
+} // namespace
+
+ElementsAttr ElementsAttrBuilder::nonZero(ElementsAttr elms) {
+  SmallVector<int64_t> indices = isa<FloatType>(elms.getElementType())
+                                     ? nonZeroIndices<APFloat>(elms)
+                                     : nonZeroIndices<APInt>(elms);
+  int64_t rank = elms.getShapedType().getRank();
+  assert(indices.size() % rank == 0);
+  int64_t count = indices.size() / rank;
+  Type I64 = IntegerType::get(elms.getContext(), 64);
+  // Return transposition from shape [count, rank] to [rank, count].
+  auto nonZeroType = RankedTensorType::get({rank, count}, I64);
+  return fromArray<int64_t>(nonZeroType, [&](MutableArrayRef<int64_t> dst) {
+    for (int64_t i = 0; i < count; ++i) {
+      for (int64_t j = 0; j < rank; ++j)
+        dst[j * count + i] = indices[i * rank + j];
+    }
+  });
+}
+
 /*static*/
 auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     -> ElementsProperties {

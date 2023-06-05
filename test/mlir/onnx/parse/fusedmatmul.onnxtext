@@ -24,5 +24,5 @@ fusedmatmuller (float[2,3] lhs, float[4,3] rhs) => (float[2,4] output) {
 // CHECK:         [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [1, 0]} : (tensor<4x3xf32>) -> tensor<3x4xf32>
 // CHECK:         [[VAR_2_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<2x3xf32>, tensor<3x4xf32>) -> tensor<2x4xf32>
 // CHECK:         [[VAR_3_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_0_]]) : (tensor<2x4xf32>, tensor<1xf32>) -> tensor<2x4xf32>
-// CHECK:          return [[VAR_3_]] : tensor<2x4xf32>
+// CHECK:         return [[VAR_3_]] : tensor<2x4xf32>
 // CHECK:       }
