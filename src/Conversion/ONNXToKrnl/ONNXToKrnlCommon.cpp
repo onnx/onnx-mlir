@@ -22,7 +22,6 @@
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
-#include "llvm/Support/Debug.h"
 
 using namespace mlir;
 
@@ -487,18 +486,18 @@ Value emitArgUnique(ConversionPatternRewriter &rewriter, Location loc,
   Value val_axis = create.math.constant(int_type, axis);
   Value val_sorted = create.math.constant(int_type, sorted);
   if (count_only) {
-    // printf("XXXX: calling omTensorUniqueCount(total=%p, input=%p,
-    // val_axis=%p, val_sorted=%p)\n", total, input, val_axis, val_sorted);
-    SmallVector<Value, 3> operands = {input, val_axis, val_sorted};
-    rewriter.create<KrnlCallOp>(loc, "omTensorUniqueCount", total, operands);
+    printf("XXXX: calling omTensorUniqueCount(total=%p, input=%p, "
+           "val_axis=%p, val_sorted=%p)\n", total, input, val_axis, val_sorted);
+    SmallVector<Value, 4> operands = {total, input, val_axis, val_sorted};
+    rewriter.create<KrnlCallOp>(loc, "omTensorUniqueCount", 1, operands);
   } else {
     SmallVector<Value, 7> operands = {
         input, val_axis, val_sorted, Y, indices, inverse_indices, counts};
-    // printf("XXXX: calling omTensorUniqueCount(total=%p, input=%p,
-    // val_axis=%p, val_sorted=%p, Y=%p, indices=%p, inverse_indices=%p,
-    // counts=%p)\n", total, input, val_axis, val_sorted, Y, indices,
-    // inverse_indices, counts);
-    rewriter.create<KrnlCallOp>(loc, "omTensorUnique", total, operands);
+    printf("XXXX: calling omTensorUniqueCount(total=%p, input=%p, "
+    "val_axis=%p, val_sorted=%p, Y=%p, indices=%p, inverse_indices=%p, "
+    "counts=%p)\n", total, input, val_axis, val_sorted, Y, indices,
+    inverse_indices, counts);
+    rewriter.create<KrnlCallOp>(loc, "omTensorUnique", 1, operands);
   }
   return total;
 }
