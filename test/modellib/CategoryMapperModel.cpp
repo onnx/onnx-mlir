@@ -37,10 +37,7 @@ static OMTensor *createOMTensor(const ArrayRef<T> array, int64_t shape[],
 template <typename T1, typename T2>
 bool CategoryMapperLibBuilder<T1, T2>::build() {
   RankedTensorType inputType, outputType;
-  llvm::SmallVector<long int> shapeVec;
-  for (int i = 0; i < inputRank; i++)
-    shapeVec.push_back(inputShape[i]);
-  llvm::ArrayRef<int64_t> shape = (llvm::ArrayRef<int64_t>) shapeVec;
+  llvm::ArrayRef<int64_t> shape(inputShape);
   if (std::is_same<T1, int64_t>::value) {
     inputType = RankedTensorType::get(shape, builder.getI64Type());
     outputType = RankedTensorType::get(shape, ONNXStringType::get(&ctx));
