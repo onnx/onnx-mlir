@@ -337,6 +337,8 @@ ArrayAttr CombinedTransposePattern(PatternRewriter &rewriter,
 /// Test if the permute pattern correspond to an identity pattern.
 /// Identity patterns are {0, 1, 2, ... , rank -1}.
 bool IsIdentityPermuteVector(ArrayAttr permAttr) {
+  if (!permAttr)
+    return false;
   int64_t currentIndex = 0;
   for (auto permVal : permAttr.getValue())
     if (permVal.cast<IntegerAttr>().getInt() != currentIndex++)

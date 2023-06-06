@@ -1207,7 +1207,7 @@ private:
         BindOnnxName(name, value);
       }
 
-      for (auto &fb_node : functionProto.node()) {
+      for (auto &fb_node : graph.node()) {
         ImportNode(fb_node);
       }
 
