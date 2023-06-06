@@ -67,8 +67,9 @@ struct ConstPropCounters {
     auto &counters = map[name];
     counters.invocations += 1;
     for (auto oprnd : operands)
-      counters.input_elms +=
-          getNumberOfElements(oprnd.getType().cast<ShapedType>());
+      if (!isa<NoneType>(oprnd.getType()))
+        counters.input_elms +=
+            getNumberOfElements(oprnd.getType().cast<ShapedType>());
   }
 
   static void dump(llvm::raw_ostream &os) {
