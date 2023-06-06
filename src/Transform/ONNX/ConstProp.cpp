@@ -413,6 +413,16 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
 // Code to perform constant propagation for matrix multiplication.
 //===----------------------------------------------------------------------===//
 
+Value ConstPropMatMul(PatternRewriter &rewriter, Value replacingValue,
+    Value lhsMatrixValue, Value rhsMatrixValue) {
+  ConstPropCounters::count("MatMul", {lhsMatrixValue, rhsMatrixValue});
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr lhs = getConstValueElements(lhsMatrixValue);
+  ElementsAttr rhs = getConstValueElements(rhsMatrixValue);
+  ElementsAttr matMulElements = elementsBuilder.matMul(lhs, rhs);
+  return createReplacingConstantOp(rewriter, replacingValue, matMulElements);
+}
+
 // Takes the matrix shape and zero point for the LHS argument to MatMulInteger
 // and returns the zero point if it broadcasts to the matrix shape or else
 // returns the zero point reshaped so it broadcasts to the matrix shape.
@@ -522,6 +532,8 @@ ElementsAttr getMatMulIntegerMatrixElements(
 Value ConstPropMatMulInteger(PatternRewriter &rewriter, Value replacingValue,
     Value lhsMatrixValue, Value rhsMatrixValue, Value lhsZeroPointValue,
     Value rhsZeroPointValue) {
+  ConstPropCounters::count("MatMulInteger",
+      {lhsMatrixValue, rhsMatrixValue, lhsZeroPointValue, rhsZeroPointValue});
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr lhs = getMatMulIntegerMatrixElements(elementsBuilder,
       lhsMatrixValue, lhsZeroPointValue, reshapeMatMulIntegerLhsZero);

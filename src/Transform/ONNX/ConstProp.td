@@ -137,6 +137,9 @@ def CreateReduceMaxConst :
 def CreateReduceMeanConst :
     NativeCodeCall<"ConstPropReduce<mlir::ONNXReduceMeanOp>($_builder, $0, $1, $2)">;
 
+def CreateMatMulOfConsts :
+    NativeCodeCall<"ConstPropMatMul($_builder, $0, $1, $2)">;
+
 def CreateMatMulIntegerOfConsts :
     NativeCodeCall<"ConstPropMatMulInteger($_builder, $0, $1, $2, $3, $4)">;
 
@@ -513,6 +516,37 @@ def ReduceMeanConstProp: Pat<
 
 //===----------------------------------------------------------------------===//
 // Patterns for MatMul.
+//===----------------------------------------------------------------------===//
+
+def MatMulZerosOnLhs : Pat<
+    (ONNXMatMulOp:$resOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      $B
+    ),
+    (CreateZeroTensorOfType $resOp),
+    [(IsConstOfZeros:$A), (IsNotAConstant:$B)]
+    >;
+
+def MatMulZerosOnRhs : Pat<
+    (ONNXMatMulOp:$resOp
+      $A,
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    (CreateZeroTensorOfType $resOp),
+    [(IsNotAConstant:$A), (IsConstOfZeros:$B)]
+    >;
+
+def MatMulOfConsts : Pat<
+    (ONNXMatMulOp:$resOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    (CreateMatMulOfConsts $resOp, $A, $B),
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B)]
+    >;
+
+//===----------------------------------------------------------------------===//
+// Patterns for MatMulInteger.
 //===----------------------------------------------------------------------===//
 
 def MatMulIntegerConstZeroLhs : Pat<
