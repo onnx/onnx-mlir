@@ -140,6 +140,9 @@ def CreateReduceMeanConst :
 def CreateMatMulIntegerOfConsts :
     NativeCodeCall<"ConstPropMatMulInteger($_builder, $0, $1, $2, $3, $4)">;
 
+def CreateGemmOfConsts :
+    NativeCodeCall<"ConstPropGemm($_builder, $0, $1, $2, $3)">;
+
 def CreateTransposeOfConst :
    NativeCodeCall<"ConstPropTranspose($_builder, $0, $1)">;
 
@@ -547,6 +550,20 @@ def MatMulIntegerOfConsts : Pat<
     [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
      (IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point)]
     >;
+
+//===----------------------------------------------------------------------===//
+// Patterns for Gemm.
+//===----------------------------------------------------------------------===//
+
+// Attributes are not passed to CreateGemmOfConsts. It reads them from gemmOp.
+def GemmConstProp : Pat<
+    (ONNXGemmOp:$gemmOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
+      $C, $alpha, $beta, $transA, $transB),
+    (CreateGemmOfConsts $gemmOp, $A, $B, $C),
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B),
+     (IsFromDenseONNXConstantOpOrNone:$C)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Transpose operations.

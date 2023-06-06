@@ -679,6 +679,21 @@ func.func @test_matmulinteger_with_0dzeros() -> (tensor<4x2xi32>) {
 }
 
 //===----------------------------------------------------------------------===//
+/// Gemm tests
+
+// -----
+
+func.func @test_gemm_no_bias() -> (tensor<2x1xi32>) {
+  %0 = "onnx.Constant"() {value = dense<1> : tensor<2x3xi32>} : () -> tensor<2x3xi32>
+  %1 = "onnx.Constant"() {value = dense<1> : tensor<3x1xi32>} : () -> tensor<3x1xi32>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %3 = "onnx.Gemm"(%0, %1, %2) : (tensor<2x3xi32>, tensor<3x1xi32>, none) -> tensor<2x1xi32>
+  onnx.Return %3 : tensor<2x1xi32>
+  // CHECK-LABEL: test_gemm_no_bias
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<3> : tensor<2x1xi32>
+}
+
+//===----------------------------------------------------------------------===//
 /// Reduce tests
 
 // -----
