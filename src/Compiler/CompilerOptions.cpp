@@ -227,9 +227,9 @@ llvm::cl::opt<bool> enablePatternShapeInference("pattern-shape-inference",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<bool> enableONNXHybridPass("onnx-hybrid-pass",
-    llvm::cl::desc("Enable ONNX hybrid pass (default=false)\n"
-                   "Set to 'true' if you want to enable ONNX hybrid pass."),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+    llvm::cl::desc("Enable ONNX hybrid pass (default=true)\n"
+                   "Set to 'false' if you want to disable ONNX hybrid pass."),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
     llvm::cl::desc(
