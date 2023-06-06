@@ -94,31 +94,54 @@ Invoke Models Using C Runtime</h2>
 <div class="line"> </div>
 <div class="line">OMTensorList *run_main_graph(OMTensorList *);</div>
 <div class="line"> </div>
-<div class="line"><span class="keywordtype">int</span> main() {</div>
+<div class="line">OMTensorList *create_input_list() {</div>
 <div class="line">  <span class="comment">// Shared shape &amp; rank.</span></div>
 <div class="line">  int64_t shape[] = {3, 2};</div>
+<div class="line">  int64_t num_elements = shape[0] * shape[1];</div>
 <div class="line">  int64_t rank = 2;</div>
-<div class="line">  <span class="comment">// Construct x1 omt filled with 1.</span></div>
-<div class="line">  <span class="keywordtype">float</span> x1Data[] = {1., 1., 1., 1., 1., 1.};</div>
-<div class="line">  OMTensor *x1 = omTensorCreate(x1Data, shape, rank, ONNX_TYPE_FLOAT);</div>
-<div class="line">  <span class="comment">// Construct x2 omt filled with 2.</span></div>
-<div class="line">  <span class="keywordtype">float</span> x2Data[] = {2., 2., 2., 2., 2., 2.};</div>
-<div class="line">  OMTensor *x2 = omTensorCreate(x2Data, shape, rank, ONNX_TYPE_FLOAT);</div>
-<div class="line">  <span class="comment">// Construct a list of omts as input.</span></div>
+<div class="line"> </div>
+<div class="line">  <span class="comment">// Construct float arrays filled with 1s or 2s.</span></div>
+<div class="line">  <span class="keywordtype">float</span> *x1Data = (<span class="keywordtype">float</span> *)malloc(<span class="keyword">sizeof</span>(<span class="keywordtype">float</span>) * num_elements);</div>
+<div class="line">  <span class="keywordflow">for</span> (<span class="keywordtype">int</span> i = 0; i &lt; num_elements; i++)</div>
+<div class="line">    x1Data[i] = 1.0;</div>
+<div class="line">  <span class="keywordtype">float</span> *x2Data = (<span class="keywordtype">float</span> *)malloc(<span class="keyword">sizeof</span>(<span class="keywordtype">float</span>) * num_elements);</div>
+<div class="line">  <span class="keywordflow">for</span> (<span class="keywordtype">int</span> i = 0; i &lt; num_elements; i++)</div>
+<div class="line">    x2Data[i] = 2.0;</div>
+<div class="line"> </div>
+<div class="line">  <span class="comment">// Use omTensorCreateWithOwnership &quot;true&quot; so float arrays are automatically</span></div>
+<div class="line">  <span class="comment">// freed when the Tensors are destroyed.</span></div>
+<div class="line">  OMTensor *x1 = omTensorCreateWithOwnership(x1Data, shape, rank, ONNX_TYPE_FLOAT, <span class="keyword">true</span>);</div>
+<div class="line">  OMTensor *x2 = omTensorCreateWithOwnership(x2Data, shape, rank, ONNX_TYPE_FLOAT, <span class="keyword">true</span>);</div>
+<div class="line"> </div>
+<div class="line">  <span class="comment">// Construct a TensorList using the Tensors</span></div>
 <div class="line">  OMTensor *list[2] = {x1, x2};</div>
-<div class="line">  OMTensorList *input = omTensorListCreate(list, 2);</div>
+<div class="line">  <span class="keywordflow">return</span> omTensorListCreate(list, 2);</div>
+<div class="line">}</div>
+<div class="line"> </div>
+<div class="line"><span class="keywordtype">int</span> main() {</div>
+<div class="line">  <span class="comment">// Generate input TensorList</span></div>
+<div class="line">  OMTensorList *input_list = create_input_list();</div>
+<div class="line"> </div>
 <div class="line">  <span class="comment">// Call the compiled onnx model function.</span></div>
-<div class="line">  OMTensorList *outputList = run_main_graph(input);</div>
-<div class="line">  <span class="keywordflow">if</span> (!outputList) {</div>
+<div class="line">  OMTensorList *output_list = run_main_graph(input_list);</div>
+<div class="line">  <span class="keywordflow">if</span> (!output_list) {</div>
 <div class="line">    <span class="comment">// May inspect errno to get info about the error.</span></div>
 <div class="line">    <span class="keywordflow">return</span> 1;</div>
 <div class="line">  }</div>
-<div class="line">  <span class="comment">// Get the first omt as output.</span></div>
-<div class="line">  OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);</div>
-<div class="line">  <span class="keywordtype">float</span> *outputPtr = (<span class="keywordtype">float</span> *)omTensorGetDataPtr(y);</div>
+<div class="line"> </div>
+<div class="line">  <span class="comment">// Get the first tensor from output list.</span></div>
+<div class="line">  OMTensor *y = omTensorListGetOmtByIndex(output_list, 0);</div>
+<div class="line">  <span class="keywordtype">float</span> *outputPtr = (<span class="keywordtype">float</span> *) omTensorGetDataPtr(y);</div>
+<div class="line"> </div>
 <div class="line">  <span class="comment">// Print its content, should be all 3.</span></div>
 <div class="line">  <span class="keywordflow">for</span> (<span class="keywordtype">int</span> i = 0; i &lt; 6; i++)</div>
 <div class="line">    printf(<span class="stringliteral">&quot;%f &quot;</span>, outputPtr[i]);</div>
+<div class="line">  printf(<span class="stringliteral">&quot;\n&quot;</span>);</div>
+<div class="line"> </div>
+<div class="line">  <span class="comment">// Destory the list and the tensors inside of it.</span></div>
+<div class="line">  <span class="comment">// Use omTensorListDestroyShallow if only want to destroy the list themselves.</span></div>
+<div class="line">  omTensorListDestroy(input_list);</div>
+<div class="line">  omTensorListDestroy(output_list);</div>
 <div class="line">  <span class="keywordflow">return</span> 0;</div>
 <div class="line">}</div>
 <div class="ttc" id="a_onnx_mlir_runtime_8h_html"><div class="ttname"><a href="_onnx_mlir_runtime_8h.html">OnnxMlirRuntime.h</a></div></div>
@@ -127,8 +150,11 @@ Invoke Models Using C Runtime</h2>
 </div><!-- fragment --><p> Exactly as it should be.</p>
 <h2><a class="anchor" id="freeing-tensor-memory"></a>
 Freeing Tensor Memory</h2>
-<p>When creating an OMTensor with a specified tensor array, a user has the option to create a tensor with or without ownership (omTensorCreateWithOwnership).</p>
-<p>If the ownership flag is set to "false", then a user is responsible for freeing memory until the last use. Otherwise, if the flag is set to "true", then the destruction of the tensor (omTensorDestroy) will also free any associated memory and data buffers.</p>
+<p>In general, if a caller creates a tensor object (omTensorCreate), they are responsible for deallocating the data buffer separately after the tensor is destroyed. If onnx-mlir creates the tensor (run_main_graph), then the tensor object owns the data buffer and it is freed automatically when the tensor is destroyed.</p>
+<p>This default behavior can be changed. When creating a tensor, a user may use omTensorCreateWithOwnership to explicitly set data buffer ownership. Additionally, after a tenor is created, omTensorSetOwning can be used to change the ownership setting.</p>
+<p>When omTensorDestroy is called, if the ownership flag is set to "true", then the destruction of the tensor will also free any associated data buffer memory. If the ownership flag is set to "false", then the user is responsible for freeing the data buffer memory after destroying the tensor.</p>
+<p>For tensor list objects, when omTensorListDestory is called, omTensorDestory is called on all tensors the list contained. The data buffer of each tensor is freed based on each tensor's ownership setting.</p>
+<p>To destroy a TensorList without automatically destorying the tensors it contained, use omTensorListDestroyShallow.</p>
 <h2><a class="anchor" id="reference"></a>
 Reference</h2>
 <p>For full reference to available C Runtime API, refer to <code>include/onnx-mlir/Runtime/OMTensor.h</code> and <code>include/onnx-mlir/Runtime/OMTensorList.h</code>. </p>
