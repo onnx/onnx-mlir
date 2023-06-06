@@ -192,9 +192,8 @@ private:
     const auto memRefTy = type.cast<mlir::MemRefType>();
 
     // Special handling for bool.
-    // TODO: support `numElements % 8 != 0`.
-    if (memRefTy.getElementType().isInteger(1) && (numElements % 8 == 0))
-      return numElements / 8;
+    if (memRefTy.getElementType().isInteger(1))
+      return llvm::divideCeil(numElements, 8);
 
     return numElements * getMemRefEltSizeInBytes(memRefTy);
   }
