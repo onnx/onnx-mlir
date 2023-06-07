@@ -91,11 +91,17 @@ struct InferShapesPattern
   // Returns success if shapeInfOp or its result types changed.
   LogicalResult matchAndRewrite(ShapeInferenceOpInterface shapeInfOp,
       PatternRewriter &rewriter) const override {
-    // Optimization: Don't (re)infer shapes if shapeInfOp is simple (has no
-    // subgraphs) and its result shapes are known and static.
-    if (!isa<HasOnnxSubgraphOpInterface>(shapeInfOp.getOperation()) &&
-        !returnsDynamicOrUnknownShape(shapeInfOp))
-      return failure();
+    // TODO: Consider fixing all the things to reenable the optimization below.
+    //       It is disabled because inferShapes() sometimes "canonicalizes"
+    //       operations with small rewrites and some other logic depends on it,
+    //       e.g., ONNXTransposeOp::inferShapes() populates ONNXTransposeOp's
+    //       perm attribute if absent and ONNXTransposeOpLowering depends on
+    //       the attribute being set.
+    // // Optimization: Don't (re)infer shapes if shapeInfOp is simple (has no
+    // // subgraphs) and its result shapes are known and static.
+    // if (!isa<HasOnnxSubgraphOpInterface>(shapeInfOp.getOperation()) &&
+    //     !returnsDynamicOrUnknownShape(shapeInfOp))
+    //   return failure();
 
     // Verify the operation before attempting to infer the shape of the
     // produced output(s).
