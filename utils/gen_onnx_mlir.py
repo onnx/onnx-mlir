@@ -399,6 +399,7 @@ OpsWithVerifier = [
     'Pow',
     'RandomNormalLike',
     'Range',
+    'Reshape',
     'Resize',
     'ReverseSequence',
     'RoiAlign',
