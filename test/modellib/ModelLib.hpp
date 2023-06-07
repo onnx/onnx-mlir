@@ -168,6 +168,7 @@ private:
       bool isLast = false) const;
 };
 
+#define MAX_INPUT_RANK_FOR_TEST 3
 template <typename T1, typename T2>
 class CategoryMapperLibBuilder : public ModelLibBuilder {
   // Ensure template is instantiated with expected types.
@@ -190,11 +191,32 @@ public:
   };
 
   CategoryMapperLibBuilder(std::string name, const CMAttributes &attributes,
-      llvm::ArrayRef<T1> input, llvm::ArrayRef<T2> expOutput)
+      llvm::ArrayRef<T1> input, llvm::ArrayRef<T2> expOutput, int inputRank)
       : ModelLibBuilder(name), attributes(attributes), input(input),
-        expOutput(expOutput) {
+        expOutput(expOutput), inputRank(inputRank) {
     assert(input.size() == expOutput.size() &&
            "Expecting input/expOutput to have the same size");
+    inputShape[0] = inputShape[1] = inputShape[2] = 0;
+    switch (inputRank) {
+    case 1:
+      inputShape[0] = static_cast<int64_t>(input.size());
+      break;
+    case 2:
+      assert(((input.size() % 2) == 0) &&
+             "CategoryMapperLibBuilder: invalid input size");
+      inputShape[0] = static_cast<int64_t>(input.size() / 2);
+      inputShape[1] = 2;
+      break;
+    case 3:
+      assert(((input.size() % 6) == 0) &&
+             "CategoryMapperLibBuilder: invalid input size");
+      inputShape[0] = static_cast<int64_t>(input.size() / 6);
+      inputShape[1] = 2;
+      inputShape[2] = 3;
+      break;
+    default:
+      assert("CategoryMapperLibBuilder: non supported rank");
+    }
   }
 
   bool build() final;
@@ -223,6 +245,8 @@ private:
   const CMAttributes &attributes;     // CategoryMapper attributes.
   const llvm::ArrayRef<T1> input;     // model input data.
   const llvm::ArrayRef<T2> expOutput; // expected result.
+  const int inputRank;                // rank of input
+  int64_t inputShape[MAX_INPUT_RANK_FOR_TEST]; // shape of input
 };
 
 class GemmLibBuilder : public ModelLibBuilder {
