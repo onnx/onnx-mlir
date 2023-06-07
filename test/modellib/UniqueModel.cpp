@@ -46,7 +46,7 @@ bool UniqueLibBuilder::build() {
   if (rank != 2) { // XXX TODO support rank==3
     return false;
   }
-  if (axis > rank) {
+  if ((axis < -rank) || (rank <= axis)) {
     return false;
   }
   xShape = {I, J};
@@ -55,9 +55,10 @@ bool UniqueLibBuilder::build() {
     yRank = 1;
     yShape = {-1};
   } else {
+    int64_t int64_axis = (axis < 0) ? (rank + axis) : axis;
     yRank = rank;
     yShape = {I, J};
-    yShape[axis] = -1;
+    yShape[int64_axis] = -1;
   }
   Type xType = RankedTensorType::get(xShape, builder.getI64Type());
   Type yType = UnrankedTensorType::get(builder.getI64Type());
@@ -137,27 +138,30 @@ bool UniqueLibBuilder::verifyOutputs() {
   OMTensor *res = omTensorListGetOmtByIndex(outputs, 0);
   if (!x || !res)
     return false;
-  printf("UniqueLibBuilder::verifyOutputs: rank=%d, I=%d, J=%d, axis=%d, "
-         "sorted=%ld, ", rank, I, J, axis, sorted);
-  omTensorPrint("INPUT=[ ", x);
-  omTensorPrint("], OUTPUT=[ ", res);
-  printf("]\n");
-  fflush(stdout);
+  int64_t int64_axis = isNoneAxis ? -1 : ((axis < 0) ? (rank + axis) : axis);
   // Count Unique elements
-  OMTensor *total = omTensorCreateWithShape<float>({1});
-  omTensorUnique(total, x, (int64_t) axis, (int64_t) sorted, NULL, NULL, NULL,
+  OMTensor *total = omTensorCreateWithShape<int64_t>({1});
+  omTensorUnique(total, x, int64_axis, (int64_t) sorted, NULL, NULL, NULL,
       NULL);
+  int64_t int64_total = ((int64_t *) omTensorGetDataPtr(total))[0];
   OMTensor *ref;
-  if (axis < 0) {
-    ref = omTensorCreateWithShape<float>({I, J});
+  if (int64_axis < 0) {
+    ref = omTensorCreateWithShape<int64_t>({int64_total});
   } else {
-    ref = omTensorCreateWithShape<float>({I, J});
+    ref = omTensorCreateWithShape<int64_t>({I, J});
   }
   if (!ref)
     return false;
   // Compute reference.
-  omTensorUnique(total, x, (int64_t) axis, (int64_t) sorted, res, NULL,
+  omTensorUnique(total, x, int64_axis, (int64_t) sorted, ref, NULL,
       NULL, NULL);
+  printf("UniqueLibBuilder::verifyOutputs: rank=%d, I=%d, J=%d, axis=%d, "
+         "sorted=%ld,\n", rank, I, J, int64_axis, sorted);
+  omTensorPrint("INPUT=[\n", x);
+  omTensorPrint("], REF[\n", ref);
+  omTensorPrint("], OUTPUT=[\n", res);
+  printf("]\n");
+  fflush(stdout);
   bool ok = areCloseFloat(res, ref);
   omTensorDestroy(ref);
   return ok;

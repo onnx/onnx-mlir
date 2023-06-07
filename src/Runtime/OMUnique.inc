@@ -74,10 +74,10 @@ int64_t elementTable_count(elementTable *table) { return table->elementCount; }
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
    int64_t inputAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
    OMTensor *inverse_indices, OMTensor *counts) {
- printf("YYYY: omTensorUnique called(axis=%ld, sorted=%ld, Y=%p, indices=%p, "
-        "inverse_indices=%p, count=%p)\n", inputAxis, sorted, Y, indices,
-        inverse_indices, counts);
- omTensorPrint("  input:", inputTensor); fflush(stdout);
+ //printf("YYYY: omTensorUnique called(axis=%ld, sorted=%ld, Y=%p, indices=%p, "
+ //       "inverse_indices=%p, count=%p)\n", inputAxis, sorted, Y, indices,
+ //       inverse_indices, counts);
+ //omTensorPrint("  input:", inputTensor); fflush(stdout);
  const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
  const int64_t inputRank = omTensorGetRank(inputTensor);
  assert(inputRank <= 6 && "omTensorUnique assumes inputRank <= 6");
@@ -124,6 +124,8 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
      strides[i + (rank - inputRank)] = inputStrides[i];
    }
    int dimCurrInUniqueAxis, dimPrevInUniqueAxis;
+   int ansSize = dataSize * strides[5];
+   void *currAns = alloca(ansSize);
    for (dimCurrInUniqueAxis = 0; dimCurrInUniqueAxis < shape[axis];
         dimCurrInUniqueAxis++) {
      for (dimPrevInUniqueAxis = 0; dimPrevInUniqueAxis < dimCurrInUniqueAxis;
@@ -157,6 +159,9 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
                    if (memcmp(dataCurr, dataPrev, dataSize)) {
                      goto mismatch_element_found;
                    }
+                   void *currAnsData = ((char *)currAns) +
+                       dimCurrInUniqueAxis * dataSize;
+                   memcpy(currAnsData, dataCurr, dataSize);
                  }
                }
              }
@@ -170,23 +175,23 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
        }
      }
      if (dimPrevInUniqueAxis == dimCurrInUniqueAxis) {
-       //if (YPtr != NULL) {
-         //void *currY = ((char *)YPtr) + dataSize * count;
-         //memcpy(currY, data, dataSize);
-        //}
-        // TODO: Fill values of return variables, such as Y, indices,
-        //       inverse_indices and counts
-        count++; // dimCurrInUniqueAxis is a unique dim in the unique axis
-      }
+       if (YPtr != NULL) {
+         void *currY = ((char *)YPtr) + dataSize * count;
+           memcpy(currY, currAns, ansSize);
+         }
+       }
+       // TODO: Fill values of return variables, such as Y, indices,
+       //       inverse_indices and counts
+       count++; // dimCurrInUniqueAxis is a unique dim in the unique axis
     }
   }
   *totalPtr = count;
-  printf("==> %d\n", count);
+  //printf("==> %d\n", count);
   //omTensorPrint("omTensorUnique: total =", totalTensor);
-  if (YPtr != NULL) {
-    omTensorPrint("omTensorUnique: Y =", Y);
-  }
-  printf("======================================================================\n");
+  //if (YPtr != NULL) {
+  //  omTensorPrint("omTensorUnique: Y =", Y);
+  //}
+  //printf("======================================================================\n");
   return;
 }
 
