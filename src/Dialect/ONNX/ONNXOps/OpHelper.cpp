@@ -615,6 +615,10 @@ Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
     return ONNXStringType::get(builder_.getContext());
 
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E4M3FN:
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E4M3FNUZ:
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E5M2:
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E5M2FNUZ:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
