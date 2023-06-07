@@ -92,7 +92,9 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value uniqueCount = create.mem.alloca(MemRefType::get({}, indexTy));
     create.krnl.store(iZero, uniqueCount, {});
     Value noneValue;
-    // printf("XXXX calling emitArgUnique(count): uniqueCount=%p, X=%p, axis=%ld, sorted=%ld\n", (void *) uniqueCount, (void *) X, axis, sorted); fflush(stdout);
+    // printf("XXXX calling emitArgUnique(count): uniqueCount=%p, X=%p,
+    // axis=%ld, sorted=%ld\n", (void *) uniqueCount, (void *) X, axis, sorted);
+    // fflush(stdout);
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         noneValue, noneValue, noneValue, noneValue, /*count_only=*/true);
     // Calculate output shapes for ouputs according to the results
@@ -127,11 +129,15 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     }
     MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, i64Type);
     Value indices = create.mem.alignedAlloc(memrefType, outputIndexDims);
-    Value inverse_indices = create.mem.alignedAlloc(X.getType().cast<MemRefType>());
+    Value inverse_indices =
+        create.mem.alignedAlloc(X.getType().cast<MemRefType>());
     Value counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
     // Compute argUnique of X along axis.
     create.krnl.store(iZero, uniqueCount, {});
-    // printf("XXXX calling emitArgUnique(uniqueCount=%p, X=%p, axis=%p, sorted=%p, outputY=%p, indices=%p, inverse_indices=%p, counts=%p\n", uniqueCount, X, axis, sorted, outputY, indices, inverse_indices, counts); fflush(stdout);
+    // printf("XXXX calling emitArgUnique(uniqueCount=%p, X=%p, axis=%p,
+    // sorted=%p, outputY=%p, indices=%p, inverse_indices=%p, counts=%p\n",
+    // uniqueCount, X, axis, sorted, outputY, indices, inverse_indices, counts);
+    // fflush(stdout);
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         outputY, indices, inverse_indices, counts);
 #if 0

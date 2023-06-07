@@ -31,14 +31,15 @@ namespace test {
 
 UniqueLibBuilder::UniqueLibBuilder(const std::string &modelName, const int rank,
     const int I, const int J, /*const int K, */ const int axis,
-        const int sorted, const int isNoneAxis, const int isNoneIndexOutput)
+    const int sorted, const int isNoneAxis, const int isNoneIndexOutput)
     : ModelLibBuilder(modelName), rank(rank), I(I), J(J), /*K(K),*/ axis(axis),
-      sorted(sorted), isNoneAxis(isNoneAxis), isNoneIndexOutput(isNoneIndexOutput) {}
+      sorted(sorted), isNoneAxis(isNoneAxis),
+      isNoneIndexOutput(isNoneIndexOutput) {}
 
 UniqueLibBuilder::~UniqueLibBuilder() {
-  //omTensorListDestroy(inputs);
-  //omTensorListDestroy(outputs);
-  //if (exec)
+  // omTensorListDestroy(inputs);
+  // omTensorListDestroy(outputs);
+  // if (exec)
   //  delete exec;
 }
 
@@ -63,7 +64,9 @@ bool UniqueLibBuilder::build() {
   Type xType = RankedTensorType::get(xShape, builder.getI64Type());
   Type yType = UnrankedTensorType::get(builder.getI64Type());
   Type noneType = builder.getNoneType();
-  Type IndexOutputType = (isNoneIndexOutput) ? noneType : UnrankedTensorType::get(builder.getI64Type());
+  Type IndexOutputType = (isNoneIndexOutput)
+                             ? noneType
+                             : UnrankedTensorType::get(builder.getI64Type());
 
   llvm::SmallVector<Type, 1> inputsType{xType};
 
@@ -99,8 +102,8 @@ bool UniqueLibBuilder::build() {
     builder.create<func::ReturnOp>(loc, results);
   } else {
     llvm::SmallVector<Value, 4> results = {uniqueOp.getResults()[0],
-          uniqueOp.getResults()[1], uniqueOp.getResults()[2],
-              uniqueOp.getResults()[3]};
+        uniqueOp.getResults()[1], uniqueOp.getResults()[2],
+        uniqueOp.getResults()[3]};
     builder.create<func::ReturnOp>(loc, results);
   }
   module.push_back(funcOp);
@@ -141,9 +144,8 @@ bool UniqueLibBuilder::verifyOutputs() {
   int64_t int64_axis = isNoneAxis ? -1 : ((axis < 0) ? (rank + axis) : axis);
   // Count Unique elements
   OMTensor *total = omTensorCreateWithShape<int64_t>({1});
-  omTensorUnique(total, x, int64_axis, (int64_t) sorted, NULL, NULL, NULL,
-      NULL);
-  int64_t int64_total = ((int64_t *) omTensorGetDataPtr(total))[0];
+  omTensorUnique(total, x, int64_axis, (int64_t)sorted, NULL, NULL, NULL, NULL);
+  int64_t int64_total = ((int64_t *)omTensorGetDataPtr(total))[0];
   OMTensor *ref;
   if (int64_axis < 0) {
     ref = omTensorCreateWithShape<int64_t>({int64_total});
@@ -153,10 +155,10 @@ bool UniqueLibBuilder::verifyOutputs() {
   if (!ref)
     return false;
   // Compute reference.
-  omTensorUnique(total, x, int64_axis, (int64_t) sorted, ref, NULL,
-      NULL, NULL);
+  omTensorUnique(total, x, int64_axis, (int64_t)sorted, ref, NULL, NULL, NULL);
   printf("UniqueLibBuilder::verifyOutputs: rank=%d, I=%d, J=%d, axis=%d, "
-         "sorted=%ld,\n", rank, I, J, int64_axis, sorted);
+         "sorted=%ld,\n",
+      rank, I, J, int64_axis, sorted);
   omTensorPrint("INPUT=[\n", x);
   omTensorPrint("], REF[\n", ref);
   omTensorPrint("], OUTPUT=[\n", res);

@@ -33,41 +33,41 @@ ModelLibBuilder::ModelLibBuilder(const std::string &name)
 }
 
 ModelLibBuilder::~ModelLibBuilder() {
-  //omTensorListDestroy(inputs);
-  //omTensorListDestroy(outputs);
-  //if (exec)
+  // omTensorListDestroy(inputs);
+  // omTensorListDestroy(outputs);
+  // if (exec)
   //  delete exec;
 }
 
 bool ModelLibBuilder::compileAndLoad() {
   OwningOpRef<ModuleOp> moduleRef(module);
-{
-  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitONNXBasic) !=
-      CompilerSuccess)
-    return false;
-  std::string libFilename =
-      getTargetFilename(sharedLibBaseName, onnx_mlir::EmitONNXBasic);
-  remove((libFilename + "-onnbasic").c_str());
-  rename(libFilename.c_str(), (libFilename + "-onnbasic").c_str());
-}
-{
-  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitMLIR) !=
-      CompilerSuccess)
-    return false;
-  std::string libFilename =
-      getTargetFilename(sharedLibBaseName, onnx_mlir::EmitMLIR);
-  remove((libFilename + "-mlir").c_str());
-  rename(libFilename.c_str(), (libFilename + "-mlir").c_str());
-}
-{
-  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLLVMIR) !=
-      CompilerSuccess)
-    return false;
-  std::string libFilename =
-      getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLLVMIR);
-  remove((libFilename + "-llvmir").c_str());
-  rename(libFilename.c_str(), (libFilename + "-llvmir").c_str());
-}
+  {
+    if (compileModule(moduleRef, ctx, sharedLibBaseName,
+            onnx_mlir::EmitONNXBasic) != CompilerSuccess)
+      return false;
+    std::string libFilename =
+        getTargetFilename(sharedLibBaseName, onnx_mlir::EmitONNXBasic);
+    remove((libFilename + "-onnbasic").c_str());
+    rename(libFilename.c_str(), (libFilename + "-onnbasic").c_str());
+  }
+  {
+    if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitMLIR) !=
+        CompilerSuccess)
+      return false;
+    std::string libFilename =
+        getTargetFilename(sharedLibBaseName, onnx_mlir::EmitMLIR);
+    remove((libFilename + "-mlir").c_str());
+    rename(libFilename.c_str(), (libFilename + "-mlir").c_str());
+  }
+  {
+    if (compileModule(moduleRef, ctx, sharedLibBaseName,
+            onnx_mlir::EmitLLVMIR) != CompilerSuccess)
+      return false;
+    std::string libFilename =
+        getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLLVMIR);
+    remove((libFilename + "-llvmir").c_str());
+    rename(libFilename.c_str(), (libFilename + "-llvmir").c_str());
+  }
   if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) !=
       CompilerSuccess)
     return false;

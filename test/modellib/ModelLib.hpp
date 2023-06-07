@@ -488,7 +488,8 @@ class UniqueLibBuilder : public ModelLibBuilder {
 public:
   UniqueLibBuilder(const std::string &modelName, const int rank, const int I,
       const int J, /*const int K = -1,*/ const int axis = -1,
-      const int sorted = 0, const int isNoneAxis = 0, const int isNoneIndexOutput = 0);
+      const int sorted = 0, const int isNoneAxis = 0,
+      const int isNoneIndexOutput = 0);
   virtual ~UniqueLibBuilder();
   bool build() final;
   bool prepareInputs() final;

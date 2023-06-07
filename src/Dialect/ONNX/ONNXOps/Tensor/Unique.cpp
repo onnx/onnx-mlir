@@ -27,12 +27,14 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   // Generate the output dims.
   DimsExpr outputDims;
   if (!optionalAxis.has_value()) { // if no axis given
-    outputDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/false)); // return 1D array
-  } else { // if axis given
+    outputDims.emplace_back(
+        QuestionmarkIndexExpr(/*isFloat*/ false)); // return 1D array
+  } else {                                         // if axis given
     int64_t axis = optionalAxis.value();
     for (int64_t i = 0; i < rank; i++) {
-      outputDims.emplace_back((i == axis) ? QuestionmarkIndexExpr(/*isFloat*/false)
-                                          : createIE->getShapeAsDim(X, i));
+      outputDims.emplace_back((i == axis)
+                                  ? QuestionmarkIndexExpr(/*isFloat*/ false)
+                                  : createIE->getShapeAsDim(X, i));
     }
   }
   setOutputDims(outputDims, 0);

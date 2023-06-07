@@ -60,13 +60,12 @@ static bool isOMUniqueTheSameAsNaiveImplFor(const int rank, const int I,
     const int J, const int K, const int axis, const int sorted = 0,
     const int isNoneAxis = 0, const int isNoneIndexOutput = 0) {
 
-  UniqueLibBuilder unique(SHARED_LIB_BASE.str(), rank, I, J, axis, sorted, isNoneAxis, isNoneIndexOutput);
+  UniqueLibBuilder unique(SHARED_LIB_BASE.str(), rank, I, J, axis, sorted,
+      isNoneAxis, isNoneIndexOutput);
   return unique.build() && unique.compileAndLoad() &&
-    unique.prepareInputs(0.0, 4.0) &&
-    //unique.prepareInputsFromEnv("TEST_DATARANGE") &&
-         unique.run() &&
-         unique.verifyOutputs() &&
-         1;
+         unique.prepareInputs(0.0, 4.0) &&
+         // unique.prepareInputsFromEnv("TEST_DATARANGE") &&
+         unique.run() && unique.verifyOutputs() && 1;
 }
 
 } // namespace test
@@ -89,16 +88,16 @@ int main(int argc, char *argv[]) {
   if (true) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Unique implementation correctness", []() {
-      const int rank = 2;   // *rc::gen::inRange(1, maxRank);
-      const int I = 2;      // *rc::gen::inRange(1, maxRank);
-      const int J = 2;      // *rc::gen::inRange(1, maxRank);
-      const int K = -1;     // *rc::gen::inRange(1, maxRank);
+      const int rank = 2; // *rc::gen::inRange(1, maxRank);
+      const int I = 2;    // *rc::gen::inRange(1, maxRank);
+      const int J = 2;    // *rc::gen::inRange(1, maxRank);
+      const int K = -1;   // *rc::gen::inRange(1, maxRank);
       const int axis = *rc::gen::inRange(0, rank);
       const int sorted = 0; // *rc::gen::inRange(0, 1);
       const int isNoneAxis = *rc::gen::inRange(0, 2);
       const int isNoneIndexOutput = 1; // *rc::gen::inRange(0, 1);
-      RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(rank, I, J, K, axis, sorted,
-          isNoneAxis, isNoneIndexOutput));
+      RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
+          rank, I, J, K, axis, sorted, isNoneAxis, isNoneIndexOutput));
     });
     if (!success)
       return 1;
