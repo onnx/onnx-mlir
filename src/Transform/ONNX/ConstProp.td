@@ -524,7 +524,7 @@ def MatMulZerosOnLhs : Pat<
       $B
     ),
     (CreateZeroTensorOfType $resOp),
-    [(IsConstOfZeros:$A), (IsNotAConstant:$B)]
+    [(IsConstOfZeros:$A), (IsNotAConstant:$B), (HasStaticShape:$resOp)]
     >;
 
 def MatMulZerosOnRhs : Pat<
@@ -533,7 +533,7 @@ def MatMulZerosOnRhs : Pat<
       (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
     ),
     (CreateZeroTensorOfType $resOp),
-    [(IsNotAConstant:$A), (IsConstOfZeros:$B)]
+    [(IsNotAConstant:$A), (IsConstOfZeros:$B), (HasStaticShape:$resOp)]
     >;
 
 def MatMulOfConsts : Pat<
