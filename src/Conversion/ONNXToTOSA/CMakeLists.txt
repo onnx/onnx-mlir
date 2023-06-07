@@ -26,6 +26,8 @@ add_onnx_mlir_library(OMONNXToTOSA
   Tensor/Unsqueeze.cpp
   NN/MaxPoolSingleOut.cpp
   NN/AveragePool.cpp
+  NN/QuantizeLinear.cpp
+  NN/DequantizeLinear.cpp
   Flow/EntryPoint.cpp
 
 

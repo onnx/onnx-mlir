@@ -45,6 +45,10 @@ T getValueFromTosaConst(mlir::Value &val) {
   return val.getDefiningOp<mlir::tosa::ConstOp>().getValue().cast<T>();
 }
 
+// Retrieves an ElementsAttr out of a const operator.
+// This function is made to work with both onnx.const and tosa.const
+mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val);
+
 // Creates a TOSA operation and performs shape inference on the individual
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>
@@ -94,6 +98,12 @@ mlir::Value buildRescale(mlir::PatternRewriter &rewriter, mlir::Operation *op,
 mlir::Value buildRescaleToInt32(mlir::PatternRewriter &rewriter,
     mlir::Operation *op, mlir::Value input_val, double input_scale,
     int64_t input_zp);
+
+// Create a padding tosa::ConstOp from ONNX to Tosa format.
+mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
+    llvm::ArrayRef<int64_t> onnxPads, mlir::Location loc,
+    const std::initializer_list<int64_t> &initialVals = {},
+    const std::initializer_list<int64_t> &lastVals = {});
 
 } // namespace tosa
 } // namespace onnx_mlir

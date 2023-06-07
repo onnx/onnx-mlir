@@ -2364,8 +2364,8 @@ func.func @pad_constant_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %
 // CHECK:           return [[RES_]] : memref<?x?x?x?xf32>
 // CHECK:         }
 }
-
 // -----
+
 
 func.func @pad_edge_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2: tensor<f32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none

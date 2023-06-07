@@ -98,14 +98,3 @@ add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   MLIRPass
   MLIRTransforms
   )
-
-add_onnx_mlir_library(OMONNXReplaceNoValue
-  ReplaceNoValueOperands.cpp
-
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  OMONNXRewrite
-  MLIRFuncDialect
-  MLIRPass
-  MLIRTransforms
-  )
