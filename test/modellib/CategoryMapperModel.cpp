@@ -55,11 +55,12 @@ bool CategoryMapperLibBuilder<T1, T2>::build() {
 
 template <typename T1, typename T2>
 bool CategoryMapperLibBuilder<T1, T2>::prepareInputs() {
-  OMTensor* list[inputRank];
+  constexpr int num = 1;
+  OMTensor* list[num];
 
   list[0] = createOMTensor<T1>(input, inputShape, inputRank,
       (std::is_same<T1, int64_t>::value) ? ONNX_TYPE_INT64 : ONNX_TYPE_STRING);
-  inputs = omTensorListCreate(list, 1);
+  inputs = omTensorListCreate(list, num);
 
   return inputs && list[0];
 }
