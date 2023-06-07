@@ -88,27 +88,18 @@ def compile_model(model, emit):
     os.makedirs(model_dir, exist_ok=True)
 
     if args.verbose:
-        print("ONNX_HOME=" + os.getenv("ONNX_HOME"))
+        print("ONNX_HOME=" + os.getenv("ONNX_HOME"), file=sys.stderr)
+        print("model_dir=" + model_dir, file=sys.stderr)
 
-    # For real models, the onnx files are downloaded, no need to save again.
-    if (name + "_cpu") in list(map(lambda x: x[0], variables.real_model_tests)):
-        model_name = os.path.join(os.getenv("ONNX_HOME"), "models", name, "model.onnx")
     # For node models, write the models in memory out to onnx files.
-    else:
-        model_name = os.path.join(model_dir, name + ".onnx")
-        # Save model to disk as model_name.onnx.
-        onnx.save(model, model_name)
+    # Real (light) models now behave the same (no longer downloaded).
+    model_name = os.path.join(model_dir, name + ".onnx")
+    # Save model to disk as model_name.onnx.
+    onnx.save(model, model_name)
 
     if args.verbose:
-        print(
-            (
-                "Success downloading/saving "
-                if os.path.exists(model_name)
-                else "Failure downloading/saving "
-            )
-            + model_name,
-            file=sys.stderr,
-        )
+        print(("Success" if os.path.exists(model_name) else "Failure") +
+              " saving " + model_name, file=sys.stderr)
 
     exec_base = os.path.join(model_dir, name)
     exec_name = exec_base + suffix[emit]
@@ -140,6 +131,8 @@ def compile_model(model, emit):
     execute_commands(command_list, dynamic_inputs_dims)
 
     # Check if compiled model file exists.
+    # if not os.path.exists(exec_name):
+    #     print("Failed " + TEST_DRIVER + ": " + name, file=sys.stderr)
     #
     # This is not a reliable way of checking if the compilation
     # succeeded or not. Since a compiled model may exist due to
