@@ -15,6 +15,7 @@
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -630,6 +631,9 @@ int64_t mlirTypeToOnnxType(Type elemType) {
   onnx::TensorProto::DataType onnxType = onnx::TensorProto::UNDEFINED;
   if (!elemType)
     return onnxType;
+  if (elemType.isa<ONNXStringType>() ||
+      elemType.isa<onnx_mlir::krnl::StringType>())
+    return onnx::TensorProto::STRING;
 
   TypeSwitch<Type>(elemType)
       .Case<BFloat16Type>(
