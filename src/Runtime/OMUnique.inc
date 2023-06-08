@@ -74,11 +74,6 @@ int64_t elementTable_count(elementTable *table) { return table->elementCount; }
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t inputAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
     OMTensor *inverse_indices, OMTensor *counts) {
-  // printf("YYYY: omTensorUnique called(axis=%ld, sorted=%ld, Y=%p, indices=%p,
-  // "
-  //       "inverse_indices=%p, count=%p)\n", inputAxis, sorted, Y, indices,
-  //       inverse_indices, counts);
-  // omTensorPrint("  input:", inputTensor); fflush(stdout);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const int64_t inputRank = omTensorGetRank(inputTensor);
   assert(inputRank <= 6 && "omTensorUnique assumes inputRank <= 6");
@@ -188,12 +183,8 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     }
   }
   *totalPtr = count;
-  // printf("==> %d\n", count);
-  // omTensorPrint("omTensorUnique: total =", totalTensor);
-  // if (YPtr != NULL) {
-  //  omTensorPrint("omTensorUnique: Y =", Y);
-  //}
-  // printf("======================================================================\n");
+  for (int i = 0; i < count; i++) {
+  }
   return;
 }
 

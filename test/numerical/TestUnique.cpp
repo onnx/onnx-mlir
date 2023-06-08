@@ -89,13 +89,13 @@ int main(int argc, char *argv[]) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Unique implementation correctness", []() {
       const int rank = 2; // *rc::gen::inRange(1, maxRank);
-      const int I = 2;    // *rc::gen::inRange(1, maxRank);
-      const int J = 2;    // *rc::gen::inRange(1, maxRank);
+      const int I = 3;    // *rc::gen::inRange(1, maxRank);
+      const int J = 4;    // *rc::gen::inRange(1, maxRank);
       const int K = -1;   // *rc::gen::inRange(1, maxRank);
       const int axis = *rc::gen::inRange(0, rank);
       const int sorted = 0; // *rc::gen::inRange(0, 1);
-      const int isNoneAxis = *rc::gen::inRange(0, 2);
-      const int isNoneIndexOutput = 1; // *rc::gen::inRange(0, 1);
+      const int isNoneAxis = 1; // *rc::gen::inRange(0, 2);
+      const int isNoneIndexOutput = 0; // *rc::gen::inRange(0, 1);
       RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
           rank, I, J, K, axis, sorted, isNoneAxis, isNoneIndexOutput));
     });
