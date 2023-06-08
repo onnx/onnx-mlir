@@ -429,7 +429,8 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   // Use the LLVM's 'opt' command to optimize the bitcode.
   std::string optPath = getToolPath("opt", kOptPath);
   Command optBitcode(/*exePath=*/optPath);
-  setXoptOption({"--code-model", modelSizeStr[modelSize]});
+  if (modelSize == ModelSize::small || modelSize == ModelSize::large)
+    setXoptOption({"--code-model", modelSizeStr[modelSize]});
   int rc = optBitcode.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
@@ -449,7 +450,8 @@ static int genModelObject(
 
   std::string llcPath = getToolPath("llc", kLlcPath);
   Command llvmToObj(/*exePath=*/llcPath);
-  setXllcOption({"--code-model", modelSizeStr[modelSize]});
+  if (modelSize == ModelSize::small || modelSize == ModelSize::large)
+    setXllcOption({"--code-model", modelSizeStr[modelSize]});
   int rc = llvmToObj.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())

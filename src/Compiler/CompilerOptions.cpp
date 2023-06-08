@@ -104,7 +104,10 @@ llvm::cl::opt<ModelSize> modelSize("modelSize",
                          "default code model"),
         clEnumVal(large,
             "Generate code for the large model. "
-            "Global constants are put into large read-only data section.")),
+            "Global constants are put into large read-only data section."),
+
+        clEnumVal(huge, "Generate code for the huge model. "
+                        "Global constants are put into files.")),
     llvm::cl::init(small), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 

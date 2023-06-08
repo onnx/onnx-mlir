@@ -12,11 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <fstream>
+
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -29,12 +32,15 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
+static uint64_t externalParamFileCount = 0;
+
 class KrnlGlobalOpLowering : public ConvertToLLVMPattern {
 public:
-  explicit KrnlGlobalOpLowering(
-      LLVMTypeConverter &typeConverter, MLIRContext *context)
+  explicit KrnlGlobalOpLowering(LLVMTypeConverter &typeConverter,
+      MLIRContext *context, bool storeGlobalsToFiles)
       : ConvertToLLVMPattern(
-            KrnlGlobalOp::getOperationName(), context, typeConverter) {}
+            KrnlGlobalOp::getOperationName(), context, typeConverter),
+        storeGlobalsToFiles(storeGlobalsToFiles) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
@@ -93,6 +99,8 @@ public:
   }
 
 private:
+  bool storeGlobalsToFiles;
+
   static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
     return (a.getValue()[i]).cast<IntegerAttr>().getInt();
   }
@@ -165,9 +173,31 @@ private:
       StringAttr llvmStringAttr = StringAttr::get(context, data);
       auto llvmArrayI8Ty =
           LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
-      global = create.llvm.globalOp(llvmArrayI8Ty,
-          /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.getName(),
-          llvmStringAttr);
+      llvm::outs() << "hi tung: storeGlobalsToFiles " << storeGlobalsToFiles
+                   << "\n";
+      if (!storeGlobalsToFiles) {
+        global = create.llvm.globalOp(llvmArrayI8Ty,
+            /*isConstant=*/true, LLVM::Linkage::Internal,
+            krnlGlobalOp.getName(), llvmStringAttr);
+      } else {
+        llvm::outs() << "hi tung\n";
+        // Store data to a file `param_i.bin`
+
+        std::string pathStr =
+            "/home/tungld/dl/onnx-mlir/build/param_" + std::to_string(externalParamFileCount++) + ".bin";
+        std::ofstream outfile(pathStr, std::ofstream::binary);
+        outfile.write(rawData.data(), rawData.size());
+        // Create an empty global at the beginning of `main_graph`.
+        // Load data from the file by calling a function `readParam(file_path)`
+        // Fill the data into the global.
+
+        // tung: Remove this, it is here to make code valid while developing the
+        // new mechanism.
+        global = create.llvm.globalOp(llvmArrayI8Ty,
+            /*isConstant=*/true, LLVM::Linkage::Internal,
+            krnlGlobalOp.getName(), llvmStringAttr);
+      }
+
     } else {
       if (denseAttr.getElementType().isa<StringType>())
         global = lowerStringLiteral(krnlGlobalOp, globalType, rewriter);
@@ -268,8 +298,9 @@ private:
 };
 
 void populateLoweringKrnlGlobalOpPattern(LLVMTypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<KrnlGlobalOpLowering>(typeConverter, ctx);
+    RewritePatternSet &patterns, MLIRContext *ctx, bool storeGlobalsToFiles) {
+  patterns.insert<KrnlGlobalOpLowering>(
+      typeConverter, ctx, storeGlobalsToFiles);
 }
 
 } // namespace krnl
