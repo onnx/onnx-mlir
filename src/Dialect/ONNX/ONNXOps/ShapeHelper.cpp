@@ -390,6 +390,17 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   return true;
 }
 
+// Checks if the input operands need rank broadcasting.
+bool ONNXBroadcastOpShapeHelper::hasRankBroadcast() {
+  ValueRange operands = this->operands;
+  for (Value operand : operands) {
+    auto operandType = operand.getType().cast<ShapedType>();
+    if (outputRank != (uint64_t)operandType.getRank())
+      return true;
+  }
+  return false;
+}
+
 bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
     int64_t &collapsedInnermostLoops, int64_t &collapsedLiteralSize,
     IndexExpr &collapsedDynamicSize, DimAnalysis *dimAnalysis) {
