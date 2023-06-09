@@ -51,6 +51,7 @@ public:
   LogicalResult matchAndRewrite(ONNXOpT op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
+    auto loc = op.getLoc();
     Value lhs = adaptor.getA();
     auto lhsType = lhs.getType().dyn_cast<TensorType>();
 
@@ -67,6 +68,22 @@ public:
     if (!resultElementType.isIntOrFloat()) {
       return rewriter.notifyMatchFailure(
           op, "only int and float are supported");
+    }
+
+    if (TosaOpT::template hasTrait<
+            mlir::OpTrait::ResultsBroadcastableShape>()) {
+
+      IndexExprBuilderForTosa createTosaIE(rewriter, op->getLoc());
+      ONNXBroadcastOpShapeHelper shapeHelper(op, {}, &createTosaIE);
+      shapeHelper.computeShapeAndAssertOnFailure();
+
+      if (shapeHelper.hasRankBroadcast()) {
+        TosaBuilder tosaBuilder(rewriter, loc);
+        llvm::SmallVector<Value, 4> newValues =
+            tosaBuilder.equalizeRanks({lhs, rhs});
+        lhs = newValues[0];
+        rhs = newValues[1];
+      }
     }
 
     rewriter.replaceOpWithNewOp<TosaOpT>(op, op.getType(), lhs, rhs);
