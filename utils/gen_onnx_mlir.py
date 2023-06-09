@@ -566,17 +566,30 @@ custom_definition_misc = dict([ ('Constant',
 #     // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
 #     BFLOAT16 = 16;
 # 
+#     // Non-IEEE floating-point format based on papers
+#     // FP8 Formats for Deep Learning, https://arxiv.org/abs/2209.05433,
+#     // 8-bit Numerical Formats For Deep Neural Networks, https://arxiv.org/pdf/2206.02915.pdf.
+#     // Operators supported FP8 are Cast, CastLike, QuantizeLinear, DequantizeLinear.
+#     // The computation usually happens inside a block quantize / dequantize
+#     // fused by the runtime.
+#     FLOAT8E4M3FN = 17;    // float 8, mostly used for coefficients, supports nan, not inf
+#     FLOAT8E4M3FNUZ = 18;  // float 8, mostly used for coefficients, supports nan, not inf, no negative zero
+#     FLOAT8E5M2 = 19;      // follows IEEE 754, supports nan, inf, mostly used for gradients
+#     FLOAT8E5M2FNUZ = 20;  // follows IEEE 754, supports nan, inf, mostly used for gradients, no negative zero
+#
 #     // Future extensions go here.
 #   }
 onnx_types = (
     'undefined', 'float', 'uint8', 'int8', 'uint16', 'int16', 'int32', 'int64', 
     'string', 'bool', 'float16', 'double', 'uint32', 'uint64',
-    'complex64', 'complex128', 'bfloat16'
+    'complex64', 'complex128',
+    'bfloat16', 'float8e4m3fn', 'float8e4m3fnuz', 'float8e5m2', 'float8e5m2fnuz'
 )
 tblgen_types = (
     'BF16', 'F32', 'AnyUI8', 'AnyI8', 'AnyUI16', 'AnyI16', 'AnyI32', 'AnyI64',
     'StringType', 'AnyI1', 'F16', 'F64', 'AnyUI32', 'AnyUI64',
-    'Complex<F32>', 'Complex<F64>','BF16', 
+    'Complex<F32>', 'Complex<F64>',
+    'BF16', 'F8E4M3FN', 'F8E4M3FNUZ', 'F8E5M2', 'F8E5M2FNUZ'
     
 )
 
@@ -946,10 +959,6 @@ def parse_type_str(allowedType):
         'seq' : 'SeqOf',
         'map' : 'TupleOf',
         'bool': 'I1',
-        #'uint8' : 'AnyI8',
-        #'uint16' : 'AnyI16',
-        #'uint32' : 'AnyI32',
-        #'uint64' : 'AnyI64',
         'uint8' : 'UI8',
         'uint16' : 'UI16',
         'uint32' : 'UI32',
@@ -958,10 +967,14 @@ def parse_type_str(allowedType):
         'int16' : 'I16',
         'int32' : 'I32',
         'int64' : 'I64',
+        'double' : 'F64',
+        'float' : 'F32',
         'float16' : 'F16',
         'bfloat16' : 'BF16',
-        'float' : 'F32',
-        'double' : 'F64',
+        'float8e4m3fn' : 'F8E4M3FN',
+        'float8e4m3fnuz' : 'F8E4M3FNUZ',
+        'float8e5m2' : 'F8E5M2',
+        'float8e5m2fnuz' : 'F8E5M2FNUZ',
         'undefined' : 'BF16',
         'complex64' : 'Complex<F32>',
         'complex128' : 'Complex<F64>',
