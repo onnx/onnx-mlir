@@ -157,7 +157,7 @@ def ScalerNullPattern
 
 // No attribute, input x not float type
 def ScalerNullPattern2
-    : Pat<(ONNXScalerOp $x, $a, $b), (ONNXCastOp $x, (ScalerT)),
+    : Pat<(ONNXScalerOp $x, $a, $b), (ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
           [(AttributeIsNull
                : $a),
             (AttributeIsNull
@@ -178,7 +178,7 @@ def ScalerNoScalePattern
 // No scale, input x not float type
 def ScalerNoScalePattern2
     : Pat<(ONNXScalerOp $x, $a, $b),
-          (ONNXSubOp(ONNXCastOp $x, (ScalerT)),
+          (ONNXSubOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
           [(AttributeIsNull
               : $b)],
@@ -198,7 +198,7 @@ def ScalerNoOffsetPattern
 // No offset, input x not float type
 def ScalerNoOffsetPattern2
     : Pat<(ONNXScalerOp $x, $a, $b),
-          (ONNXMulOp(ONNXCastOp $x, (ScalerT)),
+          (ONNXMulOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
           [(AttributeIsNull
               : $a)],
@@ -217,7 +217,7 @@ def ScalerPattern
 // Normal ONNXScalerOp, input x not float type
 def ScalerPattern2
     : Pat<(ONNXScalerOp $x, $a, $b),
-          (ONNXMulOp(ONNXSubOp(ONNXCastOp $x, (ScalerT)),
+          (ONNXMulOp(ONNXSubOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
                (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
           [], (addBenefit 0)>;
