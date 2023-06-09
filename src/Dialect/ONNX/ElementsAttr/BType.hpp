@@ -55,9 +55,20 @@ enum class BType : int8_t {
   // floating-point number truncated to 16 bits.
   // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
   BFLOAT16 = 16,
+
+  // Non-IEEE floating-point format based on papers
+  // FP8 Formats for Deep Learning, https://arxiv.org/abs/2209.05433,
+  // 8-bit Numerical Formats For Deep Neural Networks, https://arxiv.org/pdf/2206.02915.pdf.
+  // Operators supported FP8 are Cast, CastLike, QuantizeLinear, DequantizeLinear.
+  // The computation usually happens inside a block quantize / dequantize
+  // fused by the runtime.
+  FLOAT8E4M3FN = 17,    // float 8, mostly used for coefficients, supports nan, not inf
+  FLOAT8E4M3FNUZ = 18,  // float 8, mostly used for coefficients, supports nan, not inf, no negative zero
+  FLOAT8E5M2 = 19,      // follows IEEE 754, supports nan, inf, mostly used for gradients
+  FLOAT8E5M2FNUZ = 20,  // follows IEEE 754, supports nan, inf, mostly used for gradients, no negative zero
   // clang-format on
 
-  MAX_BTYPE = 16 // TODO: update this if more types are added to the enum
+  MAX_BTYPE = 20 // TODO: update this if more types are added to the enum
 };
 
 constexpr int kNumBTypes = static_cast<int8_t>(BType::MAX_BTYPE) + 1;
