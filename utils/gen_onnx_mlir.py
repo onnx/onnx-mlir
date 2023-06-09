@@ -975,7 +975,6 @@ def parse_type_str(allowedType):
         'float8e4m3fnuz' : 'F8E4M3FNUZ',
         'float8e5m2' : 'F8E5M2',
         'float8e5m2fnuz' : 'F8E5M2FNUZ',
-        'undefined' : 'BF16',
         'complex64' : 'Complex<F32>',
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
