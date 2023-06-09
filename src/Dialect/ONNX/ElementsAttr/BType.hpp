@@ -141,6 +141,7 @@ DEFINE_BTypeCppTypeTraits(BType::DOUBLE, double);
 DEFINE_BTypeCppTypeTraits(BType::FLOAT, float);
 DEFINE_BTypeCppTypeTraits(BType::FLOAT16, float_16);
 DEFINE_BTypeCppTypeTraits(BType::BFLOAT16, bfloat_16);
+// TODO: Support FLOAT8 types.
 
 #undef DEFINE_BTypeCppTypeTraits
 
@@ -253,6 +254,7 @@ auto dispatchByBType(BType btype, Action &&act) {
   case BType::FLOAT    : return ACT(BType::FLOAT);
   case BType::FLOAT16  : return ACT(BType::FLOAT16);
   case BType::BFLOAT16 : return ACT(BType::BFLOAT16);
+  // TODO: Support FLOAT8 types.
   default: llvm_unreachable("not a supported datatype");
   }
   // clang-format on
