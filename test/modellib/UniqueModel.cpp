@@ -145,6 +145,8 @@ bool UniqueLibBuilder::verifyOutputs() {
   OMTensor *x = omTensorListGetOmtByIndex(inputs, 0);
   OMTensor *y_res = omTensorListGetOmtByIndex(outputs, 0);
   OMTensor *ind_res = omTensorListGetOmtByIndex(outputs, 1);
+  OMTensor *inv_ind_res = omTensorListGetOmtByIndex(outputs, 2);
+  OMTensor *cnt_res = omTensorListGetOmtByIndex(outputs, 3);
   if (!x || !y_res || !ind_res)
     return false;
   int64_t int64_axis = isNoneAxis ? -1 : ((axis < 0) ? (rank + axis) : axis);
@@ -152,18 +154,23 @@ bool UniqueLibBuilder::verifyOutputs() {
   OMTensor *total = omTensorCreateWithShape<int64_t>({1});
   omTensorUnique(total, x, int64_axis, (int64_t)sorted, NULL, NULL, NULL, NULL);
   int64_t int64_total = ((int64_t *)omTensorGetDataPtr(total))[0];
-  OMTensor *y_ref, *ind_ref;
+  OMTensor *y_ref, *ind_ref, *inv_ind_ref, *cnt_ref;
   if (int64_axis < 0) {
     y_ref = omTensorCreateWithShape<int64_t>({int64_total});
     ind_ref = omTensorCreateWithShape<int64_t>({int64_total});
+    inv_ind_ref = omTensorCreateWithShape<int64_t>({I * J});
+    cnt_ref = omTensorCreateWithShape<int64_t>({int64_total});
   } else {
     y_ref = omTensorCreateWithShape<int64_t>({I, J});
     ind_ref = omTensorCreateWithShape<int64_t>({I, J});
+    inv_ind_ref = omTensorCreateWithShape<int64_t>({I, J});
+    cnt_ref = omTensorCreateWithShape<int64_t>({I, J});
   }
   if (!y_ref)
     return false;
   // Compute reference.
-  omTensorUnique(total, x, int64_axis, (int64_t)sorted, y_ref, ind_ref, NULL, NULL);
+  omTensorUnique(total, x, int64_axis, (int64_t)sorted, y_ref, ind_ref,
+      inv_ind_ref, cnt_ref);
   printf("UniqueLibBuilder::verifyOutputs: rank=%d, I=%d, J=%d, axis=%ld, "
          "sorted=%d, isNoneIndexOutput=%d\n",
       rank, I, J, int64_axis, sorted, isNoneIndexOutput);
@@ -172,10 +179,20 @@ bool UniqueLibBuilder::verifyOutputs() {
   omTensorPrint("], Y_OUT=[\n", y_res);
   omTensorPrint("], IND_REF=[\n", ind_ref);
   omTensorPrint("], IND_OUT=[\n", ind_res);
+  omTensorPrint("], INV_IND_REF=[\n", inv_ind_ref);
+  omTensorPrint("], INV_IND_OUT=[\n", inv_ind_res);
+  omTensorPrint("], CNT_REF=[\n", cnt_ref);
+  omTensorPrint("], CNT_OUT=[\n", cnt_res);
   printf("]\n");
   fflush(stdout);
   bool ok = areCloseFloat(y_res, y_ref);
-  omTensorDestroy(y_ref);
+  ok &= areCloseFloat(ind_res, ind_ref);
+  ok &= areCloseFloat(inv_ind_res, inv_ind_ref);
+  ok &= areCloseFloat(cnt_res, cnt_ref);
+  //omTensorDestroy(y_ref);
+  //omTensorDestroy(ind_ref);
+  //omTensorDestroy(inv_ind_ref);
+  //omTensorDestroy(cnt_ref);
   return ok;
 }
 

@@ -39,7 +39,7 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   }
   setOutputDims(outputDims, 0);
   DimsExpr indexDims;
-  indexDims.emplace_back(QuestionmarkIndexExpr());
+  indexDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
   setOutputDims(indexDims, 1);
   setOutputDims(indexDims, 2);
   setOutputDims(indexDims, 3);

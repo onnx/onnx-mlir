@@ -102,9 +102,15 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     NonAffineIndexExpr totalDimExpr = DimIndexExpr(total);
     DimsExpr outputYDims;
     DimsExpr outputIndexDims;
+    DimsExpr outputInverseIndexDims;
     if (axis < 0) {
       outputYDims.emplace_back(totalDimExpr);
       outputIndexDims.emplace_back(totalDimExpr);
+      DimIndexExpr inputDimExpr = LiteralIndexExpr(xShape[0]);
+      for (int64_t i = 1; i < rank; i++) {
+        inputDimExpr = inputDimExpr * LiteralIndexExpr(xShape[i]);
+      }
+      outputInverseIndexDims.emplace_back(inputDimExpr);
     } else {
       for (int64_t i = 0; i < rank; i++) {
         DimIndexExpr tDimExpr = LiteralIndexExpr(xShape[i]);
@@ -129,8 +135,8 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     }
     MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, i64Type);
     Value indices = create.mem.alignedAlloc(memrefType, outputIndexDims);
-    Value inverse_indices =
-        create.mem.alignedAlloc(X.getType().cast<MemRefType>());
+    Value inverse_indices = create.mem.alignedAlloc(memrefType,
+        outputInverseIndexDims);
     Value counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
     // Compute argUnique of X along axis.
     create.krnl.store(iZero, uniqueCount, {});

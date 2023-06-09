@@ -50,6 +50,8 @@ int elementTableRegister(elementTable *table, void *element, uint64_t off) {
     void *elementInTable = (void *)(tablePtr + table->elementSize * i);
     if (!memcmp(elementInTable, element, table->elementSize)) {
       found = 1;
+      if (table->countsPtr != NULL)
+        ((table->countsPtr)[i])++;
       break;
     }
   }
@@ -57,15 +59,13 @@ int elementTableRegister(elementTable *table, void *element, uint64_t off) {
     void *elementInTable = (void *)(tablePtr + table->elementSize * i);
     memcpy(elementInTable, element, table->elementSize);
     if (table->countsPtr != NULL)
-      (table->countsPtr)[table->elementCount] = 0;
+      (table->countsPtr)[table->elementCount] = 1;
+    if (table->indicesPtr != NULL)
+      (table->indicesPtr)[table->elementCount] = off;
     (table->elementCount)++;
   }
-  if (table->indicesPtr != NULL)
-    (table->indicesPtr)[i] = off;
   if (table->inverse_indicesPtr != NULL)
     (table->inverse_indicesPtr)[off] = i;
-  if (table->countsPtr != NULL)
-    ((table->countsPtr)[table->elementCount])++;
   return found;
 }
 
