@@ -14,6 +14,8 @@ add_custom_target(check-onnx-numerical-nnpa
   )
 set_target_properties(check-onnx-numerical-nnpa PROPERTIES FOLDER "Tests")
 
+add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-numerical-nnpa)
+
 # add_numerical_unittest(test_name sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
 #   A test with test_name is added as a ctest to the numerical testsuite and
