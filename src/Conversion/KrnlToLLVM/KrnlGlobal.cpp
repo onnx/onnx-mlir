@@ -32,8 +32,6 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
-static uint64_t externalParamFileCount = 0;
-
 class KrnlGlobalOpLowering : public ConvertToLLVMPattern {
 public:
   explicit KrnlGlobalOpLowering(LLVMTypeConverter &typeConverter,
@@ -156,6 +154,10 @@ private:
     ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
+    Type llvmI8Ty = IntegerType::get(context, 8);
+    Type llvmI64Ty = IntegerType::get(context, 64);
+    Type llvmI8PtrTy = getPointerType(context, llvmI8Ty);
+
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
 
@@ -169,35 +171,61 @@ private:
       ArrayRef<char> rawData = denseAttr.getRawData();
       assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
-      StringRef data(rawData.data(), rawData.size());
-      StringAttr llvmStringAttr = StringAttr::get(context, data);
-      auto llvmArrayI8Ty =
-          LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
-      llvm::outs() << "hi tung: storeGlobalsToFiles " << storeGlobalsToFiles
-                   << "\n";
+      auto llvmArrayI8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, sizeInBytes);
       if (!storeGlobalsToFiles) {
+        StringRef data(rawData.data(), rawData.size());
+        StringAttr llvmStringAttr = StringAttr::get(context, data);
         global = create.llvm.globalOp(llvmArrayI8Ty,
             /*isConstant=*/true, LLVM::Linkage::Internal,
             krnlGlobalOp.getName(), llvmStringAttr);
       } else {
-        llvm::outs() << "hi tung\n";
-        // Store data to a file `param_i.bin`
-
+        // Store data to a file `data_param_constant_i.bin`
+        std::string filenameWithoutExt =
+            "param_" + krnlGlobalOp.getName().str();
+        std::string filename = filenameWithoutExt + ".bin";
+        SmallVector<char, 10> currentFolder;
+        llvm::sys::fs::current_path(currentFolder);
         std::string pathStr =
-            "/home/tungld/dl/onnx-mlir/build/param_" + std::to_string(externalParamFileCount++) + ".bin";
+            std::string(currentFolder.begin(), currentFolder.end()) + "/" +
+            filename;
         std::ofstream outfile(pathStr, std::ofstream::binary);
         outfile.write(rawData.data(), rawData.size());
-        // Create an empty global at the beginning of `main_graph`.
-        // Load data from the file by calling a function `readParam(file_path)`
-        // Fill the data into the global.
+        outfile.close();
+
+        // Create an empty global to store data.
+        LLVM::GlobalOp extDataGlobal = create.llvm.globalOp(llvmArrayI8Ty,
+            /*isConstant=*/false, LLVM::Linkage::Internal,
+            "data_" + filenameWithoutExt, nullptr);
+
+        // Create a global to store filename.
+        auto fnameAttr = mlir::StringAttr::get(context, filename);
+        auto fnameArrTy = LLVM::LLVMArrayType::get(llvmI8Ty, filename.size());
+        create.llvm.globalOp(fnameArrTy,
+            /*isConstant=*/true, LLVM::Linkage::Internal,
+            "fname_" + filenameWithoutExt, fnameAttr);
+
+        // Create a global to store data size.
+        create.llvm.globalOp(llvmI64Ty,
+            /*isConstant=*/true, LLVM::Linkage::Internal,
+            "size_" + filenameWithoutExt,
+            rewriter.getI64IntegerAttr(rawData.size()));
+
+        // Create a global to store isLE.
+        bool isLE = llvm::support::endian::system_endianness() ==
+                    llvm::support::endianness::little;
+        create.llvm.globalOp(llvmI8Ty,
+            /*isConstant=*/true, LLVM::Linkage::Internal,
+            "isle_" + filenameWithoutExt, rewriter.getI8IntegerAttr(isLE));
 
         // tung: Remove this, it is here to make code valid while developing the
         // new mechanism.
-        global = create.llvm.globalOp(llvmArrayI8Ty,
-            /*isConstant=*/true, LLVM::Linkage::Internal,
-            krnlGlobalOp.getName(), llvmStringAttr);
+        // StringRef data(rawData.data(), rawData.size());
+        // StringAttr llvmStringAttr = StringAttr::get(context, data);
+        // global = create.llvm.globalOp(llvmArrayI8Ty,
+        //     /*isConstant=*/true, LLVM::Linkage::Internal,
+        //     krnlGlobalOp.getName(), llvmStringAttr);
+        global = extDataGlobal;
       }
-
     } else {
       if (denseAttr.getElementType().isa<StringType>())
         global = lowerStringLiteral(krnlGlobalOp, globalType, rewriter);
