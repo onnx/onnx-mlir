@@ -559,7 +559,7 @@ private:
     }
   }
 
-  static constexpr int MAX_TYPE = 20;
+  static constexpr int MAX_NUM_TYPES = 30;
 
   // clang-format off
   // Get these indices from TensorProto in
@@ -700,9 +700,9 @@ private:
         // Variadic output is a single ODS result.
         if (variadicOut)
           j = 0;
-        if (j < outputMap.size() && outputMap[j] >= MAX_TYPE) {
+        if (j < outputMap.size() && outputMap[j] >= MAX_NUM_TYPES) {
           // Mapping gives a connection with an input.
-          Type inputType = inputs[outputMap[j] - MAX_TYPE].getType();
+          Type inputType = inputs[outputMap[j] - MAX_NUM_TYPES].getType();
           if (inputType.isa<TensorType>()) {
             Type elementType = inputType.cast<TensorType>().getElementType();
             auto outType = UnrankedTensorType::get(elementType);

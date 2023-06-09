@@ -596,7 +596,7 @@ tblgen_types = (
 # Maximum count for actual type. Number more than MAX_NUM_TYPES will be used to encode
 # the mapping method. MAX_NUM_TYPES should be greater than the length of onnx_types
 # This value has to be kept the same with MAX_TYPE in FrontendDialectTransformer.cpp
-MAX_NUM_TYPES=20
+MAX_NUM_TYPES=30
 
 # Attribute names are ordered alphabetically except for the
 # manually specified special orderings in special_attr_order.
