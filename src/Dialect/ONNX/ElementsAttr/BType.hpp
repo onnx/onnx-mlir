@@ -11,6 +11,7 @@
 #pragma once
 
 #include "src/Support/FloatingPoint16.hpp"
+#include "src/Support/FloatingPoint8.hpp"
 
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
@@ -102,7 +103,7 @@ template <BType BTYPE, typename CPPTY>
 struct BTypeTraitBase {
   static constexpr BType btype = BTYPE;
   static constexpr bool isFloat =
-      std::is_floating_point_v<CPPTY> || isFP16Type<CPPTY>;
+      std::is_floating_point_v<CPPTY> || isFP16Type<CPPTY> || isFP8Type<CPPTY>;
   static constexpr bool isInt = std::is_integral_v<CPPTY>;
   static constexpr bool isIntOrFloat = isInt || isFloat;
   static constexpr bool isSignedInt = isInt && std::is_signed_v<CPPTY>;
@@ -141,7 +142,10 @@ DEFINE_BTypeCppTypeTraits(BType::DOUBLE, double);
 DEFINE_BTypeCppTypeTraits(BType::FLOAT, float);
 DEFINE_BTypeCppTypeTraits(BType::FLOAT16, float_16);
 DEFINE_BTypeCppTypeTraits(BType::BFLOAT16, bfloat_16);
-// TODO: Support FLOAT8 types.
+DEFINE_BTypeCppTypeTraits(BType::FLOAT8E4M3FN, float_8e4m3fn);
+DEFINE_BTypeCppTypeTraits(BType::FLOAT8E4M3FNUZ, float_8e4m3fnuz);
+DEFINE_BTypeCppTypeTraits(BType::FLOAT8E5M2, float_8e5m2);
+DEFINE_BTypeCppTypeTraits(BType::FLOAT8E5M2FNUZ, float_8e5m2fnuz);
 
 #undef DEFINE_BTypeCppTypeTraits
 
@@ -241,20 +245,23 @@ auto dispatchByBType(BType btype, Action &&act) {
 #define ACT(BTYPE) act(BTypeConstant<BTYPE>{})
   // clang-format off
   switch (btype) {
-  case BType::BOOL     : return ACT(BType::BOOL);
-  case BType::INT8     : return ACT(BType::INT8);
-  case BType::UINT8    : return ACT(BType::UINT8);
-  case BType::INT16    : return ACT(BType::INT16);
-  case BType::UINT16   : return ACT(BType::UINT16);
-  case BType::INT32    : return ACT(BType::INT32);
-  case BType::UINT32   : return ACT(BType::UINT32);
-  case BType::INT64    : return ACT(BType::INT64);
-  case BType::UINT64   : return ACT(BType::UINT64);
-  case BType::DOUBLE   : return ACT(BType::DOUBLE);
-  case BType::FLOAT    : return ACT(BType::FLOAT);
-  case BType::FLOAT16  : return ACT(BType::FLOAT16);
-  case BType::BFLOAT16 : return ACT(BType::BFLOAT16);
-  // TODO: Support FLOAT8 types.
+  case BType::BOOL           : return ACT(BType::BOOL);
+  case BType::INT8           : return ACT(BType::INT8);
+  case BType::UINT8          : return ACT(BType::UINT8);
+  case BType::INT16          : return ACT(BType::INT16);
+  case BType::UINT16         : return ACT(BType::UINT16);
+  case BType::INT32          : return ACT(BType::INT32);
+  case BType::UINT32         : return ACT(BType::UINT32);
+  case BType::INT64          : return ACT(BType::INT64);
+  case BType::UINT64         : return ACT(BType::UINT64);
+  case BType::DOUBLE         : return ACT(BType::DOUBLE);
+  case BType::FLOAT          : return ACT(BType::FLOAT);
+  case BType::FLOAT16        : return ACT(BType::FLOAT16);
+  case BType::BFLOAT16       : return ACT(BType::BFLOAT16);
+  case BType::FLOAT8E4M3FN   : return ACT(BType::FLOAT8E4M3FN);
+  case BType::FLOAT8E4M3FNUZ : return ACT(BType::FLOAT8E4M3FNUZ);
+  case BType::FLOAT8E5M2     : return ACT(BType::FLOAT8E5M2);
+  case BType::FLOAT8E5M2FNUZ : return ACT(BType::FLOAT8E5M2FNUZ);
   default: llvm_unreachable("not a supported datatype");
   }
   // clang-format on

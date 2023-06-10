@@ -79,7 +79,8 @@ struct TransformValueToONNXData {
   static const google::protobuf::RepeatedField<int32_t> &data(
       const onnx::TensorProto &tp) {
     // int32_data is used for:
-    // int32, uint8, int8, uint16, int16, bool, float_16, bfloat_16
+    // int32, uint8, int8, uint16, int16, bool, float_16, bfloat_16,
+    // float8e4m3fn, float8e4m3fnuz, float8e5m2, float8e5m2fnuz
     return tp.int32_data();
   }
 };
@@ -158,7 +159,7 @@ ElementsAttr createElementsAttrFromMemoryBuffer_LE(
     RankedTensorType tensorType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   MLIRContext *ctx = tensorType.getContext();
   assert(tensorType.getElementType() == toMlirType<T>(ctx));
-  if (shouldSwapLEBytes<T>) {
+  if constexpr (shouldSwapLEBytes<T>) {
     ArrayRef<T> array = asArrayRef<T>(membuf->getBuffer());
     return createElmAttrFromArray<T>(tensorType, array, swappedBytes<T>);
   } else {
@@ -171,8 +172,12 @@ template <typename T>
 ElementsAttr createElmAttrFromRawBytes_LE(
     RankedTensorType tensorType, ArrayRef<char> bytes) {
   ArrayRef<T> array = castArrayRef<T>(bytes);
-  return createElmAttrFromArray<T>(tensorType, array,
-      [](T x) { return shouldSwapLEBytes<T> ? swappedBytes<T>(x) : x; });
+  return createElmAttrFromArray<T>(tensorType, array, [](T x) {
+    if constexpr (shouldSwapLEBytes<T>)
+      return swappedBytes<T>(x);
+    else
+      return x;
+  });
 }
 
 // Converts to the cpp type 'To' that correspond's to the tensor element type
@@ -184,6 +189,8 @@ template <typename To, typename From>
 To deserializeDatum(const From &from) {
   if constexpr (isFP16Type<To>)
     return To::bitcastFromU16(from);
+  else if constexpr (isFP8Type<To>)
+    return To::bitcastFromU8(from);
   else
     return from;
 }
