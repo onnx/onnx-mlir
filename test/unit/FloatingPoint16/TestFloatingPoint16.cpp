@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Support/FloatingPoint16.hpp"
+#include "src/Support/SmallFP.hpp"
 
 #include <benchmark/benchmark.h>
 
@@ -51,7 +51,7 @@ public:
       FP16 fromFloat = FP16::fromFloat(f);
       FP16 staticCast = static_cast<FP16>(f);
       // FP16 has no operator== so compare bitcasts instead;
-      assert(fromFloat.bitcastToU16() == staticCast.bitcastToU16());
+      assert(fromFloat.bitcastToUInt() == staticCast.bitcastToUInt());
     }
 
     return 0;
@@ -64,11 +64,11 @@ public:
     // 0 equals minus 0:
     auto zero = FP16::fromFloat(0.0);
     auto minusZero = FP16::fromFloat(-0.0);
-    assert(zero.bitcastToU16() != minusZero.bitcastToU16());
+    assert(zero.bitcastToUInt() != minusZero.bitcastToUInt());
     assert(zero == minusZero);
 
     for (uint32_t u = 0; u <= std::numeric_limits<uint16_t>::max(); ++u) {
-      auto uf = FP16::bitcastFromU16(u);
+      auto uf = FP16::bitcastFromUInt(u);
 
       // NaN is not equal to itself:
       assert((uf != uf) == std::isnan(uf.toFloat()));
@@ -78,9 +78,9 @@ public:
       // iff they bitcast to u
       for (float f32 = 32768.0; f32 >= 5.96e-8; f32 /= 2) {
         FP16 f16 = FP16::fromFloat(f32);
-        assert(u == f16.bitcastToU16() || uf != f16);
+        assert(u == f16.bitcastToUInt() || uf != f16);
         FP16 f16neg = FP16::fromFloat(-f32);
-        assert(u == f16neg.bitcastToU16() || uf != f16neg);
+        assert(u == f16neg.bitcastToUInt() || uf != f16neg);
       }
     }
 

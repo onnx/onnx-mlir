@@ -10,8 +10,7 @@
 
 #pragma once
 
-#include "src/Support/FloatingPoint16.hpp"
-#include "src/Support/FloatingPoint8.hpp"
+#include "src/Support/SmallFP.hpp"
 
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
@@ -103,7 +102,7 @@ template <BType BTYPE, typename CPPTY>
 struct BTypeTraitBase {
   static constexpr BType btype = BTYPE;
   static constexpr bool isFloat =
-      std::is_floating_point_v<CPPTY> || isFP16Type<CPPTY> || isFP8Type<CPPTY>;
+      std::is_floating_point_v<CPPTY> || isSmallFPType<CPPTY>;
   static constexpr bool isInt = std::is_integral_v<CPPTY>;
   static constexpr bool isIntOrFloat = isInt || isFloat;
   static constexpr bool isSignedInt = isInt && std::is_signed_v<CPPTY>;

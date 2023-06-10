@@ -25,7 +25,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
-#include "src/Support/FloatingPoint16.hpp"
+#include "src/Support/SmallFP.hpp"
 
 using namespace mlir;
 
@@ -148,8 +148,8 @@ constexpr bool shouldSwapLEBytes =
 // Extension of llvm::sys::getSwappedBytes to also handle float_16, bfloat_16.
 template <typename T>
 T swappedBytes(T x) {
-  if constexpr (isFP16Type<T>)
-    return T::bitcastFromU16(llvm::sys::getSwappedBytes(x.bitcastToU16()));
+  if constexpr (isSmallFPType<T>)
+    return T::bitcastFromUInt(llvm::sys::getSwappedBytes(x.bitcastToUInt()));
   else
     return llvm::sys::getSwappedBytes(x);
 }
@@ -187,10 +187,8 @@ ElementsAttr createElmAttrFromRawBytes_LE(
 // which must be bit-wise converted from uint16_t.
 template <typename To, typename From>
 To deserializeDatum(const From &from) {
-  if constexpr (isFP16Type<To>)
-    return To::bitcastFromU16(from);
-  else if constexpr (isFP8Type<To>)
-    return To::bitcastFromU8(from);
+  if constexpr (isSmallFPType<To>)
+    return To::bitcastFromUInt(from);
   else
     return from;
 }
