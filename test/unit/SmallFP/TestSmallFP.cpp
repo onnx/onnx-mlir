@@ -48,8 +48,8 @@ public:
     std::cout << "test_fp_equals " << fp_name << ":" << std::endl;
 
     // 0 equals minus 0:
-    auto zero = FP::fromFloat(0.0);
-    auto minusZero = FP::fromFloat(-0.0);
+    auto zero = FP::fromFloat(0.0f);
+    auto minusZero = FP::fromFloat(-0.0f);
     assert(zero == minusZero);
     if (hasNegativeZero)
       assert(zero.bitcastToUInt() != minusZero.bitcastToUInt());
@@ -85,8 +85,8 @@ int main(int argc, char *argv[]) {
   int failures = 0;
 
   const bool noNegZero = false;
-  const float fp8min = 0.005;
-  const float fp8max = 192;
+  const float fp8min = 0.005f;
+  const float fp8max = 192.0f;
   failures += test.test_fp_cast<float_8e4m3fn>("float_8e4m3fn", fp8min, fp8max);
   failures += test.test_fp_equals<float_8e4m3fn>("float_8e4m3fn", fp8min, fp8max);
   failures += test.test_fp_cast<float_8e4m3fnuz>("float_8e4m3fnuz", fp8min, fp8max);
@@ -95,8 +95,8 @@ int main(int argc, char *argv[]) {
   failures += test.test_fp_equals<float_8e5m2>("float_8e5m2", fp8min, fp8max);
   failures += test.test_fp_cast<float_8e5m2fnuz>("float_8e5m2fnuz", fp8min, fp8max);
   failures += test.test_fp_equals<float_8e5m2fnuz>("float_8e5m2fnuz", fp8min, fp8max, noNegZero);
-  const float fp16min = 5.96e-8;
-  const float fp16max = 32768.0;
+  const float fp16min = 5.96e-8f;
+  const float fp16max = 32768.0f;
   failures += test.test_fp_cast<float_16>("float_16", fp16min, fp16max);
   failures += test.test_fp_cast<bfloat_16>("bfloat_16", fp16min, fp16max);
   failures += test.test_fp_equals<float_16>("float_16", fp16min, fp16max);
