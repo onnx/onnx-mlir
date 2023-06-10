@@ -149,16 +149,6 @@ public:
 };
 static_assert(sizeof(bfloat_16) * CHAR_BIT == 16, "bfloat_16 is 16 bits wide");
 
-// When doing arithmetic on a template type T that may be a (b)float_16 or a
-// native arithmetic type, convert arguments to toArithmetic<T> and back, e.g.:
-//
-//   template <typename T> T Sqrt(T lhs, T rhs) {
-//     return static_cast<T>(sqrtf(static_cast<toArithmetic<T>>(x)));
-//   }
-//
-template <typename T>
-using toArithmetic = std::conditional_t<isFP16Type<T>, float, T>;
-
 } // namespace onnx_mlir
 
 // Enable DenseElementsAttr to operate on float_16, bfloat_16 data types.
