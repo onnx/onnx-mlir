@@ -35,14 +35,16 @@ public:
   constexpr SmallFPBase() : ui() {}
   constexpr explicit SmallFPBase(const FP &fp) : ui(fp.ui) {}
   // Support static_cast<FP>(X) for any x that is convertible to float.
+  // Use FP::fromFloat() in case FP overrides fromFloat().
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, FP>>>
-  explicit SmallFPBase(const T &x)
-      : ui(fromAPFloat(llvm::APFloat(static_cast<float>(x))).ui) {}
+  explicit SmallFPBase(const T &x) : SmallFPBase(FP::fromFloat(static_cast<float>(x))) {}
 
   // Support static_cast<T>(*this) for any T that float converts to.
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, FP>>>
   explicit operator T() const {
-    return static_cast<float>(toFloat());
+    // Down cast in case FP overrides FP::toFloat().
+    FP fp = FP::bitcastFromUInt(ui);
+    return static_cast<float>(fp.toFloat());
   }
 
   llvm::APFloat toAPFloat() const;
