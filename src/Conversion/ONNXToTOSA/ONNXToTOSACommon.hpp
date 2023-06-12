@@ -91,7 +91,7 @@ llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
 template <typename ShapeHelperType>
 mlir::ArrayAttr createOrderedPadAttr(mlir::PatternRewriter &rewriter,
     const llvm::ArrayRef<int64_t> inputShape,
-    const ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
+    ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
     const int64_t ceilMode, const llvm::ArrayRef<int64_t> padIndexOrder) {
 
   // When ceil mode is 1, we need to add values to the padding

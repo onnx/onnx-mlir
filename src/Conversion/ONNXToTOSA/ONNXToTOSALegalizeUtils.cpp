@@ -46,6 +46,14 @@ int64_t convertNegativeAxis(int64_t axis, int64_t inputRank) {
   return axis;
 }
 
+llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(                      
+    llvm::ArrayRef<IndexExpr> indexVector) {                                    
+  llvm::SmallVector<int64_t, 4> literalVector(indexVector.size());              
+  llvm::transform(indexVector, literalVector.begin(),                           
+      [](const auto &indexExpr) { return indexExpr.getLiteral(); });            
+  return literalVector;                                                         
+} 
+
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding) {
   return mlir::RankedTensorType::get(
@@ -54,8 +62,8 @@ mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
 
 mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val) {
     if (auto source = val.getDefiningOp<mlir::ONNXConstantOp>()) {
-      if (source.value())
-        return source.value().value(); 
+      if (source.getValue())
+        return source.getValue().value(); 
     }
     // if the constant is not an onnx.const it has to be a tosa.const
     assert(val.getDefiningOp<mlir::tosa::ConstOp>());

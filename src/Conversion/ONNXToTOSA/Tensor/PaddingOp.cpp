@@ -86,21 +86,19 @@ public:
 
       TosaBuilder tosaBuilder(rewriter, loc);
       Value constTosaTensor =
-          tosaBuilder.getConst(valueFloat);
+          tosaBuilder.getSplattedConst(valueFloat);
 
       rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
           op, resultType, data, padsList1, constTosaTensor);
     } else {
-      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
-          op, resultType, data, padsList1);
-    }
-    auto constType = RankedTensorType::get({}, rewriter.getF32Type());
-    auto constAttr = DenseElementsAttr::get(constType, valueFloat);
-    Value constTosaTensor = rewriter.create<mlir::tosa::ConstOp>(
-        op->getLoc(), constType, constAttr);
+        auto constType = RankedTensorType::get({}, rewriter.getF32Type());
+        auto constAttr = DenseElementsAttr::get(constType, valueFloat);
+        Value constTosaTensor = rewriter.create<mlir::tosa::ConstOp>(
+            op->getLoc(), constType, constAttr);
 
-    rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
-        op, resultType, data, padsList1, constTosaTensor);
+        rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
+            op, resultType, data, padsList1, constTosaTensor);
+    }
 
     return success();
   }

@@ -36,10 +36,10 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
-    Value x = op.x();
+    Value x = op.getX();
     ArrayRef<int64_t> inputShape =  cast<TensorType>(x.getType()).getShape();
-    Value x_scale = op.x_scale();
-    Value x_zero_point = op.x_zero_point();
+    Value x_scale = op.getXScale();
+    Value x_zero_point = op.getXZeroPoint();
     Type resultType = op.getResult().getType();
     // Axis attribute is ignored for per-tensor quantization, which is the only one handled
     // for the moment, so there is no need to look at this attribute.

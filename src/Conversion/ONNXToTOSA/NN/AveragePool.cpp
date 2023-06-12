@@ -52,7 +52,7 @@ void handleIncludePadAttr(
   TosaBuilder tosaBuilder(rewriter, loc);
   Value padding = tosa::buildOnnxToTosaPaddingConstOp(
       rewriter, intValues, loc, {0, 0, 0, 0}, {});
-  auto constTosaTensor = tosaBuilder.getConst(0.0);
+  auto constTosaTensor = tosaBuilder.getSplattedConst(0.0);
 
   auto inputType = input.getType().cast<mlir::TensorType>();
   auto padOp = tosa::CreateOpAndInfer<mlir::tosa::PadOp>(rewriter, loc,
@@ -84,7 +84,7 @@ public:
       // AveragePool to TOSA. We use ONNX format for it so that the AveragePool
       // lowering still generates transposes between ONNX and TOSA formats, and
       // implementation doesn't diverge much.
-      handleIncludePadAttr(rewriter, op, adaptor.X());
+      handleIncludePadAttr(rewriter, op, adaptor.getX());
     }
 
     llvm::Optional<Value> newAveragePoolOp =
