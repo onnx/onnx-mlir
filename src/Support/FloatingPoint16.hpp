@@ -13,6 +13,20 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "llvm/ADT/APFloat.h"
 
+// When the CPU is known to support native conversion between float and float_16
+// we define FLOAT16_TO_FLOAT32(f16) and FLOAT32_TO_FLOAT16(f32) macros, used in
+// class float_16 below to override the slow default APFloat-based conversions.
+#if defined(__x86_64__) && defined(__F16C__)
+#include <immintrin.h>
+#define FLOAT16_TO_FLOAT32(f16)                                                \
+  _cvtsh_ss(*reinterpret_cast<const uint16_t *>(&f16))
+#define FLOAT32_TO_FLOAT16(f32) _cvtss_sh(f32, /*ROUND TO NEAREST EVEN*/ 0)
+#endif
+#if defined(__ARM_FP16_FORMAT_IEEE)
+#define FLOAT16_TO_FLOAT32(f16) *reinterpret_cast<const __fp16 *>(&f16)
+#define FLOAT32_TO_FLOAT16(f32) static_cast<__fp16>(f32)
+#endif
+
 namespace onnx_mlir {
 
 class float_16;
@@ -92,6 +106,17 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::IEEEhalf();
   }
+#if defined(FLOAT16_TO_FLOAT32)
+  float toFloat() const { return FLOAT16_TO_FLOAT32(*this); }
+#endif
+#if defined(FLOAT32_TO_FLOAT16)
+  static float_16 fromFloat(float f) {
+    // x can be any 16 bits wide storage for float_16.
+    auto x = FLOAT32_TO_FLOAT16(f);
+    static_assert(sizeof(x) * CHAR_BIT == 16, "16 bits to store float_16");
+    return *reinterpret_cast<float_16 *>(&x);
+  }
+#endif
 };
 static_assert(sizeof(float_16) * CHAR_BIT == 16, "float_16 is 16 bits wide");
 
