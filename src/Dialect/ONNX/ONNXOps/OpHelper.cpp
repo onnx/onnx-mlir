@@ -15,7 +15,6 @@
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/TypeSwitch.h"
 
-#include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -300,6 +299,11 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
   return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
+void ArrayAttrIntVals(ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i) {
+  for (size_t k = 0; k < a.size(); ++k)
+    i.emplace_back((a.getValue()[k]).cast<IntegerAttr>().getInt());
+}
+
 ElementsAttr getElementAttributeFromONNXValue(Value value) {
   ONNXConstantOp constantOp = getONNXConstantOp(value);
   if (constantOp)
@@ -431,11 +435,6 @@ bool areDims(Value val) {
   // Value must be a 1D tensor.
   Type vType = val.getType();
   if (!(isRankedShapedType(vType) && (getRank(vType) == 1)))
-    return false;
-
-  // Dim must be i64.
-  Type elmTy = getElementType(vType);
-  if (!elmTy.isSignlessInteger(64))
     return false;
 
   // Base case.
@@ -635,11 +634,10 @@ int64_t mlirTypeToOnnxType(Type elemType) {
   onnx::TensorProto::DataType onnxType = onnx::TensorProto::UNDEFINED;
   if (!elemType)
     return onnxType;
-  if (elemType.isa<ONNXStringType>() ||
-      elemType.isa<onnx_mlir::krnl::StringType>())
-    return onnx::TensorProto::STRING;
 
   TypeSwitch<Type>(elemType)
+      .Case<ONNXStringType>(
+          [&](ONNXStringType) { onnxType = onnx::TensorProto::STRING; })
       .Case<BFloat16Type>(
           [&](BFloat16Type) { onnxType = onnx::TensorProto::BFLOAT16; })
       .Case<ComplexType>([&](ComplexType type) {
