@@ -13,7 +13,7 @@ RUN apt-get install -y lldb
 
 # 2) Instal optional packages, comment/uncomment/add as you see fit.
 RUN apt-get install -y vim
-#RUN apt-get install -y emacs
+RUN apt-get install -y emacs
 RUN apt-get install -y valgrind
 RUN apt-get install -y libeigen3-dev
 RUN apt-get install -y clang-format
