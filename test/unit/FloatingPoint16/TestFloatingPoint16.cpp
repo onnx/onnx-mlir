@@ -90,7 +90,7 @@ public:
 
 template <typename FP16>
 void BM_F32_TO_FP16(benchmark::State &state) {
-  uint32_t u16max = std::numeric_limits<uint16_t>::max();
+  constexpr uint32_t u16max = std::numeric_limits<uint16_t>::max();
   float f32s[u16max + 1];
   for (uint32_t u = 0; u <= u16max; ++u) {
     f32s[u] = FP16::bitcastFromU16(u).toFloat();
@@ -108,7 +108,7 @@ BENCHMARK(BM_F32_TO_FP16<bfloat_16>);
 
 template <typename FP16>
 void BM_FP16_TO_F32(benchmark::State &state) {
-  uint32_t u16max = std::numeric_limits<uint16_t>::max();
+  constexpr uint32_t u16max = std::numeric_limits<uint16_t>::max();
   FP16 fp16s[u16max + 1];
   for (uint32_t u = 0; u <= u16max; ++u) {
     fp16s[u] = FP16::bitcastFromU16(u);
