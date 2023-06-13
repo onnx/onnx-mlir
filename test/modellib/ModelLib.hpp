@@ -218,7 +218,7 @@ public:
       inputShape[2] = 3;
       break;
     default:
-      assert("CategoryMapperLibBuilder: non supported rank");
+      llvm_unreachable("CategoryMapperLibBuilder: non supported rank");
     }
   }
 
