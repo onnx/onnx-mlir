@@ -113,6 +113,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
         DimIndexExpr tDimExpr = LiteralIndexExpr(xShape[i]);
         if (i == axis)
           tDimExpr = totalDimExpr;
+        outputYDims.emplace_back(tDimExpr);
         outputIndexDims.emplace_back(tDimExpr);
       }
       outputInverseIndexDims.emplace_back(LiteralIndexExpr(xShape[axis]));
@@ -127,7 +128,10 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
       MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, i64Type);
       outputY = create.mem.alignedAlloc(memrefType, outputYDims);
     } else {
-      ArrayRef<int64_t> yShape = getShape(X.getType());
+      ArrayRef<int64_t> xShape = getShape(X.getType());
+      SmallVector<int64_t> yShape;
+      for (int i = 0; i < rank; i++)
+        yShape.emplace_back((i == axis) ? ShapedType::kDynamic : xShape[i]);
       MemRefType memrefType = MemRefType::get(yShape, i64Type);
       outputY = create.mem.alignedAlloc(memrefType, outputYDims);
     }
