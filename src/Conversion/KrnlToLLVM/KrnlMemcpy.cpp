@@ -34,7 +34,7 @@ namespace krnl {
 class KrnlMemcpyOpLowering : public ConversionPattern {
 public:
   explicit KrnlMemcpyOpLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConversionPattern(
             typeConverter, KrnlMemcpyOp::getOperationName(), 1, context) {}
 
@@ -56,6 +56,7 @@ public:
     // Common types.
     Type i1Ty = IntegerType::get(context, 1);
     Type i64Ty = IntegerType::get(context, 64);
+    Type i8PtrTy = getPointerType(context, IntegerType::get(context, 8));
     Type elementType = src.getType().cast<LLVM::LLVMStructType>().getBody()[1];
     int64_t eltSize = getMemRefEltSizeInBytes(
         memcpyOp.getSrc().getType().dyn_cast<MemRefType>());
@@ -73,7 +74,7 @@ public:
     Value dstOffsetInBytes = create.llvm.mul(dstOffsetI64, eltSizeInBytes);
     dstPtrInInt = create.llvm.add(dstPtrInInt, dstOffsetInBytes);
     alignedDstMemory = create.llvm.inttoptr(elementType, dstPtrInInt);
-    Value dstAddress = create.llvm.bitcastI8Ptr(alignedDstMemory);
+    Value dstAddress = create.llvm.bitcast(i8PtrTy, alignedDstMemory);
 
     // Second operand.
     Value alignedSrcMemory = create.llvm.extractValue(elementType, src, {1});
@@ -83,7 +84,7 @@ public:
     Value srcOffsetInBytes = create.llvm.mul(srcOffsetI64, eltSizeInBytes);
     srcPtrInInt = create.llvm.add(srcPtrInInt, srcOffsetInBytes);
     alignedSrcMemory = create.llvm.inttoptr(elementType, srcPtrInInt);
-    Value srcAddress = create.llvm.bitcastI8Ptr(alignedSrcMemory);
+    Value srcAddress = create.llvm.bitcast(i8PtrTy, alignedSrcMemory);
 
     // Size.
     Value sizeInBytes = create.llvm.mul(elemsToCopy, eltSizeInBytes);
@@ -110,7 +111,7 @@ private:
     // Create a function declaration for memcpy, the signature is:
     //   * `void (i8*, i8* , i64, i1)`
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
-    Type llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
+    Type llvmI8PtrTy = getPointerType(context, IntegerType::get(context, 8));
     Type llvmI64Ty = IntegerType::get(context, 64);
     Type llvmI1Ty = IntegerType::get(context, 1);
     return create.llvm.getOrInsertSymbolRef(module,
@@ -119,7 +120,7 @@ private:
   }
 };
 
-void populateLoweringKrnlMemcpyOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlMemcpyOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlMemcpyOpLowering>(typeConverter, ctx);
 }

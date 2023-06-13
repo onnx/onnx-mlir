@@ -124,6 +124,33 @@ bool hasAllScalarValues(ValueRange values) {
   return true;
 }
 
+// Check if we have a 'tensor<' ('1x')* 'x type>' type, namely a scalar or a
+// n-dimensional tensor of size 1 along all dimensions.
+bool hasOneElement(Value value) {
+  if (isScalarValue(value))
+    return true;
+  ShapedType type = value.getType().dyn_cast<ShapedType>();
+  assert(type && "expected shaped type");
+  for (int64_t s : type.getShape())
+    if (s != 1)
+      return false;
+  return true;
+}
+
+// Same as above, but from the innermost dimensions up to innerDim.
+bool hasOneElementInInnermostDims(Value value, int64_t innerDim) {
+  if (isScalarValue(value))
+    return true;
+  ShapedType type = value.getType().dyn_cast<ShapedType>();
+  assert(type && "expected shaped type");
+  mlir::ArrayRef<int64_t> shape = type.getShape();
+  int64_t rank = type.getRank();
+  for (int64_t i = rank - innerDim; i < rank; ++i)
+    if (shape[i] != 1)
+      return false;
+  return true;
+}
+
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
 /// integer constants.
 bool indicesAreNonNegativeConstants(Value indices) {
@@ -386,8 +413,8 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Type intType = rewriter.getIntegerType(64);
     Value valAxis = create.math.constant(intType, axis);
     Value valAscending = create.math.constant(intType, (int64_t)ascending);
-    SmallVector<Value, 4> operands = {input, valAxis, valAscending};
-    rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, operands);
+    SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
+    rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
     return order;
   }
   // Do sorting in the descending order of input and return their indices.
@@ -552,7 +579,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
   });
 
   addConversion([](SeqType seqType) {
-    ShapedType seqElementType = seqType.getElementType();
+    auto seqElementType = seqType.getElementType().cast<ShapedType>();
     Type elementType = seqElementType.getElementType();
     Type seqElementConvertedType;
     if (seqElementType.hasRank()) {

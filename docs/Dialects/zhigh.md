@@ -8,7 +8,7 @@ This operation does not support broadcasting.
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -16,14 +16,14 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
-| `Y` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `X` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Y` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.AvgPool2D` (::onnx_mlir::zhigh::ZHighAvgPool2DOp)
 
@@ -33,7 +33,7 @@ ZHigh operation to perform 2D average pooling.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -49,13 +49,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
+| `input` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
+| `output` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
 
 ### `zhigh.BatchNorm` (::onnx_mlir::zhigh::ZHighBatchNormOp)
 
@@ -65,7 +65,7 @@ ZHigh operation to perform batchnorm.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -73,15 +73,15 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
-| `a` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D
-| `b` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D
+| `input` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
+| `a` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D
+| `b` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
+| `output` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
 
 ### `zhigh.Conv2D` (::onnx_mlir::zhigh::ZHighConv2DOp)
 
@@ -99,7 +99,7 @@ ZHigh operation to perform 2D convolution.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -116,15 +116,15 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
-| `input_kernel` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK
-| `input_bias` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or none type
+| `input` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
+| `input_kernel` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK
+| `input_bias` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
+| `output` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
 
 ### `zhigh.Div` (::onnx_mlir::zhigh::ZHighDivOp)
 
@@ -135,7 +135,7 @@ This operation does not support broadcasting.
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -143,14 +143,14 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
-| `Y` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `X` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Y` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.Exp` (::onnx_mlir::zhigh::ZHighExpOp)
 
@@ -160,7 +160,7 @@ ZHigh operation to perform a Exp.
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -168,13 +168,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `X` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.GRU` (::onnx_mlir::zhigh::ZHighGRUOp)
 
@@ -195,7 +195,7 @@ ZHigh GRU operation
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -211,18 +211,18 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
-| `h0` | unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or none type
-| `input_weights` | unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH
-| `input_bias` | unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or none type
-| `hidden_weights` | unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH
-| `hidden_bias` | unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or none type
+| `input` | unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
+| `h0` | unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or none type
+| `input_weights` | unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH
+| `input_bias` | unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or none type
+| `hidden_weights` | unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH
+| `hidden_bias` | unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `hn_output` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS
+| `hn_output` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS
 
 ### `zhigh.LSTM` (::onnx_mlir::zhigh::ZHighLSTMOp)
 
@@ -244,7 +244,7 @@ zHigh operation to perform a LSTM.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -260,20 +260,20 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
-| `h0` | unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or none type
-| `c0` | unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or none type
-| `input_weights` | unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO
-| `input_bias` | unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or none type
-| `hidden_weights` | unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO
-| `hidden_bias` | unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or none type
+| `input` | unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
+| `h0` | unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or none type
+| `c0` | unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or none type
+| `input_weights` | unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO
+| `input_bias` | unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or none type
+| `hidden_weights` | unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO
+| `hidden_bias` | unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `hn_output` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS
-| `cf_output` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS
+| `hn_output` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS
+| `cf_output` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS
 
 ### `zhigh.Log` (::onnx_mlir::zhigh::ZHighLogOp)
 
@@ -283,7 +283,7 @@ ZHigh operation to perform a Log.
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -291,13 +291,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `X` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.MatMul` (::onnx_mlir::zhigh::ZHighMatMulOp)
 
@@ -307,7 +307,7 @@ ZHigh operation to perform a MatMul.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -315,15 +315,15 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
-| `Y` | unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
-| `B` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or none type
+| `X` | unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
+| `Y` | unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
+| `B` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
+| `Out` | unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
 
 ### `zhigh.Max` (::onnx_mlir::zhigh::ZHighMaxOp)
 
@@ -334,7 +334,7 @@ This operation does not support broadcasting.
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -342,14 +342,14 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
-| `Y` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `X` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Y` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.MaxPool2D` (::onnx_mlir::zhigh::ZHighMaxPool2DOp)
 
@@ -359,7 +359,7 @@ ZHigh operation to perform 2D max pooling.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -375,13 +375,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
+| `input` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
+| `output` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
 
 ### `zhigh.MeanReduce2d` (::onnx_mlir::zhigh::ZHighMeanReduce2DOp)
 
@@ -394,7 +394,7 @@ to a size of 1 based on the mean of the original values.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -402,13 +402,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
+| `input` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
+| `output` | unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC
 
 ### `zhigh.Min` (::onnx_mlir::zhigh::ZHighMinOp)
 
@@ -419,7 +419,7 @@ This operation does not support broadcasting.
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -427,14 +427,14 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
-| `Y` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `X` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Y` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.Mul` (::onnx_mlir::zhigh::ZHighMulOp)
 
@@ -445,7 +445,7 @@ This operation does not support broadcasting.
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -453,14 +453,14 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
-| `Y` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `X` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Y` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.Relu` (::onnx_mlir::zhigh::ZHighReluOp)
 
@@ -470,7 +470,7 @@ ZHigh Relu operation
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -478,13 +478,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `X` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.Sigmoid` (::onnx_mlir::zhigh::ZHighSigmoidOp)
 
@@ -494,7 +494,7 @@ ZHigh operation to perform a Sigmoid.
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -502,13 +502,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `X` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.Softmax` (::onnx_mlir::zhigh::ZHighSoftmaxOp)
 
@@ -519,7 +519,7 @@ act_func: ACT_NONE or ACT_LOG.
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -533,13 +533,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
+| `X` | unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
+| `Out` | unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS
 
 ### `zhigh.StickForGRU` (::onnx_mlir::zhigh::ZHighStickForGRUOp)
 
@@ -552,7 +552,7 @@ Variadic: list of pointers for input data to be transformed:
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -568,7 +568,7 @@ Effects: MemoryEffects::Effect{}
 
 | Result | Description |
 | :----: | ----------- |
-| `out` | unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH
+| `out` | unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH
 
 ### `zhigh.StickForLSTM` (::onnx_mlir::zhigh::ZHighStickForLSTMOp)
 
@@ -581,7 +581,7 @@ Forget, Input, Cell, Output (FICO) order,
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -598,7 +598,7 @@ Effects: MemoryEffects::Effect{}
 
 | Result | Description |
 | :----: | ----------- |
-| `out` | unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO
+| `out` | unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO
 
 ### `zhigh.Stick` (::onnx_mlir::zhigh::ZHighStickOp)
 
@@ -609,7 +609,7 @@ If `layout`=`NHWC`, input must be in `NCHW` and output will be in `NHWC`.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -629,7 +629,7 @@ Effects: MemoryEffects::Effect{}
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or none type
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or none type
 
 ### `zhigh.StickifiedConstant` (::onnx_mlir::zhigh::ZHighStickifiedConstantOp)
 
@@ -657,7 +657,7 @@ Effects: MemoryEffects::Effect{}
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `output` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.Sub` (::onnx_mlir::zhigh::ZHighSubOp)
 
@@ -668,7 +668,7 @@ This operation does not support broadcasting.
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -676,14 +676,14 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
-| `Y` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `X` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Y` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.Tanh` (::onnx_mlir::zhigh::ZHighTanhOp)
 
@@ -693,7 +693,7 @@ ZHigh operation to perform a Tanh.
 
 Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -701,13 +701,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `X` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Out` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked.tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
+| `Out` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout FICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout ZRH or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BFICO or unranked tensor of 32-bit float values or 2D/3D tensor of 32-bit float values with layout BZRH
 
 ### `zhigh.Unstick` (::onnx_mlir::zhigh::ZHighUnstickOp)
 
@@ -717,7 +717,7 @@ ZHigh operation to perform a Unstick.
 
 Traits: AlwaysSpeculatableImplTrait
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInference
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeInferenceOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -725,7 +725,7 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `In` | unranked.tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked.tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked.tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked.tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK
+| `In` | unranked tensor of 32-bit float values or 1D tensor of 32-bit float values with layout _1D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2D or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3D or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4D or unranked tensor of 32-bit float values or 2D tensor of 32-bit float values with layout _2DS or unranked tensor of 32-bit float values or 3D tensor of 32-bit float values with layout _3DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout _4DS or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NHWC or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout NCHW or unranked tensor of 32-bit float values or 4D tensor of 32-bit float values with layout HWCK
 
 #### Results:
 

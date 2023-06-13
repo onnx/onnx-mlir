@@ -245,7 +245,7 @@ public:
     //
 
     // All consumers of zlow.unstick must be affine.load.
-    SmallVector<AffineLoadOp, 4> loadOps;
+    SmallVector<affine::AffineLoadOp, 4> loadOps;
     if (!matchAndCollectAffineLoad(unstickOp, cpuMemRef, loadOps))
       return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
         diag << "Failed to match AffineLoadOp";
@@ -253,14 +253,14 @@ public:
 
     // All consumers of affine.load must be affine.store.
     // affine.store must store to a Memref allocated by memref.alloc.
-    SmallVector<AffineStoreOp, 4> storeOps;
+    SmallVector<affine::AffineStoreOp, 4> storeOps;
     if (!matchAndCollectAffineStore(loadOps, storeOps))
       return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
         diag << "Failed to match AffineStoreOp";
       });
 
     // Each affine.store is connected to one zlow.stick.
-    std::map<AffineStoreOp, ZLowStickOp> StoreOpStickOpMap;
+    std::map<affine::AffineStoreOp, ZLowStickOp> StoreOpStickOpMap;
     SmallVector<ZLowStickOp, 4> stickOps;
     if (!matchAndCollectStickOp(storeOps, stickOps, StoreOpStickOpMap))
       return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
@@ -270,7 +270,7 @@ public:
     // 2. Rewrite
     // - Rewrite AffineLoadOp to use stickified Memref directly.
     MultiDialectBuilder<AffineBuilder> create(rewriter, loc);
-    for (AffineLoadOp loadOp : loadOps) {
+    for (affine::AffineLoadOp loadOp : loadOps) {
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointAfter(loadOp);
       // Clone loadOp with new Memref, indices and return type.
@@ -285,7 +285,7 @@ public:
         AffineMap permuteMap = AffineMap::getPermutationMap({0, 2, 3, 1}, ctx);
         AffineMapAttr newMap =
             AffineMapAttr::get(permuteMap.compose(oldMap.getValue()));
-        clonedOp->setAttr(AffineLoadOp::getMapAttrStrName(), newMap);
+        clonedOp->setAttr(affine::AffineLoadOp::getMapAttrStrName(), newMap);
       }
       // This DummyOp is used to make the intermediate generated code valid. It
       // wil be removed automatically via canonicalization.
@@ -295,7 +295,7 @@ public:
     }
 
     // - Rewrite AffineStoreOp to use stickified Memref directly.
-    for (AffineStoreOp storeOp : storeOps) {
+    for (affine::AffineStoreOp storeOp : storeOps) {
       Value storeMemref = storeOp.getMemref();
       Value storeValue = storeOp.getValue();
       ZLowStickOp myStickOp = StoreOpStickOpMap[storeOp];
@@ -353,7 +353,7 @@ public:
         AffineMap permuteMap = AffineMap::getPermutationMap({0, 2, 3, 1}, ctx);
         AffineMapAttr newMap =
             AffineMapAttr::get(permuteMap.compose(oldMap.getValue()));
-        clonedOp->setAttr(AffineStoreOp::getMapAttrStrName(), newMap);
+        clonedOp->setAttr(affine::AffineStoreOp::getMapAttrStrName(), newMap);
       }
       rewriter.eraseOp(storeOp);
     }
@@ -372,11 +372,11 @@ private:
 
   // Collect affine.load operations that connect to zlow.unstick.
   bool matchAndCollectAffineLoad(ZLowUnstickOp unstickOp, Value loadMemref,
-      SmallVectorImpl<AffineLoadOp> &loadOps) const {
+      SmallVectorImpl<affine::AffineLoadOp> &loadOps) const {
     for (Operation *user : loadMemref.getUsers()) {
       if (user == unstickOp.getOperation())
         continue;
-      if (auto loadOp = llvm::dyn_cast<AffineLoadOp>(user))
+      if (auto loadOp = llvm::dyn_cast<affine::AffineLoadOp>(user))
         loadOps.emplace_back(loadOp);
       else
         return false;
@@ -386,14 +386,15 @@ private:
   }
 
   // Collect affine.store operations that connect to affine.load.
-  bool matchAndCollectAffineStore(const SmallVectorImpl<AffineLoadOp> &loadOps,
-      SmallVectorImpl<AffineStoreOp> &storeOps) const {
-    for (AffineLoadOp loadOp : loadOps) {
+  bool matchAndCollectAffineStore(
+      const SmallVectorImpl<affine::AffineLoadOp> &loadOps,
+      SmallVectorImpl<affine::AffineStoreOp> &storeOps) const {
+    for (affine::AffineLoadOp loadOp : loadOps) {
       Value loadValue = loadOp.getValue();
       for (Operation *user : loadValue.getUsers()) {
         if (user == loadOp.getOperation())
           continue;
-        if (auto storeOp = llvm::dyn_cast<AffineStoreOp>(user)) {
+        if (auto storeOp = llvm::dyn_cast<affine::AffineStoreOp>(user)) {
           // Check unstick -> load -> store -> stick.
           if (!matchUnstickLoadStoreStick(storeOp))
             return false;
@@ -409,14 +410,15 @@ private:
     // directly stores a zero constant to a MemRef. In that case there is no way
     // to create a F16 constant in Z.
     // TODO: Support this situation.
-    for (AffineStoreOp storeOp : storeOps) {
+    for (affine::AffineStoreOp storeOp : storeOps) {
       Value destMemref = storeOp.getMemref();
       for (Operation *user : destMemref.getUsers()) {
         if (user == storeOp.getOperation())
           continue;
-        if (auto otherStoreOp = llvm::dyn_cast<AffineStoreOp>(user)) {
-          if (llvm::all_of(storeOps,
-                  [&](AffineStoreOp op) { return (op != otherStoreOp); })) {
+        if (auto otherStoreOp = llvm::dyn_cast<affine::AffineStoreOp>(user)) {
+          if (llvm::all_of(storeOps, [&](affine::AffineStoreOp op) {
+                return (op != otherStoreOp);
+              })) {
             // Check unstick -> load -> store -> stick.
             if (!matchUnstickLoadStoreStick(otherStoreOp))
               return false;
@@ -429,16 +431,17 @@ private:
   }
 
   // Collect zlow.stick operations that connect to affine.store.
-  bool matchAndCollectStickOp(const SmallVectorImpl<AffineStoreOp> &storeOps,
+  bool matchAndCollectStickOp(
+      const SmallVectorImpl<affine::AffineStoreOp> &storeOps,
       SmallVectorImpl<ZLowStickOp> &stickOps,
-      std::map<AffineStoreOp, ZLowStickOp> &StoreOpStickOpMap) const {
-    for (AffineStoreOp storeOp : storeOps) {
+      std::map<affine::AffineStoreOp, ZLowStickOp> &StoreOpStickOpMap) const {
+    for (affine::AffineStoreOp storeOp : storeOps) {
       ZLowStickOp myStickOp;
       Value destMemref = storeOp.getMemref();
       for (Operation *user : destMemref.getUsers()) {
         if (user == storeOp.getOperation())
           continue;
-        if (llvm::dyn_cast<AffineStoreOp>(user))
+        if (llvm::dyn_cast<affine::AffineStoreOp>(user))
           continue;
         if (auto stick = llvm::dyn_cast<ZLowStickOp>(user)) {
           // Do not support layout 1D and 2DS since their access index
@@ -462,7 +465,7 @@ private:
   }
 
   // Check this sequence: unstick -> load -> store -> stick.
-  bool matchUnstickLoadStoreStick(AffineStoreOp storeOp) const {
+  bool matchUnstickLoadStoreStick(affine::AffineStoreOp storeOp) const {
     Value destMemref = storeOp.getMemref();
     Value storeValue = storeOp.getValue();
 
@@ -480,7 +483,8 @@ private:
     // Check if the store value is from AffineLoadOp or not.
     if (isa<BlockArgument>(storeValue))
       return false;
-    if (auto loadOp = dyn_cast<AffineLoadOp>(storeValue.getDefiningOp())) {
+    if (auto loadOp =
+            dyn_cast<affine::AffineLoadOp>(storeValue.getDefiningOp())) {
       // Check if loading from MemRef that is unstickified.
       Value memRef = loadOp.getMemref();
       if (!matchMultipleLoadSingleUnstick(memRef))
@@ -496,10 +500,10 @@ private:
     if (isa<BlockArgument>(memRef))
       return false;
     ZLowStickOp stickOp;
-    AffineStoreOp storeOp;
+    affine::AffineStoreOp storeOp;
     for (Operation *user : memRef.getUsers()) {
       // At least one StoreOp.
-      if (auto store = llvm::dyn_cast<AffineStoreOp>(user)) {
+      if (auto store = llvm::dyn_cast<affine::AffineStoreOp>(user)) {
         storeOp = store;
         continue;
       }
@@ -520,10 +524,10 @@ private:
     if (isa<BlockArgument>(memRef))
       return false;
     ZLowUnstickOp unstickOp;
-    AffineLoadOp loadOp;
+    affine::AffineLoadOp loadOp;
     for (Operation *user : memRef.getUsers()) {
       // At least one LoadOp.
-      if (auto load = dyn_cast<AffineLoadOp>(user)) {
+      if (auto load = dyn_cast<affine::AffineLoadOp>(user)) {
         loadOp = load;
         continue;
       }

@@ -135,7 +135,7 @@ public:
           if (instrumentBefore)
             opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, beforeTag());
 
-          // Can not insert after Op (e.g. ONNXReturnOP) with IsTerminator Trait
+          // Can not insert after Op (e.g. ONNXYieldOP) with IsTerminator Trait
           if (instrumentAfter && !op->hasTrait<OpTrait::IsTerminator>()) {
             opBuilder.setInsertionPointAfter(op);
             opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, afterTag());

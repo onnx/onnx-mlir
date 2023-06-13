@@ -205,6 +205,15 @@ Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
   llvm_unreachable("expected int");
 }
 
+// return (lhs * rhs) + acc
+Value MathBuilder::fma(Value lhs, Value rhs, Value acc) const {
+  assert((lhs.getType() == rhs.getType()) && (rhs.getType() == acc.getType()) &&
+         "expected same type");
+  if (isFloatWithVector(lhs.getType()) && !isa<FloatType>(lhs.getType()))
+    return b().create<vector::FMAOp>(loc(), lhs, rhs, acc);
+  return add(mul(lhs, rhs), acc);
+}
+
 Value MathBuilder::exp(Value val) const {
   if (isFloatWithVector(val.getType()))
     return b().create<math::ExpOp>(loc(), val);
@@ -449,12 +458,12 @@ Value MathBuilder::constant(Type type, double val) const {
 }
 
 Value MathBuilder::constantIndex(int64_t val) const {
-  Attribute constantAttr = b().getIntegerAttr(b().getIndexType(), val);
+  IntegerAttr constantAttr = b().getIntegerAttr(b().getIndexType(), val);
   return b().create<arith::ConstantOp>(loc(), constantAttr);
 }
 
-Attribute MathBuilder::negativeInfAttr(mlir::Type type) const {
-  Attribute attr;
+TypedAttr MathBuilder::negativeInfAttr(mlir::Type type) const {
+  TypedAttr attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
         attr = b().getF32FloatAttr(-std::numeric_limits<float>::infinity());
@@ -498,8 +507,8 @@ Attribute MathBuilder::negativeInfAttr(mlir::Type type) const {
   return attr;
 }
 
-Attribute MathBuilder::positiveInfAttr(mlir::Type type) const {
-  Attribute attr;
+TypedAttr MathBuilder::positiveInfAttr(mlir::Type type) const {
+  TypedAttr attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
         attr = b().getF32FloatAttr(std::numeric_limits<float>::infinity());
@@ -544,14 +553,14 @@ Attribute MathBuilder::positiveInfAttr(mlir::Type type) const {
 }
 
 Value MathBuilder::negativeInf(Type type) const {
-  Attribute attr = negativeInfAttr(type);
+  TypedAttr attr = negativeInfAttr(type);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
   return constant;
 }
 
 Value MathBuilder::positiveInf(Type type) const {
-  Attribute attr = positiveInfAttr(type);
+  TypedAttr attr = positiveInfAttr(type);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
   return constant;
@@ -1081,32 +1090,57 @@ memref::ReshapeOp MemRefBuilder::reshape(
       loc(), destType, valToReshape, destShapeStoredInMem);
 }
 
-memref::ReshapeOp MemRefBuilder::reshapeToFlat(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims, Value &size1D) const {
+// Flatten the innermost dimsToFlatten of the value valToReshape. Return in
+// flattenSize the cumulative size of the flattened dimensions. If flattenSize
+// is -1, flatten them all. Expect to flatten at least 1 dim (which is a noop).
+// Output rank is Rank(input) - dimsToFlatten + 1.
+Value MemRefBuilder::reshapeToFlat(Value valToReshape,
+    llvm::SmallVectorImpl<IndexExpr> &dims, Value &flattenedSize,
+    int64_t dimsToFlatten) const {
   // Parse input.
   MemRefType inputType = valToReshape.getType().cast<MemRefType>();
-  Type inputElementType = inputType.getElementType();
+  int64_t inputRank = inputType.getRank();
+  assert(inputRank == (int64_t)dims.size() && "rank mismatch");
+  Type elementType = inputType.getElementType();
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
-  Type indexType = b().getIndexType();
+  // Set/check dimsToFlatten.
+  if (dimsToFlatten == -1)
+    dimsToFlatten = inputRank;
+  assert(dimsToFlatten > 0 && dimsToFlatten <= inputRank &&
+         "out of range dimsToFlatten");
   // Create scope to avoid issues.
   IndexExprScope innerScope(getBuilderPtr(), loc());
   MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  // Compute total number of elements in new scope.
-  IndexExpr numOfElements = LiteralIndexExpr(1);
-  for (IndexExpr d : dims)
-    numOfElements = numOfElements * SymbolIndexExpr(d);
-  // Size1D is an output value corresponding to the total number of elements.
-  size1D = numOfElements.getValue();
-  // Shape for reshaping from N-D to 1-D saved into memory.
-  Value shape1D = alignedAlloc(MemRefType::get({1}, indexType));
-  Value zero = create.math.constantIndex(0);
-  create.affine.store(size1D, shape1D, {zero});
-  // Reshape the input N-D MemRef into a 1-D MemRef.
-  int64_t dim1DSize = ShapedType::kDynamic;
-  if (numOfElements.isLiteral())
-    dim1DSize = numOfElements.getLiteral();
-  MemRefType input1DType = MemRefType::get({dim1DSize}, inputElementType);
-  return reshape(input1DType, valToReshape, shape1D);
+  // Compute total number of flattened elements in new scope.
+  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
+  for (int64_t d = inputRank - dimsToFlatten; d < inputRank; ++d) {
+    numOfFlattenedElements = numOfFlattenedElements * SymbolIndexExpr(dims[d]);
+  }
+  // flattenedSize is an output value corresponding to the total number of
+  // elements that were flattened.
+  flattenedSize = numOfFlattenedElements.getValue();
+  if (dimsToFlatten == 1)
+    // Flattening of the last dim is really no flattening at all. Return
+    // original value before doing the actual reshaping, which is unnecessary.
+    // Waited until here as we need to return a valid flattenedSize,
+    return valToReshape;
+  // Shape for reshaping from N-D to M-D saved into memory.
+  int64_t outputRank = (inputRank - dimsToFlatten) + 1;
+  Type indexType = b().getIndexType();
+  Value outputShapeInMem =
+      alignedAlloc(MemRefType::get({outputRank}, indexType));
+  llvm::SmallVector<int64_t, 4> outputShape;
+  // Compute shape and store it in memory.
+  for (int64_t d = 0; d < outputRank; ++d) {
+    Value dd = create.math.constantIndex(d);
+    IndexExpr shapeIE =
+        (d == outputRank - 1) ? numOfFlattenedElements : dims[d];
+    create.affine.store(shapeIE.getValue(), outputShapeInMem, {dd});
+    outputShape.emplace_back(shapeIE.getShape());
+  }
+  // Reshape the input N-D MemRef into a M-D MemRef.
+  MemRefType outputType = MemRefType::get(outputShape, elementType);
+  return reshape(outputType, valToReshape, outputShapeInMem);
 }
 
 memref::ReshapeOp MemRefBuilder::reshapeFromFlat(Value valToReshape,
@@ -1493,23 +1527,13 @@ Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
 }
 
 Value LLVMBuilder::_alloca(
-    Type resultType, Value size, int64_t alignment) const {
-  return b().create<LLVM::AllocaOp>(loc(), resultType, size, alignment);
+    Type resultType, Type elementType, Value size, int64_t alignment) const {
+  return b().create<LLVM::AllocaOp>(
+      loc(), resultType, elementType, size, alignment);
 }
 
 Value LLVMBuilder::bitcast(Type type, Value val) const {
   return b().create<LLVM::BitcastOp>(loc(), type, val);
-}
-
-Value LLVMBuilder::bitcastI8Ptr(Value val) const {
-  return b().create<LLVM::BitcastOp>(
-      loc(), LLVM::LLVMPointerType::get(b().getI8Type()), val);
-}
-
-Value LLVMBuilder::bitcastI8PtrPtr(Value val) const {
-  return b().create<LLVM::BitcastOp>(loc(),
-      LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(b().getI8Type())),
-      val);
 }
 
 void LLVMBuilder::br(ArrayRef<Value> destOperands, Block *destBlock) const {
@@ -1603,9 +1627,9 @@ LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
   return b().create<LLVM::LLVMFuncOp>(loc(), name, type);
 }
 
-Value LLVMBuilder::getElemPtr(
-    Type resultType, Value base, ArrayRef<Value> indices) const {
-  return b().create<LLVM::GEPOp>(loc(), resultType, base, indices);
+Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
+    ArrayRef<LLVM::GEPArg> indices) const {
+  return b().create<LLVM::GEPOp>(loc(), resultType, elemType, base, indices);
 }
 
 LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
@@ -1629,8 +1653,8 @@ Value LLVMBuilder::inttoptr(Type type, Value val) const {
   return b().create<LLVM::IntToPtrOp>(loc(), type, val);
 }
 
-Value LLVMBuilder::load(Value addr) const {
-  return b().create<LLVM::LoadOp>(loc(), addr);
+Value LLVMBuilder::load(Type elementType, Value addr) const {
+  return b().create<LLVM::LoadOp>(loc(), elementType, addr);
 }
 
 Value LLVMBuilder::mul(Value lhs, Value rhs) const {
@@ -1639,11 +1663,6 @@ Value LLVMBuilder::mul(Value lhs, Value rhs) const {
 
 Value LLVMBuilder::null(Type type) const {
   return b().create<LLVM::NullOp>(loc(), type);
-}
-
-Value LLVMBuilder::nullI8Ptr() const {
-  Type I8PtrTy = LLVM::LLVMPointerType::get(b().getI8Type());
-  return b().create<LLVM::NullOp>(loc(), I8PtrTy);
 }
 
 Value LLVMBuilder::ptrtoint(Type type, Value val) const {

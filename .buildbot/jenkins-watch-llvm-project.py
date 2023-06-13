@@ -60,7 +60,7 @@ jenkins_rest_api_url        = { 's390x':   'http://localhost:8080/jenkins',
 github_repo_access_token    = os.getenv('GITHUB_REPO_ACCESS_TOKEN')
 jenkins_rest_api_token      = os.getenv('JENKINS_REST_API_TOKEN')
 
-LLVM_PROJECT_BASE_IMAGE     = 'ubuntu:focal'
+LLVM_PROJECT_BASE_IMAGE     = 'ubuntu:jammy'
 LLVM_PROJECT_WATCH_IMAGE    = 'llvm-project-watch'
 LLVM_PROJECT_GITHUB_URL     = 'https://api.github.com/repos/llvm/llvm-project'
 LLVM_PROJECT_SHA1_REGEX     = 'git checkout ([0-9a-f]+)'

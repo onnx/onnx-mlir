@@ -98,6 +98,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(onnxConstPropReport));
 
+  // Replace ONNXReturnOp with func::ReturnOp.
+  pm.addPass(onnx_mlir::createStandardFuncReturnPass());
+
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
 
@@ -156,8 +159,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
       onnx_mlir::krnl::createConvertKrnlToAffinePass());
 }
 
-void addKrnlToLLVMPasses(
-    mlir::OpPassManager &pm, bool enableCSE, bool verifyInputTensors) {
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE) {
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
@@ -191,7 +193,9 @@ void addKrnlToLLVMPasses(
   pm.addNestedPass<func::FuncOp>(mlir::createConvertSCFToCFPass());
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
-  pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors));
+  pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
+      /*useOpaquePointers=*/true,
+      /*useLRODATA=*/(modelSize == ModelSize::large)));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
@@ -266,7 +270,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     addONNXToTorchPasses(pm, OptimizationLevel);
 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
-    addKrnlToLLVMPasses(pm, /*enableCSE=*/true, verifyInputTensors);
+    addKrnlToLLVMPasses(pm, /*enableCSE=*/true);
 }
 
 } // namespace onnx_mlir

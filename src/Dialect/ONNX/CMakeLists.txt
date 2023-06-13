@@ -27,11 +27,11 @@ add_onnx_mlir_library(OMONNXOps
   Rewrite.cpp
 
   # Support for shape inference and verifiers
-  ONNXOps/Additional/CallOp.cpp
   ONNXOps/Additional/ConcatShapeTranspose.cpp
   ONNXOps/Additional/Custom.cpp
   ONNXOps/Additional/Dim.cpp
   ONNXOps/Additional/EntryPoint.cpp
+  ONNXOps/Additional/Return.cpp
   ONNXOps/Additional/LayoutTransform.cpp
   ONNXOps/Additional/None.cpp
   ONNXOps/Additional/ShapeTransform.cpp
@@ -48,7 +48,6 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Math/ElementwiseUnary.cpp
   ONNXOps/Math/Gemm.cpp
   ONNXOps/Math/HardMax.cpp
-  ONNXOps/Math/IsInf.cpp
   ONNXOps/Math/IsNan.cpp
   ONNXOps/Math/LRN.cpp
   ONNXOps/Math/MatMul.cpp

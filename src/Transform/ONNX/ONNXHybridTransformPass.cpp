@@ -31,7 +31,7 @@ namespace {
 // inference cascades through the ops from the graph's inputs to outputs, and
 // recursively into subgraphs. Ops with subgraphs, namely if/loop/scan, are
 // matched by the first pattern before the pass recurses into the subgraph. The
-// recursive subgraph pass ends with the ONNXReturnOp whose pattern reruns shape
+// recursive subgraph pass ends with the ONNXYieldOp whose pattern reruns shape
 // inference for the parent if/loop/scan op. The effect is that the 2 or 3 runs
 // of the parent if/loop/scan op accomplish two phases of shape propagation to
 // and from the subgraph(s): The first run propagates input shapes from the

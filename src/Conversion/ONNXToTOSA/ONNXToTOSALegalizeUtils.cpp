@@ -63,7 +63,7 @@ mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
 mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val) {
     if (auto source = val.getDefiningOp<mlir::ONNXConstantOp>()) {
       if (source.getValue())
-        return source.getValue().value(); 
+        return cast<mlir::ElementsAttr>(source.getValue().value());
     }
     // if the constant is not an onnx.const it has to be a tosa.const
     assert(val.getDefiningOp<mlir::tosa::ConstOp>());

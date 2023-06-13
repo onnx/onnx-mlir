@@ -409,13 +409,13 @@ void IndexExprImpl::getAffineMapAndOperands(
   }
   // Non Affine, check if by any chance we have a min / max, in which case we
   // will extract the correct info.
-  if (AffineMinOp affineMinOp = getValue().getDefiningOp<AffineMinOp>()) {
+  if (auto affineMinOp = getValue().getDefiningOp<affine::AffineMinOp>()) {
     map = affineMinOp.getAffineMap();
     for (Value val : affineMinOp.getMapOperands())
       operands.emplace_back(val);
     return;
   }
-  if (AffineMaxOp affineMaxOp = getValue().getDefiningOp<AffineMaxOp>()) {
+  if (auto affineMaxOp = getValue().getDefiningOp<affine::AffineMaxOp>()) {
     map = affineMaxOp.getAffineMap();
     for (Value val : affineMaxOp.getMapOperands())
       operands.emplace_back(val);
@@ -469,7 +469,7 @@ Value IndexExprImpl::getValue() {
     // list, and then use the apply.
     SmallVector<Value, 4> list;
     getScope().getDimAndSymbolList(list);
-    value = getRewriter().create<AffineApplyOp>(getLoc(), map, list);
+    value = getRewriter().create<affine::AffineApplyOp>(getLoc(), map, list);
   } else if (isQuestionmark()) {
     // There are cases where shape inference cannot determine the size even at
     // runtime before running some specialized computations. For example,

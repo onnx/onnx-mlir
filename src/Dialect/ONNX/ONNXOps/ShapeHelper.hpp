@@ -75,7 +75,8 @@ struct ONNXUnimplementedOpShapeHelper : public ONNXOpShapeHelper {
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXUnimplementedOpShapeHelper() {}
 
-  mlir::LogicalResult computeShape() final { return mlir::failure(); }
+  bool isImplemented() override { return false; }
+  mlir::LogicalResult computeShape() final { return mlir::success(); }
 };
 
 // Classes for unsupported ops, including shape inference and shape helpers.
@@ -105,20 +106,202 @@ using ONNXSplitToSequenceOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reas
 // clang-format on
 
 //===----------------------------------------------------------------------===//
+// Broadcast Ops
+//===----------------------------------------------------------------------===//
+
+// Compute a broadcasted shape from the shapes of given operands. Operands must
+// be ranked in advance.
+struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXBroadcastOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr,
+      bool hasUniBroadcasting = false)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope), inputsDims(),
+        outputRank(0), hasUniBroadcasting(hasUniBroadcasting) {}
+  virtual ~ONNXBroadcastOpShapeHelper() {}
+
+  // Custom shape compute which takes additional parameters.
+  mlir::LogicalResult customComputeShape(
+      mlir::ValueRange initialOperands, DimsExpr *additionalOperand);
+
+  // Default shape compute (every operands of the operation and no additional
+  // parameters).
+  mlir::LogicalResult computeShape() override {
+    return customComputeShape(operands, nullptr);
+  }
+
+  // Compute access indices to load/store value from/to a given 'operand'.
+  // Used in a loop to access the operand.
+  // Parameters:
+  //   - operand: operand to access.
+  //   - i: index of the operand in Index Expr Dims 'this->inputsDims'.
+  //   - loopAccessExprs: IndexExprs for the loop's IVs.
+  //   - operandAccessExprs: access indices to access the operand.
+  //     This is the output of this function. Use it in subsequent load/stores.
+  //   - flattenedInnerDims: whether the innermost dimension corresponds to a
+  //   collapsed/flattened loop index or not.
+  //   - ruledOutBroadcast: determined using shape analysis that there is no
+  //     broadcasting here.
+  virtual mlir::LogicalResult getAccessExprs(mlir::Value operand, int64_t i,
+      const llvm::SmallVectorImpl<IndexExpr> &loopAccessExprs,
+      llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs,
+      bool flattenedInnerDims = false, bool ruledOutBroadcast = false);
+
+  // Determine if broadcast can be ruled out at compile time. Use DimAnalysis
+  // when available. Broadcasting is defined if one value of one input is used
+  // two or more times with a value of another input (when only looking at the
+  // tensors, not the actual algorithms).
+  //
+  // Examples with broadcasts:
+  // * 2x5xf32 and 1x5xf32 has broadcast as the second input's value are used
+  //   for each of the two instances of 5xf32 in the first input.
+  // * Same holds for 2x5xf32 and 5xf32 as shorter ranked
+  //   inputs are extended by prepending 1x.
+  //
+  // Example without broadcast:
+  // * 3x5xf32 and 3x5xf32 have no broadcast.
+  // * 1x5xf32 and 5xf32 have also no broadcast as prepending 1x results as
+  //   comparing 1x5xf32 with 1x5xf32.
+  virtual bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
+
+  // Determine if the broadcast operation has operands with different ranks.
+  // Use DimAnalysis when available. The broadcasting will then add dimensions
+  // with size 1.
+  //
+  // Examples with rank broadcast:
+  // * 2x5xf32 and 5xf32 has rank broadcast for the second type. It will be
+  // interpreted as 1x5xf32
+  //
+  // Examples without rank broadcast:
+  // * 2x5xf32 and 1x5xf32 does not have rank boadcasting because the ranks are
+  // already equal
+  virtual bool hasRankBroadcast();
+
+  // Determine of the broadcast operation has manageable broadcast (MB), and if
+  // so, at which level/rank. We first attempt to see if the innermost dimension
+  // has MB, and if it does, we then attempt to test at the next innermost
+  // level... until we fail or we run out of dimensions.
+  //
+  // Manageable broadcast (MB) is either that:
+  //   1) we have no broadcast up to that level, or
+  //   2) we have scalars up to that level being broadcasted.
+  //
+  // The function return true if there is some MB, and then
+  // * collapsedInnermostLoops: indicates how many inner loops are involved in
+  //   the MB. They are named "collapsed" as in the SIMD code execution, we may
+  //   collapse these dimensions in a single long iteration. For example,
+  //   `0x?x4x5` and `0x?x4x5` have a collapsedInnermostLoops==2 (if the two `?`
+  //   cannot be shown as equals). This means that we may implement operations
+  //   on these inputs as `?x20` and `?x20` respectively.
+  // * collapsedLiteralSize: cumulative static size of the collapsed inner
+  //   loops.
+  // * collapsedDynamicSize: cumulative dynamic size of the collapsed inner
+  //   loops.
+  //
+  // Below are examples of Manageable Broadcast (MB) at a given
+  // collapsedInnermostLoops (CIL) level.
+  //
+  // What is a scalar: `4x2x1x1 is scalar at CIL==1 and 2, but not 3 and 4.
+  //
+  //  - (?1, 1, 4, 1) and (10, 1, 4, 1) have MB at CIL 1, 2, 3, not 4,
+  //    unless dynamic analysis can show ?1 to be equal to 10 (unlikely).
+  //  - (?1, 1, ?2, 1) and (10, 1, ?3, 1) have MB at CIL 1 and at 2
+  //    if dynamic analysis can show ?2 and ?3 to be the same.
+  //  - (1, 4, 1) and (2, 4, 1) have MB at CIL 1 and 2, but not 3 as
+  //    there is broadcasting (1 vs 2) at CIL 3... but the first
+  //    operand is not a scalar at CIL 3.
+  //  - (1, 1, 1) and (2, 4, 1) have MB at CIL 1, 2, and 3 as there is
+  //    broadcast at inner dim 2 and 3, and the first operand is a scalar at
+  //    CIL 1, 2, and 3.
+  // - (1,3) and (1, 1) have MB at CIL 1; technically, CIL 2 is also a MB but
+  //    there is nothing to be gained by collapsing dimensions where all
+  //    inputs have dimensions of 1. We thus do not include them in our CILs.
+  virtual bool hasManageableBroadcastForInnerDims(
+      int64_t &collapsedInnermostLoops, int64_t &collapsedLiteralSize,
+      IndexExpr &collapsedDynamicSize, DimAnalysis *dimAnalysis);
+
+  // A vector of input shapes where dimensions are padded with 1 if necessary,
+  // so that all inputs have the same rank. Instantiated during ComputeShape.
+  llvm::SmallVector<DimsExpr, 4> inputsDims;
+  // A vector of IndexExprs representing the output shape (same rank as
+  // outputDims). Instantiated  during computeShape.
+  uint64_t outputRank;
+
+protected:
+  // When unidirectional broadcasting is true, the other operands are always
+  // unidirectional broadcastable to the first operand.
+  bool hasUniBroadcasting;
+};
+
+// clang-format off
+using ONNXAddOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXAndOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXBitwiseAndOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXBitwiseOrOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXBitwiseXorOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXBitShiftOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXDivOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXEqualOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXGreaterOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXGreaterOrEqualOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXLessOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXLessOrEqualOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXMaxOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXMeanOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXMinOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXModOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXMulOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXOrOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXPowOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXSubOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXSumOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXWhereOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXXorOpShapeHelper = ONNXBroadcastOpShapeHelper;
+// clang-format on
+
+// Helper for ExpandOp
+struct ONNXExpandOpShapeHelper : public ONNXBroadcastOpShapeHelper {
+  ONNXExpandOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXExpandOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+// Helper for ONNXPReluOp
+struct ONNXPReluOpShapeHelper : public ONNXBroadcastOpShapeHelper {
+  ONNXPReluOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope,
+            /*hasUniBroadcasting*/ true) {}
+  virtual ~ONNXPReluOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final {
+    return ONNXBroadcastOpShapeHelper::computeShape();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Unary Ops
 //===----------------------------------------------------------------------===//
 
 /// Compute an output shape for a unary element-wise operation. The output and
 /// input of an unary element-wise operation have the same shape.
-struct ONNXUnaryOpShapeHelper : public ONNXOpShapeHelper {
+struct ONNXUnaryOpShapeHelper : public ONNXBroadcastOpShapeHelper {
   ONNXUnaryOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
-      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+      : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXUnaryOpShapeHelper() {}
 
-  mlir::LogicalResult computeShape() final {
-    return setOutputDimsFromOperand(operands[0]);
-  }
+  mlir::LogicalResult computeShape() final;
+
+  // Inherited methods that return trivial results
+  mlir::LogicalResult getAccessExprs(mlir::Value operand, int64_t i,
+      const llvm::SmallVectorImpl<IndexExpr> &loopAccessExprs,
+      llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs,
+      bool flattenedInnerDims = false, bool ruledOutBroadcast = false) override;
+  bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr) override;
+  bool hasManageableBroadcastForInnerDims(int64_t &collapsedInnermostLoops,
+      int64_t &collapsedLiteralSize, IndexExpr &collapsedDynamicSize,
+      DimAnalysis *dimAnalysis) override;
 };
 
 // Handle shape inference for unary element-wise operators. Perform the entire
@@ -192,105 +375,6 @@ using ONNXTanhOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXThresholdedReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTriluOpShapeHelper = ONNXUnaryOpShapeHelper;
 // clang-format on
-
-//===----------------------------------------------------------------------===//
-// Broadcast Ops
-//===----------------------------------------------------------------------===//
-
-// Compute a broadcasted shape from the shapes of given operands. Operands must
-// be ranked in advance.
-struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
-  ONNXBroadcastOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
-      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr,
-      bool hasUniBroadcasting = false)
-      : ONNXOpShapeHelper(op, operands, ieBuilder, scope), inputsDims(),
-        outputRank(0), hasUniBroadcasting(hasUniBroadcasting) {}
-  virtual ~ONNXBroadcastOpShapeHelper() {}
-
-  // Custom shape compute which takes additional parameters.
-  mlir::LogicalResult customComputeShape(
-      mlir::ValueRange initialOperands, DimsExpr *additionalOperand);
-
-  // Default shape compute (every operands of the operation and no additional
-  // parameters).
-  mlir::LogicalResult computeShape() override {
-    return customComputeShape(operands, nullptr);
-  }
-
-  // Compute access indices to load/store value from/to a given 'operand'.
-  // Used in a loop to access the operand.
-  // Parameters:
-  //   - operand: operand to access.
-  //   - operandIndex: index of the operand in 'this->inputsDims'.
-  //   - loopAccessExprs: IndexExprs for the loop's IVs.
-  //   - operandAccessExprs: access indices to access the operand.
-  //     This is the output of this function. Use it in subsequent load/stores.
-  mlir::LogicalResult getAccessExprs(mlir::Value operand, uint64_t i,
-      const llvm::SmallVectorImpl<IndexExpr> &outputAccessExprs,
-      llvm::SmallVectorImpl<IndexExpr> &operandAccessExprs,
-      bool hasNoBroadcast = false);
-
-  bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
-
-  // A vector of input shapes where dimensions are padded with 1 if necessary,
-  // so that all inputs have the same rank. Instantiated during ComputeShape.
-  llvm::SmallVector<DimsExpr, 4> inputsDims;
-  // A vector of IndexExprs representing the output shape (same rank as
-  // outputDims). Instantiated  during computeShape.
-  uint64_t outputRank;
-
-protected:
-  // When unidirectional broadcasting is true, the other operands are always
-  // unidirectional broadcastable to the first operand.
-  bool hasUniBroadcasting;
-};
-
-// clang-format off
-using ONNXAddOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXAndOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXBitwiseAndOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXBitwiseOrOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXBitwiseXorOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXBitShiftOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXDivOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXEqualOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXGreaterOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXGreaterOrEqualOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXLessOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXLessOrEqualOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXMaxOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXMeanOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXMinOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXModOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXMulOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXOrOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXPowOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXSubOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXSumOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXWhereOpShapeHelper = ONNXBroadcastOpShapeHelper;
-using ONNXXorOpShapeHelper = ONNXBroadcastOpShapeHelper;
-// clang-format on
-
-// Helper for ExpandOp
-struct ONNXExpandOpShapeHelper : public ONNXBroadcastOpShapeHelper {
-  ONNXExpandOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
-      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
-      : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope) {}
-  virtual ~ONNXExpandOpShapeHelper() {}
-  mlir::LogicalResult computeShape() final;
-};
-
-// Helper for ONNXPReluOp
-struct ONNXPReluOpShapeHelper : public ONNXBroadcastOpShapeHelper {
-  ONNXPReluOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
-      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
-      : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope,
-            /*hasUniBroadcasting*/ true) {}
-  virtual ~ONNXPReluOpShapeHelper() {}
-  mlir::LogicalResult computeShape() final {
-    return ONNXBroadcastOpShapeHelper::computeShape();
-  }
-};
 
 //===----------------------------------------------------------------------===//
 // Shape op
@@ -535,6 +619,7 @@ struct ONNXCommonSplitOpShapeHelper : public ONNXOpShapeHelper {
 // clang-format off
 using ONNXSplitOpShapeHelper = ONNXCommonSplitOpShapeHelper<mlir::ONNXSplitOp>;
 using ONNXSplitV11OpShapeHelper = ONNXCommonSplitOpShapeHelper<mlir::ONNXSplitV11Op>;
+using ONNXSplitV13OpShapeHelper = ONNXCommonSplitOpShapeHelper<mlir::ONNXSplitV13Op>;
 // clang-format on
 
 //===----------------------------------------------------------------------===//
@@ -672,8 +757,8 @@ struct ONNXResizeOpShapeHelper : public ONNXOpShapeHelper {
   virtual ~ONNXResizeOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Values set by computeShape: scales is a float index expression. It is
-  // directly the `scale` argument when scale is provided by the op. When `size`
-  // is provided, then scale is float(`size`)/float(dim).
+  // directly the `scale` argument when scale is provided by the op. When
+  // `size` is provided, then scale is float(`size`)/float(dim).
   llvm::SmallVector<IndexExpr, 4> scales;
 };
 

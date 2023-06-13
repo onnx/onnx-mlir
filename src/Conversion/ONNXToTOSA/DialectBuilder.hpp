@@ -40,6 +40,8 @@ struct TosaBuilder : DialectBuilder {
   llvm::Optional<mlir::Value> gather(mlir::Value resultValue,
       mlir::Value inputValue, mlir::Value indicesValue, int32_t batchDims,
       int32_t axis);
+  template <typename T>
+  mlir::Value binaryOp(mlir::Value &lhs, mlir::Value &rhs);
   mlir::Value mul(mlir::Value &lhs, mlir::Value &rhs, int32_t shift = 0);
 
   mlir::Value transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm);
@@ -72,6 +74,9 @@ struct TosaBuilder : DialectBuilder {
     return getConst(zpVec, tmpTensor);
   }
 
+  // Adds reshape ops to expand the rank to the max rank of the values.
+  llvm::SmallVector<mlir::Value, 4> equalizeRanks(mlir::ValueRange valueRange);
+
 protected:
   template <typename T>
   bool testNumberOfElementsMatch(
@@ -84,6 +89,7 @@ protected:
       llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape, mlir::Type &type);
 
   mlir::Value expandRank(mlir::Value input, int64_t rank);
+  bool needsRankBroadcast(mlir::ValueRange valueRange);
 
   // Private getters of builder (concise version).
   mlir::PatternRewriter &rewriter() const {
