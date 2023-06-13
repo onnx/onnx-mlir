@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//============================-- FloatingPoint16.cpp ---======================//
+//=======================-- TestFloatingPoint16.cpp ---=======================//
 //
 // Tests FloatingPoint16.
 //
