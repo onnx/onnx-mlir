@@ -10,6 +10,8 @@
 
 #include "src/Support/FloatingPoint16.hpp"
 
+#include <benchmark/benchmark.h>
+
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -86,9 +88,51 @@ public:
   }
 };
 
+template <typename FP16>
+void BM_F32_TO_FP16(benchmark::State &state) {
+  uint32_t u16max = std::numeric_limits<uint16_t>::max();
+  float f32s[u16max + 1];
+  for (uint32_t u = 0; u <= u16max; ++u) {
+    f32s[u] = FP16::bitcastFromU16(u).toFloat();
+  }
+  for (auto _ : state) {
+    // This code gets timed
+    uint16_t u16 = 0;
+    for (uint32_t u = 0; u <= u16max; ++u) {
+      benchmark::DoNotOptimize(u16 += FP16::fromFloat(f32s[u]).bitcastToU16());
+    }
+  }
+}
+BENCHMARK(BM_F32_TO_FP16<float_16>);
+BENCHMARK(BM_F32_TO_FP16<bfloat_16>);
+
+template <typename FP16>
+void BM_FP16_TO_F32(benchmark::State &state) {
+  uint32_t u16max = std::numeric_limits<uint16_t>::max();
+  FP16 fp16s[u16max + 1];
+  for (uint32_t u = 0; u <= u16max; ++u) {
+    fp16s[u] = FP16::bitcastFromU16(u);
+  }
+  for (auto _ : state) {
+    // This code gets timed
+    float f32 = 0.0;
+    for (uint32_t u = 0; u <= u16max; ++u) {
+      benchmark::DoNotOptimize(f32 += fp16s[u].toFloat());
+    }
+  }
+}
+BENCHMARK(BM_FP16_TO_F32<float_16>);
+BENCHMARK(BM_FP16_TO_F32<bfloat_16>);
+
 } // namespace
 
 int main(int argc, char *argv[]) {
+  ::benchmark::Initialize(&argc, argv);
+  if (::benchmark::ReportUnrecognizedArguments(argc, argv))
+    return 1;
+  ::benchmark::RunSpecifiedBenchmarks();
+  ::benchmark::Shutdown();
+
   Test test;
   int failures = 0;
   failures += test.test_two_values();

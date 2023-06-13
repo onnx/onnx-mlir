@@ -7,6 +7,7 @@ add_onnx_mlir_executable(TestFloatingPoint16
 
   LINK_LIBS PRIVATE
   OMONNXOps
+  benchmark
   )
 
 add_test(NAME TestFloatingPoint16 COMMAND TestFloatingPoint16)
