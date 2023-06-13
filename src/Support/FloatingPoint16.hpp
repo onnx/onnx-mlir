@@ -29,14 +29,17 @@ public:
   constexpr FP16Base() : u16() {}
   constexpr explicit FP16Base(const FP16 &f16) : u16(f16.u16) {}
   // Support static_cast<FP16>(X) for any x that is convertible to float.
+  // Use FP16::fromFloat() in case FP16 overrides fromFloat().
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, FP16>>>
   explicit FP16Base(const T &x)
-      : u16(fromAPFloat(llvm::APFloat(static_cast<float>(x))).u16) {}
+      : FP16Base(FP16::fromFloat(static_cast<float>(x))) {}
 
   // Support static_cast<T>(*this) for any T that float converts to.
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, FP16>>>
   explicit operator T() const {
-    return static_cast<float>(toFloat());
+    // Down cast in case FP16 overrides FP16::toFloat().
+    FP16 fp = FP16::bitcastFromU16(u16);
+    return static_cast<float>(fp.toFloat());
   }
 
   llvm::APFloat toAPFloat() const;
