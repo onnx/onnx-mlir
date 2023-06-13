@@ -20,7 +20,7 @@
 //
 // Table for elements
 //
-typedef struct elementTable {
+typedef struct uniqueTable {
   uint64_t elementSize;
   uint64_t elementMax;
   uint64_t elementCount;
@@ -28,24 +28,26 @@ typedef struct elementTable {
   int64_t *indicesPtr;
   int64_t *inverse_indicesPtr;
   int64_t *countsPtr;
-} elementTable;
+} uniqueTable;
 
-#define elementTableInit(table, elemSize, elemMax, tablePtr, indicesPtr,       \
-    inverse_indicesPtr, countsPtr)                                             \
-  do {                                                                         \
-    (table)->elementSize = (elemSize);                                         \
-    (table)->elementMax = (elemMax);                                           \
-    (table)->elementCount = 0;                                                 \
-    (table)->tablePtr = (tablePtr);                                            \
-    (table)->indicesPtr = (int64_t *)(indicesPtr);                             \
-    (table)->inverse_indicesPtr = (int64_t *)(inverse_indicesPtr);             \
-    (table)->countsPtr = (int64_t *)(countsPtr);                               \
-  } while (0)
+void uniqueTableInit(uniqueTable *table, uint64_t elemSize, uint64_t elemMax,
+    void *tablePtr, int64_t *indicesPtr, int64_t *inverse_indicesPtr,
+    int64_t *countsPtr) {
+  (table)->elementSize = elemSize;
+  (table)->elementMax = elemMax;
+  (table)->elementCount = 0;
+  (table)->tablePtr = tablePtr;
+  (table)->indicesPtr = indicesPtr;
+  (table)->inverse_indicesPtr = inverse_indicesPtr;
+  (table)->countsPtr = countsPtr;
+}
 
-int elementTableRegister(elementTable *table, void *element, uint64_t off) {
+int uniqueTableRegister(uniqueTable *table, void *element, uint64_t off) {
   char *tablePtr = (char *)table->tablePtr;
   uint64_t i;
   int found = 0;
+  // Searching for matching data in linear search
+  // More optimizations, such as introducing hash table, are considerable.
   for (i = 0; i < table->elementCount; i++) {
     void *elementInTable = (void *)(tablePtr + table->elementSize * i);
     if (!memcmp(elementInTable, element, table->elementSize)) {
@@ -69,17 +71,74 @@ int elementTableRegister(elementTable *table, void *element, uint64_t off) {
   return found;
 }
 
-int64_t elementTable_count(elementTable *table) { return table->elementCount; }
+int64_t uniqueTable_count(uniqueTable *table) { return table->elementCount; }
+
+void getSliceData(void *inputPtr, int64_t *shape, int64_t *strides, int64_t rank,
+    int64_t *shapeInUniqueAxis, int64_t sliceAxis, int64_t idxInSliceAxis,
+    int64_t sliceSize, int64_t dataSize, void *sliceData) {
+  assert(rank == 6 && "rank should be expanded to 6 in getSliceData");
+#if 0
+printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
+       "shape=[%ld:%ld:%ld:%ld:%ld:%ld], "
+       "strides=[%ld:%ld:%ld:%ld:%ld:%ld], rank=%ld, "
+       "shapeInUniqueAxis=[%ld:%ld:%ld:%ld:%ld:%ld], "
+       "sliceAxis=%ld, idxInSliceAxis=%ld, sliceSize=%ld, dataSize=%ld\n",
+       ((uint64_t *) inputPtr)[0], ((uint64_t *) inputPtr)[1], 
+       ((uint64_t *) inputPtr)[2], ((uint64_t *) inputPtr)[3], 
+       ((uint64_t *) inputPtr)[4], ((uint64_t *) inputPtr)[5], 
+       ((uint64_t *) inputPtr)[6], ((uint64_t *) inputPtr)[7], 
+       ((uint64_t *) inputPtr)[8],
+       shape[0], shape[1], shape[2], shape[3], shape[4], shape[5],
+       strides[0], strides[1], strides[2], strides[3], strides[4], strides[5],
+       rank, shapeInUniqueAxis[0], shapeInUniqueAxis[1], shapeInUniqueAxis[2],
+       shapeInUniqueAxis[3], shapeInUniqueAxis[4], shapeInUniqueAxis[5],
+       sliceAxis, idxInSliceAxis, sliceSize, dataSize);
+#endif  
+  // Gather all data in the slice
+  int dim[6];
+  int dataCount = 0;
+  for (dim[0] = 0; dim[0] < shapeInUniqueAxis[0]; dim[0]++) {
+    for (dim[1] = 0; dim[1] < shapeInUniqueAxis[1]; dim[1]++) {
+      for (dim[2] = 0; dim[2] < shapeInUniqueAxis[2]; dim[2]++) {
+        for (dim[3] = 0; dim[3] < shapeInUniqueAxis[3]; dim[3]++) {
+          for (dim[4] = 0; dim[4] < shapeInUniqueAxis[4]; dim[4]++) {
+            for (dim[5] = 0; dim[5] < shapeInUniqueAxis[5]; dim[5]++) {
+              int tdim[6];
+              for (int i = 0; i < 6; i++)
+                tdim[i] = dim[i];
+              tdim[sliceAxis] = idxInSliceAxis;
+              uint64_t currOff = 
+                  tdim[0] * strides[0] + tdim[1] * strides[1] +
+                  tdim[2] * strides[2] + tdim[3] * strides[3] +
+                  tdim[4] * strides[4] + tdim[5] * strides[5];
+              void *currInputPtr = ((char *)inputPtr) + currOff * dataSize;
+              void *currSliceData = ((char *)sliceData) + dataCount * dataSize;
+              memcpy(currSliceData, currInputPtr, dataSize);
+              dataCount++;
+            }
+          }
+        }
+      }
+    }
+  }
+#if 0
+  printf("XXXX getSliceData returning: [");
+  for (int i = 0; i < dataCount; i++) {
+    printf("%ld,", ((uint64_t *) sliceData)[i]);
+  }
+  printf("] =============================================================\n");
+#endif
+}
 
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
-    int64_t inputAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
+    int64_t sliceAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
     OMTensor *inverse_indices, OMTensor *counts) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const int64_t inputRank = omTensorGetRank(inputTensor);
   assert(inputRank <= 6 && "omTensorUnique assumes inputRank <= 6");
   int64_t *totalPtr = (int64_t *)omTensorGetDataPtr(totalTensor);
   const int64_t *inputShape = omTensorGetShape(inputTensor);
-  const int64_t *inputStrides = omTensorGetStrides(inputTensor);
+  const int64_t *inputStrides = omTensorGetStrides(inputTensor);  
   void *inputPtr = omTensorGetDataPtr(inputTensor);
   void *YPtr = (Y != NULL) ? omTensorGetDataPtr(Y) : NULL;
   void *indicesPtr = (indices != NULL) ? omTensorGetDataPtr(indices) : NULL;
@@ -89,22 +148,24 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
   uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
 
   int count = 0;
-  if (inputAxis < 0) { // manage the inputTensor as flatten one
+  if (sliceAxis < 0) { // if slice attribute is not specified
+    // manage the inputTensor as flatten one
     uint64_t elementNum = 1;
     for (int64_t i = 0; i < inputRank; i++) {
       elementNum *= inputShape[i];
     }
-    elementTable elementTable;
+    uniqueTable uniqueTable;
     void *tablePtr = (YPtr == NULL) ? alloca(dataSize * elementNum) : YPtr;
-    elementTableInit(&elementTable, dataSize, elementNum, tablePtr, indicesPtr,
-        inverse_indicesPtr, countsPtr);
+    uniqueTableInit(&uniqueTable, dataSize, elementNum, tablePtr,
+        (int64_t *)indicesPtr, (int64_t *)inverse_indicesPtr,
+        (int64_t *)countsPtr);
     for (uint64_t off = 0; off < elementNum; off++) {
       void *elemPtr = ((char *)inputPtr) + dataSize * off;
-      if (elementTableRegister(&elementTable, elemPtr, off) == 0) {
+      if (uniqueTableRegister(&uniqueTable, elemPtr, off) == 0) {
         count++;
       }
     }
-  } else {
+  } else { // if slice attribute is specified
     // To support input Tensor with various ranks in a uniform way.
     // If the input rank < 6, upgrade the rank to 6 virtually without changing
     // the physical memory layout by inserting length=1 ranks at lower ranks.
@@ -113,84 +174,39 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t shapeInUniqueAxis[6] = {1, 1, 1, 1, 1, 1};
     int64_t strides[6] = {0, 0, 0, 0, 0, 0};
     int64_t rank = 6;
-    int64_t axis = inputAxis + (rank - inputRank);
+    int64_t axis = sliceAxis + (rank - inputRank);
     for (int64_t i = 0; i < inputRank; i++) {
       shape[i + (rank - inputRank)] = inputShape[i];
       shapeInUniqueAxis[i + (rank - inputRank)] =
-          (i == axis) ? 1 : inputShape[i];
+          (i == sliceAxis) ? 1 : inputShape[i];
       strides[i + (rank - inputRank)] = inputStrides[i];
     }
-    int dimCurrInUniqueAxis, dimPrevInUniqueAxis;
-    int ansSize = dataSize * strides[5];
-    void *currAns = alloca(ansSize);
-    for (dimCurrInUniqueAxis = 0; dimCurrInUniqueAxis < shape[axis];
-         dimCurrInUniqueAxis++) {
-      for (dimPrevInUniqueAxis = 0; dimPrevInUniqueAxis < dimCurrInUniqueAxis;
-           dimPrevInUniqueAxis++) {
-        // compare prev and curr values to check if the curr values are unique
-        // or not.
-        int dim[6];
-        for (dim[0] = 0; dim[0] < shapeInUniqueAxis[0]; dim[0]++) {
-          for (dim[1] = 0; dim[1] < shapeInUniqueAxis[1]; dim[1]++) {
-            for (dim[2] = 0; dim[2] < shapeInUniqueAxis[2]; dim[2]++) {
-              for (dim[3] = 0; dim[3] < shapeInUniqueAxis[3]; dim[3]++) {
-                for (dim[4] = 0; dim[4] < shapeInUniqueAxis[4]; dim[4]++) {
-                  for (dim[5] = 0; dim[5] < shapeInUniqueAxis[5]; dim[5]++) {
-                    int dimCurr[6], dimPrev[6];
-                    for (int i = 0; i < 6; i++) {
-                      dimCurr[i] = dim[i];
-                      dimPrev[i] = dim[i];
-                    }
-                    dimCurr[axis] = dimCurrInUniqueAxis;
-                    dimPrev[axis] = dimPrevInUniqueAxis;
-                    uint64_t offCurr =
-                        dimCurr[0] * strides[0] + dimCurr[1] * strides[1] +
-                        dimCurr[2] * strides[2] + dimCurr[3] * strides[3] +
-                        dimCurr[4] * strides[4] + dimCurr[5] * strides[5];
-                    uint64_t offPrev =
-                        dimPrev[0] * strides[0] + dimPrev[1] * strides[1] +
-                        dimPrev[2] * strides[2] + dimPrev[3] * strides[3] +
-                        dimPrev[4] * strides[4] + dimPrev[5] * strides[5];
-                    void *dataCurr = ((char *)inputPtr) + dataSize * offCurr;
-                    void *dataPrev = ((char *)inputPtr) + dataSize * offPrev;
-                    if (memcmp(dataCurr, dataPrev, dataSize)) {
-                      goto mismatch_element_found;
-                    }
-                    void *currAnsData =
-                        ((char *)currAns) + dimCurrInUniqueAxis * dataSize;
-                    memcpy(currAnsData, dataCurr, dataSize);
-                  }
-                }
-              }
-            }
-          }
-        }
-      mismatch_element_found:
-        if (dim[0] == shapeInUniqueAxis[0]) {
-          // the previous and curr values in the specified axis are the same
-          break;
-        }
+    int64_t sliceNum = inputShape[sliceAxis];
+    int64_t sliceSize = 1;
+    for (int64_t i = 0; i < inputRank; i++)
+      sliceSize *= (i == sliceAxis) ? 1 : inputShape[i];
+    void *tablePtr = (YPtr == NULL) ? alloca(sliceSize * sliceNum) : YPtr;
+    uniqueTable sliceTable;
+    uniqueTableInit(&sliceTable, sliceSize * dataSize, sliceNum, tablePtr,
+        (int64_t *)indicesPtr, (int64_t *)inverse_indicesPtr,
+        (int64_t *)countsPtr);
+    for (int idxInSliceAxis = 0; idxInSliceAxis < sliceNum; idxInSliceAxis++) {
+      void *sliceData = alloca(sliceSize * dataSize);
+      getSliceData(inputPtr, shape, strides, rank, shapeInUniqueAxis, axis,
+          idxInSliceAxis, sliceSize, dataSize, sliceData);
+      if (uniqueTableRegister(&sliceTable, sliceData, idxInSliceAxis) == 0) {
+        count++;
       }
-      if (dimPrevInUniqueAxis == dimCurrInUniqueAxis) {
-        if (YPtr != NULL) {
-          void *currY = ((char *)YPtr) + dataSize * count;
-          memcpy(currY, currAns, ansSize);
-        }
-      }
-      // TODO: Fill values of return variables, such as Y, indices,
-      //       inverse_indices and counts
-      count++; // dimCurrInUniqueAxis is a unique dim in the unique axis
     }
   }
   *totalPtr = count;
-  for (int i = 0; i < count; i++) {
-  }
+  // printf("XXXX OMUnique: count = %d\n", count);
   return;
 }
 
 void omTensorUniqueCount(OMTensor *totalTensor, const OMTensor *inputTensor,
-    int64_t inputAxis, uint64_t sorted) {
+    int64_t sliceAxis, uint64_t sorted) {
   omTensorUnique(
-      totalTensor, inputTensor, inputAxis, sorted, NULL, NULL, NULL, NULL);
+      totalTensor, inputTensor, sliceAxis, sorted, NULL, NULL, NULL, NULL);
   return;
 }

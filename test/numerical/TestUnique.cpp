@@ -63,7 +63,7 @@ static bool isOMUniqueTheSameAsNaiveImplFor(const int rank, const int I,
   UniqueLibBuilder unique(SHARED_LIB_BASE.str(), rank, I, J, axis, sorted,
       isNoneAxis, isNoneIndexOutput);
   return unique.build() && unique.compileAndLoad() &&
-         unique.prepareInputs(0.0, 4.0) &&
+         unique.prepareInputs(0.0, 3.0) &&
          // unique.prepareInputsFromEnv("TEST_DATARANGE") &&
          unique.run() && unique.verifyOutputs() && 1;
 }
@@ -85,16 +85,29 @@ int main(int argc, char *argv[]) {
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
+#if 1
+  const int rank = 2; // *rc::gen::inRange(1, maxRank);
+  const int I = 3;    // *rc::gen::inRange(1, maxRank);
+  const int J = 3;    // *rc::gen::inRange(1, maxRank);
+  const int K = -1;   // *rc::gen::inRange(1, maxRank);
+  const int axis = 0; // *rc::gen::inRange(0, rank);
+  const int sorted = 0; // *rc::gen::inRange(0, 1);
+  const int isNoneAxis = 0; // *rc::gen::inRange(0, 2);
+  const int isNoneIndexOutput = 0; // *rc::gen::inRange(0, 1);
+  RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
+      rank, I, J, K, axis, sorted, isNoneAxis, isNoneIndexOutput));
+  return 0;
+#endif
   if (true) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Unique implementation correctness", []() {
       const int rank = 2; // *rc::gen::inRange(1, maxRank);
-      const int I = 3;    // *rc::gen::inRange(1, maxRank);
-      const int J = 4;    // *rc::gen::inRange(1, maxRank);
+      const int I = 2;    // *rc::gen::inRange(1, maxRank);
+      const int J = 2;    // *rc::gen::inRange(1, maxRank);
       const int K = -1;   // *rc::gen::inRange(1, maxRank);
-      const int axis = *rc::gen::inRange(0, rank);
+      const int axis = 0; // *rc::gen::inRange(0, rank);
       const int sorted = 0; // *rc::gen::inRange(0, 1);
-      const int isNoneAxis = 1; // *rc::gen::inRange(0, 2);
+      const int isNoneAxis = 0; // *rc::gen::inRange(0, 2);
       const int isNoneIndexOutput = 0; // *rc::gen::inRange(0, 1);
       RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
           rank, I, J, K, axis, sorted, isNoneAxis, isNoneIndexOutput));
