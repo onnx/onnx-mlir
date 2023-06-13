@@ -27,7 +27,8 @@ public:
 
     for (float f = fpmax; f >= fpmin; f /= 2) {
       float g = static_cast<float>(FP(f));
-      if (f != g) std::cout << f << " != " << g << "\n";
+      if (f != g)
+        std::cout << f << " != " << g << "\n";
       assert(f == static_cast<float>(FP(f)));
       assert(f == FP(f).toFloat());
       assert(-f == static_cast<float>(FP(-f)));
@@ -44,7 +45,8 @@ public:
   }
 
   template <typename FP>
-  int test_fp_equals(const char *fp_name, float fpmin, float fpmax, bool hasNegativeZero = true) {
+  int test_fp_equals(const char *fp_name, float fpmin, float fpmax,
+      bool hasNegativeZero = true) {
     std::cout << "test_fp_equals " << fp_name << ":" << std::endl;
 
     // 0 equals minus 0:
@@ -67,7 +69,8 @@ public:
       for (float f32 = fpmax; f32 >= fpmin; f32 /= 2) {
         FP fp = FP::fromFloat(f32);
         unsigned v = fp.bitcastToUInt();
-        if (!(u == v || uf != fp)) std::cout << u << " != " << v << "\n";
+        if (!(u == v || uf != fp))
+          std::cout << u << " != " << v << "\n";
         assert(u == fp.bitcastToUInt() || uf != fp);
         FP fpneg = FP::fromFloat(-f32);
         assert(u == fpneg.bitcastToUInt() || uf != fpneg);
@@ -88,13 +91,18 @@ int main(int argc, char *argv[]) {
   const float fp8min = 0.005f;
   const float fp8max = 192.0f;
   failures += test.test_fp_cast<float_8e4m3fn>("float_8e4m3fn", fp8min, fp8max);
-  failures += test.test_fp_equals<float_8e4m3fn>("float_8e4m3fn", fp8min, fp8max);
-  failures += test.test_fp_cast<float_8e4m3fnuz>("float_8e4m3fnuz", fp8min, fp8max);
-  failures += test.test_fp_equals<float_8e4m3fnuz>("float_8e4m3fnuz", fp8min, fp8max, noNegZero);
+  failures +=
+      test.test_fp_equals<float_8e4m3fn>("float_8e4m3fn", fp8min, fp8max);
+  failures +=
+      test.test_fp_cast<float_8e4m3fnuz>("float_8e4m3fnuz", fp8min, fp8max);
+  failures += test.test_fp_equals<float_8e4m3fnuz>(
+      "float_8e4m3fnuz", fp8min, fp8max, noNegZero);
   failures += test.test_fp_cast<float_8e5m2>("float_8e5m2", fp8min, fp8max);
   failures += test.test_fp_equals<float_8e5m2>("float_8e5m2", fp8min, fp8max);
-  failures += test.test_fp_cast<float_8e5m2fnuz>("float_8e5m2fnuz", fp8min, fp8max);
-  failures += test.test_fp_equals<float_8e5m2fnuz>("float_8e5m2fnuz", fp8min, fp8max, noNegZero);
+  failures +=
+      test.test_fp_cast<float_8e5m2fnuz>("float_8e5m2fnuz", fp8min, fp8max);
+  failures += test.test_fp_equals<float_8e5m2fnuz>(
+      "float_8e5m2fnuz", fp8min, fp8max, noNegZero);
   const float fp16min = 5.96e-8f;
   const float fp16max = 32768.0f;
   failures += test.test_fp_cast<float_16>("float_16", fp16min, fp16max);

@@ -37,7 +37,8 @@ public:
   // Support static_cast<FP>(X) for any x that is convertible to float.
   // Use FP::fromFloat() in case FP overrides fromFloat().
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, FP>>>
-  explicit SmallFPBase(const T &x) : SmallFPBase(FP::fromFloat(static_cast<float>(x))) {}
+  explicit SmallFPBase(const T &x)
+      : SmallFPBase(FP::fromFloat(static_cast<float>(x))) {}
 
   // Support static_cast<T>(*this) for any T that float converts to.
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, FP>>>
