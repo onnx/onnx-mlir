@@ -104,6 +104,10 @@ LogicalResult ONNXExpandOp::inferShapes(
   if (!hasShapeAndRank(getInput()) || !hasShapeAndRank(getShape()))
     return success();
 
+  ShapedType shapeType = getShape().getType().dyn_cast_or_null<ShapedType>();
+  if (!shapeType || ShapedType::isDynamic(shapeType.getShape()[0]))
+    return success();
+
   Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXExpandOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);

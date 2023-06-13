@@ -18,4 +18,5 @@ const std::string kObjCopyPath = "@CMAKE_OBJCOPY@";
 const std::string kArPath = "@CMAKE_AR@";
 const std::string kJarPath = "@Java_JAR_EXECUTABLE@";
 const std::string kDefaultTriple = "@ONNX_MLIR_DEFAULT_TRIPLE@";
+const std::string kLrodataScript = R"(@ONNX_MLIR_LRODATA_SCRIPT@)";
 } // namespace onnx_mlir
