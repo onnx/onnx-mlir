@@ -175,14 +175,14 @@ bool UniqueLibBuilder::verifyOutputs() {
     cnt_ref = omTensorCreateWithShape<int64_t>({int64_total});
   } else if (int64_axis == 0) {
     y_ref = omTensorCreateWithShape<int64_t>({int64_total, J});
-    ind_ref = omTensorCreateWithShape<int64_t>({int64_total, J});
+    ind_ref = omTensorCreateWithShape<int64_t>({int64_total});
     inv_ind_ref = omTensorCreateWithShape<int64_t>({I});
-    cnt_ref = omTensorCreateWithShape<int64_t>({int64_total, J});
+    cnt_ref = omTensorCreateWithShape<int64_t>({int64_total});
   } else if (int64_axis == 1) {
     y_ref = omTensorCreateWithShape<int64_t>({I, int64_total});
-    ind_ref = omTensorCreateWithShape<int64_t>({I, int64_total});
+    ind_ref = omTensorCreateWithShape<int64_t>({int64_total});
     inv_ind_ref = omTensorCreateWithShape<int64_t>({J});
-    cnt_ref = omTensorCreateWithShape<int64_t>({I, int64_total});
+    cnt_ref = omTensorCreateWithShape<int64_t>({int64_total});
   } else {
     printf("UniqueLibBuilder::verifyOutputs: invalid axis==%ld\n", int64_axis);
     return false;
@@ -198,22 +198,18 @@ bool UniqueLibBuilder::verifyOutputs() {
   omTensorPrint("INPUT=[\n", x);
   omTensorPrint("], Y_REF=[\n", y_ref);
   omTensorPrint("], Y_OUT=[\n", y_res);
-#if 0
   omTensorPrint("], IND_REF=[\n", ind_ref);
   omTensorPrint("], IND_OUT=[\n", ind_res);
   omTensorPrint("], INV_IND_REF=[\n", inv_ind_ref);
   omTensorPrint("], INV_IND_OUT=[\n", inv_ind_res);
   omTensorPrint("], CNT_REF=[\n", cnt_ref);
   omTensorPrint("], CNT_OUT=[\n", cnt_res);
-#endif
   printf("]\n");
   fflush(stdout);
   bool ok = areCloseFloat(y_res, y_ref);
-#if 0
   ok &= areCloseFloat(ind_res, ind_ref);
   ok &= areCloseFloat(inv_ind_res, inv_ind_ref);
   ok &= areCloseFloat(cnt_res, cnt_ref);
-#endif
   //omTensorDestroy(y_ref);
   //omTensorDestroy(ind_ref);
   //omTensorDestroy(inv_ind_ref);
