@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include <stdint.h>
 
 // The NNPA maximum supported dimension index size value by using

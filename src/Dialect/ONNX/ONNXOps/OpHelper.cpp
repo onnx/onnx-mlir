@@ -299,6 +299,11 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
   return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
+void ArrayAttrIntVals(ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i) {
+  for (size_t k = 0; k < a.size(); ++k)
+    i.emplace_back((a.getValue()[k]).cast<IntegerAttr>().getInt());
+}
+
 ElementsAttr getElementAttributeFromONNXValue(Value value) {
   ONNXConstantOp constantOp = getONNXConstantOp(value);
   if (constantOp)
@@ -337,6 +342,8 @@ ArrayAttr CombinedTransposePattern(PatternRewriter &rewriter,
 /// Test if the permute pattern correspond to an identity pattern.
 /// Identity patterns are {0, 1, 2, ... , rank -1}.
 bool IsIdentityPermuteVector(ArrayAttr permAttr) {
+  if (!permAttr)
+    return false;
   int64_t currentIndex = 0;
   for (auto permVal : permAttr.getValue())
     if (permVal.cast<IntegerAttr>().getInt() != currentIndex++)
@@ -428,11 +435,6 @@ bool areDims(Value val) {
   // Value must be a 1D tensor.
   Type vType = val.getType();
   if (!(isRankedShapedType(vType) && (getRank(vType) == 1)))
-    return false;
-
-  // Dim must be i64.
-  Type elmTy = getElementType(vType);
-  if (!elmTy.isSignlessInteger(64))
     return false;
 
   // Base case.
@@ -613,6 +615,10 @@ Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
     return ONNXStringType::get(builder_.getContext());
 
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E4M3FN:
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E4M3FNUZ:
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E5M2:
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E5M2FNUZ:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
@@ -630,6 +636,8 @@ int64_t mlirTypeToOnnxType(Type elemType) {
     return onnxType;
 
   TypeSwitch<Type>(elemType)
+      .Case<ONNXStringType>(
+          [&](ONNXStringType) { onnxType = onnx::TensorProto::STRING; })
       .Case<BFloat16Type>(
           [&](BFloat16Type) { onnxType = onnx::TensorProto::BFLOAT16; })
       .Case<ComplexType>([&](ComplexType type) {

@@ -139,6 +139,10 @@ LogicalResult ONNXBitwiseNotOp::inferShapes(
 // Cast
 //===----------------------------------------------------------------------===//
 
+std::vector<Type> ONNXCastOp::resultTypeInference() {
+  return {UnrankedTensorType::get(getTo())};
+}
+
 LogicalResult ONNXCastOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(getInput()))
@@ -278,6 +282,34 @@ LogicalResult ONNXHardSwishOp::inferShapes(
 LogicalResult ONNXInstanceNormalizationOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// IsInf
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXIsInfOp::verify() {
+  ONNXIsInfOpAdaptor operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.getX()))
+    return success(); // Won't be able to do any checking at this stage.
+
+  int64_t detectPosAttribute = getDetectPositive();
+  int64_t detectNegAttribute = getDetectNegative();
+
+  // One of the values for detectPosAttribute and detectNegAttribute must be 1.
+  // If not, then this will result in an error.
+  if (detectPosAttribute == 0 && detectNegAttribute == 0)
+    return emitOpError(
+        "This variation is currently unsupported. One or both of the "
+        "attributes must be a value of 1 to ensure mapping to infinity.");
+
+  return success();
+}
+
+LogicalResult ONNXIsInfOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation(),
+      this->getResult().getType().cast<ShapedType>().getElementType());
 }
 
 //===----------------------------------------------------------------------===//

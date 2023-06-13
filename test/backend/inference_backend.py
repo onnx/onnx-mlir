@@ -462,8 +462,8 @@ def get_test_models():
 
         # ==OP== IsInf
         "test_isinf_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # "test_isinf_negative_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # "test_isinf_positive_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_isinf_negative_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_isinf_positive_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== IsNaN
         "test_isnan_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -1213,7 +1213,7 @@ def JniExecutionSession(jar_name, inputs):
     )
 
     dtype = {
-        "b1": np.bool,
+        "b1": np.bool_,
         "i1": np.int8,
         "u1": np.uint8,
         "i2": np.int16,

@@ -161,15 +161,15 @@ func.func @test_if_sign(%arg0: tensor<f32>) -> tensor<i32> {
   %0 = onnx.Constant {value = dense<0.0> : tensor<f32>} : tensor<f32>
   %1 = "onnx.Less"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
   %2 = "onnx.If"(%1) ({
-    onnx.Return %minus : tensor<i32>
+    onnx.Yield %minus : tensor<i32>
   }, {
     %3 = "onnx.Greater"(%arg0, %0) : (tensor<f32>, tensor<f32>) -> tensor<i1>
     %4 = "onnx.If"(%3) ({
-      onnx.Return %plus : tensor<i32>
+      onnx.Yield %plus : tensor<i32>
     }, {
-      onnx.Return %zero : tensor<i32>
+      onnx.Yield %zero : tensor<i32>
     }) : (tensor<i1>) -> tensor<i32>
-    onnx.Return %4 : tensor<i32>
+    onnx.Yield %4 : tensor<i32>
   }) : (tensor<i1>) -> tensor<i32>
   return %2 : tensor<i32>
 // mlir2FileCheck.py
@@ -3642,7 +3642,7 @@ func.func @top_k(%arg0: tensor<3x4xf32>, %arg1: tensor<1xi64>) -> (tensor<*xf32>
 // CHECK:             [[VAR_8_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             krnl.store [[VAR_8_]]#1, [[RES_2_]]{{.}}[[VAR_8_]]#0, [[VAR_8_]]#1] : memref<3x4xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_2_]], [[X_]], [[VAR_c1_i64_]], [[VAR_c0_i64_]]) {funcName = "omTensorSort"} : (memref<3x4xindex>, memref<3x4xf32>, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_2_]], [[X_]], [[VAR_c1_i64_]], [[VAR_c0_i64_]]) {funcName = "omTensorSort", numOfOutput = 1 : si64} : (memref<3x4xindex>, memref<3x4xf32>, i64, i64) -> ()
 // CHECK:           [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_5_:%.+]] = 0 to 3, [[LOOP_1_]]#1 -> [[I_6_:%.+]] = 0 to [[VAR_1_]]){
 // CHECK:             [[VAR_8_2_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -3677,7 +3677,7 @@ func.func @top_k_smallest(%arg0: tensor<3x4xf32>, %arg1: tensor<1xi64>) -> (tens
 // CHECK:             [[VAR_8_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             krnl.store [[VAR_8_]]#1, [[RES_2_]]{{.}}[[VAR_8_]]#0, [[VAR_8_]]#1] : memref<3x4xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_2_]], [[X_]], [[VAR_c1_i64_]], [[VAR_c1_i64_]]) {funcName = "omTensorSort"} : (memref<3x4xindex>, memref<3x4xf32>, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_2_]], [[X_]], [[VAR_c1_i64_]], [[VAR_c1_i64_]]) {funcName = "omTensorSort", numOfOutput = 1 : si64} : (memref<3x4xindex>, memref<3x4xf32>, i64, i64) -> ()
 // CHECK:           [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_5_:%.+]] = 0 to 3, [[LOOP_1_]]#1 -> [[I_6_:%.+]] = 0 to [[VAR_1_]]){
 // CHECK:             [[VAR_8_2_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -3722,7 +3722,7 @@ func.func @top_k_unknown_dims(%arg0: tensor<?x?xf32>, %arg1: tensor<1xi64>) -> (
 // CHECK:             [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             krnl.store [[VAR_4_]]#1, [[RES_2_]]{{.}}[[VAR_4_]]#0, [[VAR_4_]]#1] : memref<?x?xindex>
 // CHECK:           }
-// CHECK:           "krnl.call"([[RES_2_]], [[X_]], [[CST_1_]], [[CST_0_]]) {funcName = "omTensorSort"} : (memref<?x?xindex>, memref<?x?xf32>, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_2_]], [[X_]], [[CST_1_]], [[CST_0_]]) {funcName = "omTensorSort", numOfOutput = 1 : si64} : (memref<?x?xindex>, memref<?x?xf32>, i64, i64) -> ()
 // CHECK:           [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]]), [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to [[MAP_3_]]([[VAR_dim_]]){{.}}[[VAR_1_]]{{.}}){
 // CHECK:             [[VAR_4_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -3746,7 +3746,7 @@ func.func @test_loop_tiny_yolo() -> tensor<?xi32> {
     ^bb0(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<i32>):  // no predecessors
       %4 = onnx.Constant dense<1> : tensor<i32>
       %5 = "onnx.Add"(%arg2, %4) : (tensor<i32>, tensor<i32>) -> tensor<i32>
-      onnx.Return %arg1, %5, %arg2 : tensor<i1>, tensor<i32>, tensor<i32>
+      onnx.Yield %arg1, %5, %arg2 : tensor<i1>, tensor<i32>, tensor<i32>
     }) {input_names = ["i", "cond", "prev"], output_names = ["cond_out", "current", "range"]} : (tensor<i64>, tensor<i1>, tensor<i32>) -> (tensor<i32>, tensor<?xi32>)
     return %3#1 : tensor<?xi32>
 
