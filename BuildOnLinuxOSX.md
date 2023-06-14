@@ -4,7 +4,8 @@
 
 We provide here directions to install ONNX-MLIR on Linux and OSX.
 On Mac, there are a couple of commands that are different.
-These differences will be listed in the explanation below, when relevant.
+These differences will be listed in the explanation below, when relevant. Installing ONNX-MLIR on Apple silicon is natively supported and it is recommended to use brew to manage prerequisites.
+
 
 ## MLIR
 
@@ -77,7 +78,7 @@ After the above commands succeed, an `onnx-mlir` executable should appear in the
 
 ### Known MacOS Issues
 
-There is a known issue when building onnx-mlir. If you see a error of this sorts:
+There is a known issue when building onnx-mlir. If you see an error of this sorts:
 
 ``` shell
 Cloning into '/home/user/onnx-mlir/build/src/Runtime/jni/jsoniter'...
