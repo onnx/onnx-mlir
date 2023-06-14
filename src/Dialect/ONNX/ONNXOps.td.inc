@@ -6811,6 +6811,7 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXResizeOp:ONNX_Op<"Resize",

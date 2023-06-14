@@ -43,18 +43,8 @@ func.func @unsupport_maxpool_column_storage(%arg0 : tensor<5x5x32x32xf32>) -> te
 //===----------------------------------------------------------------------===//
 
 func.func @test_reshape_2D_shape(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<1x2xi64>) -> tensor<*xf32> {
-  // expected-error @+2 {{Shape tensor must have rank one}}
-  // expected-error @+1 {{shape inference failed}}
+  // expected-error @+1 {{Shape tensor must have rank one}}
   %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<5x5x1x32xf32>, tensor<1x2xi64>) -> tensor<*xf32>
-  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
-func.func @test_reshape_1D_constant_shape(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<?xi64>) -> tensor<*xf32> {
-  // expected-error @+2 {{Shape tensor must have constant shape}}
-  // expected-error @+1 {{shape inference failed}}
-  %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<5x5x1x32xf32>, tensor<?xi64>) -> tensor<*xf32>
   "onnx.Return"(%0) : (tensor<*xf32>) -> ()
 }
 
