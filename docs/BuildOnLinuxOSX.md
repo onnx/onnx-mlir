@@ -78,7 +78,8 @@ After the above commands succeed, an `onnx-mlir` executable should appear in the
 
 ### Enable CPU Optimizations
 
-You can pass `-DCMAKE_CXX_FLAGS=-march=native` to the `cmake -G Ninja ..` build configuration step above to generate code that exploits all the features of your local CPU, at the expense of portability. Or you can enable a specific CPU feature, e.g. `-DCMAKE_CXX_FLAGS=-mf16c` to enable the F16C feature to enable native conversion between float16 and (32 bit) float. It is used in `src/Support/FloastingPoint16.hpp`.
+To make the compiler run faster (without any affect on the generated code)
+you can pass `-DCMAKE_CXX_FLAGS=-march=native` to the `cmake -G Ninja ..` build configuration step above to generate code that exploits all the features of your local CPU, at the expense of portability. Or you can enable a specific CPU feature, e.g. `-DCMAKE_CXX_FLAGS=-mf16c` to enable the F16C feature to enable native conversion between float16 and (32 bit) float. It is used in `src/Support/FloastingPoint16.hpp`.
 
 ### Known MacOS Issues
 
