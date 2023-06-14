@@ -57,7 +57,7 @@ check_operation_version = args.check_operation_version
 list_operation_version = args.list_operation_version
 
 # Change this variable only when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.13.1"
+current_onnx_version = "1.14.0"
 
 # Check the version of onnx package being used.
 if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
@@ -399,6 +399,7 @@ OpsWithVerifier = [
     'Pow',
     'RandomNormalLike',
     'Range',
+    'Reshape',
     'Resize',
     'ReverseSequence',
     'RoiAlign',
@@ -701,8 +702,8 @@ def get_allowed_elem_types(schema, input):
     # allowed_types_str = None
     # return allowed_types_str
     # TODO: enable type constraints.
-    if input.typeStr :
-        tstr = input.typeStr
+    if input.type_str :
+        tstr = input.type_str
         structure, element = get_data_structure_element(tstr);
         # In case the type is directly specified.
         if structure and element :
@@ -776,7 +777,7 @@ def get_operands_or_results(schema, type_str_dict, op_name, is_input):
             types.append("NoneType")
 
         if OpSchema.FormalParameterOption.Variadic == value.option:
-            if value.isHomogeneous:
+            if value.is_homogeneous:
                 types = ["Variadic<{}>".format(any_type_of(types))]
             else:
                 #TODO handle(variadic, heterogeneous) "
@@ -876,11 +877,11 @@ def get_output_type_mapping(schema):
             continue
 
         # Map the type string.
-        if output.typeStr :
-            tstr = output.typeStr
+        if output.type_str :
+            tstr = output.type_str
             found = False
             for i, input in enumerate(schema.inputs):
-                if input.typeStr and input.typeStr == tstr:
+                if input.type_str and input.type_str == tstr:
                     mapping.append(str(i+MAX_NUM_TYPES))
                     found = True
                     break
@@ -1000,16 +1001,16 @@ def parse_type_constraints(schema):
     return type_str_dict
 
 def get_onnx_mlir_types(schema, type_str_dict, input):
-    if input.typeStr :
-         if not input.typeStr in type_str_dict :
+    if input.type_str :
+         if not input.type_str in type_str_dict :
              # Some arguments use type description directly
              # instead of constraint.
-             type_str = parse_type_str(input.typeStr)
+             type_str = parse_type_str(input.type_str)
              return [type_str]
          else :
-             return type_str_dict[input.typeStr]
+             return type_str_dict[input.type_str]
     else :
-        print('No typeStr ', schema.name)
+        print('No type_str ', schema.name)
         return []
 
 

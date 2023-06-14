@@ -13,6 +13,8 @@ set_target_properties(check-onnx-backend-cpp PROPERTIES FOLDER "Tests")
 # Exclude the target from the default VS build
 set_target_properties(check-onnx-backend-cpp PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
 
+add_dependencies(check-onnx-backend-numerical check-onnx-backend-cpp)
+
 # add_unittest(test_name sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
 #   A test with test_name is added as a ctest to the backend-cpp tests suite and

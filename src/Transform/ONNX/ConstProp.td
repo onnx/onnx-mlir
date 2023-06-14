@@ -526,7 +526,7 @@ def MatMulIntegerConstZeroLhs : Pat<
     ),
     (CreateZeroTensorOfType $resOp),
     [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
-     (IsMatMulIntegerLhsZero $A, $a_zero_point)]
+     (IsMatMulIntegerLhsZero $A, $a_zero_point), (HasStaticShape:$resOp)]
     >;
 
 def MatMulIntegerConstZeroRhs : Pat<
@@ -537,7 +537,7 @@ def MatMulIntegerConstZeroRhs : Pat<
     ),
     (CreateZeroTensorOfType $resOp),
     [(IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point),
-     (IsMatMulIntegerRhsZero $B, $b_zero_point)]
+     (IsMatMulIntegerRhsZero $B, $b_zero_point), (HasStaticShape:$resOp)]
     >;
 
 def MatMulIntegerOfConsts : Pat<
