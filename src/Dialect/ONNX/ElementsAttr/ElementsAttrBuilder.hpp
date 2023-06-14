@@ -185,6 +185,11 @@ public:
   // for i in [0, type.getNumElements()) in row-major order.
   mlir::ElementsAttr range(mlir::ShapedType, WideNum start, WideNum delta);
 
+  // Returns indices of non-zero elements like numpy.nonzero,
+  // but for scalar input produces output shape [0, N] instead of [1, N],
+  // which is different from Numpy's behavior.
+  mlir::ElementsAttr nonZero(mlir::ElementsAttr elms);
+
 private:
   struct ElementsProperties;
 
@@ -193,7 +198,7 @@ private:
   static ArrayBuffer<WideNum> getWideNumsAndStrides(
       mlir::ElementsAttr elms, llvm::SmallVectorImpl<int64_t> &strides) {
     return getWideNumsAndExpandedStrides(
-        elms, elms.getType().getShape(), strides);
+        elms, elms.getShapedType().getShape(), strides);
   }
 
   static ArrayBuffer<WideNum> getWideNumsAndExpandedStrides(

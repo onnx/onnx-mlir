@@ -23,6 +23,7 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Path.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
 
@@ -62,8 +63,39 @@ public:
     StringRef nodeName;
     if (instrumentOp.getNodeName().has_value())
       nodeName = instrumentOp.getNodeName().value();
-    else
+    else if (auto nameLoc = loc.dyn_cast<NameLoc>())
+      nodeName = nameLoc.getName();
+    else if (auto fusedLoc = loc.dyn_cast<FusedLoc>()) {
+      // Combine each location name and set it as nodeName.
+      std::string name;
+      for (Location locIt : fusedLoc.getLocations()) {
+        if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
+          name += nameLocIt.getName().str() + "-";
+        else if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
+          std::string filename =
+              llvm::sys::path::filename(fileLineColLoc.getFilename().str())
+                  .str();
+          name +=
+              filename + ":" + std::to_string(fileLineColLoc.getLine()) + "-";
+        }
+      }
+      if (name.empty())
+        name = "NOTSET";
+      else
+        name.pop_back(); // remove last "-"
+      loc = NameLoc::get(rewriter.getStringAttr(name));
+      nodeName = cast<NameLoc>(loc).getName();
+    } else if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
+      std::string filename =
+          llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
+      std::string name =
+          filename + ":" + std::to_string(fileLineColLoc.getLine());
+      loc = NameLoc::get(rewriter.getStringAttr(name));
+      nodeName = cast<NameLoc>(loc).getName();
+    } else
       nodeName = StringRef("NOTSET");
+    LLVM_DEBUG(
+        llvm::dbgs() << "Instrumentation_nodeName: " << nodeName << "\n");
     LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
         nodeName, loc, rewriter, parentModule, typeConverter);
     Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);

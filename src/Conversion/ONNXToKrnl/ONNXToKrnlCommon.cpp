@@ -413,8 +413,8 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Type intType = rewriter.getIntegerType(64);
     Value valAxis = create.math.constant(intType, axis);
     Value valAscending = create.math.constant(intType, (int64_t)ascending);
-    SmallVector<Value, 4> operands = {input, valAxis, valAscending};
-    rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, operands);
+    SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
+    rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
     return order;
   }
   // Do sorting in the descending order of input and return their indices.
@@ -579,7 +579,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
   });
 
   addConversion([](SeqType seqType) {
-    ShapedType seqElementType = seqType.getElementType();
+    auto seqElementType = seqType.getElementType().cast<ShapedType>();
     Type elementType = seqElementType.getElementType();
     Type seqElementConvertedType;
     if (seqElementType.hasRank()) {

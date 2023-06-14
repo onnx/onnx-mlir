@@ -31,7 +31,7 @@ def Krnl_Dialect : Dialect {
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
   let dependentDialects = [
-    "AffineDialect",
+    "affine::AffineDialect",
     "arith::ArithDialect",
     "func::FuncDialect",
     "linalg::LinalgDialect",
@@ -52,32 +52,51 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
   > {
   let summary = "call operation";
   let description = [{
-    The call operation provides a generic way to call an external function
-    at Krnl level.  The `funcName` determines which function to call.
-    The `result` is the Value to store the function return. Currently only
-    one output is supported. The `result` has to be resulted memref.
-    Since resolution of the output MemRef involves shape inference on ONNX Op,
-    resolution should be done at lowering ONNX Op, not within krnl.Call.
-    Another reason is that Krnl.call need to be defined with AllocationOp
-    interface if `result` is allocated inside this Op.
-    The parameters can be of any type: MemRef, NoneType or any llvm type.
-    Different types of parameters will be converted, if needed, when KrnlCallOp
-    is lowered. Attributes will be converted to parameters too (To be Added).
-    The function signature will be determined with the types of parameters.
-    An LLVM::CallOp to either a runtime library or a llvm intrinsic function
-    will be generated.
+    The call operation provides a generic way to replace an ONNX Op with a call
+    to an external function at Krnl level. 
+    `funcName` attributes determines which function to call. 
+    `parameters` is the inputs to Krnl.Call. It includes the outputs and inputs 
+    of the ONNX Op. The outputs and inputs are already lowered to MemRefs.
+    The external function is assumed NOT to allocate or free any memory.
+    'numOfOutput` attribute to tell how manu outputs Memref in parameters.
+    mlir::OpTrait::AttrSizedOperandSegments is not used to put outputs and
+    inputs into separate variadic parameters because I am thinking of mixing
+    the inputs and outpus as required by external library.
+
+    The attributes of the ONNX Op will be copied to KrnlCallOp under the control
+    of the user.
+    In Krnl To llvm lowering, the parameters and attributes will be lowered to
+    parameters of the llvm function call.
+  
+    Several builder is defined to help translating an ONNX Op to Krnl.Call.
+    User can provides the allocated MemRefs for outputs and the inputs
+    separately. The inputs are usually the operands of the ONNX Op.
+    The attributes of ONNX Op can be copied or not copied based on a bool
+    parameter in the builder. Builder also provide a mechanism for user
+    to selectively copy some attributes.
+
     The krnl.call op will be lowered to llvm at krnl-to-llvm conversion in which
-    OMTensor is used as a container for MemRef arguments.
+    OMTensor is used as a container for MemRef arguments. Other representation
+    of parameters, such as data pointer only, will be supported in future.
   }];
 
-  let arguments = (ins StrAttr:$funcName, AnyType:$result, Variadic<AnyType>:$parameters);
+  let arguments = (ins StrAttr:$funcName,
+      // Should mlir::OpTrait::AttrSizedOperandSegments be used?
+      // The case for krnl.Call is simple.
+      DefaultValuedAttr<SI64Attr, "1">:$numOfOutput,
+      Variadic<AnyType>:$parameters);
 
-  // builders to build KrnlCallOp from op and operands, helping conversion from onnx to krnl.
-  // The name of function can be determined by the op name and elemnt type of the return,
-  // or given to builder if the simple rule does not work
-  // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is true
-  let builders = [OpBuilder<(ins "mlir::Value":$result, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
-      OpBuilder<(ins "std::string":$funcNameStr, "mlir::Value":$result, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
+  // builders to build KrnlCallOp from op and operands, helping conversion from
+  // onnx to krnl.
+  // The name of function can be determined by the op name and elemnt type of
+  // the return, or given to builder if the simple rule does not work.
+  // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is
+  // true. Or the attribute names can be specified.
+  let builders = [
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "std::vector<std::string>":$attributeNames)>,
+    OpBuilder<(ins "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "std::vector<std::string>":$attributeNames)>,
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
 }
 
 def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {

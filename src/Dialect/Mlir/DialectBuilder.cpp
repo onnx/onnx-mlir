@@ -458,12 +458,12 @@ Value MathBuilder::constant(Type type, double val) const {
 }
 
 Value MathBuilder::constantIndex(int64_t val) const {
-  Attribute constantAttr = b().getIntegerAttr(b().getIndexType(), val);
+  IntegerAttr constantAttr = b().getIntegerAttr(b().getIndexType(), val);
   return b().create<arith::ConstantOp>(loc(), constantAttr);
 }
 
-Attribute MathBuilder::negativeInfAttr(mlir::Type type) const {
-  Attribute attr;
+TypedAttr MathBuilder::negativeInfAttr(mlir::Type type) const {
+  TypedAttr attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
         attr = b().getF32FloatAttr(-std::numeric_limits<float>::infinity());
@@ -507,8 +507,8 @@ Attribute MathBuilder::negativeInfAttr(mlir::Type type) const {
   return attr;
 }
 
-Attribute MathBuilder::positiveInfAttr(mlir::Type type) const {
-  Attribute attr;
+TypedAttr MathBuilder::positiveInfAttr(mlir::Type type) const {
+  TypedAttr attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
         attr = b().getF32FloatAttr(std::numeric_limits<float>::infinity());
@@ -553,14 +553,14 @@ Attribute MathBuilder::positiveInfAttr(mlir::Type type) const {
 }
 
 Value MathBuilder::negativeInf(Type type) const {
-  Attribute attr = negativeInfAttr(type);
+  TypedAttr attr = negativeInfAttr(type);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
   return constant;
 }
 
 Value MathBuilder::positiveInf(Type type) const {
-  Attribute attr = positiveInfAttr(type);
+  TypedAttr attr = positiveInfAttr(type);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
   return constant;

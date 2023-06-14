@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- python3 documentOps.py --arch cpu --input ../test/backend/inference_backend.py --path . --notes --unsupported -->
+<!--- To update, run `make onnx_mlir_supported_ops` -->
 
 # Supported ONNX Operation for Target *cpu*.
 
@@ -30,10 +30,10 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **Bernoulli** | |unsupported | |
 | **Binarizer** | |unsupported | |
 | **BitShift** | |unsupported | |
-| **BitwiseAnd** | |unsupported | |
+| **BitwiseAnd** |18 | | |
 | **BitwiseNot** | |unsupported | |
-| **BitwiseOr** | |unsupported | |
-| **BitwiseXor** | |unsupported | |
+| **BitwiseOr** |18 | | |
+| **BitwiseXor** |18 | | |
 | **BlackmanWindow** | |unsupported | |
 | **Cast** |13 |Cast only between float and double types. | |
 | **CastLike** | |unsupported | |
@@ -196,7 +196,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **Softplus** |1 | | |
 | **Softsign** |1 | | |
 | **SpaceToDepth** |13 | |Example works, the other is imprecise. To investigate. |
-| **Split** |13, 11 |Does not support static and dynamic shape, zero size splits. |Temporally removed due to changes in onnx 1.8.1. |
+| **Split** |18, 13, 11 |Does not support static and dynamic shape, zero size splits. |Temporally removed due to changes in onnx 1.8.1. |
 | **SplitToSequence** | |unsupported | |
 | **Sqrt** |13 | | |
 | **Squeeze** |13, 11 |Does not support static and dynamic shape. |Temporally removed due to changes in onnx 1.8.1. |
@@ -212,7 +212,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **Transpose** |13 | | |
 | **TreeEnsembleClassifier** | |unsupported | |
 | **TreeEnsembleRegressor** | |unsupported | |
-| **Trilu** | |unsupported | |
+| **Trilu** |14 | | |
 | **Unique** | |unsupported | |
 | **Unsqueeze** |13, 11 |Does not support static and dynamic shape. |Temporally removed due to changes in onnx 1.8.1. |
 | **Upsample** |9, 7 | | |

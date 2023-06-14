@@ -87,8 +87,6 @@ def ONNXDataType : NativeCodeCall<
   "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), "
   "::onnx_mlir::mlirTypeToOnnxType($0.getType().front().cast<ShapedType>().getElementType()))">;
 
-def HasShapeAndRank : Constraint<CPred<"onnx_mlir::hasShapeAndRank($0)">>;
-
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
 //===----------------------------------------------------------------------===//
@@ -295,6 +293,20 @@ def ResizeV11Pattern: Pat<
                     $mode, $nearest_mode)
 >;
 
+def ResizeV13Pattern: Pat<
+   (ONNXResizeV13Op:$res $x, $roi, $scales, $size,
+                    $coordinate_transformation_node, $cubic_coeff_a,
+                    $exclude_outside, $extrapolation_value, $mode,
+                    $nearest_mode),
+   (ONNXResizeOp    $x, $roi, $scales, $size,
+                    /*antialias*/(GetNullIntegerAttr),
+                    /*axes*/(GetNullArrayAttr),
+                    $coordinate_transformation_node, $cubic_coeff_a,
+                    $exclude_outside, $extrapolation_value,
+                    /*keep_aspect_ratio_policy*/(GetNullStringAttr),
+                    $mode, $nearest_mode)
+>;
+
 def SequenceConstructPattern1: Pat<
     (ONNXSequenceConstructOp:$res $x1),
     (createSequenceConstructOp
@@ -323,14 +335,19 @@ def ClipV12Pattern : Pat<
 
 def SplitV11PatternNoAttr : Pat<
   (ONNXSplitV11Op $x, $axis, $split),
-  (ONNXSplitOp $x, (CreateNoneValue), $axis),
+  (ONNXSplitV13Op $x, (CreateNoneValue), $axis),
   [(AttributeIsNull:$split)], (addBenefit 1)
 >;
 
 def SplitV11Pattern : Pat<
   (ONNXSplitV11Op $x, $axis, $split),
-  (ONNXSplitOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $split)), $axis),
+  (ONNXSplitV13Op $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $split)), $axis),
   [], (addBenefit 0)
+>;
+
+def SplitV13Pattern : Pat<
+  (ONNXSplitV13Op $x, $split, $axis),
+  (ONNXSplitOp $x, $split, $axis, (GetNullIntegerAttr))
 >;
 
 def SqueezeV11PatternNoAttr : Pat<
@@ -448,11 +465,9 @@ def ReduceSumSquareV13OpPattern2
 //    Emit ONNXSplitOp, ONNXPadOp, and ONNXConcatOp in insertPadsConvTransposeInput().
 // 3. Calculate new pads attribute from kernel_shape, original pads, and dilation.
 //    Emit no ONNX op in getPadsConvTranspose().
-// 4. Create unit strides if `strides` is not unit strides.
-//    Emit no ONNX op in createUnitStrides().
-// 5. Use ONNXConv op using converted weight tensor, input data tensor, other
+// 4. Use ONNXConv op using converted weight tensor, input data tensor, other
 //    attributes.
-// 6. Insert additional pads if needed.
+// 5. Insert additional pads if needed.
 //    Emit ONNXPadOp in insertAdditionalPadsConvTranspose().
 // TODO: Consider to write C++ code instead of using tablegen because some code
 //       are redundant. (eg. currently shapeHelper is calld multiple times.)
@@ -469,8 +484,10 @@ def HasUnitStrides: Constraint<
   "has unit strides"
 >;
 
-def createUnitStrides: NativeCodeCall<
-  "onnx_mlir::createUnitStrides($_builder, $0)">;
+def HasStaticSpatialDims: Constraint<
+  CPred<"onnx_mlir::hasStaticSpatialDims($_self)">,
+  "has static spatial dims"
+>;
 
 def insertPadsConvTransposeInput: NativeCodeCall<
   "onnx_mlir::insertPadsConvTransposeInput($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>(), $1)">;
@@ -489,7 +506,7 @@ def ConvTransposeOpPattern1: Pattern<
        (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, $strides),
     (insertAdditionalPadsConvTranspose $conv_res, $res)
    ],
-   [(HasUnitStrides:$strides), (HasShapeAndRank $x), (HasShapeAndRank $w)],
+   [(HasUnitStrides:$strides), (HasStaticSpatialDims:$x), (HasStaticSpatialDims:$w)],
    (addBenefit 1)
 >;
 
@@ -506,7 +523,7 @@ def ConvTransposeOpPattern2: Pattern<
     (insertAdditionalPadsConvTranspose
         $conv_res, $res)
    ],
-   [(HasShapeAndRank $x), (HasShapeAndRank $w)],
+   [(HasStaticSpatialDims:$x), (HasStaticSpatialDims:$w)],
    (addBenefit 0)
 >;
 

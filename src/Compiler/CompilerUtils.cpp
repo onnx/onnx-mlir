@@ -37,6 +37,7 @@
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
 
+#include <fstream>
 #include <regex>
 
 #define DEBUG_TYPE "compiler_utils"
@@ -428,6 +429,7 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   // Use the LLVM's 'opt' command to optimize the bitcode.
   std::string optPath = getToolPath("opt", kOptPath);
   Command optBitcode(/*exePath=*/optPath);
+  setXoptOption({"--code-model", modelSizeStr[modelSize]});
   int rc = optBitcode.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
@@ -447,6 +449,7 @@ static int genModelObject(
 
   std::string llcPath = getToolPath("llc", kLlcPath);
   Command llvmToObj(/*exePath=*/llcPath);
+  setXllcOption({"--code-model", modelSizeStr[modelSize]});
   int rc = llvmToObj.appendStr(getOptimizationLevelOption())
                .appendStr(getTargetTripleOption())
                .appendStr(getTargetArchOption())
@@ -497,6 +500,23 @@ static int genSharedLib(std::string sharedLibNameWithExt,
   std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
   llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });
+#ifdef __s390x__
+  llvm::SmallString<64> lds;
+  if (modelSize == ModelSize::large) {
+    if (auto ec =
+            llvm::sys::fs::createTemporaryFile("s390x-lrodata", "ld", lds)) {
+      llvm::errs() << ec.message() << "\n";
+      return CompilerFailureInObjToLib;
+    }
+
+    std::string ldScript = std::string(lds);
+    std::ofstream ofs(ldScript);
+    ofs << kLrodataScript;
+    ofs.close();
+    sharedLibOpts.push_back("-Wl,-T," + ldScript);
+  }
+  llvm::FileRemover ldsRemover(lds);
+#endif
 #endif
 
   Command link(kCxxPath);
@@ -614,7 +634,7 @@ static int compileModuleToJniJar(
 
 void registerDialects(mlir::MLIRContext &context) {
   // Load our Dialect in this MLIR Context.
-  context.getOrLoadDialect<mlir::AffineDialect>();
+  context.getOrLoadDialect<mlir::affine::AffineDialect>();
   context.getOrLoadDialect<mlir::vector::VectorDialect>();
   context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
   context.getOrLoadDialect<mlir::scf::SCFDialect>();
@@ -637,21 +657,22 @@ std::string dirName(StringRef inputFilename) {
 // Return 0 on success, error number on failure.
 int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<ModuleOp> &module, std::string *errorMessage) {
-  // Decide if the input file is an ONNX model (either ONNX protobuf or JSON) or
-  // a model specified in MLIR. The extension of the file is the decider.
+  // Decide if the input file is an ONNX model (either ONNX protobuf, ONNX text,
+  // or JSON) or a model specified in MLIR.
+  // The extension of the file is the decider.
   bool inputIsONNX = inputFilename.endswith(".onnx");
+  bool inputIsONNXText = inputFilename.endswith(".onnxtext");
   bool inputIsJSON = inputFilename.endswith(".json");
   bool inputIsMLIR = inputFilename.endswith(".mlir");
 
-  if (!inputIsONNX && !inputIsJSON && !inputIsMLIR) {
+  if (!inputIsONNX && !inputIsONNXText && !inputIsJSON && !inputIsMLIR) {
     *errorMessage = "Invalid input file '" + inputFilename.str() +
-                    "': Either an ONNX model (.onnx or .json or '-'), or an "
-                    "MLIR file (.mlir) "
-                    "needs to be provided.";
+                    "': Either an ONNX model (.onnx or .onnxtext or .json "
+                    "or '-'), or an MLIR file (.mlir) needs to be provided.";
     return InvalidInputFile;
   }
 
-  if (inputIsONNX || inputIsJSON) {
+  if (inputIsONNX || inputIsONNXText || inputIsJSON) {
     ImportOptions options;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;

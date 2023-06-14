@@ -67,7 +67,8 @@ struct ConstPropCounters {
     auto &counters = map[name];
     counters.invocations += 1;
     for (auto oprnd : operands)
-      counters.input_elms += getNumberOfElements(oprnd.getType());
+      counters.input_elms +=
+          getNumberOfElements(oprnd.getType().cast<ShapedType>());
   }
 
   static void dump(llvm::raw_ostream &os) {
@@ -195,7 +196,7 @@ template <typename ElementwiseBinaryOp>
 Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
     Value replacingValue, Value lhsValue, Value rhsValue) {
   ConstPropCounters::count("ElementwiseBinary", {lhsValue, rhsValue});
-  Type replacingType = replacingValue.getType().cast<ShapedType>();
+  auto replacingType = replacingValue.getType().cast<ShapedType>();
 
   ElementsAttr lhs = getConstValueElements(lhsValue);
   ElementsAttr rhs = getConstValueElements(rhsValue);
@@ -268,7 +269,7 @@ Value ConstPropElementwiseUnary(
 Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
     Value condValue, Value lhsValue, Value rhsValue) {
   ConstPropCounters::count("Where", {condValue, lhsValue, rhsValue});
-  Type replacingType = replacingValue.getType().cast<ShapedType>();
+  auto replacingType = replacingValue.getType().cast<ShapedType>();
 
   ElementsAttr cond = getConstValueElements(condValue);
   assert(cond.getElementType().isInteger(1) &&
@@ -331,7 +332,7 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
   // Find absoluteAxes, converting any negative axes to non-negative.
   SmallVector<unsigned, 4> absoluteAxes;
   ElementsAttr data = getConstValueElements(dataValue);
-  int64_t rank = data.getType().getRank();
+  int64_t rank = data.getType().cast<ShapedType>().getRank();
   for (APInt a : axesRange) {
     int64_t axis = a.getSExtValue();
     assert(-rank <= axis && axis < rank && "axis out of range");
@@ -357,7 +358,8 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
     reduced = data; // noop
   } else if (data.empty()) {
     Attribute identity = getIdentity<ReduceOp>(rewriter, elemType);
-    reduced = DenseElementsAttr::get(replacingValue.getType(), {identity});
+    reduced = DenseElementsAttr::get(
+        replacingValue.getType().cast<ShapedType>(), {identity});
   } else {
     bool keepdims = getSIntAttr(op, "keepdims", /*default=*/1) != 0;
     OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
@@ -416,7 +418,7 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
 // returns the zero point reshaped so it broadcasts to the matrix shape.
 ElementsAttr reshapeMatMulIntegerLhsZero(
     ArrayRef<int64_t> matrixShape, ElementsAttr zeroPoint) {
-  ShapedType zeroPointType = zeroPoint.getType();
+  ShapedType zeroPointType = zeroPoint.getShapedType();
   ArrayRef<int64_t> zeroPointShape = zeroPointType.getShape();
   size_t zeroPointRank = zeroPointShape.size();
   if (zeroPointRank == 0 || (zeroPointRank == 1 && zeroPointShape[0] == 1)) {
@@ -483,7 +485,7 @@ bool isMatMulIntegerMatrixZero(Value matrixValue, Value zeroPointValue,
          "MatMulInteger zero_point must be non-empty when matrix is");
 
   ElementsAttr reshapedZeroPoint =
-      reshapeZero(matrix.getType().getShape(), zeroPoint);
+      reshapeZero(matrix.getShapedType().getShape(), zeroPoint);
   return ElementsAttrBuilder::equal(matrix, reshapedZeroPoint);
 }
 
@@ -509,11 +511,11 @@ ElementsAttr getMatMulIntegerMatrixElements(
   } else {
     ElementsAttr zeroPoint8 = getConstValueElements(zeroPointValue);
     ElementsAttr reshapedZeroPoint8 =
-        reshapeZero(matrix8.getType().getShape(), zeroPoint8);
+        reshapeZero(matrix8.getShapedType().getShape(), zeroPoint8);
     ElementsAttr reshapedZeroPoint32 =
         elementsBuilder.castElementType(reshapedZeroPoint8, I32);
     return elementsBuilder.combine(matrix32, reshapedZeroPoint32,
-        matrix32.getType(), elementwiseBinaryOpCombiner<ONNXSubOp>(I32));
+        matrix32.getShapedType(), elementwiseBinaryOpCombiner<ONNXSubOp>(I32));
   }
 }
 
@@ -864,6 +866,19 @@ Value ConstPropRange(PatternRewriter &rewriter, Value replacingValue,
   ElementsAttr rangeElements = elementsBuilder.range(
       replacingType, getScalarNum(start), getScalarNum(delta));
   return createReplacingConstantOp(rewriter, replacingValue, rangeElements);
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for NonZero.
+//===----------------------------------------------------------------------===//
+
+Value ConstPropNonZero(
+    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  ConstPropCounters::count("NonZero", {constValue});
+  ElementsAttr constElements = getConstValueElements(constValue);
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr nonZeroElements = elementsBuilder.nonZero(constElements);
+  return createReplacingConstantOp(rewriter, replacingValue, nonZeroElements);
 }
 
 //===----------------------------------------------------------------------===//

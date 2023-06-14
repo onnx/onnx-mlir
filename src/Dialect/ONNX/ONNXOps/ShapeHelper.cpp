@@ -199,7 +199,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
 
 // Use a distinct type for each of the output.
 LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
-    TypeRange elementTypeRange, mlir::ArrayRef<mlir::Attribute> encodingList) {
+    TypeRange elementTypeRange, ArrayRef<Attribute> encodingList) {
   uint64_t resNum = op->getNumResults();
   assert((elementTypeRange.size() == resNum) &&
          "Incorrect number of elementTypes");
@@ -299,10 +299,10 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
         // LiteralNot1 - LiteralNot1 => keep unchanged with verifying.
         if (nextDimExpr.isLiteralAndDifferentThan(1) &&
             !currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr))
-          return op->emitError("Incompatible broadcast matching " +
-                               std::to_string(currentDimExpr.getLiteral()) +
-                               " with " +
-                               std::to_string(currentDimExpr.getLiteral()));
+          return op->emitOpError("Incompatible broadcast matching " +
+                                 std::to_string(currentDimExpr.getLiteral()) +
+                                 " with " +
+                                 std::to_string(nextDimExpr.getLiteral()));
         // Case: LiteralNot1 - (QuestionMark or 1) => Keep unchanged without
         // verifying.
         continue;
@@ -390,10 +390,20 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
   return true;
 }
 
+// Checks if the input operands need rank broadcasting.
+bool ONNXBroadcastOpShapeHelper::hasRankBroadcast() {
+  ValueRange operands = this->operands;
+  for (Value operand : operands) {
+    auto operandType = operand.getType().cast<ShapedType>();
+    if (outputRank != (uint64_t)operandType.getRank())
+      return true;
+  }
+  return false;
+}
+
 bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
     int64_t &collapsedInnermostLoops, int64_t &collapsedLiteralSize,
     IndexExpr &collapsedDynamicSize, DimAnalysis *dimAnalysis) {
-
   int64_t dimNum = inputsDims.size();
   bool canUseDimAnalysis = dimAnalysis && (int64_t)operands.size() == dimNum;
   LLVM_DEBUG(llvm::dbgs() << "has manageable broadcast with"
@@ -658,6 +668,56 @@ LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
           IndexExpr::select(operandDim > 1, loopAccessExprs[dimIndex], 0));
     }
   }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Unary Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXUnaryOpShapeHelper::computeShape() {
+  // Set the variables that belong to superclass ONNXBroadcastOpShapeHelper
+  // (inputsDims, outputRank) to valid values. The hasUniBroadcast flag is
+  // already set to default false in the constructor.
+  outputRank = createIE->getShapedTypeRank(operands[0]);
+  DimsExpr dims;
+  createIE->getShapeAsDims(operands[0], dims);
+  inputsDims.emplace_back(dims);
+  return setOutputDimsFromOperand(operands[0]);
+}
+
+bool ONNXUnaryOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
+  // Unary op have no broadcast.
+  return true;
+}
+
+bool ONNXUnaryOpShapeHelper::hasManageableBroadcastForInnerDims(
+    int64_t &collapsedInnermostLoops, int64_t &collapsedLiteralSize,
+    IndexExpr &collapsedDynamicSize, DimAnalysis *dimAnalysis) {
+  // Unary op have no broadcast; simply states that all dims can be collapsed.
+  DimsExpr output = getOutputDims();
+  int64_t outputRank = output.size();
+  // Keep track of cumulative inner dim sizes.
+  collapsedLiteralSize = 1;
+  collapsedDynamicSize = LiteralIndexExpr(1);
+  for (int64_t r = 0; r < outputRank; ++r) {
+    if (output[r].isLiteral())
+      collapsedLiteralSize *= output[r].getLiteral();
+    else
+      collapsedDynamicSize = collapsedDynamicSize * output[r];
+  }
+  // every input dim can be collapsed.
+  collapsedInnermostLoops = outputRank;
+  return true;
+}
+
+LogicalResult ONNXUnaryOpShapeHelper::getAccessExprs(Value operand,
+    int64_t operandIndex, const SmallVectorImpl<IndexExpr> &loopAccessExprs,
+    SmallVectorImpl<IndexExpr> &operandAccessExprs, bool flattenedInnerDims,
+    bool hasNoBroadcast) {
+  operandAccessExprs.clear();
+  for (IndexExpr l : loopAccessExprs)
+    operandAccessExprs.emplace_back(l);
   return success();
 }
 
