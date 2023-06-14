@@ -679,6 +679,66 @@ func.func @test_matmulinteger_with_0dzeros() -> (tensor<4x2xi32>) {
 }
 
 //===----------------------------------------------------------------------===//
+/// Gemm tests
+
+// -----
+
+func.func @test_gemm_no_bias() -> (tensor<2x2xf32>) {
+  %0 = "onnx.Constant"() {value = dense<[[0.0, 0.25], [0.5, 0.75]]> : tensor<2x2xf32>} : () -> tensor<2x2xf32>
+  %1 = "onnx.Constant"() {value = dense<[[1.0, 2.0], [3.0, 4.0]]> : tensor<2x2xf32>} : () -> tensor<2x2xf32>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %3 = "onnx.Gemm"(%0, %1, %2) : (tensor<2x2xf32>, tensor<2x2xf32>, none) -> tensor<2x2xf32>
+  onnx.Return %3 : tensor<2x2xf32>
+  // CHECK-LABEL: test_gemm_no_bias
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{\[}}[7.500000e-01, 1.000000e+00], [2.750000e+00, 4.000000e+00]{{\]}}> : tensor<2x2xf32>
+}
+
+// -----
+
+func.func @test_gemm_no_bias_transposed() -> (tensor<2x2xf32>) {
+  %0 = "onnx.Constant"() {value = dense<[[1.0, 2.0], [3.0, 4.0]]> : tensor<2x2xf32>} : () -> tensor<2x2xf32>
+  %1 = "onnx.Constant"() {value = dense<[[0.0, 0.25], [0.5, 0.75]]> : tensor<2x2xf32>} : () -> tensor<2x2xf32>
+  %2 = "onnx.NoValue"() {value} : () -> none
+  %3 = "onnx.Gemm"(%0, %1, %2) {transA = 1 : si64, transB = 1 : si64} : (tensor<2x2xf32>, tensor<2x2xf32>, none) -> tensor<2x2xf32>
+  onnx.Return %3 : tensor<2x2xf32>
+  // CHECK-LABEL: test_gemm_no_bias_transposed
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{\[}}[7.500000e-01, 2.750000e+00], [1.000000e+00, 4.000000e+00]{{\]}}> : tensor<2x2xf32>
+}
+
+// -----
+
+func.func @test_gemm() -> (tensor<2x2xi32>) {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.Constant"() {value = dense<[[10, 20], [30, 40]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %2 = "onnx.Constant"() {value = dense<[[1000, 2000], [3000, 4000]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %3 = "onnx.Gemm"(%0, %1, %2) : (tensor<2x2xi32>, tensor<2x2xi32>, tensor<2x2xi32>) -> tensor<2x2xi32>
+  onnx.Return %3 : tensor<2x2xi32>
+  // CHECK-LABEL: test_gemm
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{\[}}[1070, 2100], [3150, 4220]{{\]}}> : tensor<2x2xi32>
+}
+
+// -----
+
+func.func @test_gemm_beta1000() -> (tensor<2x2xi32>) {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.Constant"() {value = dense<[[10, 20], [30, 40]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %2 = "onnx.Gemm"(%0, %1, %0) {beta = 1000.0 : f32} : (tensor<2x2xi32>, tensor<2x2xi32>, tensor<2x2xi32>) -> tensor<2x2xi32>
+  onnx.Return %2 : tensor<2x2xi32>
+  // CHECK-LABEL: test_gemm_beta1000
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{\[}}[1070, 2100], [3150, 4220]{{\]}}> : tensor<2x2xi32>
+}
+
+// -----
+
+func.func @test_gemm_alpha0() -> (tensor<2x2xi32>) {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.Gemm"(%0, %0, %0) {alpha = 0.0 : f32} : (tensor<2x2xi32>, tensor<2x2xi32>, tensor<2x2xi32>) -> tensor<2x2xi32>
+  onnx.Return %1 : tensor<2x2xi32>
+  // CHECK-LABEL: test_gemm_alpha0
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<{{\[}}[1, 2], [3, 4]{{\]}}> : tensor<2x2xi32>
+}
+
+//===----------------------------------------------------------------------===//
 /// Reduce tests
 
 // -----
