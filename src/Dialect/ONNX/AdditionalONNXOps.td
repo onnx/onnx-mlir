@@ -91,7 +91,7 @@ def ONNXCustomOp:ONNX_Op<"Custom",
     The number of inputs and outputs can vary.
     Since the semantics of this op is not defined to compiler, some attributes
     are introduced to guide shape inference:
-      'output_type':
+      'output_element_type':
            Optional. The element type for the output tensor. Optional. If not
            specified, follow the shape infer.
       'shape_infer_pattern':
