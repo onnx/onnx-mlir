@@ -95,8 +95,8 @@ RUN apt-get install -y ssh-client
 # 5) Fix git by reattaching head and making git see other branches than main.
 WORKDIR /workdir/onnx-mlir
 # Add optional personal fork and disable pushing to upstream (best practice).
-#RUN git remote add origin https://github.com/<<user>>/onnx-mlir.git
-#RUN git remote set-url --push upstream no_push
+# RUN git remote add origin https://github.com/<<user>>/onnx-mlir.git
+# RUN git remote set-url --push upstream no_push
 
 # 6) Set the PATH environment vars for make/debug mode. Replace Debug
 #    with Release in the PATH below when using Release mode.
