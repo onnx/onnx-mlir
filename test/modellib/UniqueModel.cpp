@@ -121,21 +121,8 @@ bool UniqueLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  if ((I == 3) && (J == 3)) {
-    list[0] = omTensorCreateWithShape<int64_t>({I, J});
-    omTensorGetElem<int64_t>(list[0], {0, 0}) = 1;
-    omTensorGetElem<int64_t>(list[0], {0, 1}) = 0;
-    omTensorGetElem<int64_t>(list[0], {0, 2}) = 0;
-    omTensorGetElem<int64_t>(list[0], {1, 0}) = 1;
-    omTensorGetElem<int64_t>(list[0], {1, 1}) = 0;
-    omTensorGetElem<int64_t>(list[0], {1, 2}) = 0;
-    omTensorGetElem<int64_t>(list[0], {2, 0}) = 2;
-    omTensorGetElem<int64_t>(list[0], {2, 1}) = 3;
-    omTensorGetElem<int64_t>(list[0], {2, 2}) = 4;
-  } else {
-    list[0] = omTensorCreateWithRandomData<int64_t>(
-        llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
-  }
+  list[0] = omTensorCreateWithRandomData<int64_t>(
+      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
   inputs = omTensorListCreate(list, num);
   return inputs && list[0];
 }

@@ -88,7 +88,7 @@ LogicalResult ONNXUniqueOp::verify() {
 LogicalResult ONNXUniqueOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Builder b = Builder(getContext());
-  Type elementType = b.getI64Type();
+  Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXUniqueOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

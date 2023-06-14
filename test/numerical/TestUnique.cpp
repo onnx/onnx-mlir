@@ -63,9 +63,8 @@ static bool isOMUniqueTheSameAsNaiveImplFor(const int rank, const int I,
   UniqueLibBuilder unique(SHARED_LIB_BASE.str(), rank, I, J, axis, sorted,
       isNoneAxis, isNoneIndexOutput);
   return unique.build() && unique.compileAndLoad() &&
-         unique.prepareInputs(0.0, 3.0) &&
-         // unique.prepareInputsFromEnv("TEST_DATARANGE") &&
-         unique.run() && unique.verifyOutputs() && 1;
+         unique.prepareInputs(0.0, 2.0) &&
+         unique.run() && unique.verifyOutputs();
 }
 
 } // namespace test

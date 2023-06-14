@@ -33,13 +33,13 @@ typedef struct uniqueTable {
 void uniqueTableInit(uniqueTable *table, uint64_t elemSize, uint64_t elemMax,
     void *tablePtr, int64_t *indicesPtr, int64_t *inverse_indicesPtr,
     int64_t *countsPtr) {
-  (table)->elementSize = elemSize;
-  (table)->elementMax = elemMax;
-  (table)->elementCount = 0;
-  (table)->tablePtr = tablePtr;
-  (table)->indicesPtr = indicesPtr;
-  (table)->inverse_indicesPtr = inverse_indicesPtr;
-  (table)->countsPtr = countsPtr;
+  table->elementSize = elemSize;
+  table->elementMax = elemMax;
+  table->elementCount = 0;
+  table->tablePtr = tablePtr;
+  table->indicesPtr = indicesPtr;
+  table->inverse_indicesPtr = inverse_indicesPtr;
+  table->countsPtr = countsPtr;
 }
 
 int uniqueTableRegister(uniqueTable *table, void *element, uint64_t off) {
@@ -73,6 +73,36 @@ int uniqueTableRegister(uniqueTable *table, void *element, uint64_t off) {
 
 int64_t uniqueTable_count(uniqueTable *table) { return table->elementCount; }
 
+#if 0
+void uniqueTableSort(uniqueTable *table) {
+  uint64_t elemSize = table->elementSize;
+  uint64_t elemCount = table->elementCount;
+  char *sortedTablePtr = (int64_t *) alloca(elemCount * elemSize);
+  int64_t *sortedIndicesPtr = (int64_t *) alloca(elemCount);
+  int64_t *sortedInverseIndicesPtr = (int64_t *) alloca(elemCount);
+  int64_t *sortedCountsPtr = (int64_t *) alloca(elemCount);
+  for (int order = 0; order < elemCount; order++) {
+    // get the least value in the table
+    int leastIdx = order;
+    void *leastElementPtr = (void *)(tablePtr + elemSize * leastIdx);
+    for (int i = order; i < elemCount; i++) {
+      void *elementInTable = (void *)(tablePtr + elemSize * i);
+      if (memcmp(elementInTable, leastElementPtr, elemSize)) {
+        leastIdx = i;
+        leastElementPtr = elementInTable;
+      }
+    }
+    memcpy(((char *)sortedTablePtr) + order * elementSize,
+           leastElementPtr, elementSize);
+    sortedIndicesPtr[order] = table->indicesPtr[order];
+    sortedCountsPtr[order] = table->countsPtr[order];
+  }
+  for (int i = 0; i < elemCount; i++) {
+    sortedInverseIndicesPtr[order] = table->indicesInversePtr[order];
+  }
+}
+#endif
+
 void getSliceData(void *inputPtr, int64_t *shape, int64_t *strides, int64_t rank,
     int64_t *shapeInUniqueAxis, int64_t sliceAxis, int64_t idxInSliceAxis,
     int64_t sliceSize, int64_t dataSize, void *sliceData) {
@@ -83,10 +113,10 @@ printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
        "strides=[%ld:%ld:%ld:%ld:%ld:%ld], rank=%ld, "
        "shapeInUniqueAxis=[%ld:%ld:%ld:%ld:%ld:%ld], "
        "sliceAxis=%ld, idxInSliceAxis=%ld, sliceSize=%ld, dataSize=%ld\n",
-       ((uint64_t *) inputPtr)[0], ((uint64_t *) inputPtr)[1], 
-       ((uint64_t *) inputPtr)[2], ((uint64_t *) inputPtr)[3], 
-       ((uint64_t *) inputPtr)[4], ((uint64_t *) inputPtr)[5], 
-       ((uint64_t *) inputPtr)[6], ((uint64_t *) inputPtr)[7], 
+       ((uint64_t *) inputPtr)[0], ((uint64_t *) inputPtr)[1],
+       ((uint64_t *) inputPtr)[2], ((uint64_t *) inputPtr)[3],
+       ((uint64_t *) inputPtr)[4], ((uint64_t *) inputPtr)[5],
+       ((uint64_t *) inputPtr)[6], ((uint64_t *) inputPtr)[7],
        ((uint64_t *) inputPtr)[8],
        shape[0], shape[1], shape[2], shape[3], shape[4], shape[5],
        strides[0], strides[1], strides[2], strides[3], strides[4], strides[5],
@@ -201,6 +231,11 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
   }
   *totalPtr = count;
   // printf("XXXX OMUnique: count = %d\n", count);
+#if 0
+  if (sorted > 0) {
+    uniqueTableSort(&sliceTale);
+  }
+#endif
   return;
 }
 
