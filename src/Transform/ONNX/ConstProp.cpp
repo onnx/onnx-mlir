@@ -869,6 +869,19 @@ Value ConstPropRange(PatternRewriter &rewriter, Value replacingValue,
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for NonZero.
+//===----------------------------------------------------------------------===//
+
+Value ConstPropNonZero(
+    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+  ConstPropCounters::count("NonZero", {constValue});
+  ElementsAttr constElements = getConstValueElements(constValue);
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr nonZeroElements = elementsBuilder.nonZero(constElements);
+  return createReplacingConstantOp(rewriter, replacingValue, nonZeroElements);
+}
+
+//===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 

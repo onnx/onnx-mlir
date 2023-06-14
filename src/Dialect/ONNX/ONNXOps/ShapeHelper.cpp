@@ -299,10 +299,10 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
         // LiteralNot1 - LiteralNot1 => keep unchanged with verifying.
         if (nextDimExpr.isLiteralAndDifferentThan(1) &&
             !currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr))
-          return op->emitError("Incompatible broadcast matching " +
-                               std::to_string(currentDimExpr.getLiteral()) +
-                               " with " +
-                               std::to_string(currentDimExpr.getLiteral()));
+          return op->emitOpError("Incompatible broadcast matching " +
+                                 std::to_string(currentDimExpr.getLiteral()) +
+                                 " with " +
+                                 std::to_string(nextDimExpr.getLiteral()));
         // Case: LiteralNot1 - (QuestionMark or 1) => Keep unchanged without
         // verifying.
         continue;
@@ -388,6 +388,17 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
       return false;
   // All have the same shape.
   return true;
+}
+
+// Checks if the input operands need rank broadcasting.
+bool ONNXBroadcastOpShapeHelper::hasRankBroadcast() {
+  ValueRange operands = this->operands;
+  for (Value operand : operands) {
+    auto operandType = operand.getType().cast<ShapedType>();
+    if (outputRank != (uint64_t)operandType.getRank())
+      return true;
+  }
+  return false;
 }
 
 bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(

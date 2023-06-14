@@ -146,7 +146,7 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
       bool flattenedInnerDims = false, bool ruledOutBroadcast = false);
 
   // Determine if broadcast can be ruled out at compile time. Use DimAnalysis
-  // when available. Broadcasting is defined is one value of one input is used
+  // when available. Broadcasting is defined if one value of one input is used
   // two or more times with a value of another input (when only looking at the
   // tensors, not the actual algorithms).
   //
@@ -161,6 +161,19 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // * 1x5xf32 and 5xf32 have also no broadcast as prepending 1x results as
   //   comparing 1x5xf32 with 1x5xf32.
   virtual bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
+
+  // Determine if the broadcast operation has operands with different ranks.
+  // Use DimAnalysis when available. The broadcasting will then add dimensions
+  // with size 1.
+  //
+  // Examples with rank broadcast:
+  // * 2x5xf32 and 5xf32 has rank broadcast for the second type. It will be
+  // interpreted as 1x5xf32
+  //
+  // Examples without rank broadcast:
+  // * 2x5xf32 and 1x5xf32 does not have rank boadcasting because the ranks are
+  // already equal
+  virtual bool hasRankBroadcast();
 
   // Determine of the broadcast operation has manageable broadcast (MB), and if
   // so, at which level/rank. We first attempt to see if the innermost dimension

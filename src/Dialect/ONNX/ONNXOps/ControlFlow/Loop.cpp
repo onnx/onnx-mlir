@@ -23,6 +23,30 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
+// Type Inference
+//===----------------------------------------------------------------------===//
+
+std::vector<Type> ONNXLoopOp::resultTypeInference() {
+  size_t numLoopCarriedDependencies = getVInitial().size();
+  Operation *terminator = getRegion().back().getTerminator();
+  assert(terminator->getNumOperands() == 1 + getVFinalAndScanOutputs().size() &&
+         "LoopOp outputs count must match body results count");
+  // Skip the termination condition.
+  auto bodyOuputTys = llvm::drop_begin(terminator->getOperandTypes(), 1);
+  std::vector<Type> resultTypes;
+  for (auto [i, ty] : llvm::enumerate(bodyOuputTys)) {
+    if (i < numLoopCarriedDependencies) { // loop carried dependency
+      resultTypes.push_back(ty);
+    } else { // scan output
+      // Erase any rank and shape. Shape inference will add a leading dimension.
+      Type elementType = cast<ShapedType>(ty).getElementType();
+      resultTypes.push_back(UnrankedTensorType::get(elementType));
+    }
+  }
+  return resultTypes;
+}
+
+//===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
 

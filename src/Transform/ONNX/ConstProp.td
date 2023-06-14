@@ -170,6 +170,9 @@ def CreateConstantOfShapeOfConst:
 def CreateRangeOfThreeConst :
    NativeCodeCall<"ConstPropRange($_builder, $0, $1, $2, $3)">;
 
+def CreateNonZeroOfConst :
+   NativeCodeCall<"ConstPropNonZero($_builder, $0, $1)">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
@@ -520,7 +523,7 @@ def MatMulIntegerConstZeroLhs : Pat<
     ),
     (CreateZeroTensorOfType $resOp),
     [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
-     (IsMatMulIntegerLhsZero $A, $a_zero_point)]
+     (IsMatMulIntegerLhsZero $A, $a_zero_point), (HasStaticShape:$resOp)]
     >;
 
 def MatMulIntegerConstZeroRhs : Pat<
@@ -531,7 +534,7 @@ def MatMulIntegerConstZeroRhs : Pat<
     ),
     (CreateZeroTensorOfType $resOp),
     [(IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point),
-     (IsMatMulIntegerRhsZero $B, $b_zero_point)]
+     (IsMatMulIntegerRhsZero $B, $b_zero_point), (HasStaticShape:$resOp)]
     >;
 
 def MatMulIntegerOfConsts : Pat<
@@ -683,5 +686,14 @@ def RangeConstProp : Pat<
     (CreateRangeOfThreeConst $rangeOp, $start, $limit, $delta),
     [(IsFromDenseONNXConstantOp:$start), (IsFromDenseONNXConstantOp:$limit),
      (IsFromDenseONNXConstantOp:$delta), (HasStaticShape:$rangeOp)]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns for NonZero.
+//===----------------------------------------------------------------------===//
+
+def NonZeroOfConst : Pat<
+    (ONNXNonZeroOp:$nonZeroOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (CreateNonZeroOfConst $nonZeroOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 #endif // ONNX_CONSTPROP

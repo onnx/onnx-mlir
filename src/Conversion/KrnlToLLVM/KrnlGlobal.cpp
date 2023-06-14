@@ -191,6 +191,10 @@ private:
     const auto type = krnlGlobalOp.getResult().getType();
     const auto memRefTy = type.cast<mlir::MemRefType>();
 
+    // Special handling for bool.
+    if (memRefTy.getElementType().isInteger(1))
+      return llvm::divideCeil(numElements, 8);
+
     return numElements * getMemRefEltSizeInBytes(memRefTy);
   }
 
