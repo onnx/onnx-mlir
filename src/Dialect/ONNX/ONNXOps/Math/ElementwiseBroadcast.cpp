@@ -53,7 +53,7 @@ static LogicalResult verifyShapeForBroadcastingOps(Operation *op) {
     SmallVector<int64_t> bcastShape;
     if (!OpTrait::util::getBroadcastedShape(
             resultShape, nextShape, bcastShape)) {
-      op->emitOpError("Broadcast op with incompatible shapes: ");
+      op->emitOpError("Broadcast op with incompatible shapes: ") << *op;
     }
     resultShape = bcastShape;
   }
