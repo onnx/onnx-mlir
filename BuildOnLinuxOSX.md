@@ -42,7 +42,7 @@ The `MLIR_DIR` cmake variable must be set before building onnx-mlir. It should p
 
 This project uses lit ([LLVM's Integrated Tester](https://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running cmake, we can also specify the path to the lit tool from LLVM using the `LLVM_EXTERNAL_LIT` variable but it is not required as long as MLIR_DIR points to a build directory of llvm-project. If `MLIR_DIR` points to an install directory of llvm-project, `LLVM_EXTERNAL_LIT` is required.
 
-To build ONNX-MLIR, use the following commands:
+To build ONNX-MLIR, use the following commands (maybe with additional `-DCMAKE_CXX_FLAGS` argument described [below](#enable-cpu-optimizations)):
 
 [same-as-file]: <> ({"ref": "utils/install-onnx-mlir.sh", "skip-doc": 2})
 ```bash
@@ -75,6 +75,11 @@ Since OSX Big Sur, add the `-DCMAKE_CXX_COMPILER=/usr/bin/c++` option to the abo
 The environment variable `$pythonLocation` may be used to specify the base directory of the Python compiler.
 
 After the above commands succeed, an `onnx-mlir` executable should appear in the `Debug/bin` or `Release/bin` directory.
+
+### Enable CPU Optimizations
+
+To make the compiler run faster (without any affect on the generated code)
+you can pass `-DCMAKE_CXX_FLAGS=-march=native` to the `cmake -G Ninja ..` build configuration step above to generate code that exploits all the features of your local CPU, at the expense of portability. Or you can enable a specific CPU feature, e.g. `-DCMAKE_CXX_FLAGS=-mf16c` to enable the F16C feature to enable native conversion between float16 and (32 bit) float. It is used in `src/Support/FloastingPoint16.hpp`.
 
 ### Known MacOS Issues
 
