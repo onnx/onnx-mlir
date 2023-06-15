@@ -6,7 +6,7 @@ add_onnx_mlir_executable(TestSmallFP
   NO_INSTALL
 
   LINK_LIBS PRIVATE
-  OMONNXOps
+  OMMlirUtilities
   )
 
 add_test(NAME TestSmallFP COMMAND TestSmallFP)
