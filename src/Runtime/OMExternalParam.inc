@@ -34,14 +34,11 @@
 /// \return Pointer to the malloc'd area if successful, or NULL otherwise
 ///
 void *malloc_aligned(size_t size, size_t align) {
-
-  printf("malloc size %d\n", size);
   // request one more page + size of a pointer from the OS
   unsigned short extra_allocation = (align - 1) + sizeof(void *);
 
   void *ptr = malloc(size + extra_allocation);
   if (!ptr) {
-    printf("cannot malloc size %ld\n", size);
     perror("Error during malloc");
     fprintf(stderr, "errno = %d\n", errno);
     return ptr;
@@ -72,27 +69,17 @@ void free_aligned(void *aligned_ptr) {
 
 void *omLoadExternalParam(
     char *fname, int64_t size, int64_t align, int64_t isLE) {
-  printf("read file: %s\n", fname);
-  printf("read size %ld\n", size);
-
   void *buffer = malloc_aligned(size, align);
 
   FILE *fileptr;
-  // long filelen;
   fileptr = fopen(fname, "rb"); // Open the file in binary mode
   if (fileptr == NULL) {
-    perror("Failed to read file");
+    perror("Error: ");
     return NULL;
   }
-  // fseek(fileptr, 0, SEEK_END);  // Jump to the end of the file
-  // filelen = ftell(fileptr);     // Get the current byte offset in the file
-  // rewind(fileptr);              // Jump back to the beginning of the file
 
   long nr = fread(buffer, size, 1, fileptr);
-  printf("read %ld elements\n", nr);
   float *fb = (float *)buffer;
-  printf("value %f \n", fb[0]);
-  printf("value %f \n", fb[1]);
   fclose(fileptr);
 
   return buffer;

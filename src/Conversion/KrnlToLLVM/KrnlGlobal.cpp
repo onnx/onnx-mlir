@@ -81,11 +81,15 @@ public:
           globalOpAddr = create.llvm.addressOf(global);
         })
         .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
-          global = lowerDenseConstant(krnlGlobalOp, globalType, rewriter);
-          globalOpAddr = create.llvm.addressOf(global);
-          if (storeGlobalsToFiles)
+          if (storeGlobalsToFiles) {
+            global = emitGlobalOpWithExternalFiles(krnlGlobalOp, rewriter);
             // Load the data pointer to be used for MemRef.
-            globalOpAddr = create.llvm.load(llvmI8PtrTy, globalOpAddr);
+            globalOpAddr =
+                create.llvm.load(llvmI8PtrTy, create.llvm.addressOf(global));
+          } else {
+            global = lowerDenseConstant(krnlGlobalOp, globalType, rewriter);
+            globalOpAddr = create.llvm.addressOf(global);
+          }
         })
         .Default([&](Attribute attr) {
           llvm_unreachable("Unsupported attribute type");
@@ -161,14 +165,12 @@ private:
     assert(krnlGlobalOp.getValue().value().isa<DenseElementsAttr>() &&
            "Expecting a global with an dense elements attribute");
 
-    MLIRContext *context = krnlGlobalOp.getContext();
     Location loc = krnlGlobalOp.getLoc();
     ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
+    MLIRContext *context = krnlGlobalOp.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     Type llvmI8Ty = IntegerType::get(context, 8);
-    Type llvmI64Ty = IntegerType::get(context, 64);
-    Type llvmI8PtrTy = getPointerType(context, llvmI8Ty);
 
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
@@ -179,73 +181,17 @@ private:
     int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     LLVM::GlobalOp global;
     if ((!denseAttr.getElementType().isa<StringType>()) &&
+        // tung: use 1024.
         (!denseAttr.isSplat()) && (sizeInBytes > 1)) {
       ArrayRef<char> rawData = denseAttr.getRawData();
       assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
       auto llvmArrayI8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, sizeInBytes);
-      if (!storeGlobalsToFiles) {
-        StringRef data(rawData.data(), rawData.size());
-        StringAttr llvmStringAttr = StringAttr::get(context, data);
-        global = create.llvm.globalOp(llvmArrayI8Ty,
-            /*isConstant=*/true, LLVM::Linkage::Internal,
-            krnlGlobalOp.getName(), llvmStringAttr);
-      } else {
-        // Store data to a file `data_param_constant_i.bin`
-        std::string filenameWithoutExt =
-            "param_" + krnlGlobalOp.getName().str();
-        std::string filename = filenameWithoutExt + ".bin" + '\0';
-        SmallVector<char, 10> currentFolder;
-        llvm::sys::fs::current_path(currentFolder);
-        std::string pathStr =
-            std::string(currentFolder.begin(), currentFolder.end()) + "/" +
-            filename;
-        std::ofstream outfile(pathStr, std::ofstream::binary);
-        outfile.write(rawData.data(), rawData.size());
-        outfile.close();
-
-        // Create an uninitialized global. Data will be loaded at runtime.
-        LLVM::GlobalOp extDataGlobal = create.llvm.globalOp(llvmI8PtrTy,
-            /*isConstant=*/false, LLVM::Linkage::External,
-            "data_" + filenameWithoutExt, nullptr);
-        {
-          OpBuilder::InsertionGuard insertGuard(rewriter);
-          Region &region = extDataGlobal.getInitializerRegion();
-          Block *block = rewriter.createBlock(&region);
-          // Initialize an array with the addresses of the global op.
-          rewriter.setInsertionPoint(block, block->begin());
-          create.llvm._return(create.llvm.null(llvmI8PtrTy));
-        }
-
-        // Create a global to store filename.
-        auto fnameAttr = mlir::StringAttr::get(context, filename);
-        auto fnameArrTy = LLVM::LLVMArrayType::get(llvmI8Ty, filename.size());
-        create.llvm.globalOp(fnameArrTy,
-            /*isConstant=*/true, LLVM::Linkage::Internal,
-            "fname_" + filenameWithoutExt, fnameAttr);
-
-        // Create a global to store data size.
-        create.llvm.globalOp(llvmI64Ty,
-            /*isConstant=*/true, LLVM::Linkage::Internal,
-            "size_" + filenameWithoutExt,
-            rewriter.getI64IntegerAttr(rawData.size()));
-
-        // Create a global to store isLE.
-        bool isLE = llvm::support::endian::system_endianness() ==
-                    llvm::support::endianness::little;
-        create.llvm.globalOp(llvmI8Ty,
-            /*isConstant=*/true, LLVM::Linkage::Internal,
-            "isle_" + filenameWithoutExt, rewriter.getI8IntegerAttr(isLE));
-
-        // tung: Remove this, it is here to make code valid while developing the
-        // new mechanism.
-        // StringRef data(rawData.data(), rawData.size());
-        // StringAttr llvmStringAttr = StringAttr::get(context, data);
-        // global = create.llvm.globalOp(llvmArrayI8Ty,
-        //     /*isConstant=*/true, LLVM::Linkage::Internal,
-        //     krnlGlobalOp.getName(), llvmStringAttr);
-        global = extDataGlobal;
-      }
+      StringRef data(rawData.data(), rawData.size());
+      StringAttr llvmStringAttr = StringAttr::get(context, data);
+      global = create.llvm.globalOp(llvmArrayI8Ty,
+          /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.getName(),
+          llvmStringAttr);
     } else {
       if (denseAttr.getElementType().isa<StringType>())
         global = lowerStringLiteral(krnlGlobalOp, globalType, rewriter);
@@ -256,6 +202,76 @@ private:
     }
 
     LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
+    return global;
+  }
+
+  LLVM::GlobalOp emitGlobalOpWithExternalFiles(
+      KrnlGlobalOp &krnlGlobalOp, ConversionPatternRewriter &rewriter) const {
+    llvm::outs() << "call emitGlobalOpWithExternalFiles\n";
+    Location loc = krnlGlobalOp.getLoc();
+    MLIRContext *context = krnlGlobalOp.getContext();
+    ModuleOp module = krnlGlobalOp.getOperation()->getParentOfType<ModuleOp>();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+
+    Type llvmI8Ty = IntegerType::get(context, 8);
+    Type llvmI8PtrTy = getPointerType(context, llvmI8Ty);
+    Type llvmI64Ty = IntegerType::get(context, 64);
+
+    DenseElementsAttr denseAttr =
+        krnlGlobalOp.getValue().value().dyn_cast_or_null<DenseElementsAttr>();
+    assert(denseAttr && "Not a DenseElementsAttr. Cannot use external files.");
+    ArrayRef<char> rawData = denseAttr.getRawData();
+
+    // Store data to a file `data_param_constant_i.bin`
+    std::string filenameWithoutExt = "param_" + krnlGlobalOp.getName().str();
+    std::string filename = filenameWithoutExt + ".bin" + '\0';
+    SmallVector<char, 10> currentFolder;
+    llvm::sys::fs::current_path(currentFolder);
+    std::string pathStr =
+        std::string(currentFolder.begin(), currentFolder.end()) + "/" +
+        filename;
+    std::ofstream outfile(pathStr, std::ofstream::binary);
+    outfile.write(rawData.data(), rawData.size());
+    outfile.close();
+
+    // Emit globals at the begining of the module.
+    OpBuilder::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+
+    // Create an uninitialized global. Data will be loaded at runtime.
+    LLVM::GlobalOp global = create.llvm.globalOp(llvmI8PtrTy,
+        /*isConstant=*/false, LLVM::Linkage::Internal,
+        "data_" + filenameWithoutExt, nullptr);
+    {
+      OpBuilder::InsertionGuard insertGuard(rewriter);
+      Region &region = global.getInitializerRegion();
+      Block *block = rewriter.createBlock(&region);
+      // Initialize an array with the addresses of the global op.
+      rewriter.setInsertionPoint(block, block->begin());
+      create.llvm._return(create.llvm.null(llvmI8PtrTy));
+    }
+
+    // Create a global to store filename.
+    auto fnameAttr = mlir::StringAttr::get(context, filename);
+    auto fnameArrTy = LLVM::LLVMArrayType::get(llvmI8Ty, filename.size());
+    LLVM::GlobalOp fOp = create.llvm.globalOp(fnameArrTy,
+        /*isConstant=*/true, LLVM::Linkage::Internal,
+        "fname_" + filenameWithoutExt, fnameAttr);
+    llvm::outs() << "filename op: " << fOp << "\n";
+
+    // Create a global to store data size.
+    create.llvm.globalOp(llvmI64Ty,
+        /*isConstant=*/true, LLVM::Linkage::Internal,
+        "size_" + filenameWithoutExt,
+        rewriter.getI64IntegerAttr(rawData.size()));
+
+    // Create a global to store isLE.
+    bool isLE = llvm::support::endian::system_endianness() ==
+                llvm::support::endianness::little;
+    create.llvm.globalOp(llvmI8Ty,
+        /*isConstant=*/true, LLVM::Linkage::Internal,
+        "isle_" + filenameWithoutExt, rewriter.getI8IntegerAttr(isLE));
+
     return global;
   }
 
