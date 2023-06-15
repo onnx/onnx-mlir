@@ -69,26 +69,34 @@ public:
     }
 
     // Create the global at the entry of the module.
+    LLVM::GlobalOp global;
+    // Pointer to the raw data of the global.
+    Value dataPtr;
+
     assert(krnlGlobalOp.getValue().has_value() &&
            "Krnl Global must always have a value");
     auto value = krnlGlobalOp.getValue().value();
-    LLVM::GlobalOp global;
-    Value globalOpAddr;
+    uint64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     TypeSwitch<Attribute>(value)
         .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
-          global =
-              lowerDenseResourceConstant(krnlGlobalOp, globalType, rewriter);
-          globalOpAddr = create.llvm.addressOf(global);
+          if (storeGlobalsToFiles && sizeInBytes > kUsedExternalFileThreshold) {
+            global = lowerGlobalOpWithExternalFiles(krnlGlobalOp, rewriter);
+            dataPtr =
+                create.llvm.load(llvmI8PtrTy, create.llvm.addressOf(global));
+          } else {
+            global =
+                lowerDenseResourceConstant(krnlGlobalOp, globalType, rewriter);
+            dataPtr = create.llvm.addressOf(global);
+          }
         })
         .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
-          if (storeGlobalsToFiles) {
-            global = emitGlobalOpWithExternalFiles(krnlGlobalOp, rewriter);
-            // Load the data pointer to be used for MemRef.
-            globalOpAddr =
+          if (storeGlobalsToFiles && sizeInBytes > kUsedExternalFileThreshold) {
+            global = lowerGlobalOpWithExternalFiles(krnlGlobalOp, rewriter);
+            dataPtr =
                 create.llvm.load(llvmI8PtrTy, create.llvm.addressOf(global));
           } else {
             global = lowerDenseConstant(krnlGlobalOp, globalType, rewriter);
-            globalOpAddr = create.llvm.addressOf(global);
+            dataPtr = create.llvm.addressOf(global);
           }
         })
         .Default([&](Attribute attr) {
@@ -103,9 +111,7 @@ public:
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
     MemRefDescriptor memRefDescr =
-        createMemRefDescriptor(globalOpAddr, memRefTy, loc, rewriter);
-    llvm::outs() << "constant name: " << global.getName() << "\n";
-    llvm::outs() << "Memref desc: " << memRefDescr << "\n";
+        createMemRefDescriptor(dataPtr, memRefTy, loc, rewriter);
 
     rewriter.replaceOp(op, {memRefDescr});
 
@@ -114,6 +120,7 @@ public:
 
 private:
   bool storeGlobalsToFiles;
+  uint64_t kUsedExternalFileThreshold = 1024;
 
   static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
     return (a.getValue()[i]).cast<IntegerAttr>().getInt();
@@ -143,8 +150,8 @@ private:
     ArrayRef<char> rawData = blob->getData();
 
     // Check data size.
-    int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
-    assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
+    uint64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
+    assert(((uint64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
     StringRef data(rawData.data(), rawData.size());
     StringAttr llvmStringAttr = StringAttr::get(context, data);
@@ -178,13 +185,13 @@ private:
     DenseElementsAttr denseAttr =
         krnlGlobalOp.getValue().value().cast<DenseElementsAttr>();
 
-    int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
+    uint64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     LLVM::GlobalOp global;
     if ((!denseAttr.getElementType().isa<StringType>()) &&
-        // tung: use 1024.
-        (!denseAttr.isSplat()) && (sizeInBytes > 1)) {
+        (!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
       ArrayRef<char> rawData = denseAttr.getRawData();
-      assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
+      assert(
+          ((uint64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
       auto llvmArrayI8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, sizeInBytes);
       StringRef data(rawData.data(), rawData.size());
@@ -205,9 +212,8 @@ private:
     return global;
   }
 
-  LLVM::GlobalOp emitGlobalOpWithExternalFiles(
+  LLVM::GlobalOp lowerGlobalOpWithExternalFiles(
       KrnlGlobalOp &krnlGlobalOp, ConversionPatternRewriter &rewriter) const {
-    llvm::outs() << "call emitGlobalOpWithExternalFiles\n";
     Location loc = krnlGlobalOp.getLoc();
     MLIRContext *context = krnlGlobalOp.getContext();
     ModuleOp module = krnlGlobalOp.getOperation()->getParentOfType<ModuleOp>();
@@ -217,10 +223,31 @@ private:
     Type llvmI8PtrTy = getPointerType(context, llvmI8Ty);
     Type llvmI64Ty = IntegerType::get(context, 64);
 
-    DenseElementsAttr denseAttr =
-        krnlGlobalOp.getValue().value().dyn_cast_or_null<DenseElementsAttr>();
-    assert(denseAttr && "Not a DenseElementsAttr. Cannot use external files.");
-    ArrayRef<char> rawData = denseAttr.getRawData();
+    // Get the raw data of KrnlGlobal.
+    ArrayRef<char> rawData;
+    assert(krnlGlobalOp.getValue().has_value() &&
+           "Krnl Global must always have a value");
+    auto value = krnlGlobalOp.getValue().value();
+    TypeSwitch<Attribute>(value)
+        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
+          auto blob = krnlGlobalOp.getValue()
+                          .value()
+                          .cast<DenseResourceElementsAttr>()
+                          .getRawHandle()
+                          .getBlob();
+          assert(blob && "Expecting dense resource with a valid blob");
+          rawData = blob->getData();
+        })
+        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
+          DenseElementsAttr denseAttr =
+              krnlGlobalOp.getValue()
+                  .value()
+                  .dyn_cast_or_null<DenseElementsAttr>();
+          rawData = denseAttr.getRawData();
+        })
+        .Default([&](Attribute attr) {
+          llvm_unreachable("Unsupported attribute type");
+        });
 
     // Store data to a file `data_param_constant_i.bin`
     std::string filenameWithoutExt = "param_" + krnlGlobalOp.getName().str();
@@ -254,10 +281,9 @@ private:
     // Create a global to store filename.
     auto fnameAttr = mlir::StringAttr::get(context, filename);
     auto fnameArrTy = LLVM::LLVMArrayType::get(llvmI8Ty, filename.size());
-    LLVM::GlobalOp fOp = create.llvm.globalOp(fnameArrTy,
+    create.llvm.globalOp(fnameArrTy,
         /*isConstant=*/true, LLVM::Linkage::Internal,
         "fname_" + filenameWithoutExt, fnameAttr);
-    llvm::outs() << "filename op: " << fOp << "\n";
 
     // Create a global to store data size.
     create.llvm.globalOp(llvmI64Ty,
@@ -275,10 +301,10 @@ private:
     return global;
   }
 
-  int64_t computeSizeInBytes(KrnlGlobalOp &krnlGlobalOp) const {
+  uint64_t computeSizeInBytes(KrnlGlobalOp &krnlGlobalOp) const {
     // Compute total number of elements.
     const auto shape = (krnlGlobalOp.getShape()).dyn_cast<ArrayAttr>();
-    int64_t numElements = 1;
+    uint64_t numElements = 1;
     for (unsigned int i = 0; i < shape.size(); ++i)
       numElements *= ArrayAttrIntVal(shape, i);
 

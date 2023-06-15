@@ -450,7 +450,6 @@ void loadExternalParamsFromFiles(ModuleOp &module,
       return WalkResult::advance();
     std::string constantName = fnameSymbol.drop_front(11).str();
 
-    llvm::outs() << "fname: " << fnameSymbol << "\n";
     // Get the global op for filename.
     auto fnameGlobal = module.lookupSymbol<LLVM::GlobalOp>(fnameSymbol);
     assert(fnameGlobal && "Could not find the global op for filename");
