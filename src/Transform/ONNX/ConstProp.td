@@ -61,9 +61,13 @@ def IsVariadicOperandDenseONNXConstantOp:
   "Variadic operand is produced by dense ONNXConstantOps">;
 
 def HasStaticShape: Constraint<CPred<
-  "(isRankedShapedType($_self.getType()) && "
-  " $_self.getType().cast<ShapedType>().hasStaticShape())">,
+  "hasStaticShape($_self.getType())">,
   "A value has static shape"
+>;
+
+def HasIntegerElementType: Constraint<CPred<
+  "isa<IntegerType>(getElementType($_self.getType()))">,
+  "A value has integer element type"
 >;
 
 def IsConstOfZeros : Constraint<
@@ -136,6 +140,9 @@ def CreateReduceMaxConst :
 
 def CreateReduceMeanConst :
     NativeCodeCall<"ConstPropReduce<mlir::ONNXReduceMeanOp>($_builder, $0, $1, $2)">;
+
+def CreateMatMulOfConsts :
+    NativeCodeCall<"ConstPropMatMul($_builder, $0, $1, $2)">;
 
 def CreateMatMulIntegerOfConsts :
     NativeCodeCall<"ConstPropMatMulInteger($_builder, $0, $1, $2, $3, $4)">;
@@ -516,6 +523,41 @@ def ReduceMeanConstProp: Pat<
 
 //===----------------------------------------------------------------------===//
 // Patterns for MatMul.
+//===----------------------------------------------------------------------===//
+
+// Limited to integers because 0 * NaN is NaN, not 0.
+def MatMulZerosOnLhs : Pat<
+    (ONNXMatMulOp:$resOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      $B
+    ),
+    (CreateZeroTensorOfType $resOp),
+    [(IsConstOfZeros:$A), (IsNotAConstant:$B),
+     (HasStaticShape:$resOp), (HasIntegerElementType:$resOp)]
+    >;
+
+// Limited to integers because NaN * 0 is NaN, not 0.
+def MatMulZerosOnRhs : Pat<
+    (ONNXMatMulOp:$resOp
+      $A,
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    (CreateZeroTensorOfType $resOp),
+    [(IsNotAConstant:$A), (IsConstOfZeros:$B),
+     (HasStaticShape:$resOp), (HasIntegerElementType:$resOp)]
+    >;
+
+def MatMulOfConsts : Pat<
+    (ONNXMatMulOp:$resOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    (CreateMatMulOfConsts $resOp, $A, $B),
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B)]
+    >;
+
+//===----------------------------------------------------------------------===//
+// Patterns for MatMulInteger.
 //===----------------------------------------------------------------------===//
 
 def MatMulIntegerConstZeroLhs : Pat<
