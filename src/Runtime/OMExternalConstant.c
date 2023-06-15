@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ OMExternalParam.c - OMExternalParam C Implementation ----------===//
+//===------ OMExternalConstant.c - OMExternalConstant C Implementation ----===//
 //
 // Copyright 2023 The IBM Research Authors.
 //
@@ -13,4 +13,4 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "OMExternalParam.inc"
+#include "OMExternalConstant.inc"
