@@ -432,98 +432,161 @@ void loadExternalParamsFromFiles(ModuleOp &module,
   std::string loadOneParamFuncName = "omLoadExternalParam";
 
   // Emit a function that loads external parameters.
-  auto saveIP = b.saveInsertionPoint();
-  auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("run_main_graph");
-  OpBuilder::InsertionGuard guard(b);
-  b.setInsertionPoint(entryFunc);
-  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
-  LLVM::LLVMFuncOp funcOp = create.llvm.func(loadAllParamsFuncName, llvmFnType);
+  // auto saveIP = b.saveInsertionPoint();
+  // auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("run_main_graph");
+  // OpBuilder::InsertionGuard guard(b);
+  // b.setInsertionPoint(entryFunc);
+  // Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
+  // LLVM::LLVMFuncOp funcOp = create.llvm.func(loadAllParamsFuncName, llvmFnType);
 
-  // Emit the body of the function.
-  Block *entryBlock = funcOp.addEntryBlock();
-  OpBuilder::InsertionGuard bodyGuard(b);
-  b.setInsertionPointToStart(entryBlock);
-  module->walk([&](LLVM::GlobalOp gop) -> WalkResult {
-    StringRef fnameSymbol = gop.getSymName();
-    if (!fnameSymbol.startswith("fname_param"))
-      return WalkResult::advance();
-      std::string constantName = fnameSymbol.drop_front(11).str();
+  // // Emit the body of the function.
+  // Block *entryBlock = funcOp.addEntryBlock();
+  // OpBuilder::InsertionGuard bodyGuard(b);
+  // b.setInsertionPointToStart(entryBlock);
+  // module->walk([&](LLVM::GlobalOp gop) -> WalkResult {
+  //   StringRef fnameSymbol = gop.getSymName();
+  //   if (!fnameSymbol.startswith("fname_param"))
+  //     return WalkResult::advance();
+  //   std::string constantName = fnameSymbol.drop_front(11).str();
 
-    // Get the global op for filename.
-    auto fnameGlobal = module.lookupSymbol<LLVM::GlobalOp>(fnameSymbol);
-    assert(fnameGlobal && "Could not find the global op for filename");
+  //   // Get the global op for filename.
+  //   auto fnameGlobal = module.lookupSymbol<LLVM::GlobalOp>(fnameSymbol);
+  //   assert(fnameGlobal && "Could not find the global op for filename");
 
-    // Get the global op for data.
-    std::string dataSymbol = "data_param" + constantName;
-    auto dataGlobal = module.lookupSymbol<LLVM::GlobalOp>(dataSymbol);
-    assert(dataGlobal && "Could not find the global op for data");
+  //   // Get the global op for data.
+  //   std::string dataSymbol = "data_param" + constantName;
+  //   auto dataGlobal = module.lookupSymbol<LLVM::GlobalOp>(dataSymbol);
+  //   assert(dataGlobal && "Could not find the global op for data");
 
-    // Get the global op for data size.
-    std::string sizeSymbol = "size_param" + constantName;
-    auto sizeGlobal = module.lookupSymbol<LLVM::GlobalOp>(sizeSymbol);
-    assert(sizeGlobal && "Could not find the global op for data size");
-    int64_t dataSize = sizeGlobal.getValue()
-                           .value()
-                           .cast<IntegerAttr>()
-                           .getValue()
-                           .getSExtValue();
-    // Get alignment.
-    int64_t alignment = dataGlobal.getAlignment().value();
+  //   // Get the global op for data size.
+  //   std::string sizeSymbol = "size_param" + constantName;
+  //   auto sizeGlobal = module.lookupSymbol<LLVM::GlobalOp>(sizeSymbol);
+  //   assert(sizeGlobal && "Could not find the global op for data size");
+  //   int64_t dataSize = sizeGlobal.getValue()
+  //                          .value()
+  //                          .cast<IntegerAttr>()
+  //                          .getValue()
+  //                          .getSExtValue();
+  //   // Get alignment.
+  //   int64_t alignment = dataGlobal.getAlignment().value();
 
-    // Get endianess.
-    std::string isleSymbol = "isle_param" + constantName;
-    auto isleGlobal = module.lookupSymbol<LLVM::GlobalOp>(isleSymbol);
-    assert(isleGlobal && "Could not find the global op for isLE");
-    int64_t isLE = isleGlobal.getValue()
-                       .value()
-                       .cast<IntegerAttr>()
-                       .getValue()
-                       .getSExtValue();
+  //   // Get endianess.
+  //   std::string isleSymbol = "isle_param" + constantName;
+  //   auto isleGlobal = module.lookupSymbol<LLVM::GlobalOp>(isleSymbol);
+  //   assert(isleGlobal && "Could not find the global op for isLE");
+  //   int64_t isLE = isleGlobal.getValue()
+  //                      .value()
+  //                      .cast<IntegerAttr>()
+  //                      .getValue()
+  //                      .getSExtValue();
 
-    // Read data from the external file.
-    // function signature: *i8(*i8, i64, i64, i64)
-    // arguments: (filename, sizeInBytes, alignment, isLE)
-    FlatSymbolRefAttr getExternalParamRef = create.llvm.getOrInsertSymbolRef(
-        module, loadOneParamFuncName, llvmI8PtrTy,
-        ArrayRef<Type>{llvmI8PtrTy, llvmI64Ty, llvmI64Ty, llvmI64Ty},
-        /*isVarArg=*/false);
-    Value fnameI8Ptr = krnl::getPtrToGlobalString(fnameGlobal, loc, b);
-    Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
-    Value alignmentVal = create.llvm.constant(llvmI64Ty, alignment);
-    Value isLEVal = create.llvm.constant(llvmI64Ty, isLE);
-    Value alloc = create.llvm.call(llvmI8PtrTy, getExternalParamRef,
-        ArrayRef<Value>({fnameI8Ptr, sizeVal, alignmentVal, isLEVal}));
+  //   // Read data from the external file.
+  //   // function signature: *i8(*i8, i64, i64, i64)
+  //   // arguments: (filename, sizeInBytes, alignment, isLE)
+  //   FlatSymbolRefAttr getExternalParamRef = create.llvm.getOrInsertSymbolRef(
+  //       module, loadOneParamFuncName, llvmI8PtrTy,
+  //       ArrayRef<Type>{llvmI8PtrTy, llvmI64Ty, llvmI64Ty, llvmI64Ty},
+  //       /*isVarArg=*/false);
+  //   Value fnameI8Ptr = krnl::getPtrToGlobalString(fnameGlobal, loc, b);
+  //   Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
+  //   Value alignmentVal = create.llvm.constant(llvmI64Ty, alignment);
+  //   Value isLEVal = create.llvm.constant(llvmI64Ty, isLE);
+  //   Value alloc = create.llvm.call(llvmI8PtrTy, getExternalParamRef,
+  //       ArrayRef<Value>({fnameI8Ptr, sizeVal, alignmentVal, isLEVal}));
 
-    // Store data to the internal global op.
-    Value dataGlobalAddrr = create.llvm.addressOf(dataGlobal);
-    create.llvm.store(alloc, dataGlobalAddrr);
+  //   // Store data to the internal global op.
+  //   Value dataGlobalAddrr = create.llvm.addressOf(dataGlobal);
+  //   create.llvm.store(alloc, dataGlobalAddrr);
 
-    if (!hasExternalParams)
-      hasExternalParams = true;
+  //   if (!hasExternalParams)
+  //     hasExternalParams = true;
 
-    return WalkResult::advance();
-  });
+  //   return WalkResult::advance();
+  // });
 
-  create.llvm._return();
-  b.restoreInsertionPoint(saveIP);
+  // create.llvm._return();
+  // b.restoreInsertionPoint(saveIP);
 
   // Call loadAllParamsFuncName in each entry point function.
   // TODO: avoid multiple calls and support multiple-threads.
-  if (hasExternalParams) {
+  // if (hasExternalParams) {
+  if (true) {
     for (auto entryGlobalOp : entryGlobalOps) {
       std::string entryName =
           entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
       // Erase the null symbol.
       entryName.erase(
           std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
-      auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
+      // auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
+      auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("main_graph");
       assert(entryFunc && "Entry function not found");
       b.setInsertionPoint(
           &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
-      FlatSymbolRefAttr loadAllParamsRef = create.llvm.getOrInsertSymbolRef(
-          module, loadAllParamsFuncName, llvmVoidTy, {},
-          /*isVarArg=*/false);
-      create.llvm.call({}, loadAllParamsRef, {});
+      // FlatSymbolRefAttr loadAllParamsRef = create.llvm.getOrInsertSymbolRef(
+      //     module, loadAllParamsFuncName, llvmVoidTy, {},
+      //     /*isVarArg=*/false);
+      // create.llvm.call({}, loadAllParamsRef, {});
+      module->walk([&](LLVM::GlobalOp gop) -> WalkResult {
+        StringRef fnameSymbol = gop.getSymName();
+        if (!fnameSymbol.startswith("fname_param"))
+          return WalkResult::advance();
+        std::string constantName = fnameSymbol.drop_front(11).str();
+
+        // Get the global op for filename.
+        auto fnameGlobal = module.lookupSymbol<LLVM::GlobalOp>(fnameSymbol);
+        assert(fnameGlobal && "Could not find the global op for filename");
+
+        // Get the global op for data.
+        std::string dataSymbol = "data_param" + constantName;
+        auto dataGlobal = module.lookupSymbol<LLVM::GlobalOp>(dataSymbol);
+        assert(dataGlobal && "Could not find the global op for data");
+
+        // Get the global op for data size.
+        std::string sizeSymbol = "size_param" + constantName;
+        auto sizeGlobal = module.lookupSymbol<LLVM::GlobalOp>(sizeSymbol);
+        assert(sizeGlobal && "Could not find the global op for data size");
+        int64_t dataSize = sizeGlobal.getValue()
+                               .value()
+                               .cast<IntegerAttr>()
+                               .getValue()
+                               .getSExtValue();
+        // Get alignment.
+        int64_t alignment = dataGlobal.getAlignment().value();
+
+        // Get endianess.
+        std::string isleSymbol = "isle_param" + constantName;
+        auto isleGlobal = module.lookupSymbol<LLVM::GlobalOp>(isleSymbol);
+        assert(isleGlobal && "Could not find the global op for isLE");
+        int64_t isLE = isleGlobal.getValue()
+                           .value()
+                           .cast<IntegerAttr>()
+                           .getValue()
+                           .getSExtValue();
+
+        // Read data from the external file.
+        // function signature: *i8(*i8, i64, i64, i64)
+        // arguments: (filename, sizeInBytes, alignment, isLE)
+        FlatSymbolRefAttr getExternalParamRef =
+            create.llvm.getOrInsertSymbolRef(module, loadOneParamFuncName,
+                llvmI8PtrTy,
+                ArrayRef<Type>{llvmI8PtrTy, llvmI64Ty, llvmI64Ty, llvmI64Ty},
+                /*isVarArg=*/false);
+        Value fnameI8Ptr = krnl::getPtrToGlobalString(fnameGlobal, loc, b);
+        Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
+        Value alignmentVal = create.llvm.constant(llvmI64Ty, alignment);
+        Value isLEVal = create.llvm.constant(llvmI64Ty, isLE);
+        Value alloc = create.llvm.call({llvmI8PtrTy}, getExternalParamRef,
+            ArrayRef<Value>({fnameI8Ptr, sizeVal, alignmentVal, isLEVal}));
+
+        // Store data to the internal global op.
+        Value dataGlobalAddrr = create.llvm.addressOf(dataGlobal);
+        create.llvm.store(alloc, dataGlobalAddrr);
+
+        if (!hasExternalParams)
+          hasExternalParams = true;
+
+        return WalkResult::advance();
+      });
     }
   }
 }
@@ -575,7 +638,7 @@ struct ConvertKrnlToLLVMPass
                      "section. This is for linking large object files"),
       llvm::cl::init(false)};
 
-  Option<bool> storeGlobalsToFiles{*this, "storeGlobalsToFiles",
+  Option<bool> storeGlobalsToFiles{*this, "store-globals-to-files",
       llvm::cl::desc("Put global constants into external files "),
       llvm::cl::init(false)};
 };

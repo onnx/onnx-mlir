@@ -44,7 +44,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     auto krnlGlobalOp = llvm::dyn_cast<KrnlGlobalOp>(op);
     Location loc = krnlGlobalOp.getLoc();
+    MLIRContext *context = krnlGlobalOp.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+
+    // Basic type.
+    Type llvmI8Ty = IntegerType::get(context, 8);
+    Type llvmI8PtrTy = getPointerType(context, llvmI8Ty);
 
     // The element type of the array.
     const Type type = op->getResult(0).getType();
@@ -68,13 +73,19 @@ public:
            "Krnl Global must always have a value");
     auto value = krnlGlobalOp.getValue().value();
     LLVM::GlobalOp global;
+    Value globalOpAddr;
     TypeSwitch<Attribute>(value)
         .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
           global =
               lowerDenseResourceConstant(krnlGlobalOp, globalType, rewriter);
+          globalOpAddr = create.llvm.addressOf(global);
         })
         .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
           global = lowerDenseConstant(krnlGlobalOp, globalType, rewriter);
+          globalOpAddr = create.llvm.addressOf(global);
+          if (storeGlobalsToFiles)
+            // Load the data pointer to be used for MemRef.
+            globalOpAddr = create.llvm.load(llvmI8PtrTy, globalOpAddr);
         })
         .Default([&](Attribute attr) {
           llvm_unreachable("Unsupported attribute type");
@@ -87,9 +98,10 @@ public:
         *getTypeConverter());
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
-    Value globalOpAddr = create.llvm.addressOf(global);
     MemRefDescriptor memRefDescr =
         createMemRefDescriptor(globalOpAddr, memRefTy, loc, rewriter);
+    llvm::outs() << "constant name: " << global.getName() << "\n";
+    llvm::outs() << "Memref desc: " << memRefDescr << "\n";
 
     rewriter.replaceOp(op, {memRefDescr});
 
@@ -167,7 +179,7 @@ private:
     int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     LLVM::GlobalOp global;
     if ((!denseAttr.getElementType().isa<StringType>()) &&
-        (!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
+        (!denseAttr.isSplat()) && (sizeInBytes > 1)) {
       ArrayRef<char> rawData = denseAttr.getRawData();
       assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
@@ -182,7 +194,7 @@ private:
         // Store data to a file `data_param_constant_i.bin`
         std::string filenameWithoutExt =
             "param_" + krnlGlobalOp.getName().str();
-        std::string filename = filenameWithoutExt + ".bin";
+        std::string filename = filenameWithoutExt + ".bin" + '\0';
         SmallVector<char, 10> currentFolder;
         llvm::sys::fs::current_path(currentFolder);
         std::string pathStr =
@@ -192,10 +204,18 @@ private:
         outfile.write(rawData.data(), rawData.size());
         outfile.close();
 
-        // Create an empty global to store data.
-        LLVM::GlobalOp extDataGlobal = create.llvm.globalOp(llvmArrayI8Ty,
-            /*isConstant=*/false, LLVM::Linkage::Internal,
+        // Create an uninitialized global. Data will be loaded at runtime.
+        LLVM::GlobalOp extDataGlobal = create.llvm.globalOp(llvmI8PtrTy,
+            /*isConstant=*/false, LLVM::Linkage::External,
             "data_" + filenameWithoutExt, nullptr);
+        {
+          OpBuilder::InsertionGuard insertGuard(rewriter);
+          Region &region = extDataGlobal.getInitializerRegion();
+          Block *block = rewriter.createBlock(&region);
+          // Initialize an array with the addresses of the global op.
+          rewriter.setInsertionPoint(block, block->begin());
+          create.llvm._return(create.llvm.null(llvmI8PtrTy));
+        }
 
         // Create a global to store filename.
         auto fnameAttr = mlir::StringAttr::get(context, filename);
@@ -269,6 +289,8 @@ private:
     auto ptrType = getPointerType(context, llvmElemType);
     // Bitcast the address to the MemRefType's element type.
     Value bitCastOp = create.llvm.bitcast(ptrType, address);
+    // Load the data pointer to be used for MemRef.
+    // Value dataPtr = create.llvm.load(i8PtrType, bitCastOp);
     // Create llvm MemRef from original MemRef and fill the data pointers.
     return MemRefDescriptor::fromStaticShape(
         builder, loc, typeConverter, memRefType, bitCastOp);
