@@ -7,6 +7,7 @@ add_onnx_mlir_executable(TestSmallFP
 
   LINK_LIBS PRIVATE
   OMMlirUtilities
+  benchmark
   )
 
 add_test(NAME TestSmallFP COMMAND TestSmallFP)
