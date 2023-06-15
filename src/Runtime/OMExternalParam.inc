@@ -33,7 +33,8 @@
 ///
 /// \return Pointer to the malloc'd area if successful, or NULL otherwise
 ///
-void *malloc_aligned(size_t size, size_t align) {
+/// TODO: find a new home for this function.
+void *omMallocAligned(size_t size, size_t align) {
   // request one more page + size of a pointer from the OS
   unsigned short extra_allocation = (align - 1) + sizeof(void *);
 
@@ -53,13 +54,14 @@ void *malloc_aligned(size_t size, size_t align) {
   return aligned_ptr;
 }
 
-/// free() what was allocated via malloc_aligned()
+/// free() what was allocated via omMallocAligned()
 ///
-/// \param[in] ptr Pointer returned by malloc_aligned()
+/// \param[in] ptr Pointer returned by omMallocAligned()
 ///
 /// \return None
 ///
-void free_aligned(void *aligned_ptr) {
+/// TODO: find a new home for this function.
+void omFreeAligned(void *aligned_ptr) {
   if (aligned_ptr) {
     // get the original malloc'd address from where we put it and free it
     void *original_ptr = ((void **)aligned_ptr)[-1];
@@ -67,20 +69,25 @@ void free_aligned(void *aligned_ptr) {
   }
 }
 
-void *omLoadExternalParam(
-    char *fname, int64_t size, int64_t align, int64_t isLE) {
-  void *buffer = malloc_aligned(size, align);
+void omLoadExternalParam(
+    void **ptr, char *fname, int64_t size, int64_t align, int64_t isLE) {
+  if (ptr == NULL) {
+    perror("Error: null pointer");
+    return;
+  }
 
+  if (ptr[0])
+    return;
+
+  void *buffer = omMallocAligned(size, align);
   FILE *fileptr;
   fileptr = fopen(fname, "rb"); // Open the file in binary mode
   if (fileptr == NULL) {
     perror("Error: ");
-    return NULL;
+    return;
   }
-
   long nr = fread(buffer, size, 1, fileptr);
-  float *fb = (float *)buffer;
   fclose(fileptr);
 
-  return buffer;
+  ptr[0] = buffer;
 }

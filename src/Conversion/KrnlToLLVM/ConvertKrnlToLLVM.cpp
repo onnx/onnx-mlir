@@ -413,7 +413,7 @@ void genSignatureFunction(ModuleOp &module,
 
 void loadExternalParamsFromFiles(ModuleOp &module,
     const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
-    SmallVectorImpl<Value> &allocs) {
+    SmallVectorImpl<LLVM::GlobalOp> &dataGlobalOps) {
   MLIRContext *ctx = module.getContext();
   Location loc = module.getLoc();
   OpBuilder b(ctx);
@@ -432,11 +432,24 @@ void loadExternalParamsFromFiles(ModuleOp &module,
   std::string loadOneParamFuncName = "omLoadExternalParam";
 
   // Emit a function that loads external parameters.
+  // This function will be called by entry points. So put it before any entry
+  // point.
   auto saveIP = b.saveInsertionPoint();
-  // TODO(tung): get the position to insert this func.
-  auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("run_main_graph");
+  Operation *firstEntryPointOp = nullptr;
+  for (auto entryGlobalOp : entryGlobalOps) {
+    std::string entryName =
+        entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
+    // Erase the null symbol.
+    entryName.erase(
+        std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
+    auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
+    assert(entryFunc && "Entry function not found");
+    Operation *entryOp = entryFunc.getOperation();
+    if (!firstEntryPointOp || entryOp->isBeforeInBlock(firstEntryPointOp))
+      firstEntryPointOp = entryOp;
+  }
   OpBuilder::InsertionGuard guard(b);
-  b.setInsertionPoint(entryFunc);
+  b.setInsertionPoint(firstEntryPointOp);
   Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
   LLVM::LLVMFuncOp funcOp = create.llvm.func(loadAllParamsFuncName, llvmFnType);
 
@@ -482,22 +495,23 @@ void loadExternalParamsFromFiles(ModuleOp &module,
                        .getSExtValue();
 
     // Read data from the external file.
-    // function signature: *i8(*i8, i64, i64, i64)
-    // arguments: (filename, sizeInBytes, alignment, isLE)
+    // function signature: void (**i8, *i8, i64, i64, i64)
+    // arguments: (dataPtr, filename, sizeInBytes, alignment, isLE)
     FlatSymbolRefAttr getExternalParamRef = create.llvm.getOrInsertSymbolRef(
-        module, loadOneParamFuncName, llvmI8PtrTy,
-        ArrayRef<Type>{llvmI8PtrTy, llvmI64Ty, llvmI64Ty, llvmI64Ty},
+        module, loadOneParamFuncName, llvmVoidTy,
+        ArrayRef<Type>{
+            llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI64Ty, llvmI64Ty},
         /*isVarArg=*/false);
+    Value dataGlobalAddr = create.llvm.addressOf(dataGlobal);
+    Value dataPtr = create.llvm.bitcast(llvmI8PtrTy, dataGlobalAddr);
     Value fnameI8Ptr = krnl::getPtrToGlobalString(fnameGlobal, loc, b);
     Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
     Value alignmentVal = create.llvm.constant(llvmI64Ty, alignment);
     Value isLEVal = create.llvm.constant(llvmI64Ty, isLE);
-    Value alloc = create.llvm.call(llvmI8PtrTy, getExternalParamRef,
-        ArrayRef<Value>({fnameI8Ptr, sizeVal, alignmentVal, isLEVal}));
-
-    // Store data to the internal global op.
-    Value dataGlobalAddrr = create.llvm.addressOf(dataGlobal);
-    create.llvm.store(alloc, dataGlobalAddrr);
+    create.llvm.call({}, getExternalParamRef,
+        ArrayRef<Value>({dataPtr, fnameI8Ptr, sizeVal, alignmentVal, isLEVal}));
+    // Keep trace of global addresses in order to free their buffers.
+    dataGlobalOps.emplace_back(dataGlobal);
 
     if (!hasExternalParams)
       hasExternalParams = true;
@@ -509,8 +523,6 @@ void loadExternalParamsFromFiles(ModuleOp &module,
   b.restoreInsertionPoint(saveIP);
 
   // Call loadAllParamsFuncName in each entry point function.
-  // TODO: avoid multiple calls and support multiple-threads.
-  // if (hasExternalParams) {
   if (hasExternalParams) {
     for (auto entryGlobalOp : entryGlobalOps) {
       std::string entryName =
@@ -527,6 +539,81 @@ void loadExternalParamsFromFiles(ModuleOp &module,
           /*isVarArg=*/false);
       create.llvm.call({}, loadAllParamsRef, {});
     }
+  }
+}
+
+void freeExternalParamsBuffers(ModuleOp &module,
+    const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
+    SmallVectorImpl<LLVM::GlobalOp> &dataGlobalOps) {
+  MLIRContext *ctx = module.getContext();
+  Location loc = module.getLoc();
+  OpBuilder b(ctx);
+  MultiDialectBuilder<LLVMBuilder> create(b, loc);
+
+  Type llvmI8Ty = IntegerType::get(ctx, 8);
+  Type llvmI8PtrTy = getPointerType(ctx, llvmI8Ty);
+  Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
+
+  // Two the following functions will be emitted inside the IR.
+  std::string freeAllParamBuffersFuncName = "omFreeAllParamBuffers";
+  std::string freeAlignedFuncName = "omFreeAligned";
+
+  // Emit a function that free buffers for external parameters.
+  // This function will be called by entry points. So put it before any entry
+  // point.
+  auto saveIP = b.saveInsertionPoint();
+  Operation *firstEntryPointOp = nullptr;
+  for (auto entryGlobalOp : entryGlobalOps) {
+    std::string entryName =
+        entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
+    // Erase the null symbol.
+    entryName.erase(
+        std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
+    auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
+    assert(entryFunc && "Entry function not found");
+    Operation *entryOp = entryFunc.getOperation();
+    if (!firstEntryPointOp || entryOp->isBeforeInBlock(firstEntryPointOp))
+      firstEntryPointOp = entryOp;
+  }
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPoint(firstEntryPointOp);
+  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
+  LLVM::LLVMFuncOp funcOp =
+      create.llvm.func(freeAllParamBuffersFuncName, llvmFnType);
+
+  FlatSymbolRefAttr freeAlignedRef = create.llvm.getOrInsertSymbolRef(module,
+      freeAlignedFuncName, llvmVoidTy, {llvmI8PtrTy},
+      /*isVarArg=*/false);
+
+  // Emit the body of the function.
+  Block *entryBlock = funcOp.addEntryBlock();
+  OpBuilder::InsertionGuard bodyGuard(b);
+  b.setInsertionPointToStart(entryBlock);
+  for (LLVM::GlobalOp global : dataGlobalOps) {
+    Value addr = create.llvm.addressOf(global);
+    Value ptr = create.llvm.load(llvmI8PtrTy, addr);
+    create.llvm.call({}, freeAlignedRef, ArrayRef<Value>{ptr});
+  }
+  create.llvm._return();
+
+  b.restoreInsertionPoint(saveIP);
+
+  // Call freeAllParamBuffersFuncName at the end of each entry point function.
+  for (auto entryGlobalOp : entryGlobalOps) {
+    std::string entryName =
+        entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
+    // Erase the null symbol.
+    entryName.erase(
+        std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
+    auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
+    assert(entryFunc && "Entry function not found");
+
+    Operation *terminator = entryFunc.getRegion().back().getTerminator();
+    b.setInsertionPoint(terminator);
+    FlatSymbolRefAttr freeAllParamsRef = create.llvm.getOrInsertSymbolRef(
+        module, freeAllParamBuffersFuncName, llvmVoidTy, {},
+        /*isVarArg=*/false);
+    create.llvm.call({}, freeAllParamsRef, {});
   }
 }
 
@@ -672,11 +759,11 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // If globals are stored on external files. Read them in at the beginning of
   // the entry point functions.
   if (storeGlobalsToFiles) {
-    SmallVector<Value> allocs;
+    SmallVector<LLVM::GlobalOp> dataGlobalOps;
     // At the beginning of each entry points.
-    loadExternalParamsFromFiles(module, entryGlobalOps, allocs);
+    loadExternalParamsFromFiles(module, entryGlobalOps, dataGlobalOps);
     // At the end of each entry points.
-    // freeExternalParamsBuffers(module, allocs)
+    freeExternalParamsBuffers(module, entryGlobalOps, dataGlobalOps);
   }
 
   // Annotate global constants with `.lrodata` section if required.

@@ -331,8 +331,6 @@ private:
     auto ptrType = getPointerType(context, llvmElemType);
     // Bitcast the address to the MemRefType's element type.
     Value bitCastOp = create.llvm.bitcast(ptrType, address);
-    // Load the data pointer to be used for MemRef.
-    // Value dataPtr = create.llvm.load(i8PtrType, bitCastOp);
     // Create llvm MemRef from original MemRef and fill the data pointers.
     return MemRefDescriptor::fromStaticShape(
         builder, loc, typeConverter, memRefType, bitCastOp);
