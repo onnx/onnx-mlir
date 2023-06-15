@@ -13,6 +13,32 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "llvm/ADT/APFloat.h"
 
+// When the CPU is known to support native conversion between float and float_16
+// we define FLOAT16_TO_FLOAT32(u16) and FLOAT32_TO_FLOAT16(f32) macros, used in
+// class float_16 below to override the slow default APFloat-based conversions.
+//
+// FLOAT16_TO_FLOAT32(u16) takes a bit cast float_16 number as uint16_t and
+// evaluates to a float.
+//
+// FLOAT32_TO_FLOAT16(f32) takes a float f32 number and evaluates to a bit cast
+// float_16 number as uint16_t.
+//
+// clang-format off
+// On x86-64 build config -DCMAKE_CXX_FLAGS=-march=native defines __F16C__.
+#if defined(__x86_64__) && defined(__F16C__)
+// https://www.intel.com/content/www/us/en/docs/cpp-compiler/developer-guide-reference/2021-9/details-about-intrinsics-for-half-floats.html
+#include <immintrin.h>
+#define FLOAT16_TO_FLOAT32(u16) _cvtsh_ss(u16)
+#define FLOAT32_TO_FLOAT16(f32) _cvtss_sh(f32, /*ROUND TO NEAREST EVEN*/ 0)
+#endif
+// On MacBook Pro no build config is needed to define __ARM_FP16_FORMAT_IEEE.
+#if defined(__ARM_FP16_FORMAT_IEEE)
+// https://arm-software.github.io/acle/main/acle.html#half-precision-floating-point
+#define FLOAT16_TO_FLOAT32(u16) static_cast<float>(detail::bitcast<__fp16>(u16))
+#define FLOAT32_TO_FLOAT16(f32) detail::bitcast<uint16_t>(static_cast<__fp16>(f32))
+#endif
+// clang-format on
+
 namespace onnx_mlir {
 
 class float_16;
@@ -53,8 +79,7 @@ public:
   // Same as static_cast<float>(*this).
   float toFloat() const { return toAPFloat().convertToFloat(); }
 
-  // Substitute for reinterpret_cast<bitcasttype>(*this), which C++ doesn't
-  // allow.
+  // Same as bitcast<bitcasttype>(*this).
   constexpr bitcasttype bitcastToUInt() const { return ui; }
 
   static FP fromAPFloat(llvm::APFloat a);
@@ -62,7 +87,7 @@ public:
   // Same as static_cast<FP>(f).
   static FP fromFloat(float f) { return fromAPFloat(llvm::APFloat(f)); }
 
-  // Substitute for reinterpret_cast<FP>(u), which C++ doesn't allow.
+  // Same as bitcast<FP>(u).
   static constexpr FP bitcastFromUInt(bitcasttype u) {
     FP fp;
     fp.ui = u;
@@ -87,6 +112,12 @@ extern template class SmallFPBase<float_8e4m3fnuz, 8>;
 extern template class SmallFPBase<float_8e5m2, 8>;
 extern template class SmallFPBase<float_8e5m2fnuz, 8>;
 
+// TODO: Replace with std::bit_cast in C++20.
+template <class To, class From>
+To bitcast(From x) {
+  return *reinterpret_cast<To *>(&x);
+}
+
 } // namespace detail
 
 template <class T>
@@ -104,6 +135,14 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::IEEEhalf();
   }
+#if defined(FLOAT16_TO_FLOAT32)
+  float toFloat() const { return FLOAT16_TO_FLOAT32(bitcastToUInt()); }
+#endif
+#if defined(FLOAT32_TO_FLOAT16)
+  static float_16 fromFloat(float f) {
+    return bitcastFromUInt(FLOAT32_TO_FLOAT16(f));
+  }
+#endif
 };
 static_assert(sizeof(float_16) * CHAR_BIT == 16, "float_16 is 16 bits wide");
 
