@@ -92,6 +92,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value uniqueCount = create.mem.alloca(MemRefType::get({}, indexTy));
     create.krnl.store(iZero, uniqueCount, {});
     Value noneValue;
+    //printf("YYYYY: axis=%ld\n", axis);
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         noneValue, noneValue, noneValue, noneValue, /*count_only=*/true);
     // Calculate output shapes for ouputs according to the results

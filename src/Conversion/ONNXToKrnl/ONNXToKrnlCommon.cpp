@@ -476,7 +476,6 @@ Value emitArgUnique(ConversionPatternRewriter &rewriter, Location loc,
   int64_t rank = inputMemRefType.getRank();
   assert(axis < rank && "axis is out of bound");
   LiteralIndexExpr zeroIE(0), oneIE(1);
-
   SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
   SmallVector<IndexExpr, 4> ubs;
   create.krnlIE.getShapeAsDims(input, ubs);
@@ -485,13 +484,14 @@ Value emitArgUnique(ConversionPatternRewriter &rewriter, Location loc,
   Type int_type = rewriter.getIntegerType(64);
   Value val_axis = create.math.constant(int_type, axis);
   Value val_sorted = create.math.constant(int_type, sorted);
+  //printf("axis=%ld, sorted=%ld, coutonly=%d\n", axis, sorted, count_only);
   if (count_only) {
     SmallVector<Value, 4> operands = {total, input, val_axis, val_sorted};
     rewriter.create<KrnlCallOp>(loc, "omTensorUniqueCount", 1, operands);
   } else {
-    SmallVector<Value, 7> operands = {total, input, val_axis, val_sorted, Y,
+    SmallVector<Value, 8> operands = {total, input, val_axis, val_sorted, Y,
         indices, inverse_indices, counts};
-    rewriter.create<KrnlCallOp>(loc, "omTensorUnique", 1, operands);
+    rewriter.create<KrnlCallOp>(loc, "omTensorUnique", 8, operands);
   }
   return total;
 }

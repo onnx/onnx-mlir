@@ -29,12 +29,13 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace test {
 
-UniqueLibBuilder::UniqueLibBuilder(const std::string &modelName, const int rank,
-    const int I, const int J, /*const int K, */ const int axis,
-    const int sorted, const int isNoneAxis, const int isNoneIndexOutput)
-    : ModelLibBuilder(modelName), rank(rank), I(I), J(J), /*K(K),*/ axis(axis),
-      sorted(sorted), isNoneAxis(isNoneAxis),
-      isNoneIndexOutput(isNoneIndexOutput) {}
+UniqueLibBuilder::UniqueLibBuilder(const std::string &modelName,
+    const int rank, const int I, const int J, const int K, const int axis,
+    const int sorted, const int isNoneAxis, const int isNoneIndexOutput,
+    const int useExample)
+  : ModelLibBuilder(modelName), rank(rank), I(I), J(J), K(K), axis(axis), sorted(sorted),
+    isNoneAxis(isNoneAxis), isNoneIndexOutput(isNoneIndexOutput), useExample(useExample) {
+}
 
 UniqueLibBuilder::~UniqueLibBuilder() {
   // omTensorListDestroy(inputs);
@@ -44,7 +45,7 @@ UniqueLibBuilder::~UniqueLibBuilder() {
 }
 
 bool UniqueLibBuilder::build() {
-  if (rank != 2) { // XXX TODO support rank==3
+  if (rank > 2) { // XXX TODO support rank==3
     return false;
   }
   if ((axis < -rank) || (rank <= axis)) {
@@ -54,17 +55,16 @@ bool UniqueLibBuilder::build() {
   yShape = {I, J};
   int64_t int64_axis = -1;
   if (isNoneAxis) {
-    yRank = 1;
     yShape = {-1};
   } else {
     int64_axis = (axis < 0) ? (rank + axis) : axis;
-    yRank = rank;
     yShape = {I, J};
     yShape[int64_axis] = -1;
   }
-  printf("UniqueLibBuilder::build: rank=%d, I=%d, J=%d, axis=%ld, "
-         "sorted=%d, isNoneIndexOutput=%d\n",
-      rank, I, J, int64_axis, sorted, isNoneIndexOutput);
+  printf("UniqueLibBuilder::build: rank=%d, I=%d, J=%d, K=%d, axis=%ld, "
+         "sorted=%d, isNoneAxis=%d, isNoneIndexOutput=%d, useExample=%d\n",
+         rank, I, J, K, int64_axis, sorted, isNoneAxis, isNoneIndexOutput,
+         useExample);
   fflush(stdout);
   Type xType = RankedTensorType::get(xShape, builder.getI64Type());
   Type yType = UnrankedTensorType::get(builder.getI64Type());
@@ -121,8 +121,59 @@ bool UniqueLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   OMTensor **list = (OMTensor **)malloc(num * sizeof(OMTensor *));
   if (!list)
     return false;
-  list[0] = omTensorCreateWithRandomData<int64_t>(
-      llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
+  switch (useExample) {
+  case 1:
+    list[0] = omTensorCreateWithShape<int64_t>({I});
+    omTensorGetElem<int64_t>(list[0], {0}) = 2;
+    omTensorGetElem<int64_t>(list[0], {1}) = 1;
+    omTensorGetElem<int64_t>(list[0], {2}) = 1;
+    omTensorGetElem<int64_t>(list[0], {3}) = 3;
+    omTensorGetElem<int64_t>(list[0], {4}) = 4;
+    omTensorGetElem<int64_t>(list[0], {5}) = 3;
+    break;
+  case 2:
+    list[0] = omTensorCreateWithShape<int64_t>({I, J});
+    omTensorGetElem<int64_t>(list[0], {0, 0}) = 1;
+    omTensorGetElem<int64_t>(list[0], {0, 1}) = 3;
+    omTensorGetElem<int64_t>(list[0], {1, 0}) = 2;
+    omTensorGetElem<int64_t>(list[0], {1, 1}) = 3;
+    break;
+  case 3:
+    list[0] = omTensorCreateWithShape<int64_t>({I, J});
+    omTensorGetElem<int64_t>(list[0], {0, 0}) = 1;
+    omTensorGetElem<int64_t>(list[0], {0, 1}) = 0;
+    omTensorGetElem<int64_t>(list[0], {0, 2}) = 0;
+    omTensorGetElem<int64_t>(list[0], {1, 0}) = 1;
+    omTensorGetElem<int64_t>(list[0], {1, 1}) = 0;
+    omTensorGetElem<int64_t>(list[0], {1, 2}) = 0;
+    omTensorGetElem<int64_t>(list[0], {2, 0}) = 2;
+    omTensorGetElem<int64_t>(list[0], {2, 1}) = 3;
+    omTensorGetElem<int64_t>(list[0], {2, 2}) = 4;
+    break;
+  case 4:
+    list[0] = omTensorCreateWithShape<int64_t>({I, J, K});
+    omTensorGetElem<int64_t>(list[0], {0, 0, 0}) = 1;
+    omTensorGetElem<int64_t>(list[0], {0, 0, 1}) = 1;
+    omTensorGetElem<int64_t>(list[0], {0, 1, 0}) = 1;
+    omTensorGetElem<int64_t>(list[0], {0, 1, 1}) = 1;
+    omTensorGetElem<int64_t>(list[0], {0, 2, 0}) = 0;
+    omTensorGetElem<int64_t>(list[0], {0, 2, 1}) = 1;
+    omTensorGetElem<int64_t>(list[0], {0, 3, 0}) = 0;
+    omTensorGetElem<int64_t>(list[0], {0, 3, 1}) = 1;
+    omTensorGetElem<int64_t>(list[0], {1, 0, 0}) = 2;
+    omTensorGetElem<int64_t>(list[0], {1, 0, 1}) = 1;
+    omTensorGetElem<int64_t>(list[0], {1, 1, 0}) = 2;
+    omTensorGetElem<int64_t>(list[0], {1, 1, 1}) = 1;
+    omTensorGetElem<int64_t>(list[0], {1, 2, 0}) = 0;
+    omTensorGetElem<int64_t>(list[0], {1, 2, 1}) = 1;
+    omTensorGetElem<int64_t>(list[0], {1, 3, 0}) = 0;
+    omTensorGetElem<int64_t>(list[0], {1, 3, 1}) = 1;
+    break;
+  default:
+    list[0] = omTensorCreateWithRandomData<int64_t>(
+        llvm::makeArrayRef(xShape), dataRangeLB, dataRangeUB);
+    break;
+  }
   inputs = omTensorListCreate(list, num);
   return inputs && list[0];
 }
@@ -150,38 +201,105 @@ bool UniqueLibBuilder::verifyOutputs() {
   if (!x || !y_res || !ind_res)
     return false;
   int64_t int64_axis = isNoneAxis ? -1 : ((axis < 0) ? (rank + axis) : axis);
-  // Count Unique elements
-  OMTensor *total = omTensorCreateWithShape<int64_t>({1});
-  omTensorUnique(total, x, int64_axis, (int64_t)sorted, NULL, NULL, NULL, NULL);
-  int64_t int64_total = ((int64_t *)omTensorGetDataPtr(total))[0];
+  int64_t int64_total;
+  // Compute reference.
   OMTensor *y_ref, *ind_ref, *inv_ind_ref, *cnt_ref;
-  if (int64_axis < 0) {
+  switch (useExample) {
+  case 1:
+    int64_total = 4;
     y_ref = omTensorCreateWithShape<int64_t>({int64_total});
     ind_ref = omTensorCreateWithShape<int64_t>({int64_total});
     inv_ind_ref = omTensorCreateWithShape<int64_t>({I * J});
     cnt_ref = omTensorCreateWithShape<int64_t>({int64_total});
-  } else if (int64_axis == 0) {
-    y_ref = omTensorCreateWithShape<int64_t>({int64_total, J});
+    omTensorGetElem<int64_t>(y_ref, {0}) = 2;
+    omTensorGetElem<int64_t>(y_ref, {1}) = 1;
+    omTensorGetElem<int64_t>(y_ref, {2}) = 3;
+    omTensorGetElem<int64_t>(y_ref, {3}) = 4;
+    omTensorGetElem<int64_t>(ind_ref, {0}) = 0;
+    omTensorGetElem<int64_t>(ind_ref, {1}) = 1;
+    omTensorGetElem<int64_t>(ind_ref, {2}) = 3;
+    omTensorGetElem<int64_t>(ind_ref, {3}) = 4;
+    omTensorGetElem<int64_t>(inv_ind_ref, {0}) = 0;
+    omTensorGetElem<int64_t>(inv_ind_ref, {1}) = 1;
+    omTensorGetElem<int64_t>(inv_ind_ref, {2}) = 1;
+    omTensorGetElem<int64_t>(inv_ind_ref, {3}) = 2;
+    omTensorGetElem<int64_t>(inv_ind_ref, {4}) = 3;
+    omTensorGetElem<int64_t>(inv_ind_ref, {5}) = 2;
+    break;
+  case 2:
+    int64_total = 3;
+    y_ref = omTensorCreateWithShape<int64_t>({int64_total});
+    ind_ref = omTensorCreateWithShape<int64_t>({int64_total});
+    inv_ind_ref = omTensorCreateWithShape<int64_t>({I * J});
+    cnt_ref = omTensorCreateWithShape<int64_t>({int64_total});
+    omTensorGetElem<int64_t>(y_ref, {0}) = 1;
+    omTensorGetElem<int64_t>(y_ref, {1}) = 2;
+    omTensorGetElem<int64_t>(y_ref, {2}) = 3;
+    omTensorGetElem<int64_t>(ind_ref, {0}) = 0;
+    omTensorGetElem<int64_t>(ind_ref, {1}) = 2;
+    omTensorGetElem<int64_t>(ind_ref, {2}) = 1;
+    omTensorGetElem<int64_t>(inv_ind_ref, {0}) = 0;
+    omTensorGetElem<int64_t>(inv_ind_ref, {1}) = 2;
+    omTensorGetElem<int64_t>(inv_ind_ref, {2}) = 1;
+    omTensorGetElem<int64_t>(inv_ind_ref, {3}) = 2;
+    omTensorGetElem<int64_t>(cnt_ref, {0}) = 1;
+    omTensorGetElem<int64_t>(cnt_ref, {1}) = 1;
+    omTensorGetElem<int64_t>(cnt_ref, {2}) = 2;
+    break;
+  case 3:
+    int64_total = 2;
+    y_ref = omTensorCreateWithShape<int64_t>({int64_total, I});
     ind_ref = omTensorCreateWithShape<int64_t>({int64_total});
     inv_ind_ref = omTensorCreateWithShape<int64_t>({I});
     cnt_ref = omTensorCreateWithShape<int64_t>({int64_total});
-  } else if (int64_axis == 1) {
-    y_ref = omTensorCreateWithShape<int64_t>({I, int64_total});
-    ind_ref = omTensorCreateWithShape<int64_t>({int64_total});
-    inv_ind_ref = omTensorCreateWithShape<int64_t>({J});
-    cnt_ref = omTensorCreateWithShape<int64_t>({int64_total});
-  } else {
-    printf("UniqueLibBuilder::verifyOutputs: invalid axis==%ld\n", int64_axis);
-    return false;
+    omTensorGetElem<int64_t>(y_ref, {0, 0}) = 1;
+    omTensorGetElem<int64_t>(y_ref, {0, 1}) = 0;
+    omTensorGetElem<int64_t>(y_ref, {0, 2}) = 0;
+    omTensorGetElem<int64_t>(y_ref, {1, 0}) = 2;
+    omTensorGetElem<int64_t>(y_ref, {1, 1}) = 3;
+    omTensorGetElem<int64_t>(y_ref, {1, 2}) = 4;
+    omTensorGetElem<int64_t>(ind_ref, {0}) = 0;
+    omTensorGetElem<int64_t>(ind_ref, {1}) = 2;
+    omTensorGetElem<int64_t>(inv_ind_ref, {0}) = 0;
+    omTensorGetElem<int64_t>(inv_ind_ref, {1}) = 0;
+    omTensorGetElem<int64_t>(inv_ind_ref, {2}) = 1;
+    omTensorGetElem<int64_t>(cnt_ref, {0}) = 2;
+    omTensorGetElem<int64_t>(cnt_ref, {1}) = 1;
+    break;
+  default:
+    // Count Unique elements
+    OMTensor *total = omTensorCreateWithShape<int64_t>({1});
+    omTensorUnique(total, x, int64_axis, (int64_t)sorted, NULL, NULL, NULL, NULL);
+    int64_t int64_total = ((int64_t *)omTensorGetDataPtr(total))[0];
+    if (int64_axis < 0) {
+      y_ref = omTensorCreateWithShape<int64_t>({int64_total});
+      ind_ref = omTensorCreateWithShape<int64_t>({int64_total});
+      inv_ind_ref = omTensorCreateWithShape<int64_t>({I * J});
+      cnt_ref = omTensorCreateWithShape<int64_t>({int64_total});
+    } else if (int64_axis == 0) {
+      y_ref = omTensorCreateWithShape<int64_t>({int64_total, J});
+      ind_ref = omTensorCreateWithShape<int64_t>({int64_total});
+      inv_ind_ref = omTensorCreateWithShape<int64_t>({I});
+      cnt_ref = omTensorCreateWithShape<int64_t>({int64_total});
+    } else if (int64_axis == 1) {
+      y_ref = omTensorCreateWithShape<int64_t>({I, int64_total});
+      ind_ref = omTensorCreateWithShape<int64_t>({int64_total});
+      inv_ind_ref = omTensorCreateWithShape<int64_t>({J});
+      cnt_ref = omTensorCreateWithShape<int64_t>({int64_total});
+    } else {
+      printf("UniqueLibBuilder::verifyOutputs: invalid axis==%ld\n", int64_axis);
+      return false;
+    }
+    if (!y_ref)
+      return false;
+    omTensorUnique(total, x, int64_axis, (int64_t)sorted, y_ref, ind_ref,
+        inv_ind_ref, cnt_ref);
+    break;
   }
-  if (!y_ref)
-    return false;
-  // Compute reference.
-  omTensorUnique(total, x, int64_axis, (int64_t)sorted, y_ref, ind_ref,
-      inv_ind_ref, cnt_ref);
-  printf("UniqueLibBuilder::verifyOutputs: rank=%d, I=%d, J=%d, axis=%ld, "
-         "sorted=%d, isNoneIndexOutput=%d\n",
-      rank, I, J, int64_axis, sorted, isNoneIndexOutput);
+  printf("UniqueLibBuilder::verifyOutputs: rank=%d, I=%d, J=%d, K=%d, "
+      "axis=%ld, sorted=%d, isNoneAxis=%d, isNoneIndexOutput=%d, "
+      "useExample=%d\n", rank, I, J, K, int64_axis, sorted, isNoneAxis,
+      isNoneIndexOutput, useExample);
   omTensorPrint("INPUT=[\n", x);
   omTensorPrint("], Y_REF=[\n", y_ref);
   omTensorPrint("], Y_OUT=[\n", y_res);
