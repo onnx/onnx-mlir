@@ -57,7 +57,7 @@ void handleIncludePadAttr(
   auto inputType = input.getType().cast<mlir::TensorType>();
   auto padOp = tosa::CreateOpAndInfer<mlir::tosa::PadOp>(rewriter, loc,
       mlir::RankedTensorType::get(
-          llvm::SmallVector<int64_t, 4>(inputType.getShape().size(), -1),
+          llvm::SmallVector<int64_t, 4>(inputType.getShape().size(), ShapedType::kDynamic),
           inputType.getElementType()),
       input, padding, constTosaTensor);
 

@@ -128,7 +128,7 @@ func.func @test_averagepool_pad_with_count_include_pad(%arg0 : tensor<5x5x32x32x
 // CHECK-DAG:    %[[PAD_CONST2:.*]] = "tosa.const"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
 // CHECK-DAG:    %[[PAD_ARG:.*]] = "tosa.pad"(%arg0, %[[PAD_CONST1]], %[[PAD_CONST2]]) : (tensor<5x5x32x32xf32>, tensor<4x2xi64>, tensor<f32>) -> tensor<5x5x34x34xf32>
 // CHECK-DAG:     %[[TRANS_ARG:.*]] = "tosa.transpose"(%[[PAD_ARG]], %3) : (tensor<5x5x34x34xf32>, tensor<4xi32>) -> tensor<5x34x34x5xf32>
-// CHECK-DAG:     %[[MPOOL_RES:.*]] = "tosa.avg_pool2d"(%[[TRANS_ARG]]) {kernel = [3, 3], pad = [0, 0, 0, 0], stride = [1, 1]} : (tensor<5x34x34x5xf32>) -> tensor<5x32x32x5xf32>
+// CHECK-DAG:     %[[MPOOL_RES:.*]] = "tosa.avg_pool2d"(%[[TRANS_ARG]]) {kernel = array<i64: 3, 3>, pad = array<i64: 0, 0, 0, 0>, stride = array<i64: 1, 1>} : (tensor<5x34x34x5xf32>) -> tensor<5x32x32x5xf32>
 // CHECK-DAG:     "tosa.const"() {value = dense<[0, 3, 1, 2]> : tensor<4xi32>} : () -> tensor<4xi32>
 // CHECK-DAG:     %[[TRANS_MPOOL_RES:.*]] = "tosa.transpose"(%[[MPOOL_RES]], %6) : (tensor<5x32x32x5xf32>, tensor<4xi32>) -> tensor<5x5x32x32xf32>
 // CHECK-DAG:     return %[[TRANS_MPOOL_RES]] : tensor<5x5x32x32xf32>
@@ -146,7 +146,7 @@ func.func @test_averagepool_pad_nonunif_with_count_include_pad(%arg0 : tensor<5x
 // CHECK-DAG:    %[[PAD_ARG:.*]] = "tosa.pad"(%arg0, %[[PAD_CONST1]], %[[PAD_CONST2]]) : (tensor<5x5x32x32xf32>, tensor<4x2xi64>, tensor<f32>) -> tensor<5x5x34x36xf32>
 // CHECK-DAG:    "tosa.const"() {value = dense<[0, 2, 3, 1]> : tensor<4xi32>} : () -> tensor<4xi32>
 // CHECK-DAG:    %[[TRANS_ARG:.*]] = "tosa.transpose"(%[[PAD_ARG]], %3) : (tensor<5x5x34x36xf32>, tensor<4xi32>) -> tensor<5x34x36x5xf32>
-// CHECK-DAG:    %[[MPOOL_RES:.*]] = "tosa.avg_pool2d"(%[[TRANS_ARG]]) {kernel = [5, 3], pad = [0, 0, 0, 0], stride = [1, 1]} : (tensor<5x34x36x5xf32>) -> tensor<5x30x34x5xf32>
+// CHECK-DAG:    %[[MPOOL_RES:.*]] = "tosa.avg_pool2d"(%[[TRANS_ARG]]) {kernel = array<i64: 5, 3>, pad = array<i64: 0, 0, 0, 0>, stride = array<i64: 1, 1>} : (tensor<5x34x36x5xf32>) -> tensor<5x30x34x5xf32>
 // CHECK-DAG:    "tosa.const"() {value = dense<[0, 3, 1, 2]> : tensor<4xi32>} : () -> tensor<4xi32>
 // CHECK-DAG:    %[[TRANS_MPOOL_RES:.*]] = "tosa.transpose"(%[[MPOOL_RES]], %6) : (tensor<5x30x34x5xf32>, tensor<4xi32>) -> tensor<5x5x30x34xf32>
 // CHECK-DAG:    return %[[TRANS_MPOOL_RES]] : tensor<5x5x30x34xf32>
@@ -164,7 +164,7 @@ func.func @test_averagepool_strides_nonunifpad_ceil_with_count_include_pad(%arg0
 // CHECK-DAG:    %[[PAD_ARG:.*]] = "tosa.pad"(%arg0, %[[PAD_CONST1]], %[[PAD_CONST2]]) : (tensor<5x5x30x32xf32>, tensor<4x2xi64>, tensor<f32>) -> tensor<5x5x31x34xf32>
 // CHECK-DAG:    "tosa.const"() {value = dense<[0, 2, 3, 1]> : tensor<4xi32>} : () -> tensor<4xi32>
 // CHECK-DAG:    %[[TRANS_ARG:.*]] = "tosa.transpose"(%[[PAD_ARG]], %3) : (tensor<5x5x31x34xf32>, tensor<4xi32>) -> tensor<5x31x34x5xf32>
-// CHECK-DAG:    %[[MPOOL_RES:.*]] = "tosa.avg_pool2d"(%[[TRANS_ARG]]) {kernel = [2, 2], pad = [0, 2, 0, 0], stride = [2, 2]} : (tensor<5x31x34x5xf32>) -> tensor<5x16x17x5xf32>
+// CHECK-DAG:    %[[MPOOL_RES:.*]] = "tosa.avg_pool2d"(%[[TRANS_ARG]]) {kernel = array<i64: 2, 2>, pad = array<i64: 0, 2, 0, 0>, stride = array<i64: 2, 2>} : (tensor<5x31x34x5xf32>) -> tensor<5x16x17x5xf32>
 // CHECK-DAG:    "tosa.const"() {value = dense<[0, 3, 1, 2]> : tensor<4xi32>} : () -> tensor<4xi32>
 // CHECK-DAG:    %[[TRANS_MPOOL_RES:.*]] = "tosa.transpose"(%[[MPOOL_RES]], %6) : (tensor<5x16x17x5xf32>, tensor<4xi32>) -> tensor<5x5x16x17xf32>
 // CHECK-DAG:    return %[[TRANS_MPOOL_RES]] : tensor<5x5x16x17xf32>
